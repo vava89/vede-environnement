@@ -63,6 +63,7 @@ a{color:inherit}
 .bar-sub{font-size:14px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bar-pad{width:6px}
 .bar-logo{flex:0 0 auto;width:38px;height:38px;margin:0 2px 0 4px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+@media (max-width:600px){.bar .iconbtn[data-act="back"] ~ .bar-logo{display:none}}
 .home-logo{display:inline-block;margin:0 0 18px;padding:12px 18px;background:#fff;border:1px solid var(--line-2);border-radius:14px}
 .home-logo img{display:block;width:280px;max-width:100%;height:auto}
 .iconbtn{flex:0 0 auto;display:inline-grid;place-items:center;width:48px;height:48px;border:0;border-radius:12px;background:transparent;color:inherit;cursor:pointer}
@@ -425,8 +426,8 @@ function issuesOf(v, list){
     var n = 'A' + (i + 1);
     if (a.brouillon) out.push({aid: a.id, msg: n + ' : anomalie non validée.'});
     if (a.reseau !== 'EU' && a.reseau !== 'EP') out.push({aid: a.id, msg: n + ' : réseau EU ou EP non précisé.'});
-    if (!String(a.observation || '').trim()) out.push({aid: a.id, msg: n + ' : anomalie observée non décrite.'});
-    if (!String(a.preconisation || '').trim()) out.push({aid: a.id, msg: n + ' : préconisation manquante.'});
+    if (!lignesSansPuce(a.observation).length) out.push({aid: a.id, msg: n + ' : anomalie observée non décrite.'});
+    if (!precoLines(a.preconisation).length) out.push({aid: a.id, msg: n + ' : préconisation manquante.'});
     if (!(a.photos || []).length && !a.photoNonRequise) out.push({aid: a.id, msg: n + ' : aucune photo.'});
   });
   return out;
@@ -978,7 +979,7 @@ function anomHtml(){
   h += '<span class="lbl" id="lbl-net">Réseau concerné</span><div class="net" role="group" aria-labelledby="lbl-net"><button type="button" class="eu" data-act="set-net" data-v="EU" aria-pressed="' + (a.reseau === 'EU') + '">EU</button><button type="button" class="ep" data-act="set-net" data-v="EP" aria-pressed="' + (a.reseau === 'EP') + '">EP</button></div>';
   h += '<button type="button" class="btn wide" data-act="pick-type">' + svg(I.book) + 'Choisir une anomalie type</button><div class="gap"></div>';
   h += '<label class="field"><span class="lbl">Anomalie observée <span class="req">obligatoire</span></span><textarea data-af="observation" rows="3" placeholder="Décrivez l\'anomalie">' + esc(a.observation || '') + '</textarea></label>';
-  h += '<label class="field"><span class="lbl">Préconisation de travaux</span><textarea data-af="preconisation" rows="3" placeholder="Une ligne par travaux : chaque ligne devient un tiret sur la fiche">' + esc(a.preconisation || '') + '</textarea></label>';
+  h += '<label class="field"><span class="lbl">Préconisation de travaux</span><textarea data-af="preconisation" rows="3" placeholder="Une ligne par travaux : chaque ligne apparaît séparément sur la fiche, sans puce">' + esc(a.preconisation || '') + '</textarea></label>';
   h += '<label class="field"><span class="lbl">Localisation <span class="opt">facultatif</span></span><input type="text" data-af="localisation" value="' + esc(a.localisation || '') + '" placeholder="ex. descente en façade arrière"></label>';
   h += '<span class="lbl">Photos</span><div class="photos" id="ph-grid"></div>';
   h += '<div class="btnrow"><button type="button" class="btn" data-act="photo-cam">' + svg(I.camera) + 'Prendre une photo</button><button type="button" class="btn" data-act="photo-gal">' + svg(I.image) + 'Depuis la galerie</button></div>';
@@ -1128,10 +1129,18 @@ var FICHE_CSS = '.fiche{font-family:"Century Gothic","Jost","Futura","Avenir Nex
   + '.fiche .f-tab th{color:#0070C0;font-style:italic;font-weight:700;text-align:center}.fiche .f-tab .sec td{text-align:center;font-weight:700}'
   + '.fiche .f-tab .sec.ep td{color:#00B050}.fiche .f-tab .sec.eu td{color:#FF0000}.fiche .f-tab td.vide{height:4.5mm}.fiche .f-tab .pl + .pl{margin-top:1mm}';
 function ficheDomicile(v){ return [v.domicile, v.domVille].filter(Boolean).join(' - '); }
-/* Lignes de la fiche sans puce (*, -, •) : une puce saisie au début est retirée, la première lettre passe en majuscule */
-function sansPuce(s){ s = String(s || '').trim().replace(/^[-–—•*·]+\s*/, ''); return s.charAt(0).toUpperCase() + s.slice(1); }
-function obsLine(a){ var loc = String(a.localisation || '').trim(); return sansPuce(a.observation) + (loc ? ' (' + loc + ')' : ''); }
-function precoLines(s){ return String(s || '').split(/\r?\n/).map(sansPuce).filter(Boolean); }
+/* Lignes de la fiche sans puce : les marques de liste saisies en début de ligne (*, -, •, ->, →, +…) sont retirées,
+   sauf un tiret collé à un chiffre (cote négative). La première lettre passe en majuscule, sauf unité ou notation (m², ml, pH, a)…). */
+var PUCE = /^(?:[-=]+>|[*•·●○◦▪▫■□►▸➢➤→⇒✓✔⁃‣+>]+|[-–—‐‑−]+(?![\d,.])|o(?=\t))\s*/;
+function sansPuce(s){
+  s = String(s || '').trim(); var p;
+  do { p = s; s = s.replace(PUCE, '').trim(); } while (s !== p);
+  if (/^\p{Ll}\p{Ll}/u.test(s) && !/^(?:ml|cm|mm|dm|km)\b/.test(s)) s = s.charAt(0).toUpperCase() + s.slice(1);
+  return s;
+}
+function lignesSansPuce(s){ return String(s || '').split(/\r?\n/).map(sansPuce).filter(Boolean); }
+function obsLine(a){ var loc = String(a.localisation || '').trim(), o = lignesSansPuce(a.observation).join('\n'); return o + (loc ? (o ? ' ' : '') + '(' + loc + ')' : ''); }
+function precoLines(s){ return lignesSansPuce(s); }
 function ficheInner(e, v, list){
   var hd = ficheHeader(e, v), A = window.VEDE_ASSETS || {};
   var h = '<div class="f-head">' + (A.logo ? '<img class="f-logo" src="' + A.logo + '" alt="VÉDÉ Environnement">' : '') + '<div class="f-dep">' + esc(hd.dep) + '<br>' + esc(hd.com) + '</div></div>'
@@ -1147,7 +1156,7 @@ function ficheInner(e, v, list){
     var items = list.filter(function(a){ return a.reseau === net; }), obs = String(net === 'EP' ? (v.obsEP || '') : (v.obsEU || '')).trim();
     h += '<tr class="sec ' + net.toLowerCase() + '"><td colspan="2">' + (net === 'EP' ? 'Eaux pluviales' : 'Eaux usées') + '</td></tr>';
     if (!items.length) h += '<tr><td class="vide"></td><td class="vide"></td></tr>';
-    items.forEach(function(a){ h += '<tr><td>' + esc(obsLine(a)) + '</td><td>' + precoLines(a.preconisation).map(function(s){ return '<div class="pl">' + esc(s) + '</div>'; }).join('') + '</td></tr>'; });
+    items.forEach(function(a){ h += '<tr><td>' + nl2br(obsLine(a)) + '</td><td>' + precoLines(a.preconisation).map(function(s){ return '<div class="pl">' + esc(s) + '</div>'; }).join('') + '</td></tr>'; });
     if (obs) h += '<tr><td colspan="2">Observation : ' + nl2br(obs) + '</td></tr>';
   });
   return h + '</tbody></table>';
@@ -1159,7 +1168,7 @@ async function ficheViewHtml(){
 }
 var PDFC = {violet: [153, 51, 255], bleu: [0, 102, 255], bleuVal: [51, 51, 255], bleuTitre: [0, 112, 192], rouge: [255, 0, 0], vert: [0, 176, 80], orange: [212, 101, 10], gris: [128, 128, 128], noir: [0, 0, 0]};
 function pdfLibOk(){ if (!(window.jspdf && window.jspdf.jsPDF)){ toast('Le module PDF n\'est pas chargé. Rouvrez l\'application avec une connexion.', 5000); return false; } return true; }
-function pdfText(s){ return String(s == null ? '' : s).replace(/\u2192/g, '->').replace(/\t/g, ' ').replace(/[^\n\u0020-\u007E\u00A0-\u00FF\u0152\u0153\u0178\u2013\u2014\u2018\u2019\u201C\u201D\u2022\u2026\u20AC]/g, ''); }
+function pdfText(s){ return String(s == null ? '' : s).replace(/\u2192/g, '->').replace(/\u2212/g, '-').replace(/\t/g, ' ').replace(/[^\n\u0020-\u007E\u00A0-\u00FF\u0152\u0153\u0178\u2013\u2014\u2018\u2019\u201C\u201D\u2022\u2026\u20AC]/g, ''); }
 function newPdf(){
   var doc = new window.jspdf.jsPDF({unit: 'pt', format: 'a4', compress: true}), F = (window.VEDE_ASSETS && window.VEDE_ASSETS.fonts) || null;
   doc.__font = 'helvetica';
@@ -1181,27 +1190,37 @@ function drawTable(doc, y0, v, list){
   function frameTop(){ pen(); doc.line(L, y, R, y); doc.line(L + 2, y + 2, R - 2, y + 2); }
   function closeSeg(){ pen(); doc.line(L, segTop, L, y); doc.line(L + 2, segTop + 2, L + 2, y - 2); doc.line(R, segTop, R, y); doc.line(R - 2, segTop + 2, R - 2, y - 2); doc.line(L + 2, y - 2, R - 2, y - 2); doc.line(L, y, R, y); }
   function hline(){ pen(); doc.line(L + 2, y, R - 2, y); }
-  function ensure(hh){ if (y + hh > BOTTOM){ closeSeg(); doc.addPage(); y = 40; segTop = y; frameTop(); } }
-  frameTop();
-  setF(doc, 'bolditalic', fs, PDFC.bleuTitre);
-  doc.text('Anomalies observées', (L + MID) / 2, y + 13, {align: 'center'}); doc.text('Préconisations de travaux', (MID + R) / 2, y + 13, {align: 'center'});
-  pen(); doc.line(MID, y + 2, MID, y + 19); y += 19; hline();
+  var curNet = null;
+  function colHead(){
+    setF(doc, 'bolditalic', fs, PDFC.bleuTitre);
+    doc.text('Anomalies observées', (L + MID) / 2, y + 13, {align: 'center'}); doc.text('Préconisations de travaux', (MID + R) / 2, y + 13, {align: 'center'});
+    pen(); doc.line(MID, y + 2, MID, y + 19); y += 19; hline();
+  }
+  function secHead(net, suite){
+    setF(doc, 'bold', fs, net === 'EP' ? PDFC.vert : PDFC.rouge);
+    doc.text((net === 'EP' ? 'Eaux pluviales' : 'Eaux usées') + (suite ? ' (suite)' : ''), (L + R) / 2, y + 11.5, {align: 'center'}); y += 16; hline();
+  }
+  // Saut de page : la suite du tableau reprend l'en-tête des colonnes et la rubrique en cours
+  function ensure(hh){ if (y + hh > BOTTOM){ closeSeg(); doc.addPage(); y = 40; segTop = y; frameTop(); colHead(); if (curNet) secHead(curNet, true); } }
+  // Une préconisation par paragraphe, séparés par un petit espace (pas de tiret)
+  function rowOf(a){
+    setF(doc, 'normal', fs);
+    var left = doc.splitTextToSize(pdfText(obsLine(a)).trim(), wL), gap = 3;
+    var right = precoLines(a.preconisation).map(function(s){ return doc.splitTextToSize(pdfText(s).trim(), wR); });
+    var rh = right.reduce(function(t, bl){ return t + bl.length * lh; }, 0) + Math.max(right.length - 1, 0) * gap;
+    return {left: left, right: right, gap: gap, hh: Math.max(left.length * lh, rh, lh) + 2 * pad - 1};
+  }
+  frameTop(); colHead();
   ['EP', 'EU'].forEach(function(net){
     var items = list.filter(function(a){ return a.reseau === net; }), obs = String(net === 'EP' ? (v.obsEP || '') : (v.obsEU || '')).trim();
-    ensure(17);
-    setF(doc, 'bold', fs, net === 'EP' ? PDFC.vert : PDFC.rouge);
-    doc.text(net === 'EP' ? 'Eaux pluviales' : 'Eaux usées', (L + R) / 2, y + 11.5, {align: 'center'}); y += 16; hline();
-    if (!items.length){ ensure(14); pen(); doc.line(MID, y, MID, y + 14); y += 14; hline(); }
-    items.forEach(function(a){
-      setF(doc, 'normal', fs);
-      var left = doc.splitTextToSize(pdfText(obsLine(a)), wL), gap = 3;
-      var right = precoLines(a.preconisation).map(function(s){ return doc.splitTextToSize(pdfText(s), wR); });
-      var rh = right.reduce(function(t, bl){ return t + bl.length * lh; }, 0) + Math.max(right.length - 1, 0) * gap;
-      var hh = Math.max(left.length * lh, rh, lh) + 2 * pad - 1;
-      ensure(hh); setF(doc, 'normal', fs);
-      doc.text(left, L + 2 + pad, y + pad + 8);
-      var ry = y + pad + 8; right.forEach(function(bl){ doc.text(bl, MID + pad, ry); ry += bl.length * lh + gap; });
-      pen(); doc.line(MID, y, MID, y + hh); y += hh; hline();
+    var rows = items.map(rowOf);
+    curNet = null; ensure(16 + (rows.length ? rows[0].hh : 14)); secHead(net, false); curNet = net;
+    if (!rows.length){ ensure(14); pen(); doc.line(MID, y, MID, y + 14); y += 14; hline(); }
+    rows.forEach(function(r){
+      ensure(r.hh); setF(doc, 'normal', fs);
+      doc.text(r.left, L + 2 + pad, y + pad + 8);
+      var ry = y + pad + 8; r.right.forEach(function(bl){ doc.text(bl, MID + pad, ry); ry += bl.length * lh + r.gap; });
+      pen(); doc.line(MID, y, MID, y + r.hh); y += r.hh; hline();
     });
     if (obs){
       setF(doc, 'normal', fs);
@@ -1215,33 +1234,36 @@ function drawTable(doc, y0, v, list){
 function drawFiche(doc, e, v, list){
   var PW = 595.28, L = 28, R = PW - 28, MID = PW / 2, hd = ficheHeader(e, v), A = window.VEDE_ASSETS || {};
   // En-tête : logo en haut à gauche, département et commune à droite, centrés sur la hauteur du logo ; les titres passent sous le logo
-  var lw = 175, lh = 88, ly = 18;
+  var lw = 170, lh = 85.5, ly = 16;
   if (A.logo){ try { var ip = doc.getImageProperties(A.logo); lh = lw * ip.height / ip.width; doc.addImage(A.logo, 'JPEG', L, ly, lw, lh, 'logo-vede', 'FAST'); } catch(err){} }
-  var mid = ly + lh / 2, t = ly + lh + 22;
+  // Département et commune : coupés à la largeur libre à droite du logo pour ne jamais le recouvrir
   setF(doc, 'italic', 9.5, PDFC.violet);
-  if (hd.dep) doc.text(pdfText(hd.dep), R, hd.com ? mid - 3 : mid + 3, {align: 'right'});
-  if (hd.com) doc.text(pdfText(hd.com), R, hd.dep ? mid + 10 : mid + 3, {align: 'right'});
+  var dl = [];
+  [hd.dep, hd.com].forEach(function(s){ if (s) dl = dl.concat(doc.splitTextToSize(pdfText(s), R - (L + lw) - 14)); });
+  var dy = ly + lh / 2 - (dl.length - 1) * 6.5 + 3;
+  dl.forEach(function(s, i){ doc.text(s, R, dy + i * 13, {align: 'right'}); });
+  var t = Math.max(ly + lh + 16, dy + (dl.length - 1) * 13 + 20);
   setF(doc, 'normal', 10, PDFC.bleuTitre); doc.text('Assainissement collectif', MID, t, {align: 'center'});
   var parts = [['Eaux Usées', PDFC.rouge], [' & ', PDFC.noir], ['Eaux Pluviales', PDFC.vert]];
   setF(doc, 'normal', 10);
   var tw = parts.reduce(function(s, p){ return s + doc.getTextWidth(p[0]); }, 0), x = MID - tw / 2;
   parts.forEach(function(p){ doc.setTextColor(p[1][0], p[1][1], p[1][2]); doc.text(p[0], x, t + 14); x += doc.getTextWidth(p[0]); });
   setF(doc, 'bold', 10, PDFC.orange);
-  doc.text('Observations de terrain', MID, t + 30, {align: 'center'}); doc.text('&', MID, t + 43, {align: 'center'});
-  doc.text('préconisations de mise en conformité de l’assainissement', MID, t + 56, {align: 'center'});
-  setF(doc, 'italic', 10, PDFC.bleu); doc.text(pdfText('N° ' + v.numero), L + 2, t + 80);
-  var y = t + 98;
+  doc.text('Observations de terrain', MID, t + 29, {align: 'center'}); doc.text('&', MID, t + 41, {align: 'center'});
+  doc.text('préconisations de mise en conformité de l’assainissement', MID, t + 53, {align: 'center'});
+  setF(doc, 'italic', 10, PDFC.bleu); doc.text(pdfText('N° ' + v.numero), L + 2, t + 72);
+  var y = t + 89;
   function field(label, value, lc, vc, vs){ setF(doc, 'normal', 9.5, lc); doc.text(pdfText(label), L + 2, y); if (value){ setF(doc, vs || 'normal', 9.5, vc); doc.text(doc.splitTextToSize(pdfText(value), R - MID)[0], MID, y); } y += 16; }
   field('Propriétaire :', v.nom, PDFC.noir, PDFC.bleuVal);
   field('Adresse de la visite parcellaire :', v.adresse, PDFC.noir, PDFC.bleuVal);
   field('Adresse du domicile :', ficheDomicile(v), PDFC.gris, PDFC.gris, 'italic');
   setF(doc, 'normal', 9.5); doc.text(pdfText('Téléphone : ' + fmtTel(fixTel(v.tel))), L + 2, y); doc.text(doc.splitTextToSize(pdfText('Mail : ' + (v.mail || '')), R - MID)[0], MID, y); y += 16;
   field('Visite de la propriété réalisée le :', fmtDate(v.dateVisite), PDFC.noir, PDFC.noir);
-  return drawTable(doc, y + 12, v, list);
+  return drawTable(doc, y + 8, v, list);
 }
 async function drawPhotos(doc, v, list){
   var ph = [];
-  list.forEach(function(a, i){ (a.photos || []).forEach(function(pid, k){ ph.push({pid: pid, cap: 'A' + (i + 1) + ' (' + a.reseau + ') : ' + String(a.observation || '').slice(0, 70) + ', photo ' + (k + 1)}); }); });
+  list.forEach(function(a, i){ (a.photos || []).forEach(function(pid, k){ ph.push({pid: pid, cap: 'A' + (i + 1) + ' (' + a.reseau + ') : ' + lignesSansPuce(a.observation).join(' ').slice(0, 70) + ', photo ' + (k + 1)}); }); });
   if (!ph.length) return;
   doc.addPage();
   var colW = (595.28 - 56 - 14) / 2, cellH = 230, y = 58, n = 0;
@@ -1636,7 +1658,7 @@ var ACTIONS = {
   'validate-anom': async function(){
     var a = curAnom(), v = curVisit(); if (!a || !v) return;
     if (a.reseau !== 'EU' && a.reseau !== 'EP'){ toast('Précisez le réseau : EU ou EP.'); return; }
-    if (!String(a.observation || '').trim()){ toast('Décrivez l\'anomalie constatée.'); var o = $('[data-af="observation"]'); if (o) o.focus(); return; }
+    if (!lignesSansPuce(a.observation).length){ toast('Décrivez l\'anomalie constatée.'); var o = $('[data-af="observation"]'); if (o) o.focus(); return; }
     a.brouillon = false; a.updatedAt = nowISO(); await DB.put('anomalies', a);
     var msg = 'Anomalie validée', st = $('#save-type');
     if (st && st.checked && (await addToBiblio(a))) msg += ', ajoutée aux anomalies types';
