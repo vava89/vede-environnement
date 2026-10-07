@@ -450,8 +450,8 @@ function issuesOf(v, list){
     if (!list.length && !v.aucuneAnomalie) out.push({msg: 'Ajoutez une anomalie ou cochez « Aucune anomalie constatée ».'});
     if (!v.dateVisite) out.push({msg: 'Date de visite manquante.'});
     if (constatContenu(v) && !v.constat.signeLe) out.push({msg: 'Constat de visite commencé mais non validé (signatures).'});
-    if (v.constat && v.constat.signeLe && v.constat.fige && constatEval(v, list).changed) out.push({msg: 'Le dossier a changé depuis la signature du constat.'});
   }
+  if (v.constat && v.constat.signeLe && v.constat.fige && constatEval(v, list).changed) out.push({msg: 'Le dossier a changé depuis la signature du constat (statut, date, identité, anomalies ou installations).'});
   list.forEach(function(a, i){
     var n = 'A' + (i + 1);
     if (a.brouillon) out.push({aid: a.id, msg: n + ' : anomalie non validée.'});
@@ -1381,26 +1381,46 @@ function rowActive(r){ var n = String(r.nb == null ? '' : r.nb).trim(); return n
 /* Conformité d'une installation d'après son raccordement : EU sur EU ou unitaire ; EP sur EP, unitaire, gargouille ou milieu naturel */
 function raccOk(r){ if (!r.raccord) return null; if (r.groupe === 'EU') return /^(EU|UN)_/.test(r.raccord); return /^(EP|UN)_|^GARG$|^MILIEU$/.test(r.raccord); }
 /* Règles du Département : toute anomalie est une non-conformité, sauf le tampon béton en EP (simple réserve) ; le choix fait sur l'anomalie prime */
-var NC_MOTIFS = /non visitable|non accessible|inaccessible|absen|cass|fissur|obstru|bouch|rejet|raccord|inversion|branche|sur le (reseau|regard) eu|vers (le |les )?(reseau )?eu\b/;
-function anomNC(a){ if (a.nc === true || a.nc === false) return a.nc; var o = norm(a.observation + ' ' + (a.localisation || '')); return !(a.reseau === 'EP' && /\btampons?\b[^.;]*\bbeton\b/.test(o) && !NC_MOTIFS.test(o)); }
-var ROW_STOP = /^(sous|avec|dans|pour|autre|autres|eaux|ancien|ancienne|vers|chez)$/;
-var ROW_KW = [['gout_av', function(o){ return /\b(descente|gouttiere)s?\b/.test(o) && /\bavant\b/.test(o); }], ['gout_ar', function(o){ return /\b(descente|gouttiere)s?\b/.test(o) && /\barriere\b/.test(o); }],
-  ['grilles', /\bgrilles?\b|\bcaniveau/], ['siphon', /\bsiphons? (de |du )?garage\b/], ['wc', /\bwc\b|\btoilettes?\b/], ['lavelinge', /\blave-linge\b|\blave linge\b|\bmachine a laver\b/],
-  ['evier', /\beviers?\b/], ['sdb', /\bdouches?\b|\bbaignoires?\b|\blavabos?\b|\bsalle de bain/], ['cuisine', /\bcuisine\b|\blave-vaisselle\b/]];
+var NC_MOTIFS = /non visitable|invisitable|non accessible|inaccessible|absen|sans cunette|pas de cunette|cass|fissur|obstru|bouch|encombr|racine|retention|effondr|fuyard|fuite|ecras|deboit|scell|impossible a ouvrir|rejet|inversion|non conforme|non reglementaire|raccordee?s? (sur|au|a|vers) (le |la |les |l )?(reseau |regard |branchement )?eu\b|vers (le |les )?(reseau )?eu\b/;
+/* Toute anomalie est une non-conformité, sauf un tampon béton en EP sans autre défaut (simple réserve) ; le choix fait sur l'anomalie prime */
+function anomNC(a){
+  if (a.nc === true || a.nc === false) return a.nc;
+  if (a.reseau !== 'EP') return true;
+  var o = norm(a.observation).replace(/[-\u2010\u2011]/g, ' ').replace(/\b(boite|regard)s? de (branchement|raccordement)\b/g, 'ouvrage');
+  return !(/\btampons?\b[^.;]*\bbeton\b/.test(o) && !NC_MOTIFS.test(o));
+}
+var ROW_STOP = /^(sous|avec|dans|pour|autre|autres|eaux|ancien|ancienne|vers|chez|de|du|des|la|le|les|en|et|au|aux|ou|sur|un|une|d|l)$/;
+function rowSides(obs, loc){
+  var s = {}, m = /\b(descente|gouttiere)s?( (d )?ep| eaux pluviales)?( (en |de )?facade)? (avant|arriere)( et (l )?(avant|arriere))?\b/.exec(obs);
+  if (m){ s[m[6]] = true; if (m[9]) s[m[9]] = true; }
+  else if (/\b(descente|gouttiere)s?\b/.test(obs)){ if (/\bavant\b/.test(loc)) s.avant = true; if (/\barriere\b/.test(loc)) s.arriere = true; }
+  return s;
+}
+var ROW_KW = [['gout_av', function(o, s){ return !!s.avant; }], ['gout_ar', function(o, s){ return !!s.arriere; }],
+  ['grilles', /\bgrilles?\b|\bcaniveau/], ['siphon', /\bsiphons? (de |du )?garage\b/], ['wc', /\bwc\b|\btoilettes?\b/], ['lavelinge', /\blave linge\b|\bmachine a laver\b/],
+  ['evier', /\beviers?\b/], ['sdb', /\bdouches?\b|\bbaignoires?\b|\blavabos?\b|\bsalle de bain/], ['cuisine', /\bcuisine\b|\blave vaisselle\b/]];
 function rowFits(r, a){ return !!r && r.groupe === a.reseau; }
-/* Lignes du constat concernées par une anomalie : le choix fait sur l'anomalie, sinon les mots-clés (lignes déclarées du même réseau) ; en cas de doute, aucune */
+/* Une ligne « Autres » correspond si tous les mots principaux de son libellé figurent dans le texte (mots entre parenthèses facultatifs) ; « Regard EP » exige « regard ep » */
+function autresMatch(r, o){
+  var lab = norm(r.label).replace(/[-']/g, ' '), main = lab.replace(/\([^)]*\)/g, ' '), toks = main.split(/[^a-z0-9]+/).filter(function(x){ return x && !ROW_STOP.test(x); });
+  if (!toks.length) return false;
+  for (var i = 0; i < toks.length; i++){
+    var t = toks[i];
+    if (t === 'eu' || t === 'ep'){ var prev = toks[i - 1]; if (prev && !new RegExp('\\b' + prev + 's? ' + t + '\\b').test(o)) return false; continue; }
+    if (t.length < 2 || !new RegExp('\\b' + t).test(o)) return false;
+  }
+  return true;
+}
+/* Lignes du constat concernées par une anomalie : le choix fait sur l'anomalie, sinon une ligne « Autres » précise, sinon les mots-clés ; en cas de doute, aucune */
 function anomRows(c, a){
   if (a.installation === 'aucune') return [];
   if (a.installation){ var r0 = rowById(c, a.installation); if (rowFits(r0, a)) return [r0]; }
-  var o = norm(a.observation + ' ' + (a.localisation || '')), out = [];
-  ROW_KW.forEach(function(k){ if (!(typeof k[1] === 'function' ? k[1](o) : k[1].test(o))) return; var r = rowById(c, k[0]); if (rowFits(r, a) && rowActive(r)) out.push(r); });
-  if (out.length) return out;
-  var cand = c.rows.filter(function(r){
-    if (r.std || !rowFits(r, a) || !rowActive(r)) return false;
-    var w = norm(r.label).split(/[^a-z0-9]+/).filter(function(x){ return x.length > 3 && !ROW_STOP.test(x); });
-    return w.length > 0 && w.every(function(x){ return new RegExp('\\b' + x).test(o); });
-  });
-  return cand.length === 1 ? cand : [];
+  var obs = norm(a.observation).replace(/[-']/g, ' '), loc = norm(a.localisation || '').replace(/[-']/g, ' '), o = obs + ' ' + loc;
+  var cand = c.rows.filter(function(r){ return !r.std && rowFits(r, a) && rowActive(r) && autresMatch(r, o); });
+  if (cand.length === 1) return cand;
+  var sides = rowSides(obs, loc), out = [];
+  ROW_KW.forEach(function(k){ if (!(typeof k[1] === 'function' ? k[1](o, sides) : k[1].test(o))) return; var r = rowById(c, k[0]); if (rowFits(r, a) && rowActive(r)) out.push(r); });
+  return out;
 }
 function anomRow(c, a){ return anomRows(c, a)[0] || null; }
 function precosAuto(c, L){
@@ -1437,7 +1457,8 @@ function constatEval(v, list){
   if (F){
     /* Constat signé : ce qui a été signé est figé ; on signale seulement que le dossier a changé depuis */
     var liveConf = {}; rows.forEach(function(x){ liveConf[x.r.id] = rowActive(x.r) ? x.conf : ''; });
-    E.changed = E.conclusion !== F.conclusion || JSON.stringify(liveConf) !== JSON.stringify(F.conf) || JSON.stringify(precos) !== JSON.stringify(F.precos) || E.obsText !== F.observations;
+    var FV = F.visite || {}, idChange = ['statut', 'dateVisite', 'nom', 'adresse', 'commune', 'domicile', 'domVille', 'tel', 'mail'].some(function(k){ return String(FV[k] || '') !== String(v[k] || ''); });
+    E.changed = idChange || E.conclusion !== F.conclusion || JSON.stringify(liveConf) !== JSON.stringify(F.conf) || JSON.stringify(precos) !== JSON.stringify(F.precos) || E.obsText !== F.observations || E.reservesText !== F.reserves;
     rows.forEach(function(x){ x.conf = F.conf[x.r.id] || ''; });
     E.conclusion = F.conclusion; E.precos = F.precos; E.meth = F.meth; E.obsText = F.observations; E.reservesText = F.reserves; E.fige = F;
   }
@@ -1492,7 +1513,7 @@ function instRowHtml(x, dis){
     + '</div>';
 }
 function constatHtml(){
-  var v = curVisit(), list = anomsOf(v.id), E = constatEval(v, list), c = E.c, lock = !!c.signeLe, dis = lock ? ' disabled' : '', h = '';
+  var v0 = curVisit(), list = anomsOf(v0.id), E = constatEval(v0, list), c = E.c, lock = !!c.signeLe, dis = lock ? ' disabled' : '', h = '', v = lock ? constatFige(v0) : v0;
   h += '<div class="ed-head"><h2 class="h2">Constat de visite, dossier ' + esc(v.numero) + '</h2><p class="muted">Formulaire « Contrôle de Branchement Particulier » du Département, rempli ici puis signé sur la tablette. Le PDF reprend sa mise en page.</p></div>';
   if (lock) h += '<div class="lockbar">' + svg(I.check) + '<span>Constat signé le ' + esc(fmtDT(c.signeLe)) + '. Il n\'est plus modifiable.</span><button type="button" class="btn sm" data-act="c-unlock">Modifier</button></div>'
     + (E.changed ? '<p class="inline-warn">Le dossier a changé depuis la signature (anomalies ou installations). Le constat reste tel qu\'il a été signé ; touchez « Modifier » pour le mettre à jour et le faire signer à nouveau.</p>' : '');
@@ -1669,7 +1690,7 @@ function constatRowsForPrint(c){
 function drawConstatP1(doc, v, E){
   var c = E.c, A = window.VEDE_ASSETS || {}, P = CPC, ce = (S.etude && S.etude.fiche) || {};
   doc.setDrawColor(P.orange[0], P.orange[1], P.orange[2]); doc.setLineWidth(1); doc.rect(15, 15, 565, 811);
-  if (ce.constatLogo === 'vede' && A.logo) cLogo(doc, A.logo, 26, 34, 150, 76, 'logo-vede'); else cLogo(doc, A.logoBE, 30, 26, 117, 114, 'logo-be');
+  if (((c.signeLe && c.fige) ? c.fige.logo : ce.constatLogo) === 'vede' && A.logo) cLogo(doc, A.logo, 26, 34, 150, 76, 'logo-vede'); else cLogo(doc, A.logoBE, 30, 26, 117, 114, 'logo-be');
   cLogo(doc, A.logoSSD, 427.5, 22.5, 142.5, 42, 'logo-ssd');
   cTxt(doc, 'Assainissement collectif', 304.7, 35.6, {sz: 10.5, col: P.bleu, al: 'center'});
   cCenterRuns(doc, [['Eaux Usées ', P.rouge], ['& ', P.violetF], ['Eaux pluviales', P.vert]], 304.7, 47.8, {sz: 10.5});
@@ -1925,7 +1946,7 @@ var CONSTAT_ACTIONS = {
     var v = curVisit(), c = v.constat; if (!c || !c.sigTech) return;
     var E = constatEval(v, anomsOf(v.id)), conf = {};
     E.rows.forEach(function(x){ conf[x.r.id] = rowActive(x.r) ? x.conf : ''; });
-    c.fige = {conclusion: E.conclusion, conf: conf, precos: E.precos, meth: E.meth, observations: E.obsText, reserves: E.reservesText,
+    c.fige = {logo: (S.etude && S.etude.fiche && S.etude.fiche.constatLogo) || '', conclusion: E.conclusion, conf: conf, precos: E.precos, meth: E.meth, observations: E.obsText, reserves: E.reservesText,
       visite: {statut: v.statut, dateVisite: v.dateVisite, absences: (v.absences || []).slice(), nom: v.nom, adresse: v.adresse, commune: v.commune, domicile: v.domicile, domVille: v.domVille, tel: v.tel, mail: v.mail}};
     c.signeLe = nowISO(); constatTouch(v); await flushSaves(); toast('Constat validé et verrouillé'); render();
   },
