@@ -250,7 +250,7 @@ table.prev th{background:var(--surface-2);font-weight:600}
 .opt-list{display:flex;flex-direction:column;gap:4px;margin:0 0 14px}.radio{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:600;cursor:pointer}.radio input{width:22px;height:22px;accent-color:var(--brand)}
 .pick-chips{flex-wrap:wrap;overflow:visible;padding:12px 0 6px}.pick-chips .chip{min-height:42px;font-size:15px}
 .pick-cat{font-family:"Barlow Condensed","Barlow",sans-serif;font-weight:700;font-size:19px;color:var(--ink-2);margin:16px 0 8px}.pick-cat:first-child{margin-top:4px}
-.cst-card{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:14px}.cst-card .btnrow{margin:0}
+.btnrow .sp{flex:1}.cst-card{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:14px}.cst-card .btnrow{margin:0}
 .lockbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--ok-soft);color:var(--ok);font-weight:600;border-radius:12px;padding:10px 14px;margin:0 0 14px}.lockbar span{flex:1}
 .ro{min-height:48px;display:flex;align-items:center;padding:0 2px;font-weight:600}
 .abs-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px;color:var(--ink-2)}.abs-row span{flex:1 1 220px}
@@ -445,11 +445,12 @@ async function loadEtude(eid){
 /* ---------- Complétude : ce qui manque est toujours signalé ---------- */
 function issuesOf(v, list){
   var out = [];
-  if (list.length && v.statut === 'a_visiter') out.push({msg: 'Des anomalies sont saisies mais le statut est encore « À visiter ».'});
+  if (list.length && (v.statut === 'a_visiter' || v.statut === 'absent' || v.statut === 'refus' || v.statut === 'hors_zone')) out.push({msg: 'Des anomalies sont saisies mais le statut est « ' + stLabel(v.statut) + ' ».'});
   if (v.statut === 'visitee'){
     if (!list.length && !v.aucuneAnomalie) out.push({msg: 'Ajoutez une anomalie ou cochez « Aucune anomalie constatée ».'});
     if (!v.dateVisite) out.push({msg: 'Date de visite manquante.'});
-    if (v.constat && !v.constat.signeLe) out.push({msg: 'Constat de visite non validé (signatures).'});
+    if (constatContenu(v) && !v.constat.signeLe) out.push({msg: 'Constat de visite commencé mais non validé (signatures).'});
+    if (v.constat && v.constat.signeLe && v.constat.fige && constatEval(v, list).changed) out.push({msg: 'Le dossier a changé depuis la signature du constat.'});
   }
   list.forEach(function(a, i){
     var n = 'A' + (i + 1);
@@ -984,7 +985,7 @@ function visitHtml(){
     + '<div class="addrow"><button type="button" class="btn eu big" data-act="new-anom" data-net="EU">' + svg(I.plus) + 'Anomalie EU</button><button type="button" class="btn ep big" data-act="new-anom" data-net="EP">' + svg(I.plus) + 'Anomalie EP</button></div>';
   h += list.length ? '<div class="alist">' + list.map(function(a, k){ return anomItemHtml(v, a, k); }).join('') + '</div>'
     : '<label class="check big"><input type="checkbox" data-vf="aucuneAnomalie"' + (v.aucuneAnomalie ? ' checked' : '') + '><span>Aucune anomalie constatée</span></label>';
-  var cst = v.constat, cstTxt = !cst ? 'Pas encore commencé.' : cst.signeLe ? 'Signé le ' + fmtDT(cst.signeLe) + '.' : (cst.sigTech || cst.sigProp ? 'En cours de signature.' : 'Commencé, à signer.');
+  var cst = v.constat, cstTxt = !cst ? 'Pas encore commencé.' : cst.signeLe ? 'Signé le ' + fmtDT(cst.signeLe) + '.' + (cst.fige && constatEval(v, list).changed ? ' Le dossier a changé depuis la signature.' : '') : (cst.sigTech || cst.sigProp ? 'En cours de signature.' : 'Commencé, à signer.');
   h += '</section><section class="sec card cst-card"><div><h2 class="h2">Constat de visite</h2><p class="muted small">' + esc(cstTxt) + ' Formulaire du Département : installations, raccordements, méthodes de contrôle, conclusion et signatures.</p></div>'
     + '<div class="btnrow"><a class="btn primary" href="#/e/' + esc(e.id) + '/v/' + esc(v.id) + '/constat">' + svg(I.doc) + (cst ? 'Ouvrir le constat' : 'Remplir le constat') + '</a>' + (cst ? '<button type="button" class="btn" data-act="dl-constat" data-vid="' + esc(v.id) + '">' + svg(I.download) + 'Constat PDF</button>' : '') + '</div>';
   h += '</section><section class="sec"><h2 class="h2">Observations sur la fiche</h2><p class="muted small">Elles s\'impriment sous la rubrique correspondante, comme dans vos fiches.</p>'
@@ -1016,6 +1017,7 @@ function anomHtml(){
   h += '<label class="field"><span class="lbl">Anomalie observée <span class="req">obligatoire</span></span><textarea data-af="observation" rows="3" placeholder="Décrivez l\'anomalie">' + esc(a.observation || '') + '</textarea></label>';
   h += '<label class="field"><span class="lbl">Préconisation de travaux</span><textarea data-af="preconisation" rows="3" placeholder="Une ligne par travaux : chaque ligne apparaît séparément sur la fiche, sans puce">' + esc(a.preconisation || '') + '</textarea></label>';
   h += '<label class="field"><span class="lbl">Localisation <span class="opt">facultatif</span></span><input type="text" data-af="localisation" value="' + esc(a.localisation || '') + '" placeholder="ex. descente en façade arrière"></label>';
+  if (v.constat && v.constat.signeLe) h += '<p class="inline-warn">Le constat de ce dossier est signé : les modifications d\'anomalies n\'y figureront pas sans une nouvelle signature.</p>';
   var cR = (v.constat || newConstat(v)).rows, autoR = anomRow({rows: cR}, Object.assign({}, a, {installation: ''}));
   h += '<div class="grid2"><label class="field"><span class="lbl">Installation du constat <span class="opt">rend la ligne non conforme</span></span><select data-af="installation"><option value="">Automatique' + (autoR ? ' : ' + esc(autoR.label) : ', aucune trouvée') + '</option><option value="aucune"' + (a.installation === 'aucune' ? ' selected' : '') + '>Aucune</option>'
     + cR.filter(function(r){ return r.groupe === a.reseau; }).map(function(r){ return '<option value="' + esc(r.id) + '"' + (a.installation === r.id ? ' selected' : '') + '>' + esc(r.label) + '</option>'; }).join('') + '</select></label>'
@@ -1328,7 +1330,7 @@ async function drawPhotos(doc, v, list){
 }
 async function fichePdfDoc(doc, v, opts, first){
   var list = anomsOf(v.id);
-  if (opts && opts.constat && v.constat){ drawConstat(doc, v, list, first); first = false; }
+  if (opts && opts.constat && v.constat && v.constat.signeLe){ drawConstat(doc, v, list, first); first = false; }
   if (!first) doc.addPage();
   drawFiche(doc, S.etude, v, list);
   if (opts && opts.photos) await drawPhotos(doc, v, list);
@@ -1370,7 +1372,7 @@ function conclLabel(k){ for (var i = 0; i < CONCL.length; i++) if (CONCL[i][0] =
 function raccLabel(k){ for (var i = 0; i < RACC.length; i++) if (RACC[i][0] === k) return RACC[i][1]; return ''; }
 function excelVal(v, re){ var p = (v.excel || []).filter(function(x){ return re.test(norm(x[0])) && String(x[1] || '').trim(); })[0]; return p ? String(p[1]).trim() : ''; }
 function newConstat(v){
-  return {v: 1, demande: excelVal(v, /date.*demande|demande/).replace(/\s+a\s+\d{1,2}h\d{2}$/, ''), refCad: excelVal(v, /cadastr/), typePropriete: '', nbLogements: '', categorie: 'habitation', categorieNb: '1', methodes: {},
+  return {v: 1, demande: (excelVal(v, /date.*demande/) || excelVal(v, /^(?!.*demandeur).*demande/)).replace(/\s+[aà]\s+\d{1,2}h\d{2}$/, ''), refCad: excelVal(v, /cadastr/), typePropriete: '', nbLogements: '', categorie: 'habitation', categorieNb: '1', methodes: {},
     rows: INSTALL_STD.map(function(s){ return {id: s[0], groupe: s[1], label: s[2], std: true, nb: '', raccord: '', conforme: '', methodes: []}; }),
     epRecup: {}, desagr: '', desagrLoc: '', croquis: '', boite: {}, reseau: '', reseauGest: '', reseauRue: '', conclusion: '', reserves: '', precos: {}, observations: '', soussigne: v.nom || '', sigTech: '', sigProp: '', signeLe: ''};
 }
@@ -1379,25 +1381,28 @@ function rowActive(r){ var n = String(r.nb == null ? '' : r.nb).trim(); return n
 /* Conformité d'une installation d'après son raccordement : EU sur EU ou unitaire ; EP sur EP, unitaire, gargouille ou milieu naturel */
 function raccOk(r){ if (!r.raccord) return null; if (r.groupe === 'EU') return /^(EU|UN)_/.test(r.raccord); return /^(EP|UN)_|^GARG$|^MILIEU$/.test(r.raccord); }
 /* Règles du Département : toute anomalie est une non-conformité, sauf le tampon béton en EP (simple réserve) ; le choix fait sur l'anomalie prime */
-function anomNC(a){ if (a.nc === true || a.nc === false) return a.nc; var o = norm(a.observation); return !(a.reseau === 'EP' && /tampon/.test(o) && /beton/.test(o)); }
-var ROW_KW = [['gout_av', /(descente|gouttiere)s?\b.*\bavant|avant\b.*(descente|gouttiere)/], ['gout_ar', /(descente|gouttiere)s?\b.*\barriere|arriere\b.*(descente|gouttiere)/], ['grilles', /grille|caniveau/], ['siphon', /siphon/],
-  ['wc', /\bwc\b|toilette/], ['lavelinge', /lave-linge|lave linge|machine a laver/], ['evier', /evier/], ['sdb', /douche|baignoire|lavabo|salle de bain/], ['cuisine', /cuisine|lave-vaisselle/]];
-function anomRow(c, a){
-  if (a.installation === 'aucune') return null;
-  var i, r;
-  if (a.installation){ for (i = 0; i < c.rows.length; i++) if (c.rows[i].id === a.installation) return c.rows[i]; }
-  var o = norm(a.observation);
-  for (i = 0; i < c.rows.length; i++){
-    r = c.rows[i]; if (r.std || r.groupe !== a.reseau) continue;
-    var w = norm(r.label).split(/[^a-z0-9]+/).filter(function(x){ return x.length > 3; })[0];
-    if (w && o.indexOf(w) >= 0) return r;
-  }
-  for (i = 0; i < ROW_KW.length; i++){
-    if (!ROW_KW[i][1].test(o)) continue;
-    for (var j = 0; j < c.rows.length; j++){ r = c.rows[j]; if (r.id === ROW_KW[i][0] && r.groupe === a.reseau) return r; }
-  }
-  return null;
+var NC_MOTIFS = /non visitable|non accessible|inaccessible|absen|cass|fissur|obstru|bouch|rejet|raccord|inversion|branche|sur le (reseau|regard) eu|vers (le |les )?(reseau )?eu\b/;
+function anomNC(a){ if (a.nc === true || a.nc === false) return a.nc; var o = norm(a.observation + ' ' + (a.localisation || '')); return !(a.reseau === 'EP' && /\btampons?\b[^.;]*\bbeton\b/.test(o) && !NC_MOTIFS.test(o)); }
+var ROW_STOP = /^(sous|avec|dans|pour|autre|autres|eaux|ancien|ancienne|vers|chez)$/;
+var ROW_KW = [['gout_av', function(o){ return /\b(descente|gouttiere)s?\b/.test(o) && /\bavant\b/.test(o); }], ['gout_ar', function(o){ return /\b(descente|gouttiere)s?\b/.test(o) && /\barriere\b/.test(o); }],
+  ['grilles', /\bgrilles?\b|\bcaniveau/], ['siphon', /\bsiphons? (de |du )?garage\b/], ['wc', /\bwc\b|\btoilettes?\b/], ['lavelinge', /\blave-linge\b|\blave linge\b|\bmachine a laver\b/],
+  ['evier', /\beviers?\b/], ['sdb', /\bdouches?\b|\bbaignoires?\b|\blavabos?\b|\bsalle de bain/], ['cuisine', /\bcuisine\b|\blave-vaisselle\b/]];
+function rowFits(r, a){ return !!r && r.groupe === a.reseau; }
+/* Lignes du constat concernées par une anomalie : le choix fait sur l'anomalie, sinon les mots-clés (lignes déclarées du même réseau) ; en cas de doute, aucune */
+function anomRows(c, a){
+  if (a.installation === 'aucune') return [];
+  if (a.installation){ var r0 = rowById(c, a.installation); if (rowFits(r0, a)) return [r0]; }
+  var o = norm(a.observation + ' ' + (a.localisation || '')), out = [];
+  ROW_KW.forEach(function(k){ if (!(typeof k[1] === 'function' ? k[1](o) : k[1].test(o))) return; var r = rowById(c, k[0]); if (rowFits(r, a) && rowActive(r)) out.push(r); });
+  if (out.length) return out;
+  var cand = c.rows.filter(function(r){
+    if (r.std || !rowFits(r, a) || !rowActive(r)) return false;
+    var w = norm(r.label).split(/[^a-z0-9]+/).filter(function(x){ return x.length > 3 && !ROW_STOP.test(x); });
+    return w.length > 0 && w.every(function(x){ return new RegExp('\\b' + x).test(o); });
+  });
+  return cand.length === 1 ? cand : [];
 }
+function anomRow(c, a){ return anomRows(c, a)[0] || null; }
 function precosAuto(c, L){
   var s = new Set();
   c.rows.forEach(function(r){
@@ -1414,7 +1419,7 @@ function precosAuto(c, L){
 }
 function constatEval(v, list){
   var c = v.constat || newConstat(v), L = list.filter(function(a){ return !a.brouillon; }), link = new Map();
-  L.forEach(function(a){ var r = anomRow(c, a); if (!r) return; if (!link.has(r.id)) link.set(r.id, []); link.get(r.id).push(a); });
+  L.forEach(function(a){ anomRows(c, a).forEach(function(r){ if (!link.has(r.id)) link.set(r.id, []); link.get(r.id).push(a); }); });
   var rows = c.rows.map(function(r){
     var la = link.get(r.id) || [], ok = raccOk(r), auto = '';
     if (la.some(anomNC)) auto = 'non'; else if (rowActive(r) && ok !== null) auto = ok ? 'oui' : 'non';
@@ -1425,14 +1430,30 @@ function constatEval(v, list){
   var pa = precosAuto(c, L), precos = {}, meth = {};
   PRECO_ALL.forEach(function(p){ var k = p[0]; precos[k] = c.precos[k] === true || (c.precos[k] !== false && pa.has(k)); });
   METH.forEach(function(m){ meth[m[0]] = !!(c.methodes || {})[m[0]] || c.rows.some(function(r){ return rowActive(r) && (r.methodes || []).indexOf(m[0]) >= 0; }); });
-  return {c: c, rows: rows, auto: auto, conclusion: c.conclusion || auto, precos: precos, precosAuto: pa, meth: meth, anoms: L};
+  var E = {c: c, rows: rows, auto: auto, conclusion: c.conclusion || auto, precos: precos, precosAuto: pa, meth: meth, anoms: L};
+  E.obsText = String(c.observations || '').trim() || constatObsAuto(E);
+  E.reservesText = String(c.reserves || '').trim() || constatObsAuto(E, true);
+  var F = c.signeLe && c.fige;
+  if (F){
+    /* Constat signé : ce qui a été signé est figé ; on signale seulement que le dossier a changé depuis */
+    var liveConf = {}; rows.forEach(function(x){ liveConf[x.r.id] = rowActive(x.r) ? x.conf : ''; });
+    E.changed = E.conclusion !== F.conclusion || JSON.stringify(liveConf) !== JSON.stringify(F.conf) || JSON.stringify(precos) !== JSON.stringify(F.precos) || E.obsText !== F.observations;
+    rows.forEach(function(x){ x.conf = F.conf[x.r.id] || ''; });
+    E.conclusion = F.conclusion; E.precos = F.precos; E.meth = F.meth; E.obsText = F.observations; E.reservesText = F.reserves; E.fige = F;
+  }
+  return E;
 }
-function constatObsAuto(E){ return E.anoms.map(function(a){ return obsLine(a).replace(/\n/g, ', ') + (anomNC(a) ? '' : ' (réserve)'); }).join(' ; '); }
+function constatObsAuto(E, reservesSeules){ return E.anoms.filter(function(a){ return !reservesSeules || !anomNC(a); }).map(function(a){ return obsLine(a).replace(/\n/g, ', ') + (reservesSeules || anomNC(a) ? '' : ' (réserve)'); }).join(' ; '); }
+function constatContenu(v){ var c = v.constat; return !!c && !!(c.signeLe || c.sigTech || c.sigProp || c.croquis || c.conclusion || c.reseau || c.rows.some(rowActive)); }
+function constatFige(v){ var c = v.constat; if (!c || !c.signeLe) return v; return c.fige ? Object.assign({}, v, c.fige.visite) : v; }
 function constatNonEffectue(v){ return v.statut === 'absent' || v.statut === 'refus' || v.statut === 'hors_zone'; }
 /* Contrôles avant signature : ce qui manque ou se contredit est signalé, rien n'est bloqué */
 function constatIssues(v, list){
   var E = constatEval(v, list), c = E.c, out = [];
-  if (constatNonEffectue(v)) return out;
+  if (constatNonEffectue(v)){
+    if (E.anoms.length || E.rows.some(function(x){ return rowActive(x.r); })) out.push('Dossier au statut « ' + stLabel(v.statut) + ' » alors que des anomalies ou des installations sont saisies : passez-le en « Visitée » si la visite a eu lieu. Les absences notées restent listées.');
+    return out;
+  }
   if (v.statut !== 'visitee') out.push('Le dossier n\'est pas au statut « Visitée ».');
   if (!v.dateVisite) out.push('Date de visite manquante.');
   if (!METH.some(function(m){ return E.meth[m[0]]; })) out.push('Aucune méthode de contrôle (visuel, eau, fluorescéine, fumée, résonance).');
@@ -1449,6 +1470,7 @@ function constatIssues(v, list){
   if (c.conclusion && E.auto && c.conclusion !== E.auto) out.push('Conclusion choisie (« ' + conclLabel(c.conclusion) + ' ») différente de celle déduite des installations et anomalies (« ' + conclLabel(E.auto) + ' »).');
   if (!E.conclusion) out.push('Conclusion non précisée.');
   if (!String(c.soussigne || '').trim()) out.push('Nom du signataire manquant (« Je, soussigné »).');
+  if (E.obsText.length > 470) out.push('Observations trop longues pour le cadre du constat (' + E.obsText.length + ' caractères, environ 470 au maximum) : raccourcissez-les ; le détail reste sur la fiche.');
   list.forEach(function(a, i){ if (a.brouillon) out.push('Anomalie A' + (i + 1) + ' non validée.'); });
   return out;
 }
@@ -1472,7 +1494,8 @@ function instRowHtml(x, dis){
 function constatHtml(){
   var v = curVisit(), list = anomsOf(v.id), E = constatEval(v, list), c = E.c, lock = !!c.signeLe, dis = lock ? ' disabled' : '', h = '';
   h += '<div class="ed-head"><h2 class="h2">Constat de visite, dossier ' + esc(v.numero) + '</h2><p class="muted">Formulaire « Contrôle de Branchement Particulier » du Département, rempli ici puis signé sur la tablette. Le PDF reprend sa mise en page.</p></div>';
-  if (lock) h += '<div class="lockbar">' + svg(I.check) + '<span>Constat signé le ' + esc(fmtDT(c.signeLe)) + '. Il n\'est plus modifiable.</span><button type="button" class="btn sm" data-act="c-unlock">Modifier</button></div>';
+  if (lock) h += '<div class="lockbar">' + svg(I.check) + '<span>Constat signé le ' + esc(fmtDT(c.signeLe)) + '. Il n\'est plus modifiable.</span><button type="button" class="btn sm" data-act="c-unlock">Modifier</button></div>'
+    + (E.changed ? '<p class="inline-warn">Le dossier a changé depuis la signature (anomalies ou installations). Le constat reste tel qu\'il a été signé ; touchez « Modifier » pour le mettre à jour et le faire signer à nouveau.</p>' : '');
   h += '<section class="card"><div class="grid2">' + cField('Demande du', 'demande', c.demande, 'jj/mm/aaaa', dis)
     + '<div class="field"><span class="lbl">Visite du</span><div class="ro">' + (v.dateVisite ? esc(fmtDate(v.dateVisite)) : '<span class="muted">à renseigner dans le dossier</span>') + '</div></div></div>'
     + '<span class="lbl">Si visite non effectuée, motif</span><div class="seg">' + [['absent', 'Absence'], ['refus', 'Refus'], ['hors_zone', 'Hors zone d\'étude']].map(function(s){ return '<button type="button" data-act="c-motif" data-v="' + s[0] + '" aria-pressed="' + (v.statut === s[0]) + '"' + dis + '>' + esc(s[1]) + '</button>'; }).join('') + '</div>'
@@ -1519,7 +1542,8 @@ function constatHtml(){
     + '<div class="sigs"><div class="sig"><span class="lbl">Signature du technicien</span><div class="sig-box">' + (c.sigTech ? '<img src="' + c.sigTech + '" alt="Signature du technicien">' : '<span class="muted">Non signé</span>') + '</div><button type="button" class="btn" data-act="c-sign" data-who="tech"' + dis + '>' + (c.sigTech ? 'Refaire' : 'Signer') + '</button></div>'
     + '<div class="sig"><span class="lbl">Signature du propriétaire</span><div class="sig-box">' + (c.sigProp ? '<img src="' + c.sigProp + '" alt="Signature du propriétaire">' : '<span class="muted">Non signé</span>') + '</div><button type="button" class="btn" data-act="c-sign" data-who="prop"' + dis + '>' + (c.sigProp ? 'Refaire' : 'Faire signer') + '</button></div></div>'
     + (!lock && c.sigTech && (c.sigProp || constatNonEffectue(v)) ? '<button type="button" class="btn primary big wide" data-act="c-lock">' + svg(I.check) + 'Valider le constat signé</button>' : '') + '</section>';
-  h += '<div class="btnrow sec"><button type="button" class="btn primary" data-act="dl-constat" data-vid="' + esc(v.id) + '">' + svg(I.download) + 'Constat PDF</button><a class="btn" href="#/e/' + esc(S.etude.id) + '/v/' + esc(v.id) + '">Retour au dossier</a></div>';
+  h += '<div class="btnrow sec"><button type="button" class="btn primary" data-act="dl-constat" data-vid="' + esc(v.id) + '">' + svg(I.download) + 'Constat PDF</button><a class="btn" href="#/e/' + esc(S.etude.id) + '/v/' + esc(v.id) + '">Retour au dossier</a>'
+    + (v.constat && !lock ? '<span class="sp"></span><button type="button" class="btn ghost danger" data-act="c-delete">' + svg(I.trash) + 'Supprimer le constat</button>' : '') + '</div>';
   return h;
 }
 function rowById(c, id){ for (var i = 0; i < c.rows.length; i++) if (c.rows[i].id === id) return c.rows[i]; return null; }
@@ -1577,12 +1601,12 @@ function croquisTemplate(ctx, k, ox, oy){
   ctx.restore();
 }
 async function croquisModal(existing){
-  var color = '#e00000', width = 4, pad = null;
+  var color = '#e00000', width = 4, pad = null, cleared = false;
   var res = await openModal({title: 'Position du branchement', noAutofocus: true,
     html: '<div class="croq-tools seg"><button type="button" data-m="col" data-v="#e00000" aria-pressed="true">EU rouge</button><button type="button" data-m="col" data-v="#00a050" aria-pressed="false">EP vert</button><button type="button" data-m="col" data-v="#1d54c4" aria-pressed="false">Projet bleu</button><button type="button" data-m="col" data-v="#111111" aria-pressed="false">Noir</button></div>'
       + '<div class="croq-wrap"><canvas class="croq-bg" width="' + CROQ.w * CROQ.k + '" height="' + CROQ.h * CROQ.k + '"></canvas><canvas class="croq-fg" width="' + CROQ.w * CROQ.k + '" height="' + CROQ.h * CROQ.k + '"></canvas></div>'
       + '<p class="muted small">Dessinez le branchement, les réseaux et les noms de rue autour du gabarit du formulaire.</p>',
-    actions: [{label: 'Annuler', value: null}, {label: 'Tout effacer', collect: function(){ if (pad) pad.clear(); return false; }}, {label: 'Enregistrer', cls: 'primary', collect: function(w){ return pad && pad.isDirty() ? w.querySelector('.croq-fg').toDataURL('image/png') : (existing || ''); }}],
+    actions: [{label: 'Annuler', value: null}, {label: 'Tout effacer', collect: function(){ if (pad) pad.clear(); cleared = true; return false; }}, {label: 'Enregistrer', cls: 'primary', collect: function(w){ return pad && pad.isDirty() ? w.querySelector('.croq-fg').toDataURL('image/png') : (cleared ? '' : (existing || '')); }}],
     onMount: async function(w){
       var bg = w.querySelector('.croq-bg'), fg = w.querySelector('.croq-fg'), bctx = bg.getContext('2d');
       bctx.fillStyle = '#fff'; bctx.fillRect(0, 0, bg.width, bg.height); croquisTemplate(bctx, CROQ.k, CROQ.x0, CROQ.y0);
@@ -1619,7 +1643,18 @@ function cUnder(doc, x1, x2, y, col){ doc.setDrawColor(col[0], col[1], col[2]); 
 function cBox(doc, x, y, on, sz){ var s = sz || 6.8, t = y - s + 0.2; doc.setDrawColor(0, 0, 0); doc.setLineWidth(0.55); doc.rect(x, t, s, s); if (on){ doc.setDrawColor(CPC.val[0], CPC.val[1], CPC.val[2]); doc.setLineWidth(1.2); doc.line(x + 1.1, t + 1.1, x + s - 1.1, t + s - 1.1); doc.line(x + s - 1.1, t + 1.1, x + 1.1, t + s - 1.1); } return s; }
 function cOpt(doc, x, y, on, label, o){ var s = cBox(doc, x, y, on, o && o.box); return cTxt(doc, label, x + s + 3, y, o) + s + 3; }
 function cDots(doc, x1, x2, y, col){ doc.setDrawColor(col[0], col[1], col[2]); doc.setLineWidth(0.6); doc.setLineDash([0.6, 1.8]); doc.line(x1, y, x2, y); doc.setLineDash([]); }
-function cFill(doc, value, x1, x2, y, o){ if (String(value || '').trim()){ var t = doc.splitTextToSize(pdfText(value), Math.max(20, x2 - x1)); cTxt(doc, t[0], x1, y, Object.assign({col: CPC.val, sz: 10.5}, o)); } else cDots(doc, x1, x2, y + 1, (o && o.dot) || CPC.violet); }
+function cFit(doc, s, w, sz, o, min){
+  s = pdfText(String(s == null ? '' : s).replace(/\s+/g, ' ').trim()); doc.setFont(o && o.f === 'times' ? 'times' : doc.__font, (o && o.st) || 'normal'); doc.setFontSize(sz);
+  while (doc.getTextWidth(s) > w && sz > (min || 7)){ sz -= 0.25; doc.setFontSize(sz); }
+  if (doc.getTextWidth(s) > w){ while (s.length > 1 && doc.getTextWidth(s + '…') > w) s = s.slice(0, -1); s = s.replace(/\s+$/, '') + '…'; }
+  return {s: s, sz: sz};
+}
+function cFill(doc, value, x1, x2, y, o){
+  o = o || {};
+  if (!String(value || '').trim()){ cDots(doc, x1, x2, y + 1, o.dot || CPC.violet); return; }
+  var f = cFit(doc, value, Math.max(20, x2 - x1), o.sz || 10.5, o);
+  cTxt(doc, f.s, x1, y, Object.assign({col: CPC.val}, o, {sz: f.sz}));
+}
 function cLogo(doc, src, x, y, w, h, alias){ if (!src) return; try { var ip = doc.getImageProperties(src), s = Math.min(w / ip.width, h / ip.height); doc.addImage(src, /png/i.test(src.slice(0, 30)) ? 'PNG' : 'JPEG', x, y, ip.width * s, ip.height * s, alias, 'FAST'); } catch(e){} }
 function constatRowsForPrint(c){
   function grp(g, minAutres){
@@ -1669,12 +1704,13 @@ function drawConstatP1(doc, v, E){
   cTxt(doc, 'Méthode par installation : V visuel, E eau, Fl fluorescéine, Fu fumée, R résonance', 563, 351.2, {sz: 6.5, st: 'italic', col: P.gris, al: 'right'});
   drawConstatTable(doc, E);
   var wo = cTxt(doc, 'Ouvrages/procédés de récupération des EP', 42.6, 635.2, {f: 'times', sz: 10.5, col: P.vert}); cUnder(doc, 42.6, 42.6 + wo, 636.6, P.vert); cTxt(doc, ' :', 42.6 + wo, 635.2, {f: 'times', sz: 10.5, col: P.vert});
-  x = 245.6; EP_RECUP.forEach(function(k){ x += cOpt(doc, x, 635.2, !!(c.epRecup || {})[k[0]], k[1], {f: 'times', st: 'italic', sz: 10, col: P.vert}) + 9; });
+  x = 245.6; EP_RECUP.forEach(function(k){ x += cOpt(doc, x, 635.2, !E.nonEffectue && !!(c.epRecup || {})[k[0]], k[1], {f: 'times', st: 'italic', sz: 10, col: P.vert}) + 9; });
   x = 42.6 + cTxt(doc, 'Désagréments déjà subis ', 42.6, 652.8, {f: 'times', sz: 10.5, col: P.brun});
   x += cTxt(doc, '(inondation ou reflux de réseaux) ', x, 652.8, {f: 'times', st: 'italic', sz: 9.5, col: P.brun});
-  x += cOpt(doc, x, 652.8, c.desagr === 'non', 'non', {f: 'times', sz: 10.5, col: P.brun}) + 6;
-  x += cOpt(doc, x, 652.8, c.desagr === 'oui', 'oui, localisation ', {f: 'times', sz: 10.5, col: P.brun});
-  cFill(doc, c.desagr === 'oui' ? c.desagrLoc : '', x, 556, 652.8, {dot: P.brun});
+  var dsg = E.nonEffectue ? '' : c.desagr;
+  x += cOpt(doc, x, 652.8, dsg === 'non', 'non', {f: 'times', sz: 10.5, col: P.brun}) + 6;
+  x += cOpt(doc, x, 652.8, dsg === 'oui', 'oui, localisation ', {f: 'times', sz: 10.5, col: P.brun});
+  cFill(doc, dsg === 'oui' ? c.desagrLoc : '', x, 556, 652.8, {dot: P.brun});
   cHead(doc, 'Position du branchement particulier existant en plan & en altimétrie :', 42.6, 670.6);
   doc.setDrawColor(0, 0, 0); doc.setLineWidth(0.75); doc.line(240, 689.5, 240, 755); doc.line(240, 755, 449, 755); doc.line(332.5, 689.5, 332.5, 755);
   [[265, 707, 307.5, 735], [357.5, 726.5, 399.5, 755], [399.5, 715.5, 439.5, 755]].forEach(function(b){
@@ -1684,7 +1720,7 @@ function drawConstatP1(doc, v, E){
   });
   doc.setDrawColor(161, 89, 28); doc.setLineWidth(0.6); doc.setLineDash([3, 2]); doc.line(240, 762.5, 452, 762.5); doc.setLineDash([]);
   cTxt(doc, 'LIMITE DE PROPRIETE', 454.3, 755.8, {sz: 5.5}); cTxt(doc, 'BORDURE / ACCOTEMENT', 454.3, 765, {sz: 5.5, col: [161, 89, 28]});
-  if (c.croquis) cLogo(doc, c.croquis, CROQ.x0, CROQ.y0, CROQ.w, CROQ.h, 'croquis-' + v.id);
+  if (c.croquis && !E.nonEffectue) cLogo(doc, c.croquis, CROQ.x0, CROQ.y0, CROQ.w, CROQ.h, 'croquis-' + v.id);
 }
 function drawConstatTable(doc, E){
   var c = E.c, P = CPC, top = 402, bottom = 620.5, rows = constatRowsForPrint(c), n = rows.length;
@@ -1710,18 +1746,23 @@ function drawConstatTable(doc, E){
   rows.forEach(function(pr, i){
     var h = hs[i], mid = y + h / 2, col = pr.g === 'EP' ? P.vert : P.rouge;
     if (pr.blank){ if (pr.autres) cTxt(doc, 'Autres :', 70.8, mid + 3.2, {f: 'times', sz: lsz, col: col}); y += h; return; }
-    var r = pr.r, label = pdfText(pr.autres ? 'Autres : ' + r.label : r.label);
-    doc.setFont('times', 'normal'); doc.setFontSize(lsz);
-    var sz = lsz, lines = doc.splitTextToSize(label, 99);
-    if (lines.length === 2 && h < 2 * sz * 1.02){ sz = Math.max(7, Math.min(sz, h / 2.1)); doc.setFontSize(sz); lines = doc.splitTextToSize(label, 99); }
-    if (lines.length > 2){ lines = doc.splitTextToSize(label, 99).slice(0, 2); lines[1] = lines[1] + '…'; }
-    var lh = sz * 1.02, ly = mid + 3 - (lines.length - 1) * lh / 2;
-    lines.forEach(function(t, j){ doc.setFont('times', 'normal'); doc.setFontSize(sz); var tw = doc.getTextWidth(t); cTxt(doc, t, 70.8, ly + j * lh, {f: 'times', sz: tw > 100 ? sz * 100 / tw : sz, col: col}); });
-    var m = (r.methodes || []).map(function(k){ for (var q = 0; q < METH.length; q++) if (METH[q][0] === k) return METH[q][2]; return ''; }).filter(Boolean).join(' ');
-    if (m && rowActive(r)) cTxt(doc, m, 171, y + h - 1.6, {sz: 5.5, col: P.gris, al: 'right'});
-    if (rowActive(r)) cTxt(doc, String(r.nb), 184, mid + 3.6, {sz: 10.5, col: P.val, al: 'center'});
-    if (rowActive(r) && COLX[r.raccord]) cTxt(doc, 'X', COLX[r.raccord], mid + 3.6, {sz: 10.5, st: 'bold', col: P.val, al: 'center'});
-    var cf = conf[r.id] ? conf[r.id].conf : '';
+    var r = pr.r, on = rowActive(r) && !E.nonEffectue, label = pdfText(pr.autres ? 'Autres : ' + r.label : r.label);
+    var m = on ? (r.methodes || []).map(function(k){ for (var q = 0; q < METH.length; q++) if (METH[q][0] === k) return METH[q][2]; return ''; }).filter(Boolean).join(' ') : '';
+    doc.setFont(doc.__font, 'normal'); doc.setFontSize(5.5); var mw = m ? doc.getTextWidth(m) + 2 : 0, lw = 100 - mw;
+    /* Taille choisie pour que le libellé tienne dans la ligne (2 lignes au plus), sans toucher les codes de méthode */
+    var sz = lsz, lines;
+    for (;;){
+      doc.setFont('times', 'normal'); doc.setFontSize(sz); lines = doc.splitTextToSize(label, lw);
+      if ((lines.length === 1 || (lines.length === 2 && 2 * sz * 1.02 <= h - 1.5)) || sz <= 6.5) break;
+      sz -= 0.25;
+    }
+    if (lines.length > 2 || (lines.length === 2 && 2 * sz * 1.02 > h - 1.5)){ var f1 = cFit(doc, label, lw, sz, {f: 'times'}, 6); lines = [f1.s]; sz = f1.sz; }
+    var lh = sz * 1.02, ly = mid + sz * 0.34 - (lines.length - 1) * lh / 2;
+    lines.forEach(function(t, j){ cTxt(doc, t, 70.8, ly + j * lh, {f: 'times', sz: sz, col: col}); });
+    if (m) cTxt(doc, m, 171, y + h - 1.6, {sz: 5.5, col: P.gris, al: 'right'});
+    if (on) cTxt(doc, String(r.nb), 184, mid + 3.6, {sz: 10.5, col: P.val, al: 'center'});
+    if (on && COLX[r.raccord]) cTxt(doc, 'X', COLX[r.raccord], mid + 3.6, {sz: 10.5, st: 'bold', col: P.val, al: 'center'});
+    var cf = on && conf[r.id] ? conf[r.id].conf : '';
     if (cf === 'oui') cTxt(doc, 'X', 505.8, mid + 3.6, {sz: 10.5, st: 'bold', col: P.val, al: 'center'});
     if (cf === 'non') cTxt(doc, 'X', 531.3, mid + 3.6, {sz: 10.5, st: 'bold', col: P.val, al: 'center'});
     y += h;
@@ -1735,7 +1776,14 @@ function drawConstatP2(doc, v, E){
   cTxt(doc, 'EU', 356.8, 33.4, {f: 'times', sz: 10, col: P.rouge, al: 'center'}); cTxt(doc, 'EP', 416.5, 33.4, {f: 'times', sz: 10, col: P.vert, al: 'center'});
   [['dist', 'Distance entre la limite parcellaire et la boîte de branchement', 52.5], ['prof', 'Profondeur de la boîte de branchement', 70], ['te', 'Présence de té hermétique', 87.5]].forEach(function(k){
     cTxt(doc, k[1], 48, k[2], {f: 'times', sz: 10});
-    ['EU', 'EP'].forEach(function(n, j){ var val = String(B[k[0] + n] || '').trim(); if (val) cTxt(doc, doc.splitTextToSize(pdfText(val), 56)[0], j ? 416.5 : 356.8, k[2], {sz: 9.5, col: P.val, al: 'center'}); });
+    ['EU', 'EP'].forEach(function(n, j){
+      var val = E.nonEffectue ? '' : String(B[k[0] + n] || '').trim(), cx = j ? 416.5 : 356.8; if (!val) return;
+      doc.setFont(doc.__font, 'normal'); doc.setFontSize(9.5);
+      if (doc.getTextWidth(pdfText(val)) <= 56){ cTxt(doc, val, cx, k[2], {sz: 9.5, col: P.val, al: 'center'}); return; }
+      doc.setFontSize(7); var ls = doc.splitTextToSize(pdfText(val), 56);
+      if (ls.length <= 2){ ls.forEach(function(t, q){ cTxt(doc, t, cx, k[2] - 3.6 + q * 7.4, {sz: 7, col: P.val, al: 'center'}); }); return; }
+      var f = cFit(doc, val, 56, 7, {}, 5.5); cTxt(doc, f.s, cx, k[2], {sz: f.sz, col: P.val, al: 'center'});
+    });
   });
   cHead(doc, 'Conclusion :', 42.6, 109);
   cTxt(doc, 'Habitation desservie par un réseau', 42.6, 126.6, {f: 'times', sz: 10.5});
@@ -1748,7 +1796,7 @@ function drawConstatP2(doc, v, E){
   cOpt(doc, 184.3, 162.3, cc === 'conformes', 'conformes', {f: 'times', sz: 10.5, box: 8.5});
   cOpt(doc, 315.3, 162.3, cc === 'non_conformes', 'non conformes', {f: 'times', sz: 10.5, box: 8.5});
   x = 184.3 + cOpt(doc, 184.3, 180.9, cc === 'reserves', 'conformes avec réserves ', {f: 'times', sz: 10.5, box: 8.5});
-  cFill(doc, cc === 'reserves' ? (c.reserves || constatObsAuto(E)) : '', x, 554.5, 180.9, {dot: P.noir, sz: 9});
+  cFill(doc, cc === 'reserves' ? E.reservesText : '', x, 554.5, 180.9, {dot: P.noir, sz: 9});
   cHead(doc, 'En cas d’une situation non conforme : préconisations de travaux en domaine privé :', 42.6, 199.1);
   var IT = {f: 'times', st: 'italic', sz: 10.5};
   cJust(doc, 'Si le présent rapport mentionne une situation non conforme, la DEA 93 transmettra par voie postale au', 64, 216.9, 502.6, IT);
@@ -1778,25 +1826,27 @@ function drawConstatP2(doc, v, E){
   cTxt(doc, '* Départemental (travaux pris en charge et programmés par la DEA93 jusqu’en limite de propriété)', 42.6, 529.4, {f: 'times', st: 'italic', sz: 9.5});
   cTxt(doc, '* Territorial (contacter le gestionnaire du réseau)', 42.6, 540.4, {f: 'times', st: 'italic', sz: 9.5});
   cHead(doc, 'Observations :', 42.6, 558.4);
-  var obs = pdfText(String(c.observations || '').trim() || constatObsAuto(E)).replace(/\s*\n\s*/g, ' ; ');
+  var obs = pdfText(E.obsText || '').replace(/\s*\n\s*/g, ' ; ');
   if (obs){
     /* Deux lignes comme sur le formulaire ; au-delà, la police diminue jusqu'à 6 pt et une troisième ligne s'ajoute */
     var fit = null;
     for (var osz = 10; osz >= 6 && !fit; osz -= 0.5){
       doc.setFont(doc.__font, 'normal'); doc.setFontSize(osz);
       var l1 = doc.splitTextToSize(obs, 444)[0], rest = obs.slice(l1.length).trim(), rl = rest ? doc.splitTextToSize(rest, 521) : [];
-      if (rl.length <= (osz <= 7.5 ? 2 : 1) || osz <= 6) fit = {sz: osz, l1: l1, rl: rl.slice(0, osz <= 7.5 ? 2 : 1)};
+      if (rl.length <= (osz <= 7.5 ? 2 : 1)) fit = {sz: osz, l1: l1, rl: rl};
+      else if (osz <= 6){ var last = rl[1] || ''; while (last.length > 1 && doc.getTextWidth(last + ' … (suite sur la fiche)') > 521) last = last.slice(0, -1); fit = {sz: osz, l1: l1, rl: [rl[0], last.replace(/\s+$/, '') + ' … (suite sur la fiche)']}; }
     }
     cTxt(doc, fit.l1, 115, 558.4, {sz: fit.sz, col: P.val});
     fit.rl.forEach(function(t, j){ cTxt(doc, t, 42.6, (fit.rl.length > 1 ? 571.5 : 576) + j * fit.sz * 1.12, {sz: fit.sz, col: P.val}); });
   } else { cDots(doc, 113, 559, 559.4, P.noir); cDots(doc, 42.6, 563.8, 577, P.noir); }
   doc.setDrawColor(P.cyan[0], P.cyan[1], P.cyan[2]); doc.setLineWidth(0.75); doc.rect(36.5, 584.5, 536, 107);
   x = 42.6 + cTxt(doc, 'Je, soussigné ', 42.6, 595.9, {f: 'times', st: 'italic', sz: 10.5});
-  var nm = String(c.soussigne || '').trim();
-  if (nm){ x += cTxt(doc, nm, x, 595.9, {sz: 10.5, col: P.val}) + 3; } else { cDots(doc, x, x + 140, 596.5, P.gris); x += 143; }
-  cTxt(doc, ' reconnaît la véracité des descriptions ci-dessus.', x, 595.9, {f: 'times', st: 'italic', sz: 10.5});
+  var nm = E.nonEffectue ? '' : String(c.soussigne || '').trim(), tail = ' reconnaît la véracité des descriptions ci-dessus.';
+  doc.setFont('times', 'italic'); doc.setFontSize(10.5); var tw = doc.getTextWidth(pdfText(tail));
+  if (nm){ var fn = cFit(doc, nm, 566 - x - tw - 3, 10.5, {}, 6.5); x += cTxt(doc, fn.s, x, 595.9, {sz: fn.sz, col: P.val}) + 3; } else { cDots(doc, x, x + 140, 596.5, P.gris); x += 143; }
+  cTxt(doc, tail, x, 595.9, {f: 'times', st: 'italic', sz: 10.5});
   if (c.sigTech) cLogo(doc, c.sigTech, 50, 603, 240, 74, 'sig-t-' + v.id);
-  if (c.sigProp) cLogo(doc, c.sigProp, 330, 603, 235, 74, 'sig-p-' + v.id);
+  if (c.sigProp && !E.nonEffectue) cLogo(doc, c.sigProp, 330, 603, 235, 74, 'sig-p-' + v.id);
   cTxt(doc, 'Signature du technicien', 42.6, 688, {f: 'times', st: 'italic', sz: 8.5, col: P.gris}); cTxt(doc, 'Signature du propriétaire', 326.2, 688, {f: 'times', st: 'italic', sz: 8.5, col: P.gris});
   if (c.signeLe) cTxt(doc, 'Signé sur tablette le ' + fmtDT(c.signeLe), 566, 688, {sz: 6.5, st: 'italic', col: P.gris, al: 'right'});
   var IT2 = {f: 'times', st: 'italic', sz: 10}, J = function(t, x0, y, w){ cJust(doc, t, x0, y, w, IT2); };
@@ -1811,9 +1861,12 @@ function drawConstatP2(doc, v, E){
   cTxt(doc, 'EU : eaux usées ; EP : eaux pluviales ; T : réseau territorial ; D : réseau départemental.', 42.6, 813.6, {f: 'times', st: 'italic', sz: 9.5, col: P.bleu});
 }
 function drawConstat(doc, v, list, first){
-  var E = constatEval(v, list);
+  var E = constatEval(v, list), vv = constatFige(v);
+  if (constatNonEffectue(vv)){
+    E = Object.assign({}, E, {rows: E.rows.map(function(x){ return Object.assign({}, x, {conf: ''}); }), conclusion: '', precos: {}, meth: {}, obsText: String(E.c.observations || '').trim(), reservesText: '', nonEffectue: true});
+  }
   if (!first) doc.addPage();
-  drawConstatP1(doc, v, E); doc.addPage(); drawConstatP2(doc, v, E);
+  drawConstatP1(doc, vv, E); doc.addPage(); drawConstatP2(doc, vv, E);
 }
 function constatFileName(v){ var hd = ficheHeader(S.etude, v); return safeNameFr('Constat ' + v.numero + (hd.ville ? ' - ' + hd.ville : ''), 120) + '.pdf'; }
 async function constatPdfBlob(v){
@@ -1836,39 +1889,48 @@ var CONSTAT_ACTIONS = {
   'c-toggle': function(el){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; setPath(c, el.dataset.k, !getPath(c, el.dataset.k)); constatTouch(v); render(); },
   'c-set': function(el){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; setPath(c, el.dataset.k, getPath(c, el.dataset.k) === el.dataset.v ? '' : el.dataset.v); constatTouch(v); render(); },
   'c-concl': function(el){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; var E = constatEval(v, anomsOf(v.id)); c.conclusion = (el.dataset.v === E.auto || c.conclusion === el.dataset.v) ? '' : el.dataset.v; constatTouch(v); render(); },
-  'c-motif': async function(el){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; v.statut = v.statut === el.dataset.v ? 'a_visiter' : el.dataset.v; constatTouch(v); await flushSaves(); render(); },
-  'c-absence': async function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; v.absences = (v.absences || []).concat([todayStr()]); if (v.statut === 'a_visiter' || v.statut === 'a_revoir') v.statut = 'absent'; constatTouch(v); await flushSaves(); toast('Absence notée le ' + fmtDate(todayStr())); render(); },
-  'c-absence-undo': async function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; v.absences = (v.absences || []).slice(0, -1); constatTouch(v); await flushSaves(); render(); },
+  'c-motif': async function(el){ var v = curVisit(); if (v.constat && v.constat.signeLe) return; var m = el.dataset.v; if (v.statut === m){ v.statut = v.statutAvantMotif || (v.dateVisite ? 'visitee' : 'a_visiter'); delete v.statutAvantMotif; } else { if (!constatNonEffectue(v)) v.statutAvantMotif = v.statut; v.statut = m; } constatTouch(v); await flushSaves(); render(); },
+  'c-absence': async function(){ var v = curVisit(); if (v.constat && v.constat.signeLe) return; v.absences = (v.absences || []).concat([todayStr()]); if (v.statut === 'a_visiter' || v.statut === 'a_revoir'){ v.statutAvantMotif = v.statut; v.statut = 'absent'; } constatTouch(v); await flushSaves(); toast('Absence notée le ' + fmtDate(todayStr())); render(); },
+  'c-absence-undo': async function(){ var v = curVisit(); if (v.constat && v.constat.signeLe) return; v.absences = (v.absences || []).slice(0, -1); if (!v.absences.length && v.statut === 'absent' && v.statutAvantMotif){ v.statut = v.statutAvantMotif; delete v.statutAvantMotif; } constatTouch(v); await flushSaves(); render(); },
   'c-addrow': async function(el){
-    var v = curVisit(), c = constatOf(v); if (c.signeLe) return; var g = el.dataset.g === 'EP' ? 'EP' : 'EU';
+    var v = curVisit(); if (v.constat && v.constat.signeLe) return; var g = el.dataset.g === 'EP' ? 'EP' : 'EU';
     var label = await openModal({title: 'Autre installation ' + g, noAutofocus: true,
       html: '<div class="sheet-list">' + AUTRES_SUGG[g].map(function(s){ return '<button type="button" class="btn" data-m="sg" data-v="' + esc(s) + '">' + esc(s) + '</button>'; }).join('') + '</div><label class="field mt"><span class="lbl">Ou saisissez le libellé</span><input type="text" id="m-lab"></label>',
       actions: [{label: 'Annuler', value: null}, {label: 'Ajouter', cls: 'primary', collect: function(w){ var t = w.querySelector('#m-lab').value.trim(); if (!t){ toast('Choisissez ou saisissez un libellé.'); return false; } return t; }}],
       onMount: function(w, close){ w.addEventListener('click', function(ev){ var b = ev.target.closest('[data-m="sg"]'); if (b) close(b.dataset.v); }); }});
     if (!label) return;
-    c.rows.push({id: 'r' + uid().slice(0, 8), groupe: g, label: label, std: false, nb: '1', raccord: '', conforme: '', methodes: []});
+    constatOf(v).rows.push({id: 'r' + uid().replace(/[^a-z0-9]/gi, '').slice(0, 10), groupe: g, label: label, std: false, nb: '1', raccord: '', conforme: '', methodes: []});
     constatTouch(v); render();
   },
   'c-delrow': async function(el){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; var r = rowById(c, el.dataset.row); if (!r || r.std) return; if (!(await confirmModal('Supprimer la ligne « ' + r.label + ' » ?', 'Les anomalies liées à cette installation ne le seront plus.', 'Supprimer', true))) return; c.rows = c.rows.filter(function(x){ return x !== r; }); constatTouch(v); render(); },
   'c-boite-so': function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; c.boite = {distEU: 'sans objet', distEP: 'sans objet', profEU: 'sans objet', profEP: 'sans objet', teEU: 'sans objet', teEP: 'sans objet'}; constatTouch(v); render(); },
   'c-obs-fill': function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; c.observations = constatObsAuto(constatEval(v, anomsOf(v.id))); constatTouch(v); render(); },
-  'c-croquis': async function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; var png = await croquisModal(c.croquis); if (png == null) return; c.croquis = png; constatTouch(v); render(); },
+  'c-croquis': async function(){ var v = curVisit(); if (v.constat && v.constat.signeLe) return; var png = await croquisModal(v.constat ? v.constat.croquis : ''); if (png == null) return; constatOf(v).croquis = png; constatTouch(v); render(); },
   'c-croquis-del': async function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; if (!(await confirmModal('Effacer le croquis ?', 'Le croquis de position du branchement sera effacé.', 'Effacer', true))) return; c.croquis = ''; constatTouch(v); render(); },
   'c-sign': async function(el){
-    var v = curVisit(), c = constatOf(v); if (c.signeLe) return; var tech = el.dataset.who === 'tech';
+    var v = curVisit(), c0 = v.constat; if (c0 && c0.signeLe) return; var tech = el.dataset.who === 'tech';
     if (!tech){ var iss = constatIssues(v, anomsOf(v.id)); if (iss.length && !(await confirmModal('Faire signer malgré tout ?', iss.length + (iss.length > 1 ? ' points restent à vérifier : ' : ' point reste à vérifier : ') + iss.slice(0, 4).join(' ') + (iss.length > 4 ? ' …' : ''), 'Faire signer'))) return; }
     var saved = tech ? await DB.get('meta', 'sigTech') : null, png = null;
-    if (tech && saved && saved.v && !c.sigTech){
+    if (tech && saved && saved.v && !(c0 && c0.sigTech)){
       var use = await openModal({title: 'Signature du technicien', html: '<div class="sig-box"><img src="' + saved.v + '" alt="Signature enregistrée"></div><p>Utiliser votre signature enregistrée ?</p>', actions: [{label: 'Signer à nouveau', value: 'new'}, {label: 'Utiliser', cls: 'primary', value: 'use'}]});
       if (use === 'use') png = saved.v; else if (use !== 'new') return;
     }
-    if (!png) png = await signatureModal(tech ? 'Signature du technicien' : 'Signature du propriétaire', tech ? c.sigTech : c.sigProp);
+    if (!png) png = await signatureModal(tech ? 'Signature du technicien' : 'Signature du propriétaire', c0 ? (tech ? c0.sigTech : c0.sigProp) : '');
     if (!png) return;
+    var c = constatOf(v);
     if (tech){ c.sigTech = png; await DB.put('meta', {k: 'sigTech', v: png}); } else c.sigProp = png;
     constatTouch(v); render();
   },
-  'c-lock': async function(){ var v = curVisit(), c = constatOf(v); if (!c.sigTech) return; c.signeLe = nowISO(); constatTouch(v); await flushSaves(); toast('Constat validé et verrouillé'); render(); },
-  'c-unlock': async function(){ var v = curVisit(), c = constatOf(v); if (!(await confirmModal('Modifier le constat signé ?', 'Les signatures du technicien et du propriétaire seront effacées : il faudra faire signer à nouveau.', 'Modifier', true))) return; c.signeLe = ''; c.sigTech = ''; c.sigProp = ''; constatTouch(v); await flushSaves(); render(); },
+  'c-lock': async function(){
+    var v = curVisit(), c = v.constat; if (!c || !c.sigTech) return;
+    var E = constatEval(v, anomsOf(v.id)), conf = {};
+    E.rows.forEach(function(x){ conf[x.r.id] = rowActive(x.r) ? x.conf : ''; });
+    c.fige = {conclusion: E.conclusion, conf: conf, precos: E.precos, meth: E.meth, observations: E.obsText, reserves: E.reservesText,
+      visite: {statut: v.statut, dateVisite: v.dateVisite, absences: (v.absences || []).slice(), nom: v.nom, adresse: v.adresse, commune: v.commune, domicile: v.domicile, domVille: v.domVille, tel: v.tel, mail: v.mail}};
+    c.signeLe = nowISO(); constatTouch(v); await flushSaves(); toast('Constat validé et verrouillé'); render();
+  },
+  'c-unlock': async function(){ var v = curVisit(), c = constatOf(v); if (!(await confirmModal('Modifier le constat signé ?', 'Les signatures du technicien et du propriétaire seront effacées : il faudra faire signer à nouveau.', 'Modifier', true))) return; c.signeLe = ''; c.sigTech = ''; c.sigProp = ''; delete c.fige; constatTouch(v); await flushSaves(); render(); },
+  'c-delete': async function(){ var v = curVisit(); if (!v.constat || v.constat.signeLe) return; if (!(await confirmModal('Supprimer le constat ?', 'Toute la saisie du constat de ce dossier sera effacée (installations, croquis, signatures). Les anomalies du dossier sont conservées.', 'Supprimer', true))) return; delete v.constat; constatTouch(v); await flushSaves(); toast('Constat supprimé'); go('#/e/' + v.etudeId + '/v/' + v.id); },
   'dl-constat': function(el){ return downloadConstatPdf(el.dataset.vid); }
 };
 
@@ -1975,7 +2037,7 @@ async function exportEtude(){
         }
       }
       if (pdfOk){ var d = newPdf(); d.setProperties({title: 'Préco ' + v.numero, author: 'SAS VÉDÉ Environnement', creator: 'VÉDÉ Terrain'}); await fichePdfDoc(d, v, {}, true); vf.file(ficheFileName(v), d.output('arraybuffer'), {binary: true}); }
-      if (pdfOk && v.constat){ var dc = newPdf(); dc.setProperties({title: 'Constat ' + v.numero, author: 'SAS VÉDÉ Environnement', creator: 'VÉDÉ Terrain'}); drawConstat(dc, v, list, true); vf.file(constatFileName(v), dc.output('arraybuffer'), {binary: true}); }
+      if (pdfOk && v.constat && v.constat.signeLe){ var dc = newPdf(); dc.setProperties({title: 'Constat ' + v.numero, author: 'SAS VÉDÉ Environnement', creator: 'VÉDÉ Terrain'}); drawConstat(dc, v, list, true); vf.file(constatFileName(v), dc.output('arraybuffer'), {binary: true}); }
       busy.set('Dossiers préparés : ' + done + ' sur ' + vs.length, 0.5 * done / Math.max(1, vs.length));
     }
     root.file(safeName('Recapitulatif - ' + e.nom, 90) + '.xlsx', bytes(recapXlsx(e, vs, as)), {binary: true});
@@ -2008,10 +2070,12 @@ async function exportFichesPdf(preset){
   var opts = preset || await openModal({title: 'Exporter les fiches PDF', noAutofocus: true,
     html: '<span class="lbl">Dossiers</span><div class="opt-list"><label class="radio"><input type="radio" name="pq" value="anom" checked> Dossiers avec anomalies (' + nA + ')</label><label class="radio"><input type="radio" name="pq" value="tous"> Tous les dossiers visités (' + nV + ')</label></div>'
       + '<span class="lbl">Format</span><div class="opt-list"><label class="radio"><input type="radio" name="pf" value="zip" checked> Un PDF par dossier, réunis dans un ZIP</label><label class="radio"><input type="radio" name="pf" value="un"> Un seul PDF avec toutes les fiches</label></div>'
-      + '<label class="check"><input type="checkbox" id="m-cst" checked> Joindre le constat de visite (2 pages) avant chaque fiche, s\'il est rempli</label>'
+      + '<span class="lbl">Constats de visite signés</span><div class="opt-list"><label class="radio"><input type="radio" name="pc" value="avant" checked> Avant la fiche, dans le même PDF (comme le dossier livré)</label><label class="radio"><input type="radio" name="pc" value="separe"> En fichier séparé</label><label class="radio"><input type="radio" name="pc" value="non"> Ne pas les joindre</label></div>'
       + '<label class="check"><input type="checkbox" id="m-ph"> Ajouter les photos en annexe de chaque fiche</label>',
-    actions: [{label: 'Annuler', value: null}, {label: 'Exporter', cls: 'primary', collect: function(w){ return {quels: w.querySelector('input[name="pq"]:checked').value, format: w.querySelector('input[name="pf"]:checked').value, photos: w.querySelector('#m-ph').checked, constat: w.querySelector('#m-cst').checked}; }}]});
+    actions: [{label: 'Annuler', value: null}, {label: 'Exporter', cls: 'primary', collect: function(w){ return {quels: w.querySelector('input[name="pq"]:checked').value, format: w.querySelector('input[name="pf"]:checked').value, photos: w.querySelector('#m-ph').checked, constatMode: w.querySelector('input[name="pc"]:checked').value}; }}]});
   if (!opts) return false;
+  if (!opts.constatMode) opts.constatMode = opts.constat ? 'avant' : 'non';
+  opts.constat = opts.constatMode === 'avant' || (opts.constatMode === 'separe' && opts.format === 'un');
   var vs = S.visites.filter(function(v){ var l = by.get(v.id) || []; return opts.quels === 'tous' ? (v.statut === 'visitee' || l.length > 0) : l.length > 0; });
   if (!vs.length){ toast(opts.quels === 'tous' ? 'Aucun dossier visité pour l\'instant.' : 'Aucun dossier avec anomalie pour l\'instant.'); return false; }
   var busy = busyModal('Création des fiches PDF');
@@ -2026,7 +2090,10 @@ async function exportFichesPdf(preset){
     for (var j = 0; j < vs.length; j++){
       var d = newPdf(); d.setProperties({title: 'Préco ' + vs[j].numero, author: 'SAS VÉDÉ Environnement', creator: 'VÉDÉ Terrain'});
       await fichePdfDoc(d, vs[j], opts, true);
-      root.file(uniqueName(ficheFileName(vs[j]), used), d.output('arraybuffer'), {binary: true});
+      var signe = vs[j].constat && vs[j].constat.signeLe, fnm = ficheFileName(vs[j]);
+      if (opts.constat && signe) fnm = fnm.replace(/^Préco /, 'Dossier ');
+      root.file(uniqueName(fnm, used), d.output('arraybuffer'), {binary: true});
+      if (opts.constatMode === 'separe' && signe){ var dc2 = newPdf(); dc2.setProperties({title: 'Constat ' + vs[j].numero, author: 'SAS VÉDÉ Environnement', creator: 'VÉDÉ Terrain'}); drawConstat(dc2, vs[j], anomsOf(vs[j].id), true); root.file(uniqueName(constatFileName(vs[j]), used), dc2.output('arraybuffer'), {binary: true}); }
       busy.set('Fiches : ' + (j + 1) + ' sur ' + vs.length, 0.8 * (j + 1) / vs.length);
     }
     var z = await zip.generateAsync({type: 'blob', mimeType: 'application/zip'}); busy.close();
@@ -2221,7 +2288,11 @@ var ACTIONS = {
   },
   'set-net': function(el){
     var a = curAnom(); if (!a) return;
-    a.reseau = el.dataset.v === 'EP' ? 'EP' : 'EU'; a.updatedAt = nowISO(); saveLater('anomalies', a); touchEtude();
+    a.reseau = el.dataset.v === 'EP' ? 'EP' : 'EU'; a.updatedAt = nowISO();
+    var vv = curVisit(), cr = vv && vv.constat ? rowById(vv.constat, a.installation) : null;
+    if (a.installation && a.installation !== 'aucune' && (!cr || cr.groupe !== a.reseau)) a.installation = '';
+    saveLater('anomalies', a); touchEtude();
+    var sel = $('[data-af="installation"]'); if (sel){ flushSaves(); render(); return; }
     $$('[data-act="set-net"]').forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.v === a.reseau)); });
   },
   'pick-type': function(){ return pickType(); },
@@ -2235,7 +2306,7 @@ var ACTIONS = {
     a.brouillon = false; a.updatedAt = nowISO(); await DB.put('anomalies', a);
     var msg = 'Anomalie validée', st = $('#save-type');
     if (st && st.checked && (await addToBiblio(a))) msg += ', ajoutée aux anomalies types';
-    if (v.statut === 'a_visiter'){ v.statut = 'visitee'; if (!v.dateVisite) v.dateVisite = todayStr(); v.updatedAt = nowISO(); await DB.put('visites', v); msg += ', dossier passé en « Visitée »'; }
+    if (v.statut === 'a_visiter' || v.statut === 'absent'){ v.statut = 'visitee'; delete v.statutAvantMotif; if (!v.dateVisite) v.dateVisite = todayStr(); v.updatedAt = nowISO(); await DB.put('visites', v); msg += ', dossier passé en « Visitée »'; }
     touchEtude(); toast(msg, 3500);
     go('#/e/' + v.etudeId + '/v/' + v.id);
   },
@@ -2307,7 +2378,7 @@ async function init(){
   }
   await render();
 }
-window.__VT = {S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, ready: null};
+window.__VT = {S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ready: null};
 window.__VT.ready = init();
 })();
 </script>
