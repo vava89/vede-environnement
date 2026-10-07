@@ -1,5 +1,5 @@
 /* VÉDÉ Terrain : garde l'application disponible sans connexion */
-const CACHE = 'vede-terrain-1.2.1';
+const CACHE = 'vede-terrain-1.3.0';
 const ASSETS = [
   "./",
   "./index.html",
