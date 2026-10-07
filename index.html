@@ -296,7 +296,7 @@ table.prev th{background:var(--surface-2);font-weight:600}
 <script>
 (function(){
 'use strict';
-var VERSION = '1.3.0';
+var VERSION = '1.3.1';
 
 /* ---------- Utilitaires ---------- */
 var $ = function(s, r){ return (r || document).querySelector(s); };
@@ -1352,9 +1352,10 @@ async function downloadFichePdf(vid){
 /* ---------- Constat de visite : formulaire « Contrôle de Branchement Particulier » du Département, rempli sur la tablette ---------- */
 var RACC = [['EU_D', 'Réseau EU départemental'], ['EU_T', 'Réseau EU territorial'], ['EP_D', 'Réseau EP départemental'], ['EP_T', 'Réseau EP territorial'], ['UN_D', 'Réseau unitaire départemental'], ['UN_T', 'Réseau unitaire territorial'], ['FOSSE', 'Fosse septique'], ['MILIEU', 'Milieu naturel'], ['GARG', 'Gargouille']];
 var METH = [['visuel', 'Visuel', 'V'], ['eau', 'À l\'eau', 'E'], ['fluo', 'Fluorescéine', 'Fl'], ['fumee', 'Fumée', 'Fu'], ['reso', 'Résonance', 'R']];
-var INSTALL_STD = [['wc', 'EU', 'WC'], ['lavelinge', 'EU', 'Lave-linge'], ['evier', 'EU', 'Évier'], ['sdb', 'EU', 'Salle de bain (douche ou baignoire et lavabo)'], ['cuisine', 'EU', 'Cuisine (évier, lave-vaisselle)'],
-  ['gout_av', 'EP', 'Gouttière(s) avant'], ['gout_ar', 'EP', 'Gouttière(s) arrière'], ['grilles', 'EP', 'Grilles'], ['siphon', 'EP', 'Siphon de garage']];
-var AUTRES_SUGG = {EU: ['Chaudière (purge, condensat)', 'Regard EU', 'Attente', 'Lavabo', 'Douche', 'Lave-vaisselle', 'Ballon d\'eau chaude', 'Siphon de sol', 'Fontaine'], EP: ['Regard EP', 'Descente EP', 'Puisard', 'Drain', 'Caniveau-grille', 'Siphon de cour', 'Trop-plein']};
+/* Le siphon de garage se raccorde aux EU ; le siphon de sol figure côté EP */
+var INSTALL_STD = [['wc', 'EU', 'WC'], ['lavelinge', 'EU', 'Lave-linge'], ['evier', 'EU', 'Évier'], ['sdb', 'EU', 'Salle de bain (douche ou baignoire et lavabo)'], ['cuisine', 'EU', 'Cuisine (évier, lave-vaisselle)'], ['siphon', 'EU', 'Siphon de garage'],
+  ['gout_av', 'EP', 'Gouttière(s) avant'], ['gout_ar', 'EP', 'Gouttière(s) arrière'], ['grilles', 'EP', 'Grilles'], ['siphon_sol', 'EP', 'Siphon de sol']];
+var AUTRES_SUGG = {EU: ['Chaudière (purge, condensat)', 'Regard EU', 'Attente', 'Lavabo', 'Douche', 'Lave-vaisselle', 'Ballon d\'eau chaude', 'Fontaine'], EP: ['Regard EP', 'Descente EP', 'Puisard', 'Drain', 'Caniveau-grille', 'Siphon de cour', 'Trop-plein']};
 var CATEG = [['habitation', 'habitation'], ['pc', 'PC 2 à 20'], ['c50', 'collectif 21 à 50'], ['c100', 'collectif 51 à 100'], ['c101', 'collectif 101 et +'], ['pub_acc', 'propriété publique avec accueil'],
   ['hosp', 'centre hospitalier'], ['usine', 'usine'], ['entreprise', 'entreprise'], ['commerce', 'commerce'], ['ccial', 'centre commercial'], ['pub_sans', 'propriété publique sans accueil']];
 var EP_RECUP = [['puisard', 'puisard'], ['recup', 'récupérateur'], ['infil', 'Infiltration diffuse'], ['autre', 'Indéterminé/Autres']];
@@ -1372,11 +1373,21 @@ function conclLabel(k){ for (var i = 0; i < CONCL.length; i++) if (CONCL[i][0] =
 function raccLabel(k){ for (var i = 0; i < RACC.length; i++) if (RACC[i][0] === k) return RACC[i][1]; return ''; }
 function excelVal(v, re){ var p = (v.excel || []).filter(function(x){ return re.test(norm(x[0])) && String(x[1] || '').trim(); })[0]; return p ? String(p[1]).trim() : ''; }
 function newConstat(v){
-  return {v: 1, demande: (excelVal(v, /date.*demande/) || excelVal(v, /^(?!.*demandeur).*demande/)).replace(/\s+[aà]\s+\d{1,2}h\d{2}$/, ''), refCad: excelVal(v, /cadastr/), typePropriete: '', nbLogements: '', categorie: 'habitation', categorieNb: '1', methodes: {},
+  return {v: 2, demande: (excelVal(v, /date.*demande/) || excelVal(v, /^(?!.*demandeur).*demande/)).replace(/\s+[aà]\s+\d{1,2}h\d{2}$/, ''), refCad: excelVal(v, /cadastr/), typePropriete: '', nbLogements: '', categorie: 'habitation', categorieNb: '1', methodes: {},
     rows: INSTALL_STD.map(function(s){ return {id: s[0], groupe: s[1], label: s[2], std: true, nb: '', raccord: '', conforme: '', methodes: []}; }),
     epRecup: {}, desagr: '', desagrLoc: '', croquis: '', boite: {}, reseau: '', reseauGest: '', reseauRue: '', conclusion: '', reserves: '', precos: {}, observations: '', soussigne: v.nom || '', sigTech: '', sigProp: '', signeLe: ''};
 }
-function constatOf(v){ if (!v.constat) v.constat = newConstat(v); return v.constat; }
+function migrerConstat(c){
+  if (!c || c.signeLe || c.v >= 2) return c;
+  var sg = null, i; for (i = 0; i < c.rows.length; i++) if (c.rows[i].id === 'siphon') sg = c.rows[i];
+  if (sg && sg.groupe === 'EP') sg.groupe = 'EU';
+  if (!c.rows.some(function(r){ return r.id === 'siphon_sol'; })){
+    var k = -1; for (i = 0; i < c.rows.length; i++) if (c.rows[i].std && c.rows[i].groupe === 'EP') k = i;
+    c.rows.splice(k + 1, 0, {id: 'siphon_sol', groupe: 'EP', label: 'Siphon de sol', std: true, nb: '', raccord: '', conforme: '', methodes: []});
+  }
+  c.v = 2; return c;
+}
+function constatOf(v){ if (!v.constat) v.constat = newConstat(v); return migrerConstat(v.constat); }
 function rowActive(r){ var n = String(r.nb == null ? '' : r.nb).trim(); return n !== '' && n !== '0'; }
 /* Conformité d'une installation d'après son raccordement : EU sur EU ou unitaire ; EP sur EP, unitaire, gargouille ou milieu naturel */
 function raccOk(r){ if (!r.raccord) return null; if (r.groupe === 'EU') return /^(EU|UN)_/.test(r.raccord); return /^(EP|UN)_|^GARG$|^MILIEU$/.test(r.raccord); }
@@ -1397,7 +1408,7 @@ function rowSides(obs, loc){
   return s;
 }
 var ROW_KW = [['gout_av', function(o, s){ return !!s.avant; }], ['gout_ar', function(o, s){ return !!s.arriere; }],
-  ['grilles', /\bgrilles?\b|\bcaniveau/], ['siphon', /\bsiphons? (de |du )?garage\b/], ['wc', /\bwc\b|\btoilettes?\b/], ['lavelinge', /\blave linge\b|\bmachine a laver\b/],
+  ['grilles', /\bgrilles?\b|\bcaniveau/], ['siphon', /\bsiphons? (de |du )?garage\b/], ['siphon_sol', /\bsiphons? de sol\b/], ['wc', /\bwc\b|\btoilettes?\b/], ['lavelinge', /\blave linge\b|\bmachine a laver\b/],
   ['evier', /\beviers?\b/], ['sdb', /\bdouches?\b|\bbaignoires?\b|\blavabos?\b|\bsalle de bain/], ['cuisine', /\bcuisine\b|\blave vaisselle\b/]];
 function rowFits(r, a){ return !!r && r.groupe === a.reseau; }
 /* Une ligne « Autres » correspond si tous les mots principaux de son libellé figurent dans le texte (mots entre parenthèses facultatifs) ; « Regard EP » exige « regard ep » */
@@ -1438,7 +1449,7 @@ function precosAuto(c, L){
   return s;
 }
 function constatEval(v, list){
-  var c = v.constat || newConstat(v), L = list.filter(function(a){ return !a.brouillon; }), link = new Map();
+  var c = migrerConstat(v.constat) || newConstat(v), L = list.filter(function(a){ return !a.brouillon; }), link = new Map();
   L.forEach(function(a){ anomRows(c, a).forEach(function(r){ if (!link.has(r.id)) link.set(r.id, []); link.get(r.id).push(a); }); });
   var rows = c.rows.map(function(r){
     var la = link.get(r.id) || [], ok = raccOk(r), auto = '';
@@ -1685,7 +1696,8 @@ function constatRowsForPrint(c){
     for (var i = au.length; i < minAutres; i++) out.push({g: g, blank: true, autres: i === 0});
     return out;
   }
-  return grp('EU', 2).concat(grp('EP', 1));
+  var nEUstd = c.rows.filter(function(r){ return r.groupe === 'EU' && r.std; }).length;
+  return grp('EU', nEUstd >= 6 ? 1 : 2).concat(grp('EP', 1));
 }
 function drawConstatP1(doc, v, E){
   var c = E.c, A = window.VEDE_ASSETS || {}, P = CPC, ce = (S.etude && S.etude.fiche) || {};

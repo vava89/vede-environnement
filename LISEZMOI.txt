@@ -1,4 +1,4 @@
-VÉDÉ Terrain, version installable hors connexion (v1.3.0)
+VÉDÉ Terrain, version installable hors connexion (v1.3.1)
 =====================================================
 
 Ce dossier contient l'application complète. Une fois installée sur la
