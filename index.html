@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0F5C63">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="VÉDÉ Terrain">
@@ -62,6 +62,9 @@ a{color:inherit}
 .bar-title{font-family:"Barlow Condensed","Barlow",system-ui,sans-serif;font-weight:700;font-size:23px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bar-sub{font-size:14px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bar-pad{width:6px}
+.bar-logo{flex:0 0 auto;width:38px;height:38px;margin:0 2px 0 4px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+.home-logo{display:inline-block;margin:0 0 18px;padding:12px 18px;background:#fff;border:1px solid var(--line-2);border-radius:14px}
+.home-logo img{display:block;width:280px;max-width:100%;height:auto}
 .iconbtn{flex:0 0 auto;display:inline-grid;place-items:center;width:48px;height:48px;border:0;border-radius:12px;background:transparent;color:inherit;cursor:pointer}
 .iconbtn:active{background:rgba(255,255,255,.16)}
 .net-off{flex:0 0 auto;font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;background:#FFF0D1;color:#6B4100}
@@ -264,7 +267,7 @@ table.prev th{background:var(--surface-2);font-weight:600}
 <script>
 (function(){
 'use strict';
-var VERSION = '1.2.0';
+var VERSION = '1.2.1';
 
 /* ---------- Utilitaires ---------- */
 var $ = function(s, r){ return (r || document).querySelector(s); };
@@ -533,6 +536,7 @@ async function detailHtml(r){
 function afterFor(r){ return r.name === 'anom' ? async function(){ await renderThumbs(curAnom()); var a = curAnom(); if (a && S.autoPick === a.id){ S.autoPick = null; pickType(); } } : null; }
 function barHtml(o){
   return '<header class="bar">' + (o.back ? '<button type="button" class="iconbtn" data-act="back" data-href="' + esc(o.back) + '" aria-label="Retour">' + svg(I.back, 24) + '</button>' : '<span class="bar-pad"></span>')
+    + '<img class="bar-logo" src="icons/logo-embleme.png" alt="">'
     + '<div class="bar-t"><div class="bar-title">' + esc(o.title) + '</div>' + (o.sub ? '<div class="bar-sub">' + esc(o.sub) + '</div>' : '') + '</div>'
     + '<span id="net" class="net-off" hidden>Hors ligne</span>'
     + (o.menu ? '<button type="button" class="iconbtn" data-act="etude-menu" aria-label="Actions de l\'étude">' + svg(I.more, 24) + '</button>' : '')
@@ -560,7 +564,8 @@ async function viewHome(){
       + progressHtml(st)
       + '<span class="eexp' + (dirty ? ' dirty' : '') + '">' + (e.lastExportAt ? 'Dernier export le ' + fmtDT(e.lastExportAt) + (dirty ? ', modifiée depuis' : '') : 'Jamais exportée') + '</span></a></li>';
   }
-  var b = '<div class="page">';
+  var b = '<div class="page">', A = window.VEDE_ASSETS || {};
+  if (A.logo) b += '<div class="home-logo"><img src="' + A.logo + '" alt="VÉDÉ Environnement"></div>';
   b += '<h1 class="h1">Études</h1><p class="lead">Une étude regroupe toutes les visites d\'une opération. Elle se crée à partir de votre tableau Excel : une ligne par adresse à contrôler, avec son numéro de dossier.</p>';
   b += '<div class="btnrow"><button type="button" class="btn primary big" data-act="nav" data-href="#/import">' + svg(I.upload) + 'Importer un tableau Excel</button>'
     + '<button type="button" class="btn big" data-act="pick-zip">' + svg(I.restore) + 'Restaurer une sauvegarde</button>'
@@ -1113,23 +1118,25 @@ async function pickType(){
 }
 /* ---------- Fiche du dossier : aperçu à l'écran et PDF, mise en page des fiches « Préco » ---------- */
 var FICHE_CSS = '.fiche{font-family:"Century Gothic","Jost","Futura","Avenir Next",Arial,sans-serif;color:#000;background:#fff;max-width:190mm;margin:0 auto;padding:8mm 9mm 12mm;font-size:9.5pt;line-height:1.3}'
-  + '.fiche .f-head{position:relative;min-height:40mm}.fiche .f-logo{position:absolute;left:0;top:0;width:67mm;height:auto}'
-  + '.fiche .f-dep{position:absolute;right:0;top:3mm;text-align:right;font-style:italic;color:#9933FF}'
-  + '.fiche .f-titles{text-align:center;padding-top:15mm}.fiche .f-titles div{margin:0 0 .8mm}'
+  + '.fiche .f-head{display:flex;justify-content:space-between;align-items:center;gap:6mm}.fiche .f-logo{flex:0 0 auto;width:62mm;max-width:55%;height:auto}'
+  + '.fiche .f-dep{text-align:right;font-style:italic;color:#9933FF}'
+  + '.fiche .f-titles{text-align:center;margin-top:6mm}.fiche .f-titles div{margin:0 0 .8mm}'
   + '.fiche .t-bleu{color:#0070C0}.fiche .t-rouge{color:#FF0000}.fiche .t-vert{color:#00B050}.fiche .t-orange{color:#D4650A;font-weight:700}'
   + '.fiche .f-num{font-style:italic;color:#0066FF;margin:2mm 0 1mm}.fiche table{width:100%;border-collapse:collapse}'
   + '.fiche .f-fields td{width:50%;padding:1mm 0;vertical-align:top}.fiche .f-fields .v{color:#3333FF}.fiche .f-fields .g td{color:#808080}'
   + '.fiche .f-tab{margin-top:5mm;border:3px double #D4650A}.fiche .f-tab th,.fiche .f-tab td{width:50%;border:1px solid #D4650A;padding:1mm 1.5mm;vertical-align:top;text-align:left}'
   + '.fiche .f-tab th{color:#0070C0;font-style:italic;font-weight:700;text-align:center}.fiche .f-tab .sec td{text-align:center;font-weight:700}'
-  + '.fiche .f-tab .sec.ep td{color:#00B050}.fiche .f-tab .sec.eu td{color:#FF0000}.fiche .f-tab td.vide{height:4.5mm}';
+  + '.fiche .f-tab .sec.ep td{color:#00B050}.fiche .f-tab .sec.eu td{color:#FF0000}.fiche .f-tab td.vide{height:4.5mm}.fiche .f-tab .pl + .pl{margin-top:1mm}';
 function ficheDomicile(v){ return [v.domicile, v.domVille].filter(Boolean).join(' - '); }
-function obsLine(a){ var loc = String(a.localisation || '').trim(); return '* ' + String(a.observation || '').trim() + (loc ? ' (' + loc + ')' : ''); }
-function precoLines(s){ return String(s || '').split(/\r?\n/).map(function(x){ return x.trim(); }).filter(Boolean).map(function(x){ return '- ' + x.replace(/^[-–•*]\s*/, ''); }); }
+/* Lignes de la fiche sans puce (*, -, •) : une puce saisie au début est retirée, la première lettre passe en majuscule */
+function sansPuce(s){ s = String(s || '').trim().replace(/^[-–—•*·]+\s*/, ''); return s.charAt(0).toUpperCase() + s.slice(1); }
+function obsLine(a){ var loc = String(a.localisation || '').trim(); return sansPuce(a.observation) + (loc ? ' (' + loc + ')' : ''); }
+function precoLines(s){ return String(s || '').split(/\r?\n/).map(sansPuce).filter(Boolean); }
 function ficheInner(e, v, list){
   var hd = ficheHeader(e, v), A = window.VEDE_ASSETS || {};
-  var h = '<div class="f-head">' + (A.logo ? '<img class="f-logo" src="' + A.logo + '" alt="VÉDÉ Environnement">' : '') + '<div class="f-dep">' + esc(hd.dep) + '<br>' + esc(hd.com) + '</div>'
+  var h = '<div class="f-head">' + (A.logo ? '<img class="f-logo" src="' + A.logo + '" alt="VÉDÉ Environnement">' : '') + '<div class="f-dep">' + esc(hd.dep) + '<br>' + esc(hd.com) + '</div></div>'
     + '<div class="f-titles"><div class="t-bleu">Assainissement collectif</div><div><span class="t-rouge">Eaux Usées</span> &amp; <span class="t-vert">Eaux Pluviales</span></div>'
-    + '<div class="t-orange">Observations de terrain</div><div class="t-orange">&amp;</div><div class="t-orange">préconisations de mise en conformité de l’assainissement</div></div></div>';
+    + '<div class="t-orange">Observations de terrain</div><div class="t-orange">&amp;</div><div class="t-orange">préconisations de mise en conformité de l’assainissement</div></div>';
   h += '<div class="f-num">N° ' + esc(v.numero) + '</div><table class="f-fields"><tbody>'
     + '<tr><td>Propriétaire :</td><td class="v">' + esc(v.nom) + '</td></tr><tr><td>Adresse de la visite parcellaire :</td><td class="v">' + esc(v.adresse) + '</td></tr>'
     + '<tr class="g"><td>Adresse du domicile :</td><td><em>' + esc(ficheDomicile(v)) + '</em></td></tr>'
@@ -1140,7 +1147,7 @@ function ficheInner(e, v, list){
     var items = list.filter(function(a){ return a.reseau === net; }), obs = String(net === 'EP' ? (v.obsEP || '') : (v.obsEU || '')).trim();
     h += '<tr class="sec ' + net.toLowerCase() + '"><td colspan="2">' + (net === 'EP' ? 'Eaux pluviales' : 'Eaux usées') + '</td></tr>';
     if (!items.length) h += '<tr><td class="vide"></td><td class="vide"></td></tr>';
-    items.forEach(function(a){ h += '<tr><td>' + esc(obsLine(a)) + '</td><td>' + precoLines(a.preconisation).map(esc).join('<br>') + '</td></tr>'; });
+    items.forEach(function(a){ h += '<tr><td>' + esc(obsLine(a)) + '</td><td>' + precoLines(a.preconisation).map(function(s){ return '<div class="pl">' + esc(s) + '</div>'; }).join('') + '</td></tr>'; });
     if (obs) h += '<tr><td colspan="2">Observation : ' + nl2br(obs) + '</td></tr>';
   });
   return h + '</tbody></table>';
@@ -1187,12 +1194,13 @@ function drawTable(doc, y0, v, list){
     if (!items.length){ ensure(14); pen(); doc.line(MID, y, MID, y + 14); y += 14; hline(); }
     items.forEach(function(a){
       setF(doc, 'normal', fs);
-      var left = doc.splitTextToSize(pdfText(obsLine(a)), wL), right = [];
-      precoLines(a.preconisation).forEach(function(s){ right = right.concat(doc.splitTextToSize(pdfText(s), wR)); });
-      var hh = Math.max(left.length, right.length, 1) * lh + 2 * pad - 1;
+      var left = doc.splitTextToSize(pdfText(obsLine(a)), wL), gap = 3;
+      var right = precoLines(a.preconisation).map(function(s){ return doc.splitTextToSize(pdfText(s), wR); });
+      var rh = right.reduce(function(t, bl){ return t + bl.length * lh; }, 0) + Math.max(right.length - 1, 0) * gap;
+      var hh = Math.max(left.length * lh, rh, lh) + 2 * pad - 1;
       ensure(hh); setF(doc, 'normal', fs);
       doc.text(left, L + 2 + pad, y + pad + 8);
-      if (right.length) doc.text(right, MID + pad, y + pad + 8);
+      var ry = y + pad + 8; right.forEach(function(bl){ doc.text(bl, MID + pad, ry); ry += bl.length * lh + gap; });
       pen(); doc.line(MID, y, MID, y + hh); y += hh; hline();
     });
     if (obs){
@@ -1206,20 +1214,23 @@ function drawTable(doc, y0, v, list){
 }
 function drawFiche(doc, e, v, list){
   var PW = 595.28, L = 28, R = PW - 28, MID = PW / 2, hd = ficheHeader(e, v), A = window.VEDE_ASSETS || {};
-  if (A.logo){ try { var ip = doc.getImageProperties(A.logo), lw = 190; doc.addImage(A.logo, 'JPEG', 24, 12, lw, lw * ip.height / ip.width, 'logo-vede', 'FAST'); } catch(err){} }
+  // En-tête : logo en haut à gauche, département et commune à droite, centrés sur la hauteur du logo ; les titres passent sous le logo
+  var lw = 175, lh = 88, ly = 18;
+  if (A.logo){ try { var ip = doc.getImageProperties(A.logo); lh = lw * ip.height / ip.width; doc.addImage(A.logo, 'JPEG', L, ly, lw, lh, 'logo-vede', 'FAST'); } catch(err){} }
+  var mid = ly + lh / 2, t = ly + lh + 22;
   setF(doc, 'italic', 9.5, PDFC.violet);
-  if (hd.dep) doc.text(pdfText(hd.dep), R, 30, {align: 'right'});
-  if (hd.com) doc.text(pdfText(hd.com), R, 43, {align: 'right'});
-  setF(doc, 'normal', 10, PDFC.bleuTitre); doc.text('Assainissement collectif', MID, 62, {align: 'center'});
+  if (hd.dep) doc.text(pdfText(hd.dep), R, hd.com ? mid - 3 : mid + 3, {align: 'right'});
+  if (hd.com) doc.text(pdfText(hd.com), R, hd.dep ? mid + 10 : mid + 3, {align: 'right'});
+  setF(doc, 'normal', 10, PDFC.bleuTitre); doc.text('Assainissement collectif', MID, t, {align: 'center'});
   var parts = [['Eaux Usées', PDFC.rouge], [' & ', PDFC.noir], ['Eaux Pluviales', PDFC.vert]];
   setF(doc, 'normal', 10);
   var tw = parts.reduce(function(s, p){ return s + doc.getTextWidth(p[0]); }, 0), x = MID - tw / 2;
-  parts.forEach(function(p){ doc.setTextColor(p[1][0], p[1][1], p[1][2]); doc.text(p[0], x, 76); x += doc.getTextWidth(p[0]); });
+  parts.forEach(function(p){ doc.setTextColor(p[1][0], p[1][1], p[1][2]); doc.text(p[0], x, t + 14); x += doc.getTextWidth(p[0]); });
   setF(doc, 'bold', 10, PDFC.orange);
-  doc.text('Observations de terrain', MID, 90, {align: 'center'}); doc.text('&', MID, 104, {align: 'center'});
-  doc.text('préconisations de mise en conformité de l’assainissement', MID, 118, {align: 'center'});
-  setF(doc, 'italic', 10, PDFC.bleu); doc.text(pdfText('N° ' + v.numero), L + 2, 138);
-  var y = 156;
+  doc.text('Observations de terrain', MID, t + 30, {align: 'center'}); doc.text('&', MID, t + 43, {align: 'center'});
+  doc.text('préconisations de mise en conformité de l’assainissement', MID, t + 56, {align: 'center'});
+  setF(doc, 'italic', 10, PDFC.bleu); doc.text(pdfText('N° ' + v.numero), L + 2, t + 80);
+  var y = t + 98;
   function field(label, value, lc, vc, vs){ setF(doc, 'normal', 9.5, lc); doc.text(pdfText(label), L + 2, y); if (value){ setF(doc, vs || 'normal', 9.5, vc); doc.text(doc.splitTextToSize(pdfText(value), R - MID)[0], MID, y); } y += 16; }
   field('Propriétaire :', v.nom, PDFC.noir, PDFC.bleuVal);
   field('Adresse de la visite parcellaire :', v.adresse, PDFC.noir, PDFC.bleuVal);
