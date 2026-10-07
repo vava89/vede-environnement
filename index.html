@@ -920,13 +920,13 @@ function issuesHtml(v, list){
 function anomItemHtml(v, a, k){
   var cls = a.reseau === 'EP' ? 'ep' : 'eu', miss = [], np = (a.photos || []).length;
   if (a.brouillon) miss.push('non validée');
-  if (!String(a.preconisation || '').trim()) miss.push('préconisation manquante');
+  if (!precoLines(a.preconisation).length) miss.push('préconisation manquante');
   if (!np && !a.photoNonRequise) miss.push('sans photo');
   return '<a class="anom ' + cls + '" href="#/e/' + esc(S.etude.id) + '/v/' + esc(v.id) + '/a/' + esc(a.id) + '">'
     + '<div class="anom-top"><span class="anum">A' + (k + 1) + '</span><span class="net-tag ' + cls + '">' + esc(a.reseau || '?') + '</span>' + (a.localisation ? '<span class="aloc">' + esc(a.localisation) + '</span>' : '')
     + (np ? '<span class="aph">' + svg(I.camera, 18) + np + '</span>' : '') + '</div>'
-    + '<div class="aobs">' + esc(a.observation || 'Anomalie à décrire') + '</div>'
-    + (a.preconisation ? '<div class="apre"><span class="lbl-in">Préconisation : </span>' + esc(a.preconisation) + '</div>' : '')
+    + '<div class="aobs">' + esc(lignesSansPuce(a.observation).length ? a.observation : 'Anomalie à décrire') + '</div>'
+    + (precoLines(a.preconisation).length ? '<div class="apre"><span class="lbl-in">Préconisation : </span>' + esc(a.preconisation) + '</div>' : '')
     + (miss.length ? '<div class="amiss">' + svg(I.warn, 18) + esc(miss.join(', ')) + '</div>' : '') + '</a>';
 }
 function visitHtml(){
@@ -1129,17 +1129,21 @@ var FICHE_CSS = '.fiche{font-family:"Century Gothic","Jost","Futura","Avenir Nex
   + '.fiche .f-tab th{color:#0070C0;font-style:italic;font-weight:700;text-align:center}.fiche .f-tab .sec td{text-align:center;font-weight:700}'
   + '.fiche .f-tab .sec.ep td{color:#00B050}.fiche .f-tab .sec.eu td{color:#FF0000}.fiche .f-tab td.vide{height:4.5mm}.fiche .f-tab .pl + .pl{margin-top:1mm}';
 function ficheDomicile(v){ return [v.domicile, v.domVille].filter(Boolean).join(' - '); }
-/* Lignes de la fiche sans puce : les marques de liste saisies en début de ligne (*, -, •, ->, →, +…) sont retirées,
-   sauf un tiret collé à un chiffre (cote négative). La première lettre passe en majuscule, sauf unité ou notation (m², ml, pH, a)…). */
-var PUCE = /^(?:[-=]+>|[*•·●○◦▪▫■□►▸➢➤→⇒✓✔⁃‣+>]+|[-–—‐‑−]+(?![\d,.])|o(?=\t))\s*/;
-function sansPuce(s){
-  s = String(s || '').trim(); var p;
+/* Lignes de la fiche sans puce : les marques de liste saisies en début de ligne (*, -, •, ->, →, ▪…) sont retirées,
+   sauf un tiret collé à un chiffre (cote négative) ; « + » et « > » sont gardés (+0,30 m, >= 3 %).
+   La première lettre passe en majuscule, sauf unité ou notation (m², ml, pH, ø, a)…). */
+var PUCE = /^(?:[-=]+>|[*•·●○◦▪▫■□►▸➢➤→⇒✓✔⁃‣]+|[-–—‐‑−]+(?![\d,.])|o(?=\t))\s*/;
+var NOTATION = /^(?:\p{Ll}[).]\s|(?:ml|cm|mm|dm|km|m)(?=[\s²³\d]|$)|\p{Ll}\p{Lu}|ø)/u;
+function sansPuce(s, siPuce){
+  s = String(s || '').trim(); var s0 = s, p;
   do { p = s; s = s.replace(PUCE, '').trim(); } while (s !== p);
-  if (/^\p{Ll}\p{Ll}/u.test(s) && !/^(?:ml|cm|mm|dm|km)\b/.test(s)) s = s.charAt(0).toUpperCase() + s.slice(1);
+  if (siPuce && s === s0) return s;  // ligne de suite d'une observation : casse d'origine gardée
+  if (/^\p{Ll}/u.test(s) && !NOTATION.test(s)) s = s.charAt(0).toUpperCase() + s.slice(1);
   return s;
 }
-function lignesSansPuce(s){ return String(s || '').split(/\r?\n/).map(sansPuce).filter(Boolean); }
-function obsLine(a){ var loc = String(a.localisation || '').trim(), o = lignesSansPuce(a.observation).join('\n'); return o + (loc ? (o ? ' ' : '') + '(' + loc + ')' : ''); }
+/* obs = true : texte suivi (observation), seules la première ligne et les lignes qui avaient une puce prennent la majuscule */
+function lignesSansPuce(s, obs){ return String(s || '').split(/\r?\n/).map(function(x, i){ return sansPuce(x, obs && i > 0); }).filter(Boolean); }
+function obsLine(a){ var loc = String(a.localisation || '').trim(), o = lignesSansPuce(a.observation, true).join('\n'); return o + (loc ? (o ? ' ' : '') + '(' + loc + ')' : ''); }
 function precoLines(s){ return lignesSansPuce(s); }
 function ficheInner(e, v, list){
   var hd = ficheHeader(e, v), A = window.VEDE_ASSETS || {};
@@ -1213,8 +1217,9 @@ function drawTable(doc, y0, v, list){
   frameTop(); colHead();
   ['EP', 'EU'].forEach(function(net){
     var items = list.filter(function(a){ return a.reseau === net; }), obs = String(net === 'EP' ? (v.obsEP || '') : (v.obsEU || '')).trim();
-    var rows = items.map(rowOf);
-    curNet = null; ensure(16 + (rows.length ? rows[0].hh : 14)); secHead(net, false); curNet = net;
+    var rows = items.map(rowOf), oh0 = 0;
+    if (!rows.length && obs){ setF(doc, 'normal', fs); oh0 = doc.splitTextToSize(pdfText('Observation : ' + obs), R - L - 4 - 2 * pad).length * lh + 2 * pad - 1; }
+    curNet = null; ensure(Math.min(16 + (rows.length ? rows[0].hh : 14 + oh0), BOTTOM - 75)); secHead(net, false); curNet = net;
     if (!rows.length){ ensure(14); pen(); doc.line(MID, y, MID, y + 14); y += 14; hline(); }
     rows.forEach(function(r){
       ensure(r.hh); setF(doc, 'normal', fs);
@@ -1263,7 +1268,7 @@ function drawFiche(doc, e, v, list){
 }
 async function drawPhotos(doc, v, list){
   var ph = [];
-  list.forEach(function(a, i){ (a.photos || []).forEach(function(pid, k){ ph.push({pid: pid, cap: 'A' + (i + 1) + ' (' + a.reseau + ') : ' + lignesSansPuce(a.observation).join(' ').slice(0, 70) + ', photo ' + (k + 1)}); }); });
+  list.forEach(function(a, i){ (a.photos || []).forEach(function(pid, k){ ph.push({pid: pid, cap: 'A' + (i + 1) + ' (' + a.reseau + ') : ' + lignesSansPuce(a.observation, true).join(' ').slice(0, 70) + ', photo ' + (k + 1)}); }); });
   if (!ph.length) return;
   doc.addPage();
   var colW = (595.28 - 56 - 14) / 2, cellH = 230, y = 58, n = 0;
