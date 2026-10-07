@@ -244,6 +244,8 @@ table.prev th{background:var(--surface-2);font-weight:600}
 .daterow{display:flex;gap:8px;align-items:stretch}.daterow .datebox{flex:1}.date-empty{color:var(--muted);font-weight:500}
 .contact-l{margin:0 0 12px;line-height:1.6}.contact-l a{color:var(--ep);font-weight:600}
 .opt-list{display:flex;flex-direction:column;gap:4px;margin:0 0 14px}.radio{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:600;cursor:pointer}.radio input{width:22px;height:22px;accent-color:var(--brand)}
+.pick-chips{flex-wrap:wrap;overflow:visible;padding:12px 0 6px}.pick-chips .chip{min-height:42px;font-size:15px}
+.pick-cat{font-family:"Barlow Condensed","Barlow",sans-serif;font-weight:700;font-size:19px;color:var(--ink-2);margin:16px 0 8px}.pick-cat:first-child{margin-top:4px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}.btn:active{transform:none}}
 </style>
 </head>
@@ -262,7 +264,7 @@ table.prev th{background:var(--surface-2);font-weight:600}
 <script>
 (function(){
 'use strict';
-var VERSION = '1.1.0';
+var VERSION = '1.2.0';
 
 /* ---------- Utilitaires ---------- */
 var $ = function(s, r){ return (r || document).querySelector(s); };
@@ -316,7 +318,25 @@ var STATUTS = [['a_visiter', 'À visiter'], ['visitee', 'Visitée'], ['a_revoir'
 function stLabel(k){ for (var i = 0; i < STATUTS.length; i++) if (STATUTS[i][0] === k) return STATUTS[i][1]; return k || ''; }
 var FILTERS = [['toutes', 'Toutes'], ['a_visiter', 'À visiter'], ['visitee', 'Visitées'], ['a_completer', 'À compléter'], ['avec', 'Avec anomalies'], ['autres', 'À revoir, absents']];
 var MAP_KEYS = ['numero', 'adr1', 'adr2', 'commune', 'nom', 'tel', 'mail', 'dom1', 'dom2', 'domVille', 'rdv'];
-var SEEDS = [["EP", "Absence de cunette", "réhabilitation du regard et de la cunette"], ["EP", "Absence de regard de visite EP en limite de propriété", "mise en place d'un regard EP en limite de propriété"], ["EP", "Absence de regard EP", "mise en place d'un regard EP avec tampon hydraulique au pied de la maison"], ["EP", "Absence de tampon sur le regard EP", "mise en place d'un tampon 30*30 béton"], ["EP", "Branchement EU & EP cassé", "mise en place d'un regard EP en limite de propriété"], ["EP", "Descente EP (abri) apporte de l'humidité", "prolongement de 4 ml en encorbellement vers le milieu naturel"], ["EP", "Descente EP arrière non visitable", "mise en place d'un regard en pied de chute"], ["EP", "Descente EP avant non visitable", "mise en place d'un té de visite"], ["EP", "Descente EP obstruée", "reprise de la canalisation arrière et raccordement en encorbellement sur la descente EP avant"], ["EP", "Grille arrière bouchée (peinture)", "curage de la grille"], ["EP", "Passage du réseau EP arrière dans le regard EU", "reprise en amont du regard EU et raccordement sur le regard EP"], ["EP", "Raccordement des EP arrière sur le réseau EU", "reprise des EP et raccordement en encorbellement (ø 80 ; 11 ml)"], ["EP", "Regard EP non conforme, absence de cunette (sous-escalier)", "réhabilitation du regard et création de la cunette"], ["EP", "Regard EP non réglementaire", "mise en place d'un regard EP avec tampon hydraulique"], ["EP", "Regard EP non réglementaire", "réhabilitatin d'un regard EP avec tampon hydraulique"], ["EP", "Regard EP non visitable", "mise en placed'un té de visite et d'un regard en pied de chute (avant et arrière)"], ["EP", "Regard EP sous escalier, non accessible, non visitable", "mise en place d'un regard EP en limite de propriété"], ["EP", "Rejet de la descente EP avant sur le réseau EU", "reprise de la descente en mural et racordement en encorbellement sur la grille EP (regard EP existant)"], ["EP", "Rejet de la grille en ruissellement sur la propriété voisine", "reprise de l'exutoire et raccordement sur le regard EP à créer (tranchée 4 ml)"], ["EP", "Rejet du drainage arrière sur le regard EU (sous escalier)", "reprise de canalisation et raccordement sur le regard EP (sous escalier)\nchangement tampon hydraulique EU"], ["EP", "Rejet du drainage sous-sol sur le réseau EU via une pompe de relevage", "reprise de pompe de relevage et raccordement sur l'EP arrière y compris cable électrique (en encorbellement)\ndécoupe béton (électricité et conduite de refoulement) sur 1 ml et raccord\nétanchéisation du mur la zone extérieure du percement du mur de l'habitation"], ["EP", "Rejet du drainage sur le regard EU", "reprise du drain et raccordement sur le regard EP"], ["EP", "Rejet du siphon (terrasse) vers l'escalier = apport d'humidité sur les 8 & 10 allée Gauguin", "repris ede la canalisation et raccordement sur le regard EP (sous escalier)"], ["EP", "Réseau EP cassé et obstrué et présence de ???", "reprise de la canalisation EP et raccordement sur le branchement EP"], ["EP", "Réseau EP cassé sur regard arrière", "reprise EP et raccordement sur regard EP"], ["EP", "Réseau secondaire (grille arrière) encombré", "curage du réseau"], ["EP", "Siphon, grille et EP arrière raccordés sur le regard EU", "reprise des EP et raccordement sur le regard EP"], ["EU", "Absence de regard de visite EU en limite de propriété", "mise en place d'un regard EU avec tampon hydraulique en limite de propriété"], ["EU", "Absence d'évent sur la partie arrière", "mise en place d'un évent sur la ventilation primaire existante (rallonger 'd'1 m au-dessus de la fenêtre)"], ["EU", "Absence de cunette sur le regard EU = rétention", "mise en place d'une cunette"], ["EU", "Arrivée d'une canalisation non localisée (test à la fumée)", "suppression de la canalisation dans le regard EU ø 10"], ["EU", "Branchement EU & EP cassé", "mise en place d'un regard EU en limite de propriété"], ["EU", "Canalisation fonte ø 100 fissurée et non étanche", "dépose de la canalisation fonte et pose de canalisation PVC ø 100"], ["EU", "Fissuration de la canalisation (fente sur la longueur)", "dépose et pose de canalisation fonte ø 100"], ["EU", "Présence d'une canalisation EU en attente raccordée sur le regard EP", "suppression de la canalisation"], ["EU", "Regard de visite sous escalier non accessible", "mise en place d'un regard en limite de propriété"], ["EU", "Regard EU au pied de la maison non réglementaire", "mise en place d'un regard avec tampon hydraulique"], ["EU", "Regard EU non conforme avec rétention", "mise en place d'un regard EU avec tampon hydraulique"], ["EU", "Regard EU non étanche et non réglementaire", "mise en place d'un regard avec tampon hydraulique"], ["EU", "Regard EU non étanche et non réglementaire avec rétention (absence de cunette)", "mise en place d'un regard EU (prof.: 0,90) avec tampon hydraulique"], ["EU", "Regard EU sous escalier non étanche", "réhabilitation du regard EU"], ["EU", "Rejet de la douche (sous-sol) vers les EP", "reprise de la sortie douche sous l'escalier et raccordement sur l'écoulement EU : déposé et pose de marche et contre-marche avec maçonnerie béton (1,2 m)"], ["EU", "Rejet de la fontaine sur le réseau EP", "suppression de la fontaine"], ["EU", "Rejet de la purge (ballon d'eau chaude) non raccordée sur le réseau EU", "mise en place d'une pompe et raccordement en encorbellement sur le réseau EU"], ["EU", "Rejet de la purge (chaudière) vers le milieu naturel", "mise en place d'une pompe (chaudière) et raccordement sur le réseau EU (11 ml)"], ["EU", "Rejet du condensat et de la purge (chaudière) vers la grille EP", "reprise de la purge et condensat et raccordement en encorbellement vers le réseau EU (PVC) via un poste de relevage \"chaudière\""], ["EU", "Rejet du condensat et de la purge (chaudière) vers le milieu naturel", "mise en place de pompe de relevage \"chaudière\" et raccordement sur le réseau EU (PVC)\nsuppression de la canalisation murale ø 40 - 6 ml"], ["EU", "Rejet du lavabo, de la buanderie et du siphon (sous escalier) vers le réseau EP", "\"- reprise de l'ensemble des EU et raccordement sur le réseau principal (fonte ø 100) via un poste EM"], ["EU", "Rejet du lavoir sur le réseau EP", "mise en place d'une pompe EM et raccordement sur la buanderie"], ["EU", "Rejet évier, lave-linge (sous-sol) et lavabo (étage) sur le réseau EP", "reprise des EU et raccordement sur le réseau EU fonte"], ["EU", "Rejet manuel de condensat et de la purge (chaudière) vers le milieu naturel", "mise en place de pompe de relèvement \"chaudière\" et raccordement sur l'écoulement du lave-linge en encorbellement ø 0,8/1"], ["EU", "Rejet manuel de la purge (chaudière) vers le milieu naturel", "mise en place d'un poste de relevage (chaudière) et raccordement  sur le réseau EU (15 ml)"], ["EU", "Rejet manuel du condensat (chaudière) et du ballon d'eau chaude vers le milieu naturel", "reprise des condensats sur le réseau EU via une pompe (chaudière)"], ["EU", "Réseau EU cassé et obstrué et présence de racines (passage caméra)", "reprise de la canalisation EU au pied de la maison et raccordement sur le branchement EU"], ["EU", "Siphon de sol (chaudière) et purge ??? (chaudière) vers le milieu naturel", "reprise du siphon de sol et de la purge et raccordement sur le réseau principal (fonte ø 100) via un poste de relevage (vide-cave)\nmise en place d'une grille 40*40 (création de regard)"], ["EU", "Tampon EU du regard non conforme", "mise en place d'un tampon hydraulique"]];
+/* Catégories des anomalies types : attribuées automatiquement d'après le libellé, modifiables dans la bibliothèque */
+var CATS = [['inversion', 'Inversions EU / EP'], ['regard', 'Regards et tampons'], ['canal', 'Canalisations'], ['descente', 'Descentes EP'], ['grille', 'Grilles et siphons'],
+  ['drainage', 'Drainage'], ['chaudiere', 'Chaudière et purges'], ['ventilation', 'Ventilation'], ['autre', 'Autres']];
+function catLabel(k){ for (var i = 0; i < CATS.length; i++) if (CATS[i][0] === k) return CATS[i][1]; return 'Autres'; }
+function autoCat(net, obs){
+  var o = norm(obs).replace(/\s+/g, ' '), other = net === 'EP' ? 'eu' : 'ep';
+  if (/chaudiere|purge|condensat|ballon/.test(o)) return 'chaudiere';
+  if (/drain/.test(o)) return 'drainage';
+  if (/\bevent\b|ventilation/.test(o)) return 'ventilation';
+  if (new RegExp('\\b(sur|vers|dans)\\s+(le |la |les |l\')?\\s*((reseau|regard|grille|branchement|canalisation)s?\\s+)?' + other + '\\b').test(o)
+    || new RegExp('\\b(raccordee?s?|rejet|rejete?e?s?)\\b.*\\b' + other + '\\b').test(o)) return 'inversion';
+  if (/descente/.test(o)) return 'descente';
+  if (/grille|siphon|caniveau|avaloir/.test(o)) return 'grille';
+  if (/canalisation|branchement|reseau|racine|fissur|casse|obstru|fuite/.test(o)) return 'canal';
+  if (/regard|tampon|cunette/.test(o)) return 'regard';
+  return 'autre';
+}
+function anomCat(a){ return a.categorie || autoCat(a.reseau, a.observation); }
+var SEEDS = [["EP", "Absence de cunette", "réhabilitation du regard et de la cunette"], ["EP", "Absence de regard de visite EP en limite de propriété", "mise en place d'un regard EP en limite de propriété"], ["EP", "Absence de regard EP", "mise en place d'un regard EP avec tampon hydraulique au pied de la maison"], ["EP", "Absence de tampon sur le regard EP", "mise en place d'un tampon 30*30 béton"], ["EP", "Branchement EU & EP cassé", "mise en place d'un regard EP en limite de propriété"], ["EP", "Descente EP (abri) apporte de l'humidité", "prolongement de 4 ml en encorbellement vers le milieu naturel"], ["EP", "Descente EP arrière non visitable", "mise en place d'un regard en pied de chute"], ["EP", "Descente EP avant non visitable", "mise en place d'un té de visite"], ["EP", "Descente EP obstruée", "reprise de la canalisation arrière et raccordement en encorbellement sur la descente EP avant"], ["EP", "Grille arrière bouchée (peinture)", "curage de la grille"], ["EP", "Passage du réseau EP arrière dans le regard EU", "reprise en amont du regard EU et raccordement sur le regard EP"], ["EP", "Raccordement des EP arrière sur le réseau EU", "reprise des EP et raccordement en encorbellement (ø 80 ; 11 ml)"], ["EP", "Regard EP non conforme, absence de cunette (sous-escalier)", "réhabilitation du regard et création de la cunette"], ["EP", "Regard EP non réglementaire", "mise en place d'un regard EP avec tampon hydraulique"], ["EP", "Regard EP non réglementaire", "réhabilitation d'un regard EP avec tampon hydraulique"], ["EP", "Regard EP non visitable", "mise en place d'un té de visite et d'un regard en pied de chute (avant et arrière)"], ["EP", "Regard EP sous escalier, non accessible, non visitable", "mise en place d'un regard EP en limite de propriété"], ["EP", "Rejet de la descente EP avant sur le réseau EU", "reprise de la descente en mural et raccordement en encorbellement sur la grille EP (regard EP existant)"], ["EP", "Rejet de la grille en ruissellement sur la propriété voisine", "reprise de l'exutoire et raccordement sur le regard EP à créer (tranchée 4 ml)"], ["EP", "Rejet du drainage arrière sur le regard EU (sous escalier)", "reprise de canalisation et raccordement sur le regard EP (sous escalier)\nchangement tampon hydraulique EU"], ["EP", "Rejet du drainage sous-sol sur le réseau EU via une pompe de relevage", "reprise de pompe de relevage et raccordement sur l'EP arrière y compris cable électrique (en encorbellement)\ndécoupe béton (électricité et conduite de refoulement) sur 1 ml et raccord\nétanchéisation du mur la zone extérieure du percement du mur de l'habitation"], ["EP", "Rejet du drainage sur le regard EU", "reprise du drain et raccordement sur le regard EP"], ["EP", "Rejet du siphon (terrasse) vers l'escalier = apport d'humidité chez les voisins", "reprise de la canalisation et raccordement sur le regard EP (sous escalier)"], ["EP", "Réseau EP cassé et obstrué et présence de ???", "reprise de la canalisation EP et raccordement sur le branchement EP"], ["EP", "Réseau EP cassé sur regard arrière", "reprise EP et raccordement sur regard EP"], ["EP", "Réseau secondaire (grille arrière) encombré", "curage du réseau"], ["EP", "Siphon, grille et EP arrière raccordés sur le regard EU", "reprise des EP et raccordement sur le regard EP"], ["EU", "Absence de regard de visite EU en limite de propriété", "mise en place d'un regard EU avec tampon hydraulique en limite de propriété"], ["EU", "Absence d'évent sur la partie arrière", "mise en place d'un évent sur la ventilation primaire existante (rallonger 'd'1 m au-dessus de la fenêtre)"], ["EU", "Absence de cunette sur le regard EU = rétention", "mise en place d'une cunette"], ["EU", "Arrivée d'une canalisation non localisée (test à la fumée)", "suppression de la canalisation dans le regard EU ø 10"], ["EU", "Branchement EU & EP cassé", "mise en place d'un regard EU en limite de propriété"], ["EU", "Canalisation fonte ø 100 fissurée et non étanche", "dépose de la canalisation fonte et pose de canalisation PVC ø 100"], ["EU", "Fissuration de la canalisation (fente sur la longueur)", "dépose et pose de canalisation fonte ø 100"], ["EU", "Présence d'une canalisation EU en attente raccordée sur le regard EP", "suppression de la canalisation"], ["EU", "Regard de visite sous escalier non accessible", "mise en place d'un regard en limite de propriété"], ["EU", "Regard EU au pied de la maison non réglementaire", "mise en place d'un regard avec tampon hydraulique"], ["EU", "Regard EU non conforme avec rétention", "mise en place d'un regard EU avec tampon hydraulique"], ["EU", "Regard EU non étanche et non réglementaire", "mise en place d'un regard avec tampon hydraulique"], ["EU", "Regard EU non étanche et non réglementaire avec rétention (absence de cunette)", "mise en place d'un regard EU (prof.: 0,90) avec tampon hydraulique"], ["EU", "Regard EU sous escalier non étanche", "réhabilitation du regard EU"], ["EU", "Rejet de la douche (sous-sol) vers les EP", "reprise de la sortie douche sous l'escalier et raccordement sur l'écoulement EU : déposé et pose de marche et contre-marche avec maçonnerie béton (1,2 m)"], ["EU", "Rejet de la fontaine sur le réseau EP", "suppression de la fontaine"], ["EU", "Rejet de la purge (ballon d'eau chaude) non raccordée sur le réseau EU", "mise en place d'une pompe et raccordement en encorbellement sur le réseau EU"], ["EU", "Rejet de la purge (chaudière) vers le milieu naturel", "mise en place d'une pompe (chaudière) et raccordement sur le réseau EU (11 ml)"], ["EU", "Rejet du condensat et de la purge (chaudière) vers la grille EP", "reprise de la purge et condensat et raccordement en encorbellement vers le réseau EU (PVC) via un poste de relevage \"chaudière\""], ["EU", "Rejet du condensat et de la purge (chaudière) vers le milieu naturel", "mise en place de pompe de relevage \"chaudière\" et raccordement sur le réseau EU (PVC)\nsuppression de la canalisation murale ø 40 - 6 ml"], ["EU", "Rejet du lavabo, de la buanderie et du siphon (sous escalier) vers le réseau EP", "reprise de l'ensemble des EU et raccordement sur le réseau principal (fonte ø 100) via un poste EM"], ["EU", "Rejet du lavoir sur le réseau EP", "mise en place d'une pompe EM et raccordement sur la buanderie"], ["EU", "Rejet évier, lave-linge (sous-sol) et lavabo (étage) sur le réseau EP", "reprise des EU et raccordement sur le réseau EU fonte"], ["EU", "Rejet manuel de condensat et de la purge (chaudière) vers le milieu naturel", "mise en place de pompe de relèvement \"chaudière\" et raccordement sur l'écoulement du lave-linge en encorbellement ø 0,8/1"], ["EU", "Rejet manuel de la purge (chaudière) vers le milieu naturel", "mise en place d'un poste de relevage (chaudière) et raccordement  sur le réseau EU (15 ml)"], ["EU", "Rejet manuel du condensat (chaudière) et du ballon d'eau chaude vers le milieu naturel", "reprise des condensats sur le réseau EU via une pompe (chaudière)"], ["EU", "Réseau EU cassé et obstrué et présence de racines (passage caméra)", "reprise de la canalisation EU au pied de la maison et raccordement sur le branchement EU"], ["EU", "Siphon de sol (chaudière) et purge ??? (chaudière) vers le milieu naturel", "reprise du siphon de sol et de la purge et raccordement sur le réseau principal (fonte ø 100) via un poste de relevage (vide-cave)\nmise en place d'une grille 40*40 (création de regard)"], ["EU", "Tampon EU du regard non conforme", "mise en place d'un tampon hydraulique"]];
 
 /* ---------- Stockage local (IndexedDB) ---------- */
 var DB = {
@@ -510,7 +530,7 @@ async function detailHtml(r){
   if (r.name === 'fiche') return '<div class="page">' + (await ficheViewHtml()) + '</div>';
   return '';
 }
-function afterFor(r){ return r.name === 'anom' ? function(){ return renderThumbs(curAnom()); } : null; }
+function afterFor(r){ return r.name === 'anom' ? async function(){ await renderThumbs(curAnom()); var a = curAnom(); if (a && S.autoPick === a.id){ S.autoPick = null; pickType(); } } : null; }
 function barHtml(o){
   return '<header class="bar">' + (o.back ? '<button type="button" class="iconbtn" data-act="back" data-href="' + esc(o.back) + '" aria-label="Retour">' + svg(I.back, 24) + '</button>' : '<span class="bar-pad"></span>')
     + '<div class="bar-t"><div class="bar-title">' + esc(o.title) + '</div>' + (o.sub ? '<div class="bar-sub">' + esc(o.sub) + '</div>' : '') + '</div>'
@@ -740,7 +760,7 @@ function viewImport(mode){
     b += '<div class="summary">' + plural(pl.added, 'nouveau dossier', 'nouveaux dossiers') + ', ' + plural(pl.updated, 'dossier mis à jour', 'dossiers mis à jour') + (pl.missing ? ', ' + plural(pl.missing, 'dossier absent', 'dossiers absents') + ' du nouveau tableau (conservés et signalés)' : '') + '.</div>';
     b += '<button type="button" class="btn primary big wide" data-act="apply-update"' + (imp.map.numero < 0 || !res.recs.length ? ' disabled' : '') + '>Mettre à jour l\'étude</button>';
   } else {
-    b += '<label class="field"><span class="lbl">Nom de l\'étude</span><input type="text" id="imp-name" value="' + esc(imp.name) + '" placeholder="ex. Lotissement du Montguichet, GAG 2026"></label>';
+    b += '<label class="field"><span class="lbl">Nom de l\'étude</span><input type="text" id="imp-name" value="' + esc(imp.name) + '" placeholder="Nom de l’opération"></label>';
     b += '<button type="button" class="btn primary big wide" data-act="create-etude"' + (imp.map.numero < 0 || !res.recs.length ? ' disabled' : '') + '>Créer l\'étude avec ' + plural(res.recs.length, 'dossier', 'dossiers') + '</button>';
   }
   b += '</div>';
@@ -927,7 +947,7 @@ function visitHtml(){
   h += list.length ? '<div class="alist">' + list.map(function(a, k){ return anomItemHtml(v, a, k); }).join('') + '</div>'
     : '<label class="check big"><input type="checkbox" data-vf="aucuneAnomalie"' + (v.aucuneAnomalie ? ' checked' : '') + '><span>Aucune anomalie constatée</span></label>';
   h += '</section><section class="sec"><h2 class="h2">Observations sur la fiche</h2><p class="muted small">Elles s\'impriment sous la rubrique correspondante, comme dans vos fiches.</p>'
-    + '<label class="field"><span class="lbl">Eaux pluviales</span><textarea data-vf="obsEP" rows="2" placeholder="ex. siphon EP en commun avec le n° 35">' + esc(v.obsEP || '') + '</textarea></label>'
+    + '<label class="field"><span class="lbl">Eaux pluviales</span><textarea data-vf="obsEP" rows="2" placeholder="ex. siphon EP commun avec la parcelle voisine">' + esc(v.obsEP || '') + '</textarea></label>'
     + '<label class="field"><span class="lbl">Eaux usées</span><textarea data-vf="obsEU" rows="2">' + esc(v.obsEU || '') + '</textarea></label></section>';
   h += '<section class="sec"><label class="field"><span class="lbl">Notes internes <span class="opt">non imprimées sur la fiche</span></span><textarea data-vf="observations" rows="3" placeholder="Accès, conditions de la visite, remarques">' + esc(v.observations || '') + '</textarea></label></section>';
   var filled = (v.excel || []).filter(function(p){ return String(p[1]).trim() !== ''; });
@@ -1039,37 +1059,58 @@ async function addToBiblio(a){
   var all = await DB.all('biblio'), o = String(a.observation || '').trim(), p = String(a.preconisation || '').trim();
   if (all.some(function(b){ return b.reseau === a.reseau && String(b.observation).trim() === o && String(b.preconisation || '').trim() === p; })) return false;
   var t = nowISO();
-  await DB.put('biblio', {id: uid(), reseau: a.reseau, observation: o, preconisation: p, exemple: false, createdAt: t, updatedAt: t});
+  await DB.put('biblio', {id: uid(), reseau: a.reseau, observation: o, preconisation: p, categorie: anomCat(a), usage: 1, lastUsed: t, exemple: false, createdAt: t, updatedAt: t});
   return true;
 }
+/* Sélecteur rapide : fréquentes d'abord, puis catégories ; une catégorie se choisit d'un geste, l'anomalie d'un second */
 async function pickType(){
   var a = curAnom(); if (!a) return;
-  var all = await DB.all('biblio'), net = a.reseau === 'EP' ? 'EP' : 'EU';
-  all.sort(function(x, y){ return natCmp(x.observation, y.observation); });
-  function listHtml(q){
+  var net = a.reseau === 'EP' ? 'EP' : 'EU', pool = (await DB.all('biblio')).filter(function(x){ return x.reseau === net; });
+  pool.forEach(function(x){ if (!x.categorie) x.categorie = autoCat(x.reseau, x.observation); });
+  pool.sort(function(x, y){ return natCmp(x.observation, y.observation); });
+  var freq = pool.filter(function(x){ return x.usage > 0; }).sort(function(x, y){ return (y.usage - x.usage) || String(y.lastUsed || '').localeCompare(String(x.lastUsed || '')); }).slice(0, 8);
+  var cats = CATS.filter(function(c){ return pool.some(function(x){ return x.categorie === c[0]; }); });
+  var cur = freq.length ? 'freq' : 'all', q = '';
+  function chips(){
+    var list = (freq.length ? [['freq', 'Fréquentes', freq.length]] : []).concat([['all', 'Toutes', pool.length]])
+      .concat(cats.map(function(c){ return [c[0], c[1], pool.filter(function(x){ return x.categorie === c[0]; }).length]; }));
+    return list.map(function(c){ return '<button type="button" class="chip" data-m="cat" data-v="' + c[0] + '" aria-pressed="' + (!q && cur === c[0]) + '">' + esc(c[1]) + ' <span class="cnt">' + c[2] + '</span></button>'; }).join('');
+  }
+  function item(x){ return '<button type="button" class="pick-item ' + net.toLowerCase() + '" data-m="pick" data-id="' + esc(x.id) + '"><div class="po">' + esc(x.observation) + '</div><div class="pp">' + esc(x.preconisation) + '</div></button>'; }
+  function listHtml(){
     var nq = norm(q).trim();
-    var items = all.filter(function(x){ return x.reseau === net && (!nq || norm(x.observation + ' ' + x.preconisation).indexOf(nq) >= 0); });
-    return items.length ? items.map(function(x){ return '<button type="button" class="pick-item ' + net.toLowerCase() + '" data-m="pick" data-id="' + esc(x.id) + '"><div class="po">' + esc(x.observation) + '</div><div class="pp">' + esc(x.preconisation) + '</div></button>'; }).join('')
-      : '<p class="muted">Aucune anomalie type ' + net + (nq ? ' pour cette recherche' : '') + '. En validant cette anomalie, vous pourrez l\'ajouter à vos types.</p>';
+    if (nq){
+      var hits = pool.filter(function(x){ return norm(x.observation + ' ' + x.preconisation + ' ' + catLabel(x.categorie)).indexOf(nq) >= 0; });
+      return hits.length ? hits.map(item).join('') : '<p class="muted">Aucune anomalie type ' + net + ' ne correspond. Saisissez-la librement : en la validant, vous pourrez l\'ajouter à vos types.</p>';
+    }
+    if (!pool.length) return '<p class="muted">Aucune anomalie type ' + net + ' pour l\'instant. Saisissez-la librement : en la validant, vous pourrez l\'ajouter à vos types.</p>';
+    if (cur === 'freq') return freq.map(item).join('');
+    if (cur === 'all') return cats.map(function(c){ return '<div class="pick-cat">' + esc(c[1]) + '</div>' + pool.filter(function(x){ return x.categorie === c[0]; }).map(item).join(''); }).join('');
+    return pool.filter(function(x){ return x.categorie === cur; }).map(item).join('');
   }
   var chosen = await openModal({title: 'Anomalies types ' + net, noAutofocus: true,
-    html: '<div class="searchbox">' + svg(I.search, 20) + '<input type="search" id="m-q" placeholder="Filtrer" aria-label="Filtrer les anomalies types" autocomplete="off"></div><div class="sheet-list mt" id="m-list">' + listHtml('') + '</div>',
-    actions: [{label: 'Fermer', value: null}],
+    html: '<div class="searchbox">' + svg(I.search, 20) + '<input type="search" id="m-q" placeholder="Rechercher dans les anomalies types" aria-label="Rechercher une anomalie type" autocomplete="off"></div>'
+      + '<div class="chips pick-chips" id="m-chips" role="group" aria-label="Catégories">' + chips() + '</div><div class="sheet-list" id="m-list">' + listHtml() + '</div>',
+    actions: [{label: 'Saisie libre', value: null}],
     onMount: function(w, close){
-      var q = w.querySelector('#m-q');
-      q.addEventListener('input', function(){ w.querySelector('#m-list').innerHTML = listHtml(q.value); });
-      w.addEventListener('click', function(ev){ var b = ev.target.closest('[data-m="pick"]'); if (b) close(b.dataset.id); });
+      var qi = w.querySelector('#m-q');
+      function refresh(){ w.querySelector('#m-chips').innerHTML = chips(); w.querySelector('#m-list').innerHTML = listHtml(); var mb = w.querySelector('.m-body'); if (mb) mb.scrollTop = 0; }
+      qi.addEventListener('input', function(){ q = qi.value; refresh(); });
+      w.addEventListener('click', function(ev){
+        var c = ev.target.closest('[data-m="cat"]'); if (c){ cur = c.dataset.v; q = ''; qi.value = ''; refresh(); return; }
+        var b = ev.target.closest('[data-m="pick"]'); if (b) close(b.dataset.id);
+      });
     }});
-  if (!chosen) return;
-  var it = all.find(function(x){ return x.id === chosen; }); if (!it) return;
+  if (!chosen){ var o0 = $('[data-af="observation"]'); if (o0 && !o0.value) o0.focus(); return; }
+  var it = pool.find(function(x){ return x.id === chosen; }); if (!it) return;
   if ((String(a.observation || '').trim() || String(a.preconisation || '').trim()) && !(await confirmModal('Remplacer le texte ?', 'L\'anomalie et la préconisation déjà saisies seront remplacées par l\'anomalie type.', 'Remplacer'))) return;
-  a.observation = it.observation; a.preconisation = it.preconisation; a.reseau = it.reseau; a.updatedAt = nowISO();
+  a.observation = it.observation; a.preconisation = it.preconisation; a.reseau = it.reseau; a.categorie = it.categorie; a.updatedAt = nowISO();
   await DB.put('anomalies', a); touchEtude();
+  it.usage = (it.usage || 0) + 1; it.lastUsed = nowISO(); await DB.put('biblio', it);
   var o = $('[data-af="observation"]'); if (o) o.value = a.observation;
   var p = $('[data-af="preconisation"]'); if (p) p.value = a.preconisation;
   toast('Anomalie type appliquée');
 }
-
 /* ---------- Fiche du dossier : aperçu à l'écran et PDF, mise en page des fiches « Préco » ---------- */
 var FICHE_CSS = '.fiche{font-family:"Century Gothic","Jost","Futura","Avenir Next",Arial,sans-serif;color:#000;background:#fff;max-width:190mm;margin:0 auto;padding:8mm 9mm 12mm;font-size:9.5pt;line-height:1.3}'
   + '.fiche .f-head{position:relative;min-height:40mm}.fiche .f-logo{position:absolute;left:0;top:0;width:67mm;height:auto}'
@@ -1276,16 +1317,16 @@ function recapXlsx(e, vs, as){
   });
   var ws1 = XLSX.utils.aoa_to_sheet([vHead].concat(vRows));
   ws1['!cols'] = [12, 34, 16, 22, 14, 26, 34, 12, 12, 10, 8, 8, 12, 40, 30, 30, 30].concat(extra.map(function(){ return 16; })).map(function(w){ return {wch: w}; });
-  var aHead = ['N° dossier', 'Adresse de la visite', 'Anomalie', 'Réseau', 'Localisation', 'Anomalie observée', 'Préconisation de travaux', 'Photos', 'Fichiers photos', 'Validée', 'Saisie le'];
+  var aHead = ['N° dossier', 'Adresse de la visite', 'Anomalie', 'Réseau', 'Catégorie', 'Localisation', 'Anomalie observée', 'Préconisation de travaux', 'Photos', 'Fichiers photos', 'Validée', 'Saisie le'];
   var aRows = [];
   vs.forEach(function(v){
     (by.get(v.id) || []).slice().sort(byCreated).forEach(function(a, i){
-      aRows.push([v.numero, v.adresse, 'A' + (i + 1), a.reseau || '', a.localisation || '', a.observation || '', a.preconisation || '', (a.photos || []).length,
+      aRows.push([v.numero, v.adresse, 'A' + (i + 1), a.reseau || '', catLabel(anomCat(a)), a.localisation || '', a.observation || '', a.preconisation || '', (a.photos || []).length,
         (a.photos || []).map(function(pid, j){ return photoFileName(v, i, j, 'image/jpeg'); }).join(', '), a.brouillon ? 'non' : 'oui', fmtDT(a.createdAt)]);
     });
   });
   var ws2 = XLSX.utils.aoa_to_sheet([aHead].concat(aRows));
-  ws2['!cols'] = [12, 34, 9, 8, 24, 50, 50, 8, 30, 8, 18].map(function(w){ return {wch: w}; });
+  ws2['!cols'] = [12, 34, 9, 8, 20, 24, 50, 50, 8, 30, 8, 18].map(function(w){ return {wch: w}; });
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws1, 'Visites');
   XLSX.utils.book_append_sheet(wb, ws2, 'Anomalies');
@@ -1296,13 +1337,13 @@ function csvCell(x){ var s = String(x == null ? '' : x); return /[";\r\n]/.test(
 function etudeCsv(e, vs, as){
   var by = groupBy(as, 'visiteId'), extra = (e.source && e.source.headers) || [];
   var rows = [['N° dossier', 'Adresse de la visite', 'Commune', 'Propriétaire', 'Téléphone', 'Mail', 'Adresse du domicile', 'Statut', 'Date de visite', 'Aucune anomalie constatée', 'Points à compléter',
-    'N° anomalie', 'Réseau', 'Anomalie observée', 'Préconisation de travaux', 'Localisation', 'Photos', 'Anomalie validée', 'Observation EP', 'Observation EU', 'Notes internes'].concat(extra.map(function(h){ return 'Tableau : ' + h; }))];
+    'N° anomalie', 'Réseau', 'Catégorie', 'Anomalie observée', 'Préconisation de travaux', 'Localisation', 'Photos', 'Anomalie validée', 'Observation EP', 'Observation EU', 'Notes internes'].concat(extra.map(function(h){ return 'Tableau : ' + h; }))];
   vs.forEach(function(v){
     var l = (by.get(v.id) || []).slice().sort(byCreated), xs = new Map((v.excel || []).map(function(p){ return [p[0], p[1]]; }));
     var head = [v.numero, v.adresse, v.commune, v.nom, fmtTel(fixTel(v.tel)), v.mail || '', ficheDomicile(v), stLabel(v.statut), fmtDate(v.dateVisite), v.aucuneAnomalie ? 'oui' : '', issuesOf(v, l).map(function(x){ return x.msg; }).join(' | ')];
     var tail = [v.obsEP || '', v.obsEU || '', v.observations || ''].concat(extra.map(function(h){ return xs.has(h) ? xs.get(h) : ''; }));
-    if (!l.length) rows.push(head.concat(['', '', '', '', '', '', '']).concat(tail));
-    l.forEach(function(a, i){ rows.push(head.concat(['A' + (i + 1), a.reseau || '', a.observation || '', a.preconisation || '', a.localisation || '', (a.photos || []).length, a.brouillon ? 'non' : 'oui']).concat(tail)); });
+    if (!l.length) rows.push(head.concat(['', '', '', '', '', '', '', '']).concat(tail));
+    l.forEach(function(a, i){ rows.push(head.concat(['A' + (i + 1), a.reseau || '', catLabel(anomCat(a)), a.observation || '', a.preconisation || '', a.localisation || '', (a.photos || []).length, a.brouillon ? 'non' : 'oui']).concat(tail)); });
   });
   return '\ufeff' + rows.map(function(r){ return r.map(csvCell).join(';'); }).join('\r\n') + '\r\n';
 }
@@ -1488,33 +1529,41 @@ async function ficheHeaderForm(){
 /* ---------- Anomalies types ---------- */
 async function viewBiblio(){
   var items = await DB.all('biblio');
+  items.forEach(function(x){ if (!x.categorie) x.categorie = autoCat(x.reseau, x.observation); });
   items.sort(function(a, b){ return natCmp(a.observation, b.observation); });
-  var b = '<div class="page narrow"><h1 class="h1">Anomalies types</h1><p class="lead">Vos formulations, reprises de la feuille modèle de votre tableau « Obs &amp; préco ». Choisies depuis une anomalie, elles pré-remplissent l\'anomalie et la préconisation, que vous ajustez ensuite si besoin.</p>';
-  if (items.some(function(x){ return x.exemple; })) b += '<p class="inline-warn">Les éléments marqués « exemple » sont génériques : adaptez-les à vos formulations ou supprimez-les.</p>';
+  var b = '<div class="page narrow"><h1 class="h1">Anomalies types</h1><p class="lead">Vos formulations, reprises de la feuille modèle de votre tableau « Obs &amp; préco » et classées par catégorie. Dans une anomalie, choisissez la catégorie puis la formulation : l\'anomalie et la préconisation se remplissent, vous les ajustez si besoin.</p>';
   b += '<div class="addrow"><button type="button" class="btn eu big" data-act="biblio-new" data-net="EU">' + svg(I.plus) + 'Type EU</button><button type="button" class="btn ep big" data-act="biblio-new" data-net="EP">' + svg(I.plus) + 'Type EP</button></div>';
   ['EU', 'EP'].forEach(function(net){
     var g = items.filter(function(x){ return x.reseau === net; });
     b += '<section class="bgroup"><h2 class="h2">Réseau ' + net + ' <span class="muted small">' + g.length + '</span></h2>';
-    b += g.length ? g.map(function(x){
-      return '<div class="bitem ' + net.toLowerCase() + '"><div><div class="bo">' + esc(x.observation) + (x.exemple ? '<span class="badge-ex">exemple</span>' : '') + '</div><div class="bp">' + esc(x.preconisation) + '</div></div>'
-        + '<div class="bx"><button type="button" class="btn sm" data-act="biblio-edit" data-id="' + esc(x.id) + '">Modifier</button><button type="button" class="btn sm ghost danger" data-act="biblio-del" data-id="' + esc(x.id) + '" aria-label="Supprimer">' + svg(I.trash, 20) + '</button></div></div>';
-    }).join('') : '<p class="muted">Aucune anomalie type.</p>';
+    if (!g.length) b += '<p class="muted">Aucune anomalie type.</p>';
+    CATS.forEach(function(c){
+      var gc = g.filter(function(x){ return x.categorie === c[0]; });
+      if (!gc.length) return;
+      b += '<div class="pick-cat">' + esc(c[1]) + ' <span class="muted small">' + gc.length + '</span></div>';
+      b += gc.map(function(x){
+        return '<div class="bitem ' + net.toLowerCase() + '"><div><div class="bo">' + esc(x.observation) + '</div><div class="bp">' + esc(x.preconisation) + '</div></div>'
+          + '<div class="bx"><button type="button" class="btn sm" data-act="biblio-edit" data-id="' + esc(x.id) + '">Modifier</button><button type="button" class="btn sm ghost danger" data-act="biblio-del" data-id="' + esc(x.id) + '" aria-label="Supprimer">' + svg(I.trash, 20) + '</button></div></div>';
+      }).join('');
+    });
     b += '</section>';
   });
   b += '</div>';
   return {bar: barHtml({back: '#/', title: 'Anomalies types'}), body: b};
 }
 async function biblioForm(item){
-  var net = item.reseau === 'EP' ? 'EP' : 'EU';
+  var net = item.reseau === 'EP' ? 'EP' : 'EU', cat = item.id ? (item.categorie || autoCat(item.reseau, item.observation)) : '';
   var res = await openModal({title: item.id ? 'Modifier l\'anomalie type' : 'Nouvelle anomalie type',
     html: '<div class="net" role="group" aria-label="Réseau"><button type="button" class="eu" data-m="net" data-v="EU" aria-pressed="' + (net === 'EU') + '">EU</button><button type="button" class="ep" data-m="net" data-v="EP" aria-pressed="' + (net === 'EP') + '">EP</button></div>'
+      + '<label class="field"><span class="lbl">Catégorie</span><select id="m-cat"><option value="">Automatique, d\'après le libellé</option>' + CATS.map(function(c){ return '<option value="' + c[0] + '"' + (c[0] === cat ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '</select></label>'
       + '<label class="field"><span class="lbl">Anomalie observée</span><textarea id="m-obs" rows="3">' + esc(item.observation || '') + '</textarea></label>'
       + '<label class="field"><span class="lbl">Préconisation de travaux</span><textarea id="m-pre" rows="3">' + esc(item.preconisation || '') + '</textarea></label>',
     actions: [{label: 'Annuler', value: null}, {label: 'Enregistrer', cls: 'primary', collect: function(w){
       var o = w.querySelector('#m-obs').value.trim(); if (!o){ toast('Décrivez l\'anomalie.'); return false; }
-      return {reseau: net, observation: o, preconisation: w.querySelector('#m-pre').value.trim()};
+      var c = w.querySelector('#m-cat').value;
+      return {reseau: net, observation: o, preconisation: w.querySelector('#m-pre').value.trim(), categorie: c || autoCat(net, o)};
     }}],
-    onMount: function(w){ w.addEventListener('click', function(ev){ var b = ev.target.closest('[data-m="net"]'); if (!b) return; net = b.dataset.v; $$('[data-m="net"]', w).forEach(function(x){ x.setAttribute('aria-pressed', String(x.dataset.v === net)); }); }); }});
+    onMount: function(w){ w.addEventListener('click', function(ev){ var bt = ev.target.closest('[data-m="net"]'); if (!bt) return; net = bt.dataset.v; $$('[data-m="net"]', w).forEach(function(x){ x.setAttribute('aria-pressed', String(x.dataset.v === net)); }); }); }});
   if (!res) return;
   var t = nowISO();
   await DB.put('biblio', Object.assign({}, item, res, {id: item.id || uid(), exemple: false, createdAt: item.createdAt || t, updatedAt: t}));
@@ -1523,15 +1572,19 @@ async function biblioForm(item){
 async function seedBiblio(){
   try {
     var meta = await DB.get('meta', 'seedVersion'), ver = meta ? meta.v : 0;
-    if (ver >= 2) return;
+    if (ver >= 3) return;
     var t = nowISO(), all = await DB.all('biblio');
-    var olds = all.filter(function(b){ return b.exemple; });
-    if (olds.length) await DB.delMany('biblio', olds.map(function(b){ return b.id; }));
-    var have = new Set(all.filter(function(b){ return !b.exemple; }).map(function(b){ return b.reseau + '|' + norm(b.observation) + '|' + norm(b.preconisation); }));
-    var add = SEEDS.filter(function(s){ return !have.has(s[0] + '|' + norm(s[1]) + '|' + norm(s[2])); })
-      .map(function(s){ return {id: uid(), reseau: s[0], observation: s[1], preconisation: s[2], exemple: false, source: 'modele', createdAt: t, updatedAt: t}; });
+    var drop = all.filter(function(b){ return b.exemple || (b.source === 'modele' && b.updatedAt === b.createdAt); });
+    if (drop.length) await DB.delMany('biblio', drop.map(function(b){ return b.id; }));
+    var keep = all.filter(function(b){ return drop.indexOf(b) < 0; });
+    keep.forEach(function(b){ if (!b.categorie) b.categorie = autoCat(b.reseau, b.observation); });
+    if (keep.length) await DB.putMany('biblio', keep);
+    var key = function(r, o, p){ return r + '|' + norm(o).trim() + '|' + norm(p).trim(); };
+    var have = new Set(keep.map(function(b){ return key(b.reseau, b.observation, b.preconisation); }));
+    var add = SEEDS.filter(function(s){ return !have.has(key(s[0], s[1], s[2])); })
+      .map(function(s){ return {id: uid(), reseau: s[0], observation: s[1], preconisation: s[2], categorie: autoCat(s[0], s[1]), usage: 0, exemple: false, source: 'modele', createdAt: t, updatedAt: t}; });
     if (add.length) await DB.putMany('biblio', add);
-    await DB.put('meta', {k: 'seedVersion', v: 2});
+    await DB.put('meta', {k: 'seedVersion', v: 3});
     await DB.put('meta', {k: 'seeded', v: true});
   } catch(e){ if (window.console) console.warn(e); }
 }
@@ -1556,6 +1609,7 @@ var ACTIONS = {
     var t = nowISO(), a = {id: uid(), etudeId: v.etudeId, visiteId: v.id, reseau: el.dataset.net === 'EP' ? 'EP' : 'EU', observation: '', preconisation: '', localisation: '', photos: [], photoNonRequise: false, brouillon: true, createdAt: t, updatedAt: t};
     if (v.aucuneAnomalie){ v.aucuneAnomalie = false; v.updatedAt = t; saveLater('visites', v); }
     await DB.put('anomalies', a); S.anoms.push(a); touchEtude();
+    S.autoPick = a.id;
     go('#/e/' + v.etudeId + '/v/' + v.id + '/a/' + a.id);
     return a.id;
   },
@@ -1644,7 +1698,7 @@ async function init(){
   }
   await render();
 }
-window.__VT = {S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, ready: null};
+window.__VT = {S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, ready: null};
 window.__VT.ready = init();
 })();
 </script>
