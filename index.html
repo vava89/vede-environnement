@@ -1690,7 +1690,8 @@ function constatRowsForPrint(c){
 function drawConstatP1(doc, v, E){
   var c = E.c, A = window.VEDE_ASSETS || {}, P = CPC, ce = (S.etude && S.etude.fiche) || {};
   doc.setDrawColor(P.orange[0], P.orange[1], P.orange[2]); doc.setLineWidth(1); doc.rect(15, 15, 565, 811);
-  if (((c.signeLe && c.fige) ? c.fige.logo : ce.constatLogo) === 'vede' && A.logo) cLogo(doc, A.logo, 26, 34, 150, 76, 'logo-vede'); else cLogo(doc, A.logoBE, 30, 26, 117, 114, 'logo-be');
+  /* Logo VÉDÉ par défaut ; celui du formulaire (bureau d'études) sur demande, dans « En-tête des fiches » */
+  if (((c.signeLe && c.fige) ? c.fige.logo : ce.constatLogo) === 'formulaire' || !A.logo) cLogo(doc, A.logoBE, 30, 26, 117, 114, 'logo-be'); else cLogo(doc, A.logo, 26, 34, 150, 76, 'logo-vede');
   cLogo(doc, A.logoSSD, 427.5, 22.5, 142.5, 42, 'logo-ssd');
   cTxt(doc, 'Assainissement collectif', 304.7, 35.6, {sz: 10.5, col: P.bleu, al: 'center'});
   cCenterRuns(doc, [['Eaux Usées ', P.rouge], ['& ', P.violetF], ['Eaux pluviales', P.vert]], 304.7, 47.8, {sz: 10.5});
@@ -2214,7 +2215,7 @@ async function ficheHeaderForm(){
     html: '<label class="field"><span class="lbl">Ligne du département</span><input type="text" id="m-dep" value="' + esc(f.departement || '') + '" placeholder="' + esc(auto.dep || 'Département de …') + '"></label>'
       + '<label class="field"><span class="lbl">Ligne de la commune</span><input type="text" id="m-com" value="' + esc(f.commune || '') + '" placeholder="' + esc(auto.com || 'Commune de …') + '"></label>'
       + '<p class="muted small">Laissez vide pour l\'automatique : département déduit du code postal, commune propre à chaque dossier.</p>'
-      + '<label class="field"><span class="lbl">Logo du constat de visite</span><select id="m-clogo"><option value="">Celui du formulaire (bureau d\'études)</option><option value="vede"' + (f.constatLogo === 'vede' ? ' selected' : '') + '>VÉDÉ Environnement</option></select></label>',
+      + '<label class="field"><span class="lbl">Logo du constat de visite</span><select id="m-clogo"><option value="">VÉDÉ Environnement</option><option value="formulaire"' + (f.constatLogo === 'formulaire' ? ' selected' : '') + '>Celui du formulaire (bureau d\'études)</option></select></label>',
     actions: [{label: 'Annuler', value: null}, {label: 'Enregistrer', cls: 'primary', collect: function(w){ return {departement: w.querySelector('#m-dep').value.trim(), commune: w.querySelector('#m-com').value.trim(), constatLogo: w.querySelector('#m-clogo').value}; }}]});
   if (!res) return;
   e.fiche = res; touchEtude(); await flushSaves(); toast('En-tête des fiches enregistré');
