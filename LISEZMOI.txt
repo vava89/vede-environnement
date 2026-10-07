@@ -1,4 +1,4 @@
-VÉDÉ Terrain, version installable hors connexion (v1.2.0)
+VÉDÉ Terrain, version installable hors connexion (v1.2.1)
 =====================================================
 
 Ce dossier contient l'application complète. Une fois installée sur la
@@ -34,6 +34,13 @@ SAUVEGARDE
   n'importe quel appareil (accueil > Restaurer une sauvegarde).
 
 MISE À JOUR DE L'APPLICATION
-- Remplacez les fichiers dans le dépôt GitHub (Add file > Upload files).
-  La tablette récupère la nouvelle version à la prochaine ouverture avec
-  connexion. Vos données ne sont pas touchées.
+- Chaque nouvelle version change le numéro de version à deux endroits :
+  VERSION dans index.html et CACHE dans sw.js (par exemple
+  'vede-terrain-1.2.1'). Sans ce changement dans sw.js, les appareils déjà
+  installés gardent l'ancienne version indéfiniment.
+- Publiez tout le contenu du dossier (index.html, sw.js, icons…) dans la
+  branche main du dépôt GitHub : GitHub Pages met le site à jour en une à
+  deux minutes.
+- Sur la tablette : ouvrez l'application une fois avec connexion (elle
+  télécharge la nouvelle version et l'annonce), puis fermez-la
+  complètement et rouvrez-la. Vos données ne sont pas touchées.
