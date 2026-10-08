@@ -42,14 +42,18 @@ ENVOI DES CONSTATS PAR MAIL
 - Envoi direct en un geste, depuis votre adresse (facultatif, une seule
   fois, 10 minutes, sur un ordinateur) :
   1. Ouvrez script.google.com avec votre compte Google > Nouveau projet.
-  2. Remplacez le contenu par celui du fichier outils/envoi-mail-google.gs,
-     enregistrez.
+  2. Remplacez le contenu par celui du fichier outils/envoi-mail-google.gs
+     (envoi depuis votre adresse Gmail ; Google ne lui donne que le droit
+     d'envoyer), ou outils/envoi-mail-google-alias.gs pour envoyer depuis
+     une adresse professionnelle déclarée dans Gmail (« Envoyer des e-mails
+     en tant que » ; Google demande alors l'accès complet à Gmail).
+     Enregistrez.
   3. Paramètres du projet (roue dentée) > Propriétés du script : ajoutez
      CLE = une phrase secrète d'au moins 12 caractères. Facultatif :
-     EXPEDITEUR = votre adresse professionnelle si elle est déclarée dans
-     Gmail (« Envoyer des e-mails en tant que »).
+     REPONSE = l'adresse où les propriétaires répondront (version
+     standard), ou EXPEDITEUR = l'adresse professionnelle (variante alias).
   4. Déployer > Nouveau déploiement > Application Web ; Exécuter en tant
-     que : Moi ; Qui a accès : Tout le monde. Autorisez l'accès à Gmail
+     que : Moi ; Qui a accès : Tout le monde. Autorisez l'envoi de mails
      (écran « application non validée » : Paramètres avancés > Accéder au
      projet ; c'est votre propre script).
   5. Dans l'application : Réglages > collez l'adresse du déploiement (elle

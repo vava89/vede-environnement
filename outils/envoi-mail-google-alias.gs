@@ -1,15 +1,15 @@
 /**
- * VÉDÉ Terrain : service personnel d'envoi des constats depuis votre adresse Gmail.
- * Version standard : elle ne demande à Google que le droit d'ENVOYER des mails en votre nom (pas de lire votre messagerie).
- * Pour envoyer depuis une adresse professionnelle déclarée dans Gmail (« Envoyer des e-mails en tant que »),
- * utilisez plutôt outils/envoi-mail-google-alias.gs.
+ * VÉDÉ Terrain : service personnel d'envoi des constats, variante « adresse professionnelle ».
+ * Elle envoie depuis l'adresse déclarée dans Gmail (Paramètres > Comptes > « Envoyer des e-mails en tant que »),
+ * et les envois apparaissent dans vos messages envoyés. Google demande pour cela l'accès complet à Gmail :
+ * le script ne fait pourtant qu'envoyer. Sinon, préférez outils/envoi-mail-google.gs (droit d'envoi seulement).
  *
  * À installer UNE SEULE FOIS sur VOTRE compte Google (mode d'emploi : Réglages de l'application,
  * ou LISEZMOI.txt, rubrique « ENVOI DES CONSTATS PAR MAIL »).
  *
  * Ce fichier ne contient aucun secret. La clé se règle dans Paramètres du projet > Propriétés du script :
  *   CLE         obligatoire, phrase secrète d'au moins 12 caractères, la même que dans les Réglages de l'application ;
- *   REPONSE     facultatif, adresse à laquelle les propriétaires répondront (par exemple votre adresse professionnelle) ;
+ *   EXPEDITEUR  adresse professionnelle déclarée dans Gmail (« Envoyer des e-mails en tant que ») ;
  *   MAX_JOUR    facultatif, plafond d'envois par jour (30 par défaut).
  *
  * L'application envoie en POST (texte JSON) : {cle, id, test, a: [adresses], cc, objet, message, nom, pj: [{nom, type, b64}]}.
@@ -45,13 +45,12 @@ function doPost(e) {
       var taille = pj.reduce(function (s, b) { return s + b.getBytes().length; }, 0);
       if (taille > 15 * 1024 * 1024) return reponse_({ok: false, error: 'pièces jointes trop lourdes (15 Mo au plus)'});
 
-      if (MailApp.getRemainingDailyQuota() < a.length + (cc ? 1 : 0)) return reponse_({ok: false, error: 'quota d\'envoi de Google atteint pour aujourd\'hui'});
       var options = {attachments: pj};
       if (req.nom) options.name = String(req.nom).slice(0, 80);
       if (cc) options.cc = cc;
-      var reponse = props.getProperty('REPONSE');
-      if (adresse_(String(reponse || ''))) options.replyTo = reponse;
-      MailApp.sendEmail(a.join(','), String(req.objet || 'Constat de visite').slice(0, 200), String(req.message || ''), options);
+      var expediteur = props.getProperty('EXPEDITEUR');
+      if (expediteur) options.from = expediteur;
+      GmailApp.sendEmail(a.join(','), String(req.objet || 'Constat de visite').slice(0, 200), String(req.message || ''), options);
 
       props.setProperty('COMPTEUR', JSON.stringify({jour: jour, n: n + 1}));
       if (id) cache.put('envoi:' + id, '1', 21600);
