@@ -294,7 +294,31 @@ details.xls summary{gap:8px}
 .mchip{min-height:40px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:15px;cursor:pointer}.mchip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
 .inst-a{grid-column:1 / -1;display:flex;align-items:flex-start;gap:6px;color:var(--warn);font-weight:600;font-size:14px}
 @media (max-width:700px){.inst{grid-template-columns:1fr auto}.inst select{grid-column:1 / -1}.inst-c{grid-column:1 / -1}}
-.croq-prev{background:#fff;border:1px solid var(--line-2);border-radius:12px;min-height:80px;display:flex;align-items:center;justify-content:center;margin:0 0 10px;overflow:hidden}.croq-prev img{display:block;width:100%;height:auto}
+.croq-prev{position:relative;background:#fff;border:1px solid var(--line-2);border-radius:12px;margin:0 0 10px;overflow:hidden}.croq-prev img{display:block;width:100%;height:auto}.croq-prev .dess{position:absolute;inset:0;height:100%}
+.croq-prev.tap{cursor:pointer}.croq-prev.tap:focus-visible{outline:3px solid var(--ep);outline-offset:2px}.croq-vide{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:var(--ink-2);background:rgba(255,255,255,.5)}
+.modal-back.full{padding:0;background:var(--surface);align-items:stretch;justify-content:stretch}.modal.full{width:100%;max-width:none;height:100%;max-height:none;border-radius:0;box-shadow:none}
+.modal.full .m-body{padding:0;flex:1;min-height:0;display:flex;overflow:hidden}
+.ce{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;background:var(--surface);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;overscroll-behavior:none}
+.ce-head{display:flex;flex-direction:column}
+.ce-top{display:flex;align-items:center;gap:8px;padding:8px 12px;padding-top:calc(8px + env(safe-area-inset-top,0px))}.ce-top .sp{flex:1}.ce-top .btn{min-height:50px}
+.ce-saved{font-size:14px;color:var(--ok);font-weight:700;white-space:nowrap}.ce-saved.pulse{animation:cepulse .7s}@keyframes cepulse{from{opacity:.25}to{opacity:1}}
+.ce-tools{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:0 12px 4px}.ce-tools .seg{margin:0}.ce-tools .seg button{min-height:50px}
+.ce-res button{display:inline-flex;align-items:center;gap:6px}
+.ce-avert{margin:6px 12px 0}
+.ce-hint{padding:6px 12px;font-size:15px;color:var(--ink-2);min-height:32px}
+.ce-stage{flex:1;min-height:110px;display:flex;align-items:center;justify-content:center;position:relative;background:var(--surface-2);border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2)}
+.ce-cv{display:block;background:#fff;box-shadow:0 0 0 1px var(--line);touch-action:none}
+.ce-rotate{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;background:var(--surface-2)}
+.ce-mini{height:46px;padding:4px 40px;background:var(--surface-2)}.ce-mini canvas{width:100%;height:100%;display:block;touch-action:none;cursor:pointer}
+.ce-band{display:flex;flex-wrap:wrap;align-content:flex-start;gap:8px;padding:8px 12px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));max-height:132px;overflow-y:auto;touch-action:pan-y}
+.ce-chip{min-height:48px;padding:6px 14px;border-radius:12px;border:2px solid var(--ink-2);background:var(--surface);color:var(--ink);font:inherit;font-size:16px;font-weight:600;cursor:pointer;white-space:nowrap}
+.ce-chip.lab{border-left-width:8px}.ce-chip.r-EU{border-left-color:#e00000}.ce-chip.r-EP{border-left-color:#00a050}.ce-chip.r-UN{border-left-color:#c0109a}.ce-chip.r-PRJ{border-left-color:#1d54c4}.ce-chip.r-BATI{border-left-color:#111}
+.ce-chip.mine{border-style:dashed;border-left-style:solid}.ce-chip.danger{color:var(--danger);border-color:var(--danger)}.ce-chip.type{background:var(--brand);color:var(--on-brand);border-color:var(--brand)}
+.ce-chip[aria-pressed="true"]{background:var(--ink);color:var(--surface)}.ce-lbl{align-self:center;font-weight:700;color:var(--ink-2)}
+.ce-resbtn{display:flex;align-items:center;gap:10px}
+@media (max-width:700px){.ce-top .btn,.ce-tools .seg button{padding-left:10px;padding-right:10px}.ce-res svg{display:none}}
+@media (max-height:500px){.ce-head{flex-direction:row;align-items:center;overflow-x:auto;touch-action:pan-x}.ce-top,.ce-tools{flex:0 0 auto;flex-wrap:nowrap;padding:4px 6px}.ce-top .sp{display:none}.ce-top .btn,.ce-tools .seg button{min-height:44px}
+  .ce-hint{display:none}.ce-band{flex-wrap:nowrap;max-height:none;overflow-x:auto;overflow-y:hidden;touch-action:pan-x}.ce-chip{min-height:44px}.ce-mini{height:38px}}
 .croq-wrap{position:relative;width:100%;aspect-ratio:520/124;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;touch-action:none}.croq-wrap canvas{position:absolute;inset:0;width:100%;height:100%}.croq-fg{touch-action:none}
 .modal:has(.croq-wrap){width:min(980px,100%)}
 .boite{display:grid;grid-template-columns:minmax(0,1fr) 110px 110px;gap:8px 10px;align-items:center;margin:0 0 12px}.boite .eu{color:var(--eu-ink);font-weight:700;text-align:center}.boite .ep{color:var(--ep-ink);font-weight:700;text-align:center}.boite .bl{color:var(--ink-2)}.boite input{min-height:44px;text-align:center;padding:6px}
@@ -661,7 +685,7 @@ async function buildView(r){
   if (r.name === 'visit') return {bar: barHtml({back: '#/e/' + e.id, title: 'Dossier ' + v.numero, sub: v.adresse}), body: await detailHtml(r), after: afterFor(r)};
   if (r.name === 'anom'){ var n = anomsOf(v.id).indexOf(curAnom()) + 1; return {bar: barHtml({back: '#/e/' + e.id + '/v/' + v.id, title: 'Anomalie A' + n, sub: 'Dossier ' + v.numero}), body: await detailHtml(r), after: afterFor(r)}; }
   if (r.name === 'fiche') return {bar: barHtml({back: '#/e/' + e.id + '/v/' + v.id, title: 'Fiche du dossier ' + v.numero}), body: await detailHtml(r)};
-  if (r.name === 'constat') return {bar: barHtml({back: '#/e/' + e.id + '/v/' + v.id, title: 'Constat du dossier ' + v.numero, sub: v.adresse}), body: await detailHtml(r)};
+  if (r.name === 'constat') return {bar: barHtml({back: '#/e/' + e.id + '/v/' + v.id, title: 'Constat du dossier ' + v.numero, sub: v.adresse}), body: await detailHtml(r), after: afterFor(r)};
   if (r.name === 'contact') return {bar: barHtml({back: '#/e/' + e.id + '/v/' + v.id, title: 'Fiche contact', sub: 'Dossier ' + v.numero + (v.adresse ? ', ' + v.adresse : '')}), body: await detailHtml(r)};
   return viewHome();
 }
@@ -673,7 +697,10 @@ async function detailHtml(r){
   if (r.name === 'contact') return '<div class="page narrow">' + contactHtml() + '</div>';
   return '';
 }
-function afterFor(r){ return r.name === 'anom' ? async function(){ await renderThumbs(curAnom()); var a = curAnom(); if (a && S.autoPick === a.id){ S.autoPick = null; pickType(); } } : null; }
+function afterFor(r){
+  if (r.name === 'constat') return async function(){ var v = curVisit(); if (v && await croquisAJour(v)){ var pv = $('.croq-prev'); if (pv) pv.outerHTML = croqPrevHtml(v.constat, !!v.constat.signeLe); } };
+  return r.name === 'anom' ? async function(){ await renderThumbs(curAnom()); var a = curAnom(); if (a && S.autoPick === a.id){ S.autoPick = null; pickType(); } } : null;
+}
 function barHtml(o){
   return '<header class="bar' + (o.big ? ' big' : '') + '">' + (o.back ? '<button type="button" class="iconbtn" data-act="back" data-href="' + esc(o.back) + '" aria-label="Retour">' + svg(I.back, 24) + '</button>' : '<span class="bar-pad"></span>')
     + '<img class="bar-logo" src="icons/logo-embleme.png" alt="">'
@@ -1743,7 +1770,7 @@ function constatEval(v, list){
   return E;
 }
 function constatObsAuto(E, reservesSeules){ return E.anoms.filter(function(a){ return !reservesSeules || !anomNC(a); }).map(function(a){ return obsLine(a).replace(/\n/g, ', ') + (reservesSeules || anomNC(a) ? '' : ' (réserve)'); }).join(' ; '); }
-function constatContenu(v){ var c = v.constat; return !!c && !!(c.signeLe || c.sigTech || c.sigProp || c.croquis || c.conclusion || c.reseau || c.rows.some(rowActive)); }
+function constatContenu(v){ var c = v.constat; return !!c && !!(c.signeLe || c.sigTech || c.sigProp || c.croquis || !croqEmpty(croqModel(c)) || c.conclusion || c.reseau || c.rows.some(rowActive)); }
 /* Constat signé : coordonnées et statut tels qu'à la signature ; la fiche contact corrigée ensuite n'y entre plus, même pour un constat signé sans gel (v1.3.0) */
 function constatFige(v){ var c = v.constat; if (!c || !c.signeLe) return v; return Object.assign({}, v, {contact: null}, c.fige ? c.fige.visite : {}); }
 function constatNonEffectue(v){ return v.statut === 'absent' || v.statut === 'refus' || v.statut === 'hors_zone'; }
@@ -1826,8 +1853,9 @@ function constatHtml(){
   h += '<section class="sec"><h2 class="h2">Eaux pluviales et désagréments</h2><span class="lbl">Ouvrages ou procédés de récupération des EP</span><div class="seg">' + EP_RECUP.map(function(k){ return '<button type="button" data-act="c-toggle" data-k="epRecup.' + k[0] + '" aria-pressed="' + !!(c.epRecup || {})[k[0]] + '"' + dis + '>' + esc(k[1].charAt(0).toUpperCase() + k[1].slice(1)) + '</button>'; }).join('') + '</div>'
     + '<span class="lbl">Désagréments déjà subis (inondation ou reflux de réseaux)</span><div class="seg">' + [['non', 'Non'], ['oui', 'Oui']].map(function(k){ return '<button type="button" data-act="c-set" data-k="desagr" data-v="' + k[0] + '" aria-pressed="' + (c.desagr === k[0]) + '"' + dis + '>' + k[1] + '</button>'; }).join('') + '</div>'
     + (c.desagr === 'oui' ? cField('Localisation', 'desagrLoc', c.desagrLoc, 'ex. sous-sol', dis) : '') + '</section>';
-  h += '<section class="sec"><h2 class="h2">Position du branchement</h2><p class="muted small">Croquis en plan et en altimétrie, comme dans le cadre du formulaire.</p><div class="croq-prev">' + (c.croquis ? '<img src="' + c.croquis + '" alt="Croquis de position du branchement">' : '<span class="muted">Pas encore de croquis.</span>') + '</div>'
-    + '<div class="btnrow"><button type="button" class="btn" data-act="c-croquis"' + dis + '>' + svg(I.doc) + (c.croquis ? 'Modifier le croquis' : 'Dessiner le croquis') + '</button>' + (c.croquis ? '<button type="button" class="btn ghost danger" data-act="c-croquis-del"' + dis + '>Effacer</button>' : '') + '</div></section>';
+  var hasCroq = !!(c.croquis || !croqEmpty(croqModel(c)));
+  h += '<section class="sec"><h2 class="h2">Position du branchement</h2><p class="muted small">Croquis en plan et en altimétrie, dans le cadre du formulaire : traits droits aimantés, réseaux en couleur, étiquettes posées d\'un toucher.</p>' + croqPrevHtml(c, lock)
+    + '<div class="btnrow"><button type="button" class="btn" data-act="c-croquis"' + dis + '>' + svg(I.doc) + (hasCroq ? 'Modifier le croquis' : 'Dessiner le croquis') + '</button>' + (hasCroq ? '<button type="button" class="btn ghost danger" data-act="c-croquis-del"' + dis + '>Effacer</button>' : '') + '</div></section>';
   var B = c.boite || {};
   h += '<section class="sec"><h2 class="h2">Boîte de branchement</h2><div class="boite"><span></span><span class="eu">EU</span><span class="ep">EP</span>'
     + [['dist', 'Distance entre la limite parcellaire et la boîte'], ['prof', 'Profondeur de la boîte'], ['te', 'Présence de té hermétique']].map(function(k){
@@ -1908,19 +1936,566 @@ function croquisTemplate(ctx, k, ox, oy){
   ctx.fillStyle = '#222'; ctx.font = (5.5 * k) + 'px sans-serif'; ctx.fillText('LIMITE DE PROPRIETE', X(454.3), Y(756)); ctx.fillStyle = '#A1591C'; ctx.fillText('BORDURE / ACCOTEMENT', X(454.3), Y(765));
   ctx.restore();
 }
-async function croquisModal(existing){
-  var color = '#e00000', width = 4, pad = null, cleared = false;
-  var res = await openModal({title: 'Position du branchement', noAutofocus: true,
-    html: '<div class="croq-tools seg"><button type="button" data-m="col" data-v="#e00000" aria-pressed="true">EU rouge</button><button type="button" data-m="col" data-v="#00a050" aria-pressed="false">EP vert</button><button type="button" data-m="col" data-v="#1d54c4" aria-pressed="false">Projet bleu</button><button type="button" data-m="col" data-v="#111111" aria-pressed="false">Noir</button></div>'
-      + '<div class="croq-wrap"><canvas class="croq-bg" width="' + CROQ.w * CROQ.k + '" height="' + CROQ.h * CROQ.k + '"></canvas><canvas class="croq-fg" width="' + CROQ.w * CROQ.k + '" height="' + CROQ.h * CROQ.k + '"></canvas></div>'
-      + '<p class="muted small">Dessinez le branchement, les réseaux et les noms de rue autour du gabarit du formulaire.</p>',
-    actions: [{label: 'Annuler', value: null}, {label: 'Tout effacer', collect: function(){ if (pad) pad.clear(); cleared = true; return false; }}, {label: 'Enregistrer', cls: 'primary', collect: function(w){ return pad && pad.isDirty() ? w.querySelector('.croq-fg').toDataURL('image/png') : (cleared ? '' : (existing || '')); }}],
-    onMount: async function(w){
-      var bg = w.querySelector('.croq-bg'), fg = w.querySelector('.croq-fg'), bctx = bg.getContext('2d');
-      bctx.fillStyle = '#fff'; bctx.fillRect(0, 0, bg.width, bg.height); croquisTemplate(bctx, CROQ.k, CROQ.x0, CROQ.y0);
-      pad = padStrokes(fg, {color: function(){ return color; }, width: function(){ return width; }});
-      if (existing){ var im = await loadImg(existing); if (im) fg.getContext('2d').drawImage(im, 0, 0, fg.width, fg.height); }
-      w.addEventListener('click', function(ev){ var b = ev.target.closest('[data-m="col"]'); if (!b) return; color = b.dataset.v; $$('[data-m="col"]', w).forEach(function(x){ x.setAttribute('aria-pressed', String(x === b)); }); });
+/* ---------- Croquis du cadre « Position du branchement » ----------
+   Modèle c.croquisV = {v: 1, repere: {w: 520, h: 124, unite: 'pt'}, fond, items, seq, rev, pngRev, png} :
+   - coordonnées en points du cadre, origine en haut à gauche, y vers le bas, arrondies à 0,1 pt ; épaisseurs, tailles et motifs en points papier ;
+   - p : polyligne {id, t: 'p', pts: [x0, y0, x1, y1, …], res, st, fl, lisse} (deux points = trait droit ; lisse = main levée ; fl = sens d'écoulement 1 ou -1) ;
+   - x : texte horizontal centré {id, t: 'x', x, y, s, res, sz} ; s : regard ou boîte de branchement {id, t: 's', k, x, y, res} ;
+   - le style découle du réseau (res) et du statut (st), jamais d'une couleur libre ; fond = ancien dessin PNG des versions précédentes, figé.
+   c.croquis (PNG transparent à 3 px/pt, sans gabarit) reste la seule source de l'aperçu et du PDF ; il est recalculé à la fermeture de l'éditeur. */
+var CROQ_RES = {
+  EU: {lib: 'EU', nom: 'eaux usées', col: '#e00000', txt: '#c20000', w: 1.4},
+  EP: {lib: 'EP', nom: 'eaux pluviales', col: '#00a050', txt: '#00813b', w: 1.4},
+  UN: {lib: 'Unitaire', nom: 'unitaire', col: '#c0109a', txt: '#9c0a7c', w: 1.4},
+  PRJ: {lib: 'Projet', nom: 'projet', col: '#1d54c4', txt: '#1a4bb0', w: 1.8, dash: [4, 2.5]},
+  BATI: {lib: 'Bâti', nom: 'bâti et annotations', col: '#111111', txt: '#111111', w: 0.9}
+};
+var CROQ_RES_ORDER = ['EU', 'EP', 'UN', 'PRJ', 'BATI'];
+var CROQ_SZ = {1: 5.5, 2: 6.5, 3: 8};
+/* Lignes du gabarit du formulaire, en points du cadre : cibles d'aimantation et zone des libellés imprimés à éviter */
+var CROQ_GAB = (function(){
+  var segs = [];
+  function seg(x1, y1, x2, y2){ segs.push({a: [x1 - CROQ.x0, y1 - CROQ.y0], b: [x2 - CROQ.x0, y2 - CROQ.y0], res: 'GAB'}); }
+  seg(240, 689.5, 240, 755); seg(240, 755, 449, 755); seg(332.5, 689.5, 332.5, 755); seg(240, 762.5, 452, 762.5);
+  [[265, 707, 307.5, 735], [357.5, 726.5, 399.5, 755], [399.5, 715.5, 439.5, 755]].forEach(function(b){ seg(b[0], b[1], b[2], b[1]); seg(b[2], b[1], b[2], b[3]); seg(b[2], b[3], b[0], b[3]); seg(b[0], b[3], b[0], b[1]); });
+  [[0, 0, CROQ.w, 0], [CROQ.w, 0, CROQ.w, CROQ.h], [CROQ.w, CROQ.h, 0, CROQ.h], [0, CROQ.h, 0, 0]].forEach(function(e){ segs.push({a: [e[0], e[1]], b: [e[2], e[3]], res: 'GAB', bord: true}); });
+  return {segs: segs, limiteY: 755 - CROQ.y0, bordureY: 762.5 - CROQ.y0, maison: [265 - CROQ.x0, 707 - CROQ.y0, 307.5 - CROQ.x0, 735 - CROQ.y0], zoneLib: [412, 72, CROQ.w, 92]};
+})();
+function croqStyle(it){ var r = CROQ_RES[it.res] || CROQ_RES.BATI; return {col: r.col, w: r.w, dash: it.st === 'presume' && it.res !== 'PRJ' ? [2.2, 1.8] : (r.dash || null)}; }
+function croqTxtCol(res){ return (CROQ_RES[res] || CROQ_RES.BATI).txt; }
+function croqModel(c){ return c && c.croquisV && Array.isArray(c.croquisV.items) ? c.croquisV : null; }
+function croqEmpty(m){ return !m || (!m.fond && !(m.items || []).length); }
+function croqR(x){ return Math.round(x * 10) / 10; }
+function fnv32(s){ var h = 0x811c9dc5; s = String(s || ''); for (var i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(36); }
+/* Textes du croquis en Jost 600, la police du constat, chargée explicitement : même rendu sur tous les appareils, hors ligne compris */
+var CROQ_FONT = 'JostCroquis', croqFontP = null;
+function croqFont(){
+  if (croqFontP) return croqFontP;
+  croqFontP = (async function(){
+    try {
+      var F = (window.VEDE_ASSETS || {}).fonts, b64 = F && F['600-normal'];
+      if (!b64 || !window.FontFace || !document.fonts) return false;
+      var bin = atob(b64), u8 = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      var face = new FontFace(CROQ_FONT, u8.buffer, {weight: '600'}); await face.load(); document.fonts.add(face); return true;
+    } catch(e){ return false; }
+  })();
+  return croqFontP;
+}
+function croqFontCss(px){ return '600 ' + px.toFixed(2) + 'px ' + CROQ_FONT + ', Barlow, Arial, sans-serif'; }
+var croqMeasure = null;
+function croqTextW(it){ var c = croqMeasure || (croqMeasure = document.createElement('canvas').getContext('2d')); c.font = croqFontCss(CROQ_SZ[it.sz || 2] * 10); return c.measureText(String(it.s || '')).width / 10; }
+function croqTextBox(it){ var w = croqTextW(it), h = CROQ_SZ[it.sz || 2] * 1.2; return [it.x - w / 2, it.y - h / 2, it.x + w / 2, it.y + h / 2]; }
+/* Rendu commun à l'éditeur et au PNG du PDF ; vue = {k : px par point, ox, oy : origine de la vue en points}. Trois passes : traits, halos, textes */
+function croqDraw(ctx, m, vue, fondImg){
+  var k = vue.k, X = function(x){ return (x - vue.ox) * k; }, Y = function(y){ return (y - vue.oy) * k; }, items = m.items || [];
+  if (fondImg && m.fond) ctx.drawImage(fondImg, X(0), Y(0), CROQ.w * k, CROQ.h * k);
+  items.forEach(function(it){ if (it.t === 'p') croqDrawLine(ctx, it, X, Y, k); });
+  items.forEach(function(it){ if (it.t === 's') croqDrawSq(ctx, it, X, Y, k); });
+  var tx = items.filter(function(it){ return it.t === 'x' && String(it.s || '').trim(); });
+  ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+  tx.forEach(function(it){ ctx.font = croqFontCss(CROQ_SZ[it.sz || 2] * k); ctx.strokeStyle = 'rgba(255,255,255,.96)'; ctx.lineWidth = 1.5 * k; ctx.strokeText(it.s, X(it.x), Y(it.y)); });
+  tx.forEach(function(it){ ctx.font = croqFontCss(CROQ_SZ[it.sz || 2] * k); ctx.fillStyle = croqTxtCol(it.res); ctx.fillText(it.s, X(it.x), Y(it.y)); });
+  ctx.restore();
+}
+function croqDrawLine(ctx, it, X, Y, k){
+  var st = croqStyle(it), p = it.pts, n = p ? p.length : 0, i; if (n < 4) return;
+  ctx.save(); ctx.strokeStyle = st.col; ctx.lineWidth = st.w * k; ctx.lineJoin = 'round';
+  if (st.dash){ ctx.setLineDash(st.dash.map(function(d){ return d * k; })); ctx.lineCap = 'butt'; } else ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(X(p[0]), Y(p[1]));
+  if (it.lisse && n > 4){ for (i = 2; i < n - 2; i += 2) ctx.quadraticCurveTo(X(p[i]), Y(p[i + 1]), X((p[i] + p[i + 2]) / 2), Y((p[i + 1] + p[i + 3]) / 2)); ctx.lineTo(X(p[n - 2]), Y(p[n - 1])); }
+  else for (i = 2; i < n; i += 2) ctx.lineTo(X(p[i]), Y(p[i + 1]));
+  ctx.stroke(); ctx.setLineDash([]);
+  if (it.fl && !it.lisse){
+    /* sens d'écoulement : flèche au milieu du segment central, vers la fin du tracé (1) ou son début (-1) */
+    var s = Math.floor((n / 2 - 2) / 2) * 2, x1 = p[s], y1 = p[s + 1], x2 = p[s + 2], y2 = p[s + 3];
+    if (it.fl < 0){ var tx = x1, ty = y1; x1 = x2; y1 = y2; x2 = tx; y2 = ty; }
+    var a = Math.atan2(y2 - y1, x2 - x1), L = (3 + st.w) * k, mx = X((x1 + x2) / 2) + Math.cos(a) * L / 2, my = Y((y1 + y2) / 2) + Math.sin(a) * L / 2;
+    ctx.fillStyle = st.col; ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(mx - L * Math.cos(a - 0.45), my - L * Math.sin(a - 0.45)); ctx.lineTo(mx - L * Math.cos(a + 0.45), my - L * Math.sin(a + 0.45)); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+function croqDrawSq(ctx, it, X, Y, k){
+  var s = 5 * k, col = (CROQ_RES[it.res] || CROQ_RES.BATI).col, x = X(it.x) - s / 2, y = Y(it.y) - s / 2;
+  ctx.save(); ctx.fillStyle = '#fff'; ctx.fillRect(x, y, s, s); ctx.strokeStyle = col; ctx.lineWidth = 0.9 * k; ctx.strokeRect(x, y, s, s);
+  if (it.k === 'boite'){ ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + s, y + s); ctx.moveTo(x + s, y); ctx.lineTo(x, y + s); ctx.stroke(); }
+  ctx.restore();
+}
+/* PNG pour l'aperçu et le PDF : 1560 × 372 px, fond transparent, sans gabarit (jsPDF le dessine dessous) ; un croquis vide donne '' */
+async function croqPng(m){
+  if (croqEmpty(m)) return '';
+  await croqFont();
+  var k = 3, cv = document.createElement('canvas'); cv.width = CROQ.w * k; cv.height = CROQ.h * k;
+  var fondImg = m.fond ? await loadImg(m.fond) : null;
+  croqDraw(cv.getContext('2d'), m, {k: k, ox: 0, oy: 0}, fondImg);
+  return cv.toDataURL('image/png');
+}
+/* Remet le PNG à jour si le dessin a changé depuis (éditeur fermé par le système) ; jamais pour un constat signé */
+async function croquisAJour(v){
+  var c = v && v.constat, m = croqModel(c);
+  if (!c || !m || c.signeLe || (m.rev || 0) === (m.pngRev || 0)) return false;
+  c.croquis = await croqPng(m); m.pngRev = m.rev || 0; m.png = c.croquis ? fnv32(c.croquis) : ''; constatTouch(v); return true;
+}
+var croqGabUrl = '';
+function croqGabarit(){
+  if (croqGabUrl) return croqGabUrl;
+  try { var k = 2, cv = document.createElement('canvas'); cv.width = CROQ.w * k; cv.height = CROQ.h * k; var ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height); croquisTemplate(ctx, k, CROQ.x0, CROQ.y0); croqGabUrl = cv.toDataURL('image/png'); } catch(e){}
+  return croqGabUrl;
+}
+function croqPrevHtml(c, lock){
+  var has = !!(c && c.croquis);
+  return '<div class="croq-prev' + (lock ? '' : ' tap') + '"' + (lock ? '' : ' data-act="c-croquis" role="button" tabindex="0" aria-label="' + (has ? 'Modifier le croquis' : 'Dessiner le croquis') + '"') + '>'
+    + '<img class="gab" src="' + croqGabarit() + '" alt="">' + (has ? '<img class="dess" src="' + c.croquis + '" alt="Croquis de position du branchement">' : '<span class="croq-vide">' + (lock ? 'Pas de croquis.' : 'Touchez pour dessiner') + '</span>') + '</div>';
+}
+/* Étiquettes : celles du réseau courant (sq = regard ou boîte posés en petit carré), puis le contexte du dossier, en noir */
+var CROQ_LIB = {
+  EU: [['Réseau EU départemental'], ['Réseau EU territorial'], ['Réseau EU privé'], ['Branchement EU'], ['Boîte de branchement EU', 'boite'], ['Regard EU', 'regard'], ['Té de visite'], ['Pompe de relevage']],
+  EP: [['Réseau EP départemental'], ['Réseau EP territorial'], ['Réseau EP privé'], ['Branchement EP'], ['Boîte de branchement EP', 'boite'], ['Regard EP', 'regard'], ['Descente EP'], ['Grille EP'], ['Caniveau'], ['Gargouille'], ['Puisard'], ['Siphon de sol']],
+  UN: [['Réseau unitaire départemental'], ['Réseau unitaire territorial'], ['Réseau unitaire privé'], ['Branchement unitaire'], ['Boîte de branchement unitaire', 'boite'], ['Regard unitaire', 'regard']],
+  PRJ: [['Branchement EU à créer'], ['Branchement EP à créer'], ['Regard à créer', 'regard'], ['Boîte de branchement à créer', 'boite']],
+  BATI: [['Habitation'], ['Garage'], ['Abri'], ['Escalier'], ['Terrasse'], ['Cour'], ['Jardin'], ['Trottoir'], ['Chaussée'], ['Façade avant'], ['Façade arrière']]
+};
+function croqAdresse(v){ var m = /^\s*(\d+)\s*(bis|ter|quater|[a-d])?\b[\s,]*(.*)$/i.exec(String((v && v.adresse) || '')); return m ? {num: +m[1], rue: m[3].trim()} : {num: 0, rue: String((v && v.adresse) || '').trim()}; }
+function croqContexte(v, c){
+  var a = croqAdresse(v), out = [];
+  function add(s){ s = String(s || '').trim(); if (s && out.indexOf(s) < 0) out.push(s); }
+  if (a.rue) add(a.rue.charAt(0).toUpperCase() + a.rue.slice(1));
+  if (c && c.reseauRue) add(c.reseauRue.charAt(0).toUpperCase() + c.reseauRue.slice(1));
+  if (a.num){ add('n° ' + a.num); if (a.num > 2) add('n° ' + (a.num - 2)); add('n° ' + (a.num + 2)); }
+  return out;
+}
+/* Étiquettes probables d'un trait selon sa position : réseau de rue sous la bordure, branchement s'il franchit la limite de propriété */
+function croqSuggest(it, c){
+  var p = it.pts || [], ys = [], xs = [], i; for (i = 0; i < p.length; i += 2){ xs.push(p[i]); ys.push(p[i + 1]); }
+  var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys), wx = Math.max.apply(null, xs) - Math.min.apply(null, xs), r = it.res, lab = (CROQ_RES[r] || {}).lib || '';
+  if (r === 'BATI') return ['Limite séparative', 'Habitation', 'Mur'];
+  if (r === 'PRJ') return ['Branchement EU à créer', 'Branchement EP à créer', 'Canalisation à créer'];
+  var nm = r === 'UN' ? 'unitaire' : lab, d = c && c.reseau === 'territorial' ? ['territorial', 'départemental'] : ['départemental', 'territorial'];
+  if (y0 >= CROQ_GAB.bordureY - 2 && wx > 40) return ['Réseau ' + nm + ' ' + d[0], 'Réseau ' + nm + ' ' + d[1], 'Réseau ' + nm + ' privé'];
+  if (y0 < CROQ_GAB.limiteY && y1 > CROQ_GAB.limiteY) return ['Branchement ' + nm, 'Canalisation ' + nm];
+  return r === 'EP' ? ['Canalisation EP', 'Descente EP', 'Branchement EP'] : ['Canalisation ' + nm, 'Branchement ' + nm];
+}
+/* Pose automatique d'une étiquette le long d'un trait : au-dessus d'un trait horizontal (dans la partie gauche, libre, quand il la traverse), à droite d'un trait vertical */
+function croqPlaceLabel(it, s, sz){
+  var p = it.pts, best = 0, bl = -1, i; for (i = 0; i + 3 < p.length; i += 2){ var l = Math.hypot(p[i + 2] - p[i], p[i + 3] - p[i + 1]); if (l > bl){ bl = l; best = i; } }
+  var x1 = p[best], y1 = p[best + 1], x2 = p[best + 2], y2 = p[best + 3], t = {t: 'x', s: s, sz: sz || 2, res: it.res}, w = croqTextW(t), h = CROQ_SZ[t.sz] * 1.2;
+  if (Math.abs(x2 - x1) >= Math.abs(y2 - y1)){
+    var xa = Math.min(x1, x2), xb = Math.max(x1, x2), cx = (xa + xb) / 2;
+    if (xa < 190 && xb > 190) cx = Math.max(xa + w / 2 + 2, Math.min(95, 190 - w / 2 - 4));
+    var ym = y1 + (y2 - y1) * ((cx - x1) / ((x2 - x1) || 1));
+    t.x = cx; t.y = ym - h / 2 - 1.5 - (CROQ_RES[it.res] || CROQ_RES.BATI).w / 2;
+  } else { t.x = Math.max(x1, x2) + 2 + w / 2; t.y = (y1 + y2) / 2; }
+  croqClampText(t);
+  return t;
+}
+function croqClampText(t){
+  var w = croqTextW(t), h = CROQ_SZ[t.sz || 2] * 1.2, z = CROQ_GAB.zoneLib;
+  t.x = Math.max(w / 2 + 1, Math.min(CROQ.w - w / 2 - 1, t.x)); t.y = Math.max(h / 2 + 0.5, Math.min(CROQ.h - h / 2 - 0.5, t.y));
+  if (t.x + w / 2 > z[0] && t.y + h / 2 > z[1] && t.y - h / 2 < z[3]) t.x = z[0] - w / 2 - 1;
+  t.x = croqR(t.x); t.y = croqR(t.y);
+}
+/* Croquis type, d'après les raccordements déjà saisis dans le constat : réseaux de la rue, un branchement par réseau depuis la maison, leurs étiquettes et le nom de rue. Rien d'autre */
+function croquisType(v, c){
+  var nets = [], items = [], seq = 0;
+  (c.rows || []).forEach(function(r){ var m = /^(EU|EP|UN)_([DT])$/.exec(r.raccord || ''); if (m && rowActive(r) && !nets.some(function(n){ return n.res === m[1]; })) nets.push({res: m[1], g: m[2]}); });
+  if (!nets.length) return null;
+  nets.sort(function(a, b){ return CROQ_RES_ORDER.indexOf(a.res) - CROQ_RES_ORDER.indexOf(b.res); });
+  var hm = CROQ_GAB.maison, ys = nets.length === 1 ? [104] : nets.length === 2 ? [100, 113] : [98, 106, 114], xs = nets.length === 1 ? [(hm[0] + hm[2]) / 2] : nets.length === 2 ? [hm[0] + 12, hm[2] - 12] : [hm[0] + 9, (hm[0] + hm[2]) / 2, hm[2] - 9];
+  function id(){ return 'k' + (++seq).toString(36); }
+  nets.forEach(function(n, i){
+    var nm = n.res === 'UN' ? 'unitaire' : n.res, rs = {t: 'p', id: id(), pts: [6, ys[i], 514, ys[i]], res: n.res, st: '', fl: 0}, br = {t: 'p', id: id(), pts: [croqR(xs[i]), hm[3], croqR(xs[i]), ys[i]], res: n.res, st: '', fl: 0};
+    items.push(rs, br);
+    var lr = croqPlaceLabel(rs, 'Réseau ' + nm + ' ' + (n.g === 'D' ? 'départemental' : 'territorial'), 2); lr.id = id(); items.push(lr);
+    var lb = {t: 'x', id: id(), s: 'Branchement ' + nm, sz: 1, res: n.res}, wb = croqTextW(lb);
+    lb.x = i === 0 && nets.length > 1 ? xs[i] - 2 - wb / 2 : xs[i] + 2 + wb / 2; lb.y = (CROQ_GAB.maison[3] + CROQ_GAB.limiteY) / 2; croqClampText(lb); items.push(lb);
+  });
+  var rue = croqContexte(v, c)[0];
+  if (rue && !/^n° /.test(rue)){ var tr = {t: 'x', id: id(), s: rue, sz: 2, res: 'BATI', x: 300, y: 120.5}; croqClampText(tr); items.push(tr); }
+  return {items: items, seq: seq};
+}
+/* Géométrie */
+function croqProj(p, s){ var ax = s.a[0], ay = s.a[1], dx = s.b[0] - ax, dy = s.b[1] - ay, l2 = dx * dx + dy * dy, t = l2 ? ((p.x - ax) * dx + (p.y - ay) * dy) / l2 : 0; t = Math.max(0, Math.min(1, t)); return {x: ax + t * dx, y: ay + t * dy}; }
+function croqAngleBetween(a1, a2){ var d = Math.abs((a1 - a2) * 180 / Math.PI) % 180; return Math.min(d, 180 - d); }
+function croqRaySeg(o, d, s){
+  var rx = d.x - o.x, ry = d.y - o.y, sx = s.b[0] - s.a[0], sy = s.b[1] - s.a[1], den = rx * sy - ry * sx; if (Math.abs(den) < 1e-9) return null;
+  var u = ((s.a[0] - o.x) * sy - (s.a[1] - o.y) * sx) / den, t = ((s.a[0] - o.x) * ry - (s.a[1] - o.y) * rx) / den;
+  return (u > 0 && t >= 0 && t <= 1) ? {x: o.x + u * rx, y: o.y + u * ry} : null;
+}
+function croqSegsOf(it){ var p = it.pts, out = []; for (var i = 0; i + 3 < p.length; i += 2) out.push({a: [p[i], p[i + 1]], b: [p[i + 2], p[i + 3]], res: it.res, id: it.id}); return out; }
+function croqDistLine(it, q){ var d = Infinity; croqSegsOf(it).forEach(function(s){ var r = croqProj(q, s); d = Math.min(d, Math.hypot(r.x - q.x, r.y - q.y)); }); return d; }
+/* Simplification Ramer-Douglas-Peucker (tolérance en points) */
+function croqRdp(pts, eps){
+  if (pts.length <= 2) return pts.slice();
+  var a = pts[0], b = pts[pts.length - 1], md = -1, mi = 0, i;
+  for (i = 1; i < pts.length - 1; i++){ var r = croqProj(pts[i], {a: [a.x, a.y], b: [b.x, b.y]}), d = Math.hypot(r.x - pts[i].x, r.y - pts[i].y); if (d > md){ md = d; mi = i; } }
+  if (md <= eps) return [a, b];
+  return croqRdp(pts.slice(0, mi + 1), eps).slice(0, -1).concat(croqRdp(pts.slice(mi), eps));
+}
+
+/* Éditeur plein écran. Deux outils (trait droit, main levée) et une règle unique : toucher = sélectionner, glisser = tracer,
+   glisser depuis l'élément sélectionné = le déplacer ou le retoucher. Chaque action terminée est enregistrée ; le retour de l'appareil, Échap et « Terminé » enregistrent et ferment */
+async function croquisEditor(v){
+  if (v.constat && v.constat.signeLe) return;
+  var c = v.constat ? constatOf(v) : newConstat(v);   /* un constat neuf n'est rattaché au dossier qu'au premier trait */
+  await croqFont();
+  var m = croqModel(c), avert = '';
+  if (!m){ m = {v: 1, repere: {w: CROQ.w, h: CROQ.h, unite: 'pt'}, fond: c.croquis || '', items: [], seq: 0, rev: 0, pngRev: 0, png: c.croquis ? fnv32(c.croquis) : ''}; }
+  else if (c.croquis && m.png && fnv32(c.croquis) !== m.png){
+    /* croquis retouché avec une version précédente de l'application : il est repris en fond, tel quel */
+    m.fond = c.croquis; m.items = []; m.png = fnv32(c.croquis); avert = 'Ce croquis a été modifié avec une version précédente de l\'application : il est repris en fond, tel quel.';
+  }
+  if (v.constat) c.croquisV = m;
+  var at0 = {m: JSON.stringify(m), croquis: c.croquis || ''}, fondSaved = m.fond || '', fondImg = m.fond ? await loadImg(m.fond) : null;
+  var textes = ((await DB.get('meta', 'croqTextes')) || {}).v || [];
+  var ED = {res: 'EU', tool: 'ligne', sel: null, last: null, armed: null, detail: false, penSeen: false, snapOn: true, hist: [], fut: [], ptrs: new Map(), g: null, lastTap: null, snapTgt: null, k: 1, ox: 0, oy: 0, cv: null, ctx: null, raf: 0, dirty: false};
+  function snap(){ return JSON.stringify({items: m.items, fond: !!m.fond}); }
+  ED.cur = snap();
+  function byId(id){ for (var i = 0; i < m.items.length; i++) if (m.items[i].id === id) return m.items[i]; return null; }
+  function newId(){ m.seq = (m.seq || 0) + 1; return 'k' + m.seq.toString(36); }
+  function save(){ m.rev = (m.rev || 0) + 1; c.croquisV = m; if (!v.constat) v.constat = c; constatTouch(v); ED.dirty = true; var el = ED.w && ED.w.querySelector('.ce-saved'); if (el){ el.textContent = 'Enregistré'; el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); } }
+  function commit(){ ED.hist.push(ED.cur); if (ED.hist.length > 100) ED.hist.shift(); ED.cur = snap(); ED.fut = []; save(); ui(); }
+  function restore(s){ var o = JSON.parse(s); m.items = o.items; m.fond = o.fond ? fondSaved : ''; if (ED.sel && !byId(ED.sel)) ED.sel = null; if (ED.last && !byId(ED.last)) ED.last = null; }
+  function undo(){ if (!ED.hist.length) return; ED.fut.push(ED.cur); ED.cur = ED.hist.pop(); restore(ED.cur); save(); ui(); }
+  function redo(){ if (!ED.fut.length) return; ED.hist.push(ED.cur); ED.cur = ED.fut.pop(); restore(ED.cur); save(); ui(); }
+  /* Mise en page : canevas à la taille affichée × densité, redessiné depuis le modèle ; Ensemble = tout le cadre, Détail ≈ ×2 */
+  function layout(){
+    var st = ED.w.querySelector('.ce-stage'), rot = ED.w.querySelector('.ce-rotate'), portrait = window.innerWidth < 600 && window.innerHeight > window.innerWidth;
+    rot.hidden = !portrait; ED.cv.style.visibility = portrait ? 'hidden' : '';
+    var W = Math.max(100, st.clientWidth - 2 * ED.margin), H = Math.max(60, st.clientHeight - 8), k0 = Math.min(W / CROQ.w, H / CROQ.h);
+    ED.k0 = k0; ED.k = ED.detail ? Math.min(Math.max(k0 * 2, H / CROQ.h), k0 * 3) : k0;
+    var cw = Math.min(W, CROQ.w * ED.k), ch = Math.min(H, CROQ.h * ED.k), dpr = window.devicePixelRatio || 1;
+    ED.vw = cw; ED.vh = ch; ED.cv.style.width = cw + 'px'; ED.cv.style.height = ch + 'px'; ED.cv.width = Math.round(cw * dpr); ED.cv.height = Math.round(ch * dpr); ED.dpr = dpr;
+    clampView(); ED.w.querySelector('.ce-mini').hidden = !ED.detail; draw();
+  }
+  function clampView(){ ED.ox = Math.max(0, Math.min(CROQ.w - ED.vw / ED.k, ED.ox)); ED.oy = Math.max(0, Math.min(CROQ.h - ED.vh / ED.k, ED.oy)); }
+  function center(x, y){ ED.ox = x - ED.vw / ED.k / 2; ED.oy = y - ED.vh / ED.k / 2; clampView(); }
+  function setDetail(on, fx, fy){
+    if (ED.detail === on) return; ED.detail = on; layout();
+    if (on){ var f = fx != null ? {x: fx, y: fy} : focusPt(); center(f.x, f.y); }
+    draw(); ui();
+  }
+  function focusPt(){ var it = byId(ED.sel || ED.last); if (it){ var b = itemBox(it); return {x: (b[0] + b[2]) / 2, y: (b[1] + b[3]) / 2}; } if (ED.lastTap) return ED.lastTap; var hm = CROQ_GAB.maison; return {x: (hm[0] + hm[2]) / 2, y: 62}; }
+  function itemBox(it){ if (it.t === 'x') return croqTextBox(it); if (it.t === 's') return [it.x - 2.5, it.y - 2.5, it.x + 2.5, it.y + 2.5]; var p = it.pts, b = [Infinity, Infinity, -Infinity, -Infinity]; for (var i = 0; i < p.length; i += 2){ b[0] = Math.min(b[0], p[i]); b[1] = Math.min(b[1], p[i + 1]); b[2] = Math.max(b[2], p[i]); b[3] = Math.max(b[3], p[i + 1]); } return b; }
+  function draw(){ if (ED.raf) return; ED.raf = requestAnimationFrame(function(){ ED.raf = 0; paint(); }); }
+  function paint(){
+    var ctx = ED.ctx, k = ED.k, dpr = ED.dpr || 1; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, ED.vw, ED.vh);
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, ED.vw, ED.vh);
+    ctx.save(); ctx.translate(-ED.ox * k, -ED.oy * k); croquisTemplate(ctx, k, CROQ.x0, CROQ.y0); ctx.restore();
+    croqDraw(ctx, m, {k: k, ox: ED.ox, oy: ED.oy}, fondImg);
+    var X = function(x){ return (x - ED.ox) * k; }, Y = function(y){ return (y - ED.oy) * k; }, g = ED.g;
+    if (g && g.kind === 'line'){ croqDrawLine(ctx, {t: 'p', pts: [g.a.x, g.a.y, g.b.x, g.b.y], res: ED.res, st: ''}, X, Y, k); }
+    if (g && g.kind === 'free' && g.pts.length > 1){ var fp = []; g.pts.forEach(function(q){ fp.push(q.x, q.y); }); croqDrawLine(ctx, {t: 'p', pts: fp, res: ED.res, st: '', lisse: false}, X, Y, k); }
+    var sel = byId(ED.sel), last = !sel && byId(ED.last);
+    if (sel || last) outline(ctx, sel || last, X, Y, !!sel);
+    if (ED.snapTgt){ var sx = X(ED.snapTgt.x), sy = Y(ED.snapTgt.y); ctx.save(); ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(sx, sy, 16, 0, 2 * Math.PI); ctx.stroke(); ctx.lineWidth = 2; ctx.strokeStyle = '#111'; ctx.stroke(); ctx.restore(); }
+    if (ED.detail) paintMini();
+  }
+  function outline(ctx, it, X, Y, handles){
+    ctx.save(); var b = itemBox(it), pad = it.t === 'p' ? 3 : 1.5;
+    function rect(col, off){ ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]); ctx.lineDashOffset = off; ctx.strokeRect(X(b[0] - pad), Y(b[1] - pad), (b[2] - b[0] + 2 * pad) * ED.k, (b[3] - b[1] + 2 * pad) * ED.k); }
+    rect('#fff', 0); rect('#111', 4.5); ctx.setLineDash([]);
+    if (handles && it.t === 'p' && !it.lisse){ for (var i = 0; i < it.pts.length; i += 2){ var hx = X(it.pts[i]), hy = Y(it.pts[i + 1]); ctx.beginPath(); ctx.arc(hx, hy, 8, 0, 2 * Math.PI); ctx.fillStyle = '#111'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke(); } }
+    ctx.restore();
+  }
+  function paintMini(){
+    var mc = ED.w.querySelector('.ce-mini canvas'), mw = mc.clientWidth, mh = mc.clientHeight, dpr = ED.dpr || 1; if (!mw || !mh) return;
+    if (mc.width !== Math.round(mw * dpr)){ mc.width = Math.round(mw * dpr); mc.height = Math.round(mh * dpr); }
+    var ctx = mc.getContext('2d'), k = Math.min(mw / CROQ.w, mh / CROQ.h), ox = (mw - CROQ.w * k) / 2; ED.miniK = k; ED.miniOx = ox;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, mw, mh); ctx.save(); ctx.translate(ox, 0); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, CROQ.w * k, CROQ.h * k);
+    croquisTemplate(ctx, k, CROQ.x0, CROQ.y0); croqDraw(ctx, m, {k: k, ox: 0, oy: 0}, fondImg);
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 2; ctx.strokeRect(ED.ox * k, ED.oy * k, ED.vw / ED.k * k, ED.vh / ED.k * k); ctx.restore();
+  }
+  function toPt(ev){ var r = ED.cv.getBoundingClientRect(); return {x: (ev.clientX - r.left) / ED.k + ED.ox, y: (ev.clientY - r.top) / ED.k + ED.oy}; }
+  function clampPt(p){ return {x: croqR(Math.max(0, Math.min(CROQ.w, p.x))), y: croqR(Math.max(0, Math.min(CROQ.h, p.y)))}; }
+  /* Aimantation : rayon selon le pointeur (doigt 24 px, stylet 12 px, souris 8 px) ; angles 0 et 90° à ±8°, 45° à ±4° ;
+     cibles : extrémités, puis jonction en T sur un trait du même réseau, du bâti ou du gabarit, seulement s'il est franchi à plus de 30° */
+  function snapR(type){ return (type === 'pen' ? 12 : type === 'mouse' ? 8 : 24) / ED.k; }
+  function compat(a, b){ return a === b || a === 'PRJ' || b === 'PRJ' || b === 'BATI' || b === 'GAB'; }
+  function tSegs(res, excl){ var out = []; m.items.forEach(function(it){ if (it.t === 'p' && !it.lisse && it.id !== excl && compat(res, it.res)) out = out.concat(croqSegsOf(it)); }); return out.concat(CROQ_GAB.segs); }
+  function tPts(res, excl){ var out = []; m.items.forEach(function(it){ if (it.t === 'p' && !it.lisse && it.id !== excl && compat(res, it.res)){ out.push({x: it.pts[0], y: it.pts[1]}, {x: it.pts[it.pts.length - 2], y: it.pts[it.pts.length - 1]}); } }); CROQ_GAB.segs.forEach(function(s){ if (!s.bord) out.push({x: s.a[0], y: s.a[1]}, {x: s.b[0], y: s.b[1]}); }); return out; }
+  function snapAt(raw, res, excl, from, type){
+    var p = {x: raw.x, y: raw.y}, ang = null;
+    if (from){
+      var dx = raw.x - from.x, dy = raw.y - from.y, len = Math.hypot(dx, dy), a = Math.atan2(dy, dx) * 180 / Math.PI;
+      if (len > 0) [0, 90, 180, -90, -180, 45, 135, -45, -135].some(function(cand){ var tol = cand % 90 === 0 ? 8 : 4, d = Math.abs(((a - cand + 540) % 360) - 180); if (d <= tol){ ang = cand; return true; } return false; });
+      if (ang != null){ var rad = ang * Math.PI / 180, l = dx * Math.cos(rad) + dy * Math.sin(rad); p = {x: from.x + l * Math.cos(rad), y: from.y + l * Math.sin(rad)}; }
+    }
+    if (!ED.snapOn) return {p: p, tgt: null};
+    var R = snapR(type), best = null, bd = R;
+    tPts(res, excl).forEach(function(t){ var d = Math.hypot(t.x - p.x, t.y - p.y); if (d < bd){ bd = d; best = {x: t.x, y: t.y, kind: 'pt'}; } });
+    if (best) return {p: best, tgt: best};
+    tSegs(res, excl).forEach(function(s){
+      var q = croqProj(p, s), d = Math.hypot(q.x - p.x, q.y - p.y); if (d >= bd) return;
+      var sa = Math.atan2(s.b[1] - s.a[1], s.b[0] - s.a[0]);
+      if (from){ if (croqAngleBetween(Math.atan2(p.y - from.y, p.x - from.x), sa) < 30) return; if (ang != null){ var I = croqRaySeg(from, p, s); if (I && Math.hypot(I.x - p.x, I.y - p.y) < R) q = I; } }
+      bd = d; best = {x: q.x, y: q.y, kind: 'seg', sa: sa};
+    });
+    return best ? {p: best, tgt: best} : {p: p, tgt: null};
+  }
+  /* Toucher : texte, puis regard, puis trait ; un nouveau toucher au même endroit passe à l'élément superposé suivant */
+  function hits(p, type){
+    var tl = (type === 'mouse' ? 8 : 20) / ED.k, tt = (type === 'mouse' ? 4 : 12) / ED.k, out = [], i, it;
+    for (i = m.items.length - 1; i >= 0; i--){ it = m.items[i]; if (it.t === 'x'){ var b = croqTextBox(it); if (p.x >= b[0] - tt && p.x <= b[2] + tt && p.y >= b[1] - tt && p.y <= b[3] + tt) out.push(it); } }
+    for (i = m.items.length - 1; i >= 0; i--){ it = m.items[i]; if (it.t === 's' && Math.abs(p.x - it.x) <= 2.5 + tt && Math.abs(p.y - it.y) <= 2.5 + tt) out.push(it); }
+    var ls = m.items.filter(function(x){ return x.t === 'p'; }).map(function(x){ return {it: x, d: croqDistLine(x, p)}; }).filter(function(o){ return o.d <= tl; }).sort(function(a, b){ return a.d - b.d; });
+    return out.concat(ls.map(function(o){ return o.it; }));
+  }
+  function onHandle(it, p, type){ if (!it || it.t !== 'p' || it.lisse) return -1; var r = (type === 'mouse' ? 10 : 24) / ED.k, best = -1, bd = r; for (var i = 0; i < it.pts.length; i += 2){ var d = Math.hypot(it.pts[i] - p.x, it.pts[i + 1] - p.y); if (d < bd){ bd = d; best = i; } } return best; }
+  function onBody(it, p, type){ if (!it) return false; return hits(p, type).indexOf(it) >= 0; }
+  function vibrate(){ try { if (navigator.vibrate) navigator.vibrate(10); } catch(e){} }
+  function setSnapTgt(t){ var had = ED.snapTgt; ED.snapTgt = t; if (t && !had) vibrate(); }
+  /* Pointeurs */
+  function down(ev){
+    if (ev.button > 0) return; ev.preventDefault();
+    try { ED.cv.setPointerCapture(ev.pointerId); } catch(e){}
+    ED.ptrs.set(ev.pointerId, {x: ev.clientX, y: ev.clientY, type: ev.pointerType});
+    if (ev.pointerType === 'pen') ED.penSeen = true;
+    if (ED.ptrs.size === 2){
+      if (ED.g && (ED.g.kind === 'move' || ED.g.kind === 'vertex')) restoreOrig(ED.g);
+      var pp = Array.from(ED.ptrs.values()); ED.g = {kind: 'pan2', mx: (pp[0].x + pp[1].x) / 2, my: (pp[0].y + pp[1].y) / 2, d0: Math.hypot(pp[0].x - pp[1].x, pp[0].y - pp[1].y), ox: ED.ox, oy: ED.oy};
+      setSnapTgt(null); draw(); return;
+    }
+    if (ED.ptrs.size > 2) return;
+    var p = toPt(ev), sel = byId(ED.sel), finger = ev.pointerType === 'touch';
+    var base = {id: ev.pointerId, type: ev.pointerType, sx: ev.clientX, sy: ev.clientY, t0: ev.timeStamp, p0: p, lastT: ev.timeStamp, prevP: p};
+    if (ED.penSeen && finger){ ED.g = Object.assign(base, {kind: ED.detail ? 'pan1' : 'tap', ox: ED.ox, oy: ED.oy}); return; }
+    var hi = onHandle(sel, p, ev.pointerType);
+    if (hi >= 0){ ED.g = Object.assign(base, {kind: 'vertex-pending', it: sel, idx: hi, orig: JSON.stringify(sel)}); return; }
+    if (sel && onBody(sel, p, ev.pointerType)){ ED.g = Object.assign(base, {kind: 'move-pending', it: sel, orig: JSON.stringify(sel)}); return; }
+    var s0 = ED.tool === 'ligne' ? snapAt(p, ED.res, null, null, ev.pointerType) : {p: p, tgt: null};
+    ED.g = Object.assign(base, {kind: 'pending', a: s0.p, aRaw: p, aSnap: s0.tgt});
+  }
+  function restoreOrig(g){ var o = JSON.parse(g.orig), it = byId(o.id); if (it) Object.assign(it, o); }
+  function move(ev){
+    if (!ED.ptrs.has(ev.pointerId)) return; ev.preventDefault();
+    var pr = ED.ptrs.get(ev.pointerId); pr.x = ev.clientX; pr.y = ev.clientY;
+    var g = ED.g; if (!g) return;
+    if (g.kind === 'pan2'){
+      var pp = Array.from(ED.ptrs.values()); if (pp.length < 2) return;
+      var mx = (pp[0].x + pp[1].x) / 2, my = (pp[0].y + pp[1].y) / 2, d = Math.hypot(pp[0].x - pp[1].x, pp[0].y - pp[1].y);
+      if (!ED.detail && d > g.d0 * 1.35){ var r = ED.cv.getBoundingClientRect(); setDetail(true, (mx - r.left) / ED.k + ED.ox, (my - r.top) / ED.k + ED.oy); g.ox = ED.ox; g.oy = ED.oy; g.mx = mx; g.my = my; g.d0 = d; return; }
+      if (ED.detail && d < g.d0 * 0.72){ setDetail(false); g.d0 = d; return; }
+      if (ED.detail){ ED.ox = g.ox - (mx - g.mx) / ED.k; ED.oy = g.oy - (my - g.my) / ED.k; clampView(); draw(); }
+      return;
+    }
+    if (ev.pointerId !== g.id) return;
+    var dist = Math.hypot(ev.clientX - g.sx, ev.clientY - g.sy), thr = g.type === 'touch' ? 8 : 3, p = toPt(ev);
+    if (g.kind === 'pan1'){ ED.ox = g.ox - (ev.clientX - g.sx) / ED.k; ED.oy = g.oy - (ev.clientY - g.sy) / ED.k; clampView(); draw(); return; }
+    if (g.kind === 'tap') return;
+    if (/pending$/.test(g.kind)){
+      if (dist < thr) return;
+      if (g.kind === 'pending') g.kind = ED.tool === 'ligne' ? 'line' : 'free';
+      else if (g.kind === 'move-pending') g.kind = 'move'; else if (g.kind === 'vertex-pending') g.kind = 'vertex';
+      if (g.kind === 'free') g.pts = [g.p0];
+      if (g.kind === 'line'){ g.b = g.a; }
+    }
+    g.prev2 = g.prevP; g.prevP = g.curP || g.p0; g.prevT = g.lastT; g.curP = p; g.lastT = ev.timeStamp;
+    if (g.kind === 'line'){
+      /* un départ accroché sur un trait parallèle au nouveau tracé est abandonné : jamais d'aimantation entre traits parallèles */
+      if (g.aSnap && g.aSnap.kind === 'seg' && croqAngleBetween(Math.atan2(p.y - g.aRaw.y, p.x - g.aRaw.x), g.aSnap.sa) < 30 && Math.hypot(p.x - g.aRaw.x, p.y - g.aRaw.y) > 3){ g.a = g.aRaw; g.aSnap = null; }
+      var s = snapAt(p, ED.res, null, g.a, g.type); g.b = clampPt(s.p); setSnapTgt(s.tgt);
+    } else if (g.kind === 'free'){
+      var lp = g.pts[g.pts.length - 1]; if (Math.hypot(p.x - lp.x, p.y - lp.y) * ED.k >= 1) g.pts.push(p);
+    } else if (g.kind === 'move'){
+      var o = JSON.parse(g.orig), dx = p.x - g.p0.x, dy = p.y - g.p0.y;
+      if (o.t === 'p'){ g.it.pts = o.pts.map(function(val, i){ return croqR(Math.max(0, Math.min(i % 2 ? CROQ.h : CROQ.w, val + (i % 2 ? dy : dx)))); }); }
+      else { g.it.x = croqR(Math.max(0, Math.min(CROQ.w, o.x + dx))); g.it.y = croqR(Math.max(0, Math.min(CROQ.h, o.y + dy))); }
+    } else if (g.kind === 'vertex'){
+      var it = g.it, n = it.pts.length, nb = g.idx === 0 ? 2 : g.idx - 2, from = n >= 4 ? {x: it.pts[nb], y: it.pts[nb + 1]} : null;
+      var sv = snapAt(p, it.res, it.id, from, g.type), q = clampPt(sv.p); it.pts[g.idx] = q.x; it.pts[g.idx + 1] = q.y; setSnapTgt(sv.tgt);
+    }
+    draw();
+  }
+  function up(ev){
+    if (!ED.ptrs.has(ev.pointerId)) return;
+    ED.ptrs.delete(ev.pointerId);
+    var g = ED.g; if (!g) return;
+    if (g.kind === 'pan2'){ if (!ED.ptrs.size) ED.g = null; return; }
+    if (ev.pointerId !== g.id) return;
+    ED.g = null; setSnapTgt(null);
+    /* décollement du doigt : un dernier déplacement de plus de 6 px, juste avant la levée et dans une autre direction que le tracé, est ignoré */
+    var jx = g.curP && g.prevP ? g.curP.x - g.prevP.x : 0, jy = g.curP && g.prevP ? g.curP.y - g.prevP.y : 0, sx2 = g.prev2 ? g.prevP.x - g.prev2.x : 0, sy2 = g.prev2 ? g.prevP.y - g.prev2.y : 0;
+    var turn = (sx2 || sy2) ? croqAngleBetween(Math.atan2(jy, jx), Math.atan2(sy2, sx2)) > 60 || (jx * sx2 + jy * sy2) < 0 : false;
+    if (g.curP && g.prevP && ev.timeStamp - (g.lastT || 0) < 40 && Math.hypot(jx, jy) * ED.k > 6 && turn){
+      if (g.kind === 'line'){ var s2 = snapAt(g.prevP, ED.res, null, g.a, g.type); g.b = clampPt(s2.p); }
+      if (g.kind === 'free' && g.pts.length > 2) g.pts.pop();
+    }
+    if (g.kind === 'tap' || /pending$/.test(g.kind)){ tap(g.p0, g.type); return; }
+    if (g.kind === 'line'){
+      if (Math.hypot(g.b.x - g.a.x, g.b.y - g.a.y) * ED.k < 6){ draw(); return; }
+      var a = clampPt(g.a), b = clampPt(g.b), ext = null;
+      /* un trait qui part de l'extrémité d'un trait du même réseau le prolonge : une canalisation coudée reste un seul élément */
+      m.items.forEach(function(it){ if (ext || it.t !== 'p' || it.lisse || it.res !== ED.res || it.st) return; var n = it.pts.length; if (it.pts[n - 2] === a.x && it.pts[n - 1] === a.y) ext = {it: it, end: true}; else if (it.pts[0] === a.x && it.pts[1] === a.y) ext = {it: it, end: false}; });
+      if (ext){ if (ext.end) ext.it.pts.push(b.x, b.y); else ext.it.pts.unshift(b.x, b.y); ED.last = ext.it.id; }
+      else { var nl = {id: newId(), t: 'p', pts: [a.x, a.y, b.x, b.y], res: ED.res, st: '', fl: 0}; m.items.push(nl); ED.last = nl.id; }
+      ED.sel = null; commit(); draw(); return;
+    }
+    if (g.kind === 'free'){
+      if (g.pts.length < 2){ draw(); return; }
+      var sp = croqRdp(g.pts, 0.5 / ED.k), pts = []; sp.forEach(function(q){ var cq = clampPt(q); pts.push(cq.x, cq.y); });
+      var fl = {id: newId(), t: 'p', pts: pts, res: ED.res, st: '', fl: 0, lisse: true}; m.items.push(fl); ED.last = fl.id; ED.sel = null; commit(); draw(); return;
+    }
+    if (g.kind === 'move' || g.kind === 'vertex'){ if (JSON.stringify(g.it) !== g.orig) commit(); draw(); return; }
+  }
+  function cancel(ev){ if (!ED.ptrs.has(ev.pointerId)) return; ED.ptrs.delete(ev.pointerId); var g = ED.g; if (g && (g.kind === 'move' || g.kind === 'vertex')) restoreOrig(g); if (g && (g.id === ev.pointerId || g.kind === 'pan2')) ED.g = null; setSnapTgt(null); draw(); }
+  function tap(p, type){
+    if (ED.armed){ place(ED.armed, p); return; }
+    var hs = hits(p, type), lt = ED.lastTap, same = lt && Math.hypot(lt.x - p.x, lt.y - p.y) * ED.k < 8;
+    ED.lastTap = p;
+    if (!hs.length){ ED.sel = null; ED.last = null; ui(); draw(); return; }
+    var cur = byId(ED.sel), i = cur ? hs.indexOf(cur) : -1;
+    ED.sel = (same && i >= 0 ? hs[(i + 1) % hs.length] : hs[0]).id; ED.last = null; ui(); draw();
+  }
+  /* Pose d'une étiquette choisie dans la palette : texte centré sur le toucher ; regard et boîte accrochés au trait le plus proche du réseau, avec leur libellé à côté */
+  function place(a, p){
+    var q = clampPt(p), tx;
+    if (a.sq){
+      var best = null, bd = snapR('touch') * 1.5; m.items.forEach(function(it){ if (it.t !== 'p' || it.lisse || !compat(a.res, it.res) || it.res === 'BATI') return; croqSegsOf(it).forEach(function(s){ var r = croqProj(q, s), d = Math.hypot(r.x - q.x, r.y - q.y); if (d < bd){ bd = d; best = r; } }); });
+      if (best) q = clampPt(best);
+      m.items.push({id: newId(), t: 's', k: a.sq, x: q.x, y: q.y, res: a.res});
+      tx = {id: newId(), t: 'x', s: a.s, sz: 1, res: a.res}; tx.x = q.x + 4 + croqTextW(tx) / 2; tx.y = q.y - 4.5;
+    } else { tx = {id: newId(), t: 'x', s: a.s, sz: 2, res: a.res, x: q.x, y: q.y}; }
+    croqClampText(tx); m.items.push(tx); ED.armed = null; ED.sel = tx.id; ED.last = null; commit(); draw();
+  }
+  function labelOnLine(it, s){ var t = croqPlaceLabel(it, s, 2); t.id = newId(); m.items.push(t); ED.sel = t.id; ED.last = null; commit(); draw(); }
+  function del(){ var id = ED.sel || ED.last; if (!id) return; m.items = m.items.filter(function(x){ return x.id !== id; }); ED.sel = ED.last = null; commit(); draw(); }
+  async function editText(it){
+    var r = await openModal({title: 'Modifier le texte', html: '<label class="field"><span class="lbl">Texte</span><input type="text" id="m-in" data-autofocus value="' + esc(it.s) + '"></label>'
+      + '<label class="check"><input type="checkbox" id="m-keep"><span>Ajouter à mes textes</span></label>',
+      actions: [{label: 'Annuler', value: null}, {label: 'Enregistrer', cls: 'primary', collect: function(w){ return {s: w.querySelector('#m-in').value.trim(), keep: w.querySelector('#m-keep').checked}; }}]});
+    if (!r) return;
+    if (!r.s){ m.items = m.items.filter(function(x){ return x.id !== it.id; }); ED.sel = null; }
+    else { it.s = r.s; croqClampText(it); if (r.keep) await keepText(r.s); }
+    commit(); draw();
+  }
+  async function otherText(){
+    var r = await openModal({title: 'Autre texte', html: '<label class="field"><span class="lbl">Texte à poser</span><input type="text" id="m-in" data-autofocus></label>'
+      + '<label class="check"><input type="checkbox" id="m-keep"><span>Ajouter à mes textes</span></label><p class="muted small">Ensuite, touchez l\'endroit où le poser.</p>',
+      actions: [{label: 'Annuler', value: null}, {label: 'Choisir l\'endroit', cls: 'primary', collect: function(w){ return {s: w.querySelector('#m-in').value.trim(), keep: w.querySelector('#m-keep').checked}; }}]});
+    if (!r || !r.s) return;
+    if (r.keep) await keepText(r.s);
+    ED.armed = {s: r.s, res: 'BATI'}; ED.sel = ED.last = null; ui(); draw();
+  }
+  /* « Mes textes » : seulement à la demande, 15 au plus, jamais un téléphone ni un mail (données personnelles) */
+  async function keepText(s){
+    if (/@|\d{2}[\s.]?\d{2}[\s.]?\d{2}[\s.]?\d{2}/.test(s)){ toast('Les téléphones et les mails ne sont pas gardés dans « Mes textes ».'); return; }
+    textes = [s].concat(textes.filter(function(x){ return x !== s; })).slice(0, 15); await DB.put('meta', {k: 'croqTextes', v: textes});
+  }
+  async function menu(){
+    function item(v2, label, cls){ return '<button type="button" class="btn' + (cls ? ' ' + cls : '') + '" data-m="ch" data-v="' + v2 + '">' + esc(label) + '</button>'; }
+    var ch = await openModal({title: 'Croquis', noAutofocus: true, actions: [{label: 'Fermer', value: null}],
+      html: '<div class="sheet-list">' + item('clear', 'Tout effacer') + (m.fond ? item('fond', 'Retirer l\'ancien dessin') : '') + item('snap', ED.snapOn ? 'Aimantation : activée (toucher pour désactiver)' : 'Aimantation : désactivée (toucher pour activer)')
+        + (textes.length ? item('textes', 'Vider « Mes textes » (' + textes.length + ')') : '') + item('abandon', 'Abandonner les modifications', 'danger') + '</div>',
+      onMount: function(w, close){ w.addEventListener('click', function(ev){ var b = ev.target.closest('[data-m="ch"]'); if (b) close(b.dataset.v); }); }});
+    if (ch === 'clear'){ m.items = []; m.fond = ''; ED.sel = ED.last = null; commit(); draw(); }
+    if (ch === 'fond'){ m.fond = ''; commit(); draw(); }
+    if (ch === 'snap'){ ED.snapOn = !ED.snapOn; ui(); }
+    if (ch === 'textes'){ textes = []; await DB.put('meta', {k: 'croqTextes', v: []}); ui(); }
+    if (ch === 'abandon' && await confirmModal('Abandonner les modifications ?', 'Le croquis revient à son état à l\'ouverture de l\'éditeur.', 'Abandonner', true)){
+      var o = JSON.parse(at0.m); Object.keys(m).forEach(function(k2){ delete m[k2]; }); Object.assign(m, o); c.croquis = at0.croquis; m.pngRev = m.rev; ED.abandon = true; if (v.constat) constatTouch(v); ED.close('abandon');
+    }
+  }
+  async function pickRes(it){
+    var r = await openModal({title: 'Réseau de l\'élément', noAutofocus: true, actions: [{label: 'Annuler', value: null}],
+      html: '<div class="sheet-list">' + CROQ_RES_ORDER.map(function(k2){ return '<button type="button" class="btn ce-resbtn" data-m="r" data-v="' + k2 + '">' + resSample(k2) + esc(CROQ_RES[k2].lib) + ' <span class="muted">(' + esc(CROQ_RES[k2].nom) + ')</span></button>'; }).join('') + '</div>',
+      onMount: function(w, close){ w.addEventListener('click', function(ev){ var b = ev.target.closest('[data-m="r"]'); if (b) close(b.dataset.v); }); }});
+    if (!r || !it) return; it.res = r; if (it.t === 'p' && r === 'PRJ') it.st = ''; commit(); draw();
+  }
+  function resSample(k2){ var r = CROQ_RES[k2]; return '<svg width="28" height="12" viewBox="0 0 28 12" aria-hidden="true"><line x1="2" y1="6" x2="26" y2="6" stroke="' + r.col + '" stroke-width="' + Math.max(2, r.w * 2) + '"' + (r.dash ? ' stroke-dasharray="5 3"' : '') + ' stroke-linecap="butt"/></svg>'; }
+  function chip(label, act, data, cls){ return '<button type="button" class="ce-chip' + (cls ? ' ' + cls : '') + '" data-ce="' + act + '"' + (data || '') + '>' + label + '</button>'; }
+  /* Interface : barre du haut, outils et réseaux, consigne, bande du bas selon la sélection */
+  function ui(){
+    var w = ED.w; if (!w) return;
+    w.querySelector('[data-ce="undo"]').disabled = !ED.hist.length; w.querySelector('[data-ce="redo"]').disabled = !ED.fut.length;
+    var zb = w.querySelector('[data-ce="zoom"]'); zb.textContent = ED.detail ? 'Ensemble' : 'Détail'; zb.setAttribute('aria-pressed', String(ED.detail));
+    $$('[data-ce="tool"]', w).forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.v === ED.tool)); });
+    $$('[data-ce="res"]', w).forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.v === ED.res)); });
+    var sel = byId(ED.sel), last = !sel && byId(ED.last), it = sel || last, band = '', hint;
+    if (ED.armed){ hint = 'Touchez l\'endroit où poser « ' + ED.armed.s + ' »'; band = chip('Annuler la pose', 'disarm'); }
+    else if (it && it.t === 'x'){
+      hint = 'Glissez le texte pour le déplacer, ou utilisez les flèches (1 point par toucher)';
+      band = chip('Modifier le texte', 'txt') + chip('A−', 'sz', ' data-v="-1"') + chip('A+', 'sz', ' data-v="1"') + chip('←', 'nudge', ' data-v="-1,0" aria-label="Vers la gauche"') + chip('↑', 'nudge', ' data-v="0,-1" aria-label="Vers le haut"')
+        + chip('↓', 'nudge', ' data-v="0,1" aria-label="Vers le bas"') + chip('→', 'nudge', ' data-v="1,0" aria-label="Vers la droite"') + chip('Réseau…', 'res-of') + chip('Supprimer', 'del', '', 'danger');
+    } else if (it && it.t === 's'){
+      hint = 'Glissez le ' + (it.k === 'boite' ? 'carré de la boîte' : 'regard') + ' pour le déplacer';
+      band = chip('←', 'nudge', ' data-v="-1,0"') + chip('↑', 'nudge', ' data-v="0,-1"') + chip('↓', 'nudge', ' data-v="0,1"') + chip('→', 'nudge', ' data-v="1,0"') + chip('Réseau…', 'res-of') + chip('Supprimer', 'del', '', 'danger');
+    } else if (it && it.t === 'p'){
+      hint = sel ? (it.lisse ? 'Glissez le tracé pour le déplacer' : 'Glissez une poignée pour modifier le trait, ou le trait pour le déplacer') : 'Trait tracé : touchez une étiquette pour le nommer, ou continuez à dessiner';
+      band = '<span class="ce-lbl">Sur ce trait :</span>' + croqSuggest(it, c).map(function(s){ return chip(esc(s), 'on-line', ' data-v="' + esc(s) + '"', 'lab r-' + it.res); }).join('')
+        + (it.res !== 'PRJ' ? chip(it.st === 'presume' ? 'Présumé ✓' : 'Présumé', 'presume', ' aria-pressed="' + (it.st === 'presume') + '"') : '')
+        + (!it.lisse ? chip(it.fl > 0 ? 'Écoulement : sens du tracé' : it.fl < 0 ? 'Écoulement : sens inverse' : 'Écoulement : aucun', 'flow') : '') + chip('Réseau…', 'res-of') + chip('Supprimer', 'del', '', 'danger');
+    } else {
+      hint = (ED.tool === 'ligne' ? 'Glissez pour tracer un trait droit' : 'Glissez pour dessiner à main levée') + ' · touchez un élément pour le modifier' + (ED.penSeen ? ' · stylet : le doigt déplace la vue' : '');
+      var libs = (CROQ_LIB[ED.res] || []).map(function(l){ return chip(esc(l[0]), 'arm', ' data-v="' + esc(l[0]) + '" data-res="' + ED.res + '"' + (l[1] ? ' data-sq="' + l[1] + '"' : ''), 'lab r-' + ED.res); });
+      var ctxL = croqContexte(v, c).map(function(s){ return chip(esc(s), 'arm', ' data-v="' + esc(s) + '" data-res="BATI"', 'lab r-BATI'); });
+      var mine = textes.map(function(s){ return chip(esc(s), 'arm', ' data-v="' + esc(s) + '" data-res="BATI"', 'lab r-BATI mine'); });
+      band = (croqEmpty(m) ? chip('Croquis type d\'après le constat', 'type', '', 'type') : '') + libs.join('') + ctxL.join('') + mine.join('') + chip('Autre texte…', 'other');
+    }
+    if (window.innerHeight > window.innerWidth && window.innerWidth >= 600) hint = 'Tournez la tablette pour dessiner plus grand · ' + hint;
+    w.querySelector('.ce-hint').textContent = hint;
+    w.querySelector('.ce-band').innerHTML = band;
+  }
+  async function onClick(ev){
+    var b = ev.target.closest('[data-ce]'); if (!b || b.disabled) return;
+    var a = b.dataset.ce, it = byId(ED.sel || ED.last);
+    if (a === 'done') return ED.close('done');
+    if (a === 'undo') return undo();
+    if (a === 'redo') return redo();
+    if (a === 'zoom') return setDetail(!ED.detail);
+    if (a === 'menu') return menu();
+    if (a === 'tool'){ ED.tool = b.dataset.v; ED.armed = null; ui(); return; }
+    if (a === 'res'){ ED.res = b.dataset.v; ED.sel = ED.last = null; ED.armed = null; ui(); draw(); return; }
+    if (a === 'arm'){ ED.armed = {s: b.dataset.v, res: b.dataset.res || ED.res, sq: b.dataset.sq || ''}; ED.sel = ED.last = null; ui(); draw(); return; }
+    if (a === 'disarm'){ ED.armed = null; ui(); return; }
+    if (a === 'other') return otherText();
+    if (a === 'type'){
+      var ct = croquisType(v, c); if (!ct){ toast('Indiquez d\'abord les raccordements dans le constat (installations raccordées sur un réseau EU, EP ou unitaire).', 4500); return; }
+      m.items = m.items.concat(ct.items.map(function(x){ x.id = newId(); return x; })); ED.sel = ED.last = null; commit(); draw(); return;
+    }
+    if (!it) return;
+    if (a === 'on-line') return labelOnLine(it, b.dataset.v);
+    if (a === 'presume'){ it.st = it.st === 'presume' ? '' : 'presume'; commit(); draw(); return; }
+    if (a === 'flow'){ it.fl = it.fl > 0 ? -1 : it.fl < 0 ? 0 : 1; commit(); draw(); return; }
+    if (a === 'res-of') return pickRes(it);
+    if (a === 'del') return del();
+    if (a === 'txt') return editText(it);
+    if (a === 'sz'){ it.sz = Math.max(1, Math.min(3, (it.sz || 2) + (+b.dataset.v))); croqClampText(it); commit(); draw(); return; }
+    if (a === 'nudge'){ var d = b.dataset.v.split(',').map(Number); if (it.t === 'p') it.pts = it.pts.map(function(val, i){ return croqR(Math.max(0, Math.min(i % 2 ? CROQ.h : CROQ.w, val + d[i % 2]))); }); else { it.x = croqR(Math.max(0, Math.min(CROQ.w, it.x + d[0]))); it.y = croqR(Math.max(0, Math.min(CROQ.h, it.y + d[1]))); } commit(); draw(); return; }
+  }
+  function miniDown(ev){
+    ev.preventDefault(); var mc = ev.currentTarget; try { mc.setPointerCapture(ev.pointerId); } catch(e){}
+    function go2(e2){ var r = mc.getBoundingClientRect(), x = (e2.clientX - r.left - (ED.miniOx || 0)) / (ED.miniK || 1), y = (e2.clientY - r.top) / (ED.miniK || 1); center(x, y); draw(); }
+    go2(ev); var mv = function(e2){ go2(e2); }, end = function(){ mc.removeEventListener('pointermove', mv); mc.removeEventListener('pointerup', end); mc.removeEventListener('pointercancel', end); };
+    mc.addEventListener('pointermove', mv); mc.addEventListener('pointerup', end); mc.addEventListener('pointercancel', end);
+  }
+  function onKey(ev){
+    if (MODALS.length && MODALS[MODALS.length - 1] !== ED.entry) return;
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z'){ ev.preventDefault(); if (ev.shiftKey) redo(); else undo(); }
+    else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'y'){ ev.preventDefault(); redo(); }
+    else if ((ev.key === 'Delete' || ev.key === 'Backspace') && (ED.sel || ED.last) && !/INPUT|TEXTAREA/.test((document.activeElement || {}).tagName || '')){ ev.preventDefault(); del(); }
+  }
+  var onResize = function(){ clearTimeout(ED.rt); ED.rt = setTimeout(layout, 120); };
+  var html = '<div class="ce"><div class="ce-head">'
+    + '<div class="ce-top"><button type="button" class="btn primary" data-ce="done">' + svg(I.check, 20) + 'Terminé</button><span class="ce-saved" aria-live="polite">' + (croqEmpty(m) ? '' : 'Enregistré') + '</span><span class="sp"></span>'
+    + '<button type="button" class="btn" data-ce="undo" disabled>↶ Défaire</button><button type="button" class="btn" data-ce="redo" disabled>↷ Rétablir</button>'
+    + '<button type="button" class="btn" data-ce="zoom" aria-pressed="false">Détail</button><button type="button" class="btn ce-more" data-ce="menu" aria-label="Plus d\'actions">' + svg(I.more, 22) + '</button></div>'
+    + '<div class="ce-tools"><div class="seg ce-outils"><button type="button" data-ce="tool" data-v="ligne" aria-pressed="true">Trait droit</button><button type="button" data-ce="tool" data-v="main" aria-pressed="false">Main levée</button></div>'
+    + '<div class="seg ce-res">' + CROQ_RES_ORDER.map(function(k2){ return '<button type="button" data-ce="res" data-v="' + k2 + '" aria-pressed="' + (k2 === 'EU') + '">' + resSample(k2) + esc(CROQ_RES[k2].lib) + '</button>'; }).join('') + '</div></div></div>'
+    + (avert ? '<p class="inline-warn ce-avert">' + esc(avert) + '</p>' : '')
+    + '<div class="ce-hint"></div>'
+    + '<div class="ce-stage"><canvas class="ce-cv" aria-label="Croquis de position du branchement"></canvas><div class="ce-rotate" hidden><p><strong>Tournez le téléphone</strong></p><p>Le cadre du croquis est très allongé : il se dessine à l\'horizontale.</p></div></div>'
+    + '<div class="ce-mini" hidden><canvas aria-label="Vue d\'ensemble : touchez pour vous déplacer"></canvas></div>'
+    + '<div class="ce-band" role="toolbar"></div></div>';
+  var res = await openModal({full: true, noAutofocus: true, html: html, backValue: function(){ return 'done'; },
+    onClose: function(){ window.removeEventListener('resize', onResize); document.removeEventListener('keydown', onKey); },
+    onMount: function(w, close){
+      ED.w = w; ED.close = close; ED.entry = MODALS[MODALS.length - 1]; ED.cv = w.querySelector('.ce-cv'); ED.ctx = ED.cv.getContext('2d');
+      ED.margin = window.innerWidth < 700 ? 22 : 40;
+      ED.cv.addEventListener('pointerdown', down); ED.cv.addEventListener('pointermove', move); ED.cv.addEventListener('pointerup', up); ED.cv.addEventListener('pointercancel', cancel);
+      ED.cv.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+      w.querySelector('.ce-mini canvas').addEventListener('pointerdown', miniDown);
+      w.addEventListener('click', onClick);
+      window.addEventListener('resize', onResize); document.addEventListener('keydown', onKey);
+      ui(); requestAnimationFrame(layout);
     }});
   return res;
 }
@@ -2030,7 +2605,7 @@ function drawConstatP1(doc, v, E){
   });
   doc.setDrawColor(161, 89, 28); doc.setLineWidth(0.6); doc.setLineDash([3, 2]); doc.line(240, 762.5, 452, 762.5); doc.setLineDash([]);
   cTxt(doc, 'LIMITE DE PROPRIETE', 454.3, 755.8, {sz: 5.5}); cTxt(doc, 'BORDURE / ACCOTEMENT', 454.3, 765, {sz: 5.5, col: [161, 89, 28]});
-  if (c.croquis && !E.nonEffectue) cLogo(doc, c.croquis, CROQ.x0, CROQ.y0, CROQ.w, CROQ.h, 'croquis-' + v.id);
+  if (c.croquis && !E.nonEffectue){ try { doc.addImage(c.croquis, 'PNG', CROQ.x0, CROQ.y0, CROQ.w, CROQ.h, 'croquis-' + v.id + '-' + fnv32(c.croquis), 'FAST'); } catch(e){} }
 }
 function drawConstatTable(doc, E){
   var c = E.c, P = CPC, top = 402, bottom = 620.5, rows = constatRowsForPrint(c), n = rows.length;
@@ -2215,8 +2790,8 @@ var CONSTAT_ACTIONS = {
   'c-delrow': async function(el){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; var r = rowById(c, el.dataset.row); if (!r || r.std) return; if (!(await confirmModal('Supprimer la ligne « ' + r.label + ' » ?', 'Les anomalies liées à cette installation ne le seront plus.', 'Supprimer', true))) return; c.rows = c.rows.filter(function(x){ return x !== r; }); constatTouch(v); render(); },
   'c-boite-so': function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; c.boite = {distEU: 'sans objet', distEP: 'sans objet', profEU: 'sans objet', profEP: 'sans objet', teEU: 'sans objet', teEP: 'sans objet'}; constatTouch(v); render(); },
   'c-obs-fill': function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; c.observations = constatObsAuto(constatEval(v, anomsOf(v.id))); constatTouch(v); render(); },
-  'c-croquis': async function(){ var v = curVisit(); if (v.constat && v.constat.signeLe) return; var png = await croquisModal(v.constat ? v.constat.croquis : ''); if (png == null) return; constatOf(v).croquis = png; constatTouch(v); render(); },
-  'c-croquis-del': async function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; if (!(await confirmModal('Effacer le croquis ?', 'Le croquis de position du branchement sera effacé.', 'Effacer', true))) return; c.croquis = ''; constatTouch(v); render(); },
+  'c-croquis': async function(){ var v = curVisit(); if (!v || (v.constat && v.constat.signeLe)) return; await croquisEditor(v); if (v.constat){ await croquisAJour(v); await flushSaves(); } render(); },
+  'c-croquis-del': async function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; if (!(await confirmModal('Effacer le croquis ?', 'Le croquis de position du branchement sera effacé.', 'Effacer', true))) return; c.croquis = ''; delete c.croquisV; constatTouch(v); render(); },
   'c-sign': async function(el){
     var v = curVisit(), c0 = v.constat; if (c0 && c0.signeLe) return; var tech = el.dataset.who === 'tech';
     if (!tech){ var iss = constatIssues(v, anomsOf(v.id)); if (iss.length && !(await confirmModal('Faire signer malgré tout ?', iss.length + (iss.length > 1 ? ' points restent à vérifier : ' : ' point reste à vérifier : ') + iss.slice(0, 4).join(' ') + (iss.length > 4 ? ' …' : ''), 'Faire signer'))) return; }
@@ -2233,6 +2808,7 @@ var CONSTAT_ACTIONS = {
     constatTouch(v); render();
   },
   'c-lock': async function(){
+    if (curVisit()) await croquisAJour(curVisit());
     var v = curVisit(), c = v.constat; if (!c || !c.sigTech) return;
     var E = constatEval(v, anomsOf(v.id)), conf = {};
     E.rows.forEach(function(x){ conf[x.r.id] = rowActive(x.r) ? x.conf : ''; });
@@ -2463,27 +3039,29 @@ async function onZipFile(input){ var f = input.files && input.files[0]; input.va
 var MODALS = [];
 function openModal(o){
   return new Promise(function(resolve){
-    var actions = o.actions || [], w = document.createElement('div'); w.className = 'modal-back'; var pushed = false;
+    var actions = o.actions || [], w = document.createElement('div'); w.className = 'modal-back' + (o.full ? ' full' : ''); var pushed = false;
     try { history.pushState({vtModal: 1}, '', location.href); pushed = true; } catch(e){}
-    var entry = {fromBack: function(){ finish(undefined, true); }}; MODALS.push(entry);
-    w.innerHTML = '<div class="modal" role="dialog" aria-modal="true" aria-label="' + esc(o.title || '') + '">' + (o.title ? '<h2 class="m-title">' + esc(o.title) + '</h2>' : '')
+    /* o.full : plein écran, sans fond cliquable ; o.backValue : valeur rendue par le retour de l'appareil et par Échap (l'éditeur de croquis enregistre) */
+    var entry = {fromBack: function(){ finish(o.backValue ? o.backValue(w) : undefined, true); }}; MODALS.push(entry);
+    w.innerHTML = '<div class="modal' + (o.full ? ' full' : '') + '" role="dialog" aria-modal="true" aria-label="' + esc(o.title || o.label || '') + '">' + (o.title ? '<h2 class="m-title">' + esc(o.title) + '</h2>' : '')
       + '<div class="m-body">' + (o.html || '') + '</div>' + (actions.length ? '<div class="m-foot">' + actions.map(function(a, i){ return '<button type="button" class="btn ' + (a.cls || '') + '" data-mi="' + i + '">' + esc(a.label) + '</button>'; }).join('') + '</div>' : '') + '</div>';
     $('#modal-root').appendChild(w);
     var done = false;
     function finish(val, fromBack){
       if (done) return; done = true; w.remove(); document.removeEventListener('keydown', onKey);
       var ix = MODALS.indexOf(entry); if (ix >= 0) MODALS.splice(ix, 1);
+      if (o.onClose){ try { o.onClose(val); } catch(e){} }
       if (!pushed || fromBack){ resolve(val); return; }
       /* l'entrée de la fenêtre est retirée de l'historique avant de rendre la main, pour que la navigation suivante parte du bon endroit */
       navSilentBack(function(){ resolve(val); });
     }
     function close(val){ finish(val, false); }
-    function onKey(ev){ if (ev.key === 'Escape') close(undefined); }
+    function onKey(ev){ if (ev.key === 'Escape' && MODALS[MODALS.length - 1] === entry) close(o.backValue ? o.backValue(w) : undefined); }
     document.addEventListener('keydown', onKey);
     w.addEventListener('click', function(ev){
       var b = ev.target.closest('[data-mi]');
       if (b){ var a = actions[+b.dataset.mi]; if (a.collect){ var r = a.collect(w); if (r === false) return; close(r); } else close('value' in a ? a.value : a.label); return; }
-      if (ev.target === w) close(undefined);
+      if (ev.target === w && !o.full) close(undefined);
     });
     if (o.onMount) o.onMount(w, close);
     if (!o.noAutofocus){ var f = w.querySelector('[data-autofocus]') || w.querySelector('.m-foot .btn.primary, .m-foot .btn.danger-solid'); if (f) setTimeout(function(){ f.focus(); }, 30); }
@@ -2717,7 +3295,7 @@ async function init(){
   }
   await render();
 }
-window.__VT = {S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, ready: null};
+window.__VT = {S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, croqPng: croqPng, croquisAJour: croquisAJour, croquisType: croquisType, croqPlaceLabel: croqPlaceLabel, ready: null};
 window.__VT.ready = init();
 })();
 </script>
