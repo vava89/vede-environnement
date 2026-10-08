@@ -21,6 +21,7 @@
   --ep:#1D54C4;--ep-soft:#E0E9FB;--ep-ink:#133B8C;--on-ep:#FFFFFF;
   --warn:#8A5300;--warn-soft:#FFF0D1;--warn-line:#EBC27A;
   --ok:#21704A;--ok-soft:#DBF0E4;
+  --refus:#7B2CBF;--refus-soft:#EFE3FA;--absent:#4E6A85;--absent-soft:#E2E9F0;
   --danger:#B42318;
   --scrim:rgba(9,18,24,.5);
   --shadow:0 18px 50px -22px rgba(9,18,24,.55);
@@ -37,6 +38,7 @@
     --ep:#6E9AFF;--ep-soft:#162649;--ep-ink:#B3C9FF;--on-ep:#06142F;
     --warn:#F0AE48;--warn-soft:#38290D;--warn-line:#6B4E17;
     --ok:#5BC98D;--ok-soft:#113222;--danger:#FF8A7A;--scrim:rgba(0,0,0,.6);
+    --refus:#C9A0FF;--refus-soft:#2B1840;--absent:#9DB8D3;--absent-soft:#1A2733;
     color-scheme:dark;
   }
 }
@@ -47,6 +49,7 @@
   --ep:#6E9AFF;--ep-soft:#162649;--ep-ink:#B3C9FF;--on-ep:#06142F;
   --warn:#F0AE48;--warn-soft:#38290D;--warn-line:#6B4E17;
   --ok:#5BC98D;--ok-soft:#113222;--danger:#FF8A7A;--scrim:rgba(0,0,0,.6);
+  --refus:#C9A0FF;--refus-soft:#2B1840;--absent:#9DB8D3;--absent-soft:#1A2733;
   color-scheme:dark;
 }
 html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -64,8 +67,19 @@ a{color:inherit}
 .bar-pad{width:6px}
 .bar-logo{flex:0 0 auto;width:38px;height:38px;margin:0 2px 0 4px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
 @media (max-width:600px){.bar .iconbtn[data-act="back"] ~ .bar-logo{display:none}}
-.home-logo{display:inline-block;margin:0 0 18px;padding:12px 18px;background:#fff;border:1px solid var(--line-2);border-radius:14px}
-.home-logo img{display:block;width:280px;max-width:100%;height:auto}
+.home-head{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin:0 0 18px}.home-head .lead{margin:0}
+.home-logo{flex:0 0 auto;padding:10px 14px;background:#fff;border:1px solid var(--line-2);border-radius:14px}
+.home-logo img{display:block;width:200px;max-width:100%;height:auto}
+.ecards{list-style:none;margin:0 0 22px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+@media (max-width:420px){.ecards{grid-template-columns:1fr}}
+.ecard{display:flex;flex-direction:column;gap:8px;min-height:190px;padding:18px 20px 16px 26px;border-radius:18px;background:var(--surface);border:2px solid var(--line);box-shadow:0 10px 28px -18px rgba(9,18,24,.55);text-decoration:none;color:inherit;position:relative;overflow:hidden}
+.ecard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:10px;background:var(--brand)}
+.ecard:active{transform:translateY(1px)}.ecard:hover{border-color:var(--brand)}
+.ec-top{display:flex;align-items:flex-start;gap:10px}.ec-name{flex:1;font-family:"Barlow Condensed","Barlow",sans-serif;font-weight:700;font-size:32px;line-height:1.05;overflow-wrap:anywhere}
+.ec-go{flex:0 0 auto;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--brand);color:var(--on-brand)}
+.ec-big{display:flex;align-items:baseline;gap:2px;color:var(--ink-2)}.ec-big strong{font-family:"Barlow Condensed",sans-serif;font-size:34px;color:var(--ink)}.ec-pct{margin-left:auto;font-weight:700;color:var(--ok)}
+.ec-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.ec-warn{display:inline-flex;align-items:center;gap:4px;color:var(--warn);font-weight:700}.ec-ok{display:inline-flex;align-items:center;gap:4px;color:var(--ok);font-weight:600}
+.home-actions{padding-top:4px}
 .iconbtn{flex:0 0 auto;display:inline-grid;place-items:center;width:48px;height:48px;border:0;border-radius:12px;background:transparent;color:inherit;cursor:pointer}
 .iconbtn:active{background:rgba(255,255,255,.16)}
 .net-off{flex:0 0 auto;font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;background:#FFF0D1;color:#6B4100}
@@ -116,7 +130,7 @@ a{color:inherit}
 .st{display:inline-block;font-size:13px;font-weight:600;line-height:1;padding:5px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line-2);white-space:nowrap}
 .st.visitee{background:var(--ok-soft);color:var(--ok);border-color:transparent}
 .st.a_revoir{background:var(--warn-soft);color:var(--warn);border-color:transparent}
-.st.absent,.st.refus,.st.hors_zone{color:var(--ink-2)}
+.st.hors_zone{color:var(--ink-2)}
 .prog{display:flex;height:8px;border-radius:999px;overflow:hidden;background:var(--line-2);margin:8px 0}
 .prog i{display:block;height:100%}
 .prog .p-ok{background:var(--ok)}.prog .p-warn{background:var(--warn)}.prog .p-oth{background:var(--muted)}
@@ -136,7 +150,12 @@ a{color:inherit}
 .vlist{list-style:none;margin:0;padding:0}
 .vrow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 12px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--line-2);text-decoration:none;color:inherit;min-height:66px}
 .vrow:active{background:var(--surface-2)}
-.vrow.active{background:var(--brand-soft);box-shadow:inset 4px 0 0 var(--brand)}
+.vrow{border-left:8px solid var(--vc,transparent);background:var(--vb,transparent)}
+.vs-ok{--vc:var(--ok);--vb:var(--ok-soft)}.vs-warn{--vc:var(--warn);--vb:var(--warn-soft)}.vs-refus{--vc:var(--refus);--vb:var(--refus-soft)}.vs-absent{--vc:var(--absent);--vb:var(--absent-soft)}.vs-hz{--vc:var(--line);--vb:var(--surface-2)}.vs-todo{--vc:transparent}
+.vrow.active{box-shadow:inset 0 0 0 3px var(--brand)}
+.vdot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px;background:var(--vc);border:1px solid var(--line)}.vdot.vs-todo{background:var(--surface)}
+.chip[aria-pressed="true"] .vdot{border-color:var(--surface)}
+.st.refus{background:var(--refus-soft);color:var(--refus);border-color:transparent}.st.absent{background:var(--absent-soft);color:var(--absent);border-color:transparent}
 .vnum{grid-row:1 / span 2;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:26px;line-height:1;min-width:2.6ch;font-variant-numeric:tabular-nums}
 .vmain{min-width:0;display:flex;flex-direction:column}
 .vaddr{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -250,7 +269,10 @@ table.prev th{background:var(--surface-2);font-weight:600}
 .opt-list{display:flex;flex-direction:column;gap:4px;margin:0 0 14px}.radio{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:600;cursor:pointer}.radio input{width:22px;height:22px;accent-color:var(--brand)}
 .pick-chips{flex-wrap:wrap;overflow:visible;padding:12px 0 6px}.pick-chips .chip{min-height:42px;font-size:15px}
 .pick-cat{font-family:"Barlow Condensed","Barlow",sans-serif;font-weight:700;font-size:19px;color:var(--ink-2);margin:16px 0 8px}.pick-cat:first-child{margin-top:4px}
-.btnrow .sp{flex:1}.cst-card{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:14px}.cst-card .btnrow{margin:0}
+.btnrow .sp{flex:1}.xrow{display:flex;gap:6px;align-items:stretch}.xrow input{flex:1;min-width:0}.xrow .btn{flex:0 0 auto}
+.xls-pick{display:grid!important;grid-template-columns:minmax(110px,40%) 1fr;gap:10px;text-align:left;justify-items:start}.xls-pick .xk{color:var(--muted);font-weight:500;font-size:14px}.xls-pick .xv{font-weight:600;overflow-wrap:anywhere}
+details.xls summary{gap:8px}
+.cst-card{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:14px}.cst-card .btnrow{margin:0}
 .lockbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--ok-soft);color:var(--ok);font-weight:600;border-radius:12px;padding:10px 14px;margin:0 0 14px}.lockbar span{flex:1}
 .ro{min-height:48px;display:flex;align-items:center;padding:0 2px;font-weight:600}
 .abs-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px;color:var(--ink-2)}.abs-row span{flex:1 1 220px}
@@ -296,7 +318,7 @@ table.prev th{background:var(--surface-2);font-weight:600}
 <script>
 (function(){
 'use strict';
-var VERSION = '1.3.1';
+var VERSION = '1.4.0';
 
 /* ---------- Utilitaires ---------- */
 var $ = function(s, r){ return (r || document).querySelector(s); };
@@ -348,8 +370,17 @@ function svg(d, size){ var s = size || 22; return '<svg viewBox="0 0 24 24" widt
 /* ---------- Constantes métier ---------- */
 var STATUTS = [['a_visiter', 'À visiter'], ['visitee', 'Visitée'], ['a_revoir', 'À revoir'], ['absent', 'Absent'], ['refus', "Refus d'accès"], ['hors_zone', 'Hors zone']];
 function stLabel(k){ for (var i = 0; i < STATUTS.length; i++) if (STATUTS[i][0] === k) return STATUTS[i][1]; return k || ''; }
-var FILTERS = [['toutes', 'Toutes'], ['a_visiter', 'À visiter'], ['visitee', 'Visitées'], ['a_completer', 'À compléter'], ['avec', 'Avec anomalies'], ['autres', 'À revoir, absents']];
-var MAP_KEYS = ['numero', 'adr1', 'adr2', 'commune', 'nom', 'tel', 'mail', 'dom1', 'dom2', 'domVille', 'rdv'];
+var FILTERS = [['toutes', 'Toutes'], ['a_visiter', 'À visiter', 'todo'], ['ok', 'Effectuées', 'ok'], ['a_completer', 'À compléter', 'warn'], ['refus', 'Refusées', 'refus'], ['autres', 'Absents, à revoir, hors zone', 'absent'], ['avec', 'Avec anomalies']];
+/* État d'une visite pour le code couleur de la liste : effectuée et complète, à compléter, refusée, absent ou à revoir, hors zone, à visiter */
+function visitEtat(v, l){
+  if (v.statut === 'refus') return 'refus';
+  if (v.statut === 'hors_zone') return 'hz';
+  if (v.statut === 'absent' || v.statut === 'a_revoir') return 'absent';
+  if (issuesOf(v, l).length) return 'warn';
+  if (v.statut === 'visitee') return 'ok';
+  return 'todo';
+}
+var MAP_KEYS = ['numero', 'adr1', 'adr2', 'commune', 'nom', 'tel', 'mail', 'dom1', 'dom2', 'domVille', 'rdv', 'refCad', 'demande', 'typeProp', 'nbLog'];
 /* Catégories des anomalies types : attribuées automatiquement d'après le libellé, modifiables dans la bibliothèque */
 var CATS = [['inversion', 'Inversions EU / EP'], ['regard', 'Regards et tampons'], ['canal', 'Canalisations'], ['descente', 'Descentes EP'], ['grille', 'Grilles et siphons'],
   ['drainage', 'Drainage'], ['chaudiere', 'Chaudière et purges'], ['ventilation', 'Ventilation'], ['autre', 'Autres']];
@@ -495,7 +526,47 @@ function parseRoute(){
   }
   return {name: 'home'};
 }
-function go(h){ if (location.hash === h) render(); else location.hash = h; }
+/* Navigation : l'historique reproduit toujours l'arborescence (accueil > étude > dossier > anomalie, fiche ou constat),
+   si bien que le retour de l'appareil ou de l'application remonte d'un niveau, quel que soit le chemin suivi */
+var NAV = {pending: null, ignorePops: 0, afterPop: null, fallback: null, lastPopHash: null};
+function normHash(x){ x = String(x || ''); return x && x !== '#' ? x : '#/'; }
+function routeParent(x){
+  var p = normHash(x).replace(/^#\/?/, '').split('/').filter(Boolean);
+  if (!p.length) return null;
+  if (p[0] !== 'e' || p.length <= 2) return '#/';
+  if (p[2] === 'v' && p.length >= 5) return '#/e/' + p[1] + '/v/' + p[3];
+  return '#/e/' + p[1];
+}
+function routeChain(x){ var out = [], y = normHash(x), n = 0; while (y && n++ < 8){ out.unshift(y); y = routeParent(y); } return out; }
+function navInit(){ var ch = routeChain(location.hash); try { history.replaceState({vt: 1}, '', ch[0]); for (var i = 1; i < ch.length; i++) history.pushState({vt: 1}, '', ch[i]); } catch(e){} }
+function navUp(n, target){
+  var before = location.href; clearTimeout(NAV.fallback);
+  NAV.fallback = setTimeout(function(){ if (location.href === before){ NAV.pending = null; try { history.replaceState({vt: 1}, '', target); } catch(e){} render(); } }, 700);
+  history.go(-n);
+}
+function navApplyPending(){
+  var rest = NAV.pending; NAV.pending = null;
+  try { if (rest && rest.length){ history.replaceState({vt: 1}, '', rest[0]); for (var i = 1; i < rest.length; i++) history.pushState({vt: 1}, '', rest[i]); } } catch(e){ location.replace(rest[rest.length - 1]); return; }
+  render();
+}
+function go(h){
+  h = normHash(h); var cur = normHash(location.hash);
+  if (h === cur){ render(); return; }
+  var target = routeChain(h), here = routeChain(cur), k = 0;
+  while (k < target.length && k < here.length && target[k] === here[k]) k++;
+  var up = here.length - k, rest = target.slice(k);
+  if (!up){ try { rest.forEach(function(x){ history.pushState({vt: 1}, '', x); }); } catch(e){ location.hash = h; return; } render(); return; }
+  if (!rest.length){ navUp(up, h); return; }
+  NAV.pending = rest;
+  if (up > 1) navUp(up - 1, h); else navApplyPending();
+}
+function onPopState(){
+  clearTimeout(NAV.fallback);
+  if (NAV.ignorePops > 0){ NAV.ignorePops--; var f = NAV.afterPop; NAV.afterPop = null; if (f) f(); return; }
+  if (MODALS.length){ MODALS[MODALS.length - 1].fromBack(); return; }
+  NAV.lastPopHash = normHash(location.hash);
+  if (NAV.pending) navApplyPending(); else render();
+}
 function mqWide(){ try { return window.matchMedia('(min-width: 960px)').matches; } catch(e){ return false; } }
 async function cleanupDraft(aid){
   var a = null; for (var i = 0; i < S.anoms.length; i++) if (S.anoms[i].id === aid) a = S.anoms[i];
@@ -587,25 +658,27 @@ function progressHtml(st){
 async function viewHome(){
   var etudes = await DB.all('etudes');
   etudes.sort(function(a, b){ return String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)); });
-  var list = '';
+  var cards = '';
   for (var i = 0; i < etudes.length; i++){
     var e = etudes[i];
     var vs = await DB.byIndex('visites', 'etudeId', e.id), as = await DB.byIndex('anomalies', 'etudeId', e.id);
-    var st = etudeStats(vs, as), dirty = !e.lastExportAt || (e.updatedAt && e.updatedAt > e.lastExportAt);
-    list += '<li><a class="erow" href="#/e/' + esc(e.id) + '"><span class="ename">' + esc(e.nom) + '</span>'
-      + '<span class="etal"><span class="tally eu">EU ' + st.eu + '</span><span class="tally ep">EP ' + st.ep + '</span></span>'
-      + '<span class="emeta">' + plural(st.total, 'dossier', 'dossiers') + ', ' + st.visited + ' visité' + (st.visited > 1 ? 's' : '') + (st.incomplete ? ', ' + st.incomplete + ' à compléter' : '') + '</span>'
+    var st = etudeStats(vs, as), dirty = !e.lastExportAt || (e.updatedAt && e.updatedAt > e.lastExportAt), pct = st.total ? Math.round(100 * st.visited / st.total) : 0;
+    cards += '<li><a class="ecard" href="#/e/' + esc(e.id) + '">'
+      + '<span class="ec-top"><span class="ec-name">' + esc(e.nom) + '</span><span class="ec-go" aria-hidden="true">' + svg(I.next, 26) + '</span></span>'
+      + '<span class="ec-big"><strong>' + st.visited + '</strong><span> / ' + st.total + (st.total > 1 ? ' dossiers visités' : ' dossier visité') + '</span><span class="ec-pct">' + pct + ' %</span></span>'
       + progressHtml(st)
+      + '<span class="ec-meta">' + (st.incomplete ? '<span class="ec-warn">' + svg(I.warn, 18) + st.incomplete + ' à compléter</span>' : '<span class="ec-ok">' + svg(I.check, 18) + 'Rien à compléter</span>')
+      + '<span class="tally eu">EU ' + st.eu + '</span><span class="tally ep">EP ' + st.ep + '</span></span>'
       + '<span class="eexp' + (dirty ? ' dirty' : '') + '">' + (e.lastExportAt ? 'Dernier export le ' + fmtDT(e.lastExportAt) + (dirty ? ', modifiée depuis' : '') : 'Jamais exportée') + '</span></a></li>';
   }
-  var b = '<div class="page">', A = window.VEDE_ASSETS || {};
-  if (A.logo) b += '<div class="home-logo"><img src="' + A.logo + '" alt="VÉDÉ Environnement"></div>';
-  b += '<h1 class="h1">Études</h1><p class="lead">Une étude regroupe toutes les visites d\'une opération. Elle se crée à partir de votre tableau Excel : une ligne par adresse à contrôler, avec son numéro de dossier.</p>';
-  b += '<div class="btnrow"><button type="button" class="btn primary big" data-act="nav" data-href="#/import">' + svg(I.upload) + 'Importer un tableau Excel</button>'
-    + '<button type="button" class="btn big" data-act="pick-zip">' + svg(I.restore) + 'Restaurer une sauvegarde</button>'
-    + '<button type="button" class="btn big" data-act="nav" data-href="#/bibliotheque">' + svg(I.book) + 'Anomalies types</button></div>';
-  b += etudes.length ? '<ul class="elist">' + list + '</ul>'
-    : '<div class="empty"><p><strong>Aucune étude sur cet appareil.</strong></p><p>Importez votre tableau des visites pour créer la première, ou restaurez un export fait sur un autre appareil.</p></div>';
+  var A = window.VEDE_ASSETS || {}, b = '<div class="page home">';
+  b += '<div class="home-head">' + (A.logo ? '<div class="home-logo"><img src="' + A.logo + '" alt="VÉDÉ Environnement"></div>' : '')
+    + '<div><h1 class="h1">Études</h1><p class="lead">' + (etudes.length ? plural(etudes.length, 'étude sur cet appareil', 'études sur cet appareil') + '. Touchez une étude pour ouvrir ses dossiers.' : 'Une étude regroupe toutes les visites d\'une opération. Elle se crée à partir de votre tableau Excel : une ligne par adresse à contrôler, avec son numéro de dossier.') + '</p></div></div>';
+  var actions = '<div class="btnrow home-actions"><button type="button" class="btn ' + (etudes.length ? '' : 'primary big') + '" data-act="nav" data-href="#/import">' + svg(I.upload) + 'Importer un tableau Excel</button>'
+    + '<button type="button" class="btn" data-act="pick-zip">' + svg(I.restore) + 'Restaurer une sauvegarde</button>'
+    + '<button type="button" class="btn" data-act="nav" data-href="#/bibliotheque">' + svg(I.book) + 'Anomalies types</button></div>';
+  if (etudes.length) b += '<ul class="ecards">' + cards + '</ul>' + actions;
+  else b += actions + '<div class="empty"><p><strong>Aucune étude sur cet appareil.</strong></p><p>Importez votre tableau des visites pour créer la première, ou restaurez un export fait sur un autre appareil.</p></div>';
   b += '<p class="note" id="storage-note">Les données restent sur cet appareil et la saisie fonctionne sans connexion. Exportez chaque étude régulièrement : l\'export ZIP sert aussi de sauvegarde.</p></div>';
   return {bar: barHtml({title: 'VÉDÉ Terrain', sub: 'Contrôles de branchement'}), body: b, after: fillStorageNote};
 }
@@ -663,6 +736,10 @@ function guessMap(H){
   m.dom2 = take([/adresse\s*(du\s*)?dom(icile)?\s*2/, /complement.*dom/]);
   m.domVille = take([/ville\s*(du\s*)?dom/, /commune\s*(du\s*)?dom/]);
   m.rdv = take([/date\s*(de\s*)?(la\s*)?visite/, /rdv/, /rendez/, /creneau/, /^date(?!.*demande)/]);
+  m.refCad = take([/ref.*cadastr/, /cadastr/, /^parcelles?$/]);
+  m.demande = take([/date\s*(de\s*)?(la\s*)?demande/]);
+  m.typeProp = take([/^type\s*(de\s*)?(la\s*)?(propriete|bien|habitation|logement|batiment)/, /^habitations?$/, /^nature\b/]);
+  m.nbLog = take([/(nombre|nb|nbre)\.?\s*(de\s*)?logements?/, /^logements?$/]);
   return m;
 }
 function mapFromPrev(H, prev){
@@ -744,6 +821,7 @@ function computeImport(imp){
     if (seen.has(numero)) dups++; else seen.add(numero);
     recs.push({numero: numero, adresse: [cell(r, m.adr1), cell(r, m.adr2)].filter(Boolean).join(' '), commune: cell(r, m.commune), nom: cell(r, m.nom),
       tel: fixTel(cell(r, m.tel)), mail: cell(r, m.mail), domicile: [cell(r, m.dom1), cell(r, m.dom2)].filter(Boolean).join(' '), domVille: cell(r, m.domVille), rdv: cell(r, m.rdv),
+      refCad: cell(r, m.refCad), demande: cell(r, m.demande).replace(/\s+[aà]\s+\d{1,2}h\d{2}$/, ''), typeProp: cell(r, m.typeProp), nbLog: cell(r, m.nbLog),
       excel: H.map(function(h, j){ return [h, cell(r, j)]; })});
   }
   return {headers: H, recs: recs, ignored: ignored, dups: dups};
@@ -784,7 +862,10 @@ function viewImport(mode){
     + mapSel('commune', 'Commune', H, imp.map.commune, false, off) + mapSel('nom', 'Propriétaire', H, imp.map.nom, false, off) + mapSel('tel', 'Téléphone', H, imp.map.tel, false, off)
     + mapSel('mail', 'Mail', H, imp.map.mail, false, off) + mapSel('dom1', 'Adresse du domicile', H, imp.map.dom1, false, off) + mapSel('dom2', 'Suite de l\'adresse du domicile', H, imp.map.dom2, false, off)
     + mapSel('domVille', 'Ville du domicile', H, imp.map.domVille, false, off) + mapSel('rdv', 'Date ou créneau de visite', H, imp.map.rdv, false, off)
-    + '</div><p class="note" style="margin-top:0">Toutes les colonnes du tableau restent consultables dans chaque dossier, même celles qui ne sont pas associées ici.</p>';
+    + '</div><h2 class="h2 mt">Pour le constat de visite</h2><div class="gap"></div><div class="grid2">'
+    + mapSel('refCad', 'Références cadastrales', H, imp.map.refCad, false, off) + mapSel('demande', 'Date de la demande', H, imp.map.demande, false, off)
+    + mapSel('typeProp', 'Type de propriété', H, imp.map.typeProp, false, off) + mapSel('nbLog', 'Nombre de logements', H, imp.map.nbLog, false, off)
+    + '</div><p class="note" style="margin-top:0">Toutes les colonnes du tableau restent consultables dans chaque dossier et peuvent être reprises dans le constat, même celles qui ne sont pas associées ici.</p>';
   b += '<h2 class="h2 mt">Aperçu</h2><div class="gap"></div>';
   b += '<div class="summary">' + (res.recs.length ? '<strong>' + plural(res.recs.length, 'dossier détecté', 'dossiers détectés') + '.</strong>' : '<strong>Aucun dossier détecté.</strong> Vérifiez la feuille, la ligne des en-têtes et la colonne du numéro de dossier.')
     + (res.ignored ? ' ' + plural(res.ignored, 'ligne sans numéro sera ignorée', 'lignes sans numéro seront ignorées') + '.' : '')
@@ -858,6 +939,7 @@ async function createEtude(){
 }
 function newVisite(eid, r, ordre, t){
   return {id: uid(), etudeId: eid, ordre: ordre, numero: r.numero, adresse: r.adresse, commune: r.commune, nom: r.nom, tel: r.tel, mail: r.mail || '', domicile: r.domicile || '', domVille: r.domVille || '', rdv: r.rdv, excel: r.excel,
+    refCad: r.refCad || '', demande: r.demande || '', typeProp: r.typeProp || '', nbLog: r.nbLog || '',
     statut: 'a_visiter', dateVisite: '', aucuneAnomalie: false, obsEP: '', obsEU: '', observations: '', absentDernierImport: false, createdAt: t, updatedAt: t};
 }
 async function applyUpdate(){
@@ -870,7 +952,7 @@ async function applyUpdate(){
   res.recs.forEach(function(r){
     if (seen.has(r.numero)) return; seen.add(r.numero);
     var v = byNum.get(r.numero);
-    if (v){ Object.assign(v, {adresse: r.adresse, commune: r.commune, nom: r.nom, tel: r.tel, mail: r.mail, domicile: r.domicile, domVille: r.domVille, rdv: r.rdv, excel: r.excel, absentDernierImport: false, ordre: ordre++, updatedAt: t}); updated++; toPut.push(v); }
+    if (v){ Object.assign(v, {adresse: r.adresse, commune: r.commune, nom: r.nom, tel: r.tel, mail: r.mail, domicile: r.domicile, domVille: r.domVille, rdv: r.rdv, excel: r.excel, refCad: r.refCad, demande: r.demande, typeProp: r.typeProp, nbLog: r.nbLog, absentDernierImport: false, ordre: ordre++, updatedAt: t}); updated++; toPut.push(v); }
     else { var nv = newVisite(e.id, r, ordre++, t); S.visites.push(nv); toPut.push(nv); added++; }
   });
   S.visites.forEach(function(v){ if (!seen.has(String(v.numero).trim())){ v.absentDernierImport = true; v.ordre = 100000 + (v.ordre || 0); v.updatedAt = t; toPut.push(v); missing++; } });
@@ -892,9 +974,11 @@ function filterVisites(by){
     switch (S.filter){
       case 'a_visiter': return v.statut === 'a_visiter';
       case 'visitee': return v.statut === 'visitee';
+      case 'ok': return visitEtat(v, l) === 'ok';
       case 'a_completer': return issuesOf(v, l).length > 0;
+      case 'refus': return v.statut === 'refus';
       case 'avec': return l.length > 0;
-      case 'autres': return v.statut === 'a_revoir' || v.statut === 'absent' || v.statut === 'refus' || v.statut === 'hors_zone';
+      case 'autres': return v.statut === 'a_revoir' || v.statut === 'absent' || v.statut === 'hors_zone';
       default: return true;
     }
   });
@@ -906,16 +990,18 @@ function lpStatsHtml(){
     + '<div class="exp-state' + (dirty ? ' dirty' : '') + '">' + (e.lastExportAt ? 'Dernier export le ' + fmtDT(e.lastExportAt) + (dirty ? ', modifications non exportées' : '') : 'Jamais exportée : pensez à l\'export de sauvegarde') + '</div>';
 }
 function chipsHtml(){
-  var by = groupBy(S.anoms, 'visiteId'), c = {toutes: S.visites.length, a_visiter: 0, visitee: 0, a_completer: 0, avec: 0, autres: 0};
+  var by = groupBy(S.anoms, 'visiteId'), c = {toutes: S.visites.length, a_visiter: 0, visitee: 0, ok: 0, a_completer: 0, refus: 0, avec: 0, autres: 0};
   S.visites.forEach(function(v){
     var l = by.get(v.id) || [];
     if (v.statut === 'a_visiter') c.a_visiter++;
     if (v.statut === 'visitee') c.visitee++;
+    if (visitEtat(v, l) === 'ok') c.ok++;
     if (issuesOf(v, l).length) c.a_completer++;
+    if (v.statut === 'refus') c.refus++;
     if (l.length) c.avec++;
-    if (v.statut === 'a_revoir' || v.statut === 'absent' || v.statut === 'refus' || v.statut === 'hors_zone') c.autres++;
+    if (v.statut === 'a_revoir' || v.statut === 'absent' || v.statut === 'hors_zone') c.autres++;
   });
-  return FILTERS.map(function(f){ return '<button type="button" class="chip" data-act="filter" data-v="' + f[0] + '" aria-pressed="' + (S.filter === f[0]) + '">' + esc(f[1]) + ' <span class="cnt">' + c[f[0]] + '</span></button>'; }).join('');
+  return FILTERS.map(function(f){ return '<button type="button" class="chip" data-act="filter" data-v="' + f[0] + '" aria-pressed="' + (S.filter === f[0]) + '">' + (f[2] ? '<i class="vdot vs-' + f[2] + '" aria-hidden="true"></i>' : '') + esc(f[1]) + ' <span class="cnt">' + c[f[0]] + '</span></button>'; }).join('');
 }
 function listRowsHtml(){
   var by = groupBy(S.anoms, 'visiteId'), rows = filterVisites(by);
@@ -923,8 +1009,8 @@ function listRowsHtml(){
   return rows.map(function(v){
     var l = by.get(v.id) || [], iss = issuesOf(v, l).length, eu = 0, ep = 0;
     l.forEach(function(a){ if (a.reseau === 'EU') eu++; else if (a.reseau === 'EP') ep++; });
-    var active = S.route && S.route.vid === v.id;
-    return '<li><a class="vrow' + (active ? ' active' : '') + '" href="#/e/' + esc(S.etude.id) + '/v/' + esc(v.id) + '"' + (active ? ' aria-current="true"' : '') + '>'
+    var active = S.route && S.route.vid === v.id, et = visitEtat(v, l);
+    return '<li><a class="vrow vs-' + et + (active ? ' active' : '') + '" href="#/e/' + esc(S.etude.id) + '/v/' + esc(v.id) + '"' + (active ? ' aria-current="true"' : '') + '>'
       + '<span class="vnum">' + esc(v.numero) + '</span><span class="vmain"><span class="vaddr">' + esc(v.adresse || 'Adresse non renseignée') + '</span>'
       + ((v.commune || v.nom) ? '<span class="vsub">' + esc([v.commune, v.nom].filter(Boolean).join(', ')) + '</span>' : '') + '</span>'
       + '<span class="vmeta">' + (iss ? '<span class="flag" title="À compléter">' + svg(I.warn, 18) + '</span>' : '') + (eu ? '<span class="tally eu">EU ' + eu + '</span>' : '') + (ep ? '<span class="tally ep">EP ' + ep + '</span>' : '')
@@ -974,6 +1060,7 @@ function visitHtml(){
   var ch = c.length ? '<div>' + c.join(', ') + '</div>' : '';
   if (dom) ch += '<div class="muted">Domicile : ' + esc(dom) + '</div>';
   if (v.rdv) ch += '<div class="muted">Visite prévue : ' + esc(v.rdv) + '</div>';
+  var rc = vRefCad(v); if (rc) ch += '<div class="muted">Réf. cadastrales : ' + esc(rc) + '</div>';
   if (ch) h += '<div class="contact-l">' + ch + '</div>';
   if (v.absentDernierImport) h += '<p class="inline-warn">Ce dossier ne figure plus dans le dernier tableau importé.</p>';
   h += '<section class="card"><span class="lbl" id="lbl-st">Statut de la visite</span><div class="seg" role="group" aria-labelledby="lbl-st">'
@@ -993,7 +1080,7 @@ function visitHtml(){
     + '<label class="field"><span class="lbl">Eaux usées</span><textarea data-vf="obsEU" rows="2">' + esc(v.obsEU || '') + '</textarea></label></section>';
   h += '<section class="sec"><label class="field"><span class="lbl">Notes internes <span class="opt">non imprimées sur la fiche</span></span><textarea data-vf="observations" rows="3" placeholder="Accès, conditions de la visite, remarques">' + esc(v.observations || '') + '</textarea></label></section>';
   var filled = (v.excel || []).filter(function(p){ return String(p[1]).trim() !== ''; });
-  if (filled.length) h += '<details class="sec xls"><summary>Informations du tableau Excel</summary><dl>' + filled.map(function(p){ return '<dt>' + esc(p[0]) + '</dt><dd>' + esc(p[1]) + '</dd>'; }).join('') + '</dl></details>';
+  if (filled.length) h += '<details class="sec xls"><summary>' + svg(I.doc, 20) + 'Toutes les informations du tableau Excel <span class="muted">(' + filled.length + ')</span></summary><dl>' + filled.map(function(p){ return '<dt>' + esc(p[0]) + '</dt><dd>' + esc(p[1]) + '</dd>'; }).join('') + '</dl></details>';
   h += '<div class="btnrow sec"><a class="btn" href="#/e/' + esc(e.id) + '/v/' + esc(v.id) + '/fiche">' + svg(I.doc) + 'Aperçu de la fiche</a><button type="button" class="btn primary" data-act="dl-fiche" data-vid="' + esc(v.id) + '">' + svg(I.download) + 'Fiche PDF</button></div>';
   return h;
 }
@@ -1372,8 +1459,10 @@ var CONCL = [['conformes', 'Conformes'], ['non_conformes', 'Non conformes'], ['r
 function conclLabel(k){ for (var i = 0; i < CONCL.length; i++) if (CONCL[i][0] === k) return CONCL[i][1]; return ''; }
 function raccLabel(k){ for (var i = 0; i < RACC.length; i++) if (RACC[i][0] === k) return RACC[i][1]; return ''; }
 function excelVal(v, re){ var p = (v.excel || []).filter(function(x){ return re.test(norm(x[0])) && String(x[1] || '').trim(); })[0]; return p ? String(p[1]).trim() : ''; }
+function vRefCad(v){ return v.refCad || excelVal(v, /ref.*cadastr|cadastr/); }
+function vDemande(v){ return (v.demande || excelVal(v, /date.*demande/) || excelVal(v, /^(?!.*demandeur).*demande/)).replace(/\s+[aà]\s+\d{1,2}h\d{2}$/, ''); }
 function newConstat(v){
-  return {v: 2, demande: (excelVal(v, /date.*demande/) || excelVal(v, /^(?!.*demandeur).*demande/)).replace(/\s+[aà]\s+\d{1,2}h\d{2}$/, ''), refCad: excelVal(v, /cadastr/), typePropriete: '', nbLogements: '', categorie: 'habitation', categorieNb: '1', methodes: {},
+  return {v: 2, demande: vDemande(v), refCad: vRefCad(v), typePropriete: v.typeProp || '', nbLogements: v.nbLog || '', categorie: 'habitation', categorieNb: '1', methodes: {},
     rows: INSTALL_STD.map(function(s){ return {id: s[0], groupe: s[1], label: s[2], std: true, nb: '', raccord: '', conforme: '', methodes: []}; }),
     epRecup: {}, desagr: '', desagrLoc: '', croquis: '', boite: {}, reseau: '', reseauGest: '', reseauRue: '', conclusion: '', reserves: '', precos: {}, observations: '', soussigne: v.nom || '', sigTech: '', sigProp: '', signeLe: ''};
 }
@@ -1509,6 +1598,10 @@ function constatIssues(v, list){
 
 /* Écran du constat */
 function cField(label, key, val, ph, dis, extra){ return '<label class="field"><span class="lbl">' + esc(label) + '</span><input type="text" data-cf="' + key + '" value="' + esc(val || '') + '"' + (ph ? ' placeholder="' + esc(ph) + '"' : '') + (extra || '') + dis + '></label>'; }
+function cFieldX(label, key, val, ph, dis, extra){
+  return '<div class="field"><span class="lbl">' + esc(label) + '</span><div class="xrow"><input type="text" data-cf="' + key + '" value="' + esc(val || '') + '" aria-label="' + esc(label) + '"' + (ph ? ' placeholder="' + esc(ph) + '"' : '') + (extra || '') + dis + '>'
+    + '<button type="button" class="btn sm" data-act="c-xls" data-k="' + key + '" title="Reprendre une valeur du tableau Excel"' + dis + '>' + svg(I.doc, 18) + 'Tableau</button></div></div>';
+}
 function instRowHtml(x, dis){
   var r = x.r, on = rowActive(r);
   return '<div class="inst ' + r.groupe.toLowerCase() + (on ? ' on' : '') + '">'
@@ -1528,15 +1621,15 @@ function constatHtml(){
   h += '<div class="ed-head"><h2 class="h2">Constat de visite, dossier ' + esc(v.numero) + '</h2><p class="muted">Formulaire « Contrôle de Branchement Particulier » du Département, rempli ici puis signé sur la tablette. Le PDF reprend sa mise en page.</p></div>';
   if (lock) h += '<div class="lockbar">' + svg(I.check) + '<span>Constat signé le ' + esc(fmtDT(c.signeLe)) + '. Il n\'est plus modifiable.</span><button type="button" class="btn sm" data-act="c-unlock">Modifier</button></div>'
     + (E.changed ? '<p class="inline-warn">Le dossier a changé depuis la signature (anomalies ou installations). Le constat reste tel qu\'il a été signé ; touchez « Modifier » pour le mettre à jour et le faire signer à nouveau.</p>' : '');
-  h += '<section class="card"><div class="grid2">' + cField('Demande du', 'demande', c.demande, 'jj/mm/aaaa', dis)
+  h += '<section class="card"><div class="grid2">' + cFieldX('Demande du', 'demande', c.demande, 'jj/mm/aaaa', dis)
     + '<div class="field"><span class="lbl">Visite du</span><div class="ro">' + (v.dateVisite ? esc(fmtDate(v.dateVisite)) : '<span class="muted">à renseigner dans le dossier</span>') + '</div></div></div>'
     + '<span class="lbl">Si visite non effectuée, motif</span><div class="seg">' + [['absent', 'Absence'], ['refus', 'Refus'], ['hors_zone', 'Hors zone d\'étude']].map(function(s){ return '<button type="button" data-act="c-motif" data-v="' + s[0] + '" aria-pressed="' + (v.statut === s[0]) + '"' + dis + '>' + esc(s[1]) + '</button>'; }).join('') + '</div>'
     + '<div class="abs-row"><span>' + ((v.absences || []).length ? 'Absences notées : ' + v.absences.map(fmtDate).map(esc).join(', ') : 'Aucune absence notée.') + '</span><button type="button" class="btn sm" data-act="c-absence"' + dis + '>Noter une absence aujourd\'hui</button>'
     + ((v.absences || []).length ? '<button type="button" class="btn sm ghost" data-act="c-absence-undo"' + dis + '>Retirer la dernière</button>' : '') + '</div></section>';
   if (constatNonEffectue(v)) h += '<p class="inline-warn">Visite non effectuée (' + esc(stLabel(v.statut)) + ') : le constat ne porte que le motif, le nom et la signature du technicien.</p>';
-  h += '<section class="sec"><h2 class="h2">Propriété</h2><div class="grid2">' + cField('Réf. cadastrales', 'refCad', c.refCad, 'ex. section et n° de parcelle', dis)
-    + '<label class="field"><span class="lbl">Type de propriété</span><input type="text" data-cf="typePropriete" list="dl-typeprop" value="' + esc(c.typePropriete || '') + '" placeholder="ex. maison mitoyenne"' + dis + '><datalist id="dl-typeprop"><option value="maison individuelle"><option value="maison mitoyenne"><option value="immeuble collectif"><option value="local commercial"></datalist></label>'
-    + cField('Nombre de logements', 'nbLogements', c.nbLogements, '', dis, ' inputmode="numeric"')
+  h += '<section class="sec"><h2 class="h2">Propriété</h2><div class="grid2">' + cFieldX('Réf. cadastrales', 'refCad', c.refCad, 'ex. section et n° de parcelle', dis)
+    + cFieldX('Type de propriété', 'typePropriete', c.typePropriete, 'ex. maison mitoyenne', dis, ' list="dl-typeprop"') + '<datalist id="dl-typeprop"><option value="maison individuelle"><option value="maison mitoyenne"><option value="immeuble collectif"><option value="local commercial"></datalist>'
+    + cFieldX('Nombre de logements', 'nbLogements', c.nbLogements, '', dis, ' inputmode="numeric"')
     + '<div class="grid2 tight"><label class="field"><span class="lbl">Catégorie</span><select data-cf="categorie"' + dis + '>' + CATEG.map(function(k){ return '<option value="' + k[0] + '"' + (c.categorie === k[0] ? ' selected' : '') + '>' + esc(k[1].charAt(0).toUpperCase() + k[1].slice(1)) + '</option>'; }).join('') + '</select></label>'
     + cField('Nombre', 'categorieNb', c.categorieNb, '', dis, ' inputmode="numeric"') + '</div></div></section>';
   h += '<section class="sec"><h2 class="h2">Installations privatives</h2><p class="muted small">Pour chaque installation : nombre, réseau de raccordement et méthodes de contrôle. La conformité est proposée d\'après le raccordement et les anomalies liées ; touchez Oui ou Non pour la fixer, touchez-la à nouveau pour revenir à la proposition.</p>';
@@ -1559,7 +1652,7 @@ function constatHtml(){
       return '<span class="bl">' + esc(k[1]) + '</span>' + ['EU', 'EP'].map(function(n){ return '<input type="text" data-cf="boite.' + k[0] + n + '" value="' + esc(B[k[0] + n] || '') + '" aria-label="' + esc(k[1] + ' ' + n) + '"' + (k[0] === 'te' ? ' list="dl-te"' : '') + dis + '>'; }).join('');
     }).join('') + '</div><datalist id="dl-te"><option value="oui"><option value="non"><option value="sans objet"></datalist><div class="btnrow"><button type="button" class="btn sm" data-act="c-boite-so"' + dis + '>Sans objet (pas de boîte en limite)</button></div></section>';
   h += '<section class="sec"><h2 class="h2">Conclusion</h2><span class="lbl">Habitation desservie par un réseau</span><div class="seg">' + [['departemental', 'Départemental'], ['territorial', 'Territorial']].map(function(k){ return '<button type="button" data-act="c-set" data-k="reseau" data-v="' + k[0] + '" aria-pressed="' + (c.reseau === k[0]) + '"' + dis + '>' + k[1] + '</button>'; }).join('') + '</div>'
-    + '<div class="grid2">' + (c.reseau === 'territorial' ? cField('Géré par', 'reseauGest', c.reseauGest, '', dis) : '') + cField('Situé dans la rue', 'reseauRue', c.reseauRue, '', dis) + '</div>'
+    + '<div class="grid2">' + (c.reseau === 'territorial' ? cFieldX('Géré par', 'reseauGest', c.reseauGest, '', dis) : '') + cFieldX('Situé dans la rue', 'reseauRue', c.reseauRue, '', dis) + '</div>'
     + '<span class="lbl">Installations considérées' + (E.auto ? ' <span class="opt">proposé d\'après les installations et anomalies : ' + esc(conclLabel(E.auto).toLowerCase()) + '</span>' : '') + '</span><div class="seg">' + CONCL.map(function(k){ return '<button type="button" data-act="c-concl" data-v="' + k[0] + '" aria-pressed="' + (E.conclusion === k[0]) + '"' + dis + '>' + esc(k[1]) + '</button>'; }).join('') + '</div>'
     + (E.conclusion === 'reserves' ? cField('Réserves', 'reserves', c.reserves, constatObsAuto(E), dis) : '') + '</section>';
   function precoBox(p){ var on = E.precos[p[0]], auto = E.precosAuto.has(p[0]) && c.precos[p[0]] == null; return '<label class="check pc"><input type="checkbox" data-cp="' + p[0] + '"' + (on ? ' checked' : '') + dis + '><span>' + esc(p[1]) + (auto ? ' <span class="tag-auto">proposé</span>' : '') + '</span></label>'; }
@@ -1570,7 +1663,7 @@ function constatHtml(){
     + (oa ? '<button type="button" class="btn sm" data-act="c-obs-fill"' + dis + '>Reprendre les anomalies pour les modifier</button>' : '') + '</section>';
   var iss = constatIssues(v, list);
   h += '<section class="sec"><h2 class="h2">Signatures</h2>' + (iss.length && !lock ? '<div class="issues" role="status"><div class="it">' + svg(I.warn) + 'À vérifier avant de signer</div><ul>' + iss.map(function(m){ return '<li>' + esc(m) + '</li>'; }).join('') + '</ul></div>' : (lock ? '' : '<p class="okline">' + svg(I.check) + 'Constat complet, prêt à signer</p>'))
-    + cField('Je, soussigné', 'soussigne', c.soussigne, 'nom du propriétaire ou de son représentant', dis)
+    + cFieldX('Je, soussigné', 'soussigne', c.soussigne, 'nom du propriétaire ou de son représentant', dis)
     + '<div class="sigs"><div class="sig"><span class="lbl">Signature du technicien</span><div class="sig-box">' + (c.sigTech ? '<img src="' + c.sigTech + '" alt="Signature du technicien">' : '<span class="muted">Non signé</span>') + '</div><button type="button" class="btn" data-act="c-sign" data-who="tech"' + dis + '>' + (c.sigTech ? 'Refaire' : 'Signer') + '</button></div>'
     + '<div class="sig"><span class="lbl">Signature du propriétaire</span><div class="sig-box">' + (c.sigProp ? '<img src="' + c.sigProp + '" alt="Signature du propriétaire">' : '<span class="muted">Non signé</span>') + '</div><button type="button" class="btn" data-act="c-sign" data-who="prop"' + dis + '>' + (c.sigProp ? 'Refaire' : 'Faire signer') + '</button></div></div>'
     + (!lock && c.sigTech && (c.sigProp || constatNonEffectue(v)) ? '<button type="button" class="btn primary big wide" data-act="c-lock">' + svg(I.check) + 'Valider le constat signé</button>' : '') + '</section>';
@@ -1965,7 +2058,18 @@ var CONSTAT_ACTIONS = {
   },
   'c-unlock': async function(){ var v = curVisit(), c = constatOf(v); if (!(await confirmModal('Modifier le constat signé ?', 'Les signatures du technicien et du propriétaire seront effacées : il faudra faire signer à nouveau.', 'Modifier', true))) return; c.signeLe = ''; c.sigTech = ''; c.sigProp = ''; delete c.fige; constatTouch(v); await flushSaves(); render(); },
   'c-delete': async function(){ var v = curVisit(); if (!v.constat || v.constat.signeLe) return; if (!(await confirmModal('Supprimer le constat ?', 'Toute la saisie du constat de ce dossier sera effacée (installations, croquis, signatures). Les anomalies du dossier sont conservées.', 'Supprimer', true))) return; delete v.constat; constatTouch(v); await flushSaves(); toast('Constat supprimé'); go('#/e/' + v.etudeId + '/v/' + v.id); },
-  'dl-constat': function(el){ return downloadConstatPdf(el.dataset.vid); }
+  'dl-constat': function(el){ return downloadConstatPdf(el.dataset.vid); },
+  'c-xls': async function(el){
+    var v = curVisit(); if (v.constat && v.constat.signeLe) return;
+    var rows = (v.excel || []).filter(function(p){ return String(p[1] == null ? '' : p[1]).trim(); });
+    if (!rows.length){ toast('Aucune donnée du tableau Excel pour ce dossier.'); return; }
+    var val = await openModal({title: 'Reprendre une valeur du tableau', noAutofocus: true,
+      html: '<p class="muted small">Touchez la valeur à reporter dans le champ. Elle reste modifiable ensuite.</p><div class="sheet-list">' + rows.map(function(p, i){ return '<button type="button" class="btn xls-pick" data-m="xv" data-i="' + i + '"><span class="xk">' + esc(p[0]) + '</span><span class="xv">' + esc(p[1]) + '</span></button>'; }).join('') + '</div>',
+      actions: [{label: 'Annuler', value: null}],
+      onMount: function(w, close){ w.addEventListener('click', function(ev){ var b = ev.target.closest('[data-m="xv"]'); if (b) close(String(rows[+b.dataset.i][1]).trim()); }); }});
+    if (val == null) return;
+    setPath(constatOf(v), el.dataset.k, val); constatTouch(v); render();
+  }
 };
 
 /* ---------- Fichiers : export, sauvegarde, restauration ---------- */
@@ -2177,14 +2281,26 @@ async function restoreZip(file){
 async function onZipFile(input){ var f = input.files && input.files[0]; input.value = ''; if (f) await restoreZip(f); }
 
 /* ---------- Fenêtres ---------- */
+var MODALS = [];
 function openModal(o){
   return new Promise(function(resolve){
-    var actions = o.actions || [], w = document.createElement('div'); w.className = 'modal-back';
+    var actions = o.actions || [], w = document.createElement('div'); w.className = 'modal-back'; var pushed = false;
+    try { history.pushState({vtModal: 1}, '', location.href); pushed = true; } catch(e){}
+    var entry = {fromBack: function(){ finish(undefined, true); }}; MODALS.push(entry);
     w.innerHTML = '<div class="modal" role="dialog" aria-modal="true" aria-label="' + esc(o.title || '') + '">' + (o.title ? '<h2 class="m-title">' + esc(o.title) + '</h2>' : '')
       + '<div class="m-body">' + (o.html || '') + '</div>' + (actions.length ? '<div class="m-foot">' + actions.map(function(a, i){ return '<button type="button" class="btn ' + (a.cls || '') + '" data-mi="' + i + '">' + esc(a.label) + '</button>'; }).join('') + '</div>' : '') + '</div>';
     $('#modal-root').appendChild(w);
     var done = false;
-    function close(val){ if (done) return; done = true; w.remove(); document.removeEventListener('keydown', onKey); resolve(val); }
+    function finish(val, fromBack){
+      if (done) return; done = true; w.remove(); document.removeEventListener('keydown', onKey);
+      var ix = MODALS.indexOf(entry); if (ix >= 0) MODALS.splice(ix, 1);
+      if (!pushed || fromBack){ resolve(val); return; }
+      /* l'entrée de la fenêtre est retirée de l'historique avant de rendre la main, pour que la navigation suivante parte du bon endroit */
+      var settled = false, ok = function(){ if (settled) return; settled = true; resolve(val); };
+      NAV.ignorePops++; NAV.afterPop = ok; history.back();
+      setTimeout(function(){ if (!settled){ if (NAV.ignorePops > 0) NAV.ignorePops--; NAV.afterPop = null; ok(); } }, 600);
+    }
+    function close(val){ finish(val, false); }
     function onKey(ev){ if (ev.key === 'Escape') close(undefined); }
     document.addEventListener('keydown', onKey);
     w.addEventListener('click', function(ev){
@@ -2298,7 +2414,7 @@ async function seedBiblio(){
 
 /* ---------- Actions ---------- */
 var ACTIONS = {
-  back: function(el){ var t = el.dataset.href; if (S.lastHash === t && history.length > 1) history.back(); else go(t); },
+  back: function(el){ go(el.dataset.href); },
   nav: function(el){ go(el.dataset.href); },
   'pick-excel': function(){ $('#in-excel').click(); },
   'pick-zip': function(){ $('#in-zip').click(); },
@@ -2363,6 +2479,10 @@ Object.assign(ACTIONS, CONSTAT_ACTIONS);
 
 /* ---------- Événements ---------- */
 document.addEventListener('click', function(ev){
+  var a = ev.target.closest('a[href^="#/"]');
+  if (a && !a.hasAttribute('data-act') && !a.closest('#modal-root') && !ev.defaultPrevented && !ev.metaKey && !ev.ctrlKey && !ev.shiftKey && !ev.button){ ev.preventDefault(); go(a.getAttribute('href')); return; }
+});
+document.addEventListener('click', function(ev){
   var el = ev.target.closest('[data-act]');
   if (!el || el.closest('#modal-root')) return;
   var fn = ACTIONS[el.dataset.act]; if (!fn) return;
@@ -2399,7 +2519,9 @@ async function init(){
   catch(e){ $('#app').innerHTML = '<div class="fatal"><h1 class="h1">Stockage indisponible</h1><p>Ce navigateur bloque l\'enregistrement local (' + esc(e && e.message) + '). Ouvrez l\'application dans Chrome ou Safari, hors navigation privée.</p></div>'; return; }
   var st = document.createElement('style'); st.textContent = FICHE_CSS; document.head.appendChild(st);
   await seedBiblio();
-  window.addEventListener('hashchange', render);
+  navInit();
+  window.addEventListener('popstate', onPopState);
+  window.addEventListener('hashchange', function(){ if (normHash(location.hash) === NAV.lastPopHash || normHash(location.hash) === S.curHash) return; render(); });
   window.addEventListener('online', updateNet); window.addEventListener('offline', updateNet);
   var rs; window.addEventListener('resize', function(){ clearTimeout(rs); rs = setTimeout(function(){ if (mqWide() !== S.wide) render(); }, 200); });
   document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') flushSaves(); });
