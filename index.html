@@ -371,15 +371,17 @@ function svg(d, size){ var s = size || 22; return '<svg viewBox="0 0 24 24" widt
 var STATUTS = [['a_visiter', 'À visiter'], ['visitee', 'Visitée'], ['a_revoir', 'À revoir'], ['absent', 'Absent'], ['refus', "Refus d'accès"], ['hors_zone', 'Hors zone']];
 function stLabel(k){ for (var i = 0; i < STATUTS.length; i++) if (STATUTS[i][0] === k) return STATUTS[i][1]; return k || ''; }
 var FILTERS = [['toutes', 'Toutes'], ['a_visiter', 'À visiter', 'todo'], ['ok', 'Effectuées', 'ok'], ['a_completer', 'À compléter', 'warn'], ['refus', 'Refusées', 'refus'], ['autres', 'Absents, à revoir, hors zone', 'absent'], ['avec', 'Avec anomalies']];
-/* État d'une visite pour le code couleur de la liste : effectuée et complète, à compléter, refusée, absent ou à revoir, hors zone, à visiter */
+/* État d'une visite pour le code couleur de la liste : à compléter (prioritaire, quel que soit le statut), effectuée et complète, refusée, absent ou à revoir, hors zone, à visiter.
+   Chaque dossier a une seule couleur et les filtres colorés découpent la liste de la même façon */
 function visitEtat(v, l){
+  if (issuesOf(v, l).length) return 'warn';
   if (v.statut === 'refus') return 'refus';
   if (v.statut === 'hors_zone') return 'hz';
   if (v.statut === 'absent' || v.statut === 'a_revoir') return 'absent';
-  if (issuesOf(v, l).length) return 'warn';
   if (v.statut === 'visitee') return 'ok';
   return 'todo';
 }
+var FILTER_ETATS = {a_visiter: ['todo'], ok: ['ok'], a_completer: ['warn'], refus: ['refus'], autres: ['absent', 'hz']};
 var MAP_KEYS = ['numero', 'adr1', 'adr2', 'commune', 'nom', 'tel', 'mail', 'dom1', 'dom2', 'domVille', 'rdv', 'refCad', 'demande', 'typeProp', 'nbLog'];
 /* Catégories des anomalies types : attribuées automatiquement d'après le libellé, modifiables dans la bibliothèque */
 var CATS = [['inversion', 'Inversions EU / EP'], ['regard', 'Regards et tampons'], ['canal', 'Canalisations'], ['descente', 'Descentes EP'], ['grille', 'Grilles et siphons'],
@@ -454,7 +456,7 @@ function flushSaves(){
 }
 
 /* ---------- État ---------- */
-var S = { route: null, curHash: '', lastHash: '', wide: false, framed: false, etude: null, visites: [], anoms: [], search: '', filter: 'toutes', imp: null, urls: [], dlPromise: null, lpEtude: null };
+var S = { route: null, curHash: '', lastHash: '', wide: false, framed: false, etude: null, visites: [], anoms: [], search: '', filter: 'toutes', imp: null, urls: [], dlPromise: null, lpEtude: null, listPos: null };
 function curVisit(){ if (!S.route || !S.route.vid) return null; for (var i = 0; i < S.visites.length; i++) if (S.visites[i].id === S.route.vid) return S.visites[i]; return null; }
 function curAnom(){ if (!S.route || !S.route.aid) return null; for (var i = 0; i < S.anoms.length; i++) if (S.anoms[i].id === S.route.aid) return S.anoms[i]; return null; }
 function anomsOf(vid){ return S.anoms.filter(function(a){ return a.visiteId === vid; }); }
@@ -538,7 +540,20 @@ function routeParent(x){
   return '#/e/' + p[1];
 }
 function routeChain(x){ var out = [], y = normHash(x), n = 0; while (y && n++ < 8){ out.unshift(y); y = routeParent(y); } return out; }
-function navInit(){ var ch = routeChain(location.hash); try { history.replaceState({vt: 1}, '', ch[0]); for (var i = 1; i < ch.length; i++) history.pushState({vt: 1}, '', ch[i]); } catch(e){} }
+/* Au démarrage, la chaîne n'est construite qu'à la première ouverture. Après un rechargement (ou quand le système a fermé puis relancé l'application),
+   l'historique de l'application est déjà en place ; une entrée de fenêtre restée au sommet (la fenêtre n'existe plus) est retirée */
+function navInit(){
+  var st = null; try { st = history.state; } catch(e){}
+  if (st && st.vtModal){ navSilentBack(function(moved){ if (moved) navInit(); }); return; }
+  if (st && st.vt) return;
+  var ch = routeChain(location.hash); try { history.replaceState({vt: 1}, '', ch[0]); for (var i = 1; i < ch.length; i++) history.pushState({vt: 1}, '', ch[i]); } catch(e){}
+}
+/* Retour d'une entrée sans rien afficher (entrée d'une fenêtre) ; after(moved) est appelé une fois l'entrée retirée, ou après 600 ms si le navigateur n'a pas répondu */
+function navSilentBack(after){
+  var settled = false, done = function(moved){ if (settled) return; settled = true; if (after) after(moved); };
+  NAV.ignorePops++; NAV.afterPop = function(){ done(true); }; history.back();
+  setTimeout(function(){ if (!settled){ if (NAV.ignorePops > 0) NAV.ignorePops--; NAV.afterPop = null; done(false); } }, 600);
+}
 function navUp(n, target){
   var before = location.href; clearTimeout(NAV.fallback);
   NAV.fallback = setTimeout(function(){ if (location.href === before){ NAV.pending = null; try { history.replaceState({vt: 1}, '', target); } catch(e){} render(); } }, 700);
@@ -560,6 +575,9 @@ function go(h){
   NAV.pending = rest;
   if (up > 1) navUp(up - 1, h); else navApplyPending();
 }
+/* Élément introuvable (supprimé, lien d'un autre appareil) : on remonte dans l'arborescence déjà inscrite dans l'historique ;
+   pour une adresse saisie à la main, hors de cet historique, l'adresse est simplement remplacée */
+function goUpTo(h){ var st = null; try { st = history.state; } catch(e){} if (st && st.vt) go(h); else location.replace(h); }
 function onPopState(){
   clearTimeout(NAV.fallback);
   if (NAV.ignorePops > 0){ NAV.ignorePops--; var f = NAV.afterPop; NAV.afterPop = null; if (f) f(); return; }
@@ -586,14 +604,16 @@ async function render(){
     if (!sameHash){ S.lastHash = S.curHash; S.curHash = location.hash || '#/'; }
     S.route = route;
     if (route.eid && (!S.etude || S.etude.id !== route.eid)){
-      if (!(await loadEtude(route.eid))){ toast('Étude introuvable sur cet appareil.'); S.route = {name: 'home'}; location.replace('#/'); return; }
+      if (!(await loadEtude(route.eid))){ toast('Étude introuvable sur cet appareil.'); S.route = {name: 'home'}; goUpTo('#/'); return; }
     }
-    if ((route.name === 'visit' || route.name === 'anom' || route.name === 'fiche' || route.name === 'constat') && !curVisit()){ location.replace('#/e/' + route.eid); return; }
-    if (route.name === 'anom' && !curAnom()){ location.replace('#/e/' + route.eid + '/v/' + route.vid); return; }
+    if ((route.name === 'visit' || route.name === 'anom' || route.name === 'fiche' || route.name === 'constat') && !curVisit()){ goUpTo('#/e/' + route.eid); return; }
+    if (route.name === 'anom' && !curAnom()){ goUpTo('#/e/' + route.eid + '/v/' + route.vid); return; }
     if (seq !== renderSeq) return;
     S.wide = mqWide();
     var lp = $('#lp'), lpScroll = lp ? lp.scrollTop : null;
     var dp = $('#dp') || $('#main'), dpScroll = (sameHash && dp) ? dp.scrollTop : null;
+    /* téléphone : position de la liste de l'étude, retrouvée au retour d'un dossier */
+    var mn = $('#main'); if (!sameHash && prev && prev.name === 'etude' && mn && mn.querySelector('#vlist')) S.listPos = {eid: prev.eid, top: mn.scrollTop};
     revokeUrls();
     var out = await buildView(route);
     if (seq !== renderSeq) return;
@@ -605,6 +625,11 @@ async function render(){
       S.lpEtude = S.etude.id;
     } else S.lpEtude = null;
     if (dpScroll !== null){ var ndp = $('#dp') || $('#main'); if (ndp) ndp.scrollTop = dpScroll; }
+    else if (!out.split && route.name === 'etude' && prev && prev.eid === route.eid){
+      var nmn = $('#main'), row = nmn && prev.vid ? Array.prototype.filter.call(nmn.querySelectorAll('.vrow'), function(x){ return x.dataset.vid === prev.vid; })[0] : null;
+      if (nmn && S.listPos && S.listPos.eid === route.eid) nmn.scrollTop = S.listPos.top;
+      if (row){ var rr = row.getBoundingClientRect(), mr = nmn.getBoundingClientRect(); if (rr.top < mr.top || rr.bottom > mr.bottom) row.scrollIntoView({block: 'center'}); }
+    }
     if (out.after) await out.after();
     updateNet();
   } catch(e){ reportError(e, 'Affichage'); }
@@ -620,7 +645,7 @@ async function buildView(r){
     var detail = r.name === 'etude'
       ? '<div class="page"><div class="pick-hint"><p class="h2">Choisissez un dossier</p><p class="muted">La liste reprend toutes les visites de l\'étude, dans l\'ordre de votre tableau.</p></div></div>'
       : await detailHtml(r);
-    return {bar: barHtml({back: '#/', title: e.nom, sub: 'Étude', menu: true}), split: true,
+    return {bar: barHtml({back: routeParent(S.curHash) || '#/', title: e.nom, sub: 'Étude', menu: true}), split: true,
       body: '<div class="split"><aside class="pane list" id="lp" aria-label="Dossiers de visite">' + listPaneHtml() + '</aside><section class="pane detail" id="dp">' + detail + '</section></div>',
       after: afterFor(r)};
   }
@@ -738,7 +763,8 @@ function guessMap(H){
   m.rdv = take([/date\s*(de\s*)?(la\s*)?visite/, /rdv/, /rendez/, /creneau/, /^date(?!.*demande)/]);
   m.refCad = take([/ref.*cadastr/, /cadastr/, /^parcelles?$/]);
   m.demande = take([/date\s*(de\s*)?(la\s*)?demande/]);
-  m.typeProp = take([/^type\s*(de\s*)?(la\s*)?(propriete|bien|habitation|logement|batiment)/, /^habitations?$/, /^nature\b/]);
+  m.typeProp = take([/^type\s*(de\s*|d['’]\s*|du\s*)?(la\s*|l['’]\s*)?(propriete|bien|habitat|logement|batiment|construction|immeuble)/, /^habitations?$/,
+    /^nature\s*(de\s*|d['’]\s*|du\s*)?(la\s*|l['’]\s*)?(propriete|bien|habitat|logement|batiment|construction|immeuble)/]);
   m.nbLog = take([/(nombre|nb|nbre)\.?\s*(de\s*)?logements?/, /^logements?$/]);
   return m;
 }
@@ -753,27 +779,30 @@ function mapFromPrev(H, prev){
   });
   return out;
 }
-/* Les dates Excel sont relues depuis leur valeur, puis écrites à la française (jj/mm/aaaa, heure en 9h00) */
-function frSerial(v){
-  var p = null; try { p = XLSX.SSF.parse_date_code(v); } catch(e){}
+/* Les dates Excel sont relues depuis leur valeur, puis écrites à la française (jj/mm/aaaa, heure en 9h00).
+   d1904 : classeur au calendrier depuis 1904 (Excel Mac) ; une valeur inférieure à 1 est une heure seule */
+function frSerial(v, d1904){
+  var p = null; try { p = XLSX.SSF.parse_date_code(v, {date1904: !!d1904}); } catch(e){}
   if (!p || !p.y) return String(v);
+  if (v >= 0 && v < 1) return pad2(p.H) + 'h' + pad2(p.M);
   var s = pad2(p.d) + '/' + pad2(p.m) + '/' + p.y;
   if (p.H || p.M) s += ' à ' + pad2(p.H) + 'h' + pad2(p.M);
   return s;
 }
-function cellText(c){
+function sansHeure(s){ return String(s || '').replace(/\s+(?:[aà]\s+)?\d{1,2}\s*[h:]\s*\d{2}(?::\d{2})?$/, ''); }
+function cellText(c, d1904){
   if (!c) return '';
-  if (c.t === 'n' && c.z != null && XLSX.SSF.is_date(c.z)) return frSerial(c.v);
+  if (c.t === 'n' && c.z != null && XLSX.SSF.is_date(c.z)) return frSerial(c.v, d1904);
   if (c.t === 'd' && c.v instanceof Date) return pad2(c.v.getDate()) + '/' + pad2(c.v.getMonth() + 1) + '/' + c.v.getFullYear();
   if (c.w != null && String(c.w) !== '') return String(c.w);
   return c.v == null ? '' : String(c.v);
 }
-function sheetRows(ws){
+function sheetRows(ws, d1904){
   if (!ws || !ws['!ref']) return {rows: [], rowOffset: 0, colOffset: 0};
   var R = XLSX.utils.decode_range(ws['!ref']), rows = [];
   for (var r = R.s.r; r <= R.e.r; r++){
     var row = [];
-    for (var c = R.s.c; c <= R.e.c; c++) row.push(cellText(ws[XLSX.utils.encode_cell({r: r, c: c})]).replace(/\u00a0/g, ' '));
+    for (var c = R.s.c; c <= R.e.c; c++) row.push(cellText(ws[XLSX.utils.encode_cell({r: r, c: c})], d1904).replace(/\u00a0/g, ' '));
     while (row.length && String(row[row.length - 1]).trim() === '') row.pop();
     rows.push(row);
   }
@@ -791,16 +820,24 @@ function bestSheet(wb){
 }
 function loadSheet(imp, sheet, prev){
   imp.sheet = sheet;
-  var sr = sheetRows(imp.wb.Sheets[sheet]);
+  var wbp = imp.wb.Workbook && imp.wb.Workbook.WBProps, sr = sheetRows(imp.wb.Sheets[sheet], !!(wbp && wbp.date1904));
   imp.rows = sr.rows; imp.rowOffset = sr.rowOffset; imp.colOffset = sr.colOffset;
   imp.ncols = imp.rows.reduce(function(m, r){ return Math.max(m, r.length); }, 0);
   imp.headerRow = (prev && prev.sheet === sheet && typeof prev.headerRow === 'number') ? Math.min(prev.headerRow, Math.max(0, imp.rows.length - 1)) : detectHeaderRow(imp.rows);
   var H = makeHeaders(imp.rows[imp.headerRow] || [], imp.ncols);
   imp.map = prev ? mapFromPrev(H, prev) : guessMap(H);
 }
+/* CSV : texte décodé ici (UTF-8 avec ou sans BOM, sinon Windows-1252), valeurs gardées telles que saisies (dates jj/mm non relues à l'américaine) */
+function csvText(buf){
+  var u8 = new Uint8Array(buf);
+  if (u8.length >= 2 && ((u8[0] === 0xFF && u8[1] === 0xFE) || (u8[0] === 0xFE && u8[1] === 0xFF))) return null;
+  try { return new TextDecoder('utf-8', {fatal: true}).decode(u8); } catch(e){}
+  try { return new TextDecoder('windows-1252').decode(u8); } catch(e){ return null; }
+}
 function startImport(fileName, buf, mode){
   if (!window.XLSX) throw new Error('module Excel non chargé');
-  var wb = XLSX.read(buf, {type: 'array', cellNF: true, cellDates: false});
+  var isTxt = /\.(csv|txt|tsv)$/i.test(String(fileName)), txt = isTxt ? csvText(buf) : null;
+  var wb = txt != null ? XLSX.read(txt, {type: 'string', raw: true, cellNF: true, cellDates: false}) : XLSX.read(buf, {type: 'array', raw: isTxt, cellNF: true, cellDates: false});
   if (!wb.SheetNames.length) throw new Error('classeur vide');
   var prev = mode === 'update' && S.etude ? (S.etude.source || null) : null;
   var imp = {mode: mode, eid: mode === 'update' ? S.etude.id : null, fileName: fileName, wb: wb, sheet: null, rows: [], rowOffset: 0, colOffset: 0, ncols: 0, headerRow: 0, map: null, name: String(fileName).replace(/\.[^.]+$/, '')};
@@ -821,7 +858,7 @@ function computeImport(imp){
     if (seen.has(numero)) dups++; else seen.add(numero);
     recs.push({numero: numero, adresse: [cell(r, m.adr1), cell(r, m.adr2)].filter(Boolean).join(' '), commune: cell(r, m.commune), nom: cell(r, m.nom),
       tel: fixTel(cell(r, m.tel)), mail: cell(r, m.mail), domicile: [cell(r, m.dom1), cell(r, m.dom2)].filter(Boolean).join(' '), domVille: cell(r, m.domVille), rdv: cell(r, m.rdv),
-      refCad: cell(r, m.refCad), demande: cell(r, m.demande).replace(/\s+[aà]\s+\d{1,2}h\d{2}$/, ''), typeProp: cell(r, m.typeProp), nbLog: cell(r, m.nbLog),
+      refCad: cell(r, m.refCad), demande: sansHeure(cell(r, m.demande)), typeProp: cell(r, m.typeProp), nbLog: cell(r, m.nbLog),
       excel: H.map(function(h, j){ return [h, cell(r, j)]; })});
   }
   return {headers: H, recs: recs, ignored: ignored, dups: dups};
@@ -952,7 +989,7 @@ async function applyUpdate(){
   res.recs.forEach(function(r){
     if (seen.has(r.numero)) return; seen.add(r.numero);
     var v = byNum.get(r.numero);
-    if (v){ Object.assign(v, {adresse: r.adresse, commune: r.commune, nom: r.nom, tel: r.tel, mail: r.mail, domicile: r.domicile, domVille: r.domVille, rdv: r.rdv, excel: r.excel, refCad: r.refCad, demande: r.demande, typeProp: r.typeProp, nbLog: r.nbLog, absentDernierImport: false, ordre: ordre++, updatedAt: t}); updated++; toPut.push(v); }
+    if (v){ Object.assign(v, {adresse: r.adresse, commune: r.commune, nom: r.nom, tel: r.tel, mail: r.mail, domicile: r.domicile, domVille: r.domVille, rdv: r.rdv, excel: r.excel, refCad: r.refCad, demande: r.demande, typeProp: r.typeProp, nbLog: r.nbLog, absentDernierImport: false, ordre: ordre++, updatedAt: t}); completerConstat(v); updated++; toPut.push(v); }
     else { var nv = newVisite(e.id, r, ordre++, t); S.visites.push(nv); toPut.push(nv); added++; }
   });
   S.visites.forEach(function(v){ if (!seen.has(String(v.numero).trim())){ v.absentDernierImport = true; v.ordre = 100000 + (v.ordre || 0); v.updatedAt = t; toPut.push(v); missing++; } });
@@ -971,16 +1008,8 @@ function filterVisites(by){
   return S.visites.filter(function(v){
     var l = by.get(v.id) || [];
     if (q && norm([v.numero, v.adresse, v.commune, v.nom].join(' ')).indexOf(q) < 0) return false;
-    switch (S.filter){
-      case 'a_visiter': return v.statut === 'a_visiter';
-      case 'visitee': return v.statut === 'visitee';
-      case 'ok': return visitEtat(v, l) === 'ok';
-      case 'a_completer': return issuesOf(v, l).length > 0;
-      case 'refus': return v.statut === 'refus';
-      case 'avec': return l.length > 0;
-      case 'autres': return v.statut === 'a_revoir' || v.statut === 'absent' || v.statut === 'hors_zone';
-      default: return true;
-    }
+    if (FILTER_ETATS[S.filter]) return FILTER_ETATS[S.filter].indexOf(visitEtat(v, l)) >= 0;
+    return S.filter === 'avec' ? l.length > 0 : true;
   });
 }
 function lpStatsHtml(){
@@ -990,16 +1019,12 @@ function lpStatsHtml(){
     + '<div class="exp-state' + (dirty ? ' dirty' : '') + '">' + (e.lastExportAt ? 'Dernier export le ' + fmtDT(e.lastExportAt) + (dirty ? ', modifications non exportées' : '') : 'Jamais exportée : pensez à l\'export de sauvegarde') + '</div>';
 }
 function chipsHtml(){
-  var by = groupBy(S.anoms, 'visiteId'), c = {toutes: S.visites.length, a_visiter: 0, visitee: 0, ok: 0, a_completer: 0, refus: 0, avec: 0, autres: 0};
+  var by = groupBy(S.anoms, 'visiteId'), c = {toutes: S.visites.length, avec: 0};
+  Object.keys(FILTER_ETATS).forEach(function(k){ c[k] = 0; });
   S.visites.forEach(function(v){
-    var l = by.get(v.id) || [];
-    if (v.statut === 'a_visiter') c.a_visiter++;
-    if (v.statut === 'visitee') c.visitee++;
-    if (visitEtat(v, l) === 'ok') c.ok++;
-    if (issuesOf(v, l).length) c.a_completer++;
-    if (v.statut === 'refus') c.refus++;
+    var l = by.get(v.id) || [], et = visitEtat(v, l);
+    Object.keys(FILTER_ETATS).forEach(function(k){ if (FILTER_ETATS[k].indexOf(et) >= 0) c[k]++; });
     if (l.length) c.avec++;
-    if (v.statut === 'a_revoir' || v.statut === 'absent' || v.statut === 'hors_zone') c.autres++;
   });
   return FILTERS.map(function(f){ return '<button type="button" class="chip" data-act="filter" data-v="' + f[0] + '" aria-pressed="' + (S.filter === f[0]) + '">' + (f[2] ? '<i class="vdot vs-' + f[2] + '" aria-hidden="true"></i>' : '') + esc(f[1]) + ' <span class="cnt">' + c[f[0]] + '</span></button>'; }).join('');
 }
@@ -1010,7 +1035,7 @@ function listRowsHtml(){
     var l = by.get(v.id) || [], iss = issuesOf(v, l).length, eu = 0, ep = 0;
     l.forEach(function(a){ if (a.reseau === 'EU') eu++; else if (a.reseau === 'EP') ep++; });
     var active = S.route && S.route.vid === v.id, et = visitEtat(v, l);
-    return '<li><a class="vrow vs-' + et + (active ? ' active' : '') + '" href="#/e/' + esc(S.etude.id) + '/v/' + esc(v.id) + '"' + (active ? ' aria-current="true"' : '') + '>'
+    return '<li><a class="vrow vs-' + et + (active ? ' active' : '') + '" href="#/e/' + esc(S.etude.id) + '/v/' + esc(v.id) + '" data-vid="' + esc(v.id) + '"' + (active ? ' aria-current="true"' : '') + '>'
       + '<span class="vnum">' + esc(v.numero) + '</span><span class="vmain"><span class="vaddr">' + esc(v.adresse || 'Adresse non renseignée') + '</span>'
       + ((v.commune || v.nom) ? '<span class="vsub">' + esc([v.commune, v.nom].filter(Boolean).join(', ')) + '</span>' : '') + '</span>'
       + '<span class="vmeta">' + (iss ? '<span class="flag" title="À compléter">' + svg(I.warn, 18) + '</span>' : '') + (eu ? '<span class="tally eu">EU ' + eu + '</span>' : '') + (ep ? '<span class="tally ep">EP ' + ep + '</span>' : '')
@@ -1460,7 +1485,7 @@ function conclLabel(k){ for (var i = 0; i < CONCL.length; i++) if (CONCL[i][0] =
 function raccLabel(k){ for (var i = 0; i < RACC.length; i++) if (RACC[i][0] === k) return RACC[i][1]; return ''; }
 function excelVal(v, re){ var p = (v.excel || []).filter(function(x){ return re.test(norm(x[0])) && String(x[1] || '').trim(); })[0]; return p ? String(p[1]).trim() : ''; }
 function vRefCad(v){ return v.refCad || excelVal(v, /ref.*cadastr|cadastr/); }
-function vDemande(v){ return (v.demande || excelVal(v, /date.*demande/) || excelVal(v, /^(?!.*demandeur).*demande/)).replace(/\s+[aà]\s+\d{1,2}h\d{2}$/, ''); }
+function vDemande(v){ return sansHeure(v.demande || excelVal(v, /date.*demande/) || excelVal(v, /^(?!.*demandeur).*demande/)); }
 function newConstat(v){
   return {v: 2, demande: vDemande(v), refCad: vRefCad(v), typePropriete: v.typeProp || '', nbLogements: v.nbLog || '', categorie: 'habitation', categorieNb: '1', methodes: {},
     rows: INSTALL_STD.map(function(s){ return {id: s[0], groupe: s[1], label: s[2], std: true, nb: '', raccord: '', conforme: '', methodes: []}; }),
@@ -1477,6 +1502,12 @@ function migrerConstat(c){
   c.v = 2; return c;
 }
 function constatOf(v){ if (!v.constat) v.constat = newConstat(v); return migrerConstat(v.constat); }
+/* Mise à jour depuis le tableau : un constat commencé et non signé reçoit les valeurs du tableau dans ses champs encore vides */
+function completerConstat(v){
+  var c = v.constat; if (!c || c.signeLe) return;
+  var src = {demande: vDemande(v), refCad: vRefCad(v), typePropriete: v.typeProp || '', nbLogements: v.nbLog || ''};
+  Object.keys(src).forEach(function(k){ if (src[k] && !String(c[k] == null ? '' : c[k]).trim()) c[k] = src[k]; });
+}
 function rowActive(r){ var n = String(r.nb == null ? '' : r.nb).trim(); return n !== '' && n !== '0'; }
 /* Conformité d'une installation d'après son raccordement : EU sur EU ou unitaire ; EP sur EP, unitaire, gargouille ou milieu naturel */
 function raccOk(r){ if (!r.raccord) return null; if (r.groupe === 'EU') return /^(EU|UN)_/.test(r.raccord); return /^(EP|UN)_|^GARG$|^MILIEU$/.test(r.raccord); }
@@ -2296,9 +2327,7 @@ function openModal(o){
       var ix = MODALS.indexOf(entry); if (ix >= 0) MODALS.splice(ix, 1);
       if (!pushed || fromBack){ resolve(val); return; }
       /* l'entrée de la fenêtre est retirée de l'historique avant de rendre la main, pour que la navigation suivante parte du bon endroit */
-      var settled = false, ok = function(){ if (settled) return; settled = true; resolve(val); };
-      NAV.ignorePops++; NAV.afterPop = ok; history.back();
-      setTimeout(function(){ if (!settled){ if (NAV.ignorePops > 0) NAV.ignorePops--; NAV.afterPop = null; ok(); } }, 600);
+      navSilentBack(function(){ resolve(val); });
     }
     function close(val){ finish(val, false); }
     function onKey(ev){ if (ev.key === 'Escape') close(undefined); }
