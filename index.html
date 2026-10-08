@@ -382,7 +382,7 @@ function visitEtat(v, l){
   return 'todo';
 }
 var FILTER_ETATS = {a_visiter: ['todo'], ok: ['ok'], a_completer: ['warn'], refus: ['refus'], autres: ['absent', 'hz']};
-var MAP_KEYS = ['numero', 'adr1', 'adr2', 'commune', 'nom', 'tel', 'mail', 'dom1', 'dom2', 'domVille', 'rdv', 'refCad', 'demande', 'typeProp', 'nbLog'];
+var MAP_KEYS = ['numero', 'adr1', 'adr2', 'commune', 'nom', 'tel', 'mail', 'dom1', 'dom2', 'domVille', 'rdv', 'refSec', 'refCad', 'demande', 'typeProp', 'nbLog'];
 /* Catégories des anomalies types : attribuées automatiquement d'après le libellé, modifiables dans la bibliothèque */
 var CATS = [['inversion', 'Inversions EU / EP'], ['regard', 'Regards et tampons'], ['canal', 'Canalisations'], ['descente', 'Descentes EP'], ['grille', 'Grilles et siphons'],
   ['drainage', 'Drainage'], ['chaudiere', 'Chaudière et purges'], ['ventilation', 'Ventilation'], ['autre', 'Autres']];
@@ -761,7 +761,12 @@ function guessMap(H){
   m.dom2 = take([/adresse\s*(du\s*)?dom(icile)?\s*2/, /complement.*dom/]);
   m.domVille = take([/ville\s*(du\s*)?dom/, /commune\s*(du\s*)?dom/]);
   m.rdv = take([/date\s*(de\s*)?(la\s*)?visite/, /rdv/, /rendez/, /creneau/, /^date(?!.*demande)/]);
-  m.refCad = take([/ref.*cadastr/, /cadastr/, /^parcelles?$/]);
+  /* références cadastrales : une colonne complète, sinon la section et le numéro de parcelle, réunis à l'import (« AB 259 ») */
+  m.refCad = take([/ref.*cadastr/, /cadastr/]); m.refSec = -1;
+  if (m.refCad < 0){
+    m.refSec = take([/^section\b/]); m.refCad = take([/^parcelles?\b/, /^(n°|no|num|numero)\.?\s*(de\s*)?(la\s*)?parcelle/]);
+    if (m.refCad < 0 && m.refSec >= 0){ used.delete(m.refSec); m.refSec = -1; }
+  }
   m.demande = take([/date\s*(de\s*)?(la\s*)?demande/]);
   m.typeProp = take([/^type\s*(de\s*|d['’]\s*|du\s*)?(la\s*|l['’]\s*)?(propriete|bien|habitat|logement|batiment|construction|immeuble)/, /^habitations?$/,
     /^nature\s*(de\s*|d['’]\s*|du\s*)?(la\s*|l['’]\s*)?(propriete|bien|habitat|logement|batiment|construction|immeuble)/]);
@@ -821,7 +826,8 @@ function bestSheet(wb){
 }
 function loadSheet(imp, sheet, prev){
   imp.sheet = sheet;
-  var wbp = imp.wb.Workbook && imp.wb.Workbook.WBProps, sr = sheetRows(imp.wb.Sheets[sheet], !!(wbp && wbp.date1904));
+  /* calendrier 1904 : seulement pour les classeurs lus en binaire ; SheetJS convertit déjà les dates des fichiers texte (XML 2003) en base 1900 */
+  var wbp = imp.wb.Workbook && imp.wb.Workbook.WBProps, sr = sheetRows(imp.wb.Sheets[sheet], !imp.texte && !!(wbp && wbp.date1904));
   imp.rows = sr.rows; imp.rowOffset = sr.rowOffset; imp.colOffset = sr.colOffset;
   imp.ncols = imp.rows.reduce(function(m, r){ return Math.max(m, r.length); }, 0);
   imp.headerRow = (prev && prev.sheet === sheet && typeof prev.headerRow === 'number') ? Math.min(prev.headerRow, Math.max(0, imp.rows.length - 1)) : detectHeaderRow(imp.rows);
@@ -847,7 +853,7 @@ function startImport(fileName, buf, mode){
   var wb = txt != null ? XLSX.read(txt, {type: 'string', raw: true, cellNF: true, cellDates: false}) : XLSX.read(buf, {type: 'array', cellNF: true, cellDates: false});
   if (!wb.SheetNames.length) throw new Error('classeur vide');
   var prev = mode === 'update' && S.etude ? (S.etude.source || null) : null;
-  var imp = {mode: mode, eid: mode === 'update' ? S.etude.id : null, fileName: fileName, wb: wb, sheet: null, rows: [], rowOffset: 0, colOffset: 0, ncols: 0, headerRow: 0, map: null, name: String(fileName).replace(/\.[^.]+$/, '')};
+  var imp = {mode: mode, eid: mode === 'update' ? S.etude.id : null, fileName: fileName, wb: wb, texte: txt != null, sheet: null, rows: [], rowOffset: 0, colOffset: 0, ncols: 0, headerRow: 0, map: null, name: String(fileName).replace(/\.[^.]+$/, '')};
   var sheet = (prev && prev.sheet && wb.SheetNames.indexOf(prev.sheet) >= 0) ? prev.sheet : bestSheet(wb);
   loadSheet(imp, sheet, prev);
   S.imp = imp;
@@ -865,14 +871,16 @@ function computeImport(imp){
     if (seen.has(numero)) dups++; else seen.add(numero);
     recs.push({numero: numero, adresse: [cell(r, m.adr1), cell(r, m.adr2)].filter(Boolean).join(' '), commune: cell(r, m.commune), nom: cell(r, m.nom),
       tel: fixTel(cell(r, m.tel)), mail: cell(r, m.mail), domicile: [cell(r, m.dom1), cell(r, m.dom2)].filter(Boolean).join(' '), domVille: cell(r, m.domVille), rdv: cell(r, m.rdv),
-      refCad: cell(r, m.refCad), demande: sansHeure(cell(r, m.demande)), typeProp: cell(r, m.typeProp), nbLog: cell(r, m.nbLog),
+      refCad: [cell(r, m.refSec), cell(r, m.refCad)].filter(Boolean).join(' '), demande: sansHeure(cell(r, m.demande)), typeProp: cell(r, m.typeProp), nbLog: cell(r, m.nbLog),
       excel: H.map(function(h, j){ return [h, cell(r, j)]; })});
   }
   return {headers: H, recs: recs, ignored: ignored, dups: dups};
 }
+/* Rapprochement des numéros de dossier : « 0012 », « 12 » et « 12.0 » désignent le même dossier (les versions précédentes relisaient les CSV en nombres) */
+function numKey(x){ var t = String(x == null ? '' : x).trim(); return /^\d+(?:[.,]0+)?$/.test(t) ? String(parseInt(t, 10)) : t; }
 function planUpdate(res){
-  var ex = new Set(S.visites.map(function(v){ return String(v.numero).trim(); })), seen = new Set(), added = 0, updated = 0, missing = 0;
-  res.recs.forEach(function(r){ if (seen.has(r.numero)) return; seen.add(r.numero); if (ex.has(r.numero)) updated++; else added++; });
+  var ex = new Set(S.visites.map(function(v){ return numKey(v.numero); })), seen = new Set(), added = 0, updated = 0, missing = 0;
+  res.recs.forEach(function(r){ var k = numKey(r.numero); if (seen.has(k)) return; seen.add(k); if (ex.has(k)) updated++; else added++; });
   ex.forEach(function(n){ if (!seen.has(n)) missing++; });
   return {added: added, updated: updated, missing: missing};
 }
@@ -907,7 +915,7 @@ function viewImport(mode){
     + mapSel('mail', 'Mail', H, imp.map.mail, false, off) + mapSel('dom1', 'Adresse du domicile', H, imp.map.dom1, false, off) + mapSel('dom2', 'Suite de l\'adresse du domicile', H, imp.map.dom2, false, off)
     + mapSel('domVille', 'Ville du domicile', H, imp.map.domVille, false, off) + mapSel('rdv', 'Date ou créneau de visite', H, imp.map.rdv, false, off)
     + '</div><h2 class="h2 mt">Pour le constat de visite</h2><div class="gap"></div><div class="grid2">'
-    + mapSel('refCad', 'Références cadastrales', H, imp.map.refCad, false, off) + mapSel('demande', 'Date de la demande', H, imp.map.demande, false, off)
+    + mapSel('refSec', 'Section cadastrale (si séparée)', H, imp.map.refSec, false, off) + mapSel('refCad', 'Références cadastrales ou n° de parcelle', H, imp.map.refCad, false, off) + mapSel('demande', 'Date de la demande', H, imp.map.demande, false, off)
     + mapSel('typeProp', 'Type de propriété', H, imp.map.typeProp, false, off) + mapSel('nbLog', 'Nombre de logements', H, imp.map.nbLog, false, off)
     + '</div><p class="note" style="margin-top:0">Toutes les colonnes du tableau restent consultables dans chaque dossier et peuvent être reprises dans le constat, même celles qui ne sont pas associées ici.</p>';
   b += '<h2 class="h2 mt">Aperçu</h2><div class="gap"></div>';
@@ -991,15 +999,15 @@ async function applyUpdate(){
   var res = computeImport(imp);
   if (imp.map.numero < 0 || !res.recs.length){ toast('Choisissez la colonne du numéro de dossier.'); return; }
   var t = nowISO(), byNum = new Map();
-  S.visites.forEach(function(v){ var k = String(v.numero).trim(); if (!byNum.has(k)) byNum.set(k, v); });
+  S.visites.forEach(function(v){ var k = numKey(v.numero); if (!byNum.has(k)) byNum.set(k, v); });
   var seen = new Set(), toPut = [], added = 0, updated = 0, missing = 0, ordre = 0;
   res.recs.forEach(function(r){
-    if (seen.has(r.numero)) return; seen.add(r.numero);
-    var v = byNum.get(r.numero);
-    if (v){ Object.assign(v, {adresse: r.adresse, commune: r.commune, nom: r.nom, tel: r.tel, mail: r.mail, domicile: r.domicile, domVille: r.domVille, rdv: r.rdv, excel: r.excel, refCad: r.refCad, demande: r.demande, typeProp: r.typeProp, nbLog: r.nbLog, absentDernierImport: false, ordre: ordre++, updatedAt: t}); completerConstat(v); updated++; toPut.push(v); }
+    var nk = numKey(r.numero); if (seen.has(nk)) return; seen.add(nk);
+    var v = byNum.get(nk);
+    if (v){ Object.assign(v, {numero: r.numero, adresse: r.adresse, commune: r.commune, nom: r.nom, tel: r.tel, mail: r.mail, domicile: r.domicile, domVille: r.domVille, rdv: r.rdv, excel: r.excel, refCad: r.refCad, demande: r.demande, typeProp: r.typeProp, nbLog: r.nbLog, absentDernierImport: false, ordre: ordre++, updatedAt: t}); completerConstat(v); updated++; toPut.push(v); }
     else { var nv = newVisite(e.id, r, ordre++, t); S.visites.push(nv); toPut.push(nv); added++; }
   });
-  S.visites.forEach(function(v){ if (!seen.has(String(v.numero).trim())){ v.absentDernierImport = true; v.ordre = 100000 + (v.ordre || 0); v.updatedAt = t; toPut.push(v); missing++; } });
+  S.visites.forEach(function(v){ if (!seen.has(numKey(v.numero))){ v.absentDernierImport = true; v.ordre = 100000 + (v.ordre || 0); v.updatedAt = t; toPut.push(v); missing++; } });
   await DB.putMany('visites', toPut);
   e.source = {fileName: imp.fileName, sheet: imp.sheet, headerRow: imp.headerRow, headers: res.headers, map: Object.assign({}, imp.map), importedAt: t};
   e.updatedAt = t;
@@ -1595,7 +1603,8 @@ function constatEval(v, list){
   if (F){
     /* Constat signé : ce qui a été signé est figé ; on signale seulement que le dossier a changé depuis */
     var liveConf = {}; rows.forEach(function(x){ liveConf[x.r.id] = rowActive(x.r) ? x.conf : ''; });
-    var FV = F.visite || {}, idChange = ['statut', 'dateVisite', 'nom', 'adresse', 'commune', 'domicile', 'domVille', 'tel', 'mail'].some(function(k){ return String(FV[k] || '') !== String(v[k] || ''); });
+    var FV = F.visite || {}, idChange = ['statut', 'dateVisite'].some(function(k){ return String(FV[k] || '') !== String(v[k] || ''); })
+      || ['nom', 'adresse', 'commune', 'domicile', 'domVille', 'tel', 'mail'].some(function(k){ return idCanon(FV[k]) !== idCanon(v[k]); });
     E.changed = idChange || E.conclusion !== F.conclusion || JSON.stringify(liveConf) !== JSON.stringify(F.conf) || JSON.stringify(precos) !== JSON.stringify(F.precos) || E.obsText !== F.observations || E.reservesText !== F.reserves;
     rows.forEach(function(x){ x.conf = F.conf[x.r.id] || ''; });
     E.conclusion = F.conclusion; E.precos = F.precos; E.meth = F.meth; E.obsText = F.observations; E.reservesText = F.reserves; E.fige = F;
@@ -1604,6 +1613,8 @@ function constatEval(v, list){
 }
 function constatObsAuto(E, reservesSeules){ return E.anoms.filter(function(a){ return !reservesSeules || !anomNC(a); }).map(function(a){ return obsLine(a).replace(/\n/g, ', ') + (reservesSeules || anomNC(a) ? '' : ' (réserve)'); }).join(' ; '); }
 function constatContenu(v){ var c = v.constat; return !!c && !!(c.signeLe || c.sigTech || c.sigProp || c.croquis || c.conclusion || c.reseau || c.rows.some(rowActive)); }
+/* Comparaison tolérante d'une identité figée : accents mal décodés par les versions précédentes (« allÃ©e »), apostrophes perdues, ponctuation, espaces, casse */
+function idCanon(s){ s = String(s == null ? '' : s); try { if (/[ÃÂ]/.test(s)) s = decodeURIComponent(escape(s)); } catch(e){} return norm(s).replace(/[^a-z0-9]/g, ''); }
 function constatFige(v){ var c = v.constat; if (!c || !c.signeLe) return v; return c.fige ? Object.assign({}, v, c.fige.visite) : v; }
 function constatNonEffectue(v){ return v.statut === 'absent' || v.statut === 'refus' || v.statut === 'hors_zone'; }
 /* Contrôles avant signature : ce qui manque ou se contredit est signalé, rien n'est bloqué */
