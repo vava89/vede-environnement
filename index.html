@@ -68,8 +68,8 @@ a{color:inherit}
 .bar-logo{flex:0 0 auto;width:38px;height:38px;margin:0 2px 0 4px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
 @media (max-width:600px){.bar .iconbtn[data-act="back"] ~ .bar-logo{display:none}}
 .home-head{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin:0 0 18px}.home-head .lead{margin:0}
-.home-logo{flex:0 0 auto;padding:10px 14px;background:#fff;border:1px solid var(--line-2);border-radius:14px}
-.home-logo img{display:block;width:200px;max-width:100%;height:auto}
+.bar.big{min-height:80px;gap:8px;padding:10px 18px}.bar.big .bar-logo{width:60px;height:60px;margin:0 4px 0 0;box-shadow:0 0 0 3px rgba(255,255,255,.3)}.bar.big .bar-title{font-size:32px;letter-spacing:.2px}.bar.big .bar-sub{font-size:16.5px}
+@media (max-width:600px){.bar.big{min-height:70px;padding:8px 12px}.bar.big .bar-logo{width:50px;height:50px}.bar.big .bar-title{font-size:27px}.bar.big .bar-sub{font-size:15px}}
 .ecards{list-style:none;margin:0 0 22px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
 @media (max-width:420px){.ecards{grid-template-columns:1fr}}
 .ecard{display:flex;flex-direction:column;gap:8px;min-height:190px;padding:18px 20px 16px 26px;border-radius:18px;background:var(--surface);border:2px solid var(--line);box-shadow:0 10px 28px -18px rgba(9,18,24,.55);text-decoration:none;color:inherit;position:relative;overflow:hidden}
@@ -179,7 +179,7 @@ a{color:inherit}
 .seg button{min-height:44px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--surface)}
 .field{display:block;margin:0 0 14px}
-input[type=text],input[type=date],select,textarea{width:100%;min-height:48px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:17px}
+input[type=text],input[type=tel],input[type=email],input[type=url],input[type=password],input[type=date],select,textarea{width:100%;min-height:48px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:17px}
 textarea{min-height:92px;resize:vertical;line-height:1.4}
 .check{display:flex;align-items:center;gap:12px;min-height:48px;margin:4px 0 10px;font-weight:600;cursor:pointer}
 .check input{width:24px;height:24px;flex:0 0 auto;accent-color:var(--brand)}
@@ -265,7 +265,10 @@ table.prev th{background:var(--surface-2);font-weight:600}
 .datebox .date-native{position:absolute;inset:0;width:100%;height:100%;min-height:0;opacity:0;cursor:pointer;border:0;padding:0;margin:0}
 .datebox .date-native::-webkit-calendar-picker-indicator{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
 .daterow{display:flex;gap:8px;align-items:stretch}.daterow .datebox{flex:1}.date-empty{color:var(--muted);font-weight:500}
-.contact-l{margin:0 0 12px;line-height:1.6}.contact-l a{color:var(--ep);font-weight:600}
+.contact-l{margin:0 0 12px;line-height:1.6}.contact-l a{color:var(--ep);font-weight:600}.contact-l .ct-open{margin-top:8px}.contact-l .ct-open a.btn{color:inherit}
+.ct-imp{margin-top:4px;font-size:14.5px;color:var(--muted)}
+.linkbtn{background:none;border:0;padding:6px 6px;margin-left:2px;min-height:36px;color:var(--ep);font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
+.ct-sum{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0 0 10px}.ct-sum dt{color:var(--muted)}.ct-sum dd{margin:0;min-width:0;overflow-wrap:anywhere}
 .opt-list{display:flex;flex-direction:column;gap:4px;margin:0 0 14px}.radio{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:600;cursor:pointer}.radio input{width:22px;height:22px;accent-color:var(--brand)}
 .pick-chips{flex-wrap:wrap;overflow:visible;padding:12px 0 6px}.pick-chips .chip{min-height:42px;font-size:15px}
 .pick-cat{font-family:"Barlow Condensed","Barlow",sans-serif;font-weight:700;font-size:19px;color:var(--ink-2);margin:16px 0 8px}.pick-cat:first-child{margin-top:4px}
@@ -363,7 +366,11 @@ var I = {
   warn: '<path d="M12 4.5l8.5 15h-17z"/><path d="M12 10v4.2M12 16.8v.2"/>', check: 'M5 12.5l4.2 4.2L19 7',
   trash: 'M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13', doc: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
   book: '<path d="M6 4h9a3 3 0 0 1 3 3v13H9a3 3 0 0 1-3-3z"/><path d="M6 17a3 3 0 0 1 3-3h9"/>',
-  search: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.6-4.6"/>', restore: '<path d="M4.5 12a7.5 7.5 0 1 0 2.4-5.5"/><path d="M4.5 4.5v4h4"/>'
+  search: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.6-4.6"/>', restore: '<path d="M4.5 12a7.5 7.5 0 1 0 2.4-5.5"/><path d="M4.5 4.5v4h4"/>',
+  user: '<circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.8 3.6-5.6 7-5.6s6.2 1.8 7 5.6"/>',
+  phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"/>',
+  mail: '<rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/><path d="M4 7l8 6 8-6"/>', send: '<path d="M4 12l16-8-6 16-2.5-6.5z"/><path d="M11.5 13.5L20 4"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>'
 };
 function svg(d, size){ var s = size || 22; return '<svg viewBox="0 0 24 24" width="' + s + '" height="' + s + '" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (d.charAt(0) === '<' ? d : '<path d="' + d + '"/>') + '</svg>'; }
 
@@ -522,6 +529,7 @@ function parseRoute(){
       if (p[4] === 'a' && p[5]){ r.name = 'anom'; r.aid = p[5]; return r; }
       if (p[4] === 'fiche'){ r.name = 'fiche'; return r; }
       if (p[4] === 'constat'){ r.name = 'constat'; return r; }
+      if (p[4] === 'contact'){ r.name = 'contact'; return r; }
       r.name = 'visit'; return r;
     }
     r.name = 'etude'; return r;
@@ -606,7 +614,7 @@ async function render(){
     if (route.eid && (!S.etude || S.etude.id !== route.eid)){
       if (!(await loadEtude(route.eid))){ toast('Étude introuvable sur cet appareil.'); S.route = {name: 'home'}; goUpTo('#/'); return; }
     }
-    if ((route.name === 'visit' || route.name === 'anom' || route.name === 'fiche' || route.name === 'constat') && !curVisit()){ goUpTo('#/e/' + route.eid); return; }
+    if ((route.name === 'visit' || route.name === 'anom' || route.name === 'fiche' || route.name === 'constat' || route.name === 'contact') && !curVisit()){ goUpTo('#/e/' + route.eid); return; }
     if (route.name === 'anom' && !curAnom()){ goUpTo('#/e/' + route.eid + '/v/' + route.vid); return; }
     if (seq !== renderSeq) return;
     S.wide = mqWide();
@@ -654,6 +662,7 @@ async function buildView(r){
   if (r.name === 'anom'){ var n = anomsOf(v.id).indexOf(curAnom()) + 1; return {bar: barHtml({back: '#/e/' + e.id + '/v/' + v.id, title: 'Anomalie A' + n, sub: 'Dossier ' + v.numero}), body: await detailHtml(r), after: afterFor(r)}; }
   if (r.name === 'fiche') return {bar: barHtml({back: '#/e/' + e.id + '/v/' + v.id, title: 'Fiche du dossier ' + v.numero}), body: await detailHtml(r)};
   if (r.name === 'constat') return {bar: barHtml({back: '#/e/' + e.id + '/v/' + v.id, title: 'Constat du dossier ' + v.numero, sub: v.adresse}), body: await detailHtml(r)};
+  if (r.name === 'contact') return {bar: barHtml({back: '#/e/' + e.id + '/v/' + v.id, title: 'Fiche contact', sub: 'Dossier ' + v.numero + (v.adresse ? ', ' + v.adresse : '')}), body: await detailHtml(r)};
   return viewHome();
 }
 async function detailHtml(r){
@@ -661,11 +670,12 @@ async function detailHtml(r){
   if (r.name === 'anom') return '<div class="page ed">' + anomHtml() + '</div>';
   if (r.name === 'fiche') return '<div class="page">' + (await ficheViewHtml()) + '</div>';
   if (r.name === 'constat') return '<div class="page">' + constatHtml() + '</div>';
+  if (r.name === 'contact') return '<div class="page narrow">' + contactHtml() + '</div>';
   return '';
 }
 function afterFor(r){ return r.name === 'anom' ? async function(){ await renderThumbs(curAnom()); var a = curAnom(); if (a && S.autoPick === a.id){ S.autoPick = null; pickType(); } } : null; }
 function barHtml(o){
-  return '<header class="bar">' + (o.back ? '<button type="button" class="iconbtn" data-act="back" data-href="' + esc(o.back) + '" aria-label="Retour">' + svg(I.back, 24) + '</button>' : '<span class="bar-pad"></span>')
+  return '<header class="bar' + (o.big ? ' big' : '') + '">' + (o.back ? '<button type="button" class="iconbtn" data-act="back" data-href="' + esc(o.back) + '" aria-label="Retour">' + svg(I.back, 24) + '</button>' : '<span class="bar-pad"></span>')
     + '<img class="bar-logo" src="icons/logo-embleme.png" alt="">'
     + '<div class="bar-t"><div class="bar-title">' + esc(o.title) + '</div>' + (o.sub ? '<div class="bar-sub">' + esc(o.sub) + '</div>' : '') + '</div>'
     + '<span id="net" class="net-off" hidden>Hors ligne</span>'
@@ -696,8 +706,8 @@ async function viewHome(){
       + '<span class="tally eu">EU ' + st.eu + '</span><span class="tally ep">EP ' + st.ep + '</span></span>'
       + '<span class="eexp' + (dirty ? ' dirty' : '') + '">' + (e.lastExportAt ? 'Dernier export le ' + fmtDT(e.lastExportAt) + (dirty ? ', modifiée depuis' : '') : 'Jamais exportée') + '</span></a></li>';
   }
-  var A = window.VEDE_ASSETS || {}, b = '<div class="page home">';
-  b += '<div class="home-head">' + (A.logo ? '<div class="home-logo"><img src="' + A.logo + '" alt="VÉDÉ Environnement"></div>' : '')
+  var b = '<div class="page home">';
+  b += '<div class="home-head">'
     + '<div><h1 class="h1">Études</h1><p class="lead">' + (etudes.length ? plural(etudes.length, 'étude sur cet appareil', 'études sur cet appareil') + '. Touchez une étude pour ouvrir ses dossiers.' : 'Une étude regroupe toutes les visites d\'une opération. Elle se crée à partir de votre tableau Excel : une ligne par adresse à contrôler, avec son numéro de dossier.') + '</p></div></div>';
   var actions = '<div class="btnrow home-actions"><button type="button" class="btn ' + (etudes.length ? '' : 'primary big') + '" data-act="nav" data-href="#/import">' + svg(I.upload) + 'Importer un tableau Excel</button>'
     + '<button type="button" class="btn" data-act="pick-zip">' + svg(I.restore) + 'Restaurer une sauvegarde</button>'
@@ -705,7 +715,7 @@ async function viewHome(){
   if (etudes.length) b += '<ul class="ecards">' + cards + '</ul>' + actions;
   else b += actions + '<div class="empty"><p><strong>Aucune étude sur cet appareil.</strong></p><p>Importez votre tableau des visites pour créer la première, ou restaurez un export fait sur un autre appareil.</p></div>';
   b += '<p class="note" id="storage-note">Les données restent sur cet appareil et la saisie fonctionne sans connexion. Exportez chaque étude régulièrement : l\'export ZIP sert aussi de sauvegarde.</p></div>';
-  return {bar: barHtml({title: 'VÉDÉ Terrain', sub: 'Contrôles de branchement'}), body: b, after: fillStorageNote};
+  return {bar: barHtml({title: 'VÉDÉ Terrain', sub: 'Contrôles de branchement', big: true}), body: b, after: fillStorageNote};
 }
 async function fillStorageNote(){
   var el = $('#storage-note');
@@ -1007,7 +1017,7 @@ function filterVisites(by){
   var q = norm(S.search).trim();
   return S.visites.filter(function(v){
     var l = by.get(v.id) || [];
-    if (q && norm([v.numero, v.adresse, v.commune, v.nom].join(' ')).indexOf(q) < 0) return false;
+    if (q && norm([v.numero, v.adresse, v.commune, ctc(v, 'nom'), ctc(v, 'rNom')].join(' ')).indexOf(q) < 0) return false;
     if (FILTER_ETATS[S.filter]) return FILTER_ETATS[S.filter].indexOf(visitEtat(v, l)) >= 0;
     return S.filter === 'avec' ? l.length > 0 : true;
   });
@@ -1037,7 +1047,7 @@ function listRowsHtml(){
     var active = S.route && S.route.vid === v.id, et = visitEtat(v, l);
     return '<li><a class="vrow vs-' + et + (active ? ' active' : '') + '" href="#/e/' + esc(S.etude.id) + '/v/' + esc(v.id) + '" data-vid="' + esc(v.id) + '"' + (active ? ' aria-current="true"' : '') + '>'
       + '<span class="vnum">' + esc(v.numero) + '</span><span class="vmain"><span class="vaddr">' + esc(v.adresse || 'Adresse non renseignée') + '</span>'
-      + ((v.commune || v.nom) ? '<span class="vsub">' + esc([v.commune, v.nom].filter(Boolean).join(', ')) + '</span>' : '') + '</span>'
+      + ((v.commune || ctc(v, 'nom')) ? '<span class="vsub">' + esc([v.commune, ctc(v, 'nom')].filter(Boolean).join(', ')) + '</span>' : '') + '</span>'
       + '<span class="vmeta">' + (iss ? '<span class="flag" title="À compléter">' + svg(I.warn, 18) + '</span>' : '') + (eu ? '<span class="tally eu">EU ' + eu + '</span>' : '') + (ep ? '<span class="tally ep">EP ' + ep + '</span>' : '')
       + '<span class="st ' + esc(v.statut) + '">' + esc(stLabel(v.statut)) + '</span>' + (v.absentDernierImport ? '<span class="st">hors tableau</span>' : '') + '</span></a></li>';
   }).join('');
@@ -1073,20 +1083,103 @@ function anomItemHtml(v, a, k){
     + (precoLines(a.preconisation).length ? '<div class="apre"><span class="lbl-in">Préconisation : </span>' + esc(a.preconisation) + '</div>' : '')
     + (miss.length ? '<div class="amiss">' + svg(I.warn, 18) + esc(miss.join(', ')) + '</div>' : '') + '</a>';
 }
+/* ---------- Fiche contact ----------
+   v.contact garde les corrections faites à la main. Une clé présente (même vide) l'emporte sur la valeur du tableau importé ;
+   une mise à jour du tableau ne touche jamais v.contact */
+var CONTACT_IMP = {nom: 'nom', domicile: 'domicile', domVille: 'domVille', tel: 'tel', mail: 'mail'};
+var QUALITES = ['Locataire', 'Occupant', 'Gardien', 'Syndic', 'Agence immobilière', 'Membre de la famille', 'Voisin', 'Autre'];
+function ctcHas(v, k){ return !!(v && v.contact && Object.prototype.hasOwnProperty.call(v.contact, k)); }
+function ctcImp(v, k){ var f = CONTACT_IMP[k]; return f && v && v[f] != null ? String(v[f]) : ''; }
+function ctc(v, k){ return ctcHas(v, k) ? String(v.contact[k] == null ? '' : v.contact[k]) : ctcImp(v, k); }
+function ctcSignataire(v){ var n = ctc(v, 'rNom').trim(); return ctc(v, 'rencontre') === 'autre' && n ? n : ctc(v, 'nom').trim(); }
+function rencontreTxt(v){
+  var r = ctc(v, 'rencontre');
+  if (r === 'proprietaire') return 'le propriétaire';
+  if (r !== 'autre') return '';
+  var t = fixTel(ctc(v, 'rTel'));
+  return [ctc(v, 'rNom'), ctc(v, 'rQualite'), t ? fmtTel(t) : '', ctc(v, 'rMail')].map(function(x){ return String(x).trim(); }).filter(Boolean).join(', ') || 'une autre personne';
+}
+function mailOk(s){ return /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(String(s || '').trim()); }
+/* Le signataire proposé au constat (« Je, soussigné ») suit la fiche contact tant qu'il n'a pas été modifié à la main et que le constat n'est pas signé */
+function majSignataire(v, before){ var c = v.constat; if (c && !c.signeLe && String(c.soussigne || '').trim() === String(before || '').trim()) c.soussigne = ctcSignataire(v); }
+function ctLink(kind, val){
+  var t = kind === 'tel' ? fixTel(val) : '';
+  if (t) return {href: 'tel:' + telHref(t), html: svg(I.phone, 18) + 'Appeler'};
+  if (kind === 'email' && mailOk(val)) return {href: 'mailto:' + String(val).trim(), html: svg(I.mail, 18) + 'Écrire'};
+  return null;
+}
+function ctHint(v, k){
+  if (!CONTACT_IMP[k] || !ctcHas(v, k) || ctc(v, k).trim() === ctcImp(v, k).trim()) return '';
+  var imp = ctcImp(v, k).trim();
+  return 'Tableau : ' + (imp ? esc(imp) : '<em>vide</em>') + ' <button type="button" class="linkbtn" data-act="ct-reset" data-k="' + k + '">Reprendre</button>';
+}
+function ctField(v, k, label, kind){
+  var val = ctc(v, k), ln = ctLink(kind, val), hint = ctHint(v, k);
+  return '<div class="field" data-ctwrap="' + k + '" data-kind="' + (kind || '') + '"><span class="lbl">' + esc(label) + '</span><div class="xrow">'
+    + '<input type="' + (kind === 'tel' ? 'tel' : kind === 'email' ? 'email' : 'text') + '" data-ctf="' + k + '" value="' + esc(val) + '" aria-label="' + esc(label) + '" autocomplete="off"'
+    + (kind === 'qualite' ? ' list="dl-qualite"' : '') + (kind === 'email' ? ' autocapitalize="off" spellcheck="false"' : '') + '>'
+    + ((v.excel || []).length ? '<button type="button" class="btn sm" data-act="ct-xls" data-k="' + k + '" title="Reprendre une valeur du tableau Excel">' + svg(I.doc, 18) + 'Tableau</button>' : '')
+    + (ln ? '<a class="btn sm ct-go" href="' + esc(ln.href) + '">' + ln.html + '</a>' : '') + '</div>'
+    + (hint ? '<div class="ct-imp">' + hint + '</div>' : '') + '</div>';
+}
+/* Pendant la frappe : le rappel du tableau et le lien Appeler / Écrire suivent la saisie, sans redessiner le champ */
+function ctFieldUpdate(w, v){
+  var k = w.dataset.ctwrap, kind = w.dataset.kind, hint = ctHint(v, k), hd = w.querySelector('.ct-imp'), ln = ctLink(kind, ctc(v, k)), a = w.querySelector('.ct-go');
+  if (!hint){ if (hd) hd.remove(); } else { if (!hd){ hd = document.createElement('div'); hd.className = 'ct-imp'; w.appendChild(hd); } hd.innerHTML = hint; }
+  if (!ln){ if (a) a.remove(); } else if (a){ a.setAttribute('href', ln.href); } else { var xr = w.querySelector('.xrow'); if (xr) xr.insertAdjacentHTML('beforeend', '<a class="btn sm ct-go" href="' + esc(ln.href) + '">' + ln.html + '</a>'); }
+}
+function onContactField(t){
+  var v = curVisit(); if (!v) return;
+  var k = t.dataset.ctf, before = ctcSignataire(v);
+  v.contact = v.contact || {};
+  if (CONTACT_IMP[k] && t.value === ctcImp(v, k)) delete v.contact[k]; else v.contact[k] = t.value;
+  majSignataire(v, before);
+  v.updatedAt = nowISO(); saveLater('visites', v); touchEtude();
+  var w = t.closest('[data-ctwrap]'); if (w) ctFieldUpdate(w, v);
+}
+function setContact(v, k, val){ var before = ctcSignataire(v); v.contact = v.contact || {}; if (val === undefined) delete v.contact[k]; else v.contact[k] = val; majSignataire(v, before); v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); }
+function ctSummaryHtml(v){
+  var t = [fixTel(ctc(v, 'tel')), fixTel(ctc(v, 'tel2'))].filter(Boolean).map(fmtTel).join(', '), rows = [['Nom', ctc(v, 'nom')], ['Adresse', ficheDomicile(v)], ['Téléphone', t], ['Mail', ctc(v, 'mail')]];
+  var pr = rencontreTxt(v); if (pr) rows.push(['Personne rencontrée', pr]);
+  return '<dl class="ct-sum">' + rows.map(function(r){ return '<dt>' + esc(r[0]) + '</dt><dd>' + (String(r[1] || '').trim() ? esc(r[1]) : '<span class="muted">non renseigné</span>') + '</dd>'; }).join('') + '</dl>';
+}
+function contactHtml(){
+  var v = curVisit(), r = ctc(v, 'rencontre'), h = '';
+  h += '<div class="ed-head"><h2 class="h2">Fiche contact, dossier ' + esc(v.numero) + '</h2><p class="muted">Reprend le tableau importé. Vos corrections l\'emportent : elles passent dans le dossier, le constat de visite, la fiche et les exports, et une mise à jour du tableau ne les efface pas.</p></div>';
+  if (v.constat && v.constat.signeLe) h += '<p class="inline-warn">Constat signé le ' + esc(fmtDT(v.constat.signeLe)) + ' : il garde les coordonnées en vigueur à la signature. Une correction faite ici sera signalée comme un changement depuis la signature.</p>';
+  h += '<section class="card"><h2 class="h2">Propriétaire</h2>' + ctField(v, 'nom', 'Nom et prénom') + ctField(v, 'domicile', 'Adresse du propriétaire') + ctField(v, 'domVille', 'Code postal et ville')
+    + ctField(v, 'tel', 'Téléphone', 'tel') + ctField(v, 'tel2', 'Autre téléphone', 'tel') + ctField(v, 'mail', 'Mail', 'email') + '</section>';
+  h += '<section class="card"><h2 class="h2">Personne rencontrée lors de la visite</h2><div class="seg" role="group" aria-label="Personne rencontrée">'
+    + [['proprietaire', 'Le propriétaire'], ['autre', 'Une autre personne']].map(function(o){ return '<button type="button" data-act="ct-rencontre" data-v="' + o[0] + '" aria-pressed="' + (r === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>';
+  if (r === 'autre') h += ctField(v, 'rNom', 'Nom et prénom') + ctField(v, 'rQualite', 'Qualité', 'qualite') + '<datalist id="dl-qualite">' + QUALITES.map(function(q){ return '<option value="' + esc(q) + '">'; }).join('') + '</datalist>'
+    + ctField(v, 'rTel', 'Téléphone', 'tel') + ctField(v, 'rMail', 'Mail', 'email');
+  else h += '<p class="muted small">' + (r === 'proprietaire' ? 'Le constat est proposé à la signature du propriétaire.' : 'Indiquez qui était présent : le nom proposé au constat (« Je, soussigné ») en dépend.') + '</p>';
+  h += '</section><div class="btnrow"><a class="btn primary" href="#/e/' + esc(v.etudeId) + '/v/' + esc(v.id) + '">' + svg(I.check) + 'Retour au dossier</a></div>';
+  return h;
+}
+async function pickExcelValue(v){
+  var rows = (v.excel || []).filter(function(p){ return String(p[1] == null ? '' : p[1]).trim(); });
+  if (!rows.length){ toast('Aucune donnée du tableau Excel pour ce dossier.'); return null; }
+  return openModal({title: 'Reprendre une valeur du tableau', noAutofocus: true,
+    html: '<p class="muted small">Touchez la valeur à reporter dans le champ. Elle reste modifiable ensuite.</p><div class="sheet-list">' + rows.map(function(p, i){ return '<button type="button" class="btn xls-pick" data-m="xv" data-i="' + i + '"><span class="xk">' + esc(p[0]) + '</span><span class="xv">' + esc(p[1]) + '</span></button>'; }).join('') + '</div>',
+    actions: [{label: 'Annuler', value: null}],
+    onMount: function(w, close){ w.addEventListener('click', function(ev){ var b = ev.target.closest('[data-m="xv"]'); if (b) close(String(rows[+b.dataset.i][1]).trim()); }); }});
+}
 function visitHtml(){
   var e = S.etude, v = curVisit(), list = anomsOf(v.id), i = S.visites.indexOf(v), prev = S.visites[i - 1], next = S.visites[i + 1], base = '#/e/' + esc(e.id) + '/v/';
   var h = '<div class="vhead"><div class="vtitle"><span class="bignum">' + esc(v.numero) + '</span><div><div class="vaddr-l">' + esc(v.adresse || 'Adresse non renseignée') + '</div>'
-    + ((v.commune || v.nom) ? '<div class="vsub-l">' + esc([v.commune, v.nom].filter(Boolean).join(', ')) + '</div>' : '') + '</div></div>'
+    + ((v.commune || ctc(v, 'nom')) ? '<div class="vsub-l">' + esc([v.commune, ctc(v, 'nom')].filter(Boolean).join(', ')) + '</div>' : '') + '</div></div>'
     + '<nav class="pn" aria-label="Dossiers voisins">' + (prev ? '<a class="btn sm" href="' + base + esc(prev.id) + '" aria-label="Dossier précédent, ' + esc(prev.numero) + '">' + svg(I.back, 18) + esc(prev.numero) + '</a>' : '')
     + (next ? '<a class="btn sm" href="' + base + esc(next.id) + '" aria-label="Dossier suivant, ' + esc(next.numero) + '">' + esc(next.numero) + svg(I.next, 18) + '</a>' : '') + '</nav></div>';
-  var tel = fixTel(v.tel), dom = [v.domicile, v.domVille].filter(Boolean).join(' - '), c = [];
-  if (tel) c.push('<a href="tel:' + esc(telHref(tel)) + '">' + esc(fmtTel(tel)) + '</a>');
-  if (v.mail) c.push('<a href="mailto:' + esc(v.mail) + '">' + esc(v.mail) + '</a>');
-  var ch = c.length ? '<div>' + c.join(', ') + '</div>' : '';
+  var dom = ficheDomicile(v), c = [], ch = '';
+  ['tel', 'tel2'].forEach(function(k){ var t = fixTel(ctc(v, k)); if (t) c.push('<a href="tel:' + esc(telHref(t)) + '">' + esc(fmtTel(t)) + '</a>'); });
+  if (ctc(v, 'mail')) c.push('<a href="mailto:' + esc(ctc(v, 'mail')) + '">' + esc(ctc(v, 'mail')) + '</a>');
+  if (c.length) ch += '<div>' + c.join(', ') + '</div>';
   if (dom) ch += '<div class="muted">Domicile : ' + esc(dom) + '</div>';
+  var pr = rencontreTxt(v); if (pr) ch += '<div class="muted">Personne rencontrée : ' + esc(pr) + '</div>';
   if (v.rdv) ch += '<div class="muted">Visite prévue : ' + esc(v.rdv) + '</div>';
   var rc = vRefCad(v); if (rc) ch += '<div class="muted">Réf. cadastrales : ' + esc(rc) + '</div>';
-  if (ch) h += '<div class="contact-l">' + ch + '</div>';
+  h += '<div class="contact-l">' + ch + '<div class="btnrow ct-open"><a class="btn sm" href="#/e/' + esc(e.id) + '/v/' + esc(v.id) + '/contact">' + svg(I.user, 18) + 'Fiche contact</a></div></div>';
   if (v.absentDernierImport) h += '<p class="inline-warn">Ce dossier ne figure plus dans le dernier tableau importé.</p>';
   h += '<section class="card"><span class="lbl" id="lbl-st">Statut de la visite</span><div class="seg" role="group" aria-labelledby="lbl-st">'
     + STATUTS.map(function(s){ return '<button type="button" data-act="statut" data-v="' + s[0] + '" aria-pressed="' + (v.statut === s[0]) + '">' + esc(s[1]) + '</button>'; }).join('') + '</div>'
@@ -1281,7 +1374,7 @@ var FICHE_CSS = '.fiche{font-family:"Century Gothic","Jost","Futura","Avenir Nex
   + '.fiche .f-tab{margin-top:5mm;border:3px double #D4650A}.fiche .f-tab th,.fiche .f-tab td{width:50%;border:1px solid #D4650A;padding:1mm 1.5mm;vertical-align:top;text-align:left}'
   + '.fiche .f-tab th{color:#0070C0;font-style:italic;font-weight:700;text-align:center}.fiche .f-tab .sec td{text-align:center;font-weight:700}'
   + '.fiche .f-tab .sec.ep td{color:#00B050}.fiche .f-tab .sec.eu td{color:#FF0000}.fiche .f-tab td.vide{height:4.5mm}.fiche .f-tab .pl + .pl{margin-top:1mm}';
-function ficheDomicile(v){ return [v.domicile, v.domVille].filter(Boolean).join(' - '); }
+function ficheDomicile(v){ return [ctc(v, 'domicile'), ctc(v, 'domVille')].filter(Boolean).join(' - '); }
 /* Lignes de la fiche sans puce : les marques de liste saisies en début de ligne (*, -, •, ->, →, ▪…) sont retirées,
    sauf un tiret collé à un chiffre (cote négative) ; « + » et « > » sont gardés (+0,30 m, >= 3 %).
    La première lettre passe en majuscule, sauf unité ou notation (m², ml, pH, ø, a)…). */
@@ -1304,9 +1397,9 @@ function ficheInner(e, v, list){
     + '<div class="f-titles"><div class="t-bleu">Assainissement collectif</div><div><span class="t-rouge">Eaux Usées</span> &amp; <span class="t-vert">Eaux Pluviales</span></div>'
     + '<div class="t-orange">Observations de terrain</div><div class="t-orange">&amp;</div><div class="t-orange">préconisations de mise en conformité de l’assainissement</div></div>';
   h += '<div class="f-num">N° ' + esc(v.numero) + '</div><table class="f-fields"><tbody>'
-    + '<tr><td>Propriétaire :</td><td class="v">' + esc(v.nom) + '</td></tr><tr><td>Adresse de la visite parcellaire :</td><td class="v">' + esc(v.adresse) + '</td></tr>'
+    + '<tr><td>Propriétaire :</td><td class="v">' + esc(ctc(v, 'nom')) + '</td></tr><tr><td>Adresse de la visite parcellaire :</td><td class="v">' + esc(v.adresse) + '</td></tr>'
     + '<tr class="g"><td>Adresse du domicile :</td><td><em>' + esc(ficheDomicile(v)) + '</em></td></tr>'
-    + '<tr><td>Téléphone : ' + esc(fmtTel(fixTel(v.tel))) + '</td><td>Mail : ' + esc(v.mail || '') + '</td></tr>'
+    + '<tr><td>Téléphone : ' + esc(fmtTel(fixTel(ctc(v, 'tel')))) + '</td><td>Mail : ' + esc(ctc(v, 'mail')) + '</td></tr>'
     + '<tr><td>Visite de la propriété réalisée le :</td><td>' + esc(fmtDate(v.dateVisite)) + '</td></tr></tbody></table>';
   h += '<table class="f-tab"><thead><tr><th>Anomalies observées</th><th>Préconisations de travaux</th></tr></thead><tbody>';
   ['EP', 'EU'].forEach(function(net){
@@ -1412,10 +1505,10 @@ function drawFiche(doc, e, v, list){
   setF(doc, 'italic', 10, PDFC.bleu); doc.text(pdfText('N° ' + v.numero), L + 2, t + 72);
   var y = t + 89;
   function field(label, value, lc, vc, vs){ setF(doc, 'normal', 9.5, lc); doc.text(pdfText(label), L + 2, y); if (value){ setF(doc, vs || 'normal', 9.5, vc); doc.text(doc.splitTextToSize(pdfText(value), R - MID)[0], MID, y); } y += 16; }
-  field('Propriétaire :', v.nom, PDFC.noir, PDFC.bleuVal);
+  field('Propriétaire :', ctc(v, 'nom'), PDFC.noir, PDFC.bleuVal);
   field('Adresse de la visite parcellaire :', v.adresse, PDFC.noir, PDFC.bleuVal);
   field('Adresse du domicile :', ficheDomicile(v), PDFC.gris, PDFC.gris, 'italic');
-  setF(doc, 'normal', 9.5); doc.text(pdfText('Téléphone : ' + fmtTel(fixTel(v.tel))), L + 2, y); doc.text(doc.splitTextToSize(pdfText('Mail : ' + (v.mail || '')), R - MID)[0], MID, y); y += 16;
+  setF(doc, 'normal', 9.5); doc.text(pdfText('Téléphone : ' + fmtTel(fixTel(ctc(v, 'tel')))), L + 2, y); doc.text(doc.splitTextToSize(pdfText('Mail : ' + ctc(v, 'mail')), R - MID)[0], MID, y); y += 16;
   field('Visite de la propriété réalisée le :', fmtDate(v.dateVisite), PDFC.noir, PDFC.noir);
   return drawTable(doc, y + 8, v, list);
 }
@@ -1489,7 +1582,7 @@ function vDemande(v){ return sansHeure(v.demande || excelVal(v, /date.*demande/)
 function newConstat(v){
   return {v: 2, demande: vDemande(v), refCad: vRefCad(v), typePropriete: v.typeProp || '', nbLogements: v.nbLog || '', categorie: 'habitation', categorieNb: '1', methodes: {},
     rows: INSTALL_STD.map(function(s){ return {id: s[0], groupe: s[1], label: s[2], std: true, nb: '', raccord: '', conforme: '', methodes: []}; }),
-    epRecup: {}, desagr: '', desagrLoc: '', croquis: '', boite: {}, reseau: '', reseauGest: '', reseauRue: '', conclusion: '', reserves: '', precos: {}, observations: '', soussigne: v.nom || '', sigTech: '', sigProp: '', signeLe: ''};
+    epRecup: {}, desagr: '', desagrLoc: '', croquis: '', boite: {}, reseau: '', reseauGest: '', reseauRue: '', conclusion: '', reserves: '', precos: {}, observations: '', soussigne: ctcSignataire(v), sigTech: '', sigProp: '', signeLe: ''};
 }
 function migrerConstat(c){
   if (!c || c.signeLe || c.v >= 2) return c;
@@ -1588,7 +1681,7 @@ function constatEval(v, list){
   if (F){
     /* Constat signé : ce qui a été signé est figé ; on signale seulement que le dossier a changé depuis */
     var liveConf = {}; rows.forEach(function(x){ liveConf[x.r.id] = rowActive(x.r) ? x.conf : ''; });
-    var FV = F.visite || {}, idChange = ['statut', 'dateVisite', 'nom', 'adresse', 'commune', 'domicile', 'domVille', 'tel', 'mail'].some(function(k){ return String(FV[k] || '') !== String(v[k] || ''); });
+    var FV = F.visite || {}, idChange = ['statut', 'dateVisite', 'nom', 'adresse', 'commune', 'domicile', 'domVille', 'tel', 'mail'].some(function(k){ return String(FV[k] || '') !== String((CONTACT_IMP[k] ? ctc(v, k) : v[k]) || ''); });
     E.changed = idChange || E.conclusion !== F.conclusion || JSON.stringify(liveConf) !== JSON.stringify(F.conf) || JSON.stringify(precos) !== JSON.stringify(F.precos) || E.obsText !== F.observations || E.reservesText !== F.reserves;
     rows.forEach(function(x){ x.conf = F.conf[x.r.id] || ''; });
     E.conclusion = F.conclusion; E.precos = F.precos; E.meth = F.meth; E.obsText = F.observations; E.reservesText = F.reserves; E.fige = F;
@@ -1597,7 +1690,8 @@ function constatEval(v, list){
 }
 function constatObsAuto(E, reservesSeules){ return E.anoms.filter(function(a){ return !reservesSeules || !anomNC(a); }).map(function(a){ return obsLine(a).replace(/\n/g, ', ') + (reservesSeules || anomNC(a) ? '' : ' (réserve)'); }).join(' ; '); }
 function constatContenu(v){ var c = v.constat; return !!c && !!(c.signeLe || c.sigTech || c.sigProp || c.croquis || c.conclusion || c.reseau || c.rows.some(rowActive)); }
-function constatFige(v){ var c = v.constat; if (!c || !c.signeLe) return v; return c.fige ? Object.assign({}, v, c.fige.visite) : v; }
+/* Constat signé : coordonnées et statut tels qu'à la signature (la fiche contact corrigée ensuite n'y entre plus) */
+function constatFige(v){ var c = v.constat; if (!c || !c.signeLe) return v; return c.fige ? Object.assign({}, v, {contact: null}, c.fige.visite) : v; }
 function constatNonEffectue(v){ return v.statut === 'absent' || v.statut === 'refus' || v.statut === 'hors_zone'; }
 /* Contrôles avant signature : ce qui manque ou se contredit est signalé, rien n'est bloqué */
 function constatIssues(v, list){
@@ -1658,6 +1752,8 @@ function constatHtml(){
     + '<div class="abs-row"><span>' + ((v.absences || []).length ? 'Absences notées : ' + v.absences.map(fmtDate).map(esc).join(', ') : 'Aucune absence notée.') + '</span><button type="button" class="btn sm" data-act="c-absence"' + dis + '>Noter une absence aujourd\'hui</button>'
     + ((v.absences || []).length ? '<button type="button" class="btn sm ghost" data-act="c-absence-undo"' + dis + '>Retirer la dernière</button>' : '') + '</div></section>';
   if (constatNonEffectue(v)) h += '<p class="inline-warn">Visite non effectuée (' + esc(stLabel(v.statut)) + ') : le constat ne porte que le motif, le nom et la signature du technicien.</p>';
+  h += '<section class="sec"><h2 class="h2">Propriétaire</h2>' + ctSummaryHtml(v) + (lock ? '<p class="muted small">Coordonnées telles qu\'à la signature.</p>'
+    : '<div class="btnrow"><a class="btn sm" href="#/e/' + esc(v0.etudeId) + '/v/' + esc(v0.id) + '/contact">' + svg(I.user, 18) + 'Modifier dans la fiche contact</a></div>') + '</section>';
   h += '<section class="sec"><h2 class="h2">Propriété</h2><div class="grid2">' + cFieldX('Réf. cadastrales', 'refCad', c.refCad, 'ex. section et n° de parcelle', dis)
     + cFieldX('Type de propriété', 'typePropriete', c.typePropriete, 'ex. maison mitoyenne', dis, ' list="dl-typeprop"') + '<datalist id="dl-typeprop"><option value="maison individuelle"><option value="maison mitoyenne"><option value="immeuble collectif"><option value="local commercial"></datalist>'
     + cFieldX('Nombre de logements', 'nbLogements', c.nbLogements, '', dis, ' inputmode="numeric"')
@@ -1839,12 +1935,12 @@ function drawConstatP1(doc, v, E){
   var x = 220.4 + cTxt(doc, 'Si visite non effectuée, motif :  ', 220.4, 141.5, {st: 'italic', sz: 10.5, col: P.orangeV});
   [['absent', 'absence'], ['refus', 'refus'], ['hors_zone', 'hors zone d’étude']].forEach(function(m){ x += cOpt(doc, x, 141.5, v.statut === m[0], m[1], {st: 'italic', sz: 10.5, col: P.orangeV}) + 8; });
   if (constatNonEffectue(v) && (v.absences || []).length) cTxt(doc, 'Absences : ' + v.absences.map(fmtDate).join(', '), 563, 151, {sz: 7.5, st: 'italic', col: P.orangeV, al: 'right'});
-  cTxt(doc, 'Nom du propriétaire :', 42.6, 161.8, {sz: 11, col: P.violet}); cFill(doc, v.nom, 150, 308, 161.8);
+  cTxt(doc, 'Nom du propriétaire :', 42.6, 161.8, {sz: 11, col: P.violet}); cFill(doc, ctc(v, 'nom'), 150, 308, 161.8);
   cTxt(doc, 'Réf. cadastrales :', 313.8, 161.8, {sz: 11, col: P.violet}); cFill(doc, c.refCad, 400, 566, 161.8);
   cTxt(doc, 'Adresse du branchement :', 42.6, 182.1, {sz: 11, col: P.violet}); cFill(doc, [v.adresse, v.commune].filter(Boolean).join(' - '), 177.3, 566, 182.1, {col: P.violetF});
   cTxt(doc, 'Adresse du propriétaire :', 42.6, 202.4, {sz: 11, col: P.violet}); cFill(doc, ficheDomicile(v), 177.3, 566, 202.4, {st: 'italic', col: P.brun});
-  cTxt(doc, 'Tél. :', 156, 222.6, {sz: 10.5, col: P.violet}); cFill(doc, fmtTel(fixTel(v.tel)), 180, 316, 222.6);
-  cTxt(doc, 'mail :', 324, 222.6, {sz: 11, col: P.violet}); cFill(doc, v.mail, 352, 541.5, 222.6);
+  cTxt(doc, 'Tél. :', 156, 222.6, {sz: 10.5, col: P.violet}); cFill(doc, fmtTel(fixTel(ctc(v, 'tel'))), 180, 316, 222.6);
+  cTxt(doc, 'mail :', 324, 222.6, {sz: 11, col: P.violet}); cFill(doc, ctc(v, 'mail'), 352, 541.5, 222.6);
   cHead(doc, 'Type de propriété :', 42.6, 246.2); cFill(doc, c.typePropriete, 145, 306, 246.2);
   cHead(doc, 'Nombre de logements :', 312.1, 246.2); cFill(doc, c.nbLogements, 430, 550.3, 246.2);
   doc.setDrawColor(P.violet[0], P.violet[1], P.violet[2]); doc.setLineWidth(0.6);
@@ -2084,7 +2180,7 @@ var CONSTAT_ACTIONS = {
     var E = constatEval(v, anomsOf(v.id)), conf = {};
     E.rows.forEach(function(x){ conf[x.r.id] = rowActive(x.r) ? x.conf : ''; });
     c.fige = {logo: (S.etude && S.etude.fiche && S.etude.fiche.constatLogo) || '', conclusion: E.conclusion, conf: conf, precos: E.precos, meth: E.meth, observations: E.obsText, reserves: E.reservesText,
-      visite: {statut: v.statut, dateVisite: v.dateVisite, absences: (v.absences || []).slice(), nom: v.nom, adresse: v.adresse, commune: v.commune, domicile: v.domicile, domVille: v.domVille, tel: v.tel, mail: v.mail}};
+      visite: {statut: v.statut, dateVisite: v.dateVisite, absences: (v.absences || []).slice(), nom: ctc(v, 'nom'), adresse: v.adresse, commune: v.commune, domicile: ctc(v, 'domicile'), domVille: ctc(v, 'domVille'), tel: ctc(v, 'tel'), mail: ctc(v, 'mail')}};
     c.signeLe = nowISO(); constatTouch(v); await flushSaves(); toast('Constat validé et verrouillé'); render();
   },
   'c-unlock': async function(){ var v = curVisit(), c = constatOf(v); if (!(await confirmModal('Modifier le constat signé ?', 'Les signatures du technicien et du propriétaire seront effacées : il faudra faire signer à nouveau.', 'Modifier', true))) return; c.signeLe = ''; c.sigTech = ''; c.sigProp = ''; delete c.fige; constatTouch(v); await flushSaves(); render(); },
@@ -2092,12 +2188,7 @@ var CONSTAT_ACTIONS = {
   'dl-constat': function(el){ return downloadConstatPdf(el.dataset.vid); },
   'c-xls': async function(el){
     var v = curVisit(); if (v.constat && v.constat.signeLe) return;
-    var rows = (v.excel || []).filter(function(p){ return String(p[1] == null ? '' : p[1]).trim(); });
-    if (!rows.length){ toast('Aucune donnée du tableau Excel pour ce dossier.'); return; }
-    var val = await openModal({title: 'Reprendre une valeur du tableau', noAutofocus: true,
-      html: '<p class="muted small">Touchez la valeur à reporter dans le champ. Elle reste modifiable ensuite.</p><div class="sheet-list">' + rows.map(function(p, i){ return '<button type="button" class="btn xls-pick" data-m="xv" data-i="' + i + '"><span class="xk">' + esc(p[0]) + '</span><span class="xv">' + esc(p[1]) + '</span></button>'; }).join('') + '</div>',
-      actions: [{label: 'Annuler', value: null}],
-      onMount: function(w, close){ w.addEventListener('click', function(ev){ var b = ev.target.closest('[data-m="xv"]'); if (b) close(String(rows[+b.dataset.i][1]).trim()); }); }});
+    var val = await pickExcelValue(v);
     if (val == null) return;
     setPath(constatOf(v), el.dataset.k, val); constatTouch(v); render();
   }
@@ -2145,7 +2236,7 @@ function recapXlsx(e, vs, as){
   var vHead = ['N° dossier', 'Adresse de la visite', 'Commune', 'Propriétaire', 'Téléphone', 'Mail', 'Adresse du domicile', 'Statut', 'Date de visite', 'Anomalies', 'dont EU', 'dont EP', 'Aucune anomalie constatée', 'Points à compléter', 'Observation EP', 'Observation EU', 'Notes internes'].concat(extra.map(function(h){ return 'Tableau : ' + h; }));
   var vRows = vs.map(function(v){
     var l = (by.get(v.id) || []).slice().sort(byCreated), xs = new Map((v.excel || []).map(function(p){ return [p[0], p[1]]; }));
-    return [v.numero, v.adresse, v.commune, v.nom, fmtTel(fixTel(v.tel)), v.mail || '', ficheDomicile(v), stLabel(v.statut), fmtDate(v.dateVisite), l.length,
+    return [v.numero, v.adresse, v.commune, ctc(v, 'nom'), fmtTel(fixTel(ctc(v, 'tel'))), ctc(v, 'mail'), ficheDomicile(v), stLabel(v.statut), fmtDate(v.dateVisite), l.length,
       l.filter(function(a){ return a.reseau === 'EU'; }).length, l.filter(function(a){ return a.reseau === 'EP'; }).length,
       v.aucuneAnomalie ? 'oui' : '', issuesOf(v, l).map(function(x){ return x.msg; }).join(' | '), v.obsEP || '', v.obsEU || '', v.observations || ''].concat(extra.map(function(h){ return xs.has(h) ? xs.get(h) : ''; }));
   });
@@ -2174,7 +2265,7 @@ function etudeCsv(e, vs, as){
     'N° anomalie', 'Réseau', 'Catégorie', 'Anomalie observée', 'Préconisation de travaux', 'Localisation', 'Photos', 'Anomalie validée', 'Observation EP', 'Observation EU', 'Notes internes'].concat(extra.map(function(h){ return 'Tableau : ' + h; }))];
   vs.forEach(function(v){
     var l = (by.get(v.id) || []).slice().sort(byCreated), xs = new Map((v.excel || []).map(function(p){ return [p[0], p[1]]; }));
-    var head = [v.numero, v.adresse, v.commune, v.nom, fmtTel(fixTel(v.tel)), v.mail || '', ficheDomicile(v), stLabel(v.statut), fmtDate(v.dateVisite), v.aucuneAnomalie ? 'oui' : '', issuesOf(v, l).map(function(x){ return x.msg; }).join(' | ')];
+    var head = [v.numero, v.adresse, v.commune, ctc(v, 'nom'), fmtTel(fixTel(ctc(v, 'tel'))), ctc(v, 'mail'), ficheDomicile(v), stLabel(v.statut), fmtDate(v.dateVisite), v.aucuneAnomalie ? 'oui' : '', issuesOf(v, l).map(function(x){ return x.msg; }).join(' | ')];
     var tail = [v.obsEP || '', v.obsEU || '', v.observations || ''].concat(extra.map(function(h){ return xs.has(h) ? xs.get(h) : ''; }));
     if (!l.length) rows.push(head.concat(['', '', '', '', '', '', '', '']).concat(tail));
     l.forEach(function(a, i){ rows.push(head.concat(['A' + (i + 1), a.reseau || '', catLabel(anomCat(a)), a.observation || '', a.preconisation || '', a.localisation || '', (a.photos || []).length, a.brouillon ? 'non' : 'oui']).concat(tail)); });
@@ -2499,6 +2590,9 @@ var ACTIONS = {
     go('#/e/' + v.etudeId + '/v/' + v.id);
   },
   'dl-fiche': function(el){ return downloadFichePdf(el.dataset.vid); },
+  'ct-rencontre': function(el){ var v = curVisit(); if (!v) return; setContact(v, 'rencontre', ctc(v, 'rencontre') === el.dataset.v ? '' : el.dataset.v); render(); },
+  'ct-reset': function(el){ var v = curVisit(); if (!v) return; setContact(v, el.dataset.k, undefined); render(); },
+  'ct-xls': async function(el){ var v = curVisit(); if (!v) return; var val = await pickExcelValue(v); if (val == null) return; setContact(v, el.dataset.k, CONTACT_IMP[el.dataset.k] && val === ctcImp(v, el.dataset.k) ? undefined : val); render(); },
   'date-today': function(){ var v = curVisit(); if (!v) return; v.dateVisite = todayStr(); v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); var inp = $('[data-vf="dateVisite"]'); if (inp) inp.value = v.dateVisite; var df = $('#date-fr'); if (df){ df.textContent = fmtDateLong(v.dateVisite); df.className = ''; } refreshIssuesUI(); },
   'biblio-new': function(el){ return biblioForm({reseau: el.dataset.net}); },
   'biblio-edit': async function(el){ var it = await DB.get('biblio', el.dataset.id); if (it) return biblioForm(it); },
@@ -2523,6 +2617,7 @@ document.addEventListener('input', function(ev){
   if (t.type === 'checkbox' || t.type === 'date' || t.type === 'file') return;
   if (t.matches('[data-vf]')) onVisitField(t);
   else if (t.matches('[data-af]')) onAnomField(t);
+  else if (t.matches('[data-ctf]')) onContactField(t);
   else if (t.matches('[data-cf],[data-cr]') && t.tagName !== 'SELECT') onConstatField(t, false);
   else if (t.id === 'q'){ S.search = t.value; var ul = $('#vlist'); if (ul) ul.innerHTML = listRowsHtml(); }
   else if (t.id === 'imp-name' && S.imp) S.imp.name = t.value;
@@ -2563,7 +2658,7 @@ async function init(){
   }
   await render();
 }
-window.__VT = {S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ready: null};
+window.__VT = {S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, ready: null};
 window.__VT.ready = init();
 })();
 </script>
