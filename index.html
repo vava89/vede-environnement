@@ -995,11 +995,11 @@ async function applyUpdate(){
   if (imp.map.numero < 0 || !res.recs.length){ toast('Choisissez la colonne du numéro de dossier.'); return; }
   var t = nowISO(), byNum = new Map();
   S.visites.forEach(function(v){ var k = String(v.numero).trim(); if (!byNum.has(k)) byNum.set(k, v); });
-  var seen = new Set(), toPut = [], added = 0, updated = 0, missing = 0, ordre = 0;
+  var seen = new Set(), toPut = [], added = 0, updated = 0, missing = 0, ordre = 0, corrMoved = 0;
   res.recs.forEach(function(r){
     if (seen.has(r.numero)) return; seen.add(r.numero);
     var v = byNum.get(r.numero);
-    if (v){ Object.assign(v, {adresse: r.adresse, commune: r.commune, nom: r.nom, tel: r.tel, mail: r.mail, domicile: r.domicile, domVille: r.domVille, rdv: r.rdv, excel: r.excel, refCad: r.refCad, demande: r.demande, typeProp: r.typeProp, nbLog: r.nbLog, absentDernierImport: false, ordre: ordre++, updatedAt: t}); completerConstat(v); updated++; toPut.push(v); }
+    if (v){ Object.assign(v, {adresse: r.adresse, commune: r.commune, nom: r.nom, tel: r.tel, mail: r.mail, domicile: r.domicile, domVille: r.domVille, rdv: r.rdv, excel: r.excel, refCad: r.refCad, demande: r.demande, typeProp: r.typeProp, nbLog: r.nbLog, absentDernierImport: false, ordre: ordre++, updatedAt: t}); completerConstat(v); corrMoved += reconcileContact(v) ? 1 : 0; updated++; toPut.push(v); }
     else { var nv = newVisite(e.id, r, ordre++, t); S.visites.push(nv); toPut.push(nv); added++; }
   });
   S.visites.forEach(function(v){ if (!seen.has(String(v.numero).trim())){ v.absentDernierImport = true; v.ordre = 100000 + (v.ordre || 0); v.updatedAt = t; toPut.push(v); missing++; } });
@@ -1008,7 +1008,8 @@ async function applyUpdate(){
   e.updatedAt = t;
   await DB.put('etudes', e);
   S.imp = null; S.etude = null;
-  toast(plural(added, 'nouveau dossier', 'nouveaux dossiers') + ', ' + plural(updated, 'mis à jour', 'mis à jour') + (missing ? ', ' + plural(missing, 'absent', 'absents') + ' du tableau' : ''), 4500);
+  toast(plural(added, 'nouveau dossier', 'nouveaux dossiers') + ', ' + plural(updated, 'mis à jour', 'mis à jour') + (missing ? ', ' + plural(missing, 'absent', 'absents') + ' du tableau' : '')
+    + (corrMoved ? '. ' + plural(corrMoved, 'fiche contact garde', 'fiches contact gardent') + ' une correction de terrain alors que le tableau a changé : voyez-les dans la fiche contact' : ''), corrMoved ? 7000 : 4500);
   go('#/e/' + e.id);
 }
 
@@ -1017,7 +1018,7 @@ function filterVisites(by){
   var q = norm(S.search).trim();
   return S.visites.filter(function(v){
     var l = by.get(v.id) || [];
-    if (q && norm([v.numero, v.adresse, v.commune, ctc(v, 'nom'), ctc(v, 'rNom')].join(' ')).indexOf(q) < 0) return false;
+    if (q && norm([v.numero, v.adresse, v.commune, v.nom, ctc(v, 'nom'), ctc(v, 'rNom')].join(' ')).indexOf(q) < 0) return false;
     if (FILTER_ETATS[S.filter]) return FILTER_ETATS[S.filter].indexOf(visitEtat(v, l)) >= 0;
     return S.filter === 'avec' ? l.length > 0 : true;
   });
@@ -1088,10 +1089,38 @@ function anomItemHtml(v, a, k){
    une mise à jour du tableau ne touche jamais v.contact */
 var CONTACT_IMP = {nom: 'nom', domicile: 'domicile', domVille: 'domVille', tel: 'tel', mail: 'mail'};
 var QUALITES = ['Locataire', 'Occupant', 'Gardien', 'Syndic', 'Agence immobilière', 'Membre de la famille', 'Voisin', 'Autre'];
+var CONTACT_LIB = {nom: 'nom', domicile: 'adresse', domVille: 'ville', tel: 'téléphone', mail: 'mail'};
+/* Valeur comparable : chiffres seuls pour un téléphone, mail en minuscules sans espaces, sinon espaces réduits et minuscules */
+function ctcNorm(k, s){ s = String(s == null ? '' : s); if (/^(tel|tel2|rTel)$/.test(k)) return s.replace(/\D/g, ''); if (/^(mail|rMail)$/.test(k)) return s.replace(/\s+/g, '').toLowerCase(); return s.replace(/\s+/g, ' ').trim().toLowerCase(); }
 function ctcHas(v, k){ return !!(v && v.contact && Object.prototype.hasOwnProperty.call(v.contact, k)); }
 function ctcImp(v, k){ var f = CONTACT_IMP[k]; return f && v && v[f] != null ? String(v[f]) : ''; }
-function ctc(v, k){ return ctcHas(v, k) ? String(v.contact[k] == null ? '' : v.contact[k]) : ctcImp(v, k); }
-function ctcSignataire(v){ var n = ctc(v, 'rNom').trim(); return ctc(v, 'rencontre') === 'autre' && n ? n : ctc(v, 'nom').trim(); }
+function ctc(v, k){
+  if (v && v.contact && v.contact.domIdem && (k === 'domicile' || k === 'domVille')) return String((k === 'domicile' ? v.adresse : v.commune) || '');
+  return ctcHas(v, k) ? String(v.contact[k] == null ? '' : v.contact[k]) : ctcImp(v, k);
+}
+/* Signataire proposé au constat (« Je, soussigné ») : la personne rencontrée avec sa qualité, sinon le propriétaire */
+function signataireAuto(v){
+  if (ctc(v, 'rencontre') === 'autre'){ var n = ctc(v, 'rNom').trim(), q = ctc(v, 'rQualite').trim(); if (n) return n + (q ? ', ' + q.toLowerCase() : ''); }
+  return ctc(v, 'nom').trim();
+}
+var CTC_EXPORT_HEAD = ['Tél. 2', 'Personne rencontrée', 'Qualité', 'Tél. personne rencontrée', 'Mail personne rencontrée', 'Coordonnées corrigées sur le terrain'];
+function ctcExport(v){
+  var r = ctc(v, 'rencontre');
+  return [fmtTel(fixTel(ctc(v, 'tel2'))), r === 'proprietaire' ? 'le propriétaire' : r === 'autre' ? ctc(v, 'rNom') : '', r === 'autre' ? ctc(v, 'rQualite') : '',
+    r === 'autre' ? fmtTel(fixTel(ctc(v, 'rTel'))) : '', r === 'autre' ? ctc(v, 'rMail') : '', ctcCorriges(v)];
+}
+function ctcCorriges(v){ return Object.keys(CONTACT_IMP).filter(function(k){ return ctcHas(v, k); }).map(function(k){ return CONTACT_LIB[k]; }).concat(v.contact && v.contact.domIdem ? ['domicile = adresse du branchement'] : []).join(', '); }
+/* Mise à jour du tableau : une correction redevenue égale au tableau disparaît ; renvoie le nombre de corrections gardées alors que le tableau a changé depuis */
+function reconcileContact(v){
+  var o = v.contact, b = v.contactBase || {}, moved = 0;
+  if (!o) return 0;
+  Object.keys(CONTACT_IMP).forEach(function(k){
+    if (!ctcHas(v, k)) return;
+    if (ctcNorm(k, o[k]) === ctcNorm(k, ctcImp(v, k))){ delete o[k]; delete b[k]; return; }
+    if (Object.prototype.hasOwnProperty.call(b, k) && ctcNorm(k, b[k]) !== ctcNorm(k, ctcImp(v, k))) moved++;
+  });
+  return moved;
+}
 function rencontreTxt(v){
   var r = ctc(v, 'rencontre');
   if (r === 'proprietaire') return 'le propriétaire';
@@ -1100,8 +1129,6 @@ function rencontreTxt(v){
   return [ctc(v, 'rNom'), ctc(v, 'rQualite'), t ? fmtTel(t) : '', ctc(v, 'rMail')].map(function(x){ return String(x).trim(); }).filter(Boolean).join(', ') || 'une autre personne';
 }
 function mailOk(s){ return /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(String(s || '').trim()); }
-/* Le signataire proposé au constat (« Je, soussigné ») suit la fiche contact tant qu'il n'a pas été modifié à la main et que le constat n'est pas signé */
-function majSignataire(v, before){ var c = v.constat; if (c && !c.signeLe && String(c.soussigne || '').trim() === String(before || '').trim()) c.soussigne = ctcSignataire(v); }
 function ctLink(kind, val){
   var t = kind === 'tel' ? fixTel(val) : '';
   if (t) return {href: 'tel:' + telHref(t), html: svg(I.phone, 18) + 'Appeler'};
@@ -1109,16 +1136,19 @@ function ctLink(kind, val){
   return null;
 }
 function ctHint(v, k){
-  if (!CONTACT_IMP[k] || !ctcHas(v, k) || ctc(v, k).trim() === ctcImp(v, k).trim()) return '';
-  var imp = ctcImp(v, k).trim();
-  return 'Tableau : ' + (imp ? esc(imp) : '<em>vide</em>') + ' <button type="button" class="linkbtn" data-act="ct-reset" data-k="' + k + '">Reprendre</button>';
+  if (!CONTACT_IMP[k] || !ctcHas(v, k) || ctcNorm(k, ctc(v, k)) === ctcNorm(k, ctcImp(v, k))) return '';
+  var imp = ctcImp(v, k).trim(), b = v.contactBase || {}, moved = Object.prototype.hasOwnProperty.call(b, k) && ctcNorm(k, b[k]) !== ctcNorm(k, imp);
+  if (!imp) return 'Ajouté sur le terrain (vide dans le tableau).';
+  var back = ' <button type="button" class="linkbtn" data-act="ct-reset" data-k="' + k + '">Reprendre</button>';
+  if (moved) return '<strong>Le tableau a changé depuis votre correction</strong> : ' + esc(imp) + back + ' <button type="button" class="linkbtn" data-act="ct-keep" data-k="' + k + '">Garder ma correction</button>';
+  return (ctc(v, k).trim() ? 'Tableau : ' : 'Effacé sur le terrain. Tableau : ') + esc(imp) + back;
 }
 function ctField(v, k, label, kind){
-  var val = ctc(v, k), ln = ctLink(kind, val), hint = ctHint(v, k);
+  var val = ctc(v, k), ln = ctLink(kind, val), lock = v.contact && v.contact.domIdem && (k === 'domicile' || k === 'domVille'), hint = lock ? '' : ctHint(v, k);
   return '<div class="field" data-ctwrap="' + k + '" data-kind="' + (kind || '') + '"><span class="lbl">' + esc(label) + '</span><div class="xrow">'
     + '<input type="' + (kind === 'tel' ? 'tel' : kind === 'email' ? 'email' : 'text') + '" data-ctf="' + k + '" value="' + esc(val) + '" aria-label="' + esc(label) + '" autocomplete="off"'
-    + (kind === 'qualite' ? ' list="dl-qualite"' : '') + (kind === 'email' ? ' autocapitalize="off" spellcheck="false"' : '') + '>'
-    + ((v.excel || []).length ? '<button type="button" class="btn sm" data-act="ct-xls" data-k="' + k + '" title="Reprendre une valeur du tableau Excel">' + svg(I.doc, 18) + 'Tableau</button>' : '')
+    + (kind === 'qualite' ? ' list="dl-qualite"' : '') + (kind === 'email' ? ' autocapitalize="off" spellcheck="false"' : '') + (lock ? ' disabled' : '') + '>'
+    + ((v.excel || []).length && !lock ? '<button type="button" class="btn sm" data-act="ct-xls" data-k="' + k + '" title="Reprendre une valeur du tableau Excel">' + svg(I.doc, 18) + 'Tableau</button>' : '')
     + (ln ? '<a class="btn sm ct-go" href="' + esc(ln.href) + '">' + ln.html + '</a>' : '') + '</div>'
     + (hint ? '<div class="ct-imp">' + hint + '</div>' : '') + '</div>';
 }
@@ -1128,16 +1158,20 @@ function ctFieldUpdate(w, v){
   if (!hint){ if (hd) hd.remove(); } else { if (!hd){ hd = document.createElement('div'); hd.className = 'ct-imp'; w.appendChild(hd); } hd.innerHTML = hint; }
   if (!ln){ if (a) a.remove(); } else if (a){ a.setAttribute('href', ln.href); } else { var xr = w.querySelector('.xrow'); if (xr) xr.insertAdjacentHTML('beforeend', '<a class="btn sm ct-go" href="' + esc(ln.href) + '">' + ln.html + '</a>'); }
 }
+/* Correction d'un champ : égale au tableau (à la mise en forme près), elle disparaît ; sinon on garde aussi la valeur du tableau du moment, pour signaler un changement du tableau plus tard */
+function putContact(v, k, val){
+  v.contact = v.contact || {};
+  if (val === undefined || (CONTACT_IMP[k] && ctcNorm(k, val) === ctcNorm(k, ctcImp(v, k)))){ delete v.contact[k]; if (v.contactBase) delete v.contactBase[k]; return; }
+  if (CONTACT_IMP[k] && !ctcHas(v, k)){ v.contactBase = v.contactBase || {}; v.contactBase[k] = ctcImp(v, k); }
+  v.contact[k] = val;
+}
 function onContactField(t){
   var v = curVisit(); if (!v) return;
-  var k = t.dataset.ctf, before = ctcSignataire(v);
-  v.contact = v.contact || {};
-  if (CONTACT_IMP[k] && t.value === ctcImp(v, k)) delete v.contact[k]; else v.contact[k] = t.value;
-  majSignataire(v, before);
+  putContact(v, t.dataset.ctf, t.value);
   v.updatedAt = nowISO(); saveLater('visites', v); touchEtude();
   var w = t.closest('[data-ctwrap]'); if (w) ctFieldUpdate(w, v);
 }
-function setContact(v, k, val){ var before = ctcSignataire(v); v.contact = v.contact || {}; if (val === undefined) delete v.contact[k]; else v.contact[k] = val; majSignataire(v, before); v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); }
+function setContact(v, k, val){ putContact(v, k, val); v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); }
 function ctSummaryHtml(v){
   var t = [fixTel(ctc(v, 'tel')), fixTel(ctc(v, 'tel2'))].filter(Boolean).map(fmtTel).join(', '), rows = [['Nom', ctc(v, 'nom')], ['Adresse', ficheDomicile(v)], ['Téléphone', t], ['Mail', ctc(v, 'mail')]];
   var pr = rencontreTxt(v); if (pr) rows.push(['Personne rencontrée', pr]);
@@ -1147,7 +1181,9 @@ function contactHtml(){
   var v = curVisit(), r = ctc(v, 'rencontre'), h = '';
   h += '<div class="ed-head"><h2 class="h2">Fiche contact, dossier ' + esc(v.numero) + '</h2><p class="muted">Reprend le tableau importé. Vos corrections l\'emportent : elles passent dans le dossier, le constat de visite, la fiche et les exports, et une mise à jour du tableau ne les efface pas.</p></div>';
   if (v.constat && v.constat.signeLe) h += '<p class="inline-warn">Constat signé le ' + esc(fmtDT(v.constat.signeLe)) + ' : il garde les coordonnées en vigueur à la signature. Une correction faite ici sera signalée comme un changement depuis la signature.</p>';
-  h += '<section class="card"><h2 class="h2">Propriétaire</h2>' + ctField(v, 'nom', 'Nom et prénom') + ctField(v, 'domicile', 'Adresse du propriétaire') + ctField(v, 'domVille', 'Code postal et ville')
+  h += '<section class="card"><h2 class="h2">Propriétaire</h2>' + ctField(v, 'nom', 'Nom et prénom')
+    + '<label class="check"><input type="checkbox" data-act="ct-domidem"' + (v.contact && v.contact.domIdem ? ' checked' : '') + '><span>Le propriétaire habite à l\'adresse du branchement</span></label>'
+    + ctField(v, 'domicile', 'Adresse du propriétaire') + ctField(v, 'domVille', 'Code postal et ville')
     + ctField(v, 'tel', 'Téléphone', 'tel') + ctField(v, 'tel2', 'Autre téléphone', 'tel') + ctField(v, 'mail', 'Mail', 'email') + '</section>';
   h += '<section class="card"><h2 class="h2">Personne rencontrée lors de la visite</h2><div class="seg" role="group" aria-label="Personne rencontrée">'
     + [['proprietaire', 'Le propriétaire'], ['autre', 'Une autre personne']].map(function(o){ return '<button type="button" data-act="ct-rencontre" data-v="' + o[0] + '" aria-pressed="' + (r === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>';
@@ -1190,7 +1226,8 @@ function visitHtml(){
     + '<div class="addrow"><button type="button" class="btn eu big" data-act="new-anom" data-net="EU">' + svg(I.plus) + 'Anomalie EU</button><button type="button" class="btn ep big" data-act="new-anom" data-net="EP">' + svg(I.plus) + 'Anomalie EP</button></div>';
   h += list.length ? '<div class="alist">' + list.map(function(a, k){ return anomItemHtml(v, a, k); }).join('') + '</div>'
     : '<label class="check big"><input type="checkbox" data-vf="aucuneAnomalie"' + (v.aucuneAnomalie ? ' checked' : '') + '><span>Aucune anomalie constatée</span></label>';
-  var cst = v.constat, cstTxt = !cst ? 'Pas encore commencé.' : cst.signeLe ? 'Signé le ' + fmtDT(cst.signeLe) + '.' + (cst.fige && constatEval(v, list).changed ? ' Le dossier a changé depuis la signature.' : '') : (cst.sigTech || cst.sigProp ? 'En cours de signature.' : 'Commencé, à signer.');
+  var cst = v.constat, cE = cst && cst.signeLe && cst.fige ? constatEval(v, list) : null;
+  var cstTxt = !cst ? 'Pas encore commencé.' : cst.signeLe ? 'Signé le ' + fmtDT(cst.signeLe) + '.' + (cE && cE.changed ? ' Le dossier a changé depuis la signature.' : cE && cE.coordChange ? ' Coordonnées modifiées depuis la signature (le constat garde celles du jour).' : '') : (cst.sigTech || cst.sigProp ? 'En cours de signature.' : 'Commencé, à signer.');
   h += '</section><section class="sec card cst-card"><div><h2 class="h2">Constat de visite</h2><p class="muted small">' + esc(cstTxt) + ' Formulaire du Département : installations, raccordements, méthodes de contrôle, conclusion et signatures.</p></div>'
     + '<div class="btnrow"><a class="btn primary" href="#/e/' + esc(e.id) + '/v/' + esc(v.id) + '/constat">' + svg(I.doc) + (cst ? 'Ouvrir le constat' : 'Remplir le constat') + '</a>' + (cst ? '<button type="button" class="btn" data-act="dl-constat" data-vid="' + esc(v.id) + '">' + svg(I.download) + 'Constat PDF</button>' : '') + '</div>';
   h += '</section><section class="sec"><h2 class="h2">Observations sur la fiche</h2><p class="muted small">Elles s\'impriment sous la rubrique correspondante, comme dans vos fiches.</p>'
@@ -1582,19 +1619,24 @@ function vDemande(v){ return sansHeure(v.demande || excelVal(v, /date.*demande/)
 function newConstat(v){
   return {v: 2, demande: vDemande(v), refCad: vRefCad(v), typePropriete: v.typeProp || '', nbLogements: v.nbLog || '', categorie: 'habitation', categorieNb: '1', methodes: {},
     rows: INSTALL_STD.map(function(s){ return {id: s[0], groupe: s[1], label: s[2], std: true, nb: '', raccord: '', conforme: '', methodes: []}; }),
-    epRecup: {}, desagr: '', desagrLoc: '', croquis: '', boite: {}, reseau: '', reseauGest: '', reseauRue: '', conclusion: '', reserves: '', precos: {}, observations: '', soussigne: ctcSignataire(v), sigTech: '', sigProp: '', signeLe: ''};
+    epRecup: {}, desagr: '', desagrLoc: '', croquis: '', boite: {}, reseau: '', reseauGest: '', reseauRue: '', conclusion: '', reserves: '', precos: {}, observations: '', soussigne: '', sigTech: '', sigProp: '', signeLe: ''};
 }
-function migrerConstat(c){
-  if (!c || c.signeLe || c.v >= 2) return c;
+function migrerConstat(c, v){
+  if (!c || c.signeLe || c.v >= 3) return c;
+  if (c.v >= 2){ /* v3 : le signataire devient automatique ; un nom recopié du tableau par les versions précédentes lui est rendu */
+    if (v && String(c.soussigne || '').trim() && String(c.soussigne).trim() === String(v.nom || '').trim()) c.soussigne = '';
+    c.v = 3; return c;
+  }
   var sg = null, i; for (i = 0; i < c.rows.length; i++) if (c.rows[i].id === 'siphon') sg = c.rows[i];
   if (sg && sg.groupe === 'EP') sg.groupe = 'EU';
   if (!c.rows.some(function(r){ return r.id === 'siphon_sol'; })){
     var k = -1; for (i = 0; i < c.rows.length; i++) if (c.rows[i].std && c.rows[i].groupe === 'EP') k = i;
     c.rows.splice(k + 1, 0, {id: 'siphon_sol', groupe: 'EP', label: 'Siphon de sol', std: true, nb: '', raccord: '', conforme: '', methodes: []});
   }
-  c.v = 2; return c;
+  if (v && String(c.soussigne || '').trim() && String(c.soussigne).trim() === String(v.nom || '').trim()) c.soussigne = '';
+  c.v = 3; return c;
 }
-function constatOf(v){ if (!v.constat) v.constat = newConstat(v); return migrerConstat(v.constat); }
+function constatOf(v){ if (!v.constat) v.constat = newConstat(v); return migrerConstat(v.constat, v); }
 /* Mise à jour depuis le tableau : un constat commencé et non signé reçoit les valeurs du tableau dans ses champs encore vides */
 function completerConstat(v){
   var c = v.constat; if (!c || c.signeLe) return;
@@ -1662,7 +1704,7 @@ function precosAuto(c, L){
   return s;
 }
 function constatEval(v, list){
-  var c = migrerConstat(v.constat) || newConstat(v), L = list.filter(function(a){ return !a.brouillon; }), link = new Map();
+  var c = migrerConstat(v.constat, v) || newConstat(v), L = list.filter(function(a){ return !a.brouillon; }), link = new Map();
   L.forEach(function(a){ anomRows(c, a).forEach(function(r){ if (!link.has(r.id)) link.set(r.id, []); link.get(r.id).push(a); }); });
   var rows = c.rows.map(function(r){
     var la = link.get(r.id) || [], ok = raccOk(r), auto = '';
@@ -1678,10 +1720,15 @@ function constatEval(v, list){
   E.obsText = String(c.observations || '').trim() || constatObsAuto(E);
   E.reservesText = String(c.reserves || '').trim() || constatObsAuto(E, true);
   var F = c.signeLe && c.fige;
+  /* Signataire : saisie manuelle, sinon automatique tant que le constat n'est pas signé ; un constat signé garde le nom du jour de la signature */
+  E.soussigne = c.signeLe ? ((F && F.soussigne != null) ? String(F.soussigne) : String(c.soussigne || '').trim()) : (String(c.soussigne || '').trim() || signataireAuto(v));
   if (F){
-    /* Constat signé : ce qui a été signé est figé ; on signale seulement que le dossier a changé depuis */
+    /* Constat signé : ce qui a été signé est figé ; on signale seulement que le dossier a changé depuis.
+       Le contenu attesté (statut, date, nom, adresse du branchement) met le dossier « à compléter » ; les coordonnées (domicile, téléphone, mail) font seulement l'objet d'une mention */
     var liveConf = {}; rows.forEach(function(x){ liveConf[x.r.id] = rowActive(x.r) ? x.conf : ''; });
-    var FV = F.visite || {}, idChange = ['statut', 'dateVisite', 'nom', 'adresse', 'commune', 'domicile', 'domVille', 'tel', 'mail'].some(function(k){ return String(FV[k] || '') !== String((CONTACT_IMP[k] ? ctc(v, k) : v[k]) || ''); });
+    var FV = F.visite || {}, vk = function(k){ return CONTACT_IMP[k] ? ctc(v, k) : v[k]; };
+    var idChange = ['statut', 'dateVisite', 'nom', 'adresse', 'commune'].some(function(k){ return ctcNorm(k, FV[k]) !== ctcNorm(k, vk(k)); });
+    E.coordChange = ['domicile', 'domVille', 'tel', 'mail'].some(function(k){ return ctcNorm(k, FV[k]) !== ctcNorm(k, vk(k)); });
     E.changed = idChange || E.conclusion !== F.conclusion || JSON.stringify(liveConf) !== JSON.stringify(F.conf) || JSON.stringify(precos) !== JSON.stringify(F.precos) || E.obsText !== F.observations || E.reservesText !== F.reserves;
     rows.forEach(function(x){ x.conf = F.conf[x.r.id] || ''; });
     E.conclusion = F.conclusion; E.precos = F.precos; E.meth = F.meth; E.obsText = F.observations; E.reservesText = F.reserves; E.fige = F;
@@ -1690,8 +1737,8 @@ function constatEval(v, list){
 }
 function constatObsAuto(E, reservesSeules){ return E.anoms.filter(function(a){ return !reservesSeules || !anomNC(a); }).map(function(a){ return obsLine(a).replace(/\n/g, ', ') + (reservesSeules || anomNC(a) ? '' : ' (réserve)'); }).join(' ; '); }
 function constatContenu(v){ var c = v.constat; return !!c && !!(c.signeLe || c.sigTech || c.sigProp || c.croquis || c.conclusion || c.reseau || c.rows.some(rowActive)); }
-/* Constat signé : coordonnées et statut tels qu'à la signature (la fiche contact corrigée ensuite n'y entre plus) */
-function constatFige(v){ var c = v.constat; if (!c || !c.signeLe) return v; return c.fige ? Object.assign({}, v, {contact: null}, c.fige.visite) : v; }
+/* Constat signé : coordonnées et statut tels qu'à la signature ; la fiche contact corrigée ensuite n'y entre plus, même pour un constat signé sans gel (v1.3.0) */
+function constatFige(v){ var c = v.constat; if (!c || !c.signeLe) return v; return Object.assign({}, v, {contact: null}, c.fige ? c.fige.visite : {}); }
 function constatNonEffectue(v){ return v.statut === 'absent' || v.statut === 'refus' || v.statut === 'hors_zone'; }
 /* Contrôles avant signature : ce qui manque ou se contredit est signalé, rien n'est bloqué */
 function constatIssues(v, list){
@@ -1715,7 +1762,7 @@ function constatIssues(v, list){
   if (E.conclusion === 'non_conformes' && !PRECO_ALL.some(function(p){ return E.precos[p[0]]; }) && !String(c.observations || '').trim() && !E.anoms.length) out.push('Installations non conformes sans préconisation ni observation.');
   if (c.conclusion && E.auto && c.conclusion !== E.auto) out.push('Conclusion choisie (« ' + conclLabel(c.conclusion) + ' ») différente de celle déduite des installations et anomalies (« ' + conclLabel(E.auto) + ' »).');
   if (!E.conclusion) out.push('Conclusion non précisée.');
-  if (!String(c.soussigne || '').trim()) out.push('Nom du signataire manquant (« Je, soussigné »).');
+  if (!String(E.soussigne || '').trim()) out.push('Nom du signataire manquant (« Je, soussigné ») : renseignez la fiche contact ou le champ du constat.');
   if (E.obsText.length > 470) out.push('Observations trop longues pour le cadre du constat (' + E.obsText.length + ' caractères, environ 470 au maximum) : raccourcissez-les ; le détail reste sur la fiche.');
   list.forEach(function(a, i){ if (a.brouillon) out.push('Anomalie A' + (i + 1) + ' non validée.'); });
   return out;
@@ -1745,7 +1792,8 @@ function constatHtml(){
   var v0 = curVisit(), list = anomsOf(v0.id), E = constatEval(v0, list), c = E.c, lock = !!c.signeLe, dis = lock ? ' disabled' : '', h = '', v = lock ? constatFige(v0) : v0;
   h += '<div class="ed-head"><h2 class="h2">Constat de visite, dossier ' + esc(v.numero) + '</h2><p class="muted">Formulaire « Contrôle de Branchement Particulier » du Département, rempli ici puis signé sur la tablette. Le PDF reprend sa mise en page.</p></div>';
   if (lock) h += '<div class="lockbar">' + svg(I.check) + '<span>Constat signé le ' + esc(fmtDT(c.signeLe)) + '. Il n\'est plus modifiable.</span><button type="button" class="btn sm" data-act="c-unlock">Modifier</button></div>'
-    + (E.changed ? '<p class="inline-warn">Le dossier a changé depuis la signature (anomalies ou installations). Le constat reste tel qu\'il a été signé ; touchez « Modifier » pour le mettre à jour et le faire signer à nouveau.</p>' : '');
+    + (E.changed ? '<p class="inline-warn">Le dossier a changé depuis la signature (anomalies ou installations). Le constat reste tel qu\'il a été signé ; touchez « Modifier » pour le mettre à jour et le faire signer à nouveau.</p>' : '')
+    + (E.coordChange ? '<p class="muted small">Coordonnées du propriétaire modifiées depuis la signature : le constat signé garde celles du jour de la signature.</p>' : '');
   h += '<section class="card"><div class="grid2">' + cFieldX('Demande du', 'demande', c.demande, 'jj/mm/aaaa', dis)
     + '<div class="field"><span class="lbl">Visite du</span><div class="ro">' + (v.dateVisite ? esc(fmtDate(v.dateVisite)) : '<span class="muted">à renseigner dans le dossier</span>') + '</div></div></div>'
     + '<span class="lbl">Si visite non effectuée, motif</span><div class="seg">' + [['absent', 'Absence'], ['refus', 'Refus'], ['hors_zone', 'Hors zone d\'étude']].map(function(s){ return '<button type="button" data-act="c-motif" data-v="' + s[0] + '" aria-pressed="' + (v.statut === s[0]) + '"' + dis + '>' + esc(s[1]) + '</button>'; }).join('') + '</div>'
@@ -1790,7 +1838,8 @@ function constatHtml(){
     + (oa ? '<button type="button" class="btn sm" data-act="c-obs-fill"' + dis + '>Reprendre les anomalies pour les modifier</button>' : '') + '</section>';
   var iss = constatIssues(v, list);
   h += '<section class="sec"><h2 class="h2">Signatures</h2>' + (iss.length && !lock ? '<div class="issues" role="status"><div class="it">' + svg(I.warn) + 'À vérifier avant de signer</div><ul>' + iss.map(function(m){ return '<li>' + esc(m) + '</li>'; }).join('') + '</ul></div>' : (lock ? '' : '<p class="okline">' + svg(I.check) + 'Constat complet, prêt à signer</p>'))
-    + cFieldX('Je, soussigné', 'soussigne', c.soussigne, 'nom du propriétaire ou de son représentant', dis)
+    + cFieldX('Je, soussigné', 'soussigne', lock ? E.soussigne : c.soussigne, (!lock && signataireAuto(v0)) || 'nom du propriétaire ou de son représentant', dis)
+    + (!lock && !String(c.soussigne || '').trim() && signataireAuto(v0) ? '<p class="muted small">Champ vide : « ' + esc(signataireAuto(v0)) + ' » sera imprimé, d\'après la fiche contact.</p>' : '')
     + '<div class="sigs"><div class="sig"><span class="lbl">Signature du technicien</span><div class="sig-box">' + (c.sigTech ? '<img src="' + c.sigTech + '" alt="Signature du technicien">' : '<span class="muted">Non signé</span>') + '</div><button type="button" class="btn" data-act="c-sign" data-who="tech"' + dis + '>' + (c.sigTech ? 'Refaire' : 'Signer') + '</button></div>'
     + '<div class="sig"><span class="lbl">Signature du propriétaire</span><div class="sig-box">' + (c.sigProp ? '<img src="' + c.sigProp + '" alt="Signature du propriétaire">' : '<span class="muted">Non signé</span>') + '</div><button type="button" class="btn" data-act="c-sign" data-who="prop"' + dis + '>' + (c.sigProp ? 'Refaire' : 'Faire signer') + '</button></div></div>'
     + (!lock && c.sigTech && (c.sigProp || constatNonEffectue(v)) ? '<button type="button" class="btn primary big wide" data-act="c-lock">' + svg(I.check) + 'Valider le constat signé</button>' : '') + '</section>';
@@ -2095,7 +2144,7 @@ function drawConstatP2(doc, v, E){
   } else { cDots(doc, 113, 559, 559.4, P.noir); cDots(doc, 42.6, 563.8, 577, P.noir); }
   doc.setDrawColor(P.cyan[0], P.cyan[1], P.cyan[2]); doc.setLineWidth(0.75); doc.rect(36.5, 584.5, 536, 107);
   x = 42.6 + cTxt(doc, 'Je, soussigné ', 42.6, 595.9, {f: 'times', st: 'italic', sz: 10.5});
-  var nm = E.nonEffectue ? '' : String(c.soussigne || '').trim(), tail = ' reconnaît la véracité des descriptions ci-dessus.';
+  var nm = E.nonEffectue ? '' : String(E.soussigne || '').trim(), tail = ' reconnaît la véracité des descriptions ci-dessus.';
   doc.setFont('times', 'italic'); doc.setFontSize(10.5); var tw = doc.getTextWidth(pdfText(tail));
   if (nm){ var fn = cFit(doc, nm, 566 - x - tw - 3, 10.5, {}, 6.5); x += cTxt(doc, fn.s, x, 595.9, {sz: fn.sz, col: P.val}) + 3; } else { cDots(doc, x, x + 140, 596.5, P.gris); x += 143; }
   cTxt(doc, tail, x, 595.9, {f: 'times', st: 'italic', sz: 10.5});
@@ -2172,14 +2221,15 @@ var CONSTAT_ACTIONS = {
     if (!png) png = await signatureModal(tech ? 'Signature du technicien' : 'Signature du propriétaire', c0 ? (tech ? c0.sigTech : c0.sigProp) : '');
     if (!png) return;
     var c = constatOf(v);
-    if (tech){ c.sigTech = png; await DB.put('meta', {k: 'sigTech', v: png}); } else c.sigProp = png;
+    if (tech){ c.sigTech = png; await DB.put('meta', {k: 'sigTech', v: png}); }
+    else { c.sigProp = png; if (!String(c.soussigne || '').trim()) c.soussigne = signataireAuto(v); }   /* la personne a signé « Je, soussigné X » : ce nom ne bouge plus */
     constatTouch(v); render();
   },
   'c-lock': async function(){
     var v = curVisit(), c = v.constat; if (!c || !c.sigTech) return;
     var E = constatEval(v, anomsOf(v.id)), conf = {};
     E.rows.forEach(function(x){ conf[x.r.id] = rowActive(x.r) ? x.conf : ''; });
-    c.fige = {logo: (S.etude && S.etude.fiche && S.etude.fiche.constatLogo) || '', conclusion: E.conclusion, conf: conf, precos: E.precos, meth: E.meth, observations: E.obsText, reserves: E.reservesText,
+    c.fige = {logo: (S.etude && S.etude.fiche && S.etude.fiche.constatLogo) || '', conclusion: E.conclusion, conf: conf, precos: E.precos, meth: E.meth, observations: E.obsText, reserves: E.reservesText, soussigne: E.soussigne,
       visite: {statut: v.statut, dateVisite: v.dateVisite, absences: (v.absences || []).slice(), nom: ctc(v, 'nom'), adresse: v.adresse, commune: v.commune, domicile: ctc(v, 'domicile'), domVille: ctc(v, 'domVille'), tel: ctc(v, 'tel'), mail: ctc(v, 'mail')}};
     c.signeLe = nowISO(); constatTouch(v); await flushSaves(); toast('Constat validé et verrouillé'); render();
   },
@@ -2233,15 +2283,15 @@ function uniqueName(fn, used){ var base = fn.replace(/\.pdf$/i, ''), out = fn, k
 function photoFileName(v, i, j, type){ return safeName(v.numero, 30) + '_A' + (i + 1) + '_' + (j + 1) + (/png/.test(type || '') ? '.png' : '.jpg'); }
 function recapXlsx(e, vs, as){
   var by = groupBy(as, 'visiteId'), extra = (e.source && e.source.headers) || [];
-  var vHead = ['N° dossier', 'Adresse de la visite', 'Commune', 'Propriétaire', 'Téléphone', 'Mail', 'Adresse du domicile', 'Statut', 'Date de visite', 'Anomalies', 'dont EU', 'dont EP', 'Aucune anomalie constatée', 'Points à compléter', 'Observation EP', 'Observation EU', 'Notes internes'].concat(extra.map(function(h){ return 'Tableau : ' + h; }));
+  var vHead = ['N° dossier', 'Adresse de la visite', 'Commune', 'Propriétaire', 'Téléphone', 'Mail', 'Adresse du domicile', 'Statut', 'Date de visite', 'Anomalies', 'dont EU', 'dont EP', 'Aucune anomalie constatée', 'Points à compléter', 'Observation EP', 'Observation EU', 'Notes internes'].concat(CTC_EXPORT_HEAD, extra.map(function(h){ return 'Tableau : ' + h; }));
   var vRows = vs.map(function(v){
     var l = (by.get(v.id) || []).slice().sort(byCreated), xs = new Map((v.excel || []).map(function(p){ return [p[0], p[1]]; }));
     return [v.numero, v.adresse, v.commune, ctc(v, 'nom'), fmtTel(fixTel(ctc(v, 'tel'))), ctc(v, 'mail'), ficheDomicile(v), stLabel(v.statut), fmtDate(v.dateVisite), l.length,
       l.filter(function(a){ return a.reseau === 'EU'; }).length, l.filter(function(a){ return a.reseau === 'EP'; }).length,
-      v.aucuneAnomalie ? 'oui' : '', issuesOf(v, l).map(function(x){ return x.msg; }).join(' | '), v.obsEP || '', v.obsEU || '', v.observations || ''].concat(extra.map(function(h){ return xs.has(h) ? xs.get(h) : ''; }));
+      v.aucuneAnomalie ? 'oui' : '', issuesOf(v, l).map(function(x){ return x.msg; }).join(' | '), v.obsEP || '', v.obsEU || '', v.observations || ''].concat(ctcExport(v), extra.map(function(h){ return xs.has(h) ? xs.get(h) : ''; }));
   });
   var ws1 = XLSX.utils.aoa_to_sheet([vHead].concat(vRows));
-  ws1['!cols'] = [12, 34, 16, 22, 14, 26, 34, 12, 12, 10, 8, 8, 12, 40, 30, 30, 30].concat(extra.map(function(){ return 16; })).map(function(w){ return {wch: w}; });
+  ws1['!cols'] = [12, 34, 16, 22, 14, 26, 34, 12, 12, 10, 8, 8, 12, 40, 30, 30, 30, 14, 24, 16, 14, 26, 24].concat(extra.map(function(){ return 16; })).map(function(w){ return {wch: w}; });
   var aHead = ['N° dossier', 'Adresse de la visite', 'Anomalie', 'Réseau', 'Catégorie', 'Localisation', 'Anomalie observée', 'Préconisation de travaux', 'Photos', 'Fichiers photos', 'Validée', 'Saisie le'];
   var aRows = [];
   vs.forEach(function(v){
@@ -2262,11 +2312,11 @@ function csvCell(x){ var s = String(x == null ? '' : x); return /[";\r\n]/.test(
 function etudeCsv(e, vs, as){
   var by = groupBy(as, 'visiteId'), extra = (e.source && e.source.headers) || [];
   var rows = [['N° dossier', 'Adresse de la visite', 'Commune', 'Propriétaire', 'Téléphone', 'Mail', 'Adresse du domicile', 'Statut', 'Date de visite', 'Aucune anomalie constatée', 'Points à compléter',
-    'N° anomalie', 'Réseau', 'Catégorie', 'Anomalie observée', 'Préconisation de travaux', 'Localisation', 'Photos', 'Anomalie validée', 'Observation EP', 'Observation EU', 'Notes internes'].concat(extra.map(function(h){ return 'Tableau : ' + h; }))];
+    'N° anomalie', 'Réseau', 'Catégorie', 'Anomalie observée', 'Préconisation de travaux', 'Localisation', 'Photos', 'Anomalie validée', 'Observation EP', 'Observation EU', 'Notes internes'].concat(CTC_EXPORT_HEAD, extra.map(function(h){ return 'Tableau : ' + h; }))];
   vs.forEach(function(v){
     var l = (by.get(v.id) || []).slice().sort(byCreated), xs = new Map((v.excel || []).map(function(p){ return [p[0], p[1]]; }));
     var head = [v.numero, v.adresse, v.commune, ctc(v, 'nom'), fmtTel(fixTel(ctc(v, 'tel'))), ctc(v, 'mail'), ficheDomicile(v), stLabel(v.statut), fmtDate(v.dateVisite), v.aucuneAnomalie ? 'oui' : '', issuesOf(v, l).map(function(x){ return x.msg; }).join(' | ')];
-    var tail = [v.obsEP || '', v.obsEU || '', v.observations || ''].concat(extra.map(function(h){ return xs.has(h) ? xs.get(h) : ''; }));
+    var tail = [v.obsEP || '', v.obsEU || '', v.observations || ''].concat(ctcExport(v), extra.map(function(h){ return xs.has(h) ? xs.get(h) : ''; }));
     if (!l.length) rows.push(head.concat(['', '', '', '', '', '', '', '']).concat(tail));
     l.forEach(function(a, i){ rows.push(head.concat(['A' + (i + 1), a.reseau || '', catLabel(anomCat(a)), a.observation || '', a.preconisation || '', a.localisation || '', (a.photos || []).length, a.brouillon ? 'non' : 'oui']).concat(tail)); });
   });
@@ -2592,6 +2642,8 @@ var ACTIONS = {
   'dl-fiche': function(el){ return downloadFichePdf(el.dataset.vid); },
   'ct-rencontre': function(el){ var v = curVisit(); if (!v) return; setContact(v, 'rencontre', ctc(v, 'rencontre') === el.dataset.v ? '' : el.dataset.v); render(); },
   'ct-reset': function(el){ var v = curVisit(); if (!v) return; setContact(v, el.dataset.k, undefined); render(); },
+  'ct-keep': function(el){ var v = curVisit(); if (!v) return; v.contactBase = v.contactBase || {}; v.contactBase[el.dataset.k] = ctcImp(v, el.dataset.k); v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); render(); },
+  'ct-domidem': function(el){ var v = curVisit(); if (!v) return; v.contact = v.contact || {}; if (el.checked) v.contact.domIdem = true; else delete v.contact.domIdem; v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); render(); },
   'ct-xls': async function(el){ var v = curVisit(); if (!v) return; var val = await pickExcelValue(v); if (val == null) return; setContact(v, el.dataset.k, CONTACT_IMP[el.dataset.k] && val === ctcImp(v, el.dataset.k) ? undefined : val); render(); },
   'date-today': function(){ var v = curVisit(); if (!v) return; v.dateVisite = todayStr(); v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); var inp = $('[data-vf="dateVisite"]'); if (inp) inp.value = v.dateVisite; var df = $('#date-fr'); if (df){ df.textContent = fmtDateLong(v.dateVisite); df.className = ''; } refreshIssuesUI(); },
   'biblio-new': function(el){ return biblioForm({reseau: el.dataset.net}); },
