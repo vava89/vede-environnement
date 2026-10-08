@@ -456,7 +456,7 @@ function flushSaves(){
 }
 
 /* ---------- État ---------- */
-var S = { route: null, curHash: '', lastHash: '', wide: false, framed: false, etude: null, visites: [], anoms: [], search: '', filter: 'toutes', imp: null, urls: [], dlPromise: null, lpEtude: null, listPos: null };
+var S = { route: null, curHash: '', lastHash: '', wide: false, framed: false, etude: null, visites: [], anoms: [], search: '', filter: 'toutes', imp: null, urls: [], dlPromise: null, lpEtude: null, listPos: null, shownHash: null, shownRoute: null };
 function curVisit(){ if (!S.route || !S.route.vid) return null; for (var i = 0; i < S.visites.length; i++) if (S.visites[i].id === S.route.vid) return S.visites[i]; return null; }
 function curAnom(){ if (!S.route || !S.route.aid) return null; for (var i = 0; i < S.anoms.length; i++) if (S.anoms[i].id === S.route.aid) return S.anoms[i]; return null; }
 function anomsOf(vid){ return S.anoms.filter(function(a){ return a.visiteId === vid; }); }
@@ -542,11 +542,26 @@ function routeParent(x){
 function routeChain(x){ var out = [], y = normHash(x), n = 0; while (y && n++ < 8){ out.unshift(y); y = routeParent(y); } return out; }
 /* Au démarrage, la chaîne n'est construite qu'à la première ouverture. Après un rechargement (ou quand le système a fermé puis relancé l'application),
    l'historique de l'application est déjà en place ; une entrée de fenêtre restée au sommet (la fenêtre n'existe plus) est retirée */
+function navChain(h){ var ch = routeChain(h); try { history.replaceState({vt: 1}, '', ch[0]); for (var i = 1; i < ch.length; i++) history.pushState({vt: 1}, '', ch[i]); } catch(e){} }
 function navInit(){
   var st = null; try { st = history.state; } catch(e){}
   if (st && st.vtModal){ navSilentBack(function(moved){ if (moved) navInit(); }); return; }
   if (st && st.vt) return;
-  var ch = routeChain(location.hash); try { history.replaceState({vt: 1}, '', ch[0]); for (var i = 1; i < ch.length; i++) history.pushState({vt: 1}, '', ch[i]); } catch(e){}
+  /* Onglet déjà parcouru par une version précédente (entrées sans état : relance après une mise à jour) : on revient à la plus ancienne entrée
+     de l'application, que la nouvelle arborescence remplace en effaçant les autres ; le retour depuis l'accueil quitte alors l'application.
+     L'API Navigation (Chrome, Android) dit où sont ces entrées ; ailleurs, la chaîne est construite sur place */
+  var target = location.hash, idx = 0, j = 0, en = null;
+  try { if (window.navigation && navigation.currentEntry && navigation.entries){ idx = navigation.currentEntry.index; en = navigation.entries(); } } catch(e){ idx = 0; }
+  j = idx;
+  try { while (en && j > 0){ var u = new URL(en[j - 1].url); if (u.origin !== location.origin || u.pathname !== location.pathname || en[j - 1].sameDocument === false) break; j--; } } catch(e){ j = idx; }
+  if (j < idx){
+    var settled = false; try { NAV.lastPopHash = normHash(new URL(en[j].url).hash); } catch(e){}
+    NAV.ignorePops++; NAV.afterPop = function(){ settled = true; navChain(target); NAV.lastPopHash = normHash(location.hash); render(); };
+    history.go(j - idx);
+    setTimeout(function(){ if (!settled){ if (NAV.ignorePops > 0) NAV.ignorePops--; NAV.afterPop = null; navChain(target); render(); } }, 700);
+    return;
+  }
+  navChain(target);
 }
 /* Retour d'une entrée sans rien afficher (entrée d'une fenêtre) ; after(moved) est appelé une fois l'entrée retirée, ou après 600 ms si le navigateur n'a pas répondu */
 function navSilentBack(after){
@@ -582,8 +597,8 @@ function onPopState(){
   clearTimeout(NAV.fallback);
   if (NAV.ignorePops > 0){ NAV.ignorePops--; var f = NAV.afterPop; NAV.afterPop = null; if (f) f(); return; }
   if (MODALS.length){ MODALS[MODALS.length - 1].fromBack(); return; }
-  NAV.lastPopHash = normHash(location.hash);
-  if (NAV.pending) navApplyPending(); else render();
+  if (NAV.pending){ navApplyPending(); NAV.lastPopHash = normHash(location.hash); }
+  else { NAV.lastPopHash = normHash(location.hash); render(); }
 }
 function mqWide(){ try { return window.matchMedia('(min-width: 960px)').matches; } catch(e){ return false; } }
 async function cleanupDraft(aid){
@@ -598,7 +613,7 @@ async function render(){
   var seq = ++renderSeq;
   try {
     await flushSaves();
-    var route = parseRoute(), prev = S.route;
+    var route = parseRoute(), prev = S.route, hNow = location.hash || '#/', shown = S.shownRoute, shownSame = hNow === S.shownHash;
     if (prev && prev.name === 'anom' && !(route.name === 'anom' && route.aid === prev.aid)) await cleanupDraft(prev.aid);
     var sameHash = (location.hash || '#/') === S.curHash;
     if (!sameHash){ S.lastHash = S.curHash; S.curHash = location.hash || '#/'; }
@@ -611,13 +626,14 @@ async function render(){
     if (seq !== renderSeq) return;
     S.wide = mqWide();
     var lp = $('#lp'), lpScroll = lp ? lp.scrollTop : null;
-    var dp = $('#dp') || $('#main'), dpScroll = (sameHash && dp) ? dp.scrollTop : null;
+    /* défilement gardé seulement pour la page réellement affichée (un rendu interrompu n'a rien affiché) */
+    var dp = $('#dp') || $('#main'), dpScroll = (shownSame && dp) ? dp.scrollTop : null;
     /* téléphone : position de la liste de l'étude, retrouvée au retour d'un dossier */
-    var mn = $('#main'); if (!sameHash && prev && prev.name === 'etude' && mn && mn.querySelector('#vlist')) S.listPos = {eid: prev.eid, top: mn.scrollTop};
+    var mn = $('#main'); if (!shownSame && shown && shown.name === 'etude' && mn && mn.querySelector('#vlist')) S.listPos = {eid: shown.eid, top: mn.scrollTop};
     revokeUrls();
     var out = await buildView(route);
     if (seq !== renderSeq) return;
-    $('#app').innerHTML = out.bar + (out.split ? out.body : '<main class="main" id="main">' + out.body + '</main>');
+    $('#app').innerHTML = out.bar + (out.split ? out.body : '<main class="main" id="main">' + out.body + '</main>'); S.shownHash = hNow; S.shownRoute = route;
     if (out.split){
       var nlp = $('#lp');
       if (nlp && lpScroll !== null && S.lpEtude === S.etude.id) nlp.scrollTop = lpScroll;
@@ -625,10 +641,13 @@ async function render(){
       S.lpEtude = S.etude.id;
     } else S.lpEtude = null;
     if (dpScroll !== null){ var ndp = $('#dp') || $('#main'); if (ndp) ndp.scrollTop = dpScroll; }
-    else if (!out.split && route.name === 'etude' && prev && prev.eid === route.eid){
-      var nmn = $('#main'), row = nmn && prev.vid ? Array.prototype.filter.call(nmn.querySelectorAll('.vrow'), function(x){ return x.dataset.vid === prev.vid; })[0] : null;
+    else if (!out.split && route.name === 'etude' && shown && shown.eid === route.eid){
+      var nmn = $('#main'), row = nmn && shown.vid ? Array.prototype.filter.call(nmn.querySelectorAll('.vrow'), function(x){ return x.dataset.vid === shown.vid; })[0] : null;
       if (nmn && S.listPos && S.listPos.eid === route.eid) nmn.scrollTop = S.listPos.top;
-      if (row){ var rr = row.getBoundingClientRect(), mr = nmn.getBoundingClientRect(); if (rr.top < mr.top || rr.bottom > mr.bottom) row.scrollIntoView({block: 'center'}); }
+      if (row){
+        var rr = row.getBoundingClientRect(), mr = nmn.getBoundingClientRect(), hd = nmn.querySelector('.lp-head'), haut = hd ? Math.max(mr.top, hd.getBoundingClientRect().bottom) : mr.top;
+        if (rr.top < haut || rr.bottom > mr.bottom) nmn.scrollTop += (rr.top + rr.bottom) / 2 - (haut + mr.bottom) / 2;
+      }
     }
     if (out.after) await out.after();
     updateNet();
