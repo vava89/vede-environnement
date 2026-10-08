@@ -267,6 +267,10 @@ table.prev th{background:var(--surface-2);font-weight:600}
 .daterow{display:flex;gap:8px;align-items:stretch}.daterow .datebox{flex:1}.date-empty{color:var(--muted);font-weight:500}
 .contact-l{margin:0 0 12px;line-height:1.6}.contact-l a{color:var(--ep);font-weight:600}.contact-l .ct-open{margin-top:8px}.contact-l .ct-open a.btn{color:inherit}
 .ct-imp{margin-top:4px;font-size:14.5px;color:var(--muted)}
+.cst-envoi{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 0;padding:8px 12px;border-radius:10px;font-weight:600;font-size:15px}.cst-envoi span{flex:1;min-width:200px}
+.cst-envoi.ok{background:var(--ok-soft);color:var(--ok)}.cst-envoi.wait{background:var(--warn-soft);color:var(--warn)}.cst-envoi.bad{background:var(--warn-soft);color:var(--danger)}.cst-envoi.none{background:var(--surface-2);color:var(--ink-2)}
+.pj{display:flex;align-items:center;gap:8px;margin:6px 0;font-weight:600}.ob-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line-2)}.ob-row span{flex:1;min-width:200px}
+details.aide{margin-top:12px}details.aide summary{cursor:pointer;font-weight:700;min-height:40px;display:flex;align-items:center}details.aide li{margin:6px 0}
 .linkbtn{background:none;border:0;padding:6px 6px;margin-left:2px;min-height:36px;color:var(--ep);font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
 .ct-sum{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0 0 10px}.ct-sum dt{color:var(--muted)}.ct-sum dd{margin:0;min-width:0;overflow-wrap:anywhere}
 .opt-list{display:flex;flex-direction:column;gap:4px;margin:0 0 14px}.radio{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:600;cursor:pointer}.radio input{width:22px;height:22px;accent-color:var(--brand)}
@@ -487,7 +491,7 @@ function flushSaves(){
 }
 
 /* ---------- État ---------- */
-var S = { route: null, curHash: '', lastHash: '', wide: false, framed: false, etude: null, visites: [], anoms: [], search: '', filter: 'toutes', imp: null, urls: [], dlPromise: null, lpEtude: null, listPos: null };
+var S = { route: null, curHash: '', lastHash: '', wide: false, framed: false, etude: null, visites: [], anoms: [], search: '', filter: 'toutes', imp: null, urls: [], dlPromise: null, lpEtude: null, listPos: null, outbox: [] };
 function curVisit(){ if (!S.route || !S.route.vid) return null; for (var i = 0; i < S.visites.length; i++) if (S.visites[i].id === S.route.vid) return S.visites[i]; return null; }
 function curAnom(){ if (!S.route || !S.route.aid) return null; for (var i = 0; i < S.anoms.length; i++) if (S.anoms[i].id === S.route.aid) return S.anoms[i]; return null; }
 function anomsOf(vid){ return S.anoms.filter(function(a){ return a.visiteId === vid; }); }
@@ -545,6 +549,7 @@ function parseRoute(){
   var p = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(function(x){ try { return decodeURIComponent(x); } catch(e){ return x; } });
   if (p[0] === 'import') return {name: 'import'};
   if (p[0] === 'bibliotheque') return {name: 'biblio'};
+  if (p[0] === 'reglages') return {name: 'reglages'};
   if (p[0] === 'e' && p[1]){
     var r = {eid: p[1]};
     if (p[2] === 'maj'){ r.name = 'update'; return r; }
@@ -672,6 +677,7 @@ async function buildView(r){
   if (r.name === 'import') return viewImport('create');
   if (r.name === 'update') return viewImport('update');
   if (r.name === 'biblio') return viewBiblio();
+  if (r.name === 'reglages') return viewReglages();
   var e = S.etude, v = curVisit();
   if (S.wide){
     var detail = r.name === 'etude'
@@ -738,7 +744,8 @@ async function viewHome(){
     + '<div><h1 class="h1">Études</h1><p class="lead">' + (etudes.length ? plural(etudes.length, 'étude sur cet appareil', 'études sur cet appareil') + '. Touchez une étude pour ouvrir ses dossiers.' : 'Une étude regroupe toutes les visites d\'une opération. Elle se crée à partir de votre tableau Excel : une ligne par adresse à contrôler, avec son numéro de dossier.') + '</p></div></div>';
   var actions = '<div class="btnrow home-actions"><button type="button" class="btn ' + (etudes.length ? '' : 'primary big') + '" data-act="nav" data-href="#/import">' + svg(I.upload) + 'Importer un tableau Excel</button>'
     + '<button type="button" class="btn" data-act="pick-zip">' + svg(I.restore) + 'Restaurer une sauvegarde</button>'
-    + '<button type="button" class="btn" data-act="nav" data-href="#/bibliotheque">' + svg(I.book) + 'Anomalies types</button></div>';
+    + '<button type="button" class="btn" data-act="nav" data-href="#/bibliotheque">' + svg(I.book) + 'Anomalies types</button>'
+    + '<button type="button" class="btn" data-act="nav" data-href="#/reglages">' + svg(I.gear) + 'Réglages</button></div>';
   if (etudes.length) b += '<ul class="ecards">' + cards + '</ul>' + actions;
   else b += actions + '<div class="empty"><p><strong>Aucune étude sur cet appareil.</strong></p><p>Importez votre tableau des visites pour créer la première, ou restaurez un export fait sur un autre appareil.</p></div>';
   b += '<p class="note" id="storage-note">Les données restent sur cet appareil et la saisie fonctionne sans connexion. Exportez chaque étude régulièrement : l\'export ZIP sert aussi de sauvegarde.</p></div>';
@@ -1137,12 +1144,13 @@ function signataireAuto(v){
   if (ctc(v, 'rencontre') === 'autre'){ var n = ctc(v, 'rNom').trim(), q = ctc(v, 'rQualite').trim(); if (n) return n + (q ? ', ' + q.toLowerCase() : ''); }
   return ctc(v, 'nom').trim();
 }
-var CTC_EXPORT_HEAD = ['Tél. 2', 'Personne rencontrée', 'Qualité', 'Tél. personne rencontrée', 'Mail personne rencontrée', 'Coordonnées corrigées sur le terrain'];
+var CTC_EXPORT_HEAD = ['Tél. 2', 'Personne rencontrée', 'Qualité', 'Tél. personne rencontrée', 'Mail personne rencontrée', 'Coordonnées corrigées sur le terrain', 'Constat envoyé le'];
 function ctcExport(v){
   var r = ctc(v, 'rencontre');
   return [fmtTel(fixTel(ctc(v, 'tel2'))), r === 'proprietaire' ? 'le propriétaire' : r === 'autre' ? ctc(v, 'rNom') : '', r === 'autre' ? ctc(v, 'rQualite') : '',
-    r === 'autre' ? fmtTel(fixTel(ctc(v, 'rTel'))) : '', r === 'autre' ? ctc(v, 'rMail') : '', ctcCorriges(v)];
+    r === 'autre' ? fmtTel(fixTel(ctc(v, 'rTel'))) : '', r === 'autre' ? ctc(v, 'rMail') : '', ctcCorriges(v), envoiExport(v)];
 }
+function envoiExport(v){ var e = lastEnvoi(v), c = v.constat; return e && c && c.signeLe && e.signeLe === c.signeLe ? fmtDT(e.le) + (e.mode === 'direct' ? ' (envoi direct)' : ' (messagerie)') : ''; }
 function ctcCorriges(v){ return Object.keys(CONTACT_IMP).filter(function(k){ return ctcHas(v, k); }).map(function(k){ return CONTACT_LIB[k]; }).concat(v.contact && v.contact.domIdem ? ['domicile = adresse du branchement'] : []).join(', '); }
 /* Mise à jour du tableau : une correction redevenue égale au tableau disparaît ; renvoie le nombre de corrections gardées alors que le tableau a changé depuis */
 function reconcileContact(v){
@@ -1263,7 +1271,8 @@ function visitHtml(){
   var cst = v.constat, cE = cst && cst.signeLe && cst.fige ? constatEval(v, list) : null;
   var cstTxt = !cst ? 'Pas encore commencé.' : cst.signeLe ? 'Signé le ' + fmtDT(cst.signeLe) + '.' + (cE && cE.changed ? ' Le dossier a changé depuis la signature.' : cE && cE.coordChange ? ' Coordonnées modifiées depuis la signature (le constat garde celles du jour).' : '') : (cst.sigTech || cst.sigProp ? 'En cours de signature.' : 'Commencé, à signer.');
   h += '</section><section class="sec card cst-card"><div><h2 class="h2">Constat de visite</h2><p class="muted small">' + esc(cstTxt) + ' Formulaire du Département : installations, raccordements, méthodes de contrôle, conclusion et signatures.</p></div>'
-    + '<div class="btnrow"><a class="btn primary" href="#/e/' + esc(e.id) + '/v/' + esc(v.id) + '/constat">' + svg(I.doc) + (cst ? 'Ouvrir le constat' : 'Remplir le constat') + '</a>' + (cst ? '<button type="button" class="btn" data-act="dl-constat" data-vid="' + esc(v.id) + '">' + svg(I.download) + 'Constat PDF</button>' : '') + '</div>';
+    + '<div class="btnrow"><a class="btn primary" href="#/e/' + esc(e.id) + '/v/' + esc(v.id) + '/constat">' + svg(I.doc) + (cst ? 'Ouvrir le constat' : 'Remplir le constat') + '</a>' + (cst ? '<button type="button" class="btn" data-act="dl-constat" data-vid="' + esc(v.id) + '">' + svg(I.download) + 'Constat PDF</button>' : '')
+    + (cst && cst.signeLe ? '<button type="button" class="btn" data-act="c-mail" data-vid="' + esc(v.id) + '">' + svg(I.mail) + 'Envoyer par mail</button>' : '') + '</div>' + (cst && cst.signeLe ? envoiHtml(v) : '');
   h += '</section><section class="sec"><h2 class="h2">Observations sur la fiche</h2><p class="muted small">Elles s\'impriment sous la rubrique correspondante, comme dans vos fiches.</p>'
     + '<label class="field"><span class="lbl">Eaux pluviales</span><textarea data-vf="obsEP" rows="2" placeholder="ex. siphon EP commun avec la parcelle voisine">' + esc(v.obsEP || '') + '</textarea></label>'
     + '<label class="field"><span class="lbl">Eaux usées</span><textarea data-vf="obsEU" rows="2">' + esc(v.obsEU || '') + '</textarea></label></section>';
@@ -1878,8 +1887,9 @@ function constatHtml(){
     + '<div class="sigs"><div class="sig"><span class="lbl">Signature du technicien</span><div class="sig-box">' + (c.sigTech ? '<img src="' + c.sigTech + '" alt="Signature du technicien">' : '<span class="muted">Non signé</span>') + '</div><button type="button" class="btn" data-act="c-sign" data-who="tech"' + dis + '>' + (c.sigTech ? 'Refaire' : 'Signer') + '</button></div>'
     + '<div class="sig"><span class="lbl">Signature du propriétaire</span><div class="sig-box">' + (c.sigProp ? '<img src="' + c.sigProp + '" alt="Signature du propriétaire">' : '<span class="muted">Non signé</span>') + '</div><button type="button" class="btn" data-act="c-sign" data-who="prop"' + dis + '>' + (c.sigProp ? 'Refaire' : 'Faire signer') + '</button></div></div>'
     + (!lock && c.sigTech && (c.sigProp || constatNonEffectue(v)) ? '<button type="button" class="btn primary big wide" data-act="c-lock">' + svg(I.check) + 'Valider le constat signé</button>' : '') + '</section>';
-  h += '<div class="btnrow sec"><button type="button" class="btn primary" data-act="dl-constat" data-vid="' + esc(v.id) + '">' + svg(I.download) + 'Constat PDF</button><a class="btn" href="#/e/' + esc(S.etude.id) + '/v/' + esc(v.id) + '">Retour au dossier</a>'
-    + (v.constat && !lock ? '<span class="sp"></span><button type="button" class="btn ghost danger" data-act="c-delete">' + svg(I.trash) + 'Supprimer le constat</button>' : '') + '</div>';
+  h += '<div class="btnrow sec"><button type="button" class="btn primary" data-act="dl-constat" data-vid="' + esc(v.id) + '">' + svg(I.download) + 'Constat PDF</button>'
+    + (lock ? '<button type="button" class="btn primary" data-act="c-mail" data-vid="' + esc(v.id) + '">' + svg(I.mail) + 'Envoyer par mail</button>' : '') + '<a class="btn" href="#/e/' + esc(S.etude.id) + '/v/' + esc(v.id) + '">Retour au dossier</a>'
+    + (v.constat && !lock ? '<span class="sp"></span><button type="button" class="btn ghost danger" data-act="c-delete">' + svg(I.trash) + 'Supprimer le constat</button>' : '') + '</div>' + (lock ? envoiHtml(v0) : '');
   return h;
 }
 function rowById(c, id){ for (var i = 0; i < c.rows.length; i++) if (c.rows[i].id === id) return c.rows[i]; return null; }
@@ -2766,6 +2776,185 @@ async function downloadConstatPdf(vid){
   try { return await saveFile(await constatPdfBlob(v), constatFileName(v)); }
   catch(err){ reportError(err, 'Constat PDF impossible'); return false; }
 }
+/* ---------- Envoi du constat signé par mail ----------
+   Toujours depuis l'adresse de l'utilisateur, sans aucun identifiant dans le code (dépôt public) :
+   - messagerie de l'appareil : partage du PDF (Gmail, Outlook…), ou lien mailto et téléchargement du PDF ; aucun réglage ;
+   - envoi direct, si l'utilisateur a installé son service personnel (voir outils/envoi-mail-google.gs) : adresse et clé gardées sur l'appareil seulement,
+     jamais dans les sauvegardes. Sans connexion, le message attend dans la boîte d'envoi (meta « outbox:… ») et part au retour du réseau. */
+var MAIL_DEF = {nom: '', signature: '', copie: '', url: '', cle: '',
+  objet: 'Constat de visite de votre branchement d\'assainissement, {adresse}, {commune}',
+  message: 'Bonjour,\n\nVeuillez trouver ci-joint le constat de visite de votre branchement d\'assainissement au {adresse}, {commune}, établi le {date}.\n\nCordialement,\n{signature}'};
+async function mailCfg(){ var r = null; try { r = await DB.get('meta', 'mailConfig'); } catch(e){} return Object.assign({}, MAIL_DEF, (r && r.v) || {}); }
+function mailDirectOk(cfg){ return /^https:\/\/\S+$/.test(String(cfg.url || '').trim()) && String(cfg.cle || '').trim().length >= 12; }
+function mailFill(t, v, cfg){
+  var vals = {numero: v.numero || '', adresse: v.adresse || '', commune: communeNom(v.commune) || v.commune || '', date: v.dateVisite ? fmtDateLong(v.dateVisite) : '', proprietaire: ctc(v, 'nom'), signature: cfg.signature || cfg.nom || ''};
+  return String(t || '').replace(/\{(numero|adresse|commune|date|proprietaire|signature)\}/g, function(_, k){ return vals[k]; }).replace(/\n{3,}/g, '\n\n').trim();
+}
+function abToB64(ab){ var u8 = new Uint8Array(ab), s = ''; for (var i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s); }
+/* Envois : rattachés à la version signée jointe (signeLe) */
+function lastEnvoi(v){ var e = v.envois || []; return e.length ? e[e.length - 1] : null; }
+async function recordEnvoi(vid, o){
+  var v = S.visites.find(function(x){ return x.id === vid; });
+  if (v){ v.envois = (v.envois || []).concat([o]).slice(-20); v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); await flushSaves(); return; }
+  var d = await DB.get('visites', vid); if (!d) return; d.envois = (d.envois || []).concat([o]).slice(-20); d.updatedAt = nowISO(); await DB.put('visites', d);
+}
+/* Boîte d'envoi : un enregistrement par message, PDF en ArrayBuffer */
+var OUTBOX = 'outbox:';
+async function outboxAll(){ var all = []; try { all = await DB.all('meta'); } catch(e){} S.outbox = all.filter(function(r){ return String(r.k).indexOf(OUTBOX) === 0; }).map(function(r){ return r.v; }).sort(function(a, b){ return a.cree < b.cree ? -1 : 1; }); return S.outbox; }
+async function outboxPut(it){ await DB.put('meta', {k: OUTBOX + it.id, v: it}); }
+async function outboxDel(id){ await DB.del('meta', OUTBOX + id); }
+async function relaySend(cfg, payload){
+  var r;
+  try { r = await fetch(String(cfg.url).trim(), {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify(payload), redirect: 'follow', cache: 'no-store'}); }
+  catch(e){ var er = new Error('pas de connexion au service d\'envoi'); er.reseau = true; throw er; }
+  var t = ''; try { t = await r.text(); } catch(e){}
+  var j = null; try { j = JSON.parse(t); } catch(e){}
+  if (!r.ok || !j) throw new Error(r.ok ? 'réponse inattendue du service d\'envoi : vérifiez son adresse dans Réglages' : 'service d\'envoi indisponible (' + r.status + ')');
+  if (!j.ok) throw new Error(j.error || 'envoi refusé par le service');
+  return j;
+}
+var outboxRun = null;
+function processOutbox(){
+  if (outboxRun) return outboxRun;
+  outboxRun = (async function(){
+    try {
+      var cfg = await mailCfg(), items = (await outboxAll()).filter(function(x){ return x.etat === 'attente' || x.etat === 'envoi'; }), sent = 0;
+      if (!items.length || !mailDirectOk(cfg) || navigator.onLine === false) return 0;
+      for (var i = 0; i < items.length; i++){
+        var it = items[i], v = S.visites.find(function(x){ return x.id === it.vid; }) || await DB.get('visites', it.vid);
+        if (!v){ await outboxDel(it.id); continue; }
+        if (!v.constat || v.constat.signeLe !== it.signeLe){ it.etat = 'bloque'; it.erreur = 'constat modifié depuis la mise en file : renvoyez-le'; await outboxPut(it); continue; }
+        it.etat = 'envoi'; it.essais = (it.essais || 0) + 1; await outboxPut(it);
+        try { await relaySend(cfg, {cle: String(cfg.cle).trim(), id: it.id, a: it.a, cc: it.cc || '', objet: it.objet, message: it.message, nom: cfg.nom || '', pj: [{nom: it.nom, type: 'application/pdf', b64: abToB64(it.pdf)}]}); }
+        catch(e){
+          if (e.reseau && it.essais < 4){ it.etat = 'attente'; await outboxPut(it); break; }
+          it.etat = 'echec'; it.erreur = e.reseau ? 'le service d\'envoi ne répond pas : vérifiez son adresse dans Réglages' : e.message; await outboxPut(it); continue;
+        }
+        await recordEnvoi(it.vid, {le: nowISO(), a: it.a, cc: it.cc || '', objet: it.objet, mode: 'direct', signeLe: it.signeLe});
+        await outboxDel(it.id); sent++; toast('Constat ' + it.numero + ' envoyé à ' + it.a.join(', '), 4500);
+      }
+      return sent;
+    } finally { outboxRun = null; await outboxAll(); refreshEnvoiUI(); }
+  })();
+  return outboxRun;
+}
+function envoiState(v){
+  var c = v.constat; if (!c || !c.signeLe) return null;
+  var ob = (S.outbox || []).filter(function(x){ return x.vid === v.id; });
+  var att = ob.find(function(x){ return x.etat === 'attente' || x.etat === 'envoi'; }); if (att) return {cls: 'wait', txt: 'Mail en attente d\'envoi (sans connexion) : il partira au retour du réseau.'};
+  var bad = ob.find(function(x){ return x.etat === 'echec' || x.etat === 'bloque'; }); if (bad) return {cls: 'bad', txt: 'Échec de l\'envoi : ' + bad.erreur + '.', id: bad.id};
+  var e = lastEnvoi(v); if (!e) return {cls: 'none', txt: 'Constat signé, pas encore envoyé.'};
+  if (e.signeLe !== c.signeLe) return {cls: 'bad', txt: 'Une version précédente a été envoyée le ' + fmtDT(e.le) + ' ; la version signée actuelle n\'a pas été envoyée.'};
+  return {cls: 'ok', txt: (e.mode === 'direct' ? 'Envoyé le ' : 'Préparé dans votre messagerie le ') + fmtDT(e.le) + ' pour ' + (e.a.length ? e.a.join(', ') : 'les destinataires choisis dans la messagerie') + '.'};
+}
+function envoiHtml(v){
+  var st = envoiState(v); if (!st) return '';
+  return '<div class="cst-envoi ' + st.cls + '" data-envoi="' + esc(v.id) + '"><span>' + esc(st.txt) + '</span>'
+    + (st.id ? '<button type="button" class="btn sm" data-act="mail-retry" data-id="' + esc(st.id) + '">Réessayer</button><button type="button" class="btn sm ghost" data-act="mail-drop" data-id="' + esc(st.id) + '">Retirer</button>' : '') + '</div>';
+}
+function refreshEnvoiUI(){ $$('[data-envoi]').forEach(function(el){ var v = S.visites.find(function(x){ return x.id === el.dataset.envoi; }); if (v) el.outerHTML = envoiHtml(v); }); }
+/* Fenêtre d'envoi : destinataires (propriétaire coché ; personne rencontrée cochée seulement si elle représente le propriétaire), ajout manuel, objet, message, PDF préparé à l'ouverture */
+async function mailModal(v){
+  var c = v.constat; if (!c || !c.signeLe){ toast('Signez d\'abord le constat.'); return; }
+  if (!pdfLibOk()) return;
+  await flushSaves();
+  var cfg = await mailCfg(), direct = mailDirectOk(cfg), E = constatEval(v, anomsOf(v.id)), name = constatFileName(v), blob = null, dests = [];
+  function addDest(adr, lib, on, note){ adr = String(adr || '').trim(); if (!mailOk(adr) || dests.some(function(d){ return d.adr.toLowerCase() === adr.toLowerCase(); })) return; dests.push({adr: adr, lib: lib, on: on, note: note || ''}); }
+  addDest(ctc(v, 'mail'), 'Propriétaire', true);
+  if (ctc(v, 'rencontre') === 'autre'){ var q = ctc(v, 'rQualite'), pro = /syndic|agence|mandataire|gestionnaire|notaire|tuteur|curateur/i.test(q); addDest(ctc(v, 'rMail'), [ctc(v, 'rNom'), q.toLowerCase()].filter(Boolean).join(', ') || 'Personne rencontrée', pro, pro ? '' : 'recevra les coordonnées du propriétaire'); }
+  (v.mailsAjoutes || []).forEach(function(a){ addDest(a, 'Ajoutée à la main', false); });
+  function destHtml(d, i){ return '<label class="check"><input type="checkbox" data-dest="' + i + '"' + (d.on ? ' checked' : '') + '><span><strong>' + esc(d.adr) + '</strong> <span class="muted">' + esc(d.lib) + (d.note ? ' : ' + esc(d.note) : '') + '</span></span></label>'; }
+  var html = (E.coordChange ? '<p class="muted small">Le constat joint porte les coordonnées du jour de la signature.</p>' : '')
+    + '<span class="lbl">Destinataires</span><div id="m-dests">' + (dests.length ? dests.map(destHtml).join('') : '<p class="muted small">Aucune adresse dans la fiche contact.</p>') + '</div>'
+    + '<div class="xrow"><input type="email" id="m-add" placeholder="Ajouter une adresse" autocapitalize="off" spellcheck="false" inputmode="email"><button type="button" class="btn sm" data-m="add">Ajouter</button></div>'
+    + (mailOk(cfg.copie) ? '<label class="check"><input type="checkbox" id="m-copie" checked><span>Copie à moi : ' + esc(cfg.copie) + '</span></label>' : '')
+    + '<label class="field"><span class="lbl">Objet</span><input type="text" id="m-objet" value="' + esc(mailFill(cfg.objet, v, cfg)) + '"></label>'
+    + '<label class="field"><span class="lbl">Message</span><textarea id="m-msg" rows="7">' + esc(mailFill(cfg.message, v, cfg)) + '</textarea></label>'
+    + '<p class="pj">' + svg(I.doc, 18) + '<span id="m-pj">' + esc(name) + ' (préparation…)</span></p>'
+    + '<p class="muted small">' + (direct ? '« Envoyer » part directement de votre adresse ; sans connexion, le mail attend et part au retour du réseau. « Ma messagerie » ouvre votre application de mail avec le constat joint.'
+      : '« Ma messagerie » ouvre votre application de mail (Gmail, Outlook…) avec le constat joint ; les adresses cochées sont copiées : collez-les dans le champ « À ». L\'envoi direct en un geste se règle dans Réglages.') + '</p>';
+  var W = null;
+  function chosen(){
+    var out = []; $$('[data-dest]', W).forEach(function(cb){ if (cb.checked) out.push(dests[+cb.dataset.dest].adr); });
+    var typed = W.querySelector('#m-add').value.trim(); if (mailOk(typed) && out.indexOf(typed) < 0) out.push(typed);
+    return out;
+  }
+  function form(){ var cp = W.querySelector('#m-copie'); return {a: chosen(), cc: cp && cp.checked ? cfg.copie : '', objet: W.querySelector('#m-objet').value.trim(), message: W.querySelector('#m-msg').value}; }
+  function remember(a){ var known = [ctc(v, 'mail'), ctc(v, 'rMail')].map(function(x){ return String(x).trim().toLowerCase(); }), add = a.filter(function(x){ return known.indexOf(x.toLowerCase()) < 0; });
+    if (add.length){ v.mailsAjoutes = add.concat((v.mailsAjoutes || []).filter(function(x){ return add.indexOf(x) < 0; })).slice(0, 5); v.updatedAt = nowISO(); saveLater('visites', v); } }
+  var acts = [{label: 'Annuler', value: null}, {label: 'Ma messagerie', cls: direct ? '' : 'primary', collect: function(){ if (!blob){ toast('Le constat est en préparation…'); return false; } shareNow(); return false; }}];
+  if (direct) acts.push({label: 'Envoyer', cls: 'primary', collect: function(){ if (!blob){ toast('Le constat est en préparation…'); return false; } var f = form(); if (!f.a.length){ toast('Cochez ou ajoutez au moins un destinataire.'); return false; } return {mode: 'direct', f: f}; }});
+  var closeFn = null;
+  /* Partage : lancé directement dans le geste de l'utilisateur (le PDF est déjà prêt), sinon le navigateur le refuse */
+  function shareNow(){
+    var f = form(), file = null;
+    try { file = new File([blob], name, {type: 'application/pdf'}); } catch(e){}
+    if (file && navigator.canShare && navigator.share && navigator.canShare({files: [file]})){
+      try { if (f.a.length && navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(f.a.concat(f.cc ? [f.cc] : []).join(', ')).catch(function(){}); } catch(e){}
+      navigator.share({files: [file], title: f.objet, text: f.message}).then(function(){ closeFn({mode: 'messagerie', f: f}); }).catch(function(err){ if (!err || err.name !== 'AbortError') toast('Partage impossible : ' + ((err && err.message) || err), 4500); });
+      return;
+    }
+    saveFile(blob, name).then(function(){
+      var a = document.createElement('a'); a.href = 'mailto:' + f.a.map(encodeURIComponent).join(',') + '?subject=' + encodeURIComponent(f.objet) + (f.cc ? '&cc=' + encodeURIComponent(f.cc) : '') + '&body=' + encodeURIComponent(f.message + '\n\n(Joignez le fichier « ' + name + ' » qui vient d\'être enregistré.)');
+      document.body.appendChild(a); a.click(); a.remove(); closeFn({mode: 'mailto', f: f});
+    });
+  }
+  var res = await openModal({title: 'Envoyer le constat par mail', noAutofocus: true, html: html, actions: acts,
+    onMount: function(w, close){
+      W = w; closeFn = close;
+      w.addEventListener('click', function(ev){
+        if (!ev.target.closest('[data-m="add"]')) return;
+        var inp = w.querySelector('#m-add'), adr = inp.value.trim(); if (!mailOk(adr)){ toast('Adresse mail non valide.'); return; }
+        var cur = chosen(); addDest(adr, 'Ajoutée à la main', true); inp.value = '';
+        w.querySelector('#m-dests').innerHTML = dests.map(function(d, i){ d.on = d.on || cur.indexOf(d.adr) >= 0; return destHtml(d, i); }).join('');
+      });
+      constatPdfBlob(v).then(function(b){ blob = b; var el = w.querySelector('#m-pj'); if (el) el.textContent = name + ' (' + Math.max(1, Math.round(b.size / 1024)) + ' Ko)'; })
+        .catch(function(err){ var el = w.querySelector('#m-pj'); if (el) el.textContent = 'PDF impossible : ' + ((err && err.message) || err); });
+    }});
+  if (!res) return;
+  remember(res.f.a);
+  if (res.mode === 'direct'){
+    var it = {id: uid(), vid: v.id, eid: v.etudeId, numero: v.numero, a: res.f.a, cc: res.f.cc, objet: res.f.objet, message: res.f.message, nom: name, pdf: await blob.arrayBuffer(), signeLe: c.signeLe, etat: 'attente', cree: nowISO(), essais: 0};
+    await outboxPut(it); await outboxAll(); refreshEnvoiUI();
+    var n = await processOutbox();
+    if (!n){ var after = (S.outbox || []).find(function(x){ return x.id === it.id; }); if (after && after.etat === 'attente') toast('Pas de connexion : le mail partira automatiquement au retour du réseau.', 4500); else if (after && after.etat === 'echec') toast('Échec de l\'envoi : ' + after.erreur, 6000); }
+  } else {
+    await recordEnvoi(v.id, {le: nowISO(), a: res.f.a, cc: res.f.cc, objet: res.f.objet, mode: res.mode, signeLe: c.signeLe});
+    if (res.mode === 'mailto') toast('Votre messagerie s\'ouvre : joignez-y le constat qui vient d\'être enregistré.', 5000);
+  }
+  refreshEnvoiUI();
+}
+/* Réglages : enregistrés sur l'appareil (meta « mailConfig »), hors des sauvegardes */
+async function viewReglages(){
+  var cfg = await mailCfg(), ob = await outboxAll();
+  function f(k, label, type, ph){ return '<label class="field"><span class="lbl">' + esc(label) + '</span><input type="' + (type || 'text') + '" data-mc="' + k + '" value="' + esc(cfg[k] || '') + '"' + (ph ? ' placeholder="' + esc(ph) + '"' : '') + (type === 'email' || type === 'url' || type === 'password' ? ' autocapitalize="off" spellcheck="false"' : '') + ' autocomplete="off"></label>'; }
+  function ta(k, label, rows){ return '<label class="field"><span class="lbl">' + esc(label) + '</span><textarea data-mc="' + k + '" rows="' + (rows || 3) + '">' + esc(cfg[k] || '') + '</textarea></label>'; }
+  var b = '<div class="page narrow"><h1 class="h1">Réglages</h1>';
+  b += '<section class="card"><h2 class="h2">Envoi des constats par mail</h2><p class="muted">Ces réglages restent sur cet appareil ; ils ne figurent ni dans le code de l\'application ni dans les sauvegardes.</p>'
+    + f('nom', 'Votre nom (expéditeur affiché)', 'text', 'Prénom Nom, VÉDÉ Environnement') + ta('signature', 'Signature des mails', 3) + f('copie', 'Recevoir une copie de chaque envoi à', 'email', 'votre adresse')
+    + f('objet', 'Objet') + ta('message', 'Message', 7)
+    + '<p class="muted small">Remplacés à l\'envoi : {numero}, {adresse}, {commune}, {date} (date de visite), {proprietaire}, {signature}.</p><button type="button" class="btn sm" data-act="mail-defaut">Rétablir l\'objet et le message proposés</button></section>';
+  b += '<section class="card"><h2 class="h2">Envoi direct depuis votre adresse (facultatif)</h2>'
+    + '<p>Sans réglage, « Ma messagerie » ouvre votre application de mail avec le constat joint. Pour envoyer en un geste, installez une fois le petit service d\'envoi sur votre compte Google : il envoie depuis votre adresse Gmail, ou depuis l\'adresse professionnelle déclarée dans Gmail (« Envoyer des e-mails en tant que »).</p>'
+    + f('url', 'Adresse du service d\'envoi', 'url', 'https://script.google.com/macros/s/…/exec') + f('cle', 'Clé du service', 'password', 'la clé choisie à l\'installation')
+    + '<div class="btnrow"><button type="button" class="btn" data-act="mail-test">' + svg(I.send) + 'Tester l\'envoi</button></div>'
+    + '<details class="aide"><summary>Comment installer le service (10 minutes, une seule fois)</summary><ol>'
+    + '<li>Sur un ordinateur, ouvrez script.google.com avec votre compte Google, puis « Nouveau projet ».</li>'
+    + '<li>Remplacez le contenu par celui du fichier <strong>outils/envoi-mail-google.gs</strong> de l\'application (sur GitHub), puis enregistrez.</li>'
+    + '<li>Paramètres du projet (roue dentée) &gt; Propriétés du script &gt; ajoutez <strong>CLE</strong> avec une phrase secrète d\'au moins 12 caractères (ne la donnez à personne). Facultatif : <strong>EXPEDITEUR</strong> = votre adresse professionnelle si elle est déclarée dans Gmail.</li>'
+    + '<li>Déployer &gt; Nouveau déploiement &gt; type « Application Web » ; Exécuter en tant que : Moi ; Qui a accès : Tout le monde. Autorisez l\'accès à Gmail (écran « application non validée » : Paramètres avancés &gt; Accéder au projet, c\'est votre propre script).</li>'
+    + '<li>Copiez l\'adresse de l\'application Web (elle finit par /exec) et collez-la ci-dessus avec la clé, puis « Tester l\'envoi ».</li>'
+    + '<li>En cas de perte de la tablette : changez la clé dans les propriétés du script, ou supprimez le déploiement.</li></ol></details></section>';
+  if (ob.length) b += '<section class="card"><h2 class="h2">Boîte d\'envoi</h2>' + ob.map(function(it){ return '<div class="ob-row"><span><strong>Dossier ' + esc(it.numero) + '</strong> pour ' + esc(it.a.join(', ')) + ' : ' + esc(it.etat === 'attente' || it.etat === 'envoi' ? 'en attente de connexion' : 'échec, ' + (it.erreur || '')) + '</span>'
+    + '<button type="button" class="btn sm" data-act="mail-retry" data-id="' + esc(it.id) + '">Réessayer</button><button type="button" class="btn sm ghost" data-act="mail-drop" data-id="' + esc(it.id) + '">Retirer</button></div>'; }).join('') + '</section>';
+  b += '</div>';
+  return {bar: barHtml({back: '#/', title: 'Réglages'}), body: b};
+}
+var mailCfgT = null;
+function onMailCfgField(t){
+  clearTimeout(mailCfgT);
+  mailCfgT = setTimeout(async function(){ var cfg = await mailCfg(); $$('[data-mc]').forEach(function(el){ cfg[el.dataset.mc] = el.value; }); await DB.put('meta', {k: 'mailConfig', v: cfg}); }, 300);
+}
 var CONSTAT_ACTIONS = {
   'c-nb': function(el){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; var r = rowById(c, el.dataset.row); if (!r) return; var n = Math.max(0, (parseInt(r.nb, 10) || 0) + (+el.dataset.d)); r.nb = n ? String(n) : ''; constatTouch(v); render(); },
   'c-conf': function(el){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; var r = rowById(c, el.dataset.row); if (!r) return; r.conforme = r.conforme === el.dataset.v ? '' : el.dataset.v; constatTouch(v); render(); },
@@ -2819,6 +3008,19 @@ var CONSTAT_ACTIONS = {
   'c-unlock': async function(){ var v = curVisit(), c = constatOf(v); if (!(await confirmModal('Modifier le constat signé ?', 'Les signatures du technicien et du propriétaire seront effacées : il faudra faire signer à nouveau.', 'Modifier', true))) return; c.signeLe = ''; c.sigTech = ''; c.sigProp = ''; delete c.fige; constatTouch(v); await flushSaves(); render(); },
   'c-delete': async function(){ var v = curVisit(); if (!v.constat || v.constat.signeLe) return; if (!(await confirmModal('Supprimer le constat ?', 'Toute la saisie du constat de ce dossier sera effacée (installations, croquis, signatures). Les anomalies du dossier sont conservées.', 'Supprimer', true))) return; delete v.constat; constatTouch(v); await flushSaves(); toast('Constat supprimé'); go('#/e/' + v.etudeId + '/v/' + v.id); },
   'dl-constat': function(el){ return downloadConstatPdf(el.dataset.vid); },
+  'c-mail': function(el){ var v = S.visites.find(function(x){ return x.id === el.dataset.vid; }) || curVisit(); if (v) return mailModal(v); },
+  'mail-retry': async function(el){ var it = (await outboxAll()).find(function(x){ return x.id === el.dataset.id; }); if (!it) return; it.etat = 'attente'; it.essais = 0; it.erreur = ''; await outboxPut(it); await outboxAll(); refreshEnvoiUI();
+    if (!mailDirectOk(await mailCfg())){ toast('Réglez d\'abord l\'envoi direct dans Réglages.'); return; } await processOutbox(); if (S.route && S.route.name === 'reglages') render(); },
+  'mail-drop': async function(el){ if (!(await confirmModal('Retirer ce mail de la boîte d\'envoi ?', 'Il ne sera pas envoyé. Le constat reste dans le dossier.', 'Retirer', true))) return; await outboxDel(el.dataset.id); await outboxAll(); refreshEnvoiUI(); if (S.route && S.route.name === 'reglages') render(); },
+  'mail-defaut': async function(){ var cfg = await mailCfg(); cfg.objet = MAIL_DEF.objet; cfg.message = MAIL_DEF.message; await DB.put('meta', {k: 'mailConfig', v: cfg}); render(); },
+  'mail-test': async function(){
+    clearTimeout(mailCfgT); var cfg = await mailCfg(); $$('[data-mc]').forEach(function(x){ cfg[x.dataset.mc] = x.value; }); await DB.put('meta', {k: 'mailConfig', v: cfg});
+    if (!mailDirectOk(cfg)){ toast('Renseignez l\'adresse du service (https://…) et une clé d\'au moins 12 caractères.', 4500); return; }
+    var to = mailOk(cfg.copie) ? cfg.copie.trim() : await promptModal('Tester l\'envoi', 'Adresse qui recevra l\'essai', ''); if (!to) return; if (!mailOk(to)){ toast('Adresse mail non valide.'); return; }
+    var busy = busyModal('Essai d\'envoi');
+    try { await relaySend(cfg, {cle: String(cfg.cle).trim(), id: uid(), test: true, a: [to.trim()], objet: 'Essai d\'envoi, VÉDÉ Terrain', message: 'Ce message confirme que l\'envoi direct des constats fonctionne depuis votre adresse.', nom: cfg.nom || ''}); busy.close(); toast('Essai envoyé à ' + to.trim() + ' : vérifiez votre boîte de réception.', 5000); }
+    catch(e){ busy.close(); toast('Essai impossible : ' + e.message, 6000); }
+  },
   'c-xls': async function(el){
     var v = curVisit(); if (v.constat && v.constat.signeLe) return;
     var val = await pickExcelValue(v);
@@ -2874,7 +3076,7 @@ function recapXlsx(e, vs, as){
       v.aucuneAnomalie ? 'oui' : '', issuesOf(v, l).map(function(x){ return x.msg; }).join(' | '), v.obsEP || '', v.obsEU || '', v.observations || ''].concat(ctcExport(v), extra.map(function(h){ return xs.has(h) ? xs.get(h) : ''; }));
   });
   var ws1 = XLSX.utils.aoa_to_sheet([vHead].concat(vRows));
-  ws1['!cols'] = [12, 34, 16, 22, 14, 26, 34, 12, 12, 10, 8, 8, 12, 40, 30, 30, 30, 14, 24, 16, 14, 26, 24].concat(extra.map(function(){ return 16; })).map(function(w){ return {wch: w}; });
+  ws1['!cols'] = [12, 34, 16, 22, 14, 26, 34, 12, 12, 10, 8, 8, 12, 40, 30, 30, 30, 14, 24, 16, 14, 26, 24, 22].concat(extra.map(function(){ return 16; })).map(function(w){ return {wch: w}; });
   var aHead = ['N° dossier', 'Adresse de la visite', 'Anomalie', 'Réseau', 'Catégorie', 'Localisation', 'Anomalie observée', 'Préconisation de travaux', 'Photos', 'Fichiers photos', 'Validée', 'Saisie le'];
   var aRows = [];
   vs.forEach(function(v){
@@ -3255,6 +3457,7 @@ document.addEventListener('input', function(ev){
   if (t.matches('[data-vf]')) onVisitField(t);
   else if (t.matches('[data-af]')) onAnomField(t);
   else if (t.matches('[data-ctf]')) onContactField(t);
+  else if (t.matches('[data-mc]')) onMailCfgField(t);
   else if (t.matches('[data-cf],[data-cr]') && t.tagName !== 'SELECT') onConstatField(t, false);
   else if (t.id === 'q'){ S.search = t.value; var ul = $('#vlist'); if (ul) ul.innerHTML = listRowsHtml(); }
   else if (t.id === 'imp-name' && S.imp) S.imp.name = t.value;
@@ -3284,6 +3487,7 @@ async function init(){
   window.addEventListener('popstate', onPopState);
   window.addEventListener('hashchange', function(){ if (normHash(location.hash) === NAV.lastPopHash || normHash(location.hash) === S.curHash) return; render(); });
   window.addEventListener('online', updateNet); window.addEventListener('offline', updateNet);
+  window.addEventListener('online', function(){ processOutbox(); });
   var rs; window.addEventListener('resize', function(){ clearTimeout(rs); rs = setTimeout(function(){ if (mqWide() !== S.wide) render(); }, 200); });
   document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') flushSaves(); });
   window.addEventListener('pagehide', function(){ flushSaves(); });
@@ -3294,8 +3498,9 @@ async function init(){
     requestPersist();
   }
   await render();
+  outboxAll().then(function(){ refreshEnvoiUI(); return processOutbox(); }).catch(function(){});
 }
-window.__VT = {S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, croqPng: croqPng, croquisAJour: croquisAJour, croquisType: croquisType, croqPlaceLabel: croqPlaceLabel, ready: null};
+window.__VT = {S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, croqPng: croqPng, croquisAJour: croquisAJour, croquisType: croquisType, croqPlaceLabel: croqPlaceLabel, mailModal: mailModal, processOutbox: processOutbox, outboxAll: outboxAll, mailCfg: mailCfg, ready: null};
 window.__VT.ready = init();
 })();
 </script>
