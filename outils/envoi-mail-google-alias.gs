@@ -13,7 +13,10 @@
  *   MAX_JOUR    facultatif, plafond d'envois par jour (30 par défaut).
  *
  * L'application envoie en POST (texte JSON) : {cle, id, test, a: [adresses], cc, objet, message, nom, pj: [{nom, type, b64}]}.
- * Le service répond {ok: true} ou {ok: false, error: "…"}. Un même identifiant n'est envoyé qu'une fois (6 heures).
+ * Le service répond {ok: true} ou {ok: false, error: "…"}. Un même identifiant n'est jamais envoyé deux fois (mémoire de 30 jours,
+ * propriétés ENVOI_… gérées par le script : ne pas les modifier).
+ * Après toute modification de ce script : Déployer > Gérer les déploiements > crayon > Version : Nouvelle version > Déployer
+ * (l'adresse /exec reste la même ; sans nouvelle version, elle continue d'exécuter l'ancien code).
  * En cas de perte de la tablette : changez CLE ici, ou supprimez le déploiement (Déployer > Gérer les déploiements).
  */
 function doPost(e) {
@@ -31,8 +34,9 @@ function doPost(e) {
     var verrou = LockService.getScriptLock();
     verrou.waitLock(20000);
     try {
-      var cache = CacheService.getScriptCache(), id = String(req.id || '').slice(0, 80);
-      if (id && cache.get('envoi:' + id)) return reponse_({ok: true, doublon: true});
+      var cache = CacheService.getScriptCache(), id = String(req.id || '').replace(/[^\w-]/g, '').slice(0, 80);
+      /* déjà envoyé (réponse perdue, application relancée, même plusieurs jours après) : jamais deux fois */
+      if (id && (cache.get('envoi:' + id) || props.getProperty('ENVOI_' + id))) return reponse_({ok: true, doublon: true});
 
       var jour = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd');
       var compteur = JSON.parse(props.getProperty('COMPTEUR') || '{}');
@@ -53,7 +57,7 @@ function doPost(e) {
       GmailApp.sendEmail(a.join(','), String(req.objet || 'Constat de visite').slice(0, 200), String(req.message || ''), options);
 
       props.setProperty('COMPTEUR', JSON.stringify({jour: jour, n: n + 1}));
-      if (id) cache.put('envoi:' + id, '1', 21600);
+      if (id){ cache.put('envoi:' + id, '1', 21600); props.setProperty('ENVOI_' + id, String(Date.now())); purge_(props); }
       return reponse_({ok: true, restants: max - n - 1});
     } finally {
       verrou.releaseLock();
@@ -66,6 +70,11 @@ function doPost(e) {
 /* Ouvrir l'adresse du service dans un navigateur affiche ce message : le déploiement répond. */
 function doGet() { return reponse_({ok: true, service: 'VÉDÉ Terrain, envoi des constats'}); }
 
+/* identifiants envoyés gardés 30 jours */
+function purge_(props) {
+  var limite = Date.now() - 30 * 86400000;
+  props.getKeys().forEach(function (k) { if (k.indexOf('ENVOI_') === 0 && Number(props.getProperty(k)) < limite) props.deleteProperty(k); });
+}
 function reponse_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 function adresse_(s) { return /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(s); }
 /* comparaison à durée constante, pour ne rien laisser deviner de la clé */

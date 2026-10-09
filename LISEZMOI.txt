@@ -58,11 +58,17 @@ ENVOI DES CONSTATS PAR MAIL
      projet ; c'est votre propre script).
   5. Dans l'application : Réglages > collez l'adresse du déploiement (elle
      finit par /exec) et la clé, puis « Tester l'envoi ».
+  Si vous remplacez plus tard le contenu du script : Déployer > Gérer les
+  déploiements > crayon > Version : « Nouvelle version » > Déployer.
+  L'adresse /exec ne change pas ; sans cette étape, elle continue
+  d'exécuter l'ancien script.
 - Ne transmettez jamais votre mot de passe ni la clé : ils ne doivent
   figurer ni dans le code de l'application (dépôt public) ni dans un
   message. La clé reste sur la tablette, hors des sauvegardes.
 - Sans connexion, le mail attend dans la boîte d'envoi et part au retour
-  du réseau. Tablette perdue : changez CLE dans les propriétés du script.
+  du réseau ; si le service ne répond pas, de nouveaux essais ont lieu
+  automatiquement, espacés. Un même mail n'est jamais envoyé deux fois.
+  Tablette perdue : changez CLE dans les propriétés du script.
 
 MISE À JOUR DE L'APPLICATION
 - Chaque nouvelle version change le numéro de version à deux endroits :

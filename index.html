@@ -269,7 +269,7 @@ table.prev th{background:var(--surface-2);font-weight:600}
 .ct-imp{margin-top:4px;font-size:14.5px;color:var(--muted)}
 .cst-envoi{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 0;padding:8px 12px;border-radius:10px;font-weight:600;font-size:15px}.cst-envoi span{flex:1;min-width:200px}
 .cst-envoi.ok{background:var(--ok-soft);color:var(--ok)}.cst-envoi.wait{background:var(--warn-soft);color:var(--warn)}.cst-envoi.bad{background:var(--warn-soft);color:var(--danger)}.cst-envoi.none{background:var(--surface-2);color:var(--ink-2)}
-.pj{display:flex;align-items:center;gap:8px;margin:6px 0;font-weight:600}.ob-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line-2)}.ob-row span{flex:1;min-width:200px}
+.pj{display:flex;align-items:center;gap:8px;margin:6px 0;font-weight:600}.ob-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line-2)}.m-pend{margin:0 0 12px}.ob-row span{flex:1;min-width:200px}
 details.aide{margin-top:12px}details.aide summary{cursor:pointer;font-weight:700;min-height:40px;display:flex;align-items:center}details.aide li{margin:6px 0}
 .linkbtn{background:none;border:0;padding:6px 6px;margin-left:2px;min-height:36px;color:var(--ep);font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
 .ct-sum{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0 0 10px}.ct-sum dt{color:var(--muted)}.ct-sum dd{margin:0;min-width:0;overflow-wrap:anywhere}
@@ -277,6 +277,8 @@ details.aide{margin-top:12px}details.aide summary{cursor:pointer;font-weight:700
 .pick-chips{flex-wrap:wrap;overflow:visible;padding:12px 0 6px}.pick-chips .chip{min-height:42px;font-size:15px}
 .pick-cat{font-family:"Barlow Condensed","Barlow",sans-serif;font-weight:700;font-size:19px;color:var(--ink-2);margin:16px 0 8px}.pick-cat:first-child{margin-top:4px}
 .btnrow .sp{flex:1}.xrow{display:flex;gap:6px;align-items:stretch}.xrow input{flex:1;min-width:0}.xrow .btn{flex:0 0 auto}
+/* téléphone : un numéro ou un mail suivi de deux boutons passe seul sur sa ligne, en entier */
+@media (max-width:600px){[data-ctwrap] .xrow:has(.ct-go){flex-wrap:wrap}[data-ctwrap] .xrow:has(.ct-go) input{flex:1 0 100%}}
 .xls-pick{display:grid!important;grid-template-columns:minmax(110px,40%) 1fr;gap:10px;text-align:left;justify-items:start}.xls-pick .xk{color:var(--muted);font-weight:500;font-size:14px}.xls-pick .xv{font-weight:600;overflow-wrap:anywhere}
 details.xls summary{gap:8px}
 .cst-card{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:14px}.cst-card .btnrow{margin:0}
@@ -310,7 +312,7 @@ details.xls summary{gap:8px}
 .ce-res button{display:inline-flex;align-items:center;gap:6px}
 .ce-avert{margin:6px 12px 0}
 .ce-hint{padding:6px 12px;font-size:15px;color:var(--ink-2);min-height:32px}
-.ce-stage{flex:1;min-height:110px;display:flex;align-items:center;justify-content:center;position:relative;background:var(--surface-2);border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2)}
+.ce-stage{flex:1;min-height:110px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:var(--surface-2);border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2)}
 .ce-cv{display:block;background:#fff;box-shadow:0 0 0 1px var(--line);touch-action:none}
 .ce-rotate{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;background:var(--surface-2)}
 .ce-mini{height:46px;padding:4px 40px;background:var(--surface-2)}.ce-mini canvas{width:100%;height:100%;display:block;touch-action:none;cursor:pointer}
@@ -318,10 +320,17 @@ details.xls summary{gap:8px}
 .ce-chip{min-height:48px;padding:6px 14px;border-radius:12px;border:2px solid var(--ink-2);background:var(--surface);color:var(--ink);font:inherit;font-size:16px;font-weight:600;cursor:pointer;white-space:nowrap}
 .ce-chip.lab{border-left-width:8px}.ce-chip.r-EU{border-left-color:#e00000}.ce-chip.r-EP{border-left-color:#00a050}.ce-chip.r-UN{border-left-color:#c0109a}.ce-chip.r-PRJ{border-left-color:#1d54c4}.ce-chip.r-BATI{border-left-color:#111}
 .ce-chip.mine{border-style:dashed;border-left-style:solid}.ce-chip.danger{color:var(--danger);border-color:var(--danger)}.ce-chip.type{background:var(--brand);color:var(--on-brand);border-color:var(--brand)}
-.ce-chip[aria-pressed="true"]{background:var(--ink);color:var(--surface)}.ce-lbl{align-self:center;font-weight:700;color:var(--ink-2)}
+.ce-chip[aria-pressed="true"]{background:var(--ink);color:var(--surface)}.ce-lbl{align-self:center;font-weight:700;color:var(--ink-2);white-space:nowrap;flex:0 0 auto}
 .ce-resbtn{display:flex;align-items:center;gap:10px}
+.ce .l-short{display:none}
 @media (max-width:700px){.ce-top .btn,.ce-tools .seg button{padding-left:10px;padding-right:10px}.ce-res svg{display:none}}
-@media (max-height:500px){.ce-head{flex-direction:row;align-items:center;overflow-x:auto;touch-action:pan-x}.ce-top,.ce-tools{flex:0 0 auto;flex-wrap:nowrap;padding:4px 6px}.ce-top .sp{display:none}.ce-top .btn,.ce-tools .seg button{min-height:44px}
+/* téléphone à l'horizontale : une seule rangée, l'essentiel d'abord (Terminé, réseau, outil), libellés courts ; le reste suit, la rangée défile au besoin */
+@media (max-height:500px){.ce-head{flex-direction:row;align-items:center;gap:4px;padding:4px 6px;overflow-x:auto;touch-action:pan-x}.ce-top,.ce-tools{display:contents}.ce-top .sp{display:none}.ce-top .btn,.ce-tools .seg button{min-height:44px}
+  .ce-head [data-ce="done"]{order:1}.ce-res{order:2}.ce-outils{order:3}.ce-head [data-ce="undo"]{order:4}.ce-head [data-ce="redo"]{order:5}.ce-head [data-ce="zoom"]{order:6}.ce-more{order:7}
+  .ce-head .btn,.ce-head .seg{flex:0 0 auto}.ce-saved{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .ce .l-long{display:none}.ce .l-short{display:inline}.ce-res svg{display:none}.ce-head .btn,.ce-head .seg button{padding-left:9px;padding-right:9px}
+  .ce-res .r-EU{box-shadow:inset 0 -4px 0 #e00000}.ce-res .r-EP{box-shadow:inset 0 -4px 0 #00a050}.ce-res .r-UN{box-shadow:inset 0 -4px 0 #c0109a}.ce-res .r-PRJ{box-shadow:inset 0 -4px 0 #1d54c4}.ce-res .r-BATI{box-shadow:inset 0 -4px 0 #111}
+  .ce-outils button[aria-pressed="false"]{display:none}.ce-outils button[aria-pressed="true"]::after{content:" \21C4"}
   .ce-hint{display:none}.ce-band{flex-wrap:nowrap;max-height:none;overflow-x:auto;overflow-y:hidden;touch-action:pan-x}.ce-chip{min-height:44px}.ce-mini{height:38px}}
 .croq-wrap{position:relative;width:100%;aspect-ratio:520/124;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;touch-action:none}.croq-wrap canvas{position:absolute;inset:0;width:100%;height:100%}.croq-fg{touch-action:none}
 .modal:has(.croq-wrap){width:min(980px,100%)}
@@ -356,6 +365,8 @@ var $ = function(s, r){ return (r || document).querySelector(s); };
 var $$ = function(s, r){ return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function nl2br(s){ return esc(s).replace(/\n/g, '<br>'); }
+/* Image tirée des données (croquis, signatures) : seule une image PNG ou JPEG intégrée est admise, jamais une adresse ni du code (sauvegarde reçue d'un tiers) */
+function imgData(s){ s = String(s || ''); return /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+\/]*={0,2}$/.test(s) ? s : ''; }
 function uid(){ try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch(e){} return 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
 function nowISO(){ return new Date().toISOString(); }
 function pad2(n){ return String(n).padStart(2, '0'); }
@@ -498,14 +509,14 @@ function anomsOf(vid){ return S.anoms.filter(function(a){ return a.visiteId === 
 function revokeUrls(){ S.urls.forEach(function(u){ try { URL.revokeObjectURL(u); } catch(e){} }); S.urls = []; }
 function touchEtude(){ if (!S.etude) return; S.etude.updatedAt = nowISO(); saveLater('etudes', S.etude); }
 function byCreated(a, b){ return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0; }
+/* L'étude et ses dossiers changent ensemble : un autre affichage ne voit jamais la nouvelle étude avec les dossiers de la précédente (ou aucun) */
 async function loadEtude(eid){
   var e = await DB.get('etudes', eid);
   if (!e) return false;
-  S.etude = e;
-  S.visites = await DB.byIndex('visites', 'etudeId', eid);
-  S.anoms = await DB.byIndex('anomalies', 'etudeId', eid);
-  S.visites.sort(function(a, b){ return ((a.ordre || 0) - (b.ordre || 0)) || natCmp(a.numero, b.numero); });
-  S.anoms.sort(byCreated);
+  var vs = await DB.byIndex('visites', 'etudeId', eid), an = await DB.byIndex('anomalies', 'etudeId', eid);
+  vs.sort(function(a, b){ return ((a.ordre || 0) - (b.ordre || 0)) || natCmp(a.numero, b.numero); });
+  an.sort(byCreated);
+  S.etude = e; S.visites = vs; S.anoms = an;
   S.search = ''; S.filter = 'toutes'; S.lpEtude = null;
   return true;
 }
@@ -519,7 +530,7 @@ function issuesOf(v, list){
     if (!v.dateVisite) out.push({msg: 'Date de visite manquante.'});
     if (constatContenu(v) && !v.constat.signeLe) out.push({msg: 'Constat de visite commencé mais non validé (signatures).'});
   }
-  if (v.constat && v.constat.signeLe && v.constat.fige && constatEval(v, list).changed) out.push({msg: 'Le dossier a changé depuis la signature du constat (statut, date, identité, anomalies ou installations).'});
+  if (v.constat && v.constat.signeLe && v.constat.fige){ var ce = constatEval(v, list); if (ce.changed) out.push({msg: 'Le dossier a changé depuis la signature du constat (' + ce.changeWhy.join(', ') + ').'}); }
   list.forEach(function(a, i){
     var n = 'A' + (i + 1);
     if (a.brouillon) out.push({aid: a.id, msg: n + ' : anomalie non validée.'});
@@ -656,8 +667,12 @@ async function render(){
     if (!sameHash){ S.lastHash = S.curHash; S.curHash = location.hash || '#/'; }
     S.route = route;
     if (route.eid && (!S.etude || S.etude.id !== route.eid)){
-      if (!(await loadEtude(route.eid))){ toast('Étude introuvable sur cet appareil.'); S.route = {name: 'home'}; goUpTo('#/'); return; }
+      var found = await loadEtude(route.eid);
+      if (seq !== renderSeq) return;
+      if (!found){ toast('Étude introuvable sur cet appareil.'); S.route = {name: 'home'}; goUpTo('#/'); return; }
     }
+    /* un affichage dépassé par un plus récent ne décide plus rien : il ne doit jamais remonter l'arborescence à sa place */
+    if (seq !== renderSeq) return;
     if ((route.name === 'visit' || route.name === 'anom' || route.name === 'fiche' || route.name === 'constat' || route.name === 'contact') && !curVisit()){ goUpTo('#/e/' + route.eid); return; }
     if (route.name === 'anom' && !curAnom()){ goUpTo('#/e/' + route.eid + '/v/' + route.vid); return; }
     if (seq !== renderSeq) return;
@@ -1160,35 +1175,51 @@ var QUALITES = ['Locataire', 'Occupant', 'Gardien', 'Syndic', 'Agence immobiliè
 var CONTACT_LIB = {nom: 'nom', domicile: 'adresse', domVille: 'ville', tel: 'téléphone', mail: 'mail'};
 /* Valeur comparable : chiffres seuls pour un téléphone, mail en minuscules sans espaces, sinon espaces réduits et minuscules */
 function ctcNorm(k, s){ s = String(s == null ? '' : s); if (/^(tel|tel2|rTel)$/.test(k)) return s.replace(/\D/g, ''); if (/^(mail|rMail)$/.test(k)) return s.replace(/\s+/g, '').toLowerCase(); return s.replace(/\s+/g, ' ').trim().toLowerCase(); }
+/* Égalité stricte, espaces près : une correction de la seule casse (« M. DUPONT » → « M. Dupont ») est une vraie correction, gardée */
+function ctcExact(k, a, b){ if (/^(tel|tel2|rTel|mail|rMail)$/.test(k)) return ctcNorm(k, a) === ctcNorm(k, b); var f = function(x){ return String(x == null ? '' : x).replace(/\s+/g, ' ').trim(); }; return f(a) === f(b); }
 function ctcHas(v, k){ return !!(v && v.contact && Object.prototype.hasOwnProperty.call(v.contact, k)); }
 function ctcImp(v, k){ var f = CONTACT_IMP[k]; return f && v && v[f] != null ? String(v[f]) : ''; }
 function ctc(v, k){
   if (v && v.contact && v.contact.domIdem && (k === 'domicile' || k === 'domVille')) return String((k === 'domicile' ? v.adresse : v.commune) || '');
   return ctcHas(v, k) ? String(v.contact[k] == null ? '' : v.contact[k]) : ctcImp(v, k);
 }
-/* Signataire proposé au constat (« Je, soussigné ») : la personne rencontrée avec sa qualité, sinon le propriétaire */
+/* Signataire proposé au constat (« Je, soussigné ») : la personne rencontrée avec sa qualité, sinon le propriétaire ;
+   une autre personne que le propriétaire, sans nom, ne donne aucun nom (jamais celui du propriétaire absent) */
 function signataireAuto(v){
-  if (ctc(v, 'rencontre') === 'autre'){ var n = ctc(v, 'rNom').trim(), q = ctc(v, 'rQualite').trim(); if (n) return n + (q ? ', ' + q.toLowerCase() : ''); }
+  if (ctc(v, 'rencontre') === 'autre'){ var n = ctc(v, 'rNom').trim(), q = ctc(v, 'rQualite').trim(); return n ? n + (q ? ', ' + qualiteTxt(q) : '') : ''; }
   return ctc(v, 'nom').trim();
 }
-var CTC_EXPORT_HEAD = ['Tél. 2', 'Personne rencontrée', 'Qualité', 'Tél. personne rencontrée', 'Mail personne rencontrée', 'Coordonnées corrigées sur le terrain', 'Constat envoyé le'];
+/* Qualité dans une phrase : « Locataire » devient « locataire » ; sigles et noms propres restent tels quels (« gérant de la SCI Les Lilas ») */
+function qualiteTxt(q){ q = String(q || '').trim(); return /^[A-ZÀ-Þ][a-zà-ÿ]/.test(q) ? q.charAt(0).toLowerCase() + q.slice(1) : q; }
+var CTC_EXPORT_HEAD = ['Tél. 2', 'Personne rencontrée', 'Qualité', 'Tél. personne rencontrée', 'Mail personne rencontrée', 'Coordonnées corrigées sur le terrain', 'Envoi du constat par mail'];
 function ctcExport(v){
   var r = ctc(v, 'rencontre');
   return [fmtTel(fixTel(ctc(v, 'tel2'))), r === 'proprietaire' ? 'le propriétaire' : r === 'autre' ? ctc(v, 'rNom') : '', r === 'autre' ? ctc(v, 'rQualite') : '',
     r === 'autre' ? fmtTel(fixTel(ctc(v, 'rTel'))) : '', r === 'autre' ? ctc(v, 'rMail') : '', ctcCorriges(v), envoiExport(v)];
 }
-function envoiExport(v){ var e = lastEnvoi(v), c = v.constat; return e && c && c.signeLe && e.signeLe === c.signeLe ? fmtDT(e.le) + (e.mode === 'direct' ? ' (envoi direct)' : ' (messagerie)') : ''; }
+/* « envoyé » seulement pour un envoi direct confirmé par le service ; la messagerie n'est qu'un mail préparé, son envoi n'est pas vérifiable */
+function envoiExport(v){ var e = lastEnvoi(v), c = v.constat; return e && c && c.signeLe && e.signeLe === c.signeLe ? (e.mode === 'direct' ? 'envoyé le ' + fmtDT(e.le) : 'préparé dans la messagerie le ' + fmtDT(e.le) + ' (envoi non vérifié)') : ''; }
 function ctcCorriges(v){ return Object.keys(CONTACT_IMP).filter(function(k){ return ctcHas(v, k); }).map(function(k){ return CONTACT_LIB[k]; }).concat(v.contact && v.contact.domIdem ? ['domicile = adresse du branchement'] : []).join(', '); }
-/* Mise à jour du tableau : une correction redevenue égale au tableau disparaît ; renvoie le nombre de corrections gardées alors que le tableau a changé depuis */
+/* Mise à jour du tableau : une correction redevenue égale au tableau disparaît ; un tableau qui la rejoint à la casse près est noté sans bruit ;
+   renvoie le nombre de corrections gardées alors que le tableau a changé depuis (domicile = adresse du branchement compris) */
 function reconcileContact(v){
-  var o = v.contact, b = v.contactBase || {}, moved = 0;
+  var o = v.contact, b, moved = 0;
   if (!o) return 0;
+  b = v.contactBase = v.contactBase || {};
   Object.keys(CONTACT_IMP).forEach(function(k){
     if (!ctcHas(v, k)) return;
-    if (ctcNorm(k, o[k]) === ctcNorm(k, ctcImp(v, k))){ delete o[k]; delete b[k]; return; }
-    if (Object.prototype.hasOwnProperty.call(b, k) && ctcNorm(k, b[k]) !== ctcNorm(k, ctcImp(v, k))) moved++;
+    var imp = ctcImp(v, k);
+    if (ctcExact(k, o[k], imp)){ delete o[k]; delete b[k]; return; }
+    if (ctcNorm(k, o[k]) === ctcNorm(k, imp)){ b[k] = imp; return; }
+    if (Object.prototype.hasOwnProperty.call(b, k) && ctcNorm(k, b[k]) !== ctcNorm(k, imp)) moved++;
   });
+  if (o.domIdem){ if (!b.domIdem) b.domIdem = [ctcImp(v, 'domicile'), ctcImp(v, 'domVille')]; else if (domIdemMoved(v)) moved++; }
   return moved;
+}
+/* « Le propriétaire habite à l'adresse du branchement » coché, et le tableau donne depuis un autre domicile */
+function domIdemMoved(v){
+  var b = v.contactBase || {}, d = ctcImp(v, 'domicile'), dv = ctcImp(v, 'domVille');
+  return !!(v.contact && v.contact.domIdem && b.domIdem && (d.trim() || dv.trim()) && (ctcNorm('domicile', b.domIdem[0]) !== ctcNorm('domicile', d) || ctcNorm('domVille', b.domIdem[1]) !== ctcNorm('domVille', dv)));
 }
 function rencontreTxt(v){
   var r = ctc(v, 'rencontre');
@@ -1198,18 +1229,22 @@ function rencontreTxt(v){
   return [ctc(v, 'rNom'), ctc(v, 'rQualite'), t ? fmtTel(t) : '', ctc(v, 'rMail')].map(function(x){ return String(x).trim(); }).filter(Boolean).join(', ') || 'une autre personne';
 }
 function mailOk(s){ return /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(String(s || '').trim()); }
+/* Une case peut porter plusieurs adresses (« a@x.fr ; b@y.fr », « a@x.fr (fils) ») ou plusieurs numéros (« 06 01 02 03 04 / 01 45 45 45 45 ») */
+function mailsDe(s){ var seen = {}; return String(s || '').split(/[\s,;\/()<>]+/).filter(function(x){ var k = x.toLowerCase(); if (!mailOk(x) || seen[k]) return false; seen[k] = 1; return true; }); }
+function telsDe(s){ var t = fixTel(s), m = t.match(/(?:\+\d{2,3}[\s.\-]?|0)[1-9](?:[\s.\-]?\d{2}){4}/g); return m || (/^\+?[\d\s.\-()]{6,}$/.test(t) ? [t] : []); }
 function ctLink(kind, val){
-  var t = kind === 'tel' ? fixTel(val) : '';
-  if (t) return {href: 'tel:' + telHref(t), html: svg(I.phone, 18) + 'Appeler'};
-  if (kind === 'email' && mailOk(val)) return {href: 'mailto:' + String(val).trim(), html: svg(I.mail, 18) + 'Écrire'};
+  var ts = kind === 'tel' ? telsDe(val) : [], ms = kind === 'email' ? mailsDe(val) : [];
+  if (ts.length) return {href: 'tel:' + telHref(ts[0]), html: svg(I.phone, 18) + (ts.length > 1 ? 'Appeler le 1er' : 'Appeler')};
+  if (ms.length) return {href: 'mailto:' + ms.join(','), html: svg(I.mail, 18) + 'Écrire'};
   return null;
 }
 function ctHint(v, k){
   if (!CONTACT_IMP[k] || !ctcHas(v, k) || ctcNorm(k, ctc(v, k)) === ctcNorm(k, ctcImp(v, k))) return '';
-  var imp = ctcImp(v, k).trim(), b = v.contactBase || {}, moved = Object.prototype.hasOwnProperty.call(b, k) && ctcNorm(k, b[k]) !== ctcNorm(k, imp);
-  if (!imp) return 'Ajouté sur le terrain (vide dans le tableau).';
+  var imp = ctcImp(v, k).trim(), b = v.contactBase || {}, hasB = Object.prototype.hasOwnProperty.call(b, k), moved = hasB && ctcNorm(k, b[k]) !== ctcNorm(k, imp);
+  var keep = ' <button type="button" class="linkbtn" data-act="ct-keep" data-k="' + k + '">Garder ma correction</button>';
+  if (!imp) return moved ? '<strong>Le tableau a vidé cette case depuis votre correction</strong> (avant : ' + esc(b[k]) + ').' + keep : 'Ajouté sur le terrain (vide dans le tableau).';
   var back = ' <button type="button" class="linkbtn" data-act="ct-reset" data-k="' + k + '">Reprendre</button>';
-  if (moved) return '<strong>Le tableau a changé depuis votre correction</strong> : ' + esc(imp) + back + ' <button type="button" class="linkbtn" data-act="ct-keep" data-k="' + k + '">Garder ma correction</button>';
+  if (moved) return '<strong>Le tableau a changé depuis votre correction</strong> : ' + esc(imp) + back + keep;
   return (ctc(v, k).trim() ? 'Tableau : ' : 'Effacé sur le terrain. Tableau : ') + esc(imp) + back;
 }
 function ctField(v, k, label, kind){
@@ -1219,7 +1254,8 @@ function ctField(v, k, label, kind){
     + (kind === 'qualite' ? ' list="dl-qualite"' : '') + (kind === 'email' ? ' autocapitalize="off" spellcheck="false"' : '') + (lock ? ' disabled' : '') + '>'
     + ((v.excel || []).length && !lock ? '<button type="button" class="btn sm" data-act="ct-xls" data-k="' + k + '" title="Reprendre une valeur du tableau Excel">' + svg(I.doc, 18) + 'Tableau</button>' : '')
     + (ln ? '<a class="btn sm ct-go" href="' + esc(ln.href) + '">' + ln.html + '</a>' : '') + '</div>'
-    + (hint ? '<div class="ct-imp">' + hint + '</div>' : '') + '</div>';
+    + (hint ? '<div class="ct-imp">' + hint + '</div>' : '')
+    + (kind === 'email' && String(val).trim() && !mailsDe(val).length ? '<div class="ct-imp">Adresse non reconnue : vérifiez-la (par exemple nom@domaine.fr).</div>' : '') + '</div>';
 }
 /* Pendant la frappe : le rappel du tableau et le lien Appeler / Écrire suivent la saisie, sans redessiner le champ */
 function ctFieldUpdate(w, v){
@@ -1230,7 +1266,7 @@ function ctFieldUpdate(w, v){
 /* Correction d'un champ : égale au tableau (à la mise en forme près), elle disparaît ; sinon on garde aussi la valeur du tableau du moment, pour signaler un changement du tableau plus tard */
 function putContact(v, k, val){
   v.contact = v.contact || {};
-  if (val === undefined || (CONTACT_IMP[k] && ctcNorm(k, val) === ctcNorm(k, ctcImp(v, k)))){ delete v.contact[k]; if (v.contactBase) delete v.contactBase[k]; return; }
+  if (val === undefined || (CONTACT_IMP[k] && ctcExact(k, val, ctcImp(v, k)))){ delete v.contact[k]; if (v.contactBase) delete v.contactBase[k]; return; }
   if (CONTACT_IMP[k] && !ctcHas(v, k)){ v.contactBase = v.contactBase || {}; v.contactBase[k] = ctcImp(v, k); }
   v.contact[k] = val;
 }
@@ -1252,6 +1288,8 @@ function contactHtml(){
   if (v.constat && v.constat.signeLe) h += '<p class="inline-warn">Constat signé le ' + esc(fmtDT(v.constat.signeLe)) + ' : il garde les coordonnées en vigueur à la signature. Une correction faite ici sera signalée comme un changement depuis la signature.</p>';
   h += '<section class="card"><h2 class="h2">Propriétaire</h2>' + ctField(v, 'nom', 'Nom et prénom')
     + '<label class="check"><input type="checkbox" data-act="ct-domidem"' + (v.contact && v.contact.domIdem ? ' checked' : '') + '><span>Le propriétaire habite à l\'adresse du branchement</span></label>'
+    + (domIdemMoved(v) ? '<div class="ct-imp"><strong>Le tableau indique depuis un autre domicile</strong> : ' + esc([ctcImp(v, 'domicile'), ctcImp(v, 'domVille')].filter(function(x){ return String(x).trim(); }).join(', '))
+      + ' <button type="button" class="linkbtn" data-act="ct-domtab">Reprendre</button> <button type="button" class="linkbtn" data-act="ct-domkeep">Garder l\'adresse du branchement</button></div>' : '')
     + ctField(v, 'domicile', 'Adresse du propriétaire') + ctField(v, 'domVille', 'Code postal et ville')
     + ctField(v, 'tel', 'Téléphone', 'tel') + ctField(v, 'tel2', 'Autre téléphone', 'tel') + ctField(v, 'mail', 'Mail', 'email') + '</section>';
   h += '<section class="card"><h2 class="h2">Personne rencontrée lors de la visite</h2><div class="seg" role="group" aria-label="Personne rencontrée">'
@@ -1277,8 +1315,8 @@ function visitHtml(){
     + '<nav class="pn" aria-label="Dossiers voisins">' + (prev ? '<a class="btn sm" href="' + base + esc(prev.id) + '" aria-label="Dossier précédent, ' + esc(prev.numero) + '">' + svg(I.back, 18) + esc(prev.numero) + '</a>' : '')
     + (next ? '<a class="btn sm" href="' + base + esc(next.id) + '" aria-label="Dossier suivant, ' + esc(next.numero) + '">' + esc(next.numero) + svg(I.next, 18) + '</a>' : '') + '</nav></div>';
   var dom = ficheDomicile(v), c = [], ch = '';
-  ['tel', 'tel2'].forEach(function(k){ var t = fixTel(ctc(v, k)); if (t) c.push('<a href="tel:' + esc(telHref(t)) + '">' + esc(fmtTel(t)) + '</a>'); });
-  if (ctc(v, 'mail')) c.push('<a href="mailto:' + esc(ctc(v, 'mail')) + '">' + esc(ctc(v, 'mail')) + '</a>');
+  ['tel', 'tel2'].forEach(function(k){ var val = ctc(v, k), ts = telsDe(val); if (ts.length) ts.forEach(function(t){ c.push('<a href="tel:' + esc(telHref(t)) + '">' + esc(fmtTel(t)) + '</a>'); }); else if (val.trim()) c.push(esc(val)); });
+  var ms = mailsDe(ctc(v, 'mail')); if (ms.length) ms.forEach(function(m){ c.push('<a href="mailto:' + esc(m) + '">' + esc(m) + '</a>'); }); else if (ctc(v, 'mail').trim()) c.push(esc(ctc(v, 'mail')));
   if (c.length) ch += '<div>' + c.join(', ') + '</div>';
   if (dom) ch += '<div class="muted">Domicile : ' + esc(dom) + '</div>';
   var pr = rencontreTxt(v); if (pr) ch += '<div class="muted">Personne rencontrée : ' + esc(pr) + '</div>';
@@ -1525,7 +1563,15 @@ async function ficheViewHtml(){
 }
 var PDFC = {violet: [153, 51, 255], bleu: [0, 102, 255], bleuVal: [51, 51, 255], bleuTitre: [0, 112, 192], rouge: [255, 0, 0], vert: [0, 176, 80], orange: [212, 101, 10], gris: [128, 128, 128], noir: [0, 0, 0]};
 function pdfLibOk(){ if (!(window.jspdf && window.jspdf.jsPDF)){ toast('Le module PDF n\'est pas chargé. Rouvrez l\'application avec une connexion.', 5000); return false; } return true; }
-function pdfText(s){ return String(s == null ? '' : s).replace(/\u2192/g, '->').replace(/\u2212/g, '-').replace(/\t/g, ' ').replace(/[^\n\u0020-\u007E\u00A0-\u00FF\u0152\u0153\u0178\u2013\u2014\u2018\u2019\u201C\u201D\u2022\u2026\u20AC]/g, ''); }
+/* Texte du PDF : la police n'a que le latin de l'Europe de l'Ouest ; les autres lettres sont translittérées (« Şahin Yılmaz » → « Sahin Yilmaz », « Łucja » → « Lucja »)
+   lettre par lettre, sans toucher aux accents français ; seul ce qui n'a aucun équivalent est retiré */
+var PDF_TRANS = {'\u0131': 'i', '\u0130': 'I', '\u0142': 'l', '\u0141': 'L', '\u0111': 'd', '\u0110': 'D', '\u0127': 'h', '\u0126': 'H', '\u0167': 't', '\u0166': 'T', '\u2009': ' ', '\u202F': ' ', '\u2010': '-', '\u2011': '-'};
+function pdfText(s){
+  return String(s == null ? '' : s).normalize('NFC').replace(/\u2192/g, '->').replace(/\u2212/g, '-').replace(/\t/g, ' ').replace(/[^\n\u0020-\u007E\u00A0-\u00FF\u0152\u0153\u0178\u2013\u2014\u2018\u2019\u201C\u201D\u2022\u2026\u20AC]/g, function(c){
+    if (PDF_TRANS[c] != null) return PDF_TRANS[c];
+    var b = c.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); return /^[\u0020-\u007E\u00A0-\u00FF]+$/.test(b) ? b : '';
+  });
+}
 function newPdf(){
   var doc = new window.jspdf.jsPDF({unit: 'pt', format: 'a4', compress: true}), F = (window.VEDE_ASSETS && window.VEDE_ASSETS.fonts) || null;
   doc.__font = 'helvetica';
@@ -1694,7 +1740,7 @@ function newConstat(v){
 function migrerConstat(c, v){
   if (!c || c.signeLe || c.v >= 3) return c;
   if (c.v >= 2){ /* v3 : le signataire devient automatique ; un nom recopié du tableau par les versions précédentes lui est rendu */
-    if (v && String(c.soussigne || '').trim() && String(c.soussigne).trim() === String(v.nom || '').trim()) c.soussigne = '';
+    if (v && String(c.soussigne || '').trim() && String(c.soussigne).trim() === String(v.nom || '').trim()){ if (c.sigProp) c.soussigneAuto = true; else c.soussigne = ''; }
     c.v = 3; return c;
   }
   var sg = null, i; for (i = 0; i < c.rows.length; i++) if (c.rows[i].id === 'siphon') sg = c.rows[i];
@@ -1703,7 +1749,7 @@ function migrerConstat(c, v){
     var k = -1; for (i = 0; i < c.rows.length; i++) if (c.rows[i].std && c.rows[i].groupe === 'EP') k = i;
     c.rows.splice(k + 1, 0, {id: 'siphon_sol', groupe: 'EP', label: 'Siphon de sol', std: true, nb: '', raccord: '', conforme: '', methodes: []});
   }
-  if (v && String(c.soussigne || '').trim() && String(c.soussigne).trim() === String(v.nom || '').trim()) c.soussigne = '';
+  if (v && String(c.soussigne || '').trim() && String(c.soussigne).trim() === String(v.nom || '').trim()){ if (c.sigProp) c.soussigneAuto = true; else c.soussigne = ''; }
   c.v = 3; return c;
 }
 function constatOf(v){ if (!v.constat) v.constat = newConstat(v); return migrerConstat(v.constat, v); }
@@ -1797,9 +1843,13 @@ function constatEval(v, list){
        Le contenu attesté (statut, date, nom, adresse du branchement) met le dossier « à compléter » ; les coordonnées (domicile, téléphone, mail) font seulement l'objet d'une mention */
     var liveConf = {}; rows.forEach(function(x){ liveConf[x.r.id] = rowActive(x.r) ? x.conf : ''; });
     var FV = F.visite || {}, vk = function(k){ return CONTACT_IMP[k] ? ctc(v, k) : v[k]; };
-    var idChange = ['statut', 'dateVisite', 'nom', 'adresse', 'commune'].some(function(k){ return idCmp(k, FV[k]) !== idCmp(k, vk(k)); });
-    E.coordChange = ['domicile', 'domVille', 'tel', 'mail'].some(function(k){ return idCmp(k, FV[k]) !== idCmp(k, vk(k)); });
-    E.changed = idChange || E.conclusion !== F.conclusion || JSON.stringify(liveConf) !== JSON.stringify(F.conf) || JSON.stringify(precos) !== JSON.stringify(F.precos) || E.obsText !== F.observations || E.reservesText !== F.reserves;
+    var dif = function(k){ return idCmp(k, FV[k]) !== idCmp(k, vk(k)); }, why = [];
+    E.coordChange = ['domicile', 'domVille', 'tel', 'mail'].some(dif);
+    /* ce qui a changé, dans l'ordre du constat, pour le dire au lieu d'un message général */
+    if (dif('statut')) why.push('statut de la visite'); if (dif('dateVisite')) why.push('date de visite'); if (dif('nom')) why.push('nom du propriétaire'); if (dif('adresse') || dif('commune')) why.push('adresse du branchement');
+    if (JSON.stringify(liveConf) !== JSON.stringify(F.conf)) why.push('installations ou anomalies'); if (E.conclusion !== F.conclusion) why.push('conclusion');
+    if (JSON.stringify(precos) !== JSON.stringify(F.precos)) why.push('préconisations'); if (E.obsText !== F.observations || E.reservesText !== F.reserves) why.push('observations');
+    E.changeWhy = why; E.changed = why.length > 0;
     rows.forEach(function(x){ x.conf = F.conf[x.r.id] || ''; });
     E.conclusion = F.conclusion; E.precos = F.precos; E.meth = F.meth; E.obsText = F.observations; E.reservesText = F.reserves; E.fige = F;
   }
@@ -1865,7 +1915,7 @@ function constatHtml(){
   var v0 = curVisit(), list = anomsOf(v0.id), E = constatEval(v0, list), c = E.c, lock = !!c.signeLe, dis = lock ? ' disabled' : '', h = '', v = lock ? constatFige(v0) : v0;
   h += '<div class="ed-head"><h2 class="h2">Constat de visite, dossier ' + esc(v.numero) + '</h2><p class="muted">Formulaire « Contrôle de Branchement Particulier » du Département, rempli ici puis signé sur la tablette. Le PDF reprend sa mise en page.</p></div>';
   if (lock) h += '<div class="lockbar">' + svg(I.check) + '<span>Constat signé le ' + esc(fmtDT(c.signeLe)) + '. Il n\'est plus modifiable.</span><button type="button" class="btn sm" data-act="c-unlock">Modifier</button></div>'
-    + (E.changed ? '<p class="inline-warn">Le dossier a changé depuis la signature (anomalies ou installations). Le constat reste tel qu\'il a été signé ; touchez « Modifier » pour le mettre à jour et le faire signer à nouveau.</p>' : '')
+    + (E.changed ? '<p class="inline-warn">Le dossier a changé depuis la signature (' + esc(E.changeWhy.join(', ')) + '). Le constat reste tel qu\'il a été signé ; touchez « Modifier » pour le mettre à jour et le faire signer à nouveau.</p>' : '')
     + (E.coordChange ? '<p class="muted small">Coordonnées du propriétaire modifiées depuis la signature : le constat signé garde celles du jour de la signature.</p>' : '');
   h += '<section class="card"><div class="grid2">' + cFieldX('Demande du', 'demande', c.demande, 'jj/mm/aaaa', dis)
     + '<div class="field"><span class="lbl">Visite du</span><div class="ro">' + (v.dateVisite ? esc(fmtDate(v.dateVisite)) : '<span class="muted">à renseigner dans le dossier</span>') + '</div></div></div>'
@@ -1914,8 +1964,10 @@ function constatHtml(){
   h += '<section class="sec"><h2 class="h2">Signatures</h2>' + (iss.length && !lock ? '<div class="issues" role="status"><div class="it">' + svg(I.warn) + 'À vérifier avant de signer</div><ul>' + iss.map(function(m){ return '<li>' + esc(m) + '</li>'; }).join('') + '</ul></div>' : (lock ? '' : '<p class="okline">' + svg(I.check) + 'Constat complet, prêt à signer</p>'))
     + cFieldX('Je, soussigné', 'soussigne', lock ? E.soussigne : c.soussigne, (!lock && signataireAuto(v0)) || 'nom du propriétaire ou de son représentant', dis)
     + (!lock && !String(c.soussigne || '').trim() && signataireAuto(v0) ? '<p class="muted small">Champ vide : « ' + esc(signataireAuto(v0)) + ' » sera imprimé, d\'après la fiche contact.</p>' : '')
-    + '<div class="sigs"><div class="sig"><span class="lbl">Signature du technicien</span><div class="sig-box">' + (c.sigTech ? '<img src="' + c.sigTech + '" alt="Signature du technicien">' : '<span class="muted">Non signé</span>') + '</div><button type="button" class="btn" data-act="c-sign" data-who="tech"' + dis + '>' + (c.sigTech ? 'Refaire' : 'Signer') + '</button></div>'
-    + '<div class="sig"><span class="lbl">Signature du propriétaire</span><div class="sig-box">' + (c.sigProp ? '<img src="' + c.sigProp + '" alt="Signature du propriétaire">' : '<span class="muted">Non signé</span>') + '</div><button type="button" class="btn" data-act="c-sign" data-who="prop"' + dis + '>' + (c.sigProp ? 'Refaire' : 'Faire signer') + '</button></div></div>'
+    + (!lock && !String(c.soussigne || '').trim() && !signataireAuto(v0) && ctc(v0, 'rencontre') === 'autre' ? '<p class="muted small">La personne rencontrée n\'a pas de nom dans la fiche contact : saisissez-le ici ou dans la fiche contact.</p>' : '')
+    + (!lock && c.soussigneAuto && c.sigProp && signataireAuto(v0) && signataireAuto(v0) !== String(c.soussigne || '').trim() ? '<p class="muted small">La fiche contact indique maintenant « ' + esc(signataireAuto(v0)) + ' ». Le nom imprimé reste celui de la personne qui a signé ; pour le changer, faites signer à nouveau.</p>' : '')
+    + '<div class="sigs"><div class="sig"><span class="lbl">Signature du technicien</span><div class="sig-box">' + (imgData(c.sigTech) ? '<img src="' + imgData(c.sigTech) + '" alt="Signature du technicien">' : '<span class="muted">Non signé</span>') + '</div><button type="button" class="btn" data-act="c-sign" data-who="tech"' + dis + '>' + (c.sigTech ? 'Refaire' : 'Signer') + '</button></div>'
+    + '<div class="sig"><span class="lbl">Signature du propriétaire</span><div class="sig-box">' + (imgData(c.sigProp) ? '<img src="' + imgData(c.sigProp) + '" alt="Signature du propriétaire">' : '<span class="muted">Non signé</span>') + '</div><button type="button" class="btn" data-act="c-sign" data-who="prop"' + dis + '>' + (c.sigProp ? 'Refaire' : 'Faire signer') + '</button></div></div>'
     + (!lock && c.sigTech && (c.sigProp || constatNonEffectue(v)) ? '<button type="button" class="btn primary big wide" data-act="c-lock">' + svg(I.check) + 'Valider le constat signé</button>' : '') + '</section>';
   h += '<div class="btnrow sec"><button type="button" class="btn primary" data-act="dl-constat" data-vid="' + esc(v.id) + '">' + svg(I.download) + 'Constat PDF</button>'
     + (lock ? '<button type="button" class="btn primary" data-act="c-mail" data-vid="' + esc(v.id) + '">' + svg(I.mail) + 'Envoyer par mail</button>' : '') + '<a class="btn" href="#/e/' + esc(S.etude.id) + '/v/' + esc(v.id) + '">Retour au dossier</a>'
@@ -1928,7 +1980,7 @@ function setPath(o, path, val){ var p = path.split('.'), t = o; for (var i = 0; 
 function getPath(o, path){ return path.split('.').reduce(function(t, k){ return t == null ? undefined : t[k]; }, o); }
 function onConstatField(t, commit){
   var v = curVisit(); if (!v) return; var c = constatOf(v); if (c.signeLe) return;
-  if (t.dataset.cf) setPath(c, t.dataset.cf, t.value);
+  if (t.dataset.cf){ setPath(c, t.dataset.cf, t.value); if (t.dataset.cf === 'soussigne') delete c.soussigneAuto; }
   else if (t.dataset.cr){ var r = rowById(c, t.dataset.row); if (!r) return; r[t.dataset.cr] = t.dataset.cr === 'nb' ? t.value.replace(/[^\d]/g, '') : t.value; }
   else if (t.dataset.cp){ c.precos[t.dataset.cp] = t.checked; }
   constatTouch(v);
@@ -1986,8 +2038,8 @@ function croquisTemplate(ctx, k, ox, oy){
 var CROQ_RES = {
   EU: {lib: 'EU', nom: 'eaux usées', col: '#e00000', txt: '#c20000', w: 1.4},
   EP: {lib: 'EP', nom: 'eaux pluviales', col: '#00a050', txt: '#00813b', w: 1.4},
-  UN: {lib: 'Unitaire', nom: 'unitaire', col: '#c0109a', txt: '#9c0a7c', w: 1.4},
-  PRJ: {lib: 'Projet', nom: 'projet', col: '#1d54c4', txt: '#1a4bb0', w: 1.8, dash: [4, 2.5]},
+  UN: {lib: 'Unitaire', court: 'UN', nom: 'unitaire', col: '#c0109a', txt: '#9c0a7c', w: 1.4},
+  PRJ: {lib: 'Projet', court: 'Proj.', nom: 'projet', col: '#1d54c4', txt: '#1a4bb0', w: 1.8, dash: [4, 2.5]},
   BATI: {lib: 'Bâti', nom: 'bâti et annotations', col: '#111111', txt: '#111111', w: 0.9}
 };
 var CROQ_RES_ORDER = ['EU', 'EP', 'UN', 'PRJ', 'BATI'];
@@ -2082,9 +2134,9 @@ function croqGabarit(){
   return croqGabUrl;
 }
 function croqPrevHtml(c, lock){
-  var has = !!(c && c.croquis);
+  var src = imgData(c && c.croquis), has = !!src;
   return '<div class="croq-prev' + (lock ? '' : ' tap') + '"' + (lock ? '' : ' data-act="c-croquis" role="button" tabindex="0" aria-label="' + (has ? 'Modifier le croquis' : 'Dessiner le croquis') + '"') + '>'
-    + '<img class="gab" src="' + croqGabarit() + '" alt="">' + (has ? '<img class="dess" src="' + c.croquis + '" alt="Croquis de position du branchement">' : '<span class="croq-vide">' + (lock ? 'Pas de croquis.' : 'Touchez pour dessiner') + '</span>') + '</div>';
+    + '<img class="gab" src="' + croqGabarit() + '" alt="">' + (has ? '<img class="dess" src="' + src + '" alt="Croquis de position du branchement">' : '<span class="croq-vide">' + (lock ? 'Pas de croquis.' : 'Touchez pour dessiner') + '</span>') + '</div>';
 }
 /* Étiquettes : celles du réseau courant (sq = regard ou boîte posés en petit carré), puis le contexte du dossier, en noir */
 var CROQ_LIB = {
@@ -2114,18 +2166,44 @@ function croqSuggest(it, c){
   if (y0 < CROQ_GAB.limiteY && y1 > CROQ_GAB.limiteY) return ['Branchement ' + nm, 'Canalisation ' + nm];
   return r === 'EP' ? ['Canalisation EP', 'Descente EP', 'Branchement EP'] : ['Canalisation ' + nm, 'Branchement ' + nm];
 }
-/* Pose automatique d'une étiquette le long d'un trait : au-dessus d'un trait horizontal (dans la partie gauche, libre, quand il la traverse), à droite d'un trait vertical */
-function croqPlaceLabel(it, s, sz){
+/* Étiquette d'un trait : le long de son plus grand segment, à la première place où elle ne masque (halo blanc compris) ni un autre trait, ni le gabarit, ni un texte */
+function croqPlaceLabel(it, s, sz, items){
   var p = it.pts, best = 0, bl = -1, i; for (i = 0; i + 3 < p.length; i += 2){ var l = Math.hypot(p[i + 2] - p[i], p[i + 3] - p[i + 1]); if (l > bl){ bl = l; best = i; } }
-  var x1 = p[best], y1 = p[best + 1], x2 = p[best + 2], y2 = p[best + 3], t = {t: 'x', s: s, sz: sz || 2, res: it.res}, w = croqTextW(t), h = CROQ_SZ[t.sz] * 1.2;
+  var x1 = p[best], y1 = p[best + 1], x2 = p[best + 2], y2 = p[best + 3], t = {t: 'x', s: s, sz: sz || 2, res: it.res}, w = croqTextW(t), h = CROQ_SZ[t.sz] * 1.2, lw = (CROQ_RES[it.res] || CROQ_RES.BATI).w, cands = [];
   if (Math.abs(x2 - x1) >= Math.abs(y2 - y1)){
     var xa = Math.min(x1, x2), xb = Math.max(x1, x2), cx = (xa + xb) / 2;
     if (xa < 190 && xb > 190) cx = Math.max(xa + w / 2 + 2, Math.min(95, 190 - w / 2 - 4));
-    var ym = y1 + (y2 - y1) * ((cx - x1) / ((x2 - x1) || 1));
-    t.x = cx; t.y = ym - h / 2 - 1.5 - (CROQ_RES[it.res] || CROQ_RES.BATI).w / 2;
-  } else { t.x = Math.max(x1, x2) + 2 + w / 2; t.y = (y1 + y2) / 2; }
-  croqClampText(t);
-  return t;
+    var yAt = function(x){ return y1 + (y2 - y1) * ((x - x1) / ((x2 - x1) || 1)); }, off = h / 2 + 1.5 + lw / 2;
+    [0, 0.75, -0.75, 1.5, -1.5, 2.25, -2.25].forEach(function(f){ var x = Math.max(xa + w / 2, Math.min(xb - w / 2, cx + f * w)); cands.push({x: x, y: yAt(x) - off}); });
+    [0, 0.75, -0.75, 1.5, -1.5].forEach(function(f){ var x = Math.max(xa + w / 2, Math.min(xb - w / 2, cx + f * w)); cands.push({x: x, y: yAt(x) + off}); });
+  } else {
+    var ya = Math.min(y1, y2), yb = Math.max(y1, y2), xr = Math.max(x1, x2) + 2 + w / 2, xl = Math.min(x1, x2) - 2 - w / 2, ys = [(ya + yb) / 2];
+    if (ya <= CROQ_GAB.maison[3] + h / 2 && yb >= CROQ_GAB.limiteY) ys.push((CROQ_GAB.maison[3] + CROQ_GAB.limiteY) / 2);
+    ys.push(ya + (yb - ya) * 0.25, ya + (yb - ya) * 0.75);
+    ys.forEach(function(y){ cands.push({x: xr, y: y}); }); ys.forEach(function(y){ cands.push({x: xl, y: y}); });
+  }
+  return croqFreeSpot(t, cands, items);
+}
+/* Place libre : première position candidate dont le cadre, élargi du halo blanc, ne coupe aucun trait (gabarit compris, hors bord du cadre) ni aucun texte ou regard ; à défaut, la première */
+function croqFreeSpot(t, cands, items, skip){
+  var segs = CROQ_GAB.segs.filter(function(g){ return !g.bord; }), boxes = [];
+  (items || []).forEach(function(o){ if (o === t || (skip && o.id === skip)) return; if (o.t === 'p') segs = segs.concat(croqSegsOf(o)); else if (o.t === 'x') boxes.push(croqTextBox(o)); else if (o.t === 's') boxes.push([o.x - 2.5, o.y - 2.5, o.x + 2.5, o.y + 2.5]); });
+  for (var i = 0; i < cands.length; i++){
+    t.x = cands[i].x; t.y = cands[i].y; croqClampText(t);
+    var b = croqTextBox(t), bb = [b[0] - 1.5, b[1] - 1.5, b[2] + 1.5, b[3] + 1.5];
+    if (!segs.some(function(g){ return croqSegHitsBox(g, bb); }) && !boxes.some(function(o){ return o[0] < bb[2] && o[2] > bb[0] && o[1] < bb[3] && o[3] > bb[1]; })) return t;
+  }
+  t.x = cands[0].x; t.y = cands[0].y; croqClampText(t); return t;
+}
+/* Le segment coupe-t-il le rectangle [x1, y1, x2, y2] ? (découpage de Liang et Barsky) */
+function croqSegHitsBox(g, b){
+  var x0 = g.a[0], y0 = g.a[1], dx = g.b[0] - x0, dy = g.b[1] - y0, t0 = 0, t1 = 1, P = [-dx, dx, -dy, dy], Q = [x0 - b[0], b[2] - x0, y0 - b[1], b[3] - y0];
+  for (var i = 0; i < 4; i++){
+    if (P[i] === 0){ if (Q[i] < 0) return false; continue; }
+    var r = Q[i] / P[i];
+    if (P[i] < 0){ if (r > t1) return false; if (r > t0) t0 = r; } else { if (r < t0) return false; if (r < t1) t1 = r; }
+  }
+  return t0 <= t1;
 }
 function croqClampText(t){
   var w = croqTextW(t), h = CROQ_SZ[t.sz || 2] * 1.2, z = CROQ_GAB.zoneLib;
@@ -2144,7 +2222,7 @@ function croquisType(v, c){
   nets.forEach(function(n, i){
     var nm = n.res === 'UN' ? 'unitaire' : n.res, rs = {t: 'p', id: id(), pts: [6, ys[i], 514, ys[i]], res: n.res, st: '', fl: 0}, br = {t: 'p', id: id(), pts: [croqR(xs[i]), hm[3], croqR(xs[i]), ys[i]], res: n.res, st: '', fl: 0};
     items.push(rs, br);
-    var lr = croqPlaceLabel(rs, 'Réseau ' + nm + ' ' + (n.g === 'D' ? 'départemental' : 'territorial'), 2); lr.id = id(); items.push(lr);
+    var lr = croqPlaceLabel(rs, 'Réseau ' + nm + ' ' + (n.g === 'D' ? 'départemental' : 'territorial'), 2, items); lr.id = id(); items.push(lr);
     var lb = {t: 'x', id: id(), s: 'Branchement ' + nm, sz: 1, res: n.res}, wb = croqTextW(lb);
     lb.x = i === 0 && nets.length > 1 ? xs[i] - 2 - wb / 2 : xs[i] + 2 + wb / 2; lb.y = (CROQ_GAB.maison[3] + CROQ_GAB.limiteY) / 2; croqClampText(lb); items.push(lb);
   });
@@ -2175,14 +2253,15 @@ function croqRdp(pts, eps){
    glisser depuis l'élément sélectionné = le déplacer ou le retoucher. Chaque action terminée est enregistrée ; le retour de l'appareil, Échap et « Terminé » enregistrent et ferment */
 async function croquisEditor(v){
   if (v.constat && v.constat.signeLe) return;
-  var c = v.constat ? constatOf(v) : newConstat(v);   /* un constat neuf n'est rattaché au dossier qu'au premier trait */
+  var neuf = !v.constat, c = v.constat ? constatOf(v) : newConstat(v);   /* un constat neuf n'est rattaché au dossier qu'au premier trait */
   await croqFont();
   var m = croqModel(c), avert = '';
   if (!m){ m = {v: 1, repere: {w: CROQ.w, h: CROQ.h, unite: 'pt'}, fond: c.croquis || '', items: [], seq: 0, rev: 0, pngRev: 0, png: c.croquis ? fnv32(c.croquis) : ''}; }
-  else if (c.croquis && m.png && fnv32(c.croquis) !== m.png){
+  else if (c.croquis && fnv32(c.croquis) !== (m.png || '')){
     /* croquis retouché avec une version précédente de l'application : il est repris en fond, tel quel */
     m.fond = c.croquis; m.items = []; m.png = fnv32(c.croquis); avert = 'Ce croquis a été modifié avec une version précédente de l\'application : il est repris en fond, tel quel.';
   }
+  else if (!c.croquis && m.png){ m.fond = ''; m.items = []; m.png = ''; }   /* croquis effacé avec une version précédente : l'éditeur repart d'un cadre vide */
   if (v.constat) c.croquisV = m;
   var at0 = {m: JSON.stringify(m), croquis: c.croquis || ''}, fondSaved = m.fond || '', fondImg = m.fond ? await loadImg(m.fond) : null;
   var textes = ((await DB.get('meta', 'croqTextes')) || {}).v || [];
@@ -2198,13 +2277,13 @@ async function croquisEditor(v){
   function redo(){ if (!ED.fut.length) return; ED.hist.push(ED.cur); ED.cur = ED.fut.pop(); restore(ED.cur); save(); ui(); }
   /* Mise en page : canevas à la taille affichée × densité, redessiné depuis le modèle ; Ensemble = tout le cadre, Détail ≈ ×2 */
   function layout(){
-    var st = ED.w.querySelector('.ce-stage'), rot = ED.w.querySelector('.ce-rotate'), portrait = window.innerWidth < 600 && window.innerHeight > window.innerWidth;
+    ED.w.querySelector('.ce-mini').hidden = !ED.detail; var st = ED.w.querySelector('.ce-stage'), rot = ED.w.querySelector('.ce-rotate'), portrait = window.innerWidth < 600 && window.innerHeight > window.innerWidth;
     rot.hidden = !portrait; ED.cv.style.visibility = portrait ? 'hidden' : '';
     var W = Math.max(100, st.clientWidth - 2 * ED.margin), H = Math.max(60, st.clientHeight - 8), k0 = Math.min(W / CROQ.w, H / CROQ.h);
     ED.k0 = k0; ED.k = ED.detail ? Math.min(Math.max(k0 * 2, H / CROQ.h), k0 * 3) : k0;
     var cw = Math.min(W, CROQ.w * ED.k), ch = Math.min(H, CROQ.h * ED.k), dpr = window.devicePixelRatio || 1;
     ED.vw = cw; ED.vh = ch; ED.cv.style.width = cw + 'px'; ED.cv.style.height = ch + 'px'; ED.cv.width = Math.round(cw * dpr); ED.cv.height = Math.round(ch * dpr); ED.dpr = dpr;
-    clampView(); ED.w.querySelector('.ce-mini').hidden = !ED.detail; draw();
+    clampView(); draw();
   }
   function clampView(){ ED.ox = Math.max(0, Math.min(CROQ.w - ED.vw / ED.k, ED.ox)); ED.oy = Math.max(0, Math.min(CROQ.h - ED.vh / ED.k, ED.oy)); }
   function center(x, y){ ED.ox = x - ED.vw / ED.k / 2; ED.oy = y - ED.vh / ED.k / 2; clampView(); }
@@ -2251,7 +2330,7 @@ async function croquisEditor(v){
   function snapR(type){ return (type === 'pen' ? 12 : type === 'mouse' ? 8 : 24) / ED.k; }
   function compat(a, b){ return a === b || a === 'PRJ' || b === 'PRJ' || b === 'BATI' || b === 'GAB'; }
   function tSegs(res, excl){ var out = []; m.items.forEach(function(it){ if (it.t === 'p' && !it.lisse && it.id !== excl && compat(res, it.res)) out = out.concat(croqSegsOf(it)); }); return out.concat(CROQ_GAB.segs); }
-  function tPts(res, excl){ var out = []; m.items.forEach(function(it){ if (it.t === 'p' && !it.lisse && it.id !== excl && compat(res, it.res)){ out.push({x: it.pts[0], y: it.pts[1]}, {x: it.pts[it.pts.length - 2], y: it.pts[it.pts.length - 1]}); } }); CROQ_GAB.segs.forEach(function(s){ if (!s.bord) out.push({x: s.a[0], y: s.a[1]}, {x: s.b[0], y: s.b[1]}); }); return out; }
+  function tPts(res, excl){ var out = []; m.items.forEach(function(it){ if (it.t === 'p' && !it.lisse && it.id !== excl && compat(res, it.res)){ for (var j = 0; j < it.pts.length; j += 2) out.push({x: it.pts[j], y: it.pts[j + 1]}); } }); CROQ_GAB.segs.forEach(function(s){ if (!s.bord) out.push({x: s.a[0], y: s.a[1]}, {x: s.b[0], y: s.b[1]}); }); return out; }
   function snapAt(raw, res, excl, from, type){
     var p = {x: raw.x, y: raw.y}, ang = null;
     if (from){
@@ -2287,8 +2366,9 @@ async function croquisEditor(v){
   function down(ev){
     if (ev.button > 0) return; ev.preventDefault();
     try { ED.cv.setPointerCapture(ev.pointerId); } catch(e){}
+    if (ev.pointerType === 'touch' && Array.from(ED.ptrs.values()).some(function(q){ return q.type === 'pen'; })) return;
+    if (ev.pointerType === 'pen'){ ED.penSeen = true; Array.from(ED.ptrs.keys()).forEach(function(id){ if (ED.ptrs.get(id).type === 'touch') ED.ptrs.delete(id); }); if (ED.g && ED.g.type === 'touch'){ if (ED.g.kind === 'move' || ED.g.kind === 'vertex') restoreOrig(ED.g); ED.g = null; } if (ED.g && ED.g.kind === 'pan2') ED.g = null; }
     ED.ptrs.set(ev.pointerId, {x: ev.clientX, y: ev.clientY, type: ev.pointerType});
-    if (ev.pointerType === 'pen') ED.penSeen = true;
     if (ED.ptrs.size === 2){
       if (ED.g && (ED.g.kind === 'move' || ED.g.kind === 'vertex')) restoreOrig(ED.g);
       var pp = Array.from(ED.ptrs.values()); ED.g = {kind: 'pan2', mx: (pp[0].x + pp[1].x) / 2, my: (pp[0].y + pp[1].y) / 2, d0: Math.hypot(pp[0].x - pp[1].x, pp[0].y - pp[1].y), ox: ED.ox, oy: ED.oy};
@@ -2364,7 +2444,8 @@ async function croquisEditor(v){
       if (Math.hypot(g.b.x - g.a.x, g.b.y - g.a.y) * ED.k < 6){ draw(); return; }
       var a = clampPt(g.a), b = clampPt(g.b), ext = null;
       /* un trait qui part de l'extrémité d'un trait du même réseau le prolonge : une canalisation coudée reste un seul élément */
-      m.items.forEach(function(it){ if (ext || it.t !== 'p' || it.lisse || it.res !== ED.res || it.st) return; var n = it.pts.length; if (it.pts[n - 2] === a.x && it.pts[n - 1] === a.y) ext = {it: it, end: true}; else if (it.pts[0] === a.x && it.pts[1] === a.y) ext = {it: it, end: false}; });
+      function cont(ux, uy){ var vx = b.x - a.x, vy = b.y - a.y, l = Math.hypot(ux, uy) * Math.hypot(vx, vy); return l > 0 && (ux * vx + uy * vy) / l > 0.5; }
+      m.items.forEach(function(it){ if (ext || it.t !== 'p' || it.lisse || it.res !== ED.res || it.st) return; var p2 = it.pts, n = p2.length; if (p2[n - 2] === a.x && p2[n - 1] === a.y && cont(p2[n - 2] - p2[n - 4], p2[n - 1] - p2[n - 3])) ext = {it: it, end: true}; else if (p2[0] === a.x && p2[1] === a.y && cont(p2[0] - p2[2], p2[1] - p2[3])) ext = {it: it, end: false}; });
       if (ext){ if (ext.end) ext.it.pts.push(b.x, b.y); else ext.it.pts.unshift(b.x, b.y); ED.last = ext.it.id; }
       else { var nl = {id: newId(), t: 'p', pts: [a.x, a.y, b.x, b.y], res: ED.res, st: '', fl: 0}; m.items.push(nl); ED.last = nl.id; }
       ED.sel = null; commit(); draw(); return;
@@ -2378,7 +2459,7 @@ async function croquisEditor(v){
   }
   function cancel(ev){ if (!ED.ptrs.has(ev.pointerId)) return; ED.ptrs.delete(ev.pointerId); var g = ED.g; if (g && (g.kind === 'move' || g.kind === 'vertex')) restoreOrig(g); if (g && (g.id === ev.pointerId || g.kind === 'pan2')) ED.g = null; setSnapTgt(null); draw(); }
   function tap(p, type){
-    if (ED.armed){ place(ED.armed, p); return; }
+    if (ED.armed){ if (type === 'touch' && ED.penSeen) return; place(ED.armed, p); return; }
     var hs = hits(p, type), lt = ED.lastTap, same = lt && Math.hypot(lt.x - p.x, lt.y - p.y) * ED.k < 8;
     ED.lastTap = p;
     if (!hs.length){ ED.sel = null; ED.last = null; ui(); draw(); return; }
@@ -2391,12 +2472,14 @@ async function croquisEditor(v){
     if (a.sq){
       var best = null, bd = snapR('touch') * 1.5; m.items.forEach(function(it){ if (it.t !== 'p' || it.lisse || !compat(a.res, it.res) || it.res === 'BATI') return; croqSegsOf(it).forEach(function(s){ var r = croqProj(q, s), d = Math.hypot(r.x - q.x, r.y - q.y); if (d < bd){ bd = d; best = r; } }); });
       if (best) q = clampPt(best);
-      m.items.push({id: newId(), t: 's', k: a.sq, x: q.x, y: q.y, res: a.res});
-      tx = {id: newId(), t: 'x', s: a.s, sz: 1, res: a.res}; tx.x = q.x + 4 + croqTextW(tx) / 2; tx.y = q.y - 4.5;
-    } else { tx = {id: newId(), t: 'x', s: a.s, sz: 2, res: a.res, x: q.x, y: q.y}; }
-    croqClampText(tx); m.items.push(tx); ED.armed = null; ED.sel = tx.id; ED.last = null; commit(); draw();
+      var sq = {id: newId(), t: 's', k: a.sq, x: q.x, y: q.y, res: a.res}; m.items.push(sq);
+      tx = {id: newId(), t: 'x', s: a.s, sz: 1, res: a.res}; var hw = croqTextW(tx) / 2, hh = CROQ_SZ[1] * 0.6;
+      /* libellé du regard ou de la boîte : à droite au-dessus, sinon la première place qui ne masque ni un trait voisin ni la limite de propriété */
+      croqFreeSpot(tx, [{x: q.x + 4 + hw, y: q.y - 4.5}, {x: q.x + 4 + hw, y: q.y + 4.5}, {x: q.x - 4 - hw, y: q.y - 4.5}, {x: q.x - 4 - hw, y: q.y + 4.5}, {x: q.x, y: q.y - 4 - hh}, {x: q.x, y: q.y + 4 + hh}], m.items, sq.id);
+    } else { tx = {id: newId(), t: 'x', s: a.s, sz: 2, res: a.res, x: q.x, y: q.y}; croqClampText(tx); }
+    m.items.push(tx); ED.armed = null; ED.sel = tx.id; ED.last = null; commit(); draw();
   }
-  function labelOnLine(it, s){ var t = croqPlaceLabel(it, s, 2); t.id = newId(); m.items.push(t); ED.sel = t.id; ED.last = null; commit(); draw(); }
+  function labelOnLine(it, s){ var t = croqPlaceLabel(it, s, 2, m.items); t.id = newId(); m.items.push(t); ED.sel = t.id; ED.last = null; commit(); draw(); }
   function del(){ var id = ED.sel || ED.last; if (!id) return; m.items = m.items.filter(function(x){ return x.id !== id; }); ED.sel = ED.last = null; commit(); draw(); }
   async function editText(it){
     var r = await openModal({title: 'Modifier le texte', html: '<label class="field"><span class="lbl">Texte</span><input type="text" id="m-in" data-autofocus value="' + esc(it.s) + '"></label>'
@@ -2417,7 +2500,8 @@ async function croquisEditor(v){
   }
   /* « Mes textes » : seulement à la demande, 15 au plus, jamais un téléphone ni un mail (données personnelles) */
   async function keepText(s){
-    if (/@|\d{2}[\s.]?\d{2}[\s.]?\d{2}[\s.]?\d{2}/.test(s)){ toast('Les téléphones et les mails ne sont pas gardés dans « Mes textes ».'); return; }
+    /* un numéro de téléphone (avec ou sans séparateurs : espaces, points, tirets, barres) ou un mail ne passe jamais d'un dossier à l'autre ; une date oui */
+    if (/@/.test(s) || /(?:\+33|0033|0)[1-9]\d{8}/.test(s.replace(/[\s.\-\/()]/g, ''))){ toast('Les téléphones et les mails ne sont pas gardés dans « Mes textes ».'); return; }
     textes = [s].concat(textes.filter(function(x){ return x !== s; })).slice(0, 15); await DB.put('meta', {k: 'croqTextes', v: textes});
   }
   async function menu(){
@@ -2482,7 +2566,7 @@ async function croquisEditor(v){
     if (a === 'redo') return redo();
     if (a === 'zoom') return setDetail(!ED.detail);
     if (a === 'menu') return menu();
-    if (a === 'tool'){ ED.tool = b.dataset.v; ED.armed = null; ui(); return; }
+    if (a === 'tool'){ ED.tool = (b.getAttribute('aria-pressed') === 'true' && window.innerHeight <= 500) ? (ED.tool === 'ligne' ? 'main' : 'ligne') : b.dataset.v; ED.armed = null; ui(); return; }   /* barre compacte : l'outil affiché bascule */
     if (a === 'res'){ ED.res = b.dataset.v; ED.sel = ED.last = null; ED.armed = null; ui(); draw(); return; }
     if (a === 'arm'){ ED.armed = {s: b.dataset.v, res: b.dataset.res || ED.res, sq: b.dataset.sq || ''}; ED.sel = ED.last = null; ui(); draw(); return; }
     if (a === 'disarm'){ ED.armed = null; ui(); return; }
@@ -2516,10 +2600,10 @@ async function croquisEditor(v){
   var onResize = function(){ clearTimeout(ED.rt); ED.rt = setTimeout(layout, 120); };
   var html = '<div class="ce"><div class="ce-head">'
     + '<div class="ce-top"><button type="button" class="btn primary" data-ce="done">' + svg(I.check, 20) + 'Terminé</button><span class="ce-saved" aria-live="polite">' + (croqEmpty(m) ? '' : 'Enregistré') + '</span><span class="sp"></span>'
-    + '<button type="button" class="btn" data-ce="undo" disabled>↶ Défaire</button><button type="button" class="btn" data-ce="redo" disabled>↷ Rétablir</button>'
+    + '<button type="button" class="btn" data-ce="undo" disabled aria-label="Défaire">↶<span class="l-long"> Défaire</span></button><button type="button" class="btn" data-ce="redo" disabled aria-label="Rétablir">↷<span class="l-long"> Rétablir</span></button>'
     + '<button type="button" class="btn" data-ce="zoom" aria-pressed="false">Détail</button><button type="button" class="btn ce-more" data-ce="menu" aria-label="Plus d\'actions">' + svg(I.more, 22) + '</button></div>'
     + '<div class="ce-tools"><div class="seg ce-outils"><button type="button" data-ce="tool" data-v="ligne" aria-pressed="true">Trait droit</button><button type="button" data-ce="tool" data-v="main" aria-pressed="false">Main levée</button></div>'
-    + '<div class="seg ce-res">' + CROQ_RES_ORDER.map(function(k2){ return '<button type="button" data-ce="res" data-v="' + k2 + '" aria-pressed="' + (k2 === 'EU') + '">' + resSample(k2) + esc(CROQ_RES[k2].lib) + '</button>'; }).join('') + '</div></div></div>'
+    + '<div class="seg ce-res">' + CROQ_RES_ORDER.map(function(k2){ return '<button type="button" class="r-' + k2 + '" data-ce="res" data-v="' + k2 + '" aria-pressed="' + (k2 === 'EU') + '" aria-label="' + esc(CROQ_RES[k2].lib) + '">' + resSample(k2) + '<span class="l-long">' + esc(CROQ_RES[k2].lib) + '</span><span class="l-short">' + esc(CROQ_RES[k2].court || CROQ_RES[k2].lib) + '</span></button>'; }).join('') + '</div></div></div>'
     + (avert ? '<p class="inline-warn ce-avert">' + esc(avert) + '</p>' : '')
     + '<div class="ce-hint"></div>'
     + '<div class="ce-stage"><canvas class="ce-cv" aria-label="Croquis de position du branchement"></canvas><div class="ce-rotate" hidden><p><strong>Tournez le téléphone</strong></p><p>Le cadre du croquis est très allongé : il se dessine à l\'horizontale.</p></div></div>'
@@ -2537,6 +2621,8 @@ async function croquisEditor(v){
       window.addEventListener('resize', onResize); document.addEventListener('keydown', onKey);
       ui(); requestAnimationFrame(layout);
     }});
+  /* essai sans suite sur un dossier sans constat (abandon, ou tout défait) : aucun constat ne reste, le dossier n'entre pas dans l'export */
+  if (neuf && v.constat === c && croqEmpty(m)){ delete v.constat; constatTouch(v); }
   return res;
 }
 
@@ -2645,7 +2731,7 @@ function drawConstatP1(doc, v, E){
   });
   doc.setDrawColor(161, 89, 28); doc.setLineWidth(0.6); doc.setLineDash([3, 2]); doc.line(240, 762.5, 452, 762.5); doc.setLineDash([]);
   cTxt(doc, 'LIMITE DE PROPRIETE', 454.3, 755.8, {sz: 5.5}); cTxt(doc, 'BORDURE / ACCOTEMENT', 454.3, 765, {sz: 5.5, col: [161, 89, 28]});
-  if (c.croquis && !E.nonEffectue){ try { doc.addImage(c.croquis, 'PNG', CROQ.x0, CROQ.y0, CROQ.w, CROQ.h, 'croquis-' + v.id + '-' + fnv32(c.croquis), 'FAST'); } catch(e){} }
+  if (imgData(c.croquis) && !E.nonEffectue){ try { doc.addImage(imgData(c.croquis), 'PNG', CROQ.x0, CROQ.y0, CROQ.w, CROQ.h, 'croquis-' + v.id + '-' + fnv32(c.croquis), 'FAST'); } catch(e){} }
 }
 function drawConstatTable(doc, E){
   var c = E.c, P = CPC, top = 402, bottom = 620.5, rows = constatRowsForPrint(c), n = rows.length;
@@ -2770,8 +2856,8 @@ function drawConstatP2(doc, v, E){
   doc.setFont('times', 'italic'); doc.setFontSize(10.5); var tw = doc.getTextWidth(pdfText(tail));
   if (nm){ var fn = cFit(doc, nm, 566 - x - tw - 3, 10.5, {}, 6.5); x += cTxt(doc, fn.s, x, 595.9, {sz: fn.sz, col: P.val}) + 3; } else { cDots(doc, x, x + 140, 596.5, P.gris); x += 143; }
   cTxt(doc, tail, x, 595.9, {f: 'times', st: 'italic', sz: 10.5});
-  if (c.sigTech) cLogo(doc, c.sigTech, 50, 603, 240, 74, 'sig-t-' + v.id);
-  if (c.sigProp && !E.nonEffectue) cLogo(doc, c.sigProp, 330, 603, 235, 74, 'sig-p-' + v.id);
+  if (imgData(c.sigTech)) cLogo(doc, imgData(c.sigTech), 50, 603, 240, 74, 'sig-t-' + v.id);
+  if (imgData(c.sigProp) && !E.nonEffectue) cLogo(doc, imgData(c.sigProp), 330, 603, 235, 74, 'sig-p-' + v.id);
   cTxt(doc, 'Signature du technicien', 42.6, 688, {f: 'times', st: 'italic', sz: 8.5, col: P.gris}); cTxt(doc, 'Signature du propriétaire', 326.2, 688, {f: 'times', st: 'italic', sz: 8.5, col: P.gris});
   if (c.signeLe) cTxt(doc, 'Signé sur tablette le ' + fmtDT(c.signeLe), 566, 688, {sz: 6.5, st: 'italic', col: P.gris, al: 'right'});
   var IT2 = {f: 'times', st: 'italic', sz: 10}, J = function(t, x0, y, w){ cJust(doc, t, x0, y, w, IT2); };
@@ -2795,6 +2881,7 @@ function drawConstat(doc, v, list, first){
 }
 function constatFileName(v){ var hd = ficheHeader(S.etude, v); return safeNameFr('Constat ' + v.numero + (hd.ville ? ' - ' + hd.ville : ''), 120) + '.pdf'; }
 async function constatPdfBlob(v){
+  await croquisAJour(v);
   var doc = newPdf(); doc.setProperties({title: 'Constat ' + v.numero, author: 'SAS VÉDÉ Environnement', creator: 'VÉDÉ Terrain'});
   drawConstat(doc, v, anomsOf(v.id), true);
   return doc.output('blob');
@@ -2825,6 +2912,7 @@ function abToB64(ab){ var u8 = new Uint8Array(ab), s = ''; for (var i = 0; i < u
 function lastEnvoi(v){ var e = v.envois || []; return e.length ? e[e.length - 1] : null; }
 async function recordEnvoi(vid, o){
   var v = S.visites.find(function(x){ return x.id === vid; });
+  if (v && !(await DB.get('etudes', v.etudeId))) return;   /* étude supprimée entre-temps : rien n'est réécrit */
   if (v){ v.envois = (v.envois || []).concat([o]).slice(-20); v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); await flushSaves(); return; }
   var d = await DB.get('visites', vid); if (!d) return; d.envois = (d.envois || []).concat([o]).slice(-20); d.updatedAt = nowISO(); await DB.put('visites', d);
 }
@@ -2833,54 +2921,103 @@ var OUTBOX = 'outbox:';
 async function outboxAll(){ var all = []; try { all = await DB.all('meta'); } catch(e){} S.outbox = all.filter(function(r){ return String(r.k).indexOf(OUTBOX) === 0; }).map(function(r){ return r.v; }).sort(function(a, b){ return a.cree < b.cree ? -1 : 1; }); return S.outbox; }
 async function outboxPut(it){ await DB.put('meta', {k: OUTBOX + it.id, v: it}); }
 async function outboxDel(id){ await DB.del('meta', OUTBOX + id); }
-async function relaySend(cfg, payload){
-  var r;
-  try { r = await fetch(String(cfg.url).trim(), {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify(payload), redirect: 'follow', cache: 'no-store'}); }
-  catch(e){ var er = new Error('pas de connexion au service d\'envoi'); er.reseau = true; throw er; }
-  var t = ''; try { t = await r.text(); } catch(e){}
+/* Appel au service : délai maximal, pour qu'une liaison pendante ne fige rien ; une coupure, un délai dépassé ou une erreur passagère de Google (5xx, 429)
+   laissent l'issue incertaine (e.reseau) : le même message sera représenté avec le même identifiant, que le service n'envoie jamais deux fois */
+async function relaySend(cfg, payload, ms, ctl){
+  ctl = ctl || (typeof AbortController === 'function' ? new AbortController() : null);
+  var tm = ctl ? setTimeout(function(){ ctl.abort(); }, ms || 60000) : 0, r = null, t = '';
+  function reseau(m){ var er = new Error(m); er.reseau = true; return er; }
+  try {
+    try { r = await fetch(String(cfg.url).trim(), {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify(payload), redirect: 'follow', cache: 'no-store', signal: ctl ? ctl.signal : undefined}); }
+    catch(e){ throw reseau('pas de réponse du service d\'envoi (réseau ?)'); }
+    try { t = await r.text(); } catch(e){ throw reseau('réponse du service interrompue (réseau ?)'); }
+  } finally { clearTimeout(tm); }
+  if (r.status >= 500 || r.status === 429) throw reseau('service d\'envoi momentanément indisponible (' + r.status + ')');
   var j = null; try { j = JSON.parse(t); } catch(e){}
-  if (!r.ok || !j) throw new Error(r.ok ? 'réponse inattendue du service d\'envoi : vérifiez son adresse dans Réglages' : 'service d\'envoi indisponible (' + r.status + ')');
+  if (!r.ok || !j) throw new Error(r.ok ? 'réponse inattendue du service d\'envoi : vérifiez son adresse dans Réglages' : 'service d\'envoi introuvable (' + r.status + ') : vérifiez son adresse dans Réglages');
   if (!j.ok) throw new Error(j.error || 'envoi refusé par le service');
   return j;
 }
-var outboxRun = null;
-function processOutbox(){
-  if (outboxRun) return outboxRun;
+async function outboxGet(id){ var r = null; try { r = await DB.get('meta', OUTBOX + id); } catch(e){} return r ? r.v : null; }
+/* Après un envoi réussi d'un dossier : ses anciens échecs et envois bloqués sont dépassés */
+async function outboxClean(vid, keep){ var all = await outboxAll(); for (var i = 0; i < all.length; i++){ var x = all[i]; if (x.vid === vid && x.id !== keep && (x.etat === 'echec' || x.etat === 'bloque')) await outboxDel(x.id); } }
+var outboxRun = null, outboxAgain = false, outboxTimer = 0, outboxCtl = {};   /* outboxCtl : envoi en cours, que « Retirer » interrompt s'il n'est pas encore parvenu au service */
+var OB_DELAIS = [1, 2, 5, 10, 30, 60];   /* minutes avant un nouvel essai après une coupure ; jamais d'échec définitif pour une coupure */
+/* force : retour du réseau, retour au premier plan, démarrage : tout mail en attente est essayé tout de suite, sans attendre l'heure prévue */
+var outboxForce = false;
+function processOutbox(force){
+  if (force) outboxForce = true;
+  if (outboxRun){ outboxAgain = true; return outboxRun; }   /* appel pendant une tournée : une nouvelle tournée suivra, avec la liste à jour */
   outboxRun = (async function(){
+    var sent = 0, peut = false;
     try {
-      var cfg = await mailCfg(), items = (await outboxAll()).filter(function(x){ return x.etat === 'attente' || x.etat === 'envoi'; }), sent = 0;
-      if (!items.length || !mailDirectOk(cfg) || navigator.onLine === false) return 0;
-      for (var i = 0; i < items.length; i++){
-        var it = items[i], v = S.visites.find(function(x){ return x.id === it.vid; }) || await DB.get('visites', it.vid);
-        if (!v){ await outboxDel(it.id); continue; }
-        if (!v.constat || v.constat.signeLe !== it.signeLe){ it.etat = 'bloque'; it.erreur = 'constat modifié depuis la mise en file : renvoyez-le'; await outboxPut(it); continue; }
-        it.etat = 'envoi'; it.essais = (it.essais || 0) + 1; await outboxPut(it);
-        try { await relaySend(cfg, {cle: String(cfg.cle).trim(), id: it.id, a: it.a, cc: it.cc || '', objet: it.objet, message: it.message, nom: cfg.nom || '', pj: [{nom: it.nom, type: 'application/pdf', b64: abToB64(it.pdf)}]}); }
-        catch(e){
-          if (e.reseau && it.essais < 4){ it.etat = 'attente'; await outboxPut(it); break; }
-          it.etat = 'echec'; it.erreur = e.reseau ? 'le service d\'envoi ne répond pas : vérifiez son adresse dans Réglages' : e.message; await outboxPut(it); continue;
+      do {
+        outboxAgain = false; var forced = outboxForce; outboxForce = false;
+        var cfg = await mailCfg(), now = Date.now(), items = (await outboxAll()).filter(function(x){ return (x.etat === 'attente' || x.etat === 'envoi') && (forced || !(x.prochain && Date.parse(x.prochain) > now)); });
+        peut = mailDirectOk(cfg) && navigator.onLine !== false;
+        if (!items.length || !peut) break;
+        for (var i = 0; i < items.length; i++){
+          var it = await outboxGet(items[i].id); if (!it || !(it.etat === 'attente' || it.etat === 'envoi')) continue;   /* retiré ou traité entre-temps */
+          var v = S.visites.find(function(x){ return x.id === it.vid; }) || await DB.get('visites', it.vid);
+          if (!v){ await outboxDel(it.id); continue; }
+          if (!v.constat || v.constat.signeLe !== it.signeLe){ it.etat = 'bloque'; it.erreur = 'constat modifié depuis la mise en file : renvoyez-le'; await outboxPut(it); continue; }
+          it.etat = 'envoi'; it.essais = (it.essais || 0) + 1; it.dernier = nowISO(); await outboxPut(it); await outboxAll(); refreshEnvoiUI();
+          var err = null; outboxCtl[it.id] = typeof AbortController === 'function' ? new AbortController() : null;
+          try { await relaySend(cfg, {cle: String(cfg.cle).trim(), id: it.id, a: it.a, cc: it.cc || '', objet: it.objet, message: it.message, nom: cfg.nom || '', pj: [{nom: it.nom, type: 'application/pdf', b64: abToB64(it.pdf)}]}, 60000, outboxCtl[it.id]); }
+          catch(e){ err = e; }
+          delete outboxCtl[it.id];
+          var still = await outboxGet(it.id);   /* « Retirer » pendant l'essai : l'élément n'est jamais réécrit */
+          if (!err){
+            await recordEnvoi(it.vid, {le: nowISO(), a: it.a, cc: it.cc || '', objet: it.objet, mode: 'direct', signeLe: it.signeLe});
+            if (still) await outboxDel(it.id);
+            await outboxClean(it.vid, it.id); sent++;
+            toast(still ? 'Constat ' + it.numero + ' envoyé à ' + it.a.join(', ') : 'Le mail retiré était déjà parti : constat ' + it.numero + ' envoyé à ' + it.a.join(', '), still ? 4500 : 8000);
+            continue;
+          }
+          if (!still) continue;
+          if (err.reseau){
+            /* coupure : nouvel essai plus tard, pour ce mail et les suivants (inutile d'insister maintenant) */
+            var next = new Date(Date.now() + OB_DELAIS[Math.min(it.essais, OB_DELAIS.length) - 1] * 60000).toISOString(), rest = await outboxAll();
+            it.etat = 'attente'; it.erreur = err.message; it.prochain = next; await outboxPut(it);
+            for (var k = 0; k < rest.length; k++){ var o = rest[k]; if (o.id !== it.id && o.etat === 'attente' && !(o.prochain && o.prochain > next)){ o.prochain = next; await outboxPut(o); } }
+            break;
+          }
+          it.etat = 'echec'; it.erreur = err.message; it.prochain = ''; await outboxPut(it);
         }
-        await recordEnvoi(it.vid, {le: nowISO(), a: it.a, cc: it.cc || '', objet: it.objet, mode: 'direct', signeLe: it.signeLe});
-        await outboxDel(it.id); sent++; toast('Constat ' + it.numero + ' envoyé à ' + it.a.join(', '), 4500);
-      }
+      } while (outboxAgain);
       return sent;
-    } finally { outboxRun = null; await outboxAll(); refreshEnvoiUI(); }
+    } finally { outboxRun = null; await outboxAll(); refreshEnvoiUI(); outboxPlan(peut); }
   })();
   return outboxRun;
 }
+/* Prochain essai programmé après une coupure ; hors connexion ou sans service réglé, rien n'est programmé :
+   le retour du réseau, le retour au premier plan, le démarrage et chaque nouvel envoi relancent la boîte d'envoi */
+function outboxPlan(peut){
+  clearTimeout(outboxTimer);
+  if (peut === false || navigator.onLine === false) return;
+  var ts = (S.outbox || []).filter(function(x){ return x.etat === 'attente' && x.prochain; }).map(function(x){ return Date.parse(x.prochain); });
+  if (!ts.length) return;
+  outboxTimer = setTimeout(function(){ processOutbox(); }, Math.max(2000, Math.min.apply(null, ts) - Date.now() + 500));
+}
+function heureTxt(iso){ var d = new Date(iso); return isNaN(d) ? '' : pad2(d.getHours()) + 'h' + pad2(d.getMinutes()); }
 function envoiState(v){
   var c = v.constat; if (!c || !c.signeLe) return null;
-  var ob = (S.outbox || []).filter(function(x){ return x.vid === v.id; });
-  var att = ob.find(function(x){ return x.etat === 'attente' || x.etat === 'envoi'; }); if (att) return {cls: 'wait', txt: 'Mail en attente d\'envoi (sans connexion) : il partira au retour du réseau.'};
-  var bad = ob.find(function(x){ return x.etat === 'echec' || x.etat === 'bloque'; }); if (bad) return {cls: 'bad', txt: 'Échec de l\'envoi : ' + bad.erreur + '.', id: bad.id};
-  var e = lastEnvoi(v); if (!e) return {cls: 'none', txt: 'Constat signé, pas encore envoyé.'};
+  var ob = (S.outbox || []).filter(function(x){ return x.vid === v.id; }), e = lastEnvoi(v), le = e ? e.le : '';
+  var cur = ob.find(function(x){ return x.etat === 'envoi'; }); if (cur) return {cls: 'wait', txt: 'Envoi en cours pour ' + cur.a.join(', ') + '…', id: cur.id, etat: 'envoi'};
+  var att = ob.find(function(x){ return x.etat === 'attente'; });
+  if (att) return {cls: 'wait', id: att.id, etat: 'attente', txt: navigator.onLine === false ? 'Mail en attente pour ' + att.a.join(', ') + ' (sans connexion) : il partira au retour du réseau.'
+    : att.essais ? 'Mail en attente pour ' + att.a.join(', ') + ' : ' + (att.erreur || 'pas de réponse du service') + ' ; nouvel essai ' + (att.prochain ? 'vers ' + heureTxt(att.prochain) : 'dès que possible') + '.' : 'Mail en attente d\'envoi pour ' + att.a.join(', ') + '.'};
+  /* un échec n'est montré que s'il est plus récent que le dernier envoi réussi */
+  var bad = ob.find(function(x){ return (x.etat === 'echec' || x.etat === 'bloque') && !(le && x.cree < le); }); if (bad) return {cls: 'bad', txt: 'Échec de l\'envoi : ' + bad.erreur + '.', id: bad.id, etat: bad.etat};
+  if (!e) return {cls: 'none', txt: 'Constat signé, pas encore envoyé.'};
   if (e.signeLe !== c.signeLe) return {cls: 'bad', txt: 'Une version précédente a été envoyée le ' + fmtDT(e.le) + ' ; la version signée actuelle n\'a pas été envoyée.'};
-  return {cls: 'ok', txt: (e.mode === 'direct' ? 'Envoyé le ' : 'Préparé dans votre messagerie le ') + fmtDT(e.le) + ' pour ' + (e.a.length ? e.a.join(', ') : 'les destinataires choisis dans la messagerie') + '.'};
+  return {cls: 'ok', txt: (e.mode === 'direct' ? 'Envoyé le ' : 'Préparé dans votre messagerie le ') + fmtDT(e.le) + ' pour ' + (e.a.length ? e.a.join(', ') : 'les destinataires choisis dans la messagerie') + (e.mode === 'direct' ? '.' : ' (envoi non vérifié).')};
 }
 function envoiHtml(v){
   var st = envoiState(v); if (!st) return '';
   return '<div class="cst-envoi ' + st.cls + '" data-envoi="' + esc(v.id) + '"><span>' + esc(st.txt) + '</span>'
-    + (st.id ? '<button type="button" class="btn sm" data-act="mail-retry" data-id="' + esc(st.id) + '">Réessayer</button><button type="button" class="btn sm ghost" data-act="mail-drop" data-id="' + esc(st.id) + '">Retirer</button>' : '') + '</div>';
+    + (st.id && st.etat !== 'envoi' && st.etat !== 'attente' ? '<button type="button" class="btn sm" data-act="mail-retry" data-id="' + esc(st.id) + '">Réessayer</button>' : '')
+    + (st.id ? '<button type="button" class="btn sm ghost" data-act="mail-drop" data-id="' + esc(st.id) + '">Retirer</button>' : '') + '</div>';
 }
 function refreshEnvoiUI(){ $$('[data-envoi]').forEach(function(el){ var v = S.visites.find(function(x){ return x.id === el.dataset.envoi; }); if (v) el.outerHTML = envoiHtml(v); }); }
 /* Fenêtre d'envoi : destinataires (propriétaire coché ; personne rencontrée cochée seulement si elle représente le propriétaire), ajout manuel, objet, message, PDF préparé à l'ouverture */
@@ -2890,12 +3027,15 @@ async function mailModal(v){
   await flushSaves();
   var cfg = await mailCfg(), direct = mailDirectOk(cfg), E = constatEval(v, anomsOf(v.id)), name = constatFileName(v), blob = null, dests = [];
   function addDest(adr, lib, on, note){ adr = String(adr || '').trim(); if (!mailOk(adr) || dests.some(function(d){ return d.adr.toLowerCase() === adr.toLowerCase(); })) return; dests.push({adr: adr, lib: lib, on: on, note: note || ''}); }
-  addDest(ctc(v, 'mail'), 'Propriétaire', true);
-  if (ctc(v, 'rencontre') === 'autre'){ var q = ctc(v, 'rQualite'), pro = /syndic|agence|mandataire|gestionnaire|notaire|tuteur|curateur/i.test(q); addDest(ctc(v, 'rMail'), [ctc(v, 'rNom'), q.toLowerCase()].filter(Boolean).join(', ') || 'Personne rencontrée', pro, pro ? '' : 'recevra les coordonnées du propriétaire'); }
+  mailsDe(ctc(v, 'mail')).forEach(function(a){ addDest(a, 'Propriétaire', true); });
+  if (ctc(v, 'rencontre') === 'autre'){ var q = ctc(v, 'rQualite'), pro = /syndic|agence|mandataire|gestionnaire|notaire|tuteur|curateur/i.test(q); mailsDe(ctc(v, 'rMail')).forEach(function(a){ addDest(a, [ctc(v, 'rNom'), qualiteTxt(q)].filter(Boolean).join(', ') || 'Personne rencontrée', pro, pro ? '' : 'recevra les coordonnées du propriétaire'); }); }
   (v.mailsAjoutes || []).forEach(function(a){ addDest(a, 'Ajoutée à la main', false); });
   function destHtml(d, i){ return '<label class="check"><input type="checkbox" data-dest="' + i + '"' + (d.on ? ' checked' : '') + '><span><strong>' + esc(d.adr) + '</strong> <span class="muted">' + esc(d.lib) + (d.note ? ' : ' + esc(d.note) : '') + '</span></span></label>'; }
-  var html = (E.coordChange ? '<p class="muted small">Le constat joint porte les coordonnées du jour de la signature.</p>' : '')
-    + '<span class="lbl">Destinataires</span><div id="m-dests">' + (dests.length ? dests.map(destHtml).join('') : '<p class="muted small">Aucune adresse dans la fiche contact.</p>') + '</div>'
+  var pend = (await outboxAll()).filter(function(x){ return x.vid === v.id && x.etat !== 'bloque'; });
+  function pendHtml(){ return pend.length ? '<div class="m-pend"><span class="lbl">Déjà dans la boîte d\'envoi</span>' + pend.map(function(x){ return '<div class="ob-row"><span>' + esc(x.a.join(', ')) + ' : ' + esc(x.etat === 'envoi' ? 'envoi en cours' : x.etat === 'attente' ? 'en attente' : 'échec, ' + (x.erreur || '')) + '</span>' + (x.etat === 'envoi' ? '' : '<button type="button" class="btn sm ghost" data-m="drop" data-id="' + esc(x.id) + '">Retirer</button>') + '</div>'; }).join('') + '</div>' : ''; }
+  var html = '<div id="m-pend">' + pendHtml() + '</div>' + (E.changed ? '<p class="inline-warn">Le dossier a changé depuis la signature (' + esc(E.changeWhy.join(', ')) + ') : le constat joint est celui signé le ' + esc(fmtDT(c.signeLe)) + '. Pour envoyer la version à jour, touchez « Modifier » dans le constat et faites-le signer à nouveau.</p>' : '')
+    + (E.coordChange ? '<p class="muted small">Le constat joint porte les coordonnées du jour de la signature.</p>' : '')
+    + '<span class="lbl">Destinataires</span><div id="m-dests">' + (dests.length ? dests.map(destHtml).join('') : ctc(v, 'mail').trim() ? '<p class="muted small">Adresse de la fiche contact non reconnue : « ' + esc(ctc(v, 'mail')) + ' ». Corrigez-la dans la fiche contact ou ajoutez-la ci-dessous.</p>' : '<p class="muted small">Aucune adresse dans la fiche contact.</p>') + '</div>'
     + '<div class="xrow"><input type="email" id="m-add" placeholder="Ajouter une adresse" autocapitalize="off" spellcheck="false" inputmode="email"><button type="button" class="btn sm" data-m="add">Ajouter</button></div>'
     + (mailOk(cfg.copie) ? '<label class="check"><input type="checkbox" id="m-copie" checked><span>Copie à moi : ' + esc(cfg.copie) + '</span></label>' : '')
     + '<label class="field"><span class="lbl">Objet</span><input type="text" id="m-objet" value="' + esc(mailFill(cfg.objet, v, cfg)) + '"></label>'
@@ -2910,10 +3050,11 @@ async function mailModal(v){
     return out;
   }
   function form(){ var cp = W.querySelector('#m-copie'); return {a: chosen(), cc: cp && cp.checked ? cfg.copie : '', objet: W.querySelector('#m-objet').value.trim(), message: W.querySelector('#m-msg').value}; }
-  function remember(a){ var known = [ctc(v, 'mail'), ctc(v, 'rMail')].map(function(x){ return String(x).trim().toLowerCase(); }), add = a.filter(function(x){ return known.indexOf(x.toLowerCase()) < 0; });
+  function remember(a){ var known = mailsDe(ctc(v, 'mail')).concat(mailsDe(ctc(v, 'rMail'))).map(function(x){ return x.toLowerCase(); }), add = a.filter(function(x){ return known.indexOf(x.toLowerCase()) < 0; });
     if (add.length){ v.mailsAjoutes = add.concat((v.mailsAjoutes || []).filter(function(x){ return add.indexOf(x) < 0; })).slice(0, 5); v.updatedAt = nowISO(); saveLater('visites', v); } }
-  var acts = [{label: 'Annuler', value: null}, {label: 'Ma messagerie', cls: direct ? '' : 'primary', collect: function(){ if (!blob){ toast('Le constat est en préparation…'); return false; } shareNow(); return false; }}];
-  if (direct) acts.push({label: 'Envoyer', cls: 'primary', collect: function(){ if (!blob){ toast('Le constat est en préparation…'); return false; } var f = form(); if (!f.a.length){ toast('Cochez ou ajoutez au moins un destinataire.'); return false; } return {mode: 'direct', f: f}; }});
+  function typedBad(){ var t = W.querySelector('#m-add').value.trim(); if (t && !mailOk(t)){ toast('« ' + t + ' » n\'est pas une adresse valide : corrigez-la ou effacez-la.', 5000); W.querySelector('#m-add').focus(); return true; } return false; }
+  var acts = [{label: 'Annuler', value: null}, {label: 'Ma messagerie', cls: direct ? '' : 'primary', collect: function(){ if (!blob){ toast('Le constat est en préparation…'); return false; } if (typedBad()) return false; shareNow(); return false; }}];
+  if (direct) acts.push({label: 'Envoyer', cls: 'primary', collect: function(){ if (!blob){ toast('Le constat est en préparation…'); return false; } if (typedBad()) return false; var f = form(); if (!f.a.length){ toast('Cochez ou ajoutez au moins un destinataire.'); return false; } return {mode: 'direct', f: f}; }});
   var closeFn = null;
   /* Partage : lancé directement dans le geste de l'utilisateur (le PDF est déjà prêt), sinon le navigateur le refuse */
   function shareNow(){
@@ -2932,7 +3073,9 @@ async function mailModal(v){
   var res = await openModal({title: 'Envoyer le constat par mail', noAutofocus: true, html: html, actions: acts,
     onMount: function(w, close){
       W = w; closeFn = close;
-      w.addEventListener('click', function(ev){
+      w.addEventListener('click', async function(ev){
+        var dr = ev.target.closest('[data-m="drop"]');
+        if (dr){ var x = await outboxGet(dr.dataset.id); if (x && x.etat !== 'envoi'){ await outboxDel(x.id); } pend = (await outboxAll()).filter(function(y){ return y.vid === v.id && y.etat !== 'bloque'; }); w.querySelector('#m-pend').innerHTML = pendHtml(); refreshEnvoiUI(); outboxPlan(); return; }
         if (!ev.target.closest('[data-m="add"]')) return;
         var inp = w.querySelector('#m-add'), adr = inp.value.trim(); if (!mailOk(adr)){ toast('Adresse mail non valide.'); return; }
         var cur = chosen(); addDest(adr, 'Ajoutée à la main', true); inp.value = '';
@@ -2944,12 +3087,21 @@ async function mailModal(v){
   if (!res) return;
   remember(res.f.a);
   if (res.mode === 'direct'){
+    var old = (await outboxAll()).filter(function(x){ return x.vid === v.id && x.signeLe === c.signeLe && (x.etat === 'attente' || x.etat === 'echec'); });
+    if (old.length){
+      var ch = await openModal({title: 'Un mail de ce constat attend déjà', html: '<p>' + esc(old.map(function(x){ return x.a.join(', ') + (x.etat === 'echec' ? ' (échec)' : ' (en attente)'); }).join(' ; ')) + '</p><p>Le remplacer par celui-ci, ou envoyer les deux ?</p>',
+        actions: [{label: 'Annuler', value: null}, {label: 'Envoyer les deux', value: 'both'}, {label: 'Remplacer', cls: 'primary', value: 'replace'}]});
+      if (!ch) return;
+      if (ch === 'replace') for (var oi = 0; oi < old.length; oi++){ var cur = await outboxGet(old[oi].id); if (cur && cur.etat !== 'envoi') await outboxDel(cur.id); }
+    }
     var it = {id: uid(), vid: v.id, eid: v.etudeId, numero: v.numero, a: res.f.a, cc: res.f.cc, objet: res.f.objet, message: res.f.message, nom: name, pdf: await blob.arrayBuffer(), signeLe: c.signeLe, etat: 'attente', cree: nowISO(), essais: 0};
     await outboxPut(it); await outboxAll(); refreshEnvoiUI();
-    var n = await processOutbox();
-    if (!n){ var after = (S.outbox || []).find(function(x){ return x.id === it.id; }); if (after && after.etat === 'attente') toast('Pas de connexion : le mail partira automatiquement au retour du réseau.', 4500); else if (after && after.etat === 'echec') toast('Échec de l\'envoi : ' + after.erreur, 6000); }
+    await processOutbox();
+    var after = (S.outbox || []).find(function(x){ return x.id === it.id; });
+    if (after && after.etat === 'attente') toast(navigator.onLine === false ? 'Pas de connexion : le mail partira automatiquement au retour du réseau.' : 'Le service ne répond pas : le mail est gardé et un nouvel essai aura lieu' + (after.prochain ? ' vers ' + heureTxt(after.prochain) : '') + '.', 5000);
+    else if (after && after.etat === 'echec') toast('Échec de l\'envoi : ' + after.erreur, 6000);
   } else {
-    await recordEnvoi(v.id, {le: nowISO(), a: res.f.a, cc: res.f.cc, objet: res.f.objet, mode: res.mode, signeLe: c.signeLe});
+    await recordEnvoi(v.id, {le: nowISO(), a: res.f.a, cc: res.f.cc, objet: res.f.objet, mode: res.mode, signeLe: c.signeLe}); await outboxClean(v.id);
     if (res.mode === 'mailto') toast('Votre messagerie s\'ouvre : joignez-y le constat qui vient d\'être enregistré.', 5000);
   }
   refreshEnvoiUI();
@@ -2974,9 +3126,10 @@ async function viewReglages(){
     + '<li>Paramètres du projet (roue dentée) &gt; Propriétés du script &gt; ajoutez <strong>CLE</strong> avec une phrase secrète d\'au moins 12 caractères (ne la donnez à personne). Facultatif : <strong>REPONSE</strong> = l\'adresse où les propriétaires répondront, ou <strong>EXPEDITEUR</strong> = l\'adresse professionnelle (variante alias).</li>'
     + '<li>Déployer &gt; Nouveau déploiement &gt; type « Application Web » ; Exécuter en tant que : Moi ; Qui a accès : Tout le monde. Autorisez l\'envoi de mails (écran « application non validée » : Paramètres avancés &gt; Accéder au projet, c\'est votre propre script).</li>'
     + '<li>Copiez l\'adresse de l\'application Web (elle finit par /exec) et collez-la ci-dessus avec la clé, puis « Tester l\'envoi ».</li>'
+    + '<li>Si vous remplacez plus tard le contenu du script (nouvelle version du fichier) : Déployer &gt; Gérer les déploiements &gt; crayon &gt; Version : « Nouvelle version » &gt; Déployer. L\'adresse /exec ne change pas ; sans cette étape, elle continue d\'exécuter l\'ancien script.</li>'
     + '<li>En cas de perte de la tablette : changez la clé dans les propriétés du script, ou supprimez le déploiement.</li></ol></details></section>';
-  if (ob.length) b += '<section class="card"><h2 class="h2">Boîte d\'envoi</h2>' + ob.map(function(it){ return '<div class="ob-row"><span><strong>Dossier ' + esc(it.numero) + '</strong> pour ' + esc(it.a.join(', ')) + ' : ' + esc(it.etat === 'attente' || it.etat === 'envoi' ? 'en attente de connexion' : 'échec, ' + (it.erreur || '')) + '</span>'
-    + '<button type="button" class="btn sm" data-act="mail-retry" data-id="' + esc(it.id) + '">Réessayer</button><button type="button" class="btn sm ghost" data-act="mail-drop" data-id="' + esc(it.id) + '">Retirer</button></div>'; }).join('') + '</section>';
+  if (ob.length) b += '<section class="card"><h2 class="h2">Boîte d\'envoi</h2>' + ob.map(function(it){ return '<div class="ob-row"><span><strong>Dossier ' + esc(it.numero) + '</strong> pour ' + esc(it.a.join(', ')) + ' : ' + esc(it.etat === 'envoi' ? 'envoi en cours' : it.etat === 'attente' ? (it.essais ? 'en attente, ' + (it.erreur || 'pas de réponse') + (it.prochain ? ', nouvel essai vers ' + heureTxt(it.prochain) : '') : 'en attente d\'envoi') : 'échec, ' + (it.erreur || '')) + '</span>'
+    + (it.etat === 'envoi' ? '' : '<button type="button" class="btn sm" data-act="mail-retry" data-id="' + esc(it.id) + '">' + (it.etat === 'attente' ? 'Essayer maintenant' : 'Réessayer') + '</button>') + '<button type="button" class="btn sm ghost" data-act="mail-drop" data-id="' + esc(it.id) + '">Retirer</button></div>'; }).join('') + '</section>';
   b += '</div>';
   return {bar: barHtml({back: '#/', title: 'Réglages'}), body: b};
 }
@@ -3015,15 +3168,16 @@ var CONSTAT_ACTIONS = {
     var v = curVisit(), c0 = v.constat; if (c0 && c0.signeLe) return; var tech = el.dataset.who === 'tech';
     if (!tech){ var iss = constatIssues(v, anomsOf(v.id)); if (iss.length && !(await confirmModal('Faire signer malgré tout ?', iss.length + (iss.length > 1 ? ' points restent à vérifier : ' : ' point reste à vérifier : ') + iss.slice(0, 4).join(' ') + (iss.length > 4 ? ' …' : ''), 'Faire signer'))) return; }
     var saved = tech ? await DB.get('meta', 'sigTech') : null, png = null;
-    if (tech && saved && saved.v && !(c0 && c0.sigTech)){
-      var use = await openModal({title: 'Signature du technicien', html: '<div class="sig-box"><img src="' + saved.v + '" alt="Signature enregistrée"></div><p>Utiliser votre signature enregistrée ?</p>', actions: [{label: 'Signer à nouveau', value: 'new'}, {label: 'Utiliser', cls: 'primary', value: 'use'}]});
-      if (use === 'use') png = saved.v; else if (use !== 'new') return;
+    if (tech && saved && imgData(saved.v) && !(c0 && c0.sigTech)){
+      var use = await openModal({title: 'Signature du technicien', html: '<div class="sig-box"><img src="' + imgData(saved.v) + '" alt="Signature enregistrée"></div><p>Utiliser votre signature enregistrée ?</p>', actions: [{label: 'Signer à nouveau', value: 'new'}, {label: 'Utiliser', cls: 'primary', value: 'use'}]});
+      if (use === 'use') png = imgData(saved.v); else if (use !== 'new') return;
     }
     if (!png) png = await signatureModal(tech ? 'Signature du technicien' : 'Signature du propriétaire', c0 ? (tech ? c0.sigTech : c0.sigProp) : '');
     if (!png) return;
     var c = constatOf(v);
     if (tech){ c.sigTech = png; await DB.put('meta', {k: 'sigTech', v: png}); }
-    else { c.sigProp = png; if (!String(c.soussigne || '').trim()) c.soussigne = signataireAuto(v); }   /* la personne a signé « Je, soussigné X » : ce nom ne bouge plus */
+    /* la personne a signé « Je, soussigné X » : ce nom ne bouge plus ; rempli d'office (soussigneAuto), il suit une nouvelle signature */
+    else { c.sigProp = png; if (c.soussigneAuto || !String(c.soussigne || '').trim()){ c.soussigne = signataireAuto(v); if (c.soussigne) c.soussigneAuto = true; else delete c.soussigneAuto; } }
     constatTouch(v); render();
   },
   'c-lock': async function(){
@@ -3035,27 +3189,32 @@ var CONSTAT_ACTIONS = {
       visite: {statut: v.statut, dateVisite: v.dateVisite, absences: (v.absences || []).slice(), nom: ctc(v, 'nom'), adresse: v.adresse, commune: v.commune, domicile: ctc(v, 'domicile'), domVille: ctc(v, 'domVille'), tel: ctc(v, 'tel'), mail: ctc(v, 'mail')}};
     c.signeLe = nowISO(); constatTouch(v); await flushSaves(); toast('Constat validé et verrouillé'); render();
   },
-  'c-unlock': async function(){ var v = curVisit(), c = constatOf(v); if (!(await confirmModal('Modifier le constat signé ?', 'Les signatures du technicien et du propriétaire seront effacées : il faudra faire signer à nouveau.', 'Modifier', true))) return; c.signeLe = ''; c.sigTech = ''; c.sigProp = ''; delete c.fige; constatTouch(v); await flushSaves(); render(); },
+  'c-unlock': async function(){ var v = curVisit(), c = constatOf(v); if (!(await confirmModal('Modifier le constat signé ?', 'Les signatures du technicien et du propriétaire seront effacées : il faudra faire signer à nouveau.', 'Modifier', true))) return; c.signeLe = ''; c.sigTech = ''; c.sigProp = ''; delete c.fige; if (c.soussigneAuto){ c.soussigne = ''; delete c.soussigneAuto; } constatTouch(v); await flushSaves(); render(); },
   'c-delete': async function(){ var v = curVisit(); if (!v.constat || v.constat.signeLe) return; if (!(await confirmModal('Supprimer le constat ?', 'Toute la saisie du constat de ce dossier sera effacée (installations, croquis, signatures). Les anomalies du dossier sont conservées.', 'Supprimer', true))) return; delete v.constat; constatTouch(v); await flushSaves(); toast('Constat supprimé'); go('#/e/' + v.etudeId + '/v/' + v.id); },
   'dl-constat': function(el){ return downloadConstatPdf(el.dataset.vid); },
   'c-mail': function(el){ var v = S.visites.find(function(x){ return x.id === el.dataset.vid; }) || curVisit(); if (v) return mailModal(v); },
-  'mail-retry': async function(el){ var it = (await outboxAll()).find(function(x){ return x.id === el.dataset.id; }); if (!it) return; it.etat = 'attente'; it.essais = 0; it.erreur = ''; await outboxPut(it); await outboxAll(); refreshEnvoiUI();
+  'mail-retry': async function(el){ var it = (await outboxAll()).find(function(x){ return x.id === el.dataset.id; }); if (!it) return;
+    var v = S.visites.find(function(x){ return x.id === it.vid; }), e = v && lastEnvoi(v);
+    if (e && e.le > it.cree && !(await confirmModal('Renvoyer ce mail ?', 'Le constat a déjà été envoyé depuis cet échec (le ' + fmtDT(e.le) + ' pour ' + e.a.join(', ') + ').', 'Renvoyer'))) return;
+    it.etat = 'attente'; it.essais = 0; it.erreur = ''; it.prochain = ''; await outboxPut(it); await outboxAll(); refreshEnvoiUI();
     if (!mailDirectOk(await mailCfg())){ toast('Réglez d\'abord l\'envoi direct dans Réglages.'); return; } await processOutbox(); if (S.route && S.route.name === 'reglages') render(); },
-  'mail-drop': async function(el){ if (!(await confirmModal('Retirer ce mail de la boîte d\'envoi ?', 'Il ne sera pas envoyé. Le constat reste dans le dossier.', 'Retirer', true))) return; await outboxDel(el.dataset.id); await outboxAll(); refreshEnvoiUI(); if (S.route && S.route.name === 'reglages') render(); },
+  'mail-drop': async function(el){ var it = await outboxGet(el.dataset.id); if (!it) return;
+    var txt = it.etat === 'envoi' ? 'L\'envoi est en cours : le mail peut déjà être parti. Le constat reste dans le dossier.' : it.essais && it.etat === 'attente' ? 'Il ne partira plus. Un essai précédent a été interrompu : le mail a pu partir malgré tout. Le constat reste dans le dossier.' : 'Il ne sera pas envoyé. Le constat reste dans le dossier.';
+    if (!(await confirmModal('Retirer ce mail de la boîte d\'envoi ?', txt, 'Retirer', true))) return; await outboxDel(el.dataset.id); if (outboxCtl[el.dataset.id]) outboxCtl[el.dataset.id].abort(); await outboxAll(); refreshEnvoiUI(); outboxPlan(); if (S.route && S.route.name === 'reglages') render(); },
   'mail-defaut': async function(){ var cfg = await mailCfg(); cfg.objet = MAIL_DEF.objet; cfg.message = MAIL_DEF.message; await DB.put('meta', {k: 'mailConfig', v: cfg}); render(); },
   'mail-test': async function(){
     clearTimeout(mailCfgT); var cfg = await mailCfg(); $$('[data-mc]').forEach(function(x){ cfg[x.dataset.mc] = x.value; }); await DB.put('meta', {k: 'mailConfig', v: cfg});
     if (!mailDirectOk(cfg)){ toast('Renseignez l\'adresse du service (https://…) et une clé d\'au moins 12 caractères.', 4500); return; }
     var to = mailOk(cfg.copie) ? cfg.copie.trim() : await promptModal('Tester l\'envoi', 'Adresse qui recevra l\'essai', ''); if (!to) return; if (!mailOk(to)){ toast('Adresse mail non valide.'); return; }
     var busy = busyModal('Essai d\'envoi');
-    try { await relaySend(cfg, {cle: String(cfg.cle).trim(), id: uid(), test: true, a: [to.trim()], objet: 'Essai d\'envoi, VÉDÉ Terrain', message: 'Ce message confirme que l\'envoi direct des constats fonctionne depuis votre adresse.', nom: cfg.nom || ''}); busy.close(); toast('Essai envoyé à ' + to.trim() + ' : vérifiez votre boîte de réception.', 5000); }
+    try { await relaySend(cfg, {cle: String(cfg.cle).trim(), id: uid(), test: true, a: [to.trim()], objet: 'Essai d\'envoi, VÉDÉ Terrain', message: 'Ce message confirme que l\'envoi direct des constats fonctionne depuis votre adresse.', nom: cfg.nom || ''}, 30000); busy.close(); toast('Essai envoyé à ' + to.trim() + ' : vérifiez votre boîte de réception.', 5000); }
     catch(e){ busy.close(); toast('Essai impossible : ' + e.message, 6000); }
   },
   'c-xls': async function(el){
     var v = curVisit(); if (v.constat && v.constat.signeLe) return;
     var val = await pickExcelValue(v);
     if (val == null) return;
-    setPath(constatOf(v), el.dataset.k, val); constatTouch(v); render();
+    var c = constatOf(v); setPath(c, el.dataset.k, val); if (el.dataset.k === 'soussigne') delete c.soussigneAuto; constatTouch(v); render();
   }
 };
 
@@ -3253,6 +3412,8 @@ async function restoreZip(file){
       busy2.set('Photos restaurées : ' + (i + 1) + ' sur ' + photos.length, (i + 1) / photos.length);
     }
     (data.anomalies || []).forEach(function(a){ a.photos = (a.photos || []).filter(function(id){ return restored.has(id); }); });
+    /* images du constat : seules des images intégrées sont reprises (une sauvegarde peut venir d'un autre appareil ou d'un tiers) */
+    (data.visites || []).forEach(function(v){ var c = v && v.constat; if (!c || typeof c !== 'object') return; ['croquis', 'sigTech', 'sigProp'].forEach(function(k){ if (c[k]) c[k] = imgData(c[k]); }); if (c.croquisV && c.croquisV.fond) c.croquisV.fond = imgData(c.croquisV.fond); });
     await DB.putMany('visites', data.visites || []);
     await DB.putMany('anomalies', data.anomalies || []);
     await DB.put('etudes', data.etude);
@@ -3320,8 +3481,10 @@ async function etudeMenu(){
   if (choice === 'update'){ S.imp = null; return go('#/e/' + e.id + '/maj'); }
   if (choice === 'rename'){ var n = await promptModal('Renommer l\'étude', 'Nom de l\'étude', e.nom); if (n && n.trim()){ e.nom = n.trim(); touchEtude(); await flushSaves(); render(); } return; }
   if (choice === 'delete'){
-    var ok = await confirmModal('Supprimer l\'étude ?', 'L\'étude « ' + e.nom + ' », ses ' + plural(S.visites.length, 'dossier', 'dossiers') + ', ses anomalies et ses photos seront effacés de cet appareil. Exportez-la d\'abord si besoin.', 'Supprimer', true);
-    if (ok){ await deleteEtudeData(e.id); S.etude = null; toast('Étude supprimée'); go('#/'); }
+    var obE = (await outboxAll()).filter(function(x){ return x.eid === e.id; });
+    var ok = await confirmModal('Supprimer l\'étude ?', 'L\'étude « ' + e.nom + ' », ses ' + plural(S.visites.length, 'dossier', 'dossiers') + ', ses anomalies et ses photos seront effacés de cet appareil. Exportez-la d\'abord si besoin.'
+      + (obE.length ? ' ' + (obE.length > 1 ? obE.length + ' mails de cette étude, encore dans la boîte d\'envoi, ne partiront pas.' : 'Un mail de cette étude, encore dans la boîte d\'envoi, ne partira pas.') : ''), 'Supprimer', true);
+    if (ok){ for (var oi = 0; oi < obE.length; oi++) await outboxDel(obE[oi].id); await deleteEtudeData(e.id); S.etude = null; S.visites = []; S.anoms = []; await outboxAll(); toast('Étude supprimée'); go('#/'); }
   }
 }
 async function ficheHeaderForm(){
@@ -3460,7 +3623,11 @@ var ACTIONS = {
   'ct-rencontre': function(el){ var v = curVisit(); if (!v) return; setContact(v, 'rencontre', ctc(v, 'rencontre') === el.dataset.v ? '' : el.dataset.v); render(); },
   'ct-reset': function(el){ var v = curVisit(); if (!v) return; setContact(v, el.dataset.k, undefined); render(); },
   'ct-keep': function(el){ var v = curVisit(); if (!v) return; v.contactBase = v.contactBase || {}; v.contactBase[el.dataset.k] = ctcImp(v, el.dataset.k); v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); render(); },
-  'ct-domidem': function(el){ var v = curVisit(); if (!v) return; v.contact = v.contact || {}; if (el.checked) v.contact.domIdem = true; else delete v.contact.domIdem; v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); render(); },
+  'ct-domidem': function(el){ var v = curVisit(); if (!v) return; v.contact = v.contact || {}; v.contactBase = v.contactBase || {};
+    if (el.checked){ v.contact.domIdem = true; v.contactBase.domIdem = [ctcImp(v, 'domicile'), ctcImp(v, 'domVille')]; } else { delete v.contact.domIdem; delete v.contactBase.domIdem; }
+    v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); render(); },
+  'ct-domtab': function(){ var v = curVisit(); if (!v || !v.contact) return; delete v.contact.domIdem; if (v.contactBase) delete v.contactBase.domIdem; v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); render(); },
+  'ct-domkeep': function(){ var v = curVisit(); if (!v) return; v.contactBase = v.contactBase || {}; v.contactBase.domIdem = [ctcImp(v, 'domicile'), ctcImp(v, 'domVille')]; v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); render(); },
   'ct-xls': async function(el){ var v = curVisit(); if (!v) return; var val = await pickExcelValue(v); if (val == null) return; setContact(v, el.dataset.k, CONTACT_IMP[el.dataset.k] && val === ctcImp(v, el.dataset.k) ? undefined : val); render(); },
   'date-today': function(){ var v = curVisit(); if (!v) return; v.dateVisite = todayStr(); v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); var inp = $('[data-vf="dateVisite"]'); if (inp) inp.value = v.dateVisite; var df = $('#date-fr'); if (df){ df.textContent = fmtDateLong(v.dateVisite); df.className = ''; } refreshIssuesUI(); },
   'biblio-new': function(el){ return biblioForm({reseau: el.dataset.net}); },
@@ -3517,9 +3684,9 @@ async function init(){
   window.addEventListener('popstate', onPopState);
   window.addEventListener('hashchange', function(){ if (normHash(location.hash) === NAV.lastPopHash || normHash(location.hash) === S.curHash) return; render(); });
   window.addEventListener('online', updateNet); window.addEventListener('offline', updateNet);
-  window.addEventListener('online', function(){ processOutbox(); });
+  window.addEventListener('online', function(){ processOutbox(true); });
   var rs; window.addEventListener('resize', function(){ clearTimeout(rs); rs = setTimeout(function(){ if (mqWide() !== S.wide) render(); }, 200); });
-  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') flushSaves(); });
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') flushSaves(); else processOutbox(true); });
   window.addEventListener('pagehide', function(){ flushSaves(); });
   if (window.VEDE_PWA && 'serviceWorker' in navigator){
     navigator.serviceWorker.register('./sw.js').then(function(reg){
@@ -3528,9 +3695,9 @@ async function init(){
     requestPersist();
   }
   await render();
-  outboxAll().then(function(){ refreshEnvoiUI(); return processOutbox(); }).catch(function(){});
+  outboxAll().then(function(){ refreshEnvoiUI(); return processOutbox(true); }).catch(function(){});
 }
-window.__VT = {S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, croqPng: croqPng, croquisAJour: croquisAJour, croquisType: croquisType, croqPlaceLabel: croqPlaceLabel, mailModal: mailModal, processOutbox: processOutbox, outboxAll: outboxAll, mailCfg: mailCfg, ready: null};
+window.__VT = {S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, croqPng: croqPng, croquisAJour: croquisAJour, croquisType: croquisType, croqPlaceLabel: croqPlaceLabel, mailModal: mailModal, processOutbox: processOutbox, outboxAll: outboxAll, mailCfg: mailCfg, pdfText: pdfText, mailsDe: mailsDe, telsDe: telsDe, qualiteTxt: qualiteTxt, signataireAuto: signataireAuto, imgData: imgData, croqPlaceLabel: croqPlaceLabel, croqTextBox: croqTextBox, croqSegHitsBox: croqSegHitsBox, CROQ_GAB: CROQ_GAB, ready: null};
 window.__VT.ready = init();
 })();
 </script>
