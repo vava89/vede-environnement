@@ -2905,6 +2905,8 @@ async function mailCfg(){ var r = null; try { r = await DB.get('meta', 'mailConf
 function mailDirectOk(cfg){ return /^https:\/\/\S+$/.test(String(cfg.url || '').trim()) && String(cfg.cle || '').trim().length >= 12; }
 function mailFill(t, v, cfg){
   var vals = {numero: v.numero || '', adresse: v.adresse || '', commune: communeNom(v.commune) || v.commune || '', date: v.dateVisite ? fmtDateLong(v.dateVisite) : '', proprietaire: ctc(v, 'nom'), signature: cfg.signature || cfg.nom || ''};
+  /* sans date de visite, « , établi le {date} » disparaît plutôt que d'écrire « établi le . » */
+  if (!vals.date) t = String(t || '').replace(/,?\s*établi le \{date\}/g, '');
   return String(t || '').replace(/\{(numero|adresse|commune|date|proprietaire|signature)\}/g, function(_, k){ return vals[k]; }).replace(/\n{3,}/g, '\n\n').trim();
 }
 function abToB64(ab){ var u8 = new Uint8Array(ab), s = ''; for (var i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s); }
