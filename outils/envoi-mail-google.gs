@@ -36,7 +36,8 @@ function doPost(e) {
     try {
       var cache = CacheService.getScriptCache(), id = String(req.id || '').replace(/[^\w-]/g, '').slice(0, 80);
       /* déjà envoyé (réponse perdue, application relancée, même plusieurs jours après) : jamais deux fois */
-      if (id && (cache.get('envoi:' + id) || props.getProperty('ENVOI_' + id))) return reponse_({ok: true, doublon: true});
+      var envoyeLe = id ? props.getProperty('ENVOI_' + id) : null;
+      if (id && (cache.get('envoi:' + id) || envoyeLe)) return reponse_({ok: true, doublon: true, le: envoyeLe ? new Date(Number(envoyeLe)).toISOString() : ''});
 
       var jour = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd');
       var compteur = JSON.parse(props.getProperty('COMPTEUR') || '{}');
@@ -58,7 +59,8 @@ function doPost(e) {
       MailApp.sendEmail(a.join(','), String(req.objet || 'Constat de visite').slice(0, 200), String(req.message || ''), options);
 
       props.setProperty('COMPTEUR', JSON.stringify({jour: jour, n: n + 1}));
-      if (id){ cache.put('envoi:' + id, '1', 21600); props.setProperty('ENVOI_' + id, String(Date.now())); purge_(props); }
+      if (id){ cache.put('envoi:' + id, '1', 21600); props.setProperty('ENVOI_' + id, String(Date.now())); }
+      if (compteur.jour !== jour) { try { purge_(props); } catch (e) {} }   /* une fois par jour, au premier envoi ; le mail est parti, quoi qu'il arrive au ménage */
       return reponse_({ok: true, restants: max - n - 1});
     } finally {
       verrou.releaseLock();
@@ -71,10 +73,10 @@ function doPost(e) {
 /* Ouvrir l'adresse du service dans un navigateur affiche ce message : le déploiement répond. */
 function doGet() { return reponse_({ok: true, service: 'VÉDÉ Terrain, envoi des constats'}); }
 
-/* identifiants envoyés gardés 30 jours */
+/* identifiants envoyés gardés 30 jours ; une seule lecture de toutes les propriétés */
 function purge_(props) {
-  var limite = Date.now() - 30 * 86400000;
-  props.getKeys().forEach(function (k) { if (k.indexOf('ENVOI_') === 0 && Number(props.getProperty(k)) < limite) props.deleteProperty(k); });
+  var limite = Date.now() - 30 * 86400000, tout = props.getProperties();
+  Object.keys(tout).forEach(function (k) { if (k.indexOf('ENVOI_') === 0 && Number(tout[k]) < limite) props.deleteProperty(k); });
 }
 function reponse_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 function adresse_(s) { return /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(s); }

@@ -1198,7 +1198,8 @@ function ctcExport(v){
     r === 'autre' ? fmtTel(fixTel(ctc(v, 'rTel'))) : '', r === 'autre' ? ctc(v, 'rMail') : '', ctcCorriges(v), envoiExport(v)];
 }
 /* « envoyé » seulement pour un envoi direct confirmé par le service ; la messagerie n'est qu'un mail préparé, son envoi n'est pas vérifiable */
-function envoiExport(v){ var e = lastEnvoi(v), c = v.constat; return e && c && c.signeLe && e.signeLe === c.signeLe ? (e.mode === 'direct' ? 'envoyé le ' + fmtDT(e.le) : 'préparé dans la messagerie le ' + fmtDT(e.le) + ' (envoi non vérifié)') : ''; }
+function envoiExport(v){ var c = v.constat; if (!c || !c.signeLe) return ''; var ev = envoisVersion(v);
+  return [ev.dir, ev.apres].filter(Boolean).map(function(e){ return e.mode === 'direct' ? 'envoyé le ' + fmtDT(e.le) : e.mode === 'incertain' ? 'envoi interrompu le ' + fmtDT(e.le) + ' (peut-être reçu)' : 'préparé dans la messagerie le ' + fmtDT(e.le) + ' (envoi non vérifié)'; }).join(' ; '); }
 function ctcCorriges(v){ return Object.keys(CONTACT_IMP).filter(function(k){ return ctcHas(v, k); }).map(function(k){ return CONTACT_LIB[k]; }).concat(v.contact && v.contact.domIdem ? ['domicile = adresse du branchement'] : []).join(', '); }
 /* Mise à jour du tableau : une correction redevenue égale au tableau disparaît ; un tableau qui la rejoint à la casse près est noté sans bruit ;
    renvoie le nombre de corrections gardées alors que le tableau a changé depuis (domicile = adresse du branchement compris) */
@@ -1229,9 +1230,21 @@ function rencontreTxt(v){
   return [ctc(v, 'rNom'), ctc(v, 'rQualite'), t ? fmtTel(t) : '', ctc(v, 'rMail')].map(function(x){ return String(x).trim(); }).filter(Boolean).join(', ') || 'une autre personne';
 }
 function mailOk(s){ return /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(String(s || '').trim()); }
-/* Une case peut porter plusieurs adresses (« a@x.fr ; b@y.fr », « a@x.fr (fils) ») ou plusieurs numéros (« 06 01 02 03 04 / 01 45 45 45 45 ») */
+/* Une case peut porter plusieurs adresses (« a@exemple.fr ; b@exemple.fr », « a@exemple.fr (fils) ») ou plusieurs numéros (« 06 39 98 00 01 / 01 99 00 00 01 », numéros réservés à la fiction) */
 function mailsDe(s){ var seen = {}; return String(s || '').split(/[\s,;\/()<>]+/).filter(function(x){ var k = x.toLowerCase(); if (!mailOk(x) || seen[k]) return false; seen[k] = 1; return true; }); }
-function telsDe(s){ var t = fixTel(s), m = t.match(/(?:\+\d{2,3}[\s.\-]?|0)[1-9](?:[\s.\-]?\d{2}){4}/g); return m || (/^\+?[\d\s.\-()]{6,}$/.test(t) ? [t] : []); }
+function telsDe(s){
+  var t = fixTel(s).trim(), num = function(x){ return /^(?:\+|00)?\d{6,15}$/.test(x.replace(/[\s.\-\/,()]/g, '')); };
+  if (!t) return [];
+  /* une seule valeur (chiffres et séparateurs, barres et virgules comprises ; 00 vaut +) : le numéro entier, comme avant */
+  if (num(t)) return [t];
+  /* plusieurs numéros : coupure sur les séparateurs placés entre deux numéros complets */
+  var parts = t.split(/\s*(?:[\/;,|\n]|\bet\b|\bou\b)\s*/).filter(function(x){ return x && num(x); });
+  if (parts.length > 1) return parts;
+  /* sinon, numéros français bornés (jamais un morceau d'un numéro plus long) */
+  var out = [], re = /(^|[^\d+])((?:\+33[\s.\-]?|0)[1-9](?:[\s.\-]?\d{2}){4})(?!\d)/g, m;
+  while ((m = re.exec(t))) out.push(m[2]);
+  return out;
+}
 function ctLink(kind, val){
   var ts = kind === 'tel' ? telsDe(val) : [], ms = kind === 'email' ? mailsDe(val) : [];
   if (ts.length) return {href: 'tel:' + telHref(ts[0]), html: svg(I.phone, 18) + (ts.length > 1 ? 'Appeler le 1er' : 'Appeler')};
@@ -1255,13 +1268,16 @@ function ctField(v, k, label, kind){
     + ((v.excel || []).length && !lock ? '<button type="button" class="btn sm" data-act="ct-xls" data-k="' + k + '" title="Reprendre une valeur du tableau Excel">' + svg(I.doc, 18) + 'Tableau</button>' : '')
     + (ln ? '<a class="btn sm ct-go" href="' + esc(ln.href) + '">' + ln.html + '</a>' : '') + '</div>'
     + (hint ? '<div class="ct-imp">' + hint + '</div>' : '')
-    + (kind === 'email' && String(val).trim() && !mailsDe(val).length ? '<div class="ct-imp">Adresse non reconnue : vérifiez-la (par exemple nom@domaine.fr).</div>' : '') + '</div>';
+    + (kind === 'email' && String(val).trim() && !mailsDe(val).length ? '<div class="ct-imp ct-bad">' + CT_BAD + '</div>' : '') + '</div>';
 }
 /* Pendant la frappe : le rappel du tableau et le lien Appeler / Écrire suivent la saisie, sans redessiner le champ */
+var CT_BAD = 'Adresse non reconnue : vérifiez-la (par exemple nom@domaine.fr).';
 function ctFieldUpdate(w, v){
-  var k = w.dataset.ctwrap, kind = w.dataset.kind, hint = ctHint(v, k), hd = w.querySelector('.ct-imp'), ln = ctLink(kind, ctc(v, k)), a = w.querySelector('.ct-go');
-  if (!hint){ if (hd) hd.remove(); } else { if (!hd){ hd = document.createElement('div'); hd.className = 'ct-imp'; w.appendChild(hd); } hd.innerHTML = hint; }
-  if (!ln){ if (a) a.remove(); } else if (a){ a.setAttribute('href', ln.href); } else { var xr = w.querySelector('.xrow'); if (xr) xr.insertAdjacentHTML('beforeend', '<a class="btn sm ct-go" href="' + esc(ln.href) + '">' + ln.html + '</a>'); }
+  var k = w.dataset.ctwrap, kind = w.dataset.kind, val = ctc(v, k), hint = ctHint(v, k), hd = w.querySelector('.ct-imp:not(.ct-bad)'), ln = ctLink(kind, val), a = w.querySelector('.ct-go');
+  if (!hint){ if (hd) hd.remove(); } else { if (!hd){ hd = document.createElement('div'); hd.className = 'ct-imp'; w.insertBefore(hd, w.querySelector('.ct-bad')); } hd.innerHTML = hint; }
+  var bad = kind === 'email' && String(val).trim() && !mailsDe(val).length, bd = w.querySelector('.ct-bad');
+  if (!bad){ if (bd) bd.remove(); } else if (!bd){ bd = document.createElement('div'); bd.className = 'ct-imp ct-bad'; bd.textContent = CT_BAD; w.appendChild(bd); }
+  if (!ln){ if (a) a.remove(); } else if (a){ a.setAttribute('href', ln.href); a.innerHTML = ln.html; } else { var xr = w.querySelector('.xrow'); if (xr) xr.insertAdjacentHTML('beforeend', '<a class="btn sm ct-go" href="' + esc(ln.href) + '">' + ln.html + '</a>'); }
 }
 /* Correction d'un champ : égale au tableau (à la mise en forme près), elle disparaît ; sinon on garde aussi la valeur du tableau du moment, pour signaler un changement du tableau plus tard */
 function putContact(v, k, val){
@@ -2219,18 +2235,25 @@ function croquisType(v, c){
   nets.sort(function(a, b){ return CROQ_RES_ORDER.indexOf(a.res) - CROQ_RES_ORDER.indexOf(b.res); });
   var hm = CROQ_GAB.maison, ys = nets.length === 1 ? [104] : nets.length === 2 ? [100, 113] : [98, 106, 114], xs = nets.length === 1 ? [(hm[0] + hm[2]) / 2] : nets.length === 2 ? [hm[0] + 12, hm[2] - 12] : [hm[0] + 9, (hm[0] + hm[2]) / 2, hm[2] - 9];
   function id(){ return 'k' + (++seq).toString(36); }
+  /* tous les traits d'abord, puis les étiquettes, chacune à une place qui ne masque ni un trait ni une autre étiquette */
   nets.forEach(function(n, i){
-    var nm = n.res === 'UN' ? 'unitaire' : n.res, rs = {t: 'p', id: id(), pts: [6, ys[i], 514, ys[i]], res: n.res, st: '', fl: 0}, br = {t: 'p', id: id(), pts: [croqR(xs[i]), hm[3], croqR(xs[i]), ys[i]], res: n.res, st: '', fl: 0};
-    items.push(rs, br);
-    var lr = croqPlaceLabel(rs, 'Réseau ' + nm + ' ' + (n.g === 'D' ? 'départemental' : 'territorial'), 2, items); lr.id = id(); items.push(lr);
-    var lb = {t: 'x', id: id(), s: 'Branchement ' + nm, sz: 1, res: n.res}, wb = croqTextW(lb);
-    lb.x = i === 0 && nets.length > 1 ? xs[i] - 2 - wb / 2 : xs[i] + 2 + wb / 2; lb.y = (CROQ_GAB.maison[3] + CROQ_GAB.limiteY) / 2; croqClampText(lb); items.push(lb);
+    n.rs = {t: 'p', id: id(), pts: [6, ys[i], 514, ys[i]], res: n.res, st: '', fl: 0}; n.br = {t: 'p', id: id(), pts: [croqR(xs[i]), hm[3], croqR(xs[i]), ys[i]], res: n.res, st: '', fl: 0};
+    items.push(n.rs, n.br);
+  });
+  var ym = (CROQ_GAB.maison[3] + CROQ_GAB.limiteY) / 2;
+  nets.forEach(function(n, i){
+    var nm = n.res === 'UN' ? 'unitaire' : n.res, lr = croqPlaceLabel(n.rs, 'Réseau ' + nm + ' ' + (n.g === 'D' ? 'départemental' : 'territorial'), 2, items); lr.id = id(); items.push(lr);
+    var lb = {t: 'x', id: id(), s: 'Branchement ' + nm, sz: 1, res: n.res}, hw = croqTextW(lb) / 2, gauche = i === 0 && nets.length > 1, cands = [];
+    [ym, ym - 5, ym + 5, ym - 10].forEach(function(y){ var l = {x: xs[i] - 2 - hw, y: y}, r = {x: xs[i] + 2 + hw, y: y}; cands.push(gauche ? l : r, gauche ? r : l); });
+    croqFreeSpot(lb, cands, items); items.push(lb);
   });
   var rue = croqContexte(v, c)[0];
-  if (rue && !/^n° /.test(rue)){ var tr = {t: 'x', id: id(), s: rue, sz: 2, res: 'BATI', x: 300, y: 120.5}; croqClampText(tr); items.push(tr); }
+  if (rue && !/^n° /.test(rue)){ var tr = {t: 'x', id: id(), s: rue, sz: 2, res: 'BATI'}; croqFreeSpot(tr, [{x: 300, y: 120.5}, {x: 400, y: 120.5}, {x: 120, y: 120.5}], items); items.push(tr); }
   return {items: items, seq: seq};
 }
 /* Géométrie */
+/* a → b → c presque en ligne droite (moins de 10° de déviation) */
+function croqAligne(ax, ay, bx, by, cx, cy){ var ux = bx - ax, uy = by - ay, vx = cx - bx, vy = cy - by, l = Math.hypot(ux, uy) * Math.hypot(vx, vy); return l > 0 && (ux * vx + uy * vy) / l > 0.985; }
 function croqProj(p, s){ var ax = s.a[0], ay = s.a[1], dx = s.b[0] - ax, dy = s.b[1] - ay, l2 = dx * dx + dy * dy, t = l2 ? ((p.x - ax) * dx + (p.y - ay) * dy) / l2 : 0; t = Math.max(0, Math.min(1, t)); return {x: ax + t * dx, y: ay + t * dy}; }
 function croqAngleBetween(a1, a2){ var d = Math.abs((a1 - a2) * 180 / Math.PI) % 180; return Math.min(d, 180 - d); }
 function croqRaySeg(o, d, s){
@@ -2330,7 +2353,7 @@ async function croquisEditor(v){
   function snapR(type){ return (type === 'pen' ? 12 : type === 'mouse' ? 8 : 24) / ED.k; }
   function compat(a, b){ return a === b || a === 'PRJ' || b === 'PRJ' || b === 'BATI' || b === 'GAB'; }
   function tSegs(res, excl){ var out = []; m.items.forEach(function(it){ if (it.t === 'p' && !it.lisse && it.id !== excl && compat(res, it.res)) out = out.concat(croqSegsOf(it)); }); return out.concat(CROQ_GAB.segs); }
-  function tPts(res, excl){ var out = []; m.items.forEach(function(it){ if (it.t === 'p' && !it.lisse && it.id !== excl && compat(res, it.res)){ for (var j = 0; j < it.pts.length; j += 2) out.push({x: it.pts[j], y: it.pts[j + 1]}); } }); CROQ_GAB.segs.forEach(function(s){ if (!s.bord) out.push({x: s.a[0], y: s.a[1]}, {x: s.b[0], y: s.b[1]}); }); return out; }
+  function tPts(res, excl){ var out = []; m.items.forEach(function(it){ if (it.t === 'p' && !it.lisse && it.id !== excl && compat(res, it.res)){ var P = it.pts; for (var j = 0; j < P.length; j += 2){ if (j > 0 && j < P.length - 2 && croqAligne(P[j - 2], P[j - 1], P[j], P[j + 1], P[j + 2], P[j + 3])) continue; out.push({x: P[j], y: P[j + 1]}); } } }); CROQ_GAB.segs.forEach(function(s){ if (!s.bord) out.push({x: s.a[0], y: s.a[1]}, {x: s.b[0], y: s.b[1]}); }); return out; }
   function snapAt(raw, res, excl, from, type){
     var p = {x: raw.x, y: raw.y}, ang = null;
     if (from){
@@ -2446,7 +2469,13 @@ async function croquisEditor(v){
       /* un trait qui part de l'extrémité d'un trait du même réseau le prolonge : une canalisation coudée reste un seul élément */
       function cont(ux, uy){ var vx = b.x - a.x, vy = b.y - a.y, l = Math.hypot(ux, uy) * Math.hypot(vx, vy); return l > 0 && (ux * vx + uy * vy) / l > 0.5; }
       m.items.forEach(function(it){ if (ext || it.t !== 'p' || it.lisse || it.res !== ED.res || it.st) return; var p2 = it.pts, n = p2.length; if (p2[n - 2] === a.x && p2[n - 1] === a.y && cont(p2[n - 2] - p2[n - 4], p2[n - 1] - p2[n - 3])) ext = {it: it, end: true}; else if (p2[0] === a.x && p2[1] === a.y && cont(p2[0] - p2[2], p2[1] - p2[3])) ext = {it: it, end: false}; });
-      if (ext){ if (ext.end) ext.it.pts.push(b.x, b.y); else ext.it.pts.unshift(b.x, b.y); ED.last = ext.it.id; }
+      if (ext){
+        /* dans le prolongement exact (moins de 10°), l'extrémité avance : pas de sommet invisible au raccord */
+        var P = ext.it.pts, n2 = P.length;
+        if (ext.end){ if (n2 >= 4 && croqAligne(P[n2 - 4], P[n2 - 3], P[n2 - 2], P[n2 - 1], b.x, b.y)){ P[n2 - 2] = b.x; P[n2 - 1] = b.y; } else P.push(b.x, b.y); }
+        else { if (n2 >= 4 && croqAligne(P[2], P[3], P[0], P[1], b.x, b.y)){ P[0] = b.x; P[1] = b.y; } else P.unshift(b.x, b.y); }
+        ED.last = ext.it.id;
+      }
       else { var nl = {id: newId(), t: 'p', pts: [a.x, a.y, b.x, b.y], res: ED.res, st: '', fl: 0}; m.items.push(nl); ED.last = nl.id; }
       ED.sel = null; commit(); draw(); return;
     }
@@ -2492,7 +2521,7 @@ async function croquisEditor(v){
   }
   async function otherText(){
     var r = await openModal({title: 'Autre texte', html: '<label class="field"><span class="lbl">Texte à poser</span><input type="text" id="m-in" data-autofocus></label>'
-      + '<label class="check"><input type="checkbox" id="m-keep"><span>Ajouter à mes textes</span></label><p class="muted small">Ensuite, touchez l\'endroit où le poser.</p>',
+      + '<label class="check"><input type="checkbox" id="m-keep"><span>Ajouter à mes textes</span></label><p class="muted small">Ensuite, touchez ' + (ED.penSeen ? 'avec le stylet ' : '') + 'l\'endroit où le poser.</p>',
       actions: [{label: 'Annuler', value: null}, {label: 'Choisir l\'endroit', cls: 'primary', collect: function(w){ return {s: w.querySelector('#m-in').value.trim(), keep: w.querySelector('#m-keep').checked}; }}]});
     if (!r || !r.s) return;
     if (r.keep) await keepText(r.s);
@@ -2501,7 +2530,8 @@ async function croquisEditor(v){
   /* « Mes textes » : seulement à la demande, 15 au plus, jamais un téléphone ni un mail (données personnelles) */
   async function keepText(s){
     /* un numéro de téléphone (avec ou sans séparateurs : espaces, points, tirets, barres) ou un mail ne passe jamais d'un dossier à l'autre ; une date oui */
-    if (/@/.test(s) || /(?:\+33|0033|0)[1-9]\d{8}/.test(s.replace(/[\s.\-\/()]/g, ''))){ toast('Les téléphones et les mails ne sont pas gardés dans « Mes textes ».'); return; }
+    var sd = s.replace(/[\s.\-\/()]/g, '');
+    if (/@/.test(s) || /(?:\+33|0033|0)[1-9]\d{8}/.test(sd) || /(?:\+|00)\d{8,}/.test(sd)){ toast('Les téléphones et les mails ne sont pas gardés dans « Mes textes ».'); return; }
     textes = [s].concat(textes.filter(function(x){ return x !== s; })).slice(0, 15); await DB.put('meta', {k: 'croqTextes', v: textes});
   }
   async function menu(){
@@ -2534,7 +2564,7 @@ async function croquisEditor(v){
     $$('[data-ce="tool"]', w).forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.v === ED.tool)); });
     $$('[data-ce="res"]', w).forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.v === ED.res)); });
     var sel = byId(ED.sel), last = !sel && byId(ED.last), it = sel || last, band = '', hint;
-    if (ED.armed){ hint = 'Touchez l\'endroit où poser « ' + ED.armed.s + ' »'; band = chip('Annuler la pose', 'disarm'); }
+    if (ED.armed){ hint = (ED.penSeen ? 'Touchez avec le stylet l\'endroit où poser « ' : 'Touchez l\'endroit où poser « ') + ED.armed.s + ' »'; band = chip('Annuler la pose', 'disarm'); }
     else if (it && it.t === 'x'){
       hint = 'Glissez le texte pour le déplacer, ou utilisez les flèches (1 point par toucher)';
       band = chip('Modifier le texte', 'txt') + chip('A−', 'sz', ' data-v="-1"') + chip('A+', 'sz', ' data-v="1"') + chip('←', 'nudge', ' data-v="-1,0" aria-label="Vers la gauche"') + chip('↑', 'nudge', ' data-v="0,-1" aria-label="Vers le haut"')
@@ -2915,6 +2945,7 @@ function lastEnvoi(v){ var e = v.envois || []; return e.length ? e[e.length - 1]
 async function recordEnvoi(vid, o){
   var v = S.visites.find(function(x){ return x.id === vid; });
   if (v && !(await DB.get('etudes', v.etudeId))) return;   /* étude supprimée entre-temps : rien n'est réécrit */
+  o.rec = nowISO();
   if (v){ v.envois = (v.envois || []).concat([o]).slice(-20); v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); await flushSaves(); return; }
   var d = await DB.get('visites', vid); if (!d) return; d.envois = (d.envois || []).concat([o]).slice(-20); d.updatedAt = nowISO(); await DB.put('visites', d);
 }
@@ -2941,9 +2972,20 @@ async function relaySend(cfg, payload, ms, ctl){
   return j;
 }
 async function outboxGet(id){ var r = null; try { r = await DB.get('meta', OUTBOX + id); } catch(e){} return r ? r.v : null; }
-/* Après un envoi réussi d'un dossier : ses anciens échecs et envois bloqués sont dépassés */
-async function outboxClean(vid, keep){ var all = await outboxAll(); for (var i = 0; i < all.length; i++){ var x = all[i]; if (x.vid === vid && x.id !== keep && (x.etat === 'echec' || x.etat === 'bloque')) await outboxDel(x.id); } }
+/* destinataires d'un mail ou d'un envoi noté (À et copie), en minuscules */
+function obDest(x){ return (x.a || []).concat(x.cc ? [x.cc] : []).map(function(d){ return String(d).trim().toLowerCase(); }).filter(Boolean); }
+function obCouvert(x, recus){ return obDest(x).every(function(d){ return recus.indexOf(d) >= 0; }); }
+/* Après un envoi réussi d'un dossier : un ancien échec ou blocage n'est dépassé que si TOUS ses destinataires ont reçu ce nouvel envoi */
+async function outboxClean(vid, keep, recus){ var r = (recus || []).map(function(d){ return String(d).trim().toLowerCase(); }), all = await outboxAll(); for (var i = 0; i < all.length; i++){ var x = all[i]; if (x.vid === vid && x.id !== keep && (x.etat === 'echec' || x.etat === 'bloque') && obCouvert(x, r)) await outboxDel(x.id); } }
+/* « Retirer » : ce que l'on promet dépend de ce qui a pu se passer */
+function dropTxt(it){ return it.etat === 'envoi' ? 'L\'envoi est en cours : le mail peut déjà être parti. Le constat reste dans le dossier.' : it.incertain ? 'Il ne partira plus. Un essai précédent est resté sans réponse : le mail a pu être reçu malgré tout. Le constat reste dans le dossier.' : 'Il ne sera pas envoyé. Le constat reste dans le dossier.'; }
+/* Démarrage : un mail resté « en cours » d'une session précédente (application fermée en plein envoi) repasse en attente, issue incertaine */
+async function outboxRepair(){ var all = await outboxAll(); for (var i = 0; i < all.length; i++){ var x = all[i]; if (x.etat === 'envoi' && !outboxCtl[x.id]){ x.etat = 'attente'; x.incertain = true; x.prochain = ''; await outboxPut(x); } } await outboxAll(); }
 var outboxRun = null, outboxAgain = false, outboxTimer = 0, outboxCtl = {};   /* outboxCtl : envoi en cours, que « Retirer » interrompt s'il n'est pas encore parvenu au service */
+/* Mails retenus le temps d'une question (« Retirer ? », « Remplacer ? ») : ils ne partent pas pendant que l'utilisateur décide */
+var outboxHold = {};
+async function obRetenir(ids, fn){ ids.forEach(function(id){ outboxHold[id] = (outboxHold[id] || 0) + 1; });
+  try { return await fn(); } finally { ids.forEach(function(id){ if (!(--outboxHold[id] > 0)) delete outboxHold[id]; }); processOutbox(); } }
 var OB_DELAIS = [1, 2, 5, 10, 30, 60];   /* minutes avant un nouvel essai après une coupure ; jamais d'échec définitif pour une coupure */
 /* force : retour du réseau, retour au premier plan, démarrage : tout mail en attente est essayé tout de suite, sans attendre l'heure prévue */
 var outboxForce = false;
@@ -2955,32 +2997,39 @@ function processOutbox(force){
     try {
       do {
         outboxAgain = false; var forced = outboxForce; outboxForce = false;
-        var cfg = await mailCfg(), now = Date.now(), items = (await outboxAll()).filter(function(x){ return (x.etat === 'attente' || x.etat === 'envoi') && (forced || !(x.prochain && Date.parse(x.prochain) > now)); });
+        var cfg = await mailCfg(), now = Date.now(), items = (await outboxAll()).filter(function(x){ return (x.etat === 'attente' || x.etat === 'envoi') && !outboxHold[x.id] && (forced || !(x.prochain && Date.parse(x.prochain) > now)); });
         peut = mailDirectOk(cfg) && navigator.onLine !== false;
         if (!items.length || !peut) break;
         for (var i = 0; i < items.length; i++){
-          var it = await outboxGet(items[i].id); if (!it || !(it.etat === 'attente' || it.etat === 'envoi')) continue;   /* retiré ou traité entre-temps */
+          var it = await outboxGet(items[i].id); if (!it || !(it.etat === 'attente' || it.etat === 'envoi') || outboxHold[it.id]) continue;   /* retiré, traité ou retenu entre-temps */
           var v = S.visites.find(function(x){ return x.id === it.vid; }) || await DB.get('visites', it.vid);
           if (!v){ await outboxDel(it.id); continue; }
           if (!v.constat || v.constat.signeLe !== it.signeLe){ it.etat = 'bloque'; it.erreur = 'constat modifié depuis la mise en file : renvoyez-le'; await outboxPut(it); continue; }
-          it.etat = 'envoi'; it.essais = (it.essais || 0) + 1; it.dernier = nowISO(); await outboxPut(it); await outboxAll(); refreshEnvoiUI();
-          var err = null; outboxCtl[it.id] = typeof AbortController === 'function' ? new AbortController() : null;
-          try { await relaySend(cfg, {cle: String(cfg.cle).trim(), id: it.id, a: it.a, cc: it.cc || '', objet: it.objet, message: it.message, nom: cfg.nom || '', pj: [{nom: it.nom, type: 'application/pdf', b64: abToB64(it.pdf)}]}, 60000, outboxCtl[it.id]); }
+          if (outboxHold[it.id]) continue;
+          it.etat = 'envoi'; it.essais = (it.essais || 0) + 1; it.rang = (it.rang || 0) + 1; it.dernier = nowISO(); await outboxPut(it); await outboxAll(); refreshEnvoiUI();
+          var err = null, rep = null; outboxCtl[it.id] = typeof AbortController === 'function' ? new AbortController() : null;
+          try { rep = await relaySend(cfg, {cle: String(cfg.cle).trim(), id: it.id, a: it.a, cc: it.cc || '', objet: it.objet, message: it.message, nom: cfg.nom || '', pj: [{nom: it.nom, type: 'application/pdf', b64: abToB64(it.pdf)}]}, 60000, outboxCtl[it.id]); }
           catch(e){ err = e; }
           delete outboxCtl[it.id];
           var still = await outboxGet(it.id);   /* « Retirer » pendant l'essai : l'élément n'est jamais réécrit */
           if (!err){
-            await recordEnvoi(it.vid, {le: nowISO(), a: it.a, cc: it.cc || '', objet: it.objet, mode: 'direct', signeLe: it.signeLe});
+            /* déjà envoyé lors d'un essai resté sans réponse : le service donne la date du vrai départ */
+            var le = rep && rep.doublon && rep.le && !isNaN(Date.parse(rep.le)) ? new Date(rep.le).toISOString() : nowISO();
+            await recordEnvoi(it.vid, {le: le, a: it.a, cc: it.cc || '', objet: it.objet, mode: 'direct', signeLe: it.signeLe});
             if (still) await outboxDel(it.id);
-            await outboxClean(it.vid, it.id); sent++;
-            toast(still ? 'Constat ' + it.numero + ' envoyé à ' + it.a.join(', ') : 'Le mail retiré était déjà parti : constat ' + it.numero + ' envoyé à ' + it.a.join(', '), still ? 4500 : 8000);
+            await outboxClean(it.vid, it.id, obDest(it)); sent++;
+            toast(!still ? 'Le mail retiré était déjà parti : constat ' + it.numero + ' envoyé à ' + it.a.join(', ') : rep && rep.doublon ? 'Constat ' + it.numero + ' déjà envoyé à ' + it.a.join(', ') + (rep.le ? ' le ' + fmtDT(le) : '') + ' : il n\'est pas reparti.' : 'Constat ' + it.numero + ' envoyé à ' + it.a.join(', '), still ? 4500 : 8000);
             continue;
           }
-          if (!still) continue;
+          if (!still){
+            /* retiré pendant un essai interrompu : il a pu partir ; le dossier le dit au lieu de « pas encore envoyé » */
+            if (err.reseau){ await recordEnvoi(it.vid, {le: nowISO(), a: it.a, cc: it.cc || '', objet: it.objet, mode: 'incertain', signeLe: it.signeLe}); toast('Le mail retiré a pu partir : l\'envoi avait commencé (constat ' + it.numero + ', ' + it.a.join(', ') + ').', 8000); }
+            continue;
+          }
           if (err.reseau){
-            /* coupure : nouvel essai plus tard, pour ce mail et les suivants (inutile d'insister maintenant) */
-            var next = new Date(Date.now() + OB_DELAIS[Math.min(it.essais, OB_DELAIS.length) - 1] * 60000).toISOString(), rest = await outboxAll();
-            it.etat = 'attente'; it.erreur = err.message; it.prochain = next; await outboxPut(it);
+            /* coupure : nouvel essai plus tard, pour ce mail et les suivants (inutile d'insister maintenant) ; le mail a peut-être été reçu */
+            var next = new Date(Date.now() + OB_DELAIS[Math.min(it.rang, OB_DELAIS.length) - 1] * 60000).toISOString(), rest = await outboxAll();
+            it.etat = 'attente'; it.erreur = err.message; it.prochain = next; it.incertain = true; await outboxPut(it);
             for (var k = 0; k < rest.length; k++){ var o = rest[k]; if (o.id !== it.id && o.etat === 'attente' && !(o.prochain && o.prochain > next)){ o.prochain = next; await outboxPut(o); } }
             break;
           }
@@ -2997,37 +3046,48 @@ function processOutbox(force){
 function outboxPlan(peut){
   clearTimeout(outboxTimer);
   if (peut === false || navigator.onLine === false) return;
-  var ts = (S.outbox || []).filter(function(x){ return x.etat === 'attente' && x.prochain; }).map(function(x){ return Date.parse(x.prochain); });
+  var ts = (S.outbox || []).filter(function(x){ return x.etat === 'attente' && x.prochain && !outboxHold[x.id]; }).map(function(x){ return Date.parse(x.prochain); });
   if (!ts.length) return;
   outboxTimer = setTimeout(function(){ processOutbox(); }, Math.max(2000, Math.min.apply(null, ts) - Date.now() + 500));
 }
 function heureTxt(iso){ var d = new Date(iso); return isNaN(d) ? '' : pad2(d.getHours()) + 'h' + pad2(d.getMinutes()); }
+/* Envois de la version signée actuelle : le dernier envoi direct confirmé, puis ce qui a suivi (messagerie, envoi interrompu) */
+function envoisVersion(v){ var c = v.constat, E = (v.envois || []).filter(function(e){ return c && e.signeLe === c.signeLe; }), dir = E.filter(function(e){ return e.mode === 'direct'; }).pop() || null;
+  return {E: E, dir: dir, apres: E.filter(function(e){ return e.mode !== 'direct' && (!dir || e.le > dir.le); }).pop() || null}; }
+function envoiPhrase(e){ var pour = e.a && e.a.length ? e.a.join(', ') : 'les destinataires choisis dans la messagerie';
+  return e.mode === 'direct' ? 'envoyé le ' + fmtDT(e.le) + ' pour ' + pour : e.mode === 'incertain' ? 'envoi interrompu le ' + fmtDT(e.le) + ' pour ' + pour + ' : il a peut-être été reçu' : 'préparé dans votre messagerie le ' + fmtDT(e.le) + ' pour ' + pour + ' (envoi non vérifié)'; }
 function envoiState(v){
   var c = v.constat; if (!c || !c.signeLe) return null;
-  var ob = (S.outbox || []).filter(function(x){ return x.vid === v.id; }), e = lastEnvoi(v), le = e ? e.le : '';
+  var ob = (S.outbox || []).filter(function(x){ return x.vid === v.id; }), ev = envoisVersion(v);
   var cur = ob.find(function(x){ return x.etat === 'envoi'; }); if (cur) return {cls: 'wait', txt: 'Envoi en cours pour ' + cur.a.join(', ') + '…', id: cur.id, etat: 'envoi'};
   var att = ob.find(function(x){ return x.etat === 'attente'; });
-  if (att) return {cls: 'wait', id: att.id, etat: 'attente', txt: navigator.onLine === false ? 'Mail en attente pour ' + att.a.join(', ') + ' (sans connexion) : il partira au retour du réseau.'
-    : att.essais ? 'Mail en attente pour ' + att.a.join(', ') + ' : ' + (att.erreur || 'pas de réponse du service') + ' ; nouvel essai ' + (att.prochain ? 'vers ' + heureTxt(att.prochain) : 'dès que possible') + '.' : 'Mail en attente d\'envoi pour ' + att.a.join(', ') + '.'};
-  /* un échec n'est montré que s'il est plus récent que le dernier envoi réussi */
-  var bad = ob.find(function(x){ return (x.etat === 'echec' || x.etat === 'bloque') && !(le && x.cree < le); }); if (bad) return {cls: 'bad', txt: 'Échec de l\'envoi : ' + bad.erreur + '.', id: bad.id, etat: bad.etat};
-  if (!e) return {cls: 'none', txt: 'Constat signé, pas encore envoyé.'};
-  if (e.signeLe !== c.signeLe) return {cls: 'bad', txt: 'Une version précédente a été envoyée le ' + fmtDT(e.le) + ' ; la version signée actuelle n\'a pas été envoyée.'};
-  return {cls: 'ok', txt: (e.mode === 'direct' ? 'Envoyé le ' : 'Préparé dans votre messagerie le ') + fmtDT(e.le) + ' pour ' + (e.a.length ? e.a.join(', ') : 'les destinataires choisis dans la messagerie') + (e.mode === 'direct' ? '.' : ' (envoi non vérifié).')};
+  if (att) return {cls: 'wait', id: att.id, etat: 'attente', txt: (navigator.onLine === false ? 'Mail en attente pour ' + att.a.join(', ') + ' (sans connexion) : il partira au retour du réseau.'
+    : att.essais ? 'Mail en attente pour ' + att.a.join(', ') + ' : ' + (att.erreur || 'pas de réponse du service') + ' ; nouvel essai ' + (att.prochain ? 'vers ' + heureTxt(att.prochain) : 'dès que possible') + '.' : 'Mail en attente d\'envoi pour ' + att.a.join(', ') + '.')
+    + (att.incertain ? ' Un essai est resté sans réponse : le mail a peut-être déjà été reçu ; « Essayer maintenant » ne l\'enverra pas deux fois.' : '')};
+  /* un échec reste affiché tant qu'un envoi plus récent n'a pas atteint tous ses destinataires */
+  var bad = ob.find(function(x){ return (x.etat === 'echec' || x.etat === 'bloque') && !ev.E.some(function(e){ return e.mode === 'direct' && e.le > x.cree && obCouvert(x, obDest(e)); }); });
+  if (bad) return {cls: 'bad', txt: 'Échec de l\'envoi pour ' + bad.a.join(', ') + ' : ' + bad.erreur + '.', id: bad.id, etat: bad.etat};
+  if (!ev.E.length){ var e0 = lastEnvoi(v); return e0 ? {cls: 'bad', txt: 'Une version précédente a été envoyée le ' + fmtDT(e0.le) + ' ; la version signée actuelle n\'a pas été envoyée.'} : {cls: 'none', txt: 'Constat signé, pas encore envoyé.'}; }
+  var t = [ev.dir, ev.apres].filter(Boolean).map(envoiPhrase).join(' ; puis ');
+  return {cls: ev.dir || (ev.apres && ev.apres.mode !== 'incertain') ? 'ok' : 'wait', txt: t.charAt(0).toUpperCase() + t.slice(1) + '.'};
 }
 function envoiHtml(v){
   var st = envoiState(v); if (!st) return '';
   return '<div class="cst-envoi ' + st.cls + '" data-envoi="' + esc(v.id) + '"><span>' + esc(st.txt) + '</span>'
-    + (st.id && st.etat !== 'envoi' && st.etat !== 'attente' ? '<button type="button" class="btn sm" data-act="mail-retry" data-id="' + esc(st.id) + '">Réessayer</button>' : '')
+    + (st.id && st.etat !== 'envoi' ? '<button type="button" class="btn sm" data-act="mail-retry" data-id="' + esc(st.id) + '">' + (st.etat === 'attente' ? 'Essayer maintenant' : 'Réessayer') + '</button>' : '')
     + (st.id ? '<button type="button" class="btn sm ghost" data-act="mail-drop" data-id="' + esc(st.id) + '">Retirer</button>' : '') + '</div>';
 }
-function refreshEnvoiUI(){ $$('[data-envoi]').forEach(function(el){ var v = S.visites.find(function(x){ return x.id === el.dataset.envoi; }); if (v) el.outerHTML = envoiHtml(v); }); }
+function refreshEnvoiUI(){
+  $$('[data-envoi]').forEach(function(el){ var v = S.visites.find(function(x){ return x.id === el.dataset.envoi; }); if (v) el.outerHTML = envoiHtml(v); });
+  var sec = $('#ob-sec'); if (sec) sec.innerHTML = outboxSectionHtml(S.outbox || []);
+  if (S.mailPend) S.mailPend();
+}
 /* Fenêtre d'envoi : destinataires (propriétaire coché ; personne rencontrée cochée seulement si elle représente le propriétaire), ajout manuel, objet, message, PDF préparé à l'ouverture */
 async function mailModal(v){
   var c = v.constat; if (!c || !c.signeLe){ toast('Signez d\'abord le constat.'); return; }
   if (!pdfLibOk()) return;
   await flushSaves();
-  var cfg = await mailCfg(), direct = mailDirectOk(cfg), E = constatEval(v, anomsOf(v.id)), name = constatFileName(v), blob = null, dests = [];
+  var cfg = await mailCfg(), direct = mailDirectOk(cfg), E = constatEval(v, anomsOf(v.id)), name = constatFileName(v), blob = null, dests = [], t0 = nowISO();
   function addDest(adr, lib, on, note){ adr = String(adr || '').trim(); if (!mailOk(adr) || dests.some(function(d){ return d.adr.toLowerCase() === adr.toLowerCase(); })) return; dests.push({adr: adr, lib: lib, on: on, note: note || ''}); }
   mailsDe(ctc(v, 'mail')).forEach(function(a){ addDest(a, 'Propriétaire', true); });
   if (ctc(v, 'rencontre') === 'autre'){ var q = ctc(v, 'rQualite'), pro = /syndic|agence|mandataire|gestionnaire|notaire|tuteur|curateur/i.test(q); mailsDe(ctc(v, 'rMail')).forEach(function(a){ addDest(a, [ctc(v, 'rNom'), qualiteTxt(q)].filter(Boolean).join(', ') || 'Personne rencontrée', pro, pro ? '' : 'recevra les coordonnées du propriétaire'); }); }
@@ -3075,38 +3135,79 @@ async function mailModal(v){
   var res = await openModal({title: 'Envoyer le constat par mail', noAutofocus: true, html: html, actions: acts,
     onMount: function(w, close){
       W = w; closeFn = close;
+      S.mailPend = function(){ pend = (S.outbox || []).filter(function(y){ return y.vid === v.id && y.etat !== 'bloque'; }); var el = w.querySelector('#m-pend'); if (el) el.innerHTML = pendHtml(); };
       w.addEventListener('click', async function(ev){
         var dr = ev.target.closest('[data-m="drop"]');
-        if (dr){ var x = await outboxGet(dr.dataset.id); if (x && x.etat !== 'envoi'){ await outboxDel(x.id); } pend = (await outboxAll()).filter(function(y){ return y.vid === v.id && y.etat !== 'bloque'; }); w.querySelector('#m-pend').innerHTML = pendHtml(); refreshEnvoiUI(); outboxPlan(); return; }
+        if (dr){ var did = dr.dataset.id;
+          await obRetenir([did], async function(){
+            var x = await outboxGet(did);
+            if (x && x.incertain && !(await confirmModal('Retirer ce mail de la boîte d\'envoi ?', dropTxt(x), 'Retirer', true))) return;
+            x = await outboxGet(did);
+            if (!x) toast('Ce mail n\'est plus dans la boîte d\'envoi : il est parti ou a été retiré.', 4500);
+            else { await outboxDel(x.id); if (outboxCtl[x.id]) outboxCtl[x.id].abort(); if (x.etat === 'envoi') toast('L\'envoi avait commencé : le mail a pu partir.', 6000); }
+            await outboxAll(); refreshEnvoiUI();
+          });
+          return; }
         if (!ev.target.closest('[data-m="add"]')) return;
         var inp = w.querySelector('#m-add'), adr = inp.value.trim(); if (!mailOk(adr)){ toast('Adresse mail non valide.'); return; }
-        var cur = chosen(); addDest(adr, 'Ajoutée à la main', true); inp.value = '';
-        w.querySelector('#m-dests').innerHTML = dests.map(function(d, i){ d.on = d.on || cur.indexOf(d.adr) >= 0; return destHtml(d, i); }).join('');
+        $$('[data-dest]', w).forEach(function(cb){ dests[+cb.dataset.dest].on = cb.checked; });   /* une adresse décochée le reste */
+        var known = dests.find(function(d){ return d.adr.toLowerCase() === adr.toLowerCase(); }); if (known) known.on = true; else addDest(adr, 'Ajoutée à la main', true); inp.value = '';
+        w.querySelector('#m-dests').innerHTML = dests.map(destHtml).join('');
       });
       constatPdfBlob(v).then(function(b){ blob = b; var el = w.querySelector('#m-pj'); if (el) el.textContent = name + ' (' + Math.max(1, Math.round(b.size / 1024)) + ' Ko)'; })
         .catch(function(err){ var el = w.querySelector('#m-pj'); if (el) el.textContent = 'PDF impossible : ' + ((err && err.message) || err); });
     }});
+  S.mailPend = null;
   if (!res) return;
   remember(res.f.a);
   if (res.mode === 'direct'){
+    /* le constat est parti (essai programmé) pendant que la fenêtre était ouverte : on le dit avant d'en envoyer un autre */
+    var parti = (v.envois || []).filter(function(e){ return e.mode === 'direct' && e.signeLe === c.signeLe && (e.rec || e.le) >= t0; }).pop();
+    if (parti && !(await confirmModal('Le constat vient de partir', 'Il a été envoyé à ' + parti.a.join(', ') + ' à ' + heureTxt(parti.rec || parti.le) + ', pendant que la fenêtre était ouverte. L\'envoyer quand même ?', 'Envoyer'))) return;
     var old = (await outboxAll()).filter(function(x){ return x.vid === v.id && x.signeLe === c.signeLe && (x.etat === 'attente' || x.etat === 'echec'); });
-    if (old.length){
-      var ch = await openModal({title: 'Un mail de ce constat attend déjà', html: '<p>' + esc(old.map(function(x){ return x.a.join(', ') + (x.etat === 'echec' ? ' (échec)' : ' (en attente)'); }).join(' ; ')) + '</p><p>Le remplacer par celui-ci, ou envoyer les deux ?</p>',
-        actions: [{label: 'Annuler', value: null}, {label: 'Envoyer les deux', value: 'both'}, {label: 'Remplacer', cls: 'primary', value: 'replace'}]});
-      if (!ch) return;
-      if (ch === 'replace') for (var oi = 0; oi < old.length; oi++){ var cur = await outboxGet(old[oi].id); if (cur && cur.etat !== 'envoi') await outboxDel(cur.id); }
-    }
-    var it = {id: uid(), vid: v.id, eid: v.etudeId, numero: v.numero, a: res.f.a, cc: res.f.cc, objet: res.f.objet, message: res.f.message, nom: name, pdf: await blob.arrayBuffer(), signeLe: c.signeLe, etat: 'attente', cree: nowISO(), essais: 0};
+    /* « Remplacer » un mail resté sans réponse, pour les mêmes destinataires : le nouveau garde son identifiant, le service ne l'enverra pas deux fois */
+    var dNew = obDest(res.f).sort().join(','), reprise = null;
+    if (old.length && !(await obRetenir(old.map(function(x){ return x.id; }), async function(){
+      var cand = old.find(function(x){ return x.incertain && x.etat === 'attente' && obDest(x).sort().join(',') === dNew; }) || null;
+      var inc = old.some(function(x){ return x.incertain && x !== cand; });
+      var ch = await openModal({title: 'Un mail de ce constat attend déjà', html: '<p>' + esc(old.map(function(x){ return x.a.join(', ') + (x.etat === 'echec' ? ' (échec)' : ' (en attente)'); }).join(' ; ')) + '</p>'
+        + (cand ? '<p class="muted small">Un essai de ce mail est resté sans réponse : il a peut-être déjà été reçu. « Remplacer » ne l\'enverra pas deux fois : s\'il est arrivé, il ne repart pas.</p>' : '')
+        + (inc ? '<p class="inline-warn">Un essai de ce mail est resté sans réponse : il a peut-être déjà été reçu. Le remplacer peut faire un doublon ; « Essayer maintenant » sur le dossier ne l\'enverrait pas deux fois.</p>' : '')
+        + '<p>Le remplacer par celui-ci, ou envoyer les deux (le mail en échec repart avec celui-ci) ?</p>',
+        actions: [{label: 'Annuler', value: null}, {label: 'Envoyer les deux', value: 'both'}, {label: 'Remplacer', cls: inc ? '' : 'primary', value: 'replace'}]});
+      if (!ch) return false;
+      for (var oi = 0; oi < old.length; oi++){
+        var cur = await outboxGet(old[oi].id); if (!cur) continue;
+        if (ch === 'replace'){ if (cand && cur.id === cand.id && cur.etat === 'attente') reprise = cur; await outboxDel(cur.id); if (cur.etat === 'envoi'){ if (outboxCtl[cur.id]) outboxCtl[cur.id].abort(); toast('L\'ancien envoi avait commencé : il a pu partir.', 6000); } }
+        else if (cur.etat === 'echec'){ cur.etat = 'attente'; cur.rang = 0; cur.prochain = ''; cur.erreur = ''; await outboxPut(cur); }
+      }
+      return true;
+    }))) return;
+    var it = {id: reprise ? reprise.id : uid(), vid: v.id, eid: v.etudeId, numero: v.numero, a: res.f.a, cc: res.f.cc, objet: res.f.objet, message: res.f.message, nom: name, pdf: await blob.arrayBuffer(), signeLe: c.signeLe, etat: 'attente', cree: nowISO(), essais: reprise ? reprise.essais || 0 : 0};
+    if (reprise) it.incertain = true;
     await outboxPut(it); await outboxAll(); refreshEnvoiUI();
     await processOutbox();
     var after = (S.outbox || []).find(function(x){ return x.id === it.id; });
     if (after && after.etat === 'attente') toast(navigator.onLine === false ? 'Pas de connexion : le mail partira automatiquement au retour du réseau.' : 'Le service ne répond pas : le mail est gardé et un nouvel essai aura lieu' + (after.prochain ? ' vers ' + heureTxt(after.prochain) : '') + '.', 5000);
     else if (after && after.etat === 'echec') toast('Échec de l\'envoi : ' + after.erreur, 6000);
   } else {
-    await recordEnvoi(v.id, {le: nowISO(), a: res.f.a, cc: res.f.cc, objet: res.f.objet, mode: res.mode, signeLe: c.signeLe}); await outboxClean(v.id);
+    await recordEnvoi(v.id, {le: nowISO(), a: res.f.a, cc: res.f.cc, objet: res.f.objet, mode: res.mode, signeLe: c.signeLe}); await outboxClean(v.id, null, res.f.a.concat(res.f.cc ? [res.f.cc] : []));
     if (res.mode === 'mailto') toast('Votre messagerie s\'ouvre : joignez-y le constat qui vient d\'être enregistré.', 5000);
+    var reste = (await outboxAll()).filter(function(x){ return x.vid === v.id && x.signeLe === c.signeLe && (x.etat === 'attente' || x.etat === 'echec'); });
+    if (reste.length) await obRetenir(reste.map(function(x){ return x.id; }), async function(){
+      if (!(await confirmModal('Un envoi direct de ce constat attend encore', 'Pour ' + reste.map(function(x){ return x.a.join(', '); }).join(' ; ') + '. Le retirer, puisque vous venez de le transmettre par votre messagerie ?', 'Retirer'))) return;
+      for (var ri = 0; ri < reste.length; ri++){ var rc = await outboxGet(reste[ri].id); if (rc && rc.etat !== 'envoi') await outboxDel(rc.id); }
+      await outboxAll();
+    });
   }
   refreshEnvoiUI();
+}
+/* Boîte d'envoi des Réglages, reconstruite seule après chaque tournée (les champs des Réglages ne sont pas touchés) */
+function outboxSectionHtml(ob){
+  if (!ob.length) return '';
+  return '<section class="card"><h2 class="h2">Boîte d\'envoi</h2>' + ob.map(function(it){ return '<div class="ob-row"><span><strong>Dossier ' + esc(it.numero) + '</strong> pour ' + esc(it.a.join(', ')) + ' : '
+    + esc(it.etat === 'envoi' ? 'envoi en cours' : it.etat === 'attente' ? (it.essais ? 'en attente, ' + (it.erreur || 'pas de réponse') + (it.prochain ? ', nouvel essai vers ' + heureTxt(it.prochain) : '') : 'en attente d\'envoi') + (it.incertain ? ' (peut-être déjà reçu)' : '') : 'échec, ' + (it.erreur || '')) + '</span>'
+    + (it.etat === 'envoi' ? '' : '<button type="button" class="btn sm" data-act="mail-retry" data-id="' + esc(it.id) + '">' + (it.etat === 'attente' ? 'Essayer maintenant' : 'Réessayer') + '</button>') + '<button type="button" class="btn sm ghost" data-act="mail-drop" data-id="' + esc(it.id) + '">Retirer</button></div>'; }).join('') + '</section>';
 }
 /* Réglages : enregistrés sur l'appareil (meta « mailConfig »), hors des sauvegardes */
 async function viewReglages(){
@@ -3130,8 +3231,7 @@ async function viewReglages(){
     + '<li>Copiez l\'adresse de l\'application Web (elle finit par /exec) et collez-la ci-dessus avec la clé, puis « Tester l\'envoi ».</li>'
     + '<li>Si vous remplacez plus tard le contenu du script (nouvelle version du fichier) : Déployer &gt; Gérer les déploiements &gt; crayon &gt; Version : « Nouvelle version » &gt; Déployer. L\'adresse /exec ne change pas ; sans cette étape, elle continue d\'exécuter l\'ancien script.</li>'
     + '<li>En cas de perte de la tablette : changez la clé dans les propriétés du script, ou supprimez le déploiement.</li></ol></details></section>';
-  if (ob.length) b += '<section class="card"><h2 class="h2">Boîte d\'envoi</h2>' + ob.map(function(it){ return '<div class="ob-row"><span><strong>Dossier ' + esc(it.numero) + '</strong> pour ' + esc(it.a.join(', ')) + ' : ' + esc(it.etat === 'envoi' ? 'envoi en cours' : it.etat === 'attente' ? (it.essais ? 'en attente, ' + (it.erreur || 'pas de réponse') + (it.prochain ? ', nouvel essai vers ' + heureTxt(it.prochain) : '') : 'en attente d\'envoi') : 'échec, ' + (it.erreur || '')) + '</span>'
-    + (it.etat === 'envoi' ? '' : '<button type="button" class="btn sm" data-act="mail-retry" data-id="' + esc(it.id) + '">' + (it.etat === 'attente' ? 'Essayer maintenant' : 'Réessayer') + '</button>') + '<button type="button" class="btn sm ghost" data-act="mail-drop" data-id="' + esc(it.id) + '">Retirer</button></div>'; }).join('') + '</section>';
+  b += '<div id="ob-sec">' + outboxSectionHtml(ob) + '</div>';
   b += '</div>';
   return {bar: barHtml({back: '#/', title: 'Réglages'}), body: b};
 }
@@ -3195,14 +3295,20 @@ var CONSTAT_ACTIONS = {
   'c-delete': async function(){ var v = curVisit(); if (!v.constat || v.constat.signeLe) return; if (!(await confirmModal('Supprimer le constat ?', 'Toute la saisie du constat de ce dossier sera effacée (installations, croquis, signatures). Les anomalies du dossier sont conservées.', 'Supprimer', true))) return; delete v.constat; constatTouch(v); await flushSaves(); toast('Constat supprimé'); go('#/e/' + v.etudeId + '/v/' + v.id); },
   'dl-constat': function(el){ return downloadConstatPdf(el.dataset.vid); },
   'c-mail': function(el){ var v = S.visites.find(function(x){ return x.id === el.dataset.vid; }) || curVisit(); if (v) return mailModal(v); },
-  'mail-retry': async function(el){ var it = (await outboxAll()).find(function(x){ return x.id === el.dataset.id; }); if (!it) return;
+  'mail-retry': async function(el){ var it = (await outboxAll()).find(function(x){ return x.id === el.dataset.id; }); if (!it){ toast('Ce mail n\'est plus dans la boîte d\'envoi : il est parti ou a été retiré.', 4500); refreshEnvoiUI(); return; }
     var v = S.visites.find(function(x){ return x.id === it.vid; }), e = v && lastEnvoi(v);
     if (e && e.le > it.cree && !(await confirmModal('Renvoyer ce mail ?', 'Le constat a déjà été envoyé depuis cet échec (le ' + fmtDT(e.le) + ' pour ' + e.a.join(', ') + ').', 'Renvoyer'))) return;
-    it.etat = 'attente'; it.essais = 0; it.erreur = ''; it.prochain = ''; await outboxPut(it); await outboxAll(); refreshEnvoiUI();
-    if (!mailDirectOk(await mailCfg())){ toast('Réglez d\'abord l\'envoi direct dans Réglages.'); return; } await processOutbox(); if (S.route && S.route.name === 'reglages') render(); },
-  'mail-drop': async function(el){ var it = await outboxGet(el.dataset.id); if (!it) return;
-    var txt = it.etat === 'envoi' ? 'L\'envoi est en cours : le mail peut déjà être parti. Le constat reste dans le dossier.' : it.essais && it.etat === 'attente' ? 'Il ne partira plus. Un essai précédent a été interrompu : le mail a pu partir malgré tout. Le constat reste dans le dossier.' : 'Il ne sera pas envoyé. Le constat reste dans le dossier.';
-    if (!(await confirmModal('Retirer ce mail de la boîte d\'envoi ?', txt, 'Retirer', true))) return; await outboxDel(el.dataset.id); if (outboxCtl[el.dataset.id]) outboxCtl[el.dataset.id].abort(); await outboxAll(); refreshEnvoiUI(); outboxPlan(); if (S.route && S.route.name === 'reglages') render(); },
+    it.etat = 'attente'; it.rang = 0; it.erreur = ''; it.prochain = ''; await outboxPut(it); await outboxAll(); refreshEnvoiUI();
+    if (!mailDirectOk(await mailCfg())){ toast('Réglez d\'abord l\'envoi direct dans Réglages.'); return; } await processOutbox(); },
+  'mail-drop': async function(el){ var it = await outboxGet(el.dataset.id); if (!it){ toast('Ce mail n\'est plus dans la boîte d\'envoi : il est parti ou a été retiré.', 4500); await outboxAll(); refreshEnvoiUI(); return; }
+    await obRetenir([it.id], async function(){
+      if (!(await confirmModal('Retirer ce mail de la boîte d\'envoi ?', dropTxt(it), 'Retirer', true))) return;
+      var cur = await outboxGet(it.id);   /* l'état a pu changer pendant la confirmation (envoi déjà commencé) */
+      if (!cur){ toast('Ce mail n\'est plus dans la boîte d\'envoi : il est parti entre-temps.', 6000); await outboxAll(); refreshEnvoiUI(); return; }
+      await outboxDel(cur.id); if (outboxCtl[cur.id]) outboxCtl[cur.id].abort();
+      if (cur.etat === 'envoi' && it.etat !== 'envoi') toast('L\'envoi avait commencé : le mail a pu partir.', 6000);
+      await outboxAll(); refreshEnvoiUI();
+    }); },
   'mail-defaut': async function(){ var cfg = await mailCfg(); cfg.objet = MAIL_DEF.objet; cfg.message = MAIL_DEF.message; await DB.put('meta', {k: 'mailConfig', v: cfg}); render(); },
   'mail-test': async function(){
     clearTimeout(mailCfgT); var cfg = await mailCfg(); $$('[data-mc]').forEach(function(x){ cfg[x.dataset.mc] = x.value; }); await DB.put('meta', {k: 'mailConfig', v: cfg});
@@ -3628,7 +3734,7 @@ var ACTIONS = {
   'ct-domidem': function(el){ var v = curVisit(); if (!v) return; v.contact = v.contact || {}; v.contactBase = v.contactBase || {};
     if (el.checked){ v.contact.domIdem = true; v.contactBase.domIdem = [ctcImp(v, 'domicile'), ctcImp(v, 'domVille')]; } else { delete v.contact.domIdem; delete v.contactBase.domIdem; }
     v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); render(); },
-  'ct-domtab': function(){ var v = curVisit(); if (!v || !v.contact) return; delete v.contact.domIdem; if (v.contactBase) delete v.contactBase.domIdem; v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); render(); },
+  'ct-domtab': function(){ var v = curVisit(); if (!v || !v.contact) return; delete v.contact.domIdem; if (v.contactBase) delete v.contactBase.domIdem; putContact(v, 'domicile', undefined); putContact(v, 'domVille', undefined); v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); render(); },
   'ct-domkeep': function(){ var v = curVisit(); if (!v) return; v.contactBase = v.contactBase || {}; v.contactBase.domIdem = [ctcImp(v, 'domicile'), ctcImp(v, 'domVille')]; v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); render(); },
   'ct-xls': async function(el){ var v = curVisit(); if (!v) return; var val = await pickExcelValue(v); if (val == null) return; setContact(v, el.dataset.k, CONTACT_IMP[el.dataset.k] && val === ctcImp(v, el.dataset.k) ? undefined : val); render(); },
   'date-today': function(){ var v = curVisit(); if (!v) return; v.dateVisite = todayStr(); v.updatedAt = nowISO(); saveLater('visites', v); touchEtude(); var inp = $('[data-vf="dateVisite"]'); if (inp) inp.value = v.dateVisite; var df = $('#date-fr'); if (df){ df.textContent = fmtDateLong(v.dateVisite); df.className = ''; } refreshIssuesUI(); },
@@ -3697,7 +3803,7 @@ async function init(){
     requestPersist();
   }
   await render();
-  outboxAll().then(function(){ refreshEnvoiUI(); return processOutbox(true); }).catch(function(){});
+  outboxRepair().then(function(){ refreshEnvoiUI(); return processOutbox(true); }).catch(function(){});
 }
 window.__VT = {S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, croqPng: croqPng, croquisAJour: croquisAJour, croquisType: croquisType, croqPlaceLabel: croqPlaceLabel, mailModal: mailModal, processOutbox: processOutbox, outboxAll: outboxAll, mailCfg: mailCfg, pdfText: pdfText, mailsDe: mailsDe, telsDe: telsDe, qualiteTxt: qualiteTxt, signataireAuto: signataireAuto, imgData: imgData, croqPlaceLabel: croqPlaceLabel, croqTextBox: croqTextBox, croqSegHitsBox: croqSegHitsBox, CROQ_GAB: CROQ_GAB, ready: null};
 window.__VT.ready = init();
