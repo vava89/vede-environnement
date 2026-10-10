@@ -140,6 +140,8 @@ a{color:inherit}
 .st-warn{display:inline-flex;align-items:center;gap:4px;color:var(--warn);font-weight:600}
 .exp-state{font-size:13px;color:var(--muted);margin:0 0 8px}
 .exp-state.dirty{color:var(--warn);font-weight:600}
+@media (max-width:359px){.lp-search .lp-add-t{display:none}}
+.lp-search{display:flex;gap:8px;align-items:center}.manu-difs{margin:6px 0 6px 20px;padding:0}.lp-search .searchbox{flex:1;min-width:0}.lp-search .btn{flex:none;min-height:48px;padding-left:12px;padding-right:12px}.v-manu{margin:2px 0 12px}
 .searchbox{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:12px;padding:0 10px;background:var(--surface-2);color:var(--muted)}
 .searchbox input[type=search]{flex:1;min-width:0;min-height:46px;border:0;padding:0;background:transparent;color:var(--ink);outline:none;font-size:17px}
 .searchbox:focus-within{outline:3px solid var(--ep);outline-offset:1px}
@@ -257,8 +259,9 @@ table.prev th{background:var(--surface-2);font-weight:600}
 .photo-full{display:block;max-width:100%;max-height:62vh;margin:0 auto;border-radius:12px}
 .busy-bar{height:8px;border-radius:999px;background:var(--line-2);overflow:hidden;margin:12px 0 6px}
 .busy-bar i{display:block;height:100%;width:0;background:var(--brand);transition:width .2s}
-.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:60;transform:translate(-50%,16px);opacity:0;max-width:calc(100% - 24px);padding:12px 16px;border-radius:12px;background:var(--ink);color:var(--surface);font-weight:600;pointer-events:none;transition:opacity .18s,transform .18s}
-.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast{position:fixed;left:12px;right:12px;margin:0 auto;width:fit-content;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:60;transform:translateY(16px);opacity:0;max-width:min(560px,calc(100% - 24px));padding:12px 16px;border-radius:12px;background:var(--ink);color:var(--surface);font-weight:600;pointer-events:none;transition:opacity .18s,transform .18s}
+.toast.show{opacity:1;transform:none}
+body:has(#modal-root .modal-back) .toast{top:calc(12px + env(safe-area-inset-top,0px));bottom:auto}
 .fatal{padding:30px 20px;max-width:640px;margin:0 auto}
 .datebox{position:relative;display:flex;align-items:center;min-height:48px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:17px;font-weight:600}
 .datebox:focus-within{outline:3px solid var(--ep);outline-offset:1px}
@@ -358,7 +361,7 @@ details.xls summary{gap:8px}
 <script>
 (function(){
 'use strict';
-var VERSION = '1.5.0';
+var VERSION = '1.5.1';
 
 /* ---------- Utilitaires ---------- */
 var $ = function(s, r){ return (r || document).querySelector(s); };
@@ -494,7 +497,8 @@ var DB = {
 
 /* Enregistrement différé : chaque frappe est conservée, écrite par lots courts */
 var pending = new Map(), pendingTimer = null;
-function saveLater(store, obj){ pending.set(store + ':' + obj.id, [store, obj]); clearTimeout(pendingTimer); pendingTimer = setTimeout(flushSaves, 300); }
+var VIS_SUPPR = new Set();   /* dossiers supprimés pendant cette session : aucun enregistrement tardif ne les fait revivre */
+function saveLater(store, obj){ if ((store === 'visites' && VIS_SUPPR.has(obj.id)) || (store === 'anomalies' && VIS_SUPPR.has(obj.visiteId))) return; pending.set(store + ':' + obj.id, [store, obj]); clearTimeout(pendingTimer); pendingTimer = setTimeout(flushSaves, 300); }
 function flushSaves(){
   clearTimeout(pendingTimer);
   var items = Array.from(pending.values()); pending.clear();
@@ -508,13 +512,15 @@ function curAnom(){ if (!S.route || !S.route.aid) return null; for (var i = 0; i
 function anomsOf(vid){ return S.anoms.filter(function(a){ return a.visiteId === vid; }); }
 function revokeUrls(){ S.urls.forEach(function(u){ try { URL.revokeObjectURL(u); } catch(e){} }); S.urls = []; }
 function touchEtude(){ if (!S.etude) return; S.etude.updatedAt = nowISO(); saveLater('etudes', S.etude); }
+/* Tri des dossiers : ordre du tableau ; les dossiers créés à la main, toujours après les lignes du tableau, se rangent entre eux par numéro */
+function visCmp(a, b){ if (a.manuel && b.manuel) return natCmp(a.numero, b.numero) || ((a.ordre || 0) - (b.ordre || 0)); return ((a.ordre || 0) - (b.ordre || 0)) || natCmp(a.numero, b.numero); }
 function byCreated(a, b){ return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0; }
 /* L'étude et ses dossiers changent ensemble : un autre affichage ne voit jamais la nouvelle étude avec les dossiers de la précédente (ou aucun) */
 async function loadEtude(eid){
   var e = await DB.get('etudes', eid);
   if (!e) return false;
   var vs = await DB.byIndex('visites', 'etudeId', eid), an = await DB.byIndex('anomalies', 'etudeId', eid);
-  vs.sort(function(a, b){ return ((a.ordre || 0) - (b.ordre || 0)) || natCmp(a.numero, b.numero); });
+  vs.sort(visCmp);
   an.sort(byCreated);
   S.etude = e; S.visites = vs; S.anoms = an;
   S.search = ''; S.filter = 'toutes'; S.lpEtude = null;
@@ -715,13 +721,14 @@ async function buildView(r){
   var e = S.etude, v = curVisit();
   if (S.wide){
     var detail = r.name === 'etude'
-      ? '<div class="page"><div class="pick-hint"><p class="h2">Choisissez un dossier</p><p class="muted">La liste reprend toutes les visites de l\'étude, dans l\'ordre de votre tableau.</p></div></div>'
+      ? '<div class="page"><div class="pick-hint">' + (S.visites.length ? '<p class="h2">Choisissez un dossier</p><p class="muted">La liste reprend toutes les visites de l\'étude, ' + (!e.source ? 'rangées par numéro de dossier.' : S.visites.some(function(x){ return x.manuel; }) ? 'dans l\'ordre de votre tableau, puis les dossiers créés à la main, par numéro.' : 'dans l\'ordre de votre tableau.') + '</p>'
+        : '<p class="h2">Aucun dossier</p><p class="muted">Ajoutez les dossiers un par un, ou importez un tableau Excel depuis le menu de l\'étude.</p><button type="button" class="btn primary" data-act="v-new">' + svg(I.plus) + 'Ajouter un dossier</button>') + '</div></div>'
       : await detailHtml(r);
     return {bar: barHtml({back: routeParent(S.curHash) || '#/', title: e.nom, sub: 'Étude', menu: true}), split: true,
       body: '<div class="split"><aside class="pane list" id="lp" aria-label="Dossiers de visite">' + listPaneHtml() + '</aside><section class="pane detail" id="dp">' + detail + '</section></div>',
       after: afterFor(r)};
   }
-  if (r.name === 'etude') return {bar: barHtml({back: '#/', title: e.nom, sub: 'Étude', menu: true}), body: listPaneHtml()};
+  if (r.name === 'etude') return {bar: barHtml({back: '#/', title: e.nom, sub: 'Étude', menu: true}), body: listPaneHtml(), after: afterFor(r)};
   if (r.name === 'visit') return {bar: barHtml({back: '#/e/' + e.id, title: 'Dossier ' + v.numero, sub: v.adresse}), body: await detailHtml(r), after: afterFor(r)};
   if (r.name === 'anom'){ var n = anomsOf(v.id).indexOf(curAnom()) + 1; return {bar: barHtml({back: '#/e/' + e.id + '/v/' + v.id, title: 'Anomalie A' + n, sub: 'Dossier ' + v.numero}), body: await detailHtml(r), after: afterFor(r)}; }
   if (r.name === 'fiche') return {bar: barHtml({back: '#/e/' + e.id + '/v/' + v.id, title: 'Fiche du dossier ' + v.numero}), body: await detailHtml(r)};
@@ -738,6 +745,8 @@ async function detailHtml(r){
   return '';
 }
 function afterFor(r){
+  /* étude que l'on vient de créer à la main : la fenêtre du premier dossier s'ouvre d'elle-même */
+  if (r.name === 'etude') return S.autoAjout && S.etude && S.autoAjout === S.etude.id ? function(){ S.autoAjout = null; if (!S.visites.length) ajouterDossiers(); } : null;
   if (r.name === 'constat') return async function(){ var v = curVisit(); if (v && await croquisAJour(v)){ var pv = $('.croq-prev'); if (pv) pv.outerHTML = croqPrevHtml(v.constat, !!v.constat.signeLe); } };
   return r.name === 'anom' ? async function(){ await renderThumbs(curAnom()); var a = curAnom(); if (a && S.autoPick === a.id){ S.autoPick = null; pickType(); } } : null;
 }
@@ -767,7 +776,7 @@ async function viewHome(){
     var st = etudeStats(vs, as), dirty = !e.lastExportAt || (e.updatedAt && e.updatedAt > e.lastExportAt), pct = st.total ? Math.round(100 * st.visited / st.total) : 0;
     cards += '<li><a class="ecard" href="#/e/' + esc(e.id) + '">'
       + '<span class="ec-top"><span class="ec-name">' + esc(e.nom) + '</span><span class="ec-go" aria-hidden="true">' + svg(I.next, 26) + '</span></span>'
-      + '<span class="ec-big"><strong>' + st.visited + '</strong><span> / ' + st.total + (st.total > 1 ? ' dossiers visités' : ' dossier visité') + '</span><span class="ec-pct">' + pct + ' %</span></span>'
+      + '<span class="ec-big">' + (st.total ? '<strong>' + st.visited + '</strong><span> / ' + st.total + (st.total > 1 ? ' dossiers visités' : ' dossier visité') + '</span><span class="ec-pct">' + pct + ' %</span>' : '<span>Aucun dossier pour l\'instant</span>') + '</span>'
       + progressHtml(st)
       + '<span class="ec-meta">' + (st.incomplete ? '<span class="ec-warn">' + svg(I.warn, 18) + st.incomplete + ' à compléter</span>' : '<span class="ec-ok">' + svg(I.check, 18) + 'Rien à compléter</span>')
       + '<span class="tally eu">EU ' + st.eu + '</span><span class="tally ep">EP ' + st.ep + '</span></span>'
@@ -775,13 +784,14 @@ async function viewHome(){
   }
   var b = '<div class="page home">';
   b += '<div class="home-head">'
-    + '<div><h1 class="h1">Études</h1><p class="lead">' + (etudes.length ? plural(etudes.length, 'étude sur cet appareil', 'études sur cet appareil') + '. Touchez une étude pour ouvrir ses dossiers.' : 'Une étude regroupe toutes les visites d\'une opération. Elle se crée à partir de votre tableau Excel : une ligne par adresse à contrôler, avec son numéro de dossier.') + '</p></div></div>';
+    + '<div><h1 class="h1">Études</h1><p class="lead">' + (etudes.length ? plural(etudes.length, 'étude sur cet appareil', 'études sur cet appareil') + '. Touchez une étude pour ouvrir ses dossiers.' : 'Une étude regroupe toutes les visites d\'une opération. Elle se crée à partir de votre tableau Excel (une ligne par adresse à contrôler, avec son numéro de dossier) ou à la main, dossier par dossier.') + '</p></div></div>';
   var actions = '<div class="btnrow home-actions"><button type="button" class="btn ' + (etudes.length ? '' : 'primary big') + '" data-act="nav" data-href="#/import">' + svg(I.upload) + 'Importer un tableau Excel</button>'
+    + '<button type="button" class="btn" data-act="etude-new">' + svg(I.plus) + 'Créer une étude à la main</button>'
     + '<button type="button" class="btn" data-act="pick-zip">' + svg(I.restore) + 'Restaurer une sauvegarde</button>'
     + '<button type="button" class="btn" data-act="nav" data-href="#/bibliotheque">' + svg(I.book) + 'Anomalies types</button>'
     + '<button type="button" class="btn" data-act="nav" data-href="#/reglages">' + svg(I.gear) + 'Réglages</button></div>';
   if (etudes.length) b += '<ul class="ecards">' + cards + '</ul>' + actions;
-  else b += actions + '<div class="empty"><p><strong>Aucune étude sur cet appareil.</strong></p><p>Importez votre tableau des visites pour créer la première, ou restaurez un export fait sur un autre appareil.</p></div>';
+  else b += actions + '<div class="empty"><p><strong>Aucune étude sur cet appareil.</strong></p><p>Importez votre tableau des visites pour créer la première, créez-la à la main, ou restaurez un export fait sur un autre appareil.</p></div>';
   b += '<p class="note" id="storage-note">Les données restent sur cet appareil et la saisie fonctionne sans connexion. Exportez chaque étude régulièrement : l\'export ZIP sert aussi de sauvegarde.</p></div>';
   return {bar: barHtml({title: 'VÉDÉ Terrain', sub: 'Contrôles de branchement', big: true}), body: b, after: fillStorageNote};
 }
@@ -957,25 +967,31 @@ function computeImport(imp){
 /* Rapprochement des numéros de dossier : « 0012 », « 12 » et « 12.0 » désignent le même dossier (les versions précédentes relisaient les CSV en nombres) */
 function numKey(x){ var t = String(x == null ? '' : x).trim(); return /^\d+(?:[.,]0+)?$/.test(t) ? String(parseInt(t, 10)) : t; }
 function planUpdate(res){
-  var ex = new Set(S.visites.map(function(v){ return numKey(v.numero); })), seen = new Set(), added = 0, updated = 0, missing = 0;
-  res.recs.forEach(function(r){ var k = numKey(r.numero); if (seen.has(k)) return; seen.add(k); if (ex.has(k)) updated++; else added++; });
-  ex.forEach(function(n){ if (!seen.has(n)) missing++; });
-  return {added: added, updated: updated, missing: missing};
+  var ex = new Map(), seen = new Set(), added = 0, updated = 0, missing = 0, manu = [], manuGardes = 0;
+  S.visites.forEach(function(v){ var k = numKey(v.numero); if (!ex.has(k)) ex.set(k, v); });
+  res.recs.forEach(function(r){ var k = numKey(r.numero); if (seen.has(k)) return; seen.add(k); var v = ex.get(k); if (v){ updated++; if (v.manuel) manu.push({v: v, r: r}); } else added++; });
+  ex.forEach(function(v, n){ if (!seen.has(n)){ if (v.manuel) manuGardes++; else missing++; } });
+  return {added: added, updated: updated, missing: missing, manu: manu, manuGardes: manuGardes};
 }
+/* Adresse comparable : minuscules, sans accents ni ponctuation */
+function adrCle(s){ return norm(String(s || '')).replace(/[^a-z0-9]+/g, ' ').trim(); }
 function mapSel(k, label, H, val, req, off){
   return '<label class="field"><span class="lbl">' + esc(label) + (req ? ' <span class="req">obligatoire</span>' : '') + '</span><select data-imp="map" data-k="' + k + '"><option value="-1">' + (req ? 'Choisir une colonne' : 'Aucune') + '</option>'
     + H.map(function(h, j){ return '<option value="' + j + '"' + (j === val ? ' selected' : '') + '>' + esc(colLetter(j + (off || 0)) + ' : ' + h) + '</option>'; }).join('') + '</select></label>';
 }
 function viewImport(mode){
   var upd = mode === 'update', e = S.etude;
-  var bar = barHtml({back: upd ? '#/e/' + e.id : '#/', title: upd ? 'Mettre à jour la liste' : 'Importer un tableau', sub: upd ? e.nom : ''});
+  var bar = barHtml({back: upd ? '#/e/' + e.id : '#/', title: upd ? (e.source ? 'Mettre à jour la liste' : 'Importer un tableau') : 'Importer un tableau', sub: upd ? e.nom : ''});
   var imp = (S.imp && S.imp.mode === mode && (!upd || S.imp.eid === e.id)) ? S.imp : null;
   var b = '<div class="page narrow">';
   if (!imp){
-    b += '<h1 class="h1">' + (upd ? 'Nouveau tableau pour cette étude' : 'Nouvelle étude') + '</h1>';
-    b += '<p class="lead">' + (upd ? 'Les dossiers sont rapprochés par numéro. Les nouvelles lignes sont ajoutées, les dossiers existants mis à jour, et aucune anomalie saisie n\'est modifiée.' : 'Choisissez le tableau des visites de l\'opération. Chaque ligne devient un dossier de visite, identifié par son numéro.') + '</p>';
+    b += '<h1 class="h1">' + (upd ? (e.source ? 'Nouveau tableau pour cette étude' : 'Tableau pour cette étude') : 'Nouvelle étude') + '</h1>';
+    b += '<p class="lead">' + (upd ? 'Les dossiers sont rapprochés par numéro. Les nouvelles lignes sont ajoutées, les dossiers existants mis à jour, et aucune anomalie saisie n\'est modifiée.'
+      + (S.visites.some(function(x){ return x.manuel; }) ? ' Un dossier créé à la main prend les informations de la ligne qui porte son numéro ; sans ligne à son numéro, il est conservé tel quel.' : '') : 'Choisissez le tableau des visites de l\'opération. Chaque ligne devient un dossier de visite, identifié par son numéro.') + '</p>';
     b += '<button type="button" class="btn primary big" data-act="pick-excel">' + svg(I.upload) + 'Choisir le fichier Excel</button>';
-    b += '<p class="note">Formats acceptés : .xlsx, .xls, .ods et .csv. Le fichier est lu sur cet appareil et n\'est envoyé nulle part.</p></div>';
+    b += '<p class="note">Formats acceptés : .xlsx, .xls, .ods et .csv. Le fichier est lu sur cet appareil et n\'est envoyé nulle part.</p>';
+    if (!upd) b += '<h2 class="h2 mt">Pas de tableau ?</h2><p class="muted">Créez l\'étude à la main puis ajoutez les dossiers un par un. Un tableau pourra être importé plus tard depuis le menu de l\'étude.</p><button type="button" class="btn" data-act="etude-new">' + svg(I.plus) + 'Créer une étude à la main</button>';
+    b += '</div>';
     return {bar: bar, body: b};
   }
   var res = computeImport(imp), H = res.headers, off = imp.colOffset || 0;
@@ -1008,6 +1024,14 @@ function viewImport(mode){
   if (upd){
     var pl = planUpdate(res);
     b += '<div class="summary">' + plural(pl.added, 'nouveau dossier', 'nouveaux dossiers') + ', ' + plural(pl.updated, 'dossier mis à jour', 'dossiers mis à jour') + (pl.missing ? ', ' + plural(pl.missing, 'dossier absent', 'dossiers absents') + ' du nouveau tableau (conservés et signalés)' : '') + '.</div>';
+    if (pl.manu.length || pl.manuGardes){
+      var difs = pl.manu.filter(function(m){ return (String(m.r.adresse || '').trim() && adrCle(m.v.adresse) !== adrCle(m.r.adresse)) || (String(m.v.commune || '').trim() && String(m.r.commune || '').trim() && adrCle(m.v.commune) !== adrCle(m.r.commune)); });
+      b += '<div class="summary">' + (pl.manu.length ? plural(pl.manu.length, 'dossier créé à la main porte', 'dossiers créés à la main portent') + ' un numéro du tableau : '
+          + (pl.manu.length > 1 ? 'ils en prendront l\'adresse et les informations (une case vide du tableau garde la saisie) ; leurs anomalies, leur constat et leur fiche contact sont gardés.' : 'il en prendra l\'adresse et les informations (une case vide du tableau garde la saisie) ; ses anomalies, son constat et sa fiche contact sont gardés.') : '')
+        + (pl.manuGardes ? (pl.manu.length ? ' ' : '') + plural(pl.manuGardes, 'dossier créé à la main, absent du tableau, est conservé tel quel', 'dossiers créés à la main, absents du tableau, sont conservés tels quels') + '.' : '')
+        + (difs.length ? '<br><strong>Vérifiez que ' + (difs.length > 1 ? 'ce sont bien les mêmes adresses' : 'c\'est bien la même adresse') + ' :</strong><ul class="manu-difs">' + difs.map(function(m){ return '<li>N° ' + esc(m.v.numero) + ' : ' + esc([m.v.adresse, m.v.commune].filter(Boolean).join(', ') || 'sans adresse') + ' (saisi à la main), ' + esc([m.r.adresse, m.r.commune].filter(Boolean).join(', ') || 'sans adresse') + ' (tableau)</li>'; }).join('') + '</ul>'
+          + (difs.length > 1 ? 'Sinon, revenez à l\'étude (flèche retour) et changez d\'abord le numéro de ces dossiers avec « Modifier le numéro ou l\'adresse », sur leur page.' : 'Sinon, revenez à l\'étude (flèche retour) et changez d\'abord le numéro de ce dossier avec « Modifier le numéro ou l\'adresse », sur sa page.') : '') + '</div>';
+    }
     b += '<button type="button" class="btn primary big wide" data-act="apply-update"' + (imp.map.numero < 0 || !res.recs.length ? ' disabled' : '') + '>Mettre à jour l\'étude</button>';
   } else {
     b += '<label class="field"><span class="lbl">Nom de l\'étude</span><input type="text" id="imp-name" value="' + esc(imp.name) + '" placeholder="Nom de l’opération"></label>';
@@ -1046,9 +1070,11 @@ function communeNom(s){
   }
   return out;
 }
+/* « Commune de Bondy », « Commune d'Aubervilliers », « Commune du Raincy », « Commune des Lilas » */
+function communeDe(ville){ var m = /^(le|les)\s+(.+)$/i.exec(ville || ''); return !ville ? '' : m ? (m[1].toLowerCase() === 'le' ? 'Commune du ' : 'Commune des ') + m[2] : (/^[aeiouyàâäéèêëîïôöùûü]/i.test(ville) ? 'Commune d\'' : 'Commune de ') + ville; }
 function ficheHeader(e, v){
-  var f = (e && e.fiche) || {}, src = String((v && (v.commune || v.domVille)) || ''), cp = ((/\b(\d{2})\d{3}\b/.exec(src)) || [])[1] || '', ville = communeNom(v && v.commune);
-  return {dep: f.departement ? f.departement : (DEPTS[cp] || ''), com: f.commune ? f.commune : (ville ? 'Commune de ' + ville : ''),
+  var f = (e && e.fiche) || {}, src = String((v && (v.commune || v.domVille || ctc(v, 'domVille'))) || ''), cp = ((/\b(\d{2})\d{3}\b/.exec(src)) || [])[1] || '', ville = communeNom(v && v.commune);
+  return {dep: f.departement ? f.departement : (DEPTS[cp] || ''), com: f.commune ? f.commune : communeDe(ville),
     ville: f.commune ? String(f.commune).replace(/^commune\s+(de\s+|d')/i, '').trim() : ville};
 }
 async function createEtude(){
@@ -1072,27 +1098,143 @@ function newVisite(eid, r, ordre, t){
     refCad: r.refCad || '', demande: r.demande || '', typeProp: r.typeProp || '', nbLog: r.nbLog || '',
     statut: 'a_visiter', dateVisite: '', aucuneAnomalie: false, obsEP: '', obsEU: '', observations: '', absentDernierImport: false, createdAt: t, updatedAt: t};
 }
+/* ---------- Étude et dossiers créés à la main ----------
+   Un dossier créé à la main (manuel) n'a pas de ligne de tableau : son numéro et son adresse se modifient, il peut être supprimé ;
+   le propriétaire et la personne rencontrée se saisissent dans la fiche contact. Une mise à jour par tableau le rapproche par numéro, comme les autres */
+function numeroSuivant(){
+  var m = -1, larg = 0;
+  S.visites.forEach(function(v){ var k = numKey(v.numero), t = String(v.numero == null ? '' : v.numero).trim(); if (/^\d{1,12}$/.test(k)){ var n = parseInt(k, 10); if (n > m){ m = n; larg = /^0\d+$/.test(t) ? t.length : 0; } } });
+  if (m < 0) return S.visites.length ? '' : '1';
+  var s = String(m + 1); while (s.length < larg) s = '0' + s; return s;
+}
+function numeroPris(num, sauf){ var k = numKey(num); return S.visites.some(function(v){ return v !== sauf && numKey(v.numero) === k; }); }
+function communesEtude(){ var seen = {}, out = []; S.visites.forEach(function(v){ var c = String(v.commune || '').replace(/\s+/g, ' ').trim(), k = c.toLowerCase(); if (c && !seen[k]){ seen[k] = 1; out.push(c); } }); return out.sort(function(a, b){ return a.localeCompare(b, 'fr'); }); }
+async function creerEtudeManuelle(){
+  var nom = await openModal({title: 'Nouvelle étude', html: '<label class="field"><span class="lbl">Nom de l\'étude</span><input type="text" id="m-nom" data-autofocus placeholder="Nom de l’opération" autocomplete="off"></label>'
+      + '<p class="muted small">Vous ajouterez ensuite les dossiers un par un. Un tableau Excel pourra être importé plus tard depuis le menu de l\'étude.</p>',
+    actions: [{label: 'Annuler', value: null}, {label: 'Créer l\'étude', cls: 'primary', collect: function(w){ var n = w.querySelector('#m-nom').value.replace(/\s+/g, ' ').trim(); if (!n){ toast('Donnez un nom à l\'étude.'); w.querySelector('#m-nom').focus(); return false; } return n; }}],
+    onMount: entreeValide});
+  if (!nom) return;
+  var t = nowISO(), id = uid();
+  await DB.put('etudes', {id: id, nom: nom, createdAt: t, updatedAt: t, lastExportAt: null, fiche: {departement: '', commune: ''}, source: null});
+  requestPersist();
+  S.imp = null; S.autoAjout = id;
+  go('#/e/' + id);
+}
+/* Entrée dans un champ d'une fenêtre : comme le bouton principal */
+function entreeValide(w){ w.addEventListener('keydown', function(ev){ if (ev.key === 'Enter' && ev.target.tagName === 'INPUT' && !ev.isComposing){ ev.preventDefault(); var nx = ev.target.dataset.suiv && w.querySelector(ev.target.dataset.suiv); if (nx){ nx.focus(); return; } var b = w.querySelector('.m-foot .btn.primary'); if (b) b.click(); } }); }
+/* Fenêtre d'un dossier créé à la main : création (v absent) ou modification du numéro et de l'adresse */
+function dossierForm(v){
+  var cree = !v, coms = communesEtude(), signe = !!(v && v.constat && v.constat.signeLe);
+  var html = '<label class="field"><span class="lbl">N° de dossier <span class="req">obligatoire</span></span><input type="text" id="m-num" value="' + esc(cree ? numeroSuivant() : v.numero) + '" autocomplete="off" spellcheck="false" enterkeyhint="next" data-suiv="#m-adr"></label>'
+    + '<label class="field"><span class="lbl">Adresse du branchement</span><input type="text" id="m-adr" value="' + esc(cree ? '' : v.adresse || '') + '" placeholder="N° et rue" autocomplete="off" data-autofocus enterkeyhint="next" data-suiv="#m-com"></label>'
+    + '<label class="field"><span class="lbl">Code postal et ville</span><input type="text" id="m-com" value="' + esc(cree ? '' : v.commune || '') + '" placeholder="Code postal et ville" autocomplete="off" enterkeyhint="done"' + (coms.length ? ' list="dl-com"' : '') + '></label>'
+    + (coms.length ? '<datalist id="dl-com">' + coms.map(function(c){ return '<option value="' + esc(c) + '">'; }).join('') + '</datalist>' : '')
+    + (cree ? '<p class="muted small">Le propriétaire, ses coordonnées et la personne rencontrée se saisissent ensuite dans la fiche contact du dossier.</p>'
+      : signe ? '<p class="inline-warn">Constat signé : une nouvelle adresse sera signalée comme un changement depuis la signature.</p>' : '');
+  function lire(w, encore){
+    var f = {numero: w.querySelector('#m-num').value.replace(/\s+/g, ' ').trim(), adresse: w.querySelector('#m-adr').value.replace(/\s+/g, ' ').trim(), commune: w.querySelector('#m-com').value.replace(/\s+/g, ' ').trim(), encore: !!encore};
+    if (!f.numero){ toast('Indiquez le numéro du dossier.'); w.querySelector('#m-num').focus(); return false; }
+    if (numeroPris(f.numero, v)){ toast('Le dossier n° ' + f.numero + ' existe déjà dans cette étude : choisissez un autre numéro.', 4500); w.querySelector('#m-num').focus(); return false; }
+    return f;
+  }
+  return openModal({title: cree ? 'Nouveau dossier' : 'Dossier ' + v.numero, html: html, onMount: entreeValide,
+    actions: cree ? [{label: 'Annuler', value: null}, {label: 'Créer et en ajouter un autre', collect: function(w){ return lire(w, true); }}, {label: 'Créer le dossier', cls: 'primary', collect: function(w){ return lire(w, false); }}]
+      : [{label: 'Annuler', value: null}, {label: 'Enregistrer', cls: 'primary', collect: function(w){ return lire(w, false); }}]});
+}
+async function addDossier(f){
+  var e = S.etude, t = nowISO(), ordre = S.visites.reduce(function(m, x){ var o = x.ordre || 0; return o < 100000 ? Math.max(m, o + 1) : m; }, 0);
+  var v = newVisite(e.id, {numero: f.numero, adresse: f.adresse, commune: f.commune, nom: '', tel: '', rdv: '', excel: []}, ordre, t);
+  v.manuel = true;
+  await DB.put('visites', v);
+  S.visites.push(v); S.visites.sort(visCmp);
+  touchEtude(); await flushSaves();
+  return v;
+}
+async function ajouterDossiers(){
+  var e = S.etude; if (!e) return;
+  for (;;){
+    var f = await dossierForm(null);
+    if (!f || !S.etude || S.etude.id !== e.id) return;
+    if (numeroPris(f.numero)){ toast('Le dossier n° ' + f.numero + ' existe déjà dans cette étude.', 4500); continue; }
+    var v = await addDossier(f);
+    S.filter = 'toutes'; S.search = ''; S.lpEtude = null;   /* le nouveau dossier doit se voir dans la liste */
+    if (f.encore){ toast('Dossier ' + v.numero + ' créé'); await render(); continue; }
+    go('#/e/' + e.id + '/v/' + v.id); return;
+  }
+}
+async function modifierDossier(){
+  var v = curVisit(); if (!v || !v.manuel) return;
+  var f = await dossierForm(v); if (!f || curVisit() !== v) return;
+  v.numero = f.numero; v.adresse = f.adresse; v.commune = f.commune; v.updatedAt = nowISO();
+  S.visites.sort(visCmp); saveLater('visites', v); touchEtude(); await flushSaves(); render();
+}
+async function supprimerDossier(){
+  var v = curVisit(), e = S.etude; if (!v || !v.manuel || !e) return;
+  var l = anomsOf(v.id), np = l.reduce(function(n, a){ return n + (a.photos || []).length; }, 0), ob = (await outboxAll()).filter(function(x){ return x.vid === v.id; });
+  var quoi = [l.length ? (l.length > 1 ? 'ses ' + l.length + ' anomalies' : 'son anomalie') : '', np ? (np > 1 ? 'ses ' + np + ' photos' : 'sa photo') : '', v.constat ? 'son constat' : ''].filter(Boolean);
+  var obEnv = ob.filter(function(x){ return x.etat === 'envoi'; }).length, obAtt = ob.length - obEnv;
+  var txt = 'Le dossier ' + v.numero + (v.adresse ? ' (' + v.adresse + ')' : '') + (quoi.length === 1 ? ' et ' + quoi[0] : quoi.length ? ', ' + quoi.join(', ').replace(/, ([^,]*)$/, ' et $1') : '') + ' ' + (quoi.length ? 'seront effacés' : 'sera effacé') + ' de cet appareil.'
+    + (obAtt ? ' ' + (obAtt > 1 ? obAtt + ' mails de ce dossier, encore dans la boîte d\'envoi, ne partiront pas.' : 'Le mail de ce dossier encore dans la boîte d\'envoi ne partira pas.') : '')
+    + (obEnv ? ' Un mail de ce dossier est en cours d\'envoi : il a peut-être déjà été reçu.' : '');
+  /* les mails du dossier ne partent pas pendant la question ; la suppression se fait avant de les relâcher */
+  var fait = await obRetenir(ob.map(function(x){ return x.id; }), async function(){
+    if (!(await confirmModal('Supprimer le dossier ' + v.numero + ' ?', txt, 'Supprimer', true))) return false;
+    if (curVisit() !== v) return false;
+    await effacerDossier(v);
+    return true;
+  });
+  if (!fait) return;
+  toast('Dossier ' + v.numero + ' supprimé');
+  go('#/e/' + e.id);
+}
+async function effacerDossier(v){
+  /* d'abord hors de l'état et des enregistrements en attente, pour qu'aucune écriture tardive ne le fasse revivre */
+  var l, ob;
+  VIS_SUPPR.add(v.id); l = anomsOf(v.id);
+  S.visites = S.visites.filter(function(x){ return x !== v; }); S.anoms = S.anoms.filter(function(a){ return a.visiteId !== v.id; });
+  pending.delete('visites:' + v.id); l.forEach(function(a){ pending.delete('anomalies:' + a.id); });
+  ob = (await outboxAll()).filter(function(x){ return x.vid === v.id; });
+  for (var i = 0; i < ob.length; i++){ await outboxDel(ob[i].id); if (outboxCtl[ob[i].id]) outboxCtl[ob[i].id].abort(); }
+  var aids = (await DB.keysByIndex('anomalies', 'visiteId', v.id)).concat(l.map(function(a){ return a.id; })), pids = [];
+  aids = aids.filter(function(x, k){ return aids.indexOf(x) === k; });
+  l.forEach(function(a){ pids = pids.concat(a.photos || []); });
+  for (var j = 0; j < aids.length; j++) pids = pids.concat(await DB.keysByIndex('photos', 'anomalieId', aids[j]));
+  await DB.delMany('photos', pids.filter(function(x, k){ return pids.indexOf(x) === k; }));
+  await DB.delMany('anomalies', aids);
+  await DB.del('visites', v.id);
+  touchEtude(); await flushSaves(); await outboxAll(); refreshEnvoiUI();
+}
 async function applyUpdate(){
   var imp = S.imp, e = S.etude; if (!imp || !e) return;
   var res = computeImport(imp);
   if (imp.map.numero < 0 || !res.recs.length){ toast('Choisissez la colonne du numéro de dossier.'); return; }
   var t = nowISO(), byNum = new Map();
   S.visites.forEach(function(v){ var k = numKey(v.numero); if (!byNum.has(k)) byNum.set(k, v); });
-  var seen = new Set(), toPut = [], added = 0, updated = 0, missing = 0, ordre = 0, corrMoved = 0;
+  var seen = new Set(), toPut = [], added = 0, updated = 0, missing = 0, ordre = 0, corrMoved = 0, manuTrouves = 0, manuGardes = 0, manuEcarts = 0;
   res.recs.forEach(function(r){
     var nk = numKey(r.numero); if (seen.has(nk)) return; seen.add(nk);
     var v = byNum.get(nk);
-    if (v){ Object.assign(v, {numero: r.numero, adresse: r.adresse, commune: r.commune, nom: r.nom, tel: r.tel, mail: r.mail, domicile: r.domicile, domVille: r.domVille, rdv: r.rdv, excel: r.excel, refCad: r.refCad, demande: r.demande, typeProp: r.typeProp, nbLog: r.nbLog, absentDernierImport: false, ordre: ordre++, updatedAt: t}); completerConstat(v); corrMoved += reconcileContact(v) ? 1 : 0; updated++; toPut.push(v); }
+    if (v){ var etaitManuel = !!v.manuel, adrM = v.adresse, comM = v.commune; if (etaitManuel){ delete v.manuel; manuTrouves++; } Object.assign(v, {numero: r.numero, adresse: r.adresse, commune: r.commune, nom: r.nom, tel: r.tel, mail: r.mail, domicile: r.domicile, domVille: r.domVille, rdv: r.rdv, excel: r.excel, refCad: r.refCad, demande: r.demande, typeProp: r.typeProp, nbLog: r.nbLog, absentDernierImport: false, ordre: ordre++, updatedAt: t});
+      if (etaitManuel){ if (!String(v.adresse || '').trim()) v.adresse = adrM; if (!String(v.commune || '').trim()) v.commune = comM; }   /* case vide ou colonne absente : la saisie reste */
+      var ecart = false;
+      if (etaitManuel && v.contact){ v.contactBase = v.contactBase || {}; Object.keys(CONTACT_IMP).forEach(function(k){ if (ctcHas(v, k)){ if (ctcNorm(k, v.contact[k]) !== ctcNorm(k, ctcImp(v, k))) ecart = true; v.contactBase[k] = ctcImp(v, k); } }); }
+      completerConstat(v); var bouge = reconcileContact(v) > 0;
+      if (etaitManuel){ if (ecart || bouge) manuEcarts++; } else if (bouge) corrMoved++;
+      updated++; toPut.push(v); }
     else { var nv = newVisite(e.id, r, ordre++, t); S.visites.push(nv); toPut.push(nv); added++; }
   });
-  S.visites.forEach(function(v){ if (!seen.has(numKey(v.numero))){ v.absentDernierImport = true; v.ordre = 100000 + (v.ordre || 0); v.updatedAt = t; toPut.push(v); missing++; } });
+  /* dossier créé à la main, absent du tableau : conservé tel quel, après les lignes du tableau (jamais « hors tableau ») */
+  S.visites.forEach(function(v){ if (!seen.has(numKey(v.numero))){ if (v.manuel){ v.ordre = ordre++; v.absentDernierImport = false; v.updatedAt = t; toPut.push(v); manuGardes++; return; } v.absentDernierImport = true; v.ordre = 100000 + (v.ordre || 0); v.updatedAt = t; toPut.push(v); missing++; } });
   await DB.putMany('visites', toPut);
   e.source = {fileName: imp.fileName, sheet: imp.sheet, headerRow: imp.headerRow, headers: res.headers, map: Object.assign({}, imp.map), importedAt: t};
   e.updatedAt = t;
   await DB.put('etudes', e);
   S.imp = null; S.etude = null;
   toast(plural(added, 'nouveau dossier', 'nouveaux dossiers') + ', ' + plural(updated, 'mis à jour', 'mis à jour') + (missing ? ', ' + plural(missing, 'absent', 'absents') + ' du tableau' : '')
-    + (corrMoved ? '. ' + plural(corrMoved, 'fiche contact garde', 'fiches contact gardent') + ' une correction de terrain alors que le tableau a changé : voyez-les dans la fiche contact' : ''), corrMoved ? 7000 : 4500);
+    + (manuTrouves ? ', ' + plural(manuTrouves, 'dossier créé à la main retrouvé', 'dossiers créés à la main retrouvés') + ' dans le tableau' : '') + (manuGardes ? ', ' + plural(manuGardes, 'dossier créé à la main conservé', 'dossiers créés à la main conservés') : '')
+    + (corrMoved ? '. ' + plural(corrMoved, 'fiche contact garde', 'fiches contact gardent') + ' une correction de terrain alors que le tableau a changé : voyez-les dans la fiche contact' : '')
+    + (manuEcarts ? '. ' + plural(manuEcarts, 'dossier créé à la main a', 'dossiers créés à la main ont') + ' une fiche contact différente du tableau : vérifiez-' + (manuEcarts > 1 ? 'les' : 'la') : ''), corrMoved || manuEcarts ? 7000 : 4500);
   go('#/e/' + e.id);
 }
 
@@ -1108,11 +1250,13 @@ function filterVisites(by){
 }
 function lpStatsHtml(){
   var e = S.etude, st = etudeStats(S.visites, S.anoms), dirty = !e.lastExportAt || (e.updatedAt && e.updatedAt > e.lastExportAt);
-  return '<div class="stats"><span><strong>' + st.visited + '</strong> / ' + st.total + ' visités</span>' + (st.incomplete ? '<span class="st-warn">' + svg(I.warn, 18) + st.incomplete + ' à compléter</span>' : '')
+  if (!st.total) return '<div class="stats"><span>Aucun dossier pour l\'instant</span></div><div class="exp-state' + (dirty ? ' dirty' : '') + '">' + (e.lastExportAt ? 'Dernier export le ' + fmtDT(e.lastExportAt) : 'Jamais exportée') + '</div>';
+  return '<div class="stats"><span><strong>' + st.visited + '</strong> / ' + st.total + (st.total > 1 ? ' visités' : ' visité') + '</span>' + (st.incomplete ? '<span class="st-warn">' + svg(I.warn, 18) + st.incomplete + ' à compléter</span>' : '')
     + '<span class="tally eu">EU ' + st.eu + '</span><span class="tally ep">EP ' + st.ep + '</span></div>' + progressHtml(st)
     + '<div class="exp-state' + (dirty ? ' dirty' : '') + '">' + (e.lastExportAt ? 'Dernier export le ' + fmtDT(e.lastExportAt) + (dirty ? ', modifications non exportées' : '') : 'Jamais exportée : pensez à l\'export de sauvegarde') + '</div>';
 }
 function chipsHtml(){
+  if (!S.visites.length) return '';
   var by = groupBy(S.anoms, 'visiteId'), c = {toutes: S.visites.length, avec: 0};
   Object.keys(FILTER_ETATS).forEach(function(k){ c[k] = 0; });
   S.visites.forEach(function(v){
@@ -1124,7 +1268,7 @@ function chipsHtml(){
 }
 function listRowsHtml(){
   var by = groupBy(S.anoms, 'visiteId'), rows = filterVisites(by);
-  if (!rows.length) return '<li class="empty-li">' + (S.search || S.filter !== 'toutes' ? 'Aucun dossier ne correspond.' : 'Aucun dossier dans cette étude.') + '</li>';
+  if (!rows.length) return '<li class="empty-li">' + (S.search || S.filter !== 'toutes' ? 'Aucun dossier ne correspond.' : 'Aucun dossier dans cette étude.<div class="gap"></div><button type="button" class="btn primary" data-act="v-new">' + svg(I.plus) + 'Ajouter un dossier</button>') + '</li>';
   return rows.map(function(v){
     var l = by.get(v.id) || [], iss = issuesOf(v, l).length, eu = 0, ep = 0;
     l.forEach(function(a){ if (a.reseau === 'EU') eu++; else if (a.reseau === 'EP') ep++; });
@@ -1133,11 +1277,12 @@ function listRowsHtml(){
       + '<span class="vnum">' + esc(v.numero) + '</span><span class="vmain"><span class="vaddr">' + esc(v.adresse || 'Adresse non renseignée') + '</span>'
       + ((v.commune || ctc(v, 'nom')) ? '<span class="vsub">' + esc([v.commune, ctc(v, 'nom')].filter(Boolean).join(', ')) + '</span>' : '') + '</span>'
       + '<span class="vmeta">' + (iss ? '<span class="flag" title="À compléter">' + svg(I.warn, 18) + '</span>' : '') + (eu ? '<span class="tally eu">EU ' + eu + '</span>' : '') + (ep ? '<span class="tally ep">EP ' + ep + '</span>' : '')
-      + '<span class="st ' + esc(v.statut) + '">' + esc(stLabel(v.statut)) + '</span>' + (v.absentDernierImport ? '<span class="st">hors tableau</span>' : '') + '</span></a></li>';
+      + '<span class="st ' + esc(v.statut) + '">' + esc(stLabel(v.statut)) + '</span>' + (v.absentDernierImport ? '<span class="st">hors tableau</span>' : v.manuel && S.etude.source ? '<span class="st">ajouté à la main</span>' : '') + '</span></a></li>';
   }).join('');
 }
 function listPaneHtml(){
-  return '<div class="lp-head"><div id="lp-stats">' + lpStatsHtml() + '</div><div class="searchbox">' + svg(I.search, 20) + '<input type="search" id="q" placeholder="N° de dossier, adresse, nom" aria-label="Rechercher un dossier" autocomplete="off" value="' + esc(S.search) + '"></div>'
+  return '<div class="lp-head"><div id="lp-stats">' + lpStatsHtml() + '</div><div class="lp-search"><div class="searchbox">' + svg(I.search, 20) + '<input type="search" id="q" placeholder="N°, adresse ou nom" aria-label="Rechercher un dossier (numéro, adresse ou nom)" autocomplete="off" value="' + esc(S.search) + '"></div>'
+    + '<button type="button" class="btn" data-act="v-new" aria-label="Ajouter un dossier">' + svg(I.plus, 20) + '<span class="lp-add-t">Dossier</span></button></div>'
     + '<div class="chips" id="lp-chips">' + chipsHtml() + '</div></div><ul class="vlist" id="vlist">' + listRowsHtml() + '</ul>';
 }
 function refreshListPane(){ var s = $('#lp-stats'); if (s) s.innerHTML = lpStatsHtml(); var c = $('#lp-chips'); if (c) c.innerHTML = chipsHtml(); var ul = $('#vlist'); if (ul) ul.innerHTML = listRowsHtml(); }
@@ -1200,7 +1345,7 @@ function ctcExport(v){
 /* « envoyé » seulement pour un envoi direct confirmé par le service ; la messagerie n'est qu'un mail préparé, son envoi n'est pas vérifiable */
 function envoiExport(v){ var c = v.constat; if (!c || !c.signeLe) return ''; var ev = envoisVersion(v);
   return [ev.dir, ev.apres].filter(Boolean).map(function(e){ return e.mode === 'direct' ? 'envoyé le ' + fmtDT(e.le) : e.mode === 'incertain' ? 'envoi interrompu le ' + fmtDT(e.le) + ' (peut-être reçu)' : 'préparé dans la messagerie le ' + fmtDT(e.le) + ' (envoi non vérifié)'; }).join(' ; '); }
-function ctcCorriges(v){ return Object.keys(CONTACT_IMP).filter(function(k){ return ctcHas(v, k); }).map(function(k){ return CONTACT_LIB[k]; }).concat(v.contact && v.contact.domIdem ? ['domicile = adresse du branchement'] : []).join(', '); }
+function ctcCorriges(v){ if (v.manuel) return ''; return Object.keys(CONTACT_IMP).filter(function(k){ return ctcHas(v, k); }).map(function(k){ return CONTACT_LIB[k]; }).concat(v.contact && v.contact.domIdem ? ['domicile = adresse du branchement'] : []).join(', '); }
 /* Mise à jour du tableau : une correction redevenue égale au tableau disparaît ; un tableau qui la rejoint à la casse près est noté sans bruit ;
    renvoie le nombre de corrections gardées alors que le tableau a changé depuis (domicile = adresse du branchement compris) */
 function reconcileContact(v){
@@ -1252,7 +1397,7 @@ function ctLink(kind, val){
   return null;
 }
 function ctHint(v, k){
-  if (!CONTACT_IMP[k] || !ctcHas(v, k) || ctcNorm(k, ctc(v, k)) === ctcNorm(k, ctcImp(v, k))) return '';
+  if (v.manuel || !CONTACT_IMP[k] || !ctcHas(v, k) || ctcNorm(k, ctc(v, k)) === ctcNorm(k, ctcImp(v, k))) return '';
   var imp = ctcImp(v, k).trim(), b = v.contactBase || {}, hasB = Object.prototype.hasOwnProperty.call(b, k), moved = hasB && ctcNorm(k, b[k]) !== ctcNorm(k, imp);
   var keep = ' <button type="button" class="linkbtn" data-act="ct-keep" data-k="' + k + '">Garder ma correction</button>';
   if (!imp) return moved ? '<strong>Le tableau a vidé cette case depuis votre correction</strong> (avant : ' + esc(b[k]) + ').' + keep : 'Ajouté sur le terrain (vide dans le tableau).';
@@ -1300,7 +1445,8 @@ function ctSummaryHtml(v){
 }
 function contactHtml(){
   var v = curVisit(), r = ctc(v, 'rencontre'), h = '';
-  h += '<div class="ed-head"><h2 class="h2">Fiche contact, dossier ' + esc(v.numero) + '</h2><p class="muted">Reprend le tableau importé. Vos corrections l\'emportent : elles passent dans le dossier, le constat de visite, la fiche et les exports, et une mise à jour du tableau ne les efface pas.</p></div>';
+  h += '<div class="ed-head"><h2 class="h2">Fiche contact, dossier ' + esc(v.numero) + '</h2><p class="muted">' + (v.manuel ? 'Dossier créé à la main : saisissez ici le propriétaire et la personne rencontrée. Ces informations passent dans le dossier, le constat de visite, la fiche et les exports.'
+    : 'Reprend le tableau importé. Vos corrections l\'emportent : elles passent dans le dossier, le constat de visite, la fiche et les exports, et une mise à jour du tableau ne les efface pas.') + '</p></div>';
   if (v.constat && v.constat.signeLe) h += '<p class="inline-warn">Constat signé le ' + esc(fmtDT(v.constat.signeLe)) + ' : il garde les coordonnées en vigueur à la signature. Une correction faite ici sera signalée comme un changement depuis la signature.</p>';
   h += '<section class="card"><h2 class="h2">Propriétaire</h2>' + ctField(v, 'nom', 'Nom et prénom')
     + '<label class="check"><input type="checkbox" data-act="ct-domidem"' + (v.contact && v.contact.domIdem ? ' checked' : '') + '><span>Le propriétaire habite à l\'adresse du branchement</span></label>'
@@ -1340,6 +1486,7 @@ function visitHtml(){
   var rc = vRefCad(v); if (rc) ch += '<div class="muted">Réf. cadastrales : ' + esc(rc) + '</div>';
   h += '<div class="contact-l">' + ch + '<div class="btnrow ct-open"><a class="btn sm" href="#/e/' + esc(e.id) + '/v/' + esc(v.id) + '/contact">' + svg(I.user, 18) + 'Fiche contact</a></div></div>';
   if (v.absentDernierImport) h += '<p class="inline-warn">Ce dossier ne figure plus dans le dernier tableau importé.</p>';
+  if (v.manuel) h += '<p class="muted small v-manu">Dossier créé à la main.<button type="button" class="linkbtn" data-act="v-edit">Modifier le numéro ou l\'adresse</button></p>';
   h += '<section class="card"><span class="lbl" id="lbl-st">Statut de la visite</span><div class="seg" role="group" aria-labelledby="lbl-st">'
     + STATUTS.map(function(s){ return '<button type="button" data-act="statut" data-v="' + s[0] + '" aria-pressed="' + (v.statut === s[0]) + '">' + esc(s[1]) + '</button>'; }).join('') + '</div>'
     + '<span class="lbl" id="lbl-dv">Date de visite</span><div class="daterow"><label class="datebox"><span id="date-fr"' + (v.dateVisite ? '' : ' class="date-empty"') + '>' + esc(v.dateVisite ? fmtDateLong(v.dateVisite) : 'Choisir la date') + '</span>'
@@ -1361,6 +1508,7 @@ function visitHtml(){
   var filled = (v.excel || []).filter(function(p){ return String(p[1]).trim() !== ''; });
   if (filled.length) h += '<details class="sec xls"><summary>' + svg(I.doc, 20) + 'Toutes les informations du tableau Excel <span class="muted">(' + filled.length + ')</span></summary><dl>' + filled.map(function(p){ return '<dt>' + esc(p[0]) + '</dt><dd>' + esc(p[1]) + '</dd>'; }).join('') + '</dl></details>';
   h += '<div class="btnrow sec"><a class="btn" href="#/e/' + esc(e.id) + '/v/' + esc(v.id) + '/fiche">' + svg(I.doc) + 'Aperçu de la fiche</a><button type="button" class="btn primary" data-act="dl-fiche" data-vid="' + esc(v.id) + '">' + svg(I.download) + 'Fiche PDF</button></div>';
+  if (v.manuel) h += '<div class="btnrow sec"><button type="button" class="btn ghost danger" data-act="v-del">' + svg(I.trash) + 'Supprimer ce dossier</button></div>';
   return h;
 }
 function onVisitField(t){
@@ -1442,8 +1590,10 @@ async function addPhotos(files){
   for (var i = 0; i < files.length; i++){
     try {
       var c = await compressImage(files[i]);
+      if (VIS_SUPPR.has(a.visiteId)) return added;   /* dossier supprimé pendant l'ajout : rien n'est réécrit */
       var p = {id: uid(), anomalieId: a.id, visiteId: a.visiteId, etudeId: a.etudeId, data: c.data, type: c.type, w: c.w, h: c.h, createdAt: nowISO()};
       await DB.put('photos', p);
+      if (VIS_SUPPR.has(a.visiteId)){ await DB.del('photos', p.id); return added; }
       a.photos = (a.photos || []).concat(p.id); a.photoNonRequise = false; a.updatedAt = nowISO();
       await DB.put('anomalies', a); added++;
     } catch(e){ reportError(e, 'Photo non enregistrée'); }
@@ -1888,6 +2038,8 @@ function constatIssues(v, list){
   }
   if (v.statut !== 'visitee') out.push('Le dossier n\'est pas au statut « Visitée ».');
   if (!v.dateVisite) out.push('Date de visite manquante.');
+  if (!String(v.adresse || '').trim()) out.push('Adresse du branchement manquante' + (v.manuel ? ' : « Modifier le numéro ou l\'adresse », dans le dossier.' : '.'));
+  if (!ctc(v, 'nom').trim()) out.push('Nom du propriétaire manquant : renseignez la fiche contact.');
   if (!METH.some(function(m){ return E.meth[m[0]]; })) out.push('Aucune méthode de contrôle (visuel, eau, fluorescéine, fumée, résonance).');
   if (!E.rows.some(function(x){ return rowActive(x.r); })) out.push('Aucune installation décrite : indiquez au moins un nombre.');
   E.rows.forEach(function(x){
@@ -1909,9 +2061,10 @@ function constatIssues(v, list){
 
 /* Écran du constat */
 function cField(label, key, val, ph, dis, extra){ return '<label class="field"><span class="lbl">' + esc(label) + '</span><input type="text" data-cf="' + key + '" value="' + esc(val || '') + '"' + (ph ? ' placeholder="' + esc(ph) + '"' : '') + (extra || '') + dis + '></label>'; }
+var cXlsOk = true;   /* le dossier affiché a des données de tableau (posé par constatHtml) */
 function cFieldX(label, key, val, ph, dis, extra){
   return '<div class="field"><span class="lbl">' + esc(label) + '</span><div class="xrow"><input type="text" data-cf="' + key + '" value="' + esc(val || '') + '" aria-label="' + esc(label) + '"' + (ph ? ' placeholder="' + esc(ph) + '"' : '') + (extra || '') + dis + '>'
-    + '<button type="button" class="btn sm" data-act="c-xls" data-k="' + key + '" title="Reprendre une valeur du tableau Excel"' + dis + '>' + svg(I.doc, 18) + 'Tableau</button></div></div>';
+    + (cXlsOk ? '<button type="button" class="btn sm" data-act="c-xls" data-k="' + key + '" title="Reprendre une valeur du tableau Excel"' + dis + '>' + svg(I.doc, 18) + 'Tableau</button>' : '') + '</div></div>';
 }
 function instRowHtml(x, dis){
   var r = x.r, on = rowActive(r);
@@ -1929,6 +2082,7 @@ function instRowHtml(x, dis){
 }
 function constatHtml(){
   var v0 = curVisit(), list = anomsOf(v0.id), E = constatEval(v0, list), c = E.c, lock = !!c.signeLe, dis = lock ? ' disabled' : '', h = '', v = lock ? constatFige(v0) : v0;
+  cXlsOk = (v0.excel || []).some(function(p){ return String(p[1] == null ? '' : p[1]).trim(); });
   h += '<div class="ed-head"><h2 class="h2">Constat de visite, dossier ' + esc(v.numero) + '</h2><p class="muted">Formulaire « Contrôle de Branchement Particulier » du Département, rempli ici puis signé sur la tablette. Le PDF reprend sa mise en page.</p></div>';
   if (lock) h += '<div class="lockbar">' + svg(I.check) + '<span>Constat signé le ' + esc(fmtDT(c.signeLe)) + '. Il n\'est plus modifiable.</span><button type="button" class="btn sm" data-act="c-unlock">Modifier</button></div>'
     + (E.changed ? '<p class="inline-warn">Le dossier a changé depuis la signature (' + esc(E.changeWhy.join(', ')) + '). Le constat reste tel qu\'il a été signé ; touchez « Modifier » pour le mettre à jour et le faire signer à nouveau.</p>' : '')
@@ -2937,12 +3091,17 @@ function mailFill(t, v, cfg){
   var vals = {numero: v.numero || '', adresse: v.adresse || '', commune: communeNom(v.commune) || v.commune || '', date: v.dateVisite ? fmtDateLong(v.dateVisite) : '', proprietaire: ctc(v, 'nom'), signature: cfg.signature || cfg.nom || ''};
   /* sans date de visite, « , établi le {date} » disparaît plutôt que d'écrire « établi le . » */
   if (!vals.date) t = String(t || '').replace(/,?\s*établi le \{date\}/g, '');
+  t = String(t || '');
+  if (!vals.adresse && !vals.commune) t = t.replace(/\s*\b(?:au|à)\s+\{adresse\}\s*,?\s*\{commune\}/g, '').replace(/,?\s*\{adresse\}\s*,?\s*\{commune\}/g, '');
+  else if (!vals.adresse) t = t.replace(/\bau\s+\{adresse\}\s*,\s*\{commune\}/g, 'à {commune}').replace(/\{adresse\}\s*,\s*/g, '').replace(/,\s*\{adresse\}/g, '');
+  if (!vals.commune) t = t.replace(/,\s*\{commune\}/g, '');
   return String(t || '').replace(/\{(numero|adresse|commune|date|proprietaire|signature)\}/g, function(_, k){ return vals[k]; }).replace(/\n{3,}/g, '\n\n').trim();
 }
 function abToB64(ab){ var u8 = new Uint8Array(ab), s = ''; for (var i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s); }
 /* Envois : rattachés à la version signée jointe (signeLe) */
 function lastEnvoi(v){ var e = v.envois || []; return e.length ? e[e.length - 1] : null; }
 async function recordEnvoi(vid, o){
+  if (VIS_SUPPR.has(vid)) return;   /* dossier supprimé pendant l'envoi */
   var v = S.visites.find(function(x){ return x.id === vid; });
   if (v && !(await DB.get('etudes', v.etudeId))) return;   /* étude supprimée entre-temps : rien n'est réécrit */
   o.rec = nowISO();
@@ -3088,6 +3247,7 @@ async function mailModal(v){
   if (!pdfLibOk()) return;
   await flushSaves();
   var cfg = await mailCfg(), direct = mailDirectOk(cfg), E = constatEval(v, anomsOf(v.id)), name = constatFileName(v), blob = null, dests = [], t0 = nowISO();
+  var vSigne = c.fige && c.fige.visite ? constatFige(v) : v;   /* objet et message : adresse, ville, date et nom du constat signé joint */
   function addDest(adr, lib, on, note){ adr = String(adr || '').trim(); if (!mailOk(adr) || dests.some(function(d){ return d.adr.toLowerCase() === adr.toLowerCase(); })) return; dests.push({adr: adr, lib: lib, on: on, note: note || ''}); }
   mailsDe(ctc(v, 'mail')).forEach(function(a){ addDest(a, 'Propriétaire', true); });
   if (ctc(v, 'rencontre') === 'autre'){ var q = ctc(v, 'rQualite'), pro = /syndic|agence|mandataire|gestionnaire|notaire|tuteur|curateur/i.test(q); mailsDe(ctc(v, 'rMail')).forEach(function(a){ addDest(a, [ctc(v, 'rNom'), qualiteTxt(q)].filter(Boolean).join(', ') || 'Personne rencontrée', pro, pro ? '' : 'recevra les coordonnées du propriétaire'); }); }
@@ -3100,8 +3260,8 @@ async function mailModal(v){
     + '<span class="lbl">Destinataires</span><div id="m-dests">' + (dests.length ? dests.map(destHtml).join('') : ctc(v, 'mail').trim() ? '<p class="muted small">Adresse de la fiche contact non reconnue : « ' + esc(ctc(v, 'mail')) + ' ». Corrigez-la dans la fiche contact ou ajoutez-la ci-dessous.</p>' : '<p class="muted small">Aucune adresse dans la fiche contact.</p>') + '</div>'
     + '<div class="xrow"><input type="email" id="m-add" placeholder="Ajouter une adresse" autocapitalize="off" spellcheck="false" inputmode="email"><button type="button" class="btn sm" data-m="add">Ajouter</button></div>'
     + (mailOk(cfg.copie) ? '<label class="check"><input type="checkbox" id="m-copie" checked><span>Copie à moi : ' + esc(cfg.copie) + '</span></label>' : '')
-    + '<label class="field"><span class="lbl">Objet</span><input type="text" id="m-objet" value="' + esc(mailFill(cfg.objet, v, cfg)) + '"></label>'
-    + '<label class="field"><span class="lbl">Message</span><textarea id="m-msg" rows="7">' + esc(mailFill(cfg.message, v, cfg)) + '</textarea></label>'
+    + '<label class="field"><span class="lbl">Objet</span><input type="text" id="m-objet" value="' + esc(mailFill(cfg.objet, vSigne, cfg)) + '"></label>'
+    + '<label class="field"><span class="lbl">Message</span><textarea id="m-msg" rows="7">' + esc(mailFill(cfg.message, vSigne, cfg)) + '</textarea></label>'
     + '<p class="pj">' + svg(I.doc, 18) + '<span id="m-pj">' + esc(name) + ' (préparation…)</span></p>'
     + '<p class="muted small">' + (direct ? '« Envoyer » part directement de votre adresse ; sans connexion, le mail attend et part au retour du réseau. « Ma messagerie » ouvre votre application de mail avec le constat joint.'
       : '« Ma messagerie » ouvre votre application de mail (Gmail, Outlook…) avec le constat joint ; les adresses cochées sont copiées : collez-les dans le champ « À ». L\'envoi direct en un geste se règle dans Réglages.') + '</p>';
@@ -3365,15 +3525,15 @@ function uniqueName(fn, used){ var base = fn.replace(/\.pdf$/i, ''), out = fn, k
 function photoFileName(v, i, j, type){ return safeName(v.numero, 30) + '_A' + (i + 1) + '_' + (j + 1) + (/png/.test(type || '') ? '.png' : '.jpg'); }
 function recapXlsx(e, vs, as){
   var by = groupBy(as, 'visiteId'), extra = (e.source && e.source.headers) || [];
-  var vHead = ['N° dossier', 'Adresse de la visite', 'Commune', 'Propriétaire', 'Téléphone', 'Mail', 'Adresse du domicile', 'Statut', 'Date de visite', 'Anomalies', 'dont EU', 'dont EP', 'Aucune anomalie constatée', 'Points à compléter', 'Observation EP', 'Observation EU', 'Notes internes'].concat(CTC_EXPORT_HEAD, extra.map(function(h){ return 'Tableau : ' + h; }));
+  var vHead = ['N° dossier', 'Adresse de la visite', 'Commune', 'Propriétaire', 'Téléphone', 'Mail', 'Adresse du domicile', 'Statut', 'Date de visite', 'Anomalies', 'dont EU', 'dont EP', 'Aucune anomalie constatée', 'Points à compléter', 'Observation EP', 'Observation EU', 'Notes internes'].concat(CTC_EXPORT_HEAD, extra.map(function(h){ return 'Tableau : ' + h; }), ['Dossier créé à la main']);
   var vRows = vs.map(function(v){
     var l = (by.get(v.id) || []).slice().sort(byCreated), xs = new Map((v.excel || []).map(function(p){ return [p[0], p[1]]; }));
     return [v.numero, v.adresse, v.commune, ctc(v, 'nom'), fmtTel(fixTel(ctc(v, 'tel'))), ctc(v, 'mail'), ficheDomicile(v), stLabel(v.statut), fmtDate(v.dateVisite), l.length,
       l.filter(function(a){ return a.reseau === 'EU'; }).length, l.filter(function(a){ return a.reseau === 'EP'; }).length,
-      v.aucuneAnomalie ? 'oui' : '', issuesOf(v, l).map(function(x){ return x.msg; }).join(' | '), v.obsEP || '', v.obsEU || '', v.observations || ''].concat(ctcExport(v), extra.map(function(h){ return xs.has(h) ? xs.get(h) : ''; }));
+      v.aucuneAnomalie ? 'oui' : '', issuesOf(v, l).map(function(x){ return x.msg; }).join(' | '), v.obsEP || '', v.obsEU || '', v.observations || ''].concat(ctcExport(v), extra.map(function(h){ return xs.has(h) ? xs.get(h) : ''; }), [v.manuel ? 'oui' : '']);
   });
   var ws1 = XLSX.utils.aoa_to_sheet([vHead].concat(vRows));
-  ws1['!cols'] = [12, 34, 16, 22, 14, 26, 34, 12, 12, 10, 8, 8, 12, 40, 30, 30, 30, 14, 24, 16, 14, 26, 24, 22].concat(extra.map(function(){ return 16; })).map(function(w){ return {wch: w}; });
+  ws1['!cols'] = [12, 34, 16, 22, 14, 26, 34, 12, 12, 10, 8, 8, 12, 40, 30, 30, 30, 14, 24, 16, 14, 26, 24, 22].concat(extra.map(function(){ return 16; }), [12]).map(function(w){ return {wch: w}; });
   var aHead = ['N° dossier', 'Adresse de la visite', 'Anomalie', 'Réseau', 'Catégorie', 'Localisation', 'Anomalie observée', 'Préconisation de travaux', 'Photos', 'Fichiers photos', 'Validée', 'Saisie le'];
   var aRows = [];
   vs.forEach(function(v){
@@ -3394,11 +3554,11 @@ function csvCell(x){ var s = String(x == null ? '' : x); return /[";\r\n]/.test(
 function etudeCsv(e, vs, as){
   var by = groupBy(as, 'visiteId'), extra = (e.source && e.source.headers) || [];
   var rows = [['N° dossier', 'Adresse de la visite', 'Commune', 'Propriétaire', 'Téléphone', 'Mail', 'Adresse du domicile', 'Statut', 'Date de visite', 'Aucune anomalie constatée', 'Points à compléter',
-    'N° anomalie', 'Réseau', 'Catégorie', 'Anomalie observée', 'Préconisation de travaux', 'Localisation', 'Photos', 'Anomalie validée', 'Observation EP', 'Observation EU', 'Notes internes'].concat(CTC_EXPORT_HEAD, extra.map(function(h){ return 'Tableau : ' + h; }))];
+    'N° anomalie', 'Réseau', 'Catégorie', 'Anomalie observée', 'Préconisation de travaux', 'Localisation', 'Photos', 'Anomalie validée', 'Observation EP', 'Observation EU', 'Notes internes'].concat(CTC_EXPORT_HEAD, extra.map(function(h){ return 'Tableau : ' + h; }), ['Dossier créé à la main'])];
   vs.forEach(function(v){
     var l = (by.get(v.id) || []).slice().sort(byCreated), xs = new Map((v.excel || []).map(function(p){ return [p[0], p[1]]; }));
     var head = [v.numero, v.adresse, v.commune, ctc(v, 'nom'), fmtTel(fixTel(ctc(v, 'tel'))), ctc(v, 'mail'), ficheDomicile(v), stLabel(v.statut), fmtDate(v.dateVisite), v.aucuneAnomalie ? 'oui' : '', issuesOf(v, l).map(function(x){ return x.msg; }).join(' | ')];
-    var tail = [v.obsEP || '', v.obsEU || '', v.observations || ''].concat(ctcExport(v), extra.map(function(h){ return xs.has(h) ? xs.get(h) : ''; }));
+    var tail = [v.obsEP || '', v.obsEU || '', v.observations || ''].concat(ctcExport(v), extra.map(function(h){ return xs.has(h) ? xs.get(h) : ''; }), [v.manuel ? 'oui' : '']);
     if (!l.length) rows.push(head.concat(['', '', '', '', '', '', '', '']).concat(tail));
     l.forEach(function(a, i){ rows.push(head.concat(['A' + (i + 1), a.reseau || '', catLabel(anomCat(a)), a.observation || '', a.preconisation || '', a.localisation || '', (a.photos || []).length, a.brouillon ? 'non' : 'oui']).concat(tail)); });
   });
@@ -3522,6 +3682,7 @@ async function restoreZip(file){
     (data.anomalies || []).forEach(function(a){ a.photos = (a.photos || []).filter(function(id){ return restored.has(id); }); });
     /* images du constat : seules des images intégrées sont reprises (une sauvegarde peut venir d'un autre appareil ou d'un tiers) */
     (data.visites || []).forEach(function(v){ var c = v && v.constat; if (!c || typeof c !== 'object') return; ['croquis', 'sigTech', 'sigProp'].forEach(function(k){ if (c[k]) c[k] = imgData(c[k]); }); if (c.croquisV && c.croquisV.fond) c.croquisV.fond = imgData(c.croquisV.fond); });
+    (data.visites || []).forEach(function(v){ if (v && v.id) VIS_SUPPR.delete(v.id); });
     await DB.putMany('visites', data.visites || []);
     await DB.putMany('anomalies', data.anomalies || []);
     await DB.put('etudes', data.etude);
@@ -3538,18 +3699,29 @@ async function onZipFile(input){ var f = input.files && input.files[0]; input.va
 
 /* ---------- Fenêtres ---------- */
 var MODALS = [];
+/* Double appui involontaire : un second appui au même endroit, juste après une fenêtre ouverte ou fermée par le premier,
+   ne touche pas ce qui vient d'apparaître (bouton de la nouvelle fenêtre, page affichée dessous). Le clavier n'est jamais filtré ;
+   une saisie entre deux appuis prouve un geste voulu */
+var FEN_GEN = 0, APPUI = {t: 0, x: -99, y: -99, gen: 0};
+document.addEventListener('click', function(ev){
+  if (!ev.detail) return;
+  var now = Date.now();
+  if (now - APPUI.t < 450 && Math.abs(ev.clientX - APPUI.x) < 30 && Math.abs(ev.clientY - APPUI.y) < 30 && FEN_GEN !== APPUI.gen){ ev.stopPropagation(); ev.preventDefault(); return; }
+  APPUI = {t: now, x: ev.clientX, y: ev.clientY, gen: FEN_GEN};
+}, true);
+document.addEventListener('input', function(){ APPUI.t = 0; }, true);
 function openModal(o){
   return new Promise(function(resolve){
-    var actions = o.actions || [], w = document.createElement('div'); w.className = 'modal-back' + (o.full ? ' full' : ''); var pushed = false;
+    var actions = o.actions || [], w = document.createElement('div'); w.className = 'modal-back' + (o.full ? ' full' : ''); var pushed = false, ouverte = Date.now();
     try { history.pushState({vtModal: 1}, '', location.href); pushed = true; } catch(e){}
     /* o.full : plein écran, sans fond cliquable ; o.backValue : valeur rendue par le retour de l'appareil et par Échap (l'éditeur de croquis enregistre) */
     var entry = {fromBack: function(){ finish(o.backValue ? o.backValue(w) : undefined, true); }}; MODALS.push(entry);
     w.innerHTML = '<div class="modal' + (o.full ? ' full' : '') + '" role="dialog" aria-modal="true" aria-label="' + esc(o.title || o.label || '') + '">' + (o.title ? '<h2 class="m-title">' + esc(o.title) + '</h2>' : '')
       + '<div class="m-body">' + (o.html || '') + '</div>' + (actions.length ? '<div class="m-foot">' + actions.map(function(a, i){ return '<button type="button" class="btn ' + (a.cls || '') + '" data-mi="' + i + '">' + esc(a.label) + '</button>'; }).join('') + '</div>' : '') + '</div>';
-    $('#modal-root').appendChild(w);
+    $('#modal-root').appendChild(w); FEN_GEN++;
     var done = false;
     function finish(val, fromBack){
-      if (done) return; done = true; w.remove(); document.removeEventListener('keydown', onKey);
+      if (done) return; done = true; w.remove(); FEN_GEN++; document.removeEventListener('keydown', onKey);
       var ix = MODALS.indexOf(entry); if (ix >= 0) MODALS.splice(ix, 1);
       if (o.onClose){ try { o.onClose(val); } catch(e){} }
       if (!pushed || fromBack){ resolve(val); return; }
@@ -3562,7 +3734,7 @@ function openModal(o){
     w.addEventListener('click', function(ev){
       var b = ev.target.closest('[data-mi]');
       if (b){ var a = actions[+b.dataset.mi]; if (a.collect){ var r = a.collect(w); if (r === false) return; close(r); } else close('value' in a ? a.value : a.label); return; }
-      if (ev.target === w && !o.full) close(undefined);
+      if (ev.target === w && !o.full && Date.now() - ouverte > 400) close(undefined);   /* second appui d'un double appui : la fenêtre reste ouverte */
     });
     if (o.onMount) o.onMount(w, close);
     if (!o.noAutofocus){ var f = w.querySelector('[data-autofocus]') || w.querySelector('.m-foot .btn.primary, .m-foot .btn.danger-solid'); if (f) setTimeout(function(){ f.focus(); }, 30); }
@@ -3577,10 +3749,11 @@ async function etudeMenu(){
   var e = S.etude; if (!e) return;
   function item(v, ic, label, cls){ return '<button type="button" class="btn' + (cls ? ' ' + cls : '') + '" data-m="ch" data-v="' + v + '">' + (ic ? svg(ic) : '') + esc(label) + '</button>'; }
   var choice = await openModal({title: e.nom, noAutofocus: true, actions: [{label: 'Fermer', value: null}],
-    html: '<div class="sheet-list">' + item('pdf', I.doc, 'Exporter les fiches PDF') + item('csv', I.download, 'Exporter toute l\'étude en CSV')
+    html: '<div class="sheet-list">' + item('add', I.plus, 'Ajouter un dossier') + item('pdf', I.doc, 'Exporter les fiches PDF') + item('csv', I.download, 'Exporter toute l\'étude en CSV')
       + item('export', I.download, 'Exporter l\'étude complète : fiches PDF, photos, tableaux, sauvegarde') + item('xlsx', I.download, 'Exporter le tableau récapitulatif (Excel)')
-      + item('entete', I.doc, 'En-tête des fiches') + item('update', I.upload, 'Mettre à jour depuis un nouveau tableau Excel') + item('rename', null, 'Renommer l\'étude') + item('delete', I.trash, 'Supprimer l\'étude', 'danger') + '</div>',
+      + item('entete', I.doc, 'En-tête des fiches') + item('update', I.upload, e.source ? 'Mettre à jour depuis un nouveau tableau Excel' : 'Importer un tableau Excel dans cette étude') + item('rename', null, 'Renommer l\'étude') + item('delete', I.trash, 'Supprimer l\'étude', 'danger') + '</div>',
     onMount: function(w, close){ w.addEventListener('click', function(ev){ var b = ev.target.closest('[data-m="ch"]'); if (b) close(b.dataset.v); }); }});
+  if (choice === 'add') return ajouterDossiers();
   if (choice === 'pdf') return exportFichesPdf();
   if (choice === 'csv') return exportCsv();
   if (choice === 'export') return exportEtude();
@@ -3677,6 +3850,10 @@ var ACTIONS = {
   'pick-excel': function(){ $('#in-excel').click(); },
   'pick-zip': function(){ $('#in-zip').click(); },
   'create-etude': function(){ return createEtude(); },
+  'etude-new': function(){ return creerEtudeManuelle(); },
+  'v-new': function(){ return ajouterDossiers(); },
+  'v-edit': function(){ return modifierDossier(); },
+  'v-del': function(){ return supprimerDossier(); },
   'apply-update': function(){ return applyUpdate(); },
   'etude-menu': function(){ return etudeMenu(); },
   filter: function(el){ S.filter = el.dataset.v; refreshListPane(); },

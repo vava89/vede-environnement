@@ -1,4 +1,4 @@
-VÉDÉ Terrain, version installable hors connexion (v1.5.0)
+VÉDÉ Terrain, version installable hors connexion (v1.5.1)
 =====================================================
 
 Ce dossier contient l'application complète. Une fois installée sur la
@@ -26,6 +26,21 @@ INSTALLATION SUR LA TABLETTE
    d'accueil ». Safari : bouton Partager > « Sur l'écran d'accueil ».
 3. Lancez l'application une fois depuis son icône, toujours connecté.
    Elle est ensuite utilisable sans réseau.
+
+ÉTUDES ET DOSSIERS SANS TABLEAU
+- Accueil > « Créer une étude à la main » : donnez un nom, puis ajoutez
+  les dossiers un par un (numéro, adresse, code postal et ville). Le
+  propriétaire et la personne rencontrée se saisissent ensuite dans la
+  fiche contact de chaque dossier.
+- Dans toute étude, importée ou non, le bouton « Dossier » de la liste
+  (ou « Ajouter un dossier » dans le menu de l'étude) ajoute un dossier.
+  Un dossier créé à la main peut être modifié (numéro, adresse) ou
+  supprimé depuis sa page ; les dossiers du tableau, non.
+- Un tableau Excel peut être importé plus tard (menu de l'étude) : les
+  dossiers sont rapprochés par numéro. Un dossier créé à la main dont le
+  numéro figure dans le tableau en prend les informations (l'aperçu
+  signale une adresse différente) ; les autres sont conservés tels quels.
+  Les exports comportent une dernière colonne « Dossier créé à la main ».
 
 SAUVEGARDE
 - Effacer les données du navigateur ou désinstaller l'application efface
