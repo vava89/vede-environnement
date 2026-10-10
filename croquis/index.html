@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Croquis de terrain</title>
+<meta name="theme-color" content="#0F5C63">
+<meta name="description" content="Laboratoire du croquis de terrain de VÉDÉ Terrain : fond cadastral DXF, objets typés, réseau déduit du dessin, plans PDF et DXF.">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<style>
+/* Jetons repris de l'application VÉDÉ Terrain */
+:root{
+  --bg:#E8EDF0;--surface:#FFFFFF;--surface-2:#F3F6F8;--ink:#12202A;--ink-2:#33434E;--muted:#5C6C78;--line:#C7D1D8;--line-2:#DEE5EA;
+  --brand:#0F5C63;--brand-soft:#D9ECEB;--on-brand:#FFFFFF;
+  --warn:#8A5300;--warn-soft:#FFF0D1;--warn-line:#EBC27A;--ok:#21704A;--ok-soft:#DBF0E4;--danger:#B42318;
+  --scrim:rgba(9,18,24,.5);--shadow:0 18px 50px -22px rgba(9,18,24,.55);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D161C;--surface:#152029;--surface-2:#1B2832;--ink:#E4ECF1;--ink-2:#C2CFD8;--muted:#92A4B1;--line:#2C3C48;--line-2:#22313B;
+    --brand:#0F5C63;--brand-soft:#12383C;--on-brand:#FFFFFF;
+    --warn:#F0AE48;--warn-soft:#38290D;--warn-line:#6B4E17;--ok:#5BC98D;--ok-soft:#113222;--danger:#FF8A7A;--scrim:rgba(0,0,0,.6);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D161C;--surface:#152029;--surface-2:#1B2832;--ink:#E4ECF1;--ink-2:#C2CFD8;--muted:#92A4B1;--line:#2C3C48;--line-2:#22313B;
+  --brand:#0F5C63;--brand-soft:#12383C;--on-brand:#FFFFFF;
+  --warn:#F0AE48;--warn-soft:#38290D;--warn-line:#6B4E17;--ok:#5BC98D;--ok-soft:#113222;--danger:#FF8A7A;--scrim:rgba(0,0,0,.6);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:17px;line-height:1.45;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.bar{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 16px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:var(--brand);color:var(--on-brand)}
+.bar h1{margin:0;font-family:"Barlow Condensed","Barlow",sans-serif;font-weight:700;font-size:26px;line-height:1.1}
+.bar p{margin:0;font-size:14px;opacity:.88}
+.labo{display:inline-block;margin-left:8px;padding:1px 9px;border-radius:999px;background:rgba(255,255,255,.18);font-family:"Barlow",sans-serif;font-size:14px;font-weight:600;vertical-align:middle}
+main{max-width:1100px;margin:0 auto;padding:18px 16px 40px}
+.avert{padding:12px 14px;border-radius:14px;background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--ink);margin:0 0 16px;font-size:15.5px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 20px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:50px;padding:0 18px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600;font-size:16.5px;cursor:pointer;text-decoration:none}
+.btn.prim{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+.btn.danger{color:var(--danger)}
+.btn.petit{min-height:40px;padding:0 12px;font-size:15px;border-radius:12px}
+h2{font-size:19px;margin:24px 0 10px}
+.cartes{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.carte{display:flex;flex-direction:column;gap:4px;width:100%;padding:14px 16px;border-radius:16px;border:1px solid var(--line);background:var(--surface);text-align:left;cursor:pointer;color:inherit}
+.carte strong{font-size:18px}
+.carte span{color:var(--muted);font-size:14.5px}
+.carte .chiffres{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:14px;color:var(--ink-2)}
+.vide{color:var(--muted);font-size:15.5px}
+.fonds{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.fonds li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--line-2);background:var(--surface)}
+.fonds li div{flex:1;min-width:0}
+.fonds li span{display:block;color:var(--muted);font-size:14px}
+footer{margin-top:28px;color:var(--muted);font-size:14px}
+#edition{position:fixed;inset:0;z-index:20;background:#fbfbf8;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+#edition>div{height:100%}
+.modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:16px;background:var(--scrim)}
+.boite{width:min(520px,100%);max-height:calc(100% - 24px);overflow:auto;background:var(--surface);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
+.boite h3{margin:0 0 12px;font-size:20px}
+.boite label{display:block;margin:10px 0 4px;font-weight:600;font-size:15px}
+.boite input,.boite select{width:100%;min-height:46px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:16px}
+.boite .pied{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;flex-wrap:wrap}
+.boite p{margin:6px 0;color:var(--muted);font-size:14.5px}
+.toast{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));margin:0 auto;width:fit-content;max-width:min(560px,calc(100% - 32px));padding:12px 16px;border-radius:14px;background:#1f2a31;color:#fff;font-weight:600;z-index:50;opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;pointer-events:none}
+.toast.on{opacity:1;transform:none}
+@media (max-width:420px){main{padding:14px 12px 32px}.cartes{grid-template-columns:1fr}.bar h1{font-size:23px}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <div>
+    <h1>Croquis de terrain <span class="labo">labo</span></h1>
+    <p>Module en développement, à part de VÉDÉ Terrain</p>
+  </div>
+</header>
+<main id="accueil">
+  <p class="avert" id="avert">Version d'essai : rien n'est relié aux études de l'application. Les croquis et les fonds de plan restent sur cet appareil ; exportez ce que vous voulez garder.</p>
+  <div class="actions">
+    <button type="button" class="btn prim" data-a="nouveau">Nouveau croquis</button>
+    <button type="button" class="btn" data-a="demo">Ouvrir la démonstration</button>
+    <label class="btn">Importer une sauvegarde<input type="file" accept=".json,application/json" data-a="importer" hidden></label>
+  </div>
+  <h2>Croquis</h2>
+  <ul class="cartes" id="liste"></ul>
+  <h2>Fonds de plan enregistrés</h2>
+  <ul class="fonds" id="fonds"></ul>
+  <footer>Labo du croquis <span id="version"></span> · données fictives dans la démonstration · le fond DXF ne quitte pas l'appareil.</footer>
+</main>
+<div id="edition" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="../lib/jspdf.umd.min.js" defer></script>
+<script src="croquis.js"></script>
+<script>
+(function(){
+'use strict';
+var V = window.VCroquis, $ = function(s){ return document.querySelector(s); };
+document.getElementById('version').textContent = 'v' + V.version;
+
+/* ---------- Stockage : base séparée de l'application ; en mémoire si l'appareil la refuse ---------- */
+var DB = (function(){
+  var memoire = {croquis: {}, fonds: {}}, base = null, ouverte = null;
+  function ouvrir(){
+    if (ouverte) return ouverte;
+    ouverte = new Promise(function(res){
+      try {
+        var r = indexedDB.open('vede-croquis-labo', 1);
+        r.onupgradeneeded = function(){ var d = r.result; if (!d.objectStoreNames.contains('croquis')) d.createObjectStore('croquis', {keyPath: 'id'}); if (!d.objectStoreNames.contains('fonds')) d.createObjectStore('fonds', {keyPath: 'id'}); };
+        r.onsuccess = function(){ base = r.result; res(base); };
+        r.onerror = function(){ res(null); };
+        r.onblocked = function(){ res(null); };
+      } catch(e){ res(null); }
+    });
+    return ouverte;
+  }
+  function tx(store, mode, fn){
+    return ouvrir().then(function(d){
+      if (!d) return fn(null);
+      return new Promise(function(res, rej){ try { var t = d.transaction(store, mode), s = t.objectStore(store), out = fn(s); t.oncomplete = function(){ res(out && out.result !== undefined ? out.result : out); }; t.onerror = function(){ rej(t.error); }; t.onabort = function(){ rej(t.error); }; } catch(e){ rej(e); } });
+    });
+  }
+  function propre(o){ var c = {}; Object.keys(o).forEach(function(k){ if (k.indexOf('__') !== 0) c[k] = o[k]; }); return c; }
+  return {
+    ok: function(){ return ouvrir().then(function(d){ return !!d; }); },
+    tous: function(store){ return tx(store, 'readonly', function(s){ if (!s) return {result: Object.keys(memoire[store]).map(function(k){ return memoire[store][k]; })}; return s.getAll(); }); },
+    lire: function(store, id){ return tx(store, 'readonly', function(s){ if (!s) return {result: memoire[store][id] || null}; return s.get(id); }); },
+    ecrire: function(store, o){ var c = propre(o); return tx(store, 'readwrite', function(s){ if (!s){ memoire[store][c.id] = c; return; } s.put(c); }); },
+    effacer: function(store, id){ return tx(store, 'readwrite', function(s){ if (!s){ delete memoire[store][id]; return; } s.delete(id); }); }
+  };
+})();
+
+var tT = null;
+function toast(m, ms){ var t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(tT); tT = setTimeout(function(){ t.classList.remove('on'); }, ms || 2800); }
+function esc(s){ return V.outils.esc(s); }
+function dateFr(iso){ if (!iso) return ''; var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}); }
+function lireFichier(f){ return new Promise(function(res, rej){ var r = new FileReader(); r.onload = function(){ res(r.result); }; r.onerror = function(){ rej(r.error); }; r.readAsArrayBuffer(f); }); }
+function telecharger(blob, nom){ var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nom; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000); }
+
+/* ---------- Accueil ---------- */
+function accueil(){
+  return Promise.all([DB.tous('croquis'), DB.tous('fonds')]).then(function(r){
+    var cs = (r[0] || []).sort(function(a, b){ return String(b.modifie).localeCompare(String(a.modifie)); }), fs = r[1] || [];
+    var nomFond = {}; fs.forEach(function(f){ nomFond[f.id] = f.nom; });
+    $('#liste').innerHTML = cs.length ? cs.map(function(c){
+      var n = (c.el || []).filter(function(e){ return e.k === 'pt' && e.t !== 'jonction'; }).length, t = (c.el || []).filter(function(e){ return e.k === 'ln'; }).length;
+      return '<li><button type="button" class="carte" data-ouvrir="' + esc(c.id) + '"><strong>' + esc(c.nom || 'Croquis') + '</strong><span>' + esc([c.numero ? 'n° ' + c.numero : '', c.adresse, c.commune].filter(Boolean).join(' · ') || 'Sans adresse') + '</span>'
+        + '<span class="chiffres"><span>' + n + ' objet' + (n > 1 ? 's' : '') + '</span><span>' + t + ' tracé' + (t > 1 ? 's' : '') + '</span><span>' + esc(c.fondId ? (nomFond[c.fondId] || 'fond absent de cet appareil') : 'sans fond') + '</span></span><span>Modifié le ' + esc(dateFr(c.modifie)) + '</span></button></li>';
+    }).join('') : '<li class="vide">Aucun croquis pour l\'instant. Ouvrez la démonstration pour voir le principe.</li>';
+    $('#fonds').innerHTML = fs.length ? fs.map(function(f){
+      var u = cs.filter(function(c){ return c.fondId === f.id || c.reseauId === f.id; }).length;
+      return '<li><div><strong>' + esc(f.nom) + '</strong><span>' + (f.type === 'reseau' ? 'Réseaux · ' : 'Cadastre · ') + f.stats.lignes + ' traits, ' + f.stats.textes + ' textes · ' + u + ' croquis</span></div><button type="button" class="btn petit danger" data-effacer-fond="' + esc(f.id) + '">Retirer</button></li>';
+    }).join('') : '<li class="vide">Aucun fond. Un fond se charge depuis un croquis : « Fond » puis « Charger un plan DXF ».</li>';
+  });
+}
+DB.ok().then(function(ok){ if (!ok) $('#avert').textContent = 'Enregistrement indisponible sur cet appareil (navigation privée ?) : le travail sera perdu en fermant la page. Exportez ce que vous voulez garder.'; });
+accueil();
+
+function modal(html, init){
+  var m = document.createElement('div'); m.className = 'modal'; m.innerHTML = '<div class="boite" role="dialog" aria-modal="true">' + html + '</div>'; document.body.appendChild(m);
+  return new Promise(function(res){
+    function fin(v){ m.remove(); res(v); }
+    m.addEventListener('click', function(ev){ var b = ev.target.closest('[data-r]'); if (b) fin(b.dataset.r === 'ok' ? (init ? init.lire(m) : true) : null); else if (ev.target === m) fin(null); });
+    m.addEventListener('keydown', function(ev){ if (ev.key === 'Escape') fin(null); if (ev.key === 'Enter' && ev.target.tagName === 'INPUT'){ ev.preventDefault(); fin(init ? init.lire(m) : true); } });
+    setTimeout(function(){ var i = m.querySelector('input,select,button'); if (i) i.focus(); }, 30);
+  });
+}
+function nouveau(){
+  return DB.tous('fonds').then(function(fs){
+    var cad = (fs || []).filter(function(f){ return f.type !== 'reseau'; });
+    return modal('<h3>Nouveau croquis</h3><p>Les champs servent au cartouche du plan ; tout reste modifiable.</p>'
+      + '<label for="n-nom">Nom</label><input id="n-nom" value="Croquis ' + new Date().toLocaleDateString('fr-FR') + '">'
+      + '<label for="n-num">N° de dossier</label><input id="n-num">'
+      + '<label for="n-adr">Adresse du branchement</label><input id="n-adr">'
+      + '<label for="n-com">Commune</label><input id="n-com">'
+      + '<label for="n-fond">Fond de plan</label><select id="n-fond"><option value="">Sans fond (à charger ensuite)</option>' + cad.map(function(f){ return '<option value="' + esc(f.id) + '">' + esc(f.nom) + '</option>'; }).join('') + '</select>'
+      + '<div class="pied"><button type="button" class="btn" data-r="non">Annuler</button><button type="button" class="btn prim" data-r="ok">Créer</button></div>',
+      {lire: function(m){ return {nom: m.querySelector('#n-nom').value.trim() || 'Croquis', numero: m.querySelector('#n-num').value.trim(), adresse: m.querySelector('#n-adr').value.trim(), commune: m.querySelector('#n-com').value.trim(), fondId: m.querySelector('#n-fond').value}; }}
+    ).then(function(v){
+      if (!v) return;
+      var f = cad.filter(function(x){ return x.id === v.fondId; })[0], d = V.nouveauDoc({nom: v.nom, numero: v.numero, adresse: v.adresse, commune: v.commune, fondId: f ? f.id : null});
+      if (f){ d.origine = {x: f.origine.x, y: f.origine.y}; d.u = f.u || 1; }
+      return DB.ecrire('croquis', d).then(function(){ return ouvrir(d.id); });
+    });
+  });
+}
+var NOM_DEMO = 'Démonstration · rue Fictive (cadastre inventé)';
+function demo(){
+  /* le fond de démonstration est réutilisé s'il est déjà enregistré */
+  return DB.tous('fonds').then(function(fs){
+    var f = (fs || []).filter(function(x){ return x.nom === NOM_DEMO; })[0], neuf = !f;
+    if (neuf) f = V.lireFondDxf(new TextEncoder().encode(V.demoDxf()), NOM_DEMO);
+    var d = V.demoCroquis(f);
+    return (neuf ? DB.ecrire('fonds', f) : Promise.resolve()).then(function(){ return DB.ecrire('croquis', d); }).then(function(){ return ouvrir(d.id); });
+  });
+}
+function importer(file){
+  return file.text().then(function(t){
+    var d = JSON.parse(t); if (!d || d.format !== 'vede-croquis' || !Array.isArray(d.el)) throw new Error('ce fichier n\'est pas une sauvegarde de croquis');
+    d.id = V.outils.uid(); d.nom = (d.nom || 'Croquis') + ' (importé)'; d.modifie = new Date().toISOString(); delete d.exporte; delete d.app;
+    return DB.ecrire('croquis', d).then(function(){ toast('Croquis importé' + (d.fondId ? ' : rechargez son fond si cet appareil ne l\'a pas' : '')); return accueil(); });
+  }).catch(function(e){ toast('Import impossible : ' + (e && e.message || e), 5000); });
+}
+document.addEventListener('click', function(ev){
+  var b = ev.target.closest('[data-a],[data-ouvrir],[data-effacer-fond]'); if (!b || b.closest('#edition')) return;
+  if (b.dataset.ouvrir) return ouvrir(b.dataset.ouvrir);
+  if (b.dataset.effacerFond){
+    var id = b.dataset.effacerFond;
+    return modal('<h3>Retirer ce fond ?</h3><p>Il sera effacé de cet appareil. Les croquis qui l\'utilisent restent intacts ; il faudra recharger le DXF pour les revoir sur le plan.</p><div class="pied"><button type="button" class="btn" data-r="non">Annuler</button><button type="button" class="btn prim" data-r="ok">Retirer</button></div>').then(function(ok){ if (ok) DB.effacer('fonds', id).then(accueil); });
+  }
+  if (b.dataset.a === 'nouveau') return nouveau();
+  if (b.dataset.a === 'demo') return demo();
+});
+document.addEventListener('change', function(ev){ var i = ev.target.closest('[data-a="importer"]'); if (i && i.files && i.files[0]){ importer(i.files[0]); i.value = ''; } });
+
+/* ---------- Édition ---------- */
+var ED = null, LOGO = null;
+fetch('../icons/logo-embleme.png').then(function(r){ if (!r.ok) throw 0; return r.blob(); }).then(function(b){
+  return new Promise(function(res){ var fr = new FileReader(); fr.onload = function(){ var im = new Image(); im.onload = function(){ LOGO = {data: fr.result, ratio: im.naturalWidth / im.naturalHeight || 1, format: 'PNG'}; res(); }; im.onerror = res; im.src = fr.result; }; fr.readAsDataURL(b); });
+}).catch(function(){});
+var tEnr = null, aEnr = null;
+function ouvrir(id){
+  return DB.lire('croquis', id).then(function(d){
+    if (!d) return toast('Croquis introuvable');
+    return Promise.all([d.fondId ? DB.lire('fonds', d.fondId) : null, d.reseauId ? DB.lire('fonds', d.reseauId) : null]).then(function(r){
+      var zone = $('#edition'); zone.hidden = false; $('#accueil').hidden = true; document.querySelector('.bar').hidden = true;
+      if (!ED) ED = V.editeur(zone, {
+        enregistrer: function(doc){ aEnr = doc; clearTimeout(tEnr); tEnr = setTimeout(sauver, 250); },
+        enregistrerVue: function(doc){ aEnr = doc; clearTimeout(tEnr); tEnr = setTimeout(sauver, 250); },
+        chargerFond: function(file, type){
+          return lireFichier(file).then(function(buf){
+            var nom = file.name.replace(/\.[^.]+$/, ''), f = type === 'reseau' ? V.lireReseau(buf, nom, ED.etat.fond) : V.lireFondDxf(buf, nom, 'cadastre');
+            return DB.ecrire('fonds', f).then(function(){ if (f.conversion) toast('Réseaux convertis : ' + f.conversion, 5000); return f; });
+          });
+        },
+        fondModifie: function(f){ DB.ecrire('fonds', f); },
+        retour: function(){ fermer(); if (history.state && history.state.vcl) history.back(); },
+        supprimer: function(doc){ DB.effacer('croquis', doc.id).then(function(){ fermer(); if (history.state && history.state.vcl) history.back(); toast('Croquis supprimé'); }); },
+        telecharger: telecharger,
+        get logo(){ return LOGO; }
+      });
+      ED.ouvrir(d, r[0], r[1]);
+      if (!(history.state && history.state.vcl)) history.pushState({vcl: d.id}, '');
+      window.__VCL.ED = ED;
+    });
+  });
+}
+function sauver(){ clearTimeout(tEnr); tEnr = null; if (aEnr){ var d = aEnr; aEnr = null; return DB.ecrire('croquis', d).catch(function(e){ toast('Enregistrement impossible : ' + (e && e.message || e), 5000); }); } }
+function fermer(){ if (ED) ED.enregistrer(); sauver(); $('#edition').hidden = true; $('#accueil').hidden = false; document.querySelector('.bar').hidden = false; accueil(); }
+window.addEventListener('popstate', function(){ if (!$('#edition').hidden) fermer(); });
+document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden'){ if (ED && !$('#edition').hidden) ED.enregistrer(); sauver(); } });
+window.__VCL = {ED: null, DB: DB, V: V, ouvrir: ouvrir, demo: demo, accueil: accueil};
+})();
+</script>
+</body>
+</html>
