@@ -4,7 +4,7 @@
    Coordonnées : mètres locaux (coordonnées du fichier moins une origine, multipliées par l'unité), y vers le nord. */
 (function(global){
 'use strict';
-var VC = global.VCroquis = {version: '0.1.0'};
+var VC = global.VCroquis = {version: '0.1.0', signature: 'Croquis de terrain, VÉDÉ Terrain (labo)'};
 
 /* ---------- Outils ---------- */
 function uid(){ return 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -2111,11 +2111,13 @@ function editeur(racine, opts){
   function sortie(a){
     enregistrer();
     try {
-      if (a === 'json'){ telecharger(new Blob([JSON.stringify(exportJson(S.doc), null, 1)], {type: 'application/json'}), nomFichier('Croquis', 'json')); return; }
-      if (a === 'dxf'){ var an = analyser(S.doc, 'edl'); telecharger(new Blob([ecrireDxf(S.doc, an, anomaliesDoc(S.doc, an))], {type: 'application/dxf'}), nomFichier('Croquis', 'dxf')); toast('DXF enregistré'); return; }
+      /* un enregistrement asynchrone (hôte qui demande confirmation) annonce lui-même son résultat */
+      var annoncer = function(r, msg){ if (!(r && r.then)) toast(msg); };
+      if (a === 'json'){ annoncer(telecharger(new Blob([JSON.stringify(exportJson(S.doc), null, 1)], {type: 'application/json'}), nomFichier('Croquis', 'json')), 'Sauvegarde enregistrée'); return; }
+      if (a === 'dxf'){ var an = analyser(S.doc, 'edl'); annoncer(telecharger(new Blob([ecrireDxf(S.doc, an, anomaliesDoc(S.doc, an))], {type: 'application/dxf'}), nomFichier('Croquis', 'dxf')), 'DXF enregistré'); return; }
       if (!global.jspdf){ toast('La bibliothèque PDF n\'est pas chargée'); return; }
       var mode = a === 'pdfAvp' ? 'avp' : 'edl';
-      Promise.resolve(pdfPlan(S.doc, S.fond, {mode: mode, logo: opts.logo, reseau: S.reseau})).then(function(blob){ telecharger(blob, nomFichier(mode === 'avp' ? 'Avant-projet' : 'Etat des lieux', 'pdf')); toast('PDF enregistré'); }).catch(function(err){ toast('PDF impossible : ' + (err && err.message || err), 6000); });
+      Promise.resolve(pdfPlan(S.doc, S.fond, {mode: mode, logo: opts.logo, reseau: S.reseau})).then(function(blob){ annoncer(telecharger(blob, nomFichier(mode === 'avp' ? 'Avant-projet' : 'Etat des lieux', 'pdf')), 'PDF enregistré'); }).catch(function(err){ toast('PDF impossible : ' + (err && err.message || err), 6000); });
     } catch(err){ toast('Sortie impossible : ' + (err && err.message || err), 6000); }
   }
 
@@ -2310,7 +2312,7 @@ function pdfPlan(doc, fond, o){
   var b = emprisePlan(doc, idx, mode) || [-10, -10, 10, 10], cP = {x: (b[0] + b[2]) / 2, y: (b[1] + b[3]) / 2};
   function papier(x, y){ var p = versPlan(x, y, rot); return {x: F.x + F.w / 2 + (p.x - cP.x) / m, y: F.y + F.h / 2 - (p.y - cP.y) / m}; }
   var titre = mode === 'avp' ? 'Plan d\'avant-projet' : 'Plan de l\'état des lieux';
-  pdf.setProperties({title: pdfTxt(titre + (doc.numero ? ' ' + doc.numero : '')), creator: 'VEDE Terrain, labo du croquis'});
+  pdf.setProperties({title: pdfTxt(titre + (doc.numero ? ' ' + doc.numero : '')), creator: pdfTxt(VC.signature || 'Croquis de terrain')});
   pdf.setLineCap('round'); pdf.setLineJoin('round');
   /* zone de dessin : tout ce qui suit est découpé au cadre */
   pdf.saveGraphicsState(); pdf.rect(F.x, F.y, F.w, F.h, null); pdf.clip(); pdf.discardPath();
@@ -2441,7 +2443,7 @@ function pdfPlan(doc, fond, o){
   });
   var nota = 'Équipements déclarés par le propriétaire et accessibles visuellement. Chaque écoulement est établi par la méthode indiquée en page 2.';
   pdf.setFont('helvetica', 'italic'); pdf.setFontSize(6.6); pdf.setTextColor(90, 90, 90); var nl = pdf.splitTextToSize(pdfTxt(nota), W - 6); pdf.text(nl, X + 3, F.y + F.h - 4 - (nl.length - 1) * 2.8);
-  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.setTextColor(140, 140, 140); pdf.text(pdfTxt('Croquis de terrain, VÉDÉ Terrain (labo)'), 290, 205, {align: 'right'});
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.setTextColor(140, 140, 140); pdf.text(pdfTxt(VC.signature || ''), 290, 205, {align: 'right'});
   /* page 2 */
   pdf.addPage('a4', 'landscape');
   pageTableaux(pdf, doc, an, liste, mode);

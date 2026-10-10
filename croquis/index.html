@@ -77,7 +77,7 @@ footer{margin-top:28px;color:var(--muted);font-size:14px}
 <header class="bar">
   <div>
     <h1>Croquis de terrain <span class="labo">labo</span></h1>
-    <p>Module en développement, à part de VÉDÉ Terrain</p>
+    <p id="sous-titre">Module en développement, à part de VÉDÉ Terrain</p>
   </div>
 </header>
 <main id="accueil">
@@ -101,7 +101,11 @@ footer{margin-top:28px;color:var(--muted);font-size:14px}
 (function(){
 'use strict';
 var V = window.VCroquis, $ = function(s){ return document.querySelector(s); };
+/* Version d'essai hébergée (window.VCL_ESSAI) : fichiers enregistrés par la fonction d'enregistrement de l'hôte, sans logo ni historique */
+var ESSAI = !!window.VCL_ESSAI;
+if (ESSAI) V.signature = 'Croquis de terrain (labo)';
 document.getElementById('version').textContent = 'v' + V.version;
+if (window.VCL_ESSAI) document.getElementById('sous-titre').textContent = 'Module en développement, à part de l\'application de terrain';
 
 /* ---------- Stockage : base séparée de l'application ; en mémoire si l'appareil la refuse ---------- */
 var DB = (function(){
@@ -140,7 +144,23 @@ function toast(m, ms){ var t = $('#toast'); t.textContent = m; t.classList.add('
 function esc(s){ return V.outils.esc(s); }
 function dateFr(iso){ if (!iso) return ''; var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}); }
 function lireFichier(f){ return new Promise(function(res, rej){ var r = new FileReader(); r.onload = function(){ res(r.result); }; r.onerror = function(){ rej(r.error); }; r.readAsArrayBuffer(f); }); }
-function telecharger(blob, nom){ var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nom; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000); }
+function telecharger(blob, nom){
+  if (ESSAI) return enregistrerEssai(blob, nom);
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nom; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+}
+/* L'hôte n'accepte pas l'extension .dxf : le plan DXF part dans une archive .zip */
+function enregistrerEssai(blob, nom){
+  var n = nom, p = Promise.resolve(blob);
+  if (/\.dxf$/i.test(nom)){
+    if (!window.JSZip){ toast('Format DXF indisponible dans cette version d\'essai', 5000); return Promise.resolve(false); }
+    var z = new window.JSZip(); z.file(nom, blob); n = nom.replace(/\.dxf$/i, '.zip'); p = z.generateAsync({type: 'blob'});
+  }
+  return p.then(function(data){
+    var c = window.claude && window.claude.use ? window.claude.use('downloads') : Promise.resolve(null);
+    return c.then(function(dl){ if (!dl) throw {code: 'unavailable'}; return dl.save({filename: n, data: data}); });
+  }).then(function(){ toast(/\.zip$/.test(n) ? 'Archive enregistrée : le plan DXF est dedans' : 'Fichier enregistré'); return true; })
+    .catch(function(e){ var c = e && e.code; if (c !== 'declined') toast(/^(unavailable|not_granted|capability_disabled|capability_removed)$/.test(c || '') ? 'Enregistrement de fichiers indisponible ici' : 'Enregistrement impossible : ' + ((e && e.message) || c || e), 5000); return false; });
+}
 
 /* ---------- Accueil ---------- */
 function accueil(){
@@ -158,6 +178,7 @@ function accueil(){
     }).join('') : '<li class="vide">Aucun fond. Un fond se charge depuis un croquis : « Fond » puis « Charger un plan DXF ».</li>';
   });
 }
+if (ESSAI) $('#avert').textContent = 'Version d\'essai : rien n\'est relié à l\'application. Les croquis et les fonds restent dans ce navigateur ; enregistrez les plans et la sauvegarde pour les garder.';
 DB.ok().then(function(ok){ if (!ok) $('#avert').textContent = 'Enregistrement indisponible sur cet appareil (navigation privée ?) : le travail sera perdu en fermant la page. Exportez ce que vous voulez garder.'; });
 accueil();
 
@@ -220,7 +241,7 @@ document.addEventListener('change', function(ev){ var i = ev.target.closest('[da
 
 /* ---------- Édition ---------- */
 var ED = null, LOGO = null;
-fetch('../icons/logo-embleme.png').then(function(r){ if (!r.ok) throw 0; return r.blob(); }).then(function(b){
+(ESSAI ? Promise.reject() : fetch('../icons/logo-embleme.png')).then(function(r){ if (!r.ok) throw 0; return r.blob(); }).then(function(b){
   return new Promise(function(res){ var fr = new FileReader(); fr.onload = function(){ var im = new Image(); im.onload = function(){ LOGO = {data: fr.result, ratio: im.naturalWidth / im.naturalHeight || 1, format: 'PNG'}; res(); }; im.onerror = res; im.src = fr.result; }; fr.readAsDataURL(b); });
 }).catch(function(){});
 var tEnr = null, aEnr = null;
@@ -245,7 +266,7 @@ function ouvrir(id){
         get logo(){ return LOGO; }
       });
       ED.ouvrir(d, r[0], r[1]);
-      if (!(history.state && history.state.vcl)) history.pushState({vcl: d.id}, '');
+      if (!ESSAI && !(history.state && history.state.vcl)) history.pushState({vcl: d.id}, '');
       window.__VCL.ED = ED;
     });
   });
