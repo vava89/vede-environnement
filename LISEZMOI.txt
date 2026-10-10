@@ -1,4 +1,4 @@
-VÉDÉ Terrain, version installable hors connexion (v1.4.0)
+VÉDÉ Terrain, version installable hors connexion (v1.5.0)
 =====================================================
 
 Ce dossier contient l'application complète. Une fois installée sur la
@@ -14,8 +14,9 @@ MISE EN LIGNE SUR GITHUB PAGES (une seule fois, 15 minutes environ)
 3. Dans le dépôt : Add file > Upload files. Glissez TOUT le contenu de ce
    dossier (index.html, sw.js, manifest.webmanifest et les dossiers lib,
    fonts, icons), pas le dossier lui-même. Validez avec Commit changes.
-4. Settings > Pages > Build and deployment : Source « Deploy from a
-   branch », Branch « main », dossier « / (root) », Save.
+4. Settings > Pages > Build and deployment : Source « GitHub Actions ».
+   Le fichier .github/workflows/mise-en-ligne.yml publie le site à chaque
+   mise à jour de la branche main.
 5. Après une à deux minutes, l'adresse s'affiche en haut de la page
    Pages : https://VOTRE-COMPTE.github.io/vede-terrain/
 
@@ -32,6 +33,42 @@ SAUVEGARDE
   Exporter l'étude complète) : le fichier ZIP contient les fiches, les
   photos, le tableau récapitulatif et une sauvegarde restaurable sur
   n'importe quel appareil (accueil > Restaurer une sauvegarde).
+
+ENVOI DES CONSTATS PAR MAIL
+- Sans aucun réglage : dans un dossier dont le constat est signé, « Envoyer
+  par mail » puis « Ma messagerie » ouvre votre application de mail (Gmail,
+  Outlook…) avec le constat en pièce jointe. Les adresses cochées sont
+  copiées : collez-les dans le champ « À ».
+- Envoi direct en un geste, depuis votre adresse (facultatif, une seule
+  fois, 10 minutes, sur un ordinateur) :
+  1. Ouvrez script.google.com avec votre compte Google > Nouveau projet.
+  2. Remplacez le contenu par celui du fichier outils/envoi-mail-google.gs
+     (envoi depuis votre adresse Gmail ; Google ne lui donne que le droit
+     d'envoyer), ou outils/envoi-mail-google-alias.gs pour envoyer depuis
+     une adresse professionnelle déclarée dans Gmail (« Envoyer des e-mails
+     en tant que » ; Google demande alors l'accès complet à Gmail).
+     Enregistrez.
+  3. Paramètres du projet (roue dentée) > Propriétés du script : ajoutez
+     CLE = une phrase secrète d'au moins 12 caractères. Facultatif :
+     REPONSE = l'adresse où les propriétaires répondront (version
+     standard), ou EXPEDITEUR = l'adresse professionnelle (variante alias).
+  4. Déployer > Nouveau déploiement > Application Web ; Exécuter en tant
+     que : Moi ; Qui a accès : Tout le monde. Autorisez l'envoi de mails
+     (écran « application non validée » : Paramètres avancés > Accéder au
+     projet ; c'est votre propre script).
+  5. Dans l'application : Réglages > collez l'adresse du déploiement (elle
+     finit par /exec) et la clé, puis « Tester l'envoi ».
+  Si vous remplacez plus tard le contenu du script : Déployer > Gérer les
+  déploiements > crayon > Version : « Nouvelle version » > Déployer.
+  L'adresse /exec ne change pas ; sans cette étape, elle continue
+  d'exécuter l'ancien script.
+- Ne transmettez jamais votre mot de passe ni la clé : ils ne doivent
+  figurer ni dans le code de l'application (dépôt public) ni dans un
+  message. La clé reste sur la tablette, hors des sauvegardes.
+- Sans connexion, le mail attend dans la boîte d'envoi et part au retour
+  du réseau ; si le service ne répond pas, de nouveaux essais ont lieu
+  automatiquement, espacés. Un même mail n'est jamais envoyé deux fois.
+  Tablette perdue : changez CLE dans les propriétés du script.
 
 MISE À JOUR DE L'APPLICATION
 - Chaque nouvelle version change le numéro de version à deux endroits :
