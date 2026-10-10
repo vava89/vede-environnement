@@ -15,14 +15,15 @@ CE QUE L'APPLICATION DÉDUIT DU DESSIN
 - Les anomalies, à retenir, à arbitrer ou à écarter :
   - eaux usées vers l'EP, un puisard, la gargouille ou le milieu naturel ;
   - eaux pluviales vers l'EU ;
-  - passage par une fosse ;
+  - passage par une fosse (eaux usées ou pluviales) ;
   - descente non visitable ;
   - tampon béton (non-conformité en EU, réserve en EP) ;
   - regard sans cunette ou non accessible ;
   - boîte branchée sur le mauvais collecteur ;
   - branchement sans boîte (à arbitrer).
 - Les points à compléter : chaque équipement doit avoir sa méthode de test (visuel, eau, colorant, fumée, résonance, caméra, déclaré) et son exutoire.
-- Le constat déduit : nombre d'installations, raccordement (EU_D, EP_T…), conformité et méthodes, ligne par ligne comme le constat de l'application.
+- Le constat déduit : nombre d'installations (une salle de bain ou une cuisine compte une fois), raccordement (EU_D, EP_T…), conformité et méthodes, ligne par ligne comme le constat de l'application. Seul le chemin réellement suivi par l'eau compte : une fosse ou une boîte posée sur une autre branche n'y entre pas.
+- La conclusion proposée reste « à compléter » tant qu'un équipement n'a pas de rejet établi.
 - Après l'avant-projet : les tracés « projet » remplacent les tracés « à supprimer » ; le contrôle dit si les raccordements sont corrigés.
 
 SORTIES

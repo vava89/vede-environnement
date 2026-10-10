@@ -236,7 +236,7 @@ function lireDxf(input){
       case 'ELLIPSE': {
         var ecx = gn(g, 10, 0), ecy = gn(g, 20, 0), mx = gn(g, 11, 1), my = gn(g, 21, 0), ra = gn(g, 40, 1), p0 = gn(g, 41, 0), p1 = gn(g, 42, 2 * Math.PI);
         while (p1 <= p0) p1 += 2 * Math.PI;
-        var ma = Math.hypot(mx, my), ang = Math.atan2(my, mx), mi = ma * ra, nseg = Math.max(8, Math.min(256, Math.ceil((p1 - p0) / (Math.PI / 32)))); pts = [];
+        var ma = Math.hypot(mx, my), ang = Math.atan2(my, mx), mi = ma * ra * (gn(g, 230, 1) < 0 ? -1 : 1), nseg = Math.max(8, Math.min(256, Math.ceil((p1 - p0) / (Math.PI / 32)))); pts = [];
         for (k = 0; k <= nseg; k++){ var tt = p0 + (p1 - p0) * k / nseg, ex = ma * Math.cos(tt), ey = mi * Math.sin(tt); pts.push(ecx + ex * Math.cos(ang) - ey * Math.sin(ang), ecy + ex * Math.sin(ang) + ey * Math.cos(ang)); }
         poly(pts, Math.abs(p1 - p0 - 2 * Math.PI) < 1e-6, lay, col, M); break;
       }
@@ -260,25 +260,26 @@ function lireDxf(input){
       case 'MTEXT': {
         var parts = []; for (k = 0; k < g.c.length; k++) if (g.c[k] === 3) parts.push(g.v[k]);
         var s = mtexteBrut(parts.join('') + (gv(g, 1) || '')); if (!s.trim()) break;
-        var att = gn(g, 71, 1) | 0, rotm = gn(g, 50, 0); if (g.c.indexOf(11) >= 0) rotm = Math.atan2(gn(g, 21, 0), gn(g, 11, 1));
+        /* code 50 en degrés (la documentation dit radians, les logiciels écrivent des degrés) ; 11/21 : direction en coordonnées générales */
+        var att = gn(g, 71, 1) | 0, rotm = gn(g, 50, 0) * Math.PI / 180;
+        if (g.c.indexOf(11) >= 0) rotm = Math.atan2(gn(g, 21, 0), gn(g, 11, 1));
+        else if (gn(g, 230, 1) < 0) rotm = Math.PI - rotm;
         var mha = (att - 1) % 3, mva = att <= 3 ? 3 : att <= 6 ? 2 : 1;
-        textePose(s, gn(g, 10, 0), gn(g, 20, 0), gn(g, 40, 1), rotm, mha, mva, 1, ocs(g, M), lay, col); break;
+        textePose(s, gn(g, 10, 0), gn(g, 20, 0), gn(g, 40, 1), rotm, mha, mva, 1, M, lay, col); break;
       }
       case 'INSERT': case 'DIMENSION': {
         var bn = (gv(g, 2) || '').trim().toUpperCase(), bl = blocs[bn];
         if (bl && prof < 12 && !ctx.pile[bn]){
-          var Mi;
-          if (t === 'DIMENSION') Mi = M;
-          else {
-            var ix = gn(g, 10, 0), iy = gn(g, 20, 0), sx = gn(g, 41, 1), sy = gn(g, 42, 1), ro = gn(g, 50, 0) * Math.PI / 180, cs = Math.cos(ro), sn = Math.sin(ro);
-            Mi = mulM(ocs(g, M), [cs * sx, sn * sx, -sn * sy, cs * sy, ix, iy]); Mi = mulM(Mi, [1, 0, 0, 1, -bl.bx, -bl.by]);
-          }
-          var nc = Math.max(1, gn(g, 70, 1) | 0), nr = Math.max(1, gn(g, 71, 1) | 0), dc = gn(g, 44, 0), dr = gn(g, 45, 0);
-          if (nc * nr > 400){ nc = 1; nr = 1; }
+          var nc = 1, nr = 1, dc = 0, dr = 0, ix = gn(g, 10, 0), iy = gn(g, 20, 0), sx = gn(g, 41, 1), sy = gn(g, 42, 1), ro = gn(g, 50, 0) * Math.PI / 180, cs = Math.cos(ro), sn = Math.sin(ro);
+          if (t === 'INSERT'){ nc = Math.max(1, gn(g, 70, 1) | 0); nr = Math.max(1, gn(g, 71, 1) | 0); dc = gn(g, 44, 0); dr = gn(g, 45, 0); if (nc * nr > 400){ nc = 1; nr = 1; } }
           var sub = {lay: lay, col: col, pile: Object.assign({}, ctx.pile)}; sub.pile[bn] = true;
           for (var ci = 0; ci < nc; ci++) for (var ri = 0; ri < nr; ri++){
-            var Mc = Mi;
-            if (ci || ri){ var ro2 = gn(g, 50, 0) * Math.PI / 180, ox = ci * dc, oy = ri * dr; Mc = mulM([1, 0, 0, 1, ox * Math.cos(ro2) - oy * Math.sin(ro2), ox * Math.sin(ro2) + oy * Math.cos(ro2)], Mi); }
+            var Mc;
+            if (t === 'DIMENSION') Mc = M;
+            else {
+              var ox = ci * dc, oy = ri * dr, px = ix + ox * cs - oy * sn, py = iy + ox * sn + oy * cs;
+              Mc = mulM(mulM(ocs(g, M), [cs * sx, sn * sx, -sn * sy, cs * sy, px, py]), [1, 0, 0, 1, -bl.bx, -bl.by]);
+            }
             for (var e = 0; e < bl.ents.length; e++) entite(bl.ents[e], Mc, sub, prof + 1);
           }
         } else if (!bl) ign['bloc absent'] = (ign['bloc absent'] || 0) + 1;
@@ -475,13 +476,15 @@ function analyser(doc, mode){
     if (ty.boite && /^(EU|EP|UN)$/.test(o.p.res || '')) return {res: o.p.res, via: 'boite', id: o.id, boite: true};
     return null;
   }
-  /* Parcours en largeur : les départs terminaux sont atteints sans être traversés, sauf traverserDepart */
-  function parcours(departs, traverserDepart){
-    var vus = {}, file = [], term = [], tvus = {}, pcs = {}, fosse = null, boite = null, expl = {}, entree = {};
+  /* Parcours en largeur : les départs terminaux sont atteints sans être traversés, sauf o.traverserDepart ; o.terminal remplace la règle des exutoires.
+     Les parents gardés permettent de suivre le chemin de l'eau jusqu'à chaque exutoire atteint, sans les branches voisines. */
+  function parcours(departs, o){
+    o = o || {}; var estTerm = o.terminal || terminal;
+    var vus = {}, parent = {}, dist = {}, file = [], term = [], tvus = {}, pcs = {};
     departs.forEach(function(d){
-      if (vus[d]) return; vus[d] = true;
-      var t = !traverserDepart && terminal(d);
-      if (t){ tvus[d] = true; term.push(t); } else file.push(d);
+      if (vus[d]) return; vus[d] = true; parent[d] = null; dist[d] = 0;
+      var t = !o.traverserDepart && estTerm(d);
+      if (t){ tvus[d] = true; term.push(Object.assign({noeud: d, dist: 0}, t)); } else file.push(d);
     });
     while (file.length){
       var n = file.shift();
@@ -490,24 +493,26 @@ function analyser(doc, mode){
         if (p.sens === 1 && p.b === n && p.a !== n) return;
         if (p.sens === -1 && p.a === n && p.b !== n) return;
         pcs[p.id] = p;
-        if (!p.col && RES[p.l.p.res]) expl[p.l.p.res] = true;
         if (vus[autre]) return;
-        vus[autre] = true;
-        var t = terminal(autre);
-        if (t){ if (!tvus[autre]){ tvus[autre] = true; term.push(t); if (t.col) entree[t.id] = n; } return; }
-        var o = objs[autre], ty = o && T[o.t];
-        if (ty && ty.fosse && !fosse) fosse = o.id;
-        if (ty && ty.boite && !boite) boite = o.id;
+        vus[autre] = true; parent[autre] = {n: n, p: p}; dist[autre] = dist[n] + 1;
+        var t = estTerm(autre);
+        if (t){ if (!tvus[autre]){ tvus[autre] = true; term.push(Object.assign({noeud: autre, dist: dist[autre]}, t)); } return; }
         file.push(autre);
       });
     }
-    return {term: term, pieces: pcs, fosse: fosse, boite: boite, expl: Object.keys(expl), entree: entree};
+    return {term: term, pieces: pcs, parent: parent, vus: vus, dist: dist};
   }
+  /* Chemin d'un nœud atteint jusqu'au départ : nœuds (du nœud au départ) et pièces traversées */
+  function chemin(r, noeud){ var nodes = [], pcs = [], c = noeud; while (r.parent[c]){ nodes.push(c); pcs.push(r.parent[c].p); c = r.parent[c].n; } nodes.push(c); return {nodes: nodes, pieces: pcs}; }
   /* Gestionnaire et cohérence des boîtes au réseau indiqué : collecteurs atteints au-delà de la boîte */
+  /* le collecteur le plus proche de la boîte, en traversant les autres boîtes (boîte intérieure puis boîte en limite) */
+  function terminalCollecteur(n){ if (n.indexOf('C:') === 0) return terminal(n); var ob = objs[n], tt = ob && T[ob.t]; return tt && tt.exu ? terminal(n) : null; }
   var boites = {};
   Object.keys(objs).forEach(function(id){
     var o = objs[id]; if (!T[o.t].boite || !terminal(id)) return;
-    var r = parcours([id], true), cols = r.term.filter(function(t){ return t.col; });
+    var r = parcours([id], {traverserDepart: true, terminal: terminalCollecteur}), cols = r.term.filter(function(t){ return t.col; }), mn = Infinity;
+    cols.forEach(function(t){ if (t.dist < mn) mn = t.dist; });
+    cols = cols.filter(function(t){ return t.dist === mn; });
     boites[id] = {cols: cols, gest: cols.length ? cols[0].gest : null};
   });
   function gestDe(t){ if (t.col) return t.gest; if (t.boite && boites[t.id] && boites[t.id].gest) return boites[t.id].gest; return (doc.gest && doc.gest[t.res]) || 'D'; }
@@ -515,12 +520,22 @@ function analyser(doc, mode){
   var resObj = {};
   Object.keys(objs).forEach(function(id){
     var o = objs[id], ty = T[o.t]; if (ty.role !== 'source') return;
-    var r = parcours([id]), nets = [], gests = {};
-    r.term.forEach(function(t){ if (nets.indexOf(t.res) < 0) nets.push(t.res); gests[t.res] = gestDe(t); });
-    var presume = false;
-    if (!nets.length && r.expl.length === 1){ nets = r.expl.slice(); presume = true; gests[nets[0]] = (doc.gest && doc.gest[nets[0]]) || 'D'; }
+    var r = parcours([id]), nets = [], gests = {}, fosse = null, boite = null, entree = {}, presume = false;
+    r.term.forEach(function(t){
+      if (nets.indexOf(t.res) < 0) nets.push(t.res); gests[t.res] = gestDe(t);
+      var ch = chemin(r, t.noeud);
+      ch.nodes.forEach(function(nd){ var ob = objs[nd], tt = ob && T[ob.t]; if (tt && tt.fosse && !fosse) fosse = nd; if (tt && tt.boite && !boite) boite = nd; });
+      if (t.col) entree[t.id] = ch.nodes[1] || id;
+    });
+    /* sans exutoire dessiné : réseau présumé d'après les tronçons indiqués sur le chemin vers une extrémité libre */
+    if (!nets.length){
+      var ex = {};
+      Object.keys(r.vus).forEach(function(nd){ if (nd.indexOf('x:') !== 0) return; chemin(r, nd).pieces.forEach(function(p){ if (!p.col && /^(EU|EP|UN)$/.test(p.l.p.res || '')) ex[p.l.p.res] = true; }); });
+      var exl = Object.keys(ex);
+      if (exl.length === 1){ nets = exl; presume = true; gests[exl[0]] = (doc.gest && doc.gest[exl[0]]) || 'D'; }
+    }
     var etat = !Object.keys(r.pieces).length ? 'nonrelie' : !nets.length ? 'sansexu' : nets.length > 1 ? 'multiple' : 'ok';
-    resObj[id] = {etat: etat, res: nets.length === 1 ? nets[0] : null, nets: nets, gest: nets.length === 1 ? gests[nets[0]] : null, presume: presume, fosse: r.fosse, boite: r.boite, term: r.term, entree: r.entree};
+    resObj[id] = {etat: etat, res: nets.length === 1 ? nets[0] : null, nets: nets, gest: nets.length === 1 ? gests[nets[0]] : null, presume: presume, fosse: fosse, boite: boite, term: r.term, entree: entree};
   });
   /* Réseau de chaque pièce (couleur), regards traversés, flèches d'écoulement */
   var resPiece = {}, resNoeud = {};
@@ -586,6 +601,7 @@ function reglesAnomalies(doc, an){
         ajoute({cle: 'ep-eu:' + id, objId: id, reseau: 'EP', obs: lib + ' : rejet au réseau EU' + (r.presume ? ' (présumé)' : ''), preco: 'Déconnexion des EP du réseau EU ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['decoEP', 'raccEPep'], cat: 'inversion'});
       }
       if (ty.nat === 'EU' && r.fosse && an.objs[r.fosse]) ajoute({cle: 'fosse:' + r.fosse, objId: r.fosse, reseau: 'EU', obs: 'Fosse septique : eaux usées traversant la fosse', preco: 'Suppression de la fosse septique et raccordement direct au branchement EU', nc: true, codes: ['suppFosse'], cat: 'autre'});
+      if (ty.nat === 'EP' && r.fosse && an.objs[r.fosse]) ajoute({cle: 'ep-fosse:' + id, objId: id, reseau: 'EP', obs: lib + ' : rejet dans la fosse septique', preco: 'Déconnexion des EP de la fosse ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['decoEP', 'raccEPep'], cat: 'inversion'});
       if (r.term.some(function(t){ return t.col; }) && !r.boite){
         var t0 = r.term.filter(function(t){ return t.col; })[0], ent = r.entree[t0.id] || id;
         ajoute({cle: 'sansboite:' + t0.id + ':' + t0.res, objId: an.objs[ent] ? ent : id, reseau: t0.res === 'EP' ? 'EP' : 'EU', obs: 'Branchement ' + libRes(t0.res) + ' : pas de boîte de branchement en limite de propriété', preco: 'Création d\'une boîte de branchement ' + libRes(t0.res) + ' en limite de propriété, sur le branchement existant', nc: true, codes: ['boiteEx_' + (t0.res === 'UN' ? 'UN' : t0.res)], cat: 'regard', arbitrer: true});
@@ -667,50 +683,70 @@ function anomaliesDoc(doc, an){
 function conclusion(liste, an){
   var ret = liste.filter(function(a){ return a.st === 'retenue'; });
   if (ret.some(function(a){ return a.nc; })) return 'non_conformes';
+  /* pas de conformité proposée tant qu'un équipement n'a pas de rejet établi */
+  if (Object.keys(an.resObj).some(function(id){ return an.resObj[id].etat !== 'ok'; })) return 'incomplet';
   if (ret.length) return 'reserves';
   return Object.keys(an.resObj).length ? 'conformes' : '';
 }
 VC.anomaliesDoc = anomaliesDoc; VC.conclusion = conclusion;
-var CONCL = {conformes: 'Conformes', non_conformes: 'Non conformes', reserves: 'Conformes avec réserves'};
+var CONCL = {conformes: 'Conformes', non_conformes: 'Non conformes', reserves: 'Conformes avec réserves', incomplet: 'À compléter : un équipement n\'a pas de rejet établi'};
 VC.CONCL = CONCL;
 
 /* ---------- Constat déduit : lignes de l'application (nombre, raccordement, conformité, méthodes) ---------- */
 var ROWS_STD = [['wc', 'EU', 'WC'], ['lavelinge', 'EU', 'Lave-linge'], ['evier', 'EU', 'Évier'], ['sdb', 'EU', 'Salle de bain (douche ou baignoire et lavabo)'], ['cuisine', 'EU', 'Cuisine (évier, lave-vaisselle)'], ['siphon', 'EU', 'Siphon de garage'],
   ['gout_av', 'EP', 'Gouttière(s) avant'], ['gout_ar', 'EP', 'Gouttière(s) arrière'], ['grilles', 'EP', 'Grilles'], ['siphon_sol', 'EP', 'Siphon de sol']];
 var RACC_LIB = {EU_D: 'Réseau EU départemental', EU_T: 'Réseau EU territorial', EP_D: 'Réseau EP départemental', EP_T: 'Réseau EP territorial', UN_D: 'Réseau unitaire départemental', UN_T: 'Réseau unitaire territorial', FOSSE: 'Fosse septique', MILIEU: 'Milieu naturel', GARG: 'Gargouille', INF: 'Puisard (infiltration)'};
-function raccCode(r){
-  if (!r || r.etat !== 'ok') return '';
-  if (r.fosse) return 'FOSSE';
-  if (r.res === 'GARG' || r.res === 'MILIEU' || r.res === 'INF') return r.res;
-  var g = r.gest === 'T' ? 'T' : 'D';
-  return /^(EU|EP|UN)$/.test(r.res) ? r.res + '_' + g : '';
+/* Raccordement d'un équipement pour le constat : code de l'application (vide si le formulaire n'en a pas), libellé, conformité d'après le réseau atteint */
+function raccInfo(r, groupe){
+  if (!r || r.etat !== 'ok') return {code: '', lib: '', ok: null};
+  if (r.fosse) return {code: 'FOSSE', lib: RACC_LIB.FOSSE, ok: false};
+  var res = r.res, ep = groupe !== 'EU';
+  if (res === 'GARG' || res === 'MILIEU') return {code: res, lib: RACC_LIB[res], ok: ep};
+  if (res === 'INF') return ep ? {code: '', lib: 'Puisard (infiltration à la parcelle)', ok: true, puisard: true} : {code: 'MILIEU', lib: 'Puisard : rejet au sol (milieu naturel)', ok: false};
+  if (/^(EU|EP|UN)$/.test(res)){
+    var ok = ep ? res !== 'EU' : res !== 'EP';
+    if (r.gest === 'P') return {code: '', lib: 'Réseau ' + libRes(res) + ' privé : aboutissement public à préciser', ok: ok};
+    var code = res + '_' + (r.gest === 'T' ? 'T' : 'D');
+    return {code: code, lib: RACC_LIB[code] + (r.presume ? ' (présumé)' : ''), ok: ok};
+  }
+  return {code: '', lib: '', ok: null};
 }
-function raccOk(groupe, code){ if (!code) return null; if (groupe === 'EU') return /^(EU|UN)_/.test(code); return /^(EP|UN)_|^GARG$|^MILIEU$|^INF$/.test(code); }
+/* Une salle de bain ou une cuisine compte une fois : ses appareils sont regroupés par niveau et par proximité (4 m) */
+function regroupes(objs){
+  var g = objs.map(function(_, i){ return i; });
+  function f(i){ while (g[i] !== i){ g[i] = g[g[i]]; i = g[i]; } return i; }
+  for (var i = 0; i < objs.length; i++) for (var j = i + 1; j < objs.length; j++){
+    var a = objs[i], b = objs[j];
+    if ((a.p.niv || '') === (b.p.niv || '') && Math.hypot(a.x - b.x, a.y - b.y) <= 4) g[f(i)] = f(j);
+  }
+  var n = {}; objs.forEach(function(_, i){ n[f(i)] = true; }); return Object.keys(n).length;
+}
 function constatDeduit(doc, an){
-  var rows = ROWS_STD.map(function(s){ return {id: s[0], groupe: s[1], label: s[2], std: true, nb: 0, codes: [], meth: [], objets: []}; }), autres = {};
+  var rows = ROWS_STD.map(function(s){ return {id: s[0], groupe: s[1], label: s[2], std: true, nb: 0, codes: [], libs: [], oks: [], meth: [], objets: []}; }), autres = {}, recup = {};
   function ligne(o){
     var ty = T[o.t];
     if (ty.row === 'gout') return rows[o.p.cote === 'arriere' ? 7 : 6];
     if (ty.row){ for (var i = 0; i < rows.length; i++) if (rows[i].id === ty.row) return rows[i]; }
     var lab = ty.autre || ty.lib, k = 'autre:' + lab;
-    if (!autres[k]){ autres[k] = {id: k, groupe: ty.nat, label: lab, std: false, nb: 0, codes: [], meth: [], objets: []}; rows.push(autres[k]); }
+    if (!autres[k]){ autres[k] = {id: k, groupe: ty.nat, label: lab, std: false, nb: 0, codes: [], libs: [], oks: [], meth: [], objets: []}; rows.push(autres[k]); }
     return autres[k];
   }
   Object.keys(an.resObj).forEach(function(id){
-    var o = an.objs[id], r = an.resObj[id], row = ligne(o), code = raccCode(r);
-    row.nb++; row.objets.push(id);
-    if (row.codes.indexOf(code) < 0) row.codes.push(code);
+    var o = an.objs[id], row = ligne(o), ri = raccInfo(an.resObj[id], row.groupe);
+    row.objets.push(id); row.codes.push(ri.code); row.oks.push(ri.ok);
+    if (ri.lib && row.libs.indexOf(ri.lib) < 0) row.libs.push(ri.lib);
+    if (ri.puisard) recup.puisard = true;
     (o.p.meth || []).forEach(function(m){ if (row.meth.indexOf(m) < 0) row.meth.push(m); });
   });
   rows.forEach(function(r){
-    var codes = r.codes.filter(Boolean);
-    r.raccord = codes.length === 1 && r.codes.length === 1 ? codes[0] : codes.length ? 'plusieurs' : '';
-    var oks = r.codes.map(function(c){ return raccOk(r.groupe, c); });
-    r.conforme = !r.nb ? '' : oks.some(function(x){ return x === false; }) ? 'non' : oks.every(function(x){ return x === true; }) ? 'oui' : '';
+    var objs = r.objets.map(function(id){ return an.objs[id]; });
+    r.nb = (r.id === 'sdb' || r.id === 'cuisine') ? regroupes(objs) : objs.length;
+    var c = r.codes.filter(Boolean), uniq = c.filter(function(x, i){ return c.indexOf(x) === i; });
+    r.raccord = uniq.length > 1 ? 'plusieurs' : uniq.length === 1 && c.length === r.codes.length ? uniq[0] : '';
+    r.conforme = !r.objets.length ? '' : r.oks.some(function(x){ return x === false; }) ? 'non' : r.oks.length && r.oks.every(function(x){ return x === true; }) ? 'oui' : '';
     r.meth.sort(function(a, b){ return METH.map(function(m){ return m[0]; }).indexOf(a) - METH.map(function(m){ return m[0]; }).indexOf(b); });
   });
   var meth = {}; rows.forEach(function(r){ r.meth.forEach(function(m){ meth[m] = true; }); });
-  var recup = {}; Object.keys(an.resObj).forEach(function(id){ if (an.resObj[id].res === 'INF') recup.puisard = true; });
   return {rows: rows, methodes: meth, epRecup: recup};
 }
 VC.constatDeduit = constatDeduit; VC.RACC_LIB = RACC_LIB;
@@ -1922,7 +1958,7 @@ function editeur(racine, opts){
     var manque = S.an.controles.filter(function(x){ return x.niveau === 'manque'; }), info = S.an.controles.filter(function(x){ return x.niveau === 'info'; });
     var h = '<div class="vc-chips vc-mode">' + [['edl', 'État des lieux'], ['avp', 'Après l\'avant-projet']].map(function(m){ return '<button type="button" class="vc-chip" data-a="mode" data-v="' + m[0] + '" aria-pressed="' + (S.mode === m[0]) + '">' + m[1] + '</button>'; }).join('') + '</div>';
     if (S.mode === 'avp') h += '<p class="vc-muet">Contrôle du projet : les tracés « à supprimer » sont retirés, les objets et tracés « projet » sont pris en compte.</p>';
-    h += '<div class="vc-concl ' + (c === 'non_conformes' ? 'ko' : c ? 'ok' : '') + '">Conclusion proposée : <strong>' + esc(CONCL[c] || 'aucun appareil sur le plan') + '</strong></div>';
+    h += '<div class="vc-concl ' + (c === 'non_conformes' ? 'ko' : c === 'conformes' || c === 'reserves' ? 'ok' : '') + '">Conclusion proposée : <strong>' + esc(CONCL[c] || 'aucun appareil sur le plan') + '</strong></div>';
     h += '<h4>Anomalies retenues (' + ret.length + ')</h4>' + (ret.length ? ret.map(function(a){ return anomHtml(a, true); }).join('') : '<p class="vc-muet">Aucune.</p>');
     if (autres.length) h += '<h4>À arbitrer ou écartées (' + autres.length + ')</h4>' + autres.map(function(a){ return anomHtml(a, true); }).join('');
     h += '<h4>À compléter (' + manque.length + ')</h4>' + (manque.length ? '<ul class="vc-ctl">' + manque.map(function(x){ return '<li><button type="button" data-a="voir" data-id="' + esc(x.id) + '">' + esc(x.txt) + '</button></li>'; }).join('') + '</ul>' : '<p class="vc-muet">Rien : chaque appareil a sa méthode de test et son exutoire.</p>');
@@ -1933,12 +1969,13 @@ function editeur(racine, opts){
     var cd = constatDeduit(S.doc, S.an), rows = cd.rows.filter(function(r){ return r.nb || r.std; });
     var h = '<p class="vc-muet">Ce que le croquis permet de remplir dans le constat : nombre d\'installations, raccordement, conformité et méthodes. Les lignes reprennent celles du constat de l\'application.</p>';
     h += '<table class="vc-tab"><thead><tr><th>Installation</th><th>Nb</th><th>Raccordement</th><th>Conf.</th><th>Méthodes</th></tr></thead><tbody>' + rows.map(function(r){
-      var rac = r.raccord === 'plusieurs' ? 'plusieurs, voir le plan' : (RACC_LIB[r.raccord] || (r.nb ? 'à préciser' : ''));
+      var rac = r.raccord === 'plusieurs' ? 'plusieurs : ' + r.libs.join(' ; ') : (r.libs.join(' ; ') || (r.nb ? 'à préciser' : ''));
       return '<tr class="' + (r.nb ? '' : 'vide') + '"><td><span class="vc-g ' + r.groupe + '">' + r.groupe + '</span> ' + esc(r.label) + '</td><td>' + (r.nb || '') + '</td><td>' + esc(rac) + '</td><td>' + (r.conforme === 'oui' ? 'Oui' : r.conforme === 'non' ? '<strong class="ko">Non</strong>' : '') + '</td><td>' + esc(r.meth.map(function(m){ for (var i = 0; i < METH.length; i++) if (METH[i][0] === m) return METH[i][2]; return m; }).join(' ')) + '</td></tr>';
     }).join('') + '</tbody></table>';
     var ms = METH.filter(function(m){ return cd.methodes[m[0]]; }).map(function(m){ return m[1].toLowerCase(); });
     h += '<p><strong>Méthodes de contrôle :</strong> ' + (ms.length ? esc(ms.join(', ')) : 'aucune indiquée') + '</p>';
     if (cd.epRecup.puisard) h += '<p><strong>Ouvrage de récupération des EP :</strong> puisard</p>';
+    if (cd.rows.some(function(r){ return r.nb && !r.raccord && r.libs.length; })) h += '<p class="vc-muet">Un raccordement sans code du formulaire (réseau privé, puisard EP) reste à cocher à la main dans le constat.</p>';
     h += '<p><strong>Conclusion proposée :</strong> ' + esc(CONCL[conclusion(S.liste, S.an)] || '—') + '</p>';
     return h;
   }
@@ -2511,7 +2548,10 @@ function pageTableaux(pdf, doc, an, liste, mode){
     var edl = anomaliesDoc(doc, analyser(doc, 'edl')).filter(function(a){ return a.st === 'retenue'; });
     y = tableauPdf(pdf, y, [{t: 'N°', w: 10}, {t: 'Préconisation', w: 120}, {t: 'Anomalie traitée', w: 120}, {t: 'Réseau', w: 26}],
       edl.map(function(a){ return {cells: [String(a.num), a.preco || 'à définir', a.obs, a.reseau], coul: [O], gras: [true, true]}; }), 'Préconisations');
-    y = tableauPdf(pdf, y, [{t: 'Contrôle du projet', w: 276}], apres.length ? apres.map(function(a){ return {cells: ['Reste après travaux : ' + a.obs]}; }) : [{cells: ['Après travaux, le dessin ne fait plus apparaître d\'anomalie de raccordement.']}], 'Contrôle de l\'avant-projet');
+    var anA = analyser(doc, 'avp'), idxA = indexDoc(doc);
+    var orphelins = Object.keys(anA.resObj).filter(function(id){ return anA.resObj[id].etat !== 'ok'; }).map(function(id){ var e = anA.resObj[id]; return {cells: ['Après travaux : ' + libEquipement(idxA[id]) + (e.etat === 'nonrelie' ? ' n\'est plus relié' : e.etat === 'multiple' ? ' est relié à plusieurs réseaux' : ' n\'a pas d\'exutoire dessiné') + ' : raccordement à compléter dans le projet']}; });
+    var lignesC = apres.map(function(a){ return {cells: ['Reste après travaux : ' + a.obs]}; }).concat(orphelins);
+    y = tableauPdf(pdf, y, [{t: 'Contrôle du projet', w: 276}], lignesC.length ? lignesC : [{cells: ['Après travaux, le dessin ne fait plus apparaître d\'anomalie de raccordement.']}], 'Contrôle de l\'avant-projet');
     return;
   }
   y = tableauPdf(pdf, y, [{t: 'N°', w: 10}, {t: 'Réseau', w: 16}, {t: 'Observation', w: 112}, {t: 'Préconisation', w: 112}, {t: 'Nature', w: 26}],
