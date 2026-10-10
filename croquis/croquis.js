@@ -383,22 +383,22 @@ def('lavevaisselle', {fam: 'eu', lib: 'Lave-vaisselle', ab: 'LV', nat: 'EU', rol
 def('chaudiere', {fam: 'eu', lib: 'Chaudière', ab: 'Ch', g: 'f', nat: 'EU', role: 'source', forme: 'app', autre: 'Chaudière (purge, condensat)'});
 def('siphon_garage', {fam: 'eu', lib: 'Siphon de garage', nat: 'EU', role: 'source', forme: 'siphon', row: 'siphon'});
 def('attente', {fam: 'eu', lib: 'Attente', ab: 'At', g: 'f', nat: 'EU', role: 'source', forme: 'app', autre: 'Attente'});
-def('descente', {fam: 'ep', lib: 'Descente EP', g: 'f', nat: 'EP', role: 'source', forme: 'descente', row: 'gout'});
+def('descente', {fam: 'ep', lib: 'Descente EP', g: 'f', nat: 'EP', role: 'source', forme: 'descente', row: 'gout', mur: true});
 def('grille', {fam: 'ep', lib: 'Grille', g: 'f', nat: 'EP', role: 'source', forme: 'grille', row: 'grilles'});
 def('caniveau', {fam: 'ep', lib: 'Caniveau-grille', nat: 'EP', role: 'source', forme: 'caniveau', row: 'grilles', oriente: true});
 def('siphon_sol', {fam: 'ep', lib: 'Siphon de sol', nat: 'EP', role: 'source', forme: 'siphon', row: 'siphon_sol'});
 def('siphon_cour', {fam: 'ep', lib: 'Siphon de cour', nat: 'EP', role: 'source', forme: 'siphon', autre: 'Siphon de cour'});
 def('drain', {fam: 'ep', lib: 'Drain', ab: 'Dr', nat: 'EP', role: 'source', forme: 'app', autre: 'Drain'});
-def('tropplein', {fam: 'ep', lib: 'Trop-plein', ab: 'TP', nat: 'EP', role: 'source', forme: 'app', autre: 'Trop-plein'});
+def('tropplein', {fam: 'ep', lib: 'Trop-plein', ab: 'TP', nat: 'EP', role: 'source', forme: 'app', autre: 'Trop-plein', mur: true});
 def('regard', {fam: 'reg', lib: 'Regard', nat: null, role: 'passage', forme: 'regard', regard: true});
 def('boite', {fam: 'reg', lib: 'Boîte de branchement', court: 'Boîte', g: 'f', role: 'passage', forme: 'boite', regard: true, boite: true});
-def('te', {fam: 'reg', lib: 'Té de visite', role: 'passage', forme: 'te'});
+def('te', {fam: 'reg', lib: 'Té de visite', role: 'passage', forme: 'te', mur: true});
 def('pr', {fam: 'equ', lib: 'Poste de relevage', ab: 'PR', role: 'passage', forme: 'app2'});
 def('clapet', {fam: 'equ', lib: 'Clapet anti-retour', role: 'passage', forme: 'clapet', oriente: true});
 def('fosse', {fam: 'equ', lib: 'Fosse septique', ab: 'FS', g: 'f', role: 'passage', forme: 'fosse', fosse: true});
 def('jonction', {fam: 'equ', lib: 'Raccord', role: 'passage', forme: 'point', sansEtiquette: true});
 def('puisard', {fam: 'exu', lib: 'Puisard', role: 'exutoire', forme: 'puisard', exu: 'INF'});
-def('gargouille', {fam: 'exu', lib: 'Gargouille', g: 'f', role: 'exutoire', forme: 'gargouille', exu: 'GARG', oriente: true});
+def('gargouille', {fam: 'exu', lib: 'Gargouille', g: 'f', role: 'exutoire', forme: 'gargouille', exu: 'GARG', oriente: true, mur: true});
 def('milieu', {fam: 'exu', lib: 'Rejet en milieu naturel', ab: 'MN', role: 'exutoire', forme: 'app', exu: 'MILIEU'});
 def('regard_pub', {fam: 'pub', lib: 'Regard public', role: 'passage', forme: 'regpub', regard: true});
 def('test', {fam: 'ann', lib: 'Point de test', role: 'note', forme: 'test'});
@@ -1293,7 +1293,9 @@ var ICO = {
   nord: '<path d="M12 3l5 16-5-3.5L7 19z"/>', aligner: '<path d="M3 18l18-12"/><circle cx="3" cy="18" r="1.8"/><circle cx="21" cy="6" r="1.8"/>',
   poubelle: '<path d="M5 7h14M10 11v6M14 11v6M6.5 7l1 13h9l1-13M9 7V4h6v3"/>',
   fermer: '<path d="M6 6l12 12M18 6L6 18"/>', valider: '<path d="M4 12.5l5 5L20 6.5"/>', retour: '<path d="M15 5l-7 7 7 7"/>',
-  chercher: '<circle cx="11" cy="11" r="6"/><path d="M15.5 15.5L20 20"/>', lien: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'
+  chercher: '<circle cx="11" cy="11" r="6"/><path d="M15.5 15.5L20 20"/>',
+  aimant: '<path d="M6 4v8a6 6 0 0 0 12 0V4"/><path d="M6 8h4M14 8h4"/>',
+  relier: '<circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="6" r="2.2"/><path d="M7 18h12V8.2"/>', lien: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'
 };
 function ico(n, s){ return '<svg viewBox="0 0 24 24" width="' + (s || 22) + '" height="' + (s || 22) + '" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICO[n] || '') + '</svg>'; }
 VC.ico = ico;
@@ -1327,10 +1329,23 @@ var OUTILS_LN = {
   colEU: {k: 'ln', t: 'col', p: {res: 'EU'}, lib: 'Collecteur EU', res: 'EU', col: true},
   colEP: {k: 'ln', t: 'col', p: {res: 'EP'}, lib: 'Collecteur EP', res: 'EP', col: true},
   colUN: {k: 'ln', t: 'col', p: {res: 'UN'}, lib: 'Collecteur unitaire', res: 'UN', col: true},
-  lim: {k: 'ln', t: 'lim', p: {}, lib: 'Complément du fond', sous: 'bâti, limite', res: 'LIM'}
+  lim: {k: 'ln', t: 'lim', p: {}, lib: 'Complément du fond', sous: 'bâti, limite', res: 'LIM'},
+  relier: {k: 'ln', t: 'tr', p: {}, lib: 'Relier deux objets', sous: 'tronçon tracé d\'équerre', res: 'INC', relier: true}
 };
+/* Aides au dessin : chacune se désactive ; « actives » les coupe toutes */
+var AIDES_DEFAUT = {actives: true, glisser: true, finir: true, parallele: true, bati: true, angles: true, orienter: true, coude: true};
+var AIDES_LIB = [
+  ['glisser', 'Tracer en glissant le doigt', 'un segment par glissé ; deux doigts pour déplacer le plan'],
+  ['finir', 'Terminer sur un objet', 'le tronçon s\'arrête dès qu\'il touche un objet ou un autre tracé'],
+  ['parallele', 'Parallèle au bâti', 'le trait se cale parallèle ou perpendiculaire au côté de bâti le plus proche'],
+  ['bati', 'Accroche au bâti', 'coins et façades attirent les descentes et les traits de complément'],
+  ['angles', 'Angles droits et 45°', 'redresse les traits proches d\'un angle droit ou de 45°'],
+  ['orienter', 'Orientation automatique', 'caniveaux, clapets et gargouilles suivent le tracé ou la façade'],
+  ['coude', 'Relier en L', 'l\'outil Relier trace un coude d\'équerre avec le bâti']
+];
+VC.AIDES_DEFAUT = AIDES_DEFAUT; VC.AIDES_LIB = AIDES_LIB;
 var PALETTES = {
-  tr: {lib: 'Tracés', court: 'Tracé', ico: 'tr', items: ['ln:tr', 'ln:trEU', 'ln:trEP', 'ln:trUN', 'ln:trPres', 'ln:trPrj', 'ln:lim']},
+  tr: {lib: 'Tracés', court: 'Tracé', ico: 'tr', items: ['ln:tr', 'ln:relier', 'ln:trEU', 'ln:trEP', 'ln:trUN', 'ln:trPres', 'ln:trPrj', 'ln:lim']},
   eu: {lib: 'Appareils EU', court: 'EU', ico: 'eu', items: FAMILLES[0].types.map(function(t){ return 'pt:' + t; })},
   ep: {lib: 'Ouvrages EP', court: 'EP', ico: 'ep', items: FAMILLES[1].types.map(function(t){ return 'pt:' + t; })},
   reg: {lib: 'Regards', court: 'Regards', ico: 'reg', items: FAMILLES[2].types.map(function(t){ return 'pt:' + t; })},
@@ -1352,7 +1367,8 @@ function editeur(racine, opts){
   opts = opts || {};
   injecterStyle();
   var S = {doc: null, fond: null, reseau: null, an: null, liste: [], vue: new Vue(), dpr: 1, outil: {k: 'main'}, sel: null, brouillon: null, zones: [], ptr: {}, geste: null,
-    undo: [], redo: [], panneau: null, mode: 'edl', aff: {fond: true, reseau: true, etiquettes: true, attenuer: false}, dessinDemande: false, dernierTap: null, accrocheVue: null, aligner: null, palette: null};
+    undo: [], redo: [], panneau: null, mode: 'edl', aff: {fond: true, reseau: true, etiquettes: true, attenuer: false}, dessinDemande: false, dernierTap: null, accrocheVue: null, aligner: null, palette: null,
+    aides: Object.assign({}, AIDES_DEFAUT, opts.aides || {}), apercu: null, relier: null};
   racine.innerHTML = '<div class="vc" tabindex="-1">'
     + '<canvas class="vc-cv" aria-label="Plan du croquis"></canvas>'
     + '<header class="vc-barre">'
@@ -1379,6 +1395,7 @@ function editeur(racine, opts){
     + '<button type="button" class="vc-b" data-a="rotg" aria-label="Tourner le plan à gauche">' + ico('rotg') + '</button>'
     + '<button type="button" class="vc-b" data-a="rotd" aria-label="Tourner le plan à droite">' + ico('rotd') + '</button>'
     + '<button type="button" class="vc-b vc-nord" data-a="nord" aria-label="Nord en haut">' + ico('nord') + '</button>'
+    + '<button type="button" class="vc-b vc-aimant" data-a="aides" aria-label="Aides au dessin" aria-pressed="true">' + ico('aimant') + '</button>'
     + '</div>'
     + '<div class="vc-aide" role="status"></div>'
     + '<aside class="vc-panneau" hidden><div class="vc-ptete"><h2></h2><button type="button" class="vc-b" data-a="fermerPanneau" aria-label="Fermer">' + ico('fermer') + '</button></div><div class="vc-pcorps"></div></aside>'
@@ -1458,7 +1475,19 @@ function editeur(racine, opts){
       if (Q.length > 1){ trace(ctx, Q); ctx.strokeStyle = col; ctx.lineWidth = o.col ? 6 : 4; ctx.setLineDash(o.st ? [9, 6] : []); ctx.stroke(); ctx.setLineDash([]); }
       Q.forEach(function(p, i){ var s = b.pts[i].snap; ctx.beginPath(); ctx.arc(p.x, p.y, s ? 8 : 6, 0, 2 * Math.PI); ctx.fillStyle = s ? ac : '#fff'; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.stroke(); });
     }
-    if (S.accrocheVue){ var a = S.vue.ecran(S.accrocheVue.x, S.accrocheVue.y); ctx.beginPath(); ctx.arc(a.x, a.y, 14, 0, 2 * Math.PI); ctx.strokeStyle = '#d4650a'; ctx.lineWidth = 2.5; ctx.stroke(); }
+    if (S.apercu && S.apercu.pts){
+      var Ap = S.apercu.pts.map(function(q){ return S.vue.ecran(q.x, q.y); }), oa = OUTILS_LN[S.outil.id] || OUTILS_LN.tr;
+      trace(ctx, Ap); ctx.strokeStyle = rgbCss((RES[oa.res] || RES.INC).rgb, .8); ctx.lineWidth = oa.col ? 6 : 4; ctx.setLineDash([10, 6]); ctx.stroke(); ctx.setLineDash([]);
+      var fin = Ap[Ap.length - 1], Lm = longueur(S.apercu.pts);
+      ctx.font = '700 13px Barlow, Arial, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.strokeText(frNum(Math.round(Lm * 10) / 10) + ' m', fin.x + 12, fin.y - 10); ctx.fillStyle = '#222'; ctx.fillText(frNum(Math.round(Lm * 10) / 10) + ' m', fin.x + 12, fin.y - 10);
+    }
+    if (S.accrocheVue){
+      var av = S.accrocheVue, a = S.vue.ecran(av.x, av.y);
+      if (av.arete){ var e1 = S.vue.ecran(av.arete[0], av.arete[1]), e2 = S.vue.ecran(av.arete[2], av.arete[3]); ctx.beginPath(); ctx.moveTo(e1.x, e1.y); ctx.lineTo(e2.x, e2.y); ctx.strokeStyle = 'rgba(212,101,10,.85)'; ctx.lineWidth = 4; ctx.setLineDash([8, 5]); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.beginPath(); ctx.arc(a.x, a.y, 14, 0, 2 * Math.PI); ctx.strokeStyle = '#d4650a'; ctx.lineWidth = 2.5; ctx.stroke();
+      if (av.type === 'parallele' || av.type === 'angle' || av.type === 'coin' || av.type === 'facade'){ var lb = {parallele: '∥ bâti', angle: 'équerre', coin: 'coin du bâti', facade: 'façade'}[av.type]; ctx.font = '700 12px Barlow, Arial, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.strokeText(lb, a.x + 16, a.y + 8); ctx.fillStyle = '#a14d06'; ctx.fillText(lb, a.x + 16, a.y + 8); }
+    }
+    if (S.relier){ var rd = S.vue.ecran(S.relier.x, S.relier.y); ctx.beginPath(); ctx.arc(rd.x, rd.y, 16, 0, 2 * Math.PI); ctx.strokeStyle = ac; ctx.lineWidth = 3; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]); }
     if (S.aligner){ S.aligner.forEach(function(p){ var q = S.vue.ecran(p.x, p.y); ctx.beginPath(); ctx.arc(q.x, q.y, 9, 0, 2 * Math.PI); ctx.fillStyle = '#d4650a'; ctx.fill(); }); }
     ctx.restore();
   }
@@ -1494,7 +1523,69 @@ function editeur(racine, opts){
     for (i = 0; i < S.zones.length; i++){ z = S.zones[i]; if (z.type !== 'ln') continue; d = distPoly(x, y, z.pts); if (d <= Math.max(11, z.larg / 2 + 7) + tol && d < bd){ bd = d; best = z; } }
     return best;
   }
-  /* Accroche d'un point de tracé : objet, sommet, segment ; sinon point libre redressé à 45° près du point précédent */
+  /* --- aides au dessin : côtés du bâti (fond cadastral et traits de complément), en mètres locaux --- */
+  /* le tracé au glissé est un geste, pas un automatisme : l'aimant ne le coupe pas */
+  function aideOn(k){ if (k === 'glisser') return S.aides.glisser !== false; return S.aides.actives !== false && S.aides[k] !== false; }
+  function normAng(a){ while (a > Math.PI) a -= 2 * Math.PI; while (a <= -Math.PI) a += 2 * Math.PI; return a; }
+  function aretesFond(){
+    var f = S.fond, off = offFond(f), cle = f ? f.id + ':' + off.x + ':' + off.y : '-', c = S.aretes;
+    if (c && c.cle === cle) return c;
+    var segs = [], TU = 8, g = {};
+    if (f) f.L.forEach(function(l){
+      var st = f.calques[l.c].style; if (st !== 'bati' && st !== 'batileger') return;
+      for (var k = 1; k < l.n; k++){ var i0 = 2 * (l.d + k - 1), i1 = 2 * (l.d + k); segs.push([f.xy[i0] + off.x, f.xy[i0 + 1] + off.y, f.xy[i1] + off.x, f.xy[i1 + 1] + off.y, l]); }
+    });
+    segs.forEach(function(sg, i){
+      var x0 = Math.floor(Math.min(sg[0], sg[2]) / TU), x1 = Math.floor(Math.max(sg[0], sg[2]) / TU), y0 = Math.floor(Math.min(sg[1], sg[3]) / TU), y1 = Math.floor(Math.max(sg[1], sg[3]) / TU);
+      for (var a = x0; a <= x1; a++) for (var b = y0; b <= y1; b++){ var k2 = a + ',' + b; (g[k2] = g[k2] || []).push(i); }
+    });
+    return (S.aretes = {cle: cle, segs: segs, g: g, TU: TU});
+  }
+  function segsPres(p, R){
+    var A = aretesFond(), out = [], vu = {}, x0 = Math.floor((p.x - R) / A.TU), x1 = Math.floor((p.x + R) / A.TU), y0 = Math.floor((p.y - R) / A.TU), y1 = Math.floor((p.y + R) / A.TU);
+    for (var a = x0; a <= x1; a++) for (var b = y0; b <= y1; b++) (A.g[a + ',' + b] || []).forEach(function(i){ if (!vu[i]){ vu[i] = 1; out.push(A.segs[i]); } });
+    var I = idx();
+    S.doc.el.forEach(function(l){ if (l.k !== 'ln' || l.t !== 'lim') return; var P = lignePts(l, I); for (var k = 1; k < P.length; k++) out.push([P[k - 1].x, P[k - 1].y, P[k].x, P[k].y, null]); });
+    return out;
+  }
+  function areteProche(p, R){
+    var best = null;
+    segsPres(p, R).forEach(function(sg){ var q = projSeg(p, {x: sg[0], y: sg[1]}, {x: sg[2], y: sg[3]}); if (q.d <= R && Math.hypot(sg[2] - sg[0], sg[3] - sg[1]) > .2 && (!best || q.d < best.d)) best = {s: sg, d: q.d, x: q.x, y: q.y, ang: Math.atan2(sg[3] - sg[1], sg[2] - sg[0])}; });
+    return best;
+  }
+  function coinProche(p, R){
+    var best = null;
+    segsPres(p, R).forEach(function(sg){ [[sg[0], sg[1]], [sg[2], sg[3]]].forEach(function(c){ var d = Math.hypot(c[0] - p.x, c[1] - p.y); if (d <= R && (!best || d < best.d)) best = {x: c[0], y: c[1], d: d, s: sg}; }); });
+    return best;
+  }
+  /* Redressement d'un segment depuis le point précédent : parallèle ou perpendiculaire au côté de bâti le plus proche, sinon angles du plan */
+  function redresser(pp, m){
+    var L = Math.hypot(m.x - pp.x, m.y - pp.y); if (L < 1e-6) return null;
+    var th = Math.atan2(m.y - pp.y, m.x - pp.x), cands = [], ref = null, k;
+    if (aideOn('parallele')){
+      var R = Math.max(4, 60 / S.vue.s), mil = {x: (pp.x + m.x) / 2, y: (pp.y + m.y) / 2};
+      ref = [areteProche(pp, R), areteProche(mil, R), areteProche(m, R)].filter(Boolean).sort(function(a, b){ return a.d - b.d; })[0] || null;
+      if (ref){ for (k = 0; k < 4; k++) cands.push({a: ref.ang + k * Math.PI / 2, ref: ref}); if (aideOn('angles')) for (k = 0; k < 4; k++) cands.push({a: ref.ang + Math.PI / 4 + k * Math.PI / 2, ref: ref}); }
+    }
+    if (!cands.length && aideOn('angles')){ var r0 = S.doc.rot || 0; for (k = 0; k < 8; k++) cands.push({a: r0 + k * Math.PI / 4}); }
+    var best = null, seuil = 9 * Math.PI / 180;
+    cands.forEach(function(c){ var d = Math.abs(normAng(th - c.a)); if (d < seuil && (!best || d < best.d)) best = {d: d, c: c}; });
+    if (!best) return null;
+    var Lp = L * Math.cos(best.d), a = best.c.a;
+    return {x: pp.x + Lp * Math.cos(a), y: pp.y + Lp * Math.sin(a), type: best.c.ref ? 'parallele' : 'angle', arete: best.c.ref ? best.c.ref.s : null, aide: true};
+  }
+  /* Point libre (traits de complément, objets de façade) : coin, redressement, façade */
+  function accrocheLibre(x, y, o){
+    o = o || {}; var m = S.vue.monde(x, y);
+    if (aideOn('bati')){ var cn = coinProche(m, 14 / S.vue.s); if (cn) return {x: cn.x, y: cn.y, type: 'coin', arete: cn.s, aide: true}; }
+    if (o.prec){ var rd = redresser(o.prec, m); if (rd) return rd; }
+    if (aideOn('bati')){ var ar = areteProche(m, 10 / S.vue.s); if (ar) return {x: ar.x, y: ar.y, type: 'facade', arete: ar.s, aide: true}; }
+    return {x: m.x, y: m.y};
+  }
+  function attache(a){ return !!a && (a.type === 'obj' || a.type === 'som' || a.type === 'seg'); }
+  var tAide = null;
+  function montrerAide(a){ S.accrocheVue = a; clearTimeout(tAide); tAide = setTimeout(function(){ if (S.accrocheVue === a){ S.accrocheVue = null; redessiner(); } }, 900); }
+  /* Accroche d'un point de tracé : objet, sommet, segment ; sinon point libre redressé par les aides */
   function accroche(x, y, o){
     o = o || {}; var I = idx(), best = null, bd = Infinity;
     for (var i = 0; i < S.zones.length; i++){
@@ -1515,10 +1606,7 @@ function editeur(racine, opts){
     });
     if (best) return best;
     var m = S.vue.monde(x, y);
-    if (o.prec){
-      var pp = o.prec, rot = S.doc.rot || 0, a = Math.atan2(m.y - pp.y, m.x - pp.x) - rot, L = Math.hypot(m.x - pp.x, m.y - pp.y), q4 = Math.round(a / (Math.PI / 4)) * Math.PI / 4;
-      if (Math.abs(a - q4) < 6 * Math.PI / 180 && L > 0){ return {x: pp.x + L * Math.cos(q4 + rot), y: pp.y + L * Math.sin(q4 + rot), redresse: true}; }
-    }
+    if (o.prec){ var rd = redresser(o.prec, m); if (rd) return rd; }
     return {x: m.x, y: m.y};
   }
 
@@ -1536,7 +1624,7 @@ function editeur(racine, opts){
       return;
     }
     if (ids.length > 2) return;
-    S.geste = {type: 'attente', x0: p.x, y0: p.y, t0: Date.now(), cible: cibleGlisser(p.x, p.y), souris: ev.pointerType === 'mouse'};
+    S.geste = {type: 'attente', x0: p.x, y0: p.y, t0: Date.now(), cible: cibleGlisser(p.x, p.y), souris: ev.pointerType === 'mouse', panForce: ev.pointerType === 'mouse' && ev.button > 0};
   });
   cv.addEventListener('pointermove', function(ev){
     if (!S.ptr[ev.pointerId]) return;
@@ -1551,8 +1639,10 @@ function editeur(racine, opts){
     if (g.type === 'attente'){
       if (Math.hypot(p.x - g.x0, p.y - g.y0) < (g.souris ? 4 : 9)) return;
       if (g.cible){ instantane(); g.type = 'glisser'; g.modifie = false; demarrerGlisser(g); }
+      else if (S.outil.k === 'ln' && aideOn('glisser') && !g.panForce){ g.type = 'trace'; demarrerTrace(g); }
       else { g.type = 'pan'; g.w0 = S.vue.monde(g.x0, g.y0); }
     }
+    if (g.type === 'trace'){ apercuTrace(g, p); return; }
     if (g.type === 'pan'){ var w2 = S.vue.monde(p.x, p.y); S.vue.cx += g.w0.x - w2.x; S.vue.cy += g.w0.y - w2.y; redessiner(); return; }
     if (g.type === 'glisser'){ glisser(g, p); g.modifie = true; }
   });
@@ -1569,6 +1659,7 @@ function editeur(racine, opts){
     if (ev.type === 'pointercancel'){ finirGeste(true); return; }
     if (g.type === 'attente'){ S.geste = null; tap(p.x, p.y); return; }
     if (g.type === 'glisser'){ terminerGlisser(g, p); S.geste = null; return; }
+    if (g.type === 'trace'){ S.geste = null; finTrace(g, p); return; }
     if (g.type === 'pan') enregistrerVue();
     S.geste = null;
   }
@@ -1581,7 +1672,7 @@ function editeur(racine, opts){
   var tVue = null;
   function enregistrerVue(){ clearTimeout(tVue); tVue = setTimeout(function(){ if (S.doc){ S.doc.vue = {cx: S.vue.cx, cy: S.vue.cy, s: S.vue.s}; if (opts.enregistrerVue) try { opts.enregistrerVue(S.doc); } catch(e){} } }, 600); }
   function finirGeste(annule){
-    var g = S.geste; S.geste = null; S.accrocheVue = null;
+    var g = S.geste; S.geste = null; S.accrocheVue = null; S.apercu = null;
     if (g && g.type === 'glisser'){ if (annule && g.modifie){ S.undo.length && restaurer(S.undo.pop()); } else if (!g.modifie) S.undo.pop(); changement(); }
   }
 
@@ -1612,7 +1703,7 @@ function editeur(racine, opts){
   function glisser(g, p){
     var c = g.cible, w = S.vue.monde(p.x, p.y), w0 = S.vue.monde(g.x0, g.y0), dxw = w.x - w0.x, dyw = w.y - w0.y, rot = S.doc.rot || 0, dP = versPlan(dxw, dyw, rot);
     if (c.k === 'objet'){ var e = el(c.id); e.x = g.o0.x + dxw; e.y = g.o0.y + dyw; synchroSommets(S.doc); }
-    else if (c.k === 'sommet'){ var l = el(c.id), prec = c.i > 0 ? vpos(l.v[c.i - 1], idx()) : null, a = l.t === 'lim' ? S.vue.monde(p.x, p.y) : accroche(p.x, p.y, {saufLigne: l.id, prec: prec, col: l.t === 'col'}); l.v[c.i].x = a.x; l.v[c.i].y = a.y; S.accrocheVue = a.type ? a : null; g.accroche = a; }
+    else if (c.k === 'sommet'){ var l = el(c.id), prec = c.i > 0 ? vpos(l.v[c.i - 1], idx()) : null, a = l.t === 'lim' ? accrocheLibre(p.x, p.y, {prec: prec}) : accroche(p.x, p.y, {saufLigne: l.id, prec: prec, col: l.t === 'col'}); l.v[c.i].x = a.x; l.v[c.i].y = a.y; S.accrocheVue = a.type ? a : null; g.accroche = a; }
     else if (c.k === 'etiq'){ var e2 = el(c.id); e2.lab = {dx: g.lab0.dx + dP.x, dy: g.lab0.dy + dP.y}; }
     else if (c.k === 'bulle'){ var nb = {dx: g.b0.dx + dP.x, dy: g.b0.dy + dP.y}, man = (S.doc.anomManu || []).filter(function(m){ return m.id === c.id; })[0]; if (man) man.bulle = nb; else { var d = S.doc.decisions[c.id] || (S.doc.decisions[c.id] = {}); d.bulle = nb; } }
     analyseLegere(); redessiner();
@@ -1621,7 +1712,7 @@ function editeur(racine, opts){
   function terminerGlisser(g){
     var c = g.cible; S.accrocheVue = null;
     if (!g.modifie){ S.undo.pop(); return; }
-    if (c.k === 'sommet' && g.accroche && g.accroche.type && el(c.id).t !== 'lim'){
+    if (c.k === 'sommet' && attache(g.accroche) && el(c.id).t !== 'lim'){
       var l = el(c.id), a = g.accroche;
       if (a.type === 'obj'){ l.v[c.i].a = a.id; }
       else { var j = jonctionSur(S.doc, a); if (j && j.id !== l.id){ l.v[c.i].a = j.id; l.v[c.i].x = j.x; l.v[c.i].y = j.y; } }
@@ -1659,26 +1750,105 @@ function editeur(racine, opts){
     }
     if (o.k === 'tx'){ poserTexte(x, y); return; }
     if (o.k === 'ln'){
+      if (OUTILS_LN[o.id].relier){ relierToucher(x, y); return; }
       var b2 = S.brouillon;
       if (b2 && b2.pts.length){ var last = S.vue.ecran(b2.pts[b2.pts.length - 1].x, b2.pts[b2.pts.length - 1].y); if (Math.hypot(x - last.x, y - last.y) <= 18 || (double && b2.pts.length >= 2)){ terminerTrace(); return; } }
-      var oo = OUTILS_LN[o.id], prec = b2 && b2.pts.length ? b2.pts[b2.pts.length - 1] : null;
-      var a2 = oo.t === 'lim' ? (function(){ var m = S.vue.monde(x, y); return {x: m.x, y: m.y}; })() : accroche(x, y, {prec: prec, col: oo.t === 'col'});
-      if (!b2){
-        S.brouillon = b2 = {outil: o.id, pts: []};
-        if (a2.type === 'som' && !a2.a && oo.t === 'tr'){ var l0 = el(a2.ligne); if (l0 && l0.t === 'tr' && (a2.i === 0 || a2.i === l0.v.length - 1)) b2.prolonge = {id: l0.id, debut: a2.i === 0}; }
-      }
-      b2.pts.push({x: a2.x, y: a2.y, snap: a2.type ? a2 : null});
-      S.sel = null; majAide(); majPanneau(); redessiner();
+      ajouterPointTrace(pointTrace(x, y));
     }
+  }
+  /* Point de tracé selon l'outil : les traits de complément suivent le bâti, les tronçons s'accrochent au réseau */
+  function pointTrace(x, y){
+    var oo = OUTILS_LN[S.outil.id], b = S.brouillon, prec = b && b.pts.length ? b.pts[b.pts.length - 1] : null;
+    return oo.t === 'lim' ? accrocheLibre(x, y, {prec: prec}) : accroche(x, y, {prec: prec, col: oo.t === 'col'});
+  }
+  function ajouterPointTrace(a2){
+    var oo = OUTILS_LN[S.outil.id], b2 = S.brouillon, at = attache(a2) && oo.t !== 'lim';
+    if (!b2){
+      S.brouillon = b2 = {outil: S.outil.id, pts: []};
+      if (a2.type === 'som' && !a2.a && oo.t === 'tr'){ var l0 = el(a2.ligne); if (l0 && l0.t === 'tr' && (a2.i === 0 || a2.i === l0.v.length - 1)) b2.prolonge = {id: l0.id, debut: a2.i === 0}; }
+    }
+    b2.pts.push({x: a2.x, y: a2.y, snap: at ? a2 : null, aide: a2.aide ? a2.type : null});
+    S.sel = null;
+    if (a2.aide) montrerAide(a2);
+    /* un tronçon qui touche un objet ou un autre tracé est terminé */
+    if (at && b2.pts.length >= 2 && oo.t === 'tr' && aideOn('finir')){ terminerTrace(); return; }
+    majAide(); majPanneau(); redessiner();
+  }
+  /* Tracé au glissé : le doigt tire le segment depuis le dernier point (ou depuis l'appui) */
+  function demarrerTrace(g){
+    var oo = OUTILS_LN[S.outil.id];
+    if (oo.relier){ g.relierDep = accroche(g.x0, g.y0, {}); return; }
+    if (!S.brouillon) ajouterPointTrace(pointTrace(g.x0, g.y0));
+    g.ok = !!S.brouillon;
+  }
+  function apercuTrace(g, p){
+    var oo = OUTILS_LN[S.outil.id];
+    if (oo.relier){ var dep = g.relierDep, a = accroche(p.x, p.y, {}); S.apercu = attache(dep) ? {pts: routeRelier(dep, a), a: a} : null; redessiner(); return; }
+    if (!S.brouillon) return;
+    var a2 = pointTrace(p.x, p.y); S.apercu = {pts: [S.brouillon.pts[S.brouillon.pts.length - 1], a2], a: a2};
+    S.accrocheVue = a2.type ? a2 : null; redessiner();
+  }
+  function finTrace(g, p){
+    var oo = OUTILS_LN[S.outil.id], ap = S.apercu; S.apercu = null; S.accrocheVue = null;
+    if (oo.relier){
+      var dep = g.relierDep, arr = accroche(p.x, p.y, {});
+      if (!attache(dep) || !attache(arr)){ toast('Glissez d\'un objet ou d\'un tracé jusqu\'à un autre'); redessiner(); return; }
+      relierCreer(dep, arr); return;
+    }
+    if (!S.brouillon || !ap) { redessiner(); return; }
+    var last = S.vue.ecran(S.brouillon.pts[S.brouillon.pts.length - 1].x, S.brouillon.pts[S.brouillon.pts.length - 1].y), a = ap.a, sa = S.vue.ecran(a.x, a.y);
+    if (Math.hypot(sa.x - last.x, sa.y - last.y) < 8){ redessiner(); return; }
+    ajouterPointTrace(a);
+  }
+  /* --- outil Relier : deux objets, un tronçon droit ou en L d'équerre avec le bâti --- */
+  function relierToucher(x, y){
+    var a = accroche(x, y, {});
+    if (!S.relier){
+      if (!attache(a)){ toast('Touchez d\'abord l\'objet de départ'); return; }
+      S.relier = a; majAide(); redessiner(); return;
+    }
+    var dep = S.relier;
+    if (!attache(a)){ toast('Touchez l\'objet d\'arrivée : un regard, une boîte, un tracé…'); return; }
+    if (a.type === 'obj' && dep.type === 'obj' && a.id === dep.id){ S.relier = null; majAide(); redessiner(); return; }
+    S.relier = null; relierCreer(dep, a);
+  }
+  function routeRelier(dep, arr){
+    var A = {x: dep.x, y: dep.y, snap: attache(dep) ? dep : null}, B = {x: arr.x, y: arr.y, snap: attache(arr) ? arr : null}, al = S.doc.rot || 0;
+    if (aideOn('coude') || aideOn('parallele')){ var ar = areteProche(A, 8) || areteProche(B, 8); if (ar) al = ar.ang; }
+    var c = Math.cos(al), sn = Math.sin(al), dx = B.x - A.x, dy = B.y - A.y, du = dx * c + dy * sn, dv = -dx * sn + dy * c;
+    var ang = Math.abs(Math.atan2(dv, du)) % (Math.PI / 2), droit = ang < 8 * Math.PI / 180 || ang > Math.PI / 2 - 8 * Math.PI / 180;
+    if (!aideOn('coude') || droit || Math.hypot(dx, dy) < .3) return [A, B];
+    /* le petit côté d'abord : on s'écarte de la façade, puis on la longe */
+    var C = Math.abs(du) <= Math.abs(dv) ? {x: A.x + du * c, y: A.y + du * sn} : {x: A.x - dv * sn, y: A.y + dv * c};
+    return [A, {x: C.x, y: C.y, snap: null}, B];
+  }
+  function relierCreer(dep, arr){
+    S.brouillon = {outil: S.outil.id, pts: routeRelier(dep, arr)};
+    terminerTrace();
   }
   function poserObjet(t, x, y){
     instantane();
     var w = S.vue.monde(x, y), o = {id: uid(), k: 'pt', t: t, x: w.x, y: w.y, p: defautsPt(t), lab: null};
     if (T[t].oriente) o.p.a = Math.round(((S.doc.rot || 0) * 180 / Math.PI) * 10) / 10;
-    var a = accroche(x, y, {}), passage = T[t].role === 'passage' || T[t].role === 'exutoire';
+    var a = accroche(x, y, {}), passage = T[t].role === 'passage' || T[t].role === 'exutoire', angSeg = null;
+    /* une descente, une gargouille ou un té se pose sur le coin ou la façade du bâti le plus proche */
+    if (!a.type && T[t].mur && aideOn('bati')){ var af = accrocheLibre(x, y, {}); if (af.aide){ o.x = af.x; o.y = af.y; montrerAide(af); } }
     S.doc.el.push(o);
     if (a.type === 'som' && !a.a){ var l = el(a.ligne), ext = l && (a.i === 0 || a.i === l.v.length - 1); if (ext || passage){ o.x = a.x; o.y = a.y; insererDansLigne(S.doc, o, a); } }
-    else if (a.type === 'seg' && passage && t !== 'zone'){ insererDansLigne(S.doc, o, a); }
+    else if (a.type === 'seg' && passage && t !== 'zone'){ insererDansLigne(S.doc, o, a); var ls = el(a.ligne), Ps = ls ? lignePts(ls, idx()) : []; if (Ps[a.i]) angSeg = Math.atan2(Ps[a.i].y - Ps[a.i - 1].y, Ps[a.i].x - Ps[a.i - 1].x); }
+    if (T[t].oriente && aideOn('orienter')){
+      var ang = angSeg, ar2 = ang == null ? areteProche(o, 3) : null;
+      if (ar2){
+        ang = ar2.ang;
+        if (t === 'gargouille'){
+          /* la gargouille sort du bâti : perpendiculaire à la façade, vers l'extérieur */
+          ang += Math.PI / 2; var pr = ar2.s[4], cx = 0, cy = 0, n = 0;
+          if (pr && S.fond){ var ofs = offFond(S.fond); for (var k3 = 0; k3 < pr.n; k3++){ cx += S.fond.xy[2 * (pr.d + k3)] + ofs.x; cy += S.fond.xy[2 * (pr.d + k3) + 1] + ofs.y; n++; } }
+          if (n && Math.cos(ang) * (o.x - cx / n) + Math.sin(ang) * (o.y - cy / n) < 0) ang += Math.PI;
+        }
+      }
+      if (ang != null) o.p.a = Math.round(((ang * 180 / Math.PI) % 360 + 360) % 360 * 10) / 10;
+    }
     analyse();
     if (!T[t].sansEtiquette) o.lab = placerEtiquette(S.doc, S.an, o, E(), idx()) || null;
     S.sel = {id: o.id, sommet: null}; S.panneau = 'fiche';
@@ -1740,7 +1910,7 @@ function editeur(racine, opts){
   }
   function choisirOutil(o){
     if (S.brouillon && S.brouillon.pts.length >= 2) terminerTrace(); else S.brouillon = null;
-    S.outil = o; S.aligner = null;
+    S.outil = o; S.aligner = null; S.relier = null; S.apercu = null;
     R.querySelectorAll('.vc-o').forEach(function(b){ var on = o.k === 'main' ? b.dataset.outil === 'main' : b.dataset.pal === o.pal; b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
     fermerPalette(); majAide(); redessiner();
   }
@@ -1750,7 +1920,7 @@ function editeur(racine, opts){
     pal.innerHTML = '<h3>' + esc(P.lib) + '</h3><div class="vc-pgrille">' + P.items.map(function(it){
       var q = it.split(':'), lib, sous = '', svg, actif = false;
       if (q[0] === 'pt'){ lib = T[q[1]].lib; svg = symboleSvg(q[1], 38); actif = S.outil.k === 'pt' && S.outil.t === q[1]; }
-      else if (q[0] === 'ln'){ var oo = OUTILS_LN[q[1]]; lib = oo.lib; sous = oo.sous || ''; svg = traitSvg(oo.col ? oo.res : oo.res, oo.st, 38); actif = S.outil.k === 'ln' && S.outil.id === q[1]; }
+      else if (q[0] === 'ln'){ var oo = OUTILS_LN[q[1]]; lib = oo.lib; sous = oo.sous || ''; svg = oo.relier ? '<span class="vc-ptx">' + ico('relier', 30) + '</span>' : traitSvg(oo.res, oo.st, 38); actif = S.outil.k === 'ln' && S.outil.id === q[1]; }
       else { lib = 'Texte libre'; svg = '<span class="vc-ptx">' + ico('texte', 30) + '</span>'; actif = S.outil.k === 'tx'; }
       return '<button type="button" class="vc-pitem" data-item="' + it + '" aria-pressed="' + actif + '">' + svg + '<span>' + esc(lib) + (sous ? '<small>' + esc(sous) + '</small>' : '') + '</span></button>';
     }).join('') + '</div>';
@@ -1766,16 +1936,20 @@ function editeur(racine, opts){
   function majAide(){
     var o = S.outil, h = '';
     if (S.aligner) h = '<span>Touchez deux points le long de la voie : le plan tournera pour la mettre à l\'horizontale.</span><button type="button" class="vc-b vc-bt" data-a="alignerStop">Annuler</button>';
+    else if (o.k === 'ln' && OUTILS_LN[o.id].relier){
+      h = '<span><strong>Relier deux objets</strong> : ' + (S.relier ? 'touchez l\'objet d\'arrivée (regard, boîte, tracé…).' : 'touchez l\'objet de départ puis celui d\'arrivée, ou glissez de l\'un à l\'autre.') + (aideOn('coude') ? ' Le tronçon est tracé d\'équerre avec le bâti.' : '') + '</span>'
+        + (S.relier ? '<button type="button" class="vc-b vc-bt" data-a="relierStop">' + ico('fermer', 18) + 'Abandonner</button>' : '');
+    }
     else if (o.k === 'ln'){
-      var oo = OUTILS_LN[o.id], n = S.brouillon ? S.brouillon.pts.length : 0;
-      h = '<span><strong>' + esc(oo.lib) + '</strong> : ' + (n ? n + ' point' + (n > 1 ? 's' : '') + '. Touchez le point suivant ; touchez à nouveau le dernier point pour terminer.' : 'touchez le point de départ (un objet, un tracé ou un point libre).') + '</span>'
+      var oo = OUTILS_LN[o.id], n = S.brouillon ? S.brouillon.pts.length : 0, gl = aideOn('glisser');
+      h = '<span><strong>' + esc(oo.lib) + '</strong> : ' + (n ? n + ' point' + (n > 1 ? 's' : '') + '. ' + (gl ? 'Glissez ou touchez' : 'Touchez') + ' le point suivant' + (oo.t === 'tr' && aideOn('finir') ? ' ; le tronçon se termine sur un objet' : '') + ' ; touchez à nouveau le dernier point pour terminer.' : (gl ? 'glissez depuis le point de départ, ou touchez-le' : 'touchez le point de départ') + ' (un objet, un tracé ou un point libre)' + (gl ? ' ; deux doigts pour déplacer le plan' : '') + '.') + '</span>'
         + (n ? '<button type="button" class="vc-b vc-bt" data-a="retirerPoint">' + ico('annuler', 18) + 'Point</button><button type="button" class="vc-b vc-bt" data-a="annulerTrace">' + ico('fermer', 18) + 'Abandonner</button>' + (n >= 2 ? '<button type="button" class="vc-b vc-bt vc-prim" data-a="terminerTrace">' + ico('valider', 18) + 'Terminer</button>' : '') : '');
     }
     else if (o.k === 'pt') h = '<span>Touchez le plan pour poser : <strong>' + esc(T[o.t].lib) + '</strong>' + (T[o.t].role === 'passage' ? ' (posé sur un tracé, il s\'y insère)' : '') + '.</span>';
     else if (o.k === 'tx') h = '<span>Touchez le plan à l\'endroit du texte.</span>';
     aide.innerHTML = h; aide.hidden = !h;
   }
-  aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') annulerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } });
+  aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') annulerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } else if (a === 'relierStop'){ S.relier = null; majAide(); redessiner(); } });
   R.querySelector('.vc-outils').addEventListener('click', function(ev){
     var b = ev.target.closest('.vc-o'); if (!b) return;
     if (b.dataset.outil === 'main'){ choisirOutil({k: 'main'}); return; }
@@ -1786,7 +1960,13 @@ function editeur(racine, opts){
     if (a === 'zoomp' || a === 'zoomm'){ S.vue.s = clamp(S.vue.s * (a === 'zoomp' ? 1.5 : 1 / 1.5), .02, 2000); redessiner(); enregistrerVue(); }
     else if (a === 'ajuster') ajusterVue();
     else if (a === 'rotg' || a === 'rotd' || a === 'nord'){ instantane(); S.doc.rot = a === 'nord' ? 0 : (S.doc.rot || 0) + (a === 'rotg' ? 1 : -1) * Math.PI / 12; S.vue.rot = S.doc.rot; changement({garderPanneau: true}); }
+    else if (a === 'aides'){ S.aides.actives = S.aides.actives === false; majAides(); toast(S.aides.actives ? 'Aides au dessin activées' : 'Aides au dessin désactivées : tracé libre'); }
   });
+  function majAides(){
+    var b = R.querySelector('.vc-aimant'); if (b) b.setAttribute('aria-pressed', S.aides.actives !== false ? 'true' : 'false');
+    if (opts.enregistrerAides) try { opts.enregistrerAides(Object.assign({}, S.aides)); } catch(e){}
+    majAide(); if (S.panneau === 'reglages') majPanneau();
+  }
   function ajusterVue(){
     var b = emprisePlan(S.doc);
     if (b){ var c = depuisPlan((b[0] + b[2]) / 2, (b[1] + b[3]) / 2, S.doc.rot || 0), hw = Math.max(8, (b[2] - b[0]) / 2 + 4), hh = Math.max(8, (b[3] - b[1]) / 2 + 4);
@@ -1832,7 +2012,7 @@ function editeur(racine, opts){
   document.addEventListener('keydown', function(ev){
     if (!R.isConnected || !S.doc || ev.target.closest && ev.target.closest('input,textarea,select')) return;
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z'){ ev.preventDefault(); ev.shiftKey ? refaire() : annuler(); }
-    else if (ev.key === 'Escape'){ if (S.brouillon) annulerTrace(); else if (S.palette) fermerPalette(); else if (S.sel || S.panneau) fermerPanneau(); }
+    else if (ev.key === 'Escape'){ if (S.brouillon) annulerTrace(); else if (S.relier){ S.relier = null; majAide(); redessiner(); } else if (S.palette) fermerPalette(); else if (S.sel || S.panneau) fermerPanneau(); }
     else if (ev.key === 'Enter' && S.brouillon) terminerTrace();
     else if ((ev.key === 'Delete' || ev.key === 'Backspace') && S.sel){ ev.preventDefault(); supprimerSel(); }
   });
@@ -1910,6 +2090,7 @@ function editeur(racine, opts){
         h += champ('Pose', chipsHtml('pose', [['enterre', 'Enterrée'], ['aerien', 'Aérienne'], ['encorbellement', 'En encorbellement']], e.p.pose));
         h += champ('Longueur mesurée (m)', saisie('long', e.p.long, {num: true, ph: 'sur le plan : ' + frNum(Math.round(L * 10) / 10), lab: 'Longueur mesurée'}), 'prioritaire sur la longueur du plan');
         h += champ('Sens d\'écoulement', chipsHtml('sens', [['0', 'Déduit'], ['1', 'Sens du tracé'], ['-1', 'Sens inverse']], String(e.p.sens || 0), {garder: true}), 'la flèche du plan montre le sens retenu');
+        if (e.v.length === 3 && !e.v[1].a) h += champ('Coude', '<button type="button" class="vc-chip" data-a="inverserCoude">Inverser le coude</button>', 'le tronçon passe par l\'autre angle');
         h += champ('Observation', zone('obs', e.p.obs, {ph: 'note libre'}));
       }
       if (S.sel.sommet != null && e.v[S.sel.sommet]){
@@ -2019,6 +2200,10 @@ function editeur(racine, opts){
     h += champ('Gestionnaire par défaut', ['EU', 'EP', 'UN'].map(function(r){ return '<div class="vc-ligne"><span class="vc-g ' + r + '">' + (r === 'UN' ? 'UN' : r) + '</span>' + chipsHtml(r, [['D', 'Départemental'], ['T', 'Territorial']], (d.gest || {})[r] || 'D', {a: 'docGest', garder: true}) + '</div>'; }).join(''), 'quand le collecteur n\'est pas dessiné');
     h += champ('Orientation', '<div class="vc-chips"><span class="vc-val">' + frNum(Math.round(((d.rot || 0) * 180 / Math.PI) * 10) / 10) + '°</span><button type="button" class="vc-chip" data-a="aligner">' + ico('aligner', 18) + 'Aligner sur une voie</button><button type="button" class="vc-chip" data-a="nordHaut">Nord en haut</button></div>');
     h += champ('Étiquettes', '<button type="button" class="vc-b vc-bt" data-a="replacerTout">Replacer toutes les étiquettes</button>');
+    function chAide(a){ return '<button type="button" class="vc-aidech" data-a="aide" data-k="' + a[0] + '" aria-pressed="' + (S.aides[a[0]] !== false) + '"><strong>' + esc(a[1]) + '</strong><small>' + esc(a[2]) + '</small></button>'; }
+    h += champ('Geste de tracé', '<div class="vc-aides">' + AIDES_LIB.filter(function(a){ return a[0] === 'glisser'; }).map(chAide).join('') + '</div>');
+    h += champ('Aides au dessin', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="aide" data-k="actives" aria-pressed="' + (S.aides.actives !== false) + '">' + (S.aides.actives !== false ? 'Activées' : 'Désactivées : tracé libre') + '</button></div>'
+      + '<div class="vc-aides"' + (S.aides.actives === false ? ' hidden' : '') + '>' + AIDES_LIB.filter(function(a){ return a[0] !== 'glisser'; }).map(chAide).join('') + '</div>', 'aussi par le bouton aimant, à droite du plan');
     if (opts.supprimer) h += '<div class="vc-fact"><button type="button" class="vc-b vc-bt vc-danger" data-a="docSuppr">' + ico('poubelle', 18) + 'Supprimer ce croquis</button></div>';
     return h;
   }
@@ -2056,6 +2241,7 @@ function editeur(racine, opts){
     if (a === 'etiqOnOff' && e){ instantane(); if (e.lab && e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); else e.lab = {off: true}; changement(); return; }
     if (a === 'etiqReplacer' && e){ instantane(); e.lab = null; e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); changement(); return; }
     if (a === 'supprimer'){ supprimerSel(); return; }
+    if (a === 'inverserCoude' && e && e.v.length === 3 && !e.v[1].a){ instantane(); var I3 = idx(), A3 = vpos(e.v[0], I3), B3 = vpos(e.v[2], I3); e.v[1] = {x: A3.x + B3.x - e.v[1].x, y: A3.y + B3.y - e.v[1].y, a: null}; changement(); return; }
     if (a === 'sommetSuppr' && e && S.sel.sommet != null){ instantane(); e.v.splice(S.sel.sommet, 1); S.sel.sommet = null; nettoyerJonctions(S.doc); changement(); return; }
     if (a === 'sommetDetacher' && e && S.sel.sommet != null){ instantane(); e.v[S.sel.sommet].a = null; nettoyerJonctions(S.doc); changement(); return; }
     if (a === 'dec' || a === 'decNc'){
@@ -2084,6 +2270,7 @@ function editeur(racine, opts){
     if (a === 'aligner'){ S.aligner = []; fermerPanneau(); choisirOutil({k: 'main'}); S.aligner = []; majAide(); return; }
     if (a === 'nordHaut'){ instantane(); S.doc.rot = 0; changement(); return; }
     if (a === 'replacerTout'){ instantane(); var I = idx(); S.doc.el.forEach(function(x){ if (x.k !== 'tx' && !(x.lab && x.lab.off)) x.lab = null; }); S.doc.el.forEach(function(x){ if (x.k !== 'tx' && x.lab === null && texteEtiquette(x, S.an)) x.lab = placerEtiquette(S.doc, S.an, x, E(), I); }); changement(); toast('Étiquettes replacées'); return; }
+    if (a === 'aide'){ var k = b.dataset.k; S.aides[k] = S.aides[k] === false; majAides(); return; }
     if (a === 'docEchelle'){ instantane(); S.doc.echelle = parseInt(b.dataset.v, 10) || 0; changement(); return; }
     if (a === 'docGest'){ instantane(); S.doc.gest = Object.assign({EU: 'D', EP: 'D', UN: 'D'}, S.doc.gest); S.doc.gest[b.dataset.k] = b.dataset.v; changement(); return; }
     if (a === 'docSuppr'){ demander('Supprimer ce croquis ?', '', function(){ if (opts.supprimer) opts.supprimer(S.doc); }, {confirmer: true, danger: true, ok: 'Supprimer', texte: 'Le croquis sera effacé de cet appareil. Le fond de plan est conservé.'}); return; }
@@ -2166,7 +2353,7 @@ function editeur(racine, opts){
     S.vue.rot = doc.rot || 0;
     analyse(); redim();
     if (doc.vue && isFinite(doc.vue.s)){ S.vue.cx = doc.vue.cx; S.vue.cy = doc.vue.cy; S.vue.s = doc.vue.s; } else ajusterVue();
-    choisirOutil({k: 'main'}); majBarre(); majPanneau(); redessiner();
+    choisirOutil({k: 'main'}); majBarre(); majPanneau(); majAides(); redessiner();
   }
   return {ouvrir: ouvrir, etat: S, redessiner: redessiner, redim: redim, doc: function(){ return S.doc; }, choisirOutil: choisirOutil, toast: toast, enregistrer: enregistrer,
     tap: tap, terminerTrace: terminerTrace, selectionner: selectionner, ouvrirPanneau: ouvrirPanneau, annuler: annuler, refaire: refaire, ajusterVue: ajusterVue, sortie: sortie};
@@ -2269,6 +2456,12 @@ var CSS = [
 '.vc-grand span{display:flex;flex-direction:column}',
 '.vc-grand small{font-weight:500;color:var(--muted,#5C6C78);font-size:13px}',
 '.vc-mode{margin:2px 0 6px}',
+'.vc-aides{display:flex;flex-direction:column;gap:6px;margin-top:8px}',
+'.vc-aidech{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;min-height:48px;padding:7px 12px;border:1px solid var(--line,#C7D1D8);border-radius:12px;background:var(--surface,#fff);color:inherit;font:inherit;text-align:left;cursor:pointer}',
+'.vc-aidech small{color:var(--muted,#5C6C78);font-size:13px;font-weight:500}',
+'.vc-aidech[aria-pressed="true"]{border-color:var(--brand,#0F5C63);background:var(--brand-soft,#D9ECEB)}',
+'.vc-aidech[aria-pressed="true"] strong::before{content:"✓ ";color:var(--brand,#0F5C63)}',
+'.vc-aimant[aria-pressed="false"]{opacity:.55}',
 '.vc-toast{position:absolute;left:50%;top:70px;transform:translate(-50%,-12px);max-width:min(560px,calc(100% - 24px));padding:10px 16px;border-radius:12px;background:#1f2a31;color:#fff;font-size:15px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:9;text-align:center}',
 '.vc-toast.on{opacity:1;transform:translate(-50%,0)}',
 '.vc-modal{position:absolute;inset:0;background:var(--scrim,rgba(9,18,24,.5));display:flex;align-items:center;justify-content:center;z-index:10;padding:16px;-webkit-user-select:text;user-select:text;touch-action:auto}',

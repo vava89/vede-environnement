@@ -263,6 +263,8 @@ function ouvrir(id){
         retour: function(){ fermer(); if (history.state && history.state.vcl) history.back(); },
         supprimer: function(doc){ DB.effacer('croquis', doc.id).then(function(){ fermer(); if (history.state && history.state.vcl) history.back(); toast('Croquis supprimé'); }); },
         telecharger: telecharger,
+        aides: (function(){ try { return JSON.parse(localStorage.getItem('vcl-aides') || '{}'); } catch(e){ return {}; } })(),
+        enregistrerAides: function(a){ try { localStorage.setItem('vcl-aides', JSON.stringify(a)); } catch(e){} },
         get logo(){ return LOGO; }
       });
       ED.ouvrir(d, r[0], r[1]);
