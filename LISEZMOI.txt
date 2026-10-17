@@ -1,4 +1,4 @@
-VÉDÉ Terrain, version installable hors connexion (v1.5.1)
+VÉDÉ Terrain, version installable hors connexion (v1.6.0)
 =====================================================
 
 Ce dossier contient l'application complète. Une fois installée sur la
@@ -13,7 +13,7 @@ MISE EN LIGNE SUR GITHUB PAGES (une seule fois, 15 minutes environ)
    jamais vos données de visite).
 3. Dans le dépôt : Add file > Upload files. Glissez TOUT le contenu de ce
    dossier (index.html, sw.js, manifest.webmanifest et les dossiers lib,
-   fonts, icons), pas le dossier lui-même. Validez avec Commit changes.
+   fonts, icons, croquis), pas le dossier lui-même. Validez avec Commit changes.
 4. Settings > Pages > Build and deployment : Source « GitHub Actions ».
    Le fichier .github/workflows/mise-en-ligne.yml publie le site à chaque
    mise à jour de la branche main.
@@ -42,12 +42,51 @@ INSTALLATION SUR LA TABLETTE
   signale une adresse différente) ; les autres sont conservés tels quels.
   Les exports comportent une dernière colonne « Dossier créé à la main ».
 
+CROQUIS DE TERRAIN (facultatif)
+- Réglages > « Utiliser le croquis de terrain » (coché d'origine). Décoché,
+  l'application fonctionne exactement comme avant ; les croquis déjà
+  dessinés sont gardés.
+- Dans un dossier : « Commencer le croquis ». Choisissez le fond de plan :
+  un plan cadastral DXF déjà chargé dans l'étude, un DXF de la tablette
+  (cadastre.gouv.fr), ou aucun pour l'instant. Le fond reste sur la
+  tablette et sert à tous les dossiers de l'étude.
+- On pose les équipements (WC, évier, descentes…), les regards, la boîte
+  de branchement et les collecteurs, puis on les relie par des tronçons.
+  L'application en déduit où chaque eau se rejette.
+- Les anomalies déduites du dessin (EU vers EP, EP vers EU, fosse, descente
+  non visitable, tampon béton…) rejoignent la liste du dossier, avec les
+  mêmes numéros (A1, A2…) que les bulles du plan : la fiche Préco, le
+  constat et les exports les reprennent comme les autres. Une anomalie
+  « à arbitrer » ou « écartée » sur le croquis n'entre pas dans le
+  dossier. Une anomalie saisie à la main dans le dossier peut être placée
+  sur le plan (« Placer sur le croquis »).
+- Tant qu'on n'y touche pas, une anomalie déduite suit le dessin (texte mis
+  à jour, retirée si le dessin ne la produit plus). Dès qu'on la modifie
+  (texte, photo, localisation), c'est elle qui fait foi : le dessin ne la
+  change plus et ne la retire jamais sans demander. Une anomalie supprimée
+  dans le dossier est écartée sur le croquis.
+- Constat : « Reprendre du croquis » (section Installations privatives)
+  remplit le nombre, le raccordement et les méthodes des installations
+  dessinées, sans remplacer ce qui a été saisi. Ensuite ces valeurs suivent
+  le croquis tant qu'on n'y touche pas. Les écarts entre le croquis et le
+  constat sont rappelés avant la signature. Un constat signé n'est jamais
+  modifié.
+- Aides au dessin (Réglages, ou bouton aimant dans le croquis) : traits
+  parallèles au côté de bâti le plus proche, angles droits, accroche aux
+  coins et façades, fin automatique d'un tronçon sur un objet, tracé en
+  glissant le doigt, outil Relier en L. Chacune se désactive, et toutes
+  ensemble par « Aides activées ».
+- Sorties : plan de l'état des lieux et plan d'avant-projet en PDF, plan
+  DXF pour la DAO (dans le croquis, « Sorties »), « Plan PDF » sur la page
+  du dossier. L'export de l'étude joint le plan PDF dans le dossier.
+
 SAUVEGARDE
 - Effacer les données du navigateur ou désinstaller l'application efface
   aussi les études. Exportez chaque étude régulièrement (menu de l'étude >
   Exporter l'étude complète) : le fichier ZIP contient les fiches, les
-  photos, le tableau récapitulatif et une sauvegarde restaurable sur
-  n'importe quel appareil (accueil > Restaurer une sauvegarde).
+  photos, les plans, le tableau récapitulatif et une sauvegarde
+  restaurable sur n'importe quel appareil (accueil > Restaurer une
+  sauvegarde), croquis et fonds de plan compris.
 
 ENVOI DES CONSTATS PAR MAIL
 - Sans aucun réglage : dans un dossier dont le constat est signé, « Envoyer

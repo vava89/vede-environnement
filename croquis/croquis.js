@@ -4,7 +4,7 @@
    Coordonnées : mètres locaux (coordonnées du fichier moins une origine, multipliées par l'unité), y vers le nord. */
 (function(global){
 'use strict';
-var VC = global.VCroquis = {version: '0.1.0', signature: 'Croquis de terrain, VÉDÉ Terrain (labo)'};
+var VC = global.VCroquis = {version: '0.2.0', signature: 'Croquis de terrain, VÉDÉ Terrain (labo)'};
 
 /* ---------- Outils ---------- */
 function uid(){ return 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -615,7 +615,7 @@ function reglesAnomalies(doc, an){
     var res = an.resPt[id], lr = /^(EU|EP|UN)$/.test(res) ? ' ' + libRes(res) : '', lib = (ty.boite ? 'Boîte de branchement' : 'Regard') + lr, net = res === 'EP' ? 'EP' : 'EU';
     if (o.p.tampon === 'beton'){
       var ep = res === 'EP';
-      ajoute({cle: 'tampon:' + id, objId: id, reseau: net, obs: lib + ' : tampon béton' + (ep ? ' (réserve)' : ''), preco: 'Remplacement du tampon béton par un tampon fonte', nc: !ep, codes: [], cat: 'regard'});
+      ajoute({cle: 'tampon:' + id, objId: id, reseau: net, obs: lib + ' : tampon béton', preco: 'Remplacement du tampon béton par un tampon fonte', nc: !ep, codes: [], cat: 'regard'});
     }
     if (o.p.cunette === 'non' && res !== 'EP') ajoute({cle: 'cunette:' + id, objId: id, reseau: net, obs: lib + ' : sans cunette', preco: 'Création d\'une cunette', nc: true, codes: [], cat: 'regard'});
     if (o.p.acces === 'non') ajoute({cle: 'acces:' + id, objId: id, reseau: net, obs: lib + ' : non accessible', preco: 'Dégagement et mise à niveau du regard pour le rendre visitable', nc: true, codes: [], cat: 'regard'});
@@ -791,10 +791,12 @@ function reconcilier(doc, an, ext, o){
   R.liste.forEach(function(a){
     if (a.creer){
       var inst = ligneDe(a);
-      ops.creer.push({reseau: a.reseau, observation: a.obs, preconisation: a.preco || '', nc: !!a.nc, installation: inst,
-        croquis: {cle: a.cle, objId: a.objId || null, auto: {obs: a.r0.obs, preco: a.r0.preco, reseau: a.r0.reseau, nc: a.r0.nc, installation: inst}}});
+      ops.creer.push({reseau: a.reseau, observation: a.obs, preconisation: a.preco || '', nc: !!a.nc, installation: inst, categorie: a.cat || 'autre',
+        croquis: {cle: a.cle, objId: a.objId || null, codes: (a.codes || []).slice(), auto: {obs: a.r0.obs, preco: a.r0.preco, reseau: a.r0.reseau, nc: a.r0.nc, installation: inst}}});
       return;
     }
+    /* gardée alors que le dessin ne la produit plus : ses codes de préconisation ne valent plus */
+    if (a.orpheline && a.appId && parId[a.appId]){ var ro = parId[a.appId]; if ((ro.croquis.codes || []).length) ops.maj.push({id: ro.id, champs: {croquis: Object.assign({}, ro.croquis, {codes: []})}}); return; }
     var r = a.appId && a.r0 && parId[a.appId]; if (!r) return;
     var au = (r.croquis && r.croquis.auto) || null, ch = {}, nAu = Object.assign({}, au || {}), n = 0;
     function suit(champ, k, val, actuel){ if (au && actuel === au[k] && val !== au[k]){ ch[champ] = val; nAu[k] = val; n++; } }
@@ -805,7 +807,8 @@ function reconcilier(doc, an, ext, o){
       suit('nc', 'nc', a.r0.nc, r.nc == null ? au.nc : r.nc);
       suit('installation', 'installation', ligneDe(a), r.installation || '');
     }
-    if (n || (r.croquis.objId || null) !== (a.objId || null)) ops.maj.push({id: r.id, champs: Object.assign(ch, {croquis: Object.assign({}, r.croquis, {objId: a.objId || null}, au ? {auto: nAu} : {})})});
+    var codes = (a.codes || []).slice(), codesChange = JSON.stringify(r.croquis.codes || []) !== JSON.stringify(codes);
+    if (n || codesChange || (r.croquis.objId || null) !== (a.objId || null)) ops.maj.push({id: r.id, champs: Object.assign(ch, {croquis: Object.assign({}, r.croquis, {objId: a.objId || null, codes: codes}, au ? {auto: nAu} : {})})});
   });
   Object.keys(R.retirer).forEach(function(id){
     var r = R.retirer[id], c = lienCle(r), au = (r.croquis && r.croquis.auto) || {};
@@ -1509,7 +1512,7 @@ function editeur(racine, opts){
   injecterStyle();
   /* mode intégré : les anomalies du dossier de l'application (opts.anomalies) font référence */
   var INTEG = typeof opts.anomalies === 'function';
-  function ext(){ if (!INTEG) return null; try { return opts.anomalies() || []; } catch(e){ return []; } }
+  function ext(){ if (!INTEG) return null; try { var r = opts.anomalies(); return Array.isArray(r) ? r : null; } catch(e){ return null; } }
   var S = {doc: null, fond: null, reseau: null, an: null, liste: [], vue: new Vue(), dpr: 1, outil: {k: 'main'}, sel: null, brouillon: null, zones: [], ptr: {}, geste: null,
     undo: [], redo: [], panneau: null, mode: 'edl', aff: {fond: true, reseau: true, etiquettes: true, attenuer: false}, dessinDemande: false, dernierTap: null, accrocheVue: null, aligner: null, palette: null,
     aides: Object.assign({}, AIDES_DEFAUT, opts.aides || {}), apercu: null, relier: null};
@@ -1556,9 +1559,9 @@ function editeur(racine, opts){
   function analyse(){ S.an = analyser(S.doc, S.mode); S.liste = anomaliesDoc(S.doc, S.an, ext()); }
   /* mode intégré : le dossier suit le croquis (création, mise à jour, retrait des anomalies reliées) */
   function synchroniser(forcer){
-    if (!INTEG || !opts.anomaliesMaj || !S.doc) return;
+    var recs = ext(); if (!INTEG || !opts.anomaliesMaj || !S.doc || !recs) return;
     var ops;
-    try { ops = reconcilier(S.doc, S.mode === 'edl' ? S.an : null, ext(), {forcer: forcer}); } catch(e){ return; }
+    try { ops = reconcilier(S.doc, S.mode === 'edl' ? S.an : null, recs, {forcer: forcer}); } catch(e){ return; }
     if (ops.creer.length || ops.maj.length || ops.retirer.length){ majDossier(ops); S.liste = anomaliesDoc(S.doc, S.an, ext()); }
   }
   function majDossier(ops){ try { opts.anomaliesMaj({creer: ops.creer || [], maj: ops.maj || [], retirer: ops.retirer || []}); } catch(e){ toast('Liste du dossier non mise à jour : ' + (e && e.message || e), 5000); } }
@@ -2486,7 +2489,7 @@ function editeur(racine, opts){
     if (a === 'aide'){ var k = b.dataset.k; S.aides[k] = S.aides[k] === false; majAides(); return; }
     if (a === 'docEchelle'){ instantane(); S.doc.echelle = parseInt(b.dataset.v, 10) || 0; changement(); return; }
     if (a === 'docGest'){ instantane(); S.doc.gest = Object.assign({EU: 'D', EP: 'D', UN: 'D'}, S.doc.gest); S.doc.gest[b.dataset.k] = b.dataset.v; changement(); return; }
-    if (a === 'docSuppr'){ demander('Supprimer ce croquis ?', '', function(){ if (opts.supprimer) opts.supprimer(S.doc); }, {confirmer: true, danger: true, ok: 'Supprimer', texte: 'Le croquis sera effacé de cet appareil. Le fond de plan est conservé.'}); return; }
+    if (a === 'docSuppr'){ demander('Supprimer ce croquis ?', '', function(){ if (opts.supprimer) opts.supprimer(S.doc); }, {confirmer: true, danger: true, ok: 'Supprimer', texte: opts.texteSupprimer || 'Le croquis sera effacé de cet appareil. Le fond de plan est conservé.'}); return; }
     if (a === 'pdfEdl' || a === 'pdfAvp' || a === 'dxf' || a === 'json'){ sortie(a); return; }
     if (a === 'resultat'){ var w = {x: parseFloat(b.dataset.x), y: parseFloat(b.dataset.y)}; S.vue.cx = w.x; S.vue.cy = w.y; if (S.vue.s < 30) S.vue.s = 45; redessiner(); enregistrerVue(); return; }
   });
@@ -2532,7 +2535,7 @@ function editeur(racine, opts){
       changement(); if (type !== 'reseau' && !S.doc.el.length) ajusterVue();
       var ign = Object.keys(fo.stats.ignores || {}).filter(function(k){ return !/^(POINT|VIEWPORT|ATTDEF|SEQEND)$/.test(k); });
       toast((type === 'reseau' ? 'Réseaux chargés : ' : 'Fond chargé : ') + fo.stats.lignes + ' traits, ' + fo.stats.textes + ' textes' + (ign.length ? ' (non affiché : ' + ign.join(', ') + ')' : ''), 5000);
-    }).catch(function(err){ toast('DXF illisible : ' + (err && err.message ? err.message : err), 7000); });
+    }).catch(function(err){ toast('Chargement impossible : ' + (err && err.message ? err.message : err), 7000); });
   }
   /* Calage : un croquis sans origine prend celle du fond ; s'il contient déjà des objets, il est posé au centre du fond */
   function caler(fo){
@@ -2588,7 +2591,7 @@ function editeur(racine, opts){
   }
   return {ouvrir: ouvrir, etat: S, redessiner: redessiner, redim: redim, doc: function(){ return S.doc; }, choisirOutil: choisirOutil, toast: toast, enregistrer: enregistrer,
     tap: tap, terminerTrace: terminerTrace, selectionner: selectionner, ouvrirPanneau: ouvrirPanneau, annuler: annuler, refaire: refaire, ajusterVue: ajusterVue, sortie: sortie,
-    fermerNiveau: fermerNiveau, synchroniser: function(){ if (S.doc){ analyse(); synchroniser(); majBarre(); majPanneau(); redessiner(); } }, liste: function(){ return S.liste; }};
+    fermerNiveau: fermerNiveau, placerAnomalie: function(id){ if (!INTEG || !recDe(id)) return; fermerPanneau(); choisirOutil({k: 'main'}); S.placer = id; majAide(); }, synchroniser: function(){ if (S.doc){ analyse(); synchroniser(); majBarre(); majPanneau(); redessiner(); } }, liste: function(){ return S.liste; }};
 }
 VC.editeur = editeur;
 function exportJson(doc){ var d = copie(doc); d.exporte = nowISO(); d.app = 'VÉDÉ Terrain, labo du croquis ' + VC.version; return d; }
