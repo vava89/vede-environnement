@@ -44,8 +44,8 @@ INSTALLATION SUR LA TABLETTE
 
 CROQUIS DE TERRAIN (facultatif)
 - Réglages > « Utiliser le croquis de terrain » (coché d'origine). Décoché,
-  l'application fonctionne exactement comme avant ; les croquis déjà
-  dessinés sont gardés.
+  l'application fonctionne comme avant (pages, constat, exports) ; les
+  croquis déjà dessinés restent sur la tablette et dans les sauvegardes.
 - Dans un dossier : « Commencer le croquis ». Choisissez le fond de plan :
   un plan cadastral DXF déjà chargé dans l'étude, un DXF de la tablette
   (cadastre.gouv.fr), ou aucun pour l'instant. Le fond reste sur la
@@ -65,6 +65,9 @@ CROQUIS DE TERRAIN (facultatif)
   (texte, photo, localisation), c'est elle qui fait foi : le dessin ne la
   change plus et ne la retire jamais sans demander. Une anomalie supprimée
   dans le dossier est écartée sur le croquis.
+- Supprimer un croquis (Réglages du croquis) : on choisit de retirer aussi
+  les anomalies qu'il a créées et que personne n'a modifiées, ou de les
+  garder dans la liste du dossier, sans lien avec un plan.
 - Constat : « Reprendre du croquis » (section Installations privatives)
   remplit le nombre, le raccordement et les méthodes des installations
   dessinées, sans remplacer ce qui a été saisi. Ensuite ces valeurs suivent

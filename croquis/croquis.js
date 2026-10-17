@@ -8,6 +8,8 @@ var VC = global.VCroquis = {version: '0.2.0', signature: 'Croquis de terrain, V�
 
 /* ---------- Outils ---------- */
 function uid(){ return 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+/* angle ramené dans ]-π, π] sans boucle (une valeur démesurée ne fige rien) */
+function normAngle(a){ a = a % (2 * Math.PI); if (a > Math.PI) a -= 2 * Math.PI; else if (a <= -Math.PI) a += 2 * Math.PI; return a; }
 function coupe(s, n){ s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
 function clamp(x, a, b){ return x < a ? a : x > b ? b : x; }
@@ -231,12 +233,12 @@ function lireDxf(input){
       }
       case 'ARC': case 'CIRCLE': {
         var r = gn(g, 40, 0), cx = gn(g, 10, 0), cy = gn(g, 20, 0), a0 = 0, a1 = 2 * Math.PI;
-        if (t === 'ARC'){ a0 = gn(g, 50, 0) * Math.PI / 180; a1 = gn(g, 51, 360) * Math.PI / 180; while (a1 <= a0) a1 += 2 * Math.PI; }
+        if (t === 'ARC'){ a0 = (gn(g, 50, 0) % 360) * Math.PI / 180; a1 = (gn(g, 51, 360) % 360) * Math.PI / 180; if (!isFinite(a0) || !isFinite(a1)){ a0 = 0; a1 = 2 * Math.PI; } while (a1 <= a0) a1 += 2 * Math.PI; }
         poly(arcPts(cx, cy, r, a0, a1, []), t === 'CIRCLE', lay, col, ocs(g, M)); break;
       }
       case 'ELLIPSE': {
         var ecx = gn(g, 10, 0), ecy = gn(g, 20, 0), mx = gn(g, 11, 1), my = gn(g, 21, 0), ra = gn(g, 40, 1), p0 = gn(g, 41, 0), p1 = gn(g, 42, 2 * Math.PI);
-        while (p1 <= p0) p1 += 2 * Math.PI;
+        if (!isFinite(p0) || !isFinite(p1) || Math.abs(p1 - p0) > 4 * Math.PI){ p0 = isFinite(p0) ? p0 % (2 * Math.PI) : 0; p1 = isFinite(p1) ? p1 % (2 * Math.PI) : 2 * Math.PI; } while (p1 <= p0) p1 += 2 * Math.PI;
         var ma = Math.hypot(mx, my), ang = Math.atan2(my, mx), mi = ma * ra * (gn(g, 230, 1) < 0 ? -1 : 1), nseg = Math.max(8, Math.min(256, Math.ceil((p1 - p0) / (Math.PI / 32)))); pts = [];
         for (k = 0; k <= nseg; k++){ var tt = p0 + (p1 - p0) * k / nseg, ex = ma * Math.cos(tt), ey = mi * Math.sin(tt); pts.push(ecx + ex * Math.cos(ang) - ey * Math.sin(ang), ecy + ex * Math.sin(ang) + ey * Math.cos(ang)); }
         poly(pts, Math.abs(p1 - p0 - 2 * Math.PI) < 1e-6, lay, col, M); break;
@@ -326,19 +328,24 @@ function preparerFond(brut, nom, type){
   var nomsCalques = brut.calques.map(function(c){ return c.nom; }), idx = {};
   nomsCalques.forEach(function(nm, j){ idx[nm] = j; });
   var calques = brut.calques.map(function(c){ return {nom: c.nom, aci: c.aci, rgb: c.rgb, vis: c.visible !== false, nL: 0, nT: 0, style: styleCalque(c.nom)}; });
-  var nPts = 0; brut.lignes.forEach(function(l){ nPts += l.pts.length / 2; });
+  /* à plus de 10 000 km de l'origine (ou infini en simple précision) : coordonnée aberrante, le trait ou le texte est écarté */
+  var LIM = 1e7, dansLim = function(x, y){ var X = Math.fround((x - ox) * u), Y = Math.fround((y - oy) * u); return Math.abs(X) <= LIM && Math.abs(Y) <= LIM; };
+  var lignes = brut.lignes.filter(function(l){ for (var q = 0; q < l.pts.length; q += 2) if (!dansLim(l.pts[q], l.pts[q + 1])) return false; return true; });
+  var textes = brut.textes.filter(function(t){ return dansLim(t.x, t.y); });
+  var nPts = 0; lignes.forEach(function(l){ nPts += l.pts.length / 2; });
   var xy = new Float32Array(nPts * 2), L = [], d = 0, x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  brut.lignes.forEach(function(l){
+  lignes.forEach(function(l){
     var c = idx[l.lay]; calques[c].nL++;
     var rec = {c: c, aci: l.aci, rgb: l.rgb, d: d, n: l.pts.length / 2, f: l.ferme ? 1 : 0};
     for (k = 0; k < l.pts.length; k += 2){ var X = (l.pts[k] - ox) * u, Y = (l.pts[k + 1] - oy) * u; xy[2 * d] = X; xy[2 * d + 1] = Y; d++; if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y; }
     L.push(rec);
   });
-  var T = brut.textes.map(function(t){
+  var T = textes.map(function(t){
     var c = idx[t.lay]; calques[c].nT++;
     var X = (t.x - ox) * u, Y = (t.y - oy) * u; if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y;
     return {c: c, aci: t.aci, rgb: t.rgb, x: X, y: Y, h: t.h * u, r: t.r, t: t.t, ha: t.ha, va: t.va, wf: t.wf};
   });
+  if (!L.length && !T.length) throw new Error('Ce DXF ne contient aucun trait ni texte lisible dans l\'espace objet.');
   var lx = xs.map(function(x){ return (x - ox) * u; }), ly = ys.map(function(y){ return (y - oy) * u; });
   var dense = [percentile(lx, .02), percentile(ly, .02), percentile(lx, .98), percentile(ly, .98)];
   if (!(dense[2] > dense[0])){ dense[0] -= 25; dense[2] += 25; } if (!(dense[3] > dense[1])){ dense[1] -= 25; dense[3] += 25; }
@@ -642,7 +649,7 @@ function controles(doc, an){
       }
       if (o.t === 'descente'){
         if (!o.p.visitable) c(id, 'manque', 'Descente EP : visitable ou non à indiquer', 'visit');
-        if (!o.p.cote) c(id, 'info', 'Descente EP : façade avant ou arrière à indiquer', 'cote');
+        if (!o.p.cote) c(id, 'manque', 'Descente EP : façade avant ou arrière à indiquer pour le constat', 'cote');
       }
     }
     if (ty.regard && o.t !== 'regard_pub' && !o.p.tampon) c(id, 'info', lib + ' : tampon à indiquer', 'tampon');
@@ -664,8 +671,8 @@ function controles(doc, an){
 
 /* ---------- Anomalies retenues : déduites (avec la décision du technicien) et ajoutées à la main ; numérotation stable ----------
    ext : anomalies du dossier de l'application (mode intégré, voir anomaliesInteg) */
-function anomaliesDoc(doc, an, ext){
-  if (ext) return anomaliesInteg(doc, an, ext);
+function anomaliesDoc(doc, an, ext, o){
+  if (ext) return anomaliesInteg(doc, an, ext, null, !!(o && o.telQuel));
   var liste = [];
   an.anomalies.forEach(function(a){
     var d = doc.decisions[a.cle] || {};
@@ -705,9 +712,9 @@ VC.ncAnomalie = function(r){
   if (r.reseau !== 'EP') return true;
   return !/\btampons?\b[^.;]*\bb[ée]ton\b/i.test(String(r.observation || ''));
 };
-function lienCle(r){ return (r && r.croquis && r.croquis.cle) || ''; }
+function lienCle(r){ var c = r && r.croquis && r.croquis.cle; return typeof c === 'string' ? c : ''; }
 function recIntact(r){
-  var au = r && r.croquis && r.croquis.auto; if (!au) return false;
+  var au = r && r.croquis && r.croquis.auto; if (!au || r.croquis.garde) return false;
   return !(r.photos || []).length && !r.brouillon && (r.observation || '') === (au.obs || '') && (r.preconisation || '') === (au.preco || '') && r.reseau === au.reseau
     && !String(r.localisation || '').trim() && (r.installation || '') === (au.installation || '') && (r.nc == null || r.nc === au.nc);
 }
@@ -717,34 +724,42 @@ function reglesInteg(doc, an, idx){
   var out = an.anomalies.slice();
   (doc.anomManu || []).forEach(function(m){
     if (m.objId && !an.objs[m.objId] && !idx[m.objId]) return;
-    out.push({cle: m.id, objId: m.objId || null, reseau: m.reseau === 'EP' ? 'EP' : 'EU', obs: m.obs || '', preco: m.preco || '', nc: m.nc !== false, auto: false, manu: true, stManu: m.st, cat: 'autre', codes: []});
+    out.push({cle: m.id, objId: m.objId || null, reseau: m.reseau === 'EP' ? 'EP' : 'EU', obs: m.obs || '', preco: m.preco || '', nc: m.nc !== false, auto: false, manu: true, stManu: m.st, cat: 'autre', codes: [], bulle: m.bulle || null});
   });
   return out;
 }
 /* État voulu sur l'état des lieux : liste numérotée comme le dossier, enregistrements à retirer */
-function integEdl(doc, an, ext, forcer){
+function integEdl(doc, an, ext, forcer, telQuel){
   forcer = forcer || {};
-  var idx = indexDoc(doc), regles = reglesInteg(doc, an, idx), parRegle = {}, parCle = {}, liste = [], retirer = {};
+  var idx = indexDoc(doc), regles = reglesInteg(doc, an, idx), parRegle = {}, parCle = {}, liste = [], retirer = {}, sauv = doc.sauvegardes || {};
   regles.forEach(function(a){ parRegle[a.cle] = a; });
   ext.forEach(function(r){ var c = lienCle(r); if (c && parRegle[c] && !parCle[c]) parCle[c] = r; });
   regles.forEach(function(a){
     var d = doc.decisions[a.cle] || {}, st = d.st || a.stManu || (a.arbitrer ? 'arbitrer' : 'retenue'), r = parCle[a.cle];
-    var it = Object.assign({}, a, {st: st, bulle: d.bulle || null, r0: {obs: a.obs, preco: a.preco || '', reseau: a.reseau, nc: !!a.nc}});
+    var it = Object.assign({}, a, {st: st, bulle: d.bulle || a.bulle || null, r0: {obs: a.obs, preco: a.preco || '', reseau: a.reseau, nc: !!a.nc}});
     delete it.stManu;
     if (r && st !== 'retenue'){
-      /* un enregistrement qui a des photos n'est retiré qu'après confirmation (forcer) */
-      if ((r.photos || []).length && !forcer[r.id]) it.st = st = 'retenue';
+      /* un enregistrement qui a des photos n'est retiré qu'après confirmation (forcer) ; hors de l'éditeur, rien n'est retiré */
+      if (telQuel || ((r.photos || []).length && !forcer[r.id])) it.st = st = 'retenue';
       else { retirer[r.id] = r; r = null; }
     }
     if (r) Object.assign(it, depuisRec(r));
-    else { it.obs = d.obs || a.obs; it.preco = d.preco != null && d.preco !== '' ? d.preco : a.preco; it.nc = d.nc != null ? d.nc : a.nc; it.creer = st === 'retenue'; }
+    else {
+      /* une anomalie retirée du dossier reprend sa saisie (texte, localisation, ligne, nature…) quand on la retient de nouveau */
+      var sv = sauv[a.cle] || {};
+      it.obs = sv.observation != null ? sv.observation : d.obs || a.obs; it.preco = sv.preconisation != null ? sv.preconisation : d.preco != null && d.preco !== '' ? d.preco : a.preco;
+      it.nc = sv.nc != null ? sv.nc : d.nc != null ? d.nc : a.nc; if (sv.reseau) it.reseau = sv.reseau;
+      /* hors de l'éditeur (plans PDF) : seulement ce qui est dans le dossier */
+      if (telQuel && st === 'retenue') it.st = st = 'horsdossier';
+      it.creer = st === 'retenue';
+    }
     liste.push(it);
   });
   ext.forEach(function(r){
     var c = lienCle(r);
     if (c && parCle[c] === r) return;
     /* le dessin ne produit plus cette anomalie : retirée si personne n'y a touché, sinon gardée et signalée */
-    if (c && !parRegle[c] && recIntact(r)){ retirer[r.id] = r; return; }
+    if (c && !parRegle[c] && recIntact(r) && !telQuel){ retirer[r.id] = r; return; }
     var oid = r.croquis && r.croquis.objId, d = doc.decisions['app:' + r.id] || {};
     liste.push(Object.assign({cle: 'app:' + r.id, auto: false, dossier: true, objId: oid && idx[oid] ? oid : null, st: 'retenue', bulle: d.bulle || null, orpheline: !!c, cat: 'autre', codes: []}, depuisRec(r)));
   });
@@ -757,15 +772,16 @@ function integEdl(doc, an, ext, forcer){
   liste.sort(function(a, b){ return (a.num || 1e9) - (b.num || 1e9) || ordre.indexOf(a.cle) - ordre.indexOf(b.cle); });
   return {liste: liste, retirer: retirer, regles: parRegle};
 }
-function anomaliesInteg(doc, an, ext, forcer){
-  if (!an.ref) return integEdl(doc, an, ext, forcer).liste;
+function anomaliesInteg(doc, an, ext, forcer, telQuel){
+  if (!an.ref) return integEdl(doc, an, ext, forcer, telQuel).liste;
   /* après l'avant-projet : numéros et textes de l'état des lieux, anomalies que le projet laisse */
-  var base = integEdl(doc, an.ref, ext, forcer).liste, parCle = {}, k = 0, liste = [];
+  var base = integEdl(doc, an.ref, ext, forcer, telQuel).liste, parCle = {}, k = 0, liste = [];
   base.forEach(function(a){ parCle[a.cle] = a; if (a.num) k = Math.max(k, a.num); });
   an.anomalies.forEach(function(a){
     var b = parCle[a.cle], d = doc.decisions[a.cle] || {}, st = b ? b.st : d.st || (a.arbitrer ? 'arbitrer' : 'retenue'), it = Object.assign({}, a, {st: st, bulle: d.bulle || null});
     if (b) ['appId', 'obs', 'preco', 'nc', 'reseau', 'photos', 'brouillon', 'loc', 'num'].forEach(function(f){ if (b[f] !== undefined) it[f] = b[f]; });
-    else { it.obs = d.obs || a.obs; it.preco = d.preco != null && d.preco !== '' ? d.preco : a.preco; it.nc = d.nc != null ? d.nc : a.nc; it.num = st === 'retenue' ? ++k : null; }
+    /* produite par le seul projet : contrôle de l'avant-projet, hors du dossier, sans numéro du dossier */
+    else { it.obs = d.obs || a.obs; it.preco = d.preco != null && d.preco !== '' ? d.preco : a.preco; it.nc = d.nc != null ? d.nc : a.nc; it.projet = true; it.num = null; }
     if (st !== 'retenue') it.num = null;
     liste.push(it);
   });
@@ -788,15 +804,31 @@ function reconcilier(doc, an, ext, o){
     if (!lignes){ lignes = {}; constatDeduit(doc, an).rows.forEach(function(r){ if (r.std) r.objets.forEach(function(id){ lignes[id] = r.id; }); }); }
     return lignes[a.objId] || '';
   }
+  var idxD = indexDoc(doc), sauv = doc.sauvegardes || {};
   R.liste.forEach(function(a){
     if (a.creer){
-      var inst = ligneDe(a);
-      ops.creer.push({reseau: a.reseau, observation: a.obs, preconisation: a.preco || '', nc: !!a.nc, installation: inst, categorie: a.cat || 'autre',
-        croquis: {cle: a.cle, objId: a.objId || null, codes: (a.codes || []).slice(), auto: {obs: a.r0.obs, preco: a.r0.preco, reseau: a.r0.reseau, nc: a.r0.nc, installation: inst}}});
+      var inst = ligneDe(a), sv = sauv[a.cle], c = {reseau: a.reseau, observation: a.obs, preconisation: a.preco || '', nc: !!a.nc, installation: inst, categorie: a.cat || 'autre',
+        croquis: {cle: a.cle, objId: a.objId || null, codes: (a.codes || []).slice(), auto: {obs: a.r0.obs, preco: a.r0.preco, reseau: a.r0.reseau, nc: a.r0.nc, installation: inst}}};
+      if (sv){
+        /* retenue de nouveau (ou retrait annulé) : l'anomalie revient telle qu'elle était dans le dossier */
+        ['id', 'createdAt', 'localisation', 'installation', 'photoNonRequise', 'categorie'].forEach(function(k){ if (sv[k] != null) c[k] = sv[k]; });
+        if (sv.nc !== undefined) c.nc = sv.nc;
+        if (sv.auto) c.croquis.auto = sv.auto;
+        if (sv.garde) c.croquis.garde = true;
+        delete sauv[a.cle]; ops.doc = true;
+      }
+      ops.creer.push(c);
       return;
     }
-    /* gardée alors que le dessin ne la produit plus : ses codes de préconisation ne valent plus */
-    if (a.orpheline && a.appId && parId[a.appId]){ var ro = parId[a.appId]; if ((ro.croquis.codes || []).length) ops.maj.push({id: ro.id, champs: {croquis: Object.assign({}, ro.croquis, {codes: []})}}); return; }
+    /* gardée alors que le dessin ne la produit plus : marquée (jamais retirée d'office), sans codes de préconisation, sans objet effacé */
+    if (a.orpheline && a.appId && parId[a.appId]){
+      var ro = parId[a.appId], cr = Object.assign({}, ro.croquis), chg = false;
+      if ((cr.codes || []).length){ cr.codes = []; chg = true; }
+      if (!cr.garde){ cr.garde = true; chg = true; }
+      if (cr.objId && !idxD[cr.objId]){ cr.objId = null; chg = true; }
+      if (chg) ops.maj.push({id: ro.id, champs: {croquis: cr}});
+      return;
+    }
     var r = a.appId && a.r0 && parId[a.appId]; if (!r) return;
     var au = (r.croquis && r.croquis.auto) || null, ch = {}, nAu = Object.assign({}, au || {}), n = 0;
     function suit(champ, k, val, actuel){ if (au && actuel === au[k] && val !== au[k]){ ch[champ] = val; nAu[k] = val; n++; } }
@@ -804,21 +836,22 @@ function reconcilier(doc, an, ext, o){
       suit('observation', 'obs', a.r0.obs, r.observation || '');
       suit('preconisation', 'preco', a.r0.preco, r.preconisation || '');
       suit('reseau', 'reseau', a.r0.reseau, r.reseau);
-      suit('nc', 'nc', a.r0.nc, r.nc == null ? au.nc : r.nc);
+      /* nature laissée à la règle de l'application (r.nc absent) : elle suit le réseau et le texte, rien à écrire */
+      if (r.nc != null) suit('nc', 'nc', a.r0.nc, r.nc); else if (au.nc !== a.r0.nc){ nAu.nc = a.r0.nc; n++; }
       suit('installation', 'installation', ligneDe(a), r.installation || '');
     }
     var codes = (a.codes || []).slice(), codesChange = JSON.stringify(r.croquis.codes || []) !== JSON.stringify(codes);
     if (n || codesChange || (r.croquis.objId || null) !== (a.objId || null)) ops.maj.push({id: r.id, champs: Object.assign(ch, {croquis: Object.assign({}, r.croquis, {objId: a.objId || null, codes: codes}, au ? {auto: nAu} : {})})});
   });
   Object.keys(R.retirer).forEach(function(id){
-    var r = R.retirer[id], c = lienCle(r), au = (r.croquis && r.croquis.auto) || {};
+    var r = R.retirer[id], c = lienCle(r);
     ops.retirer.push(id);
-    if (c && R.regles[c]){
-      var d = {};
-      if ((r.observation || '') !== (au.obs || '')) d.obs = r.observation || '';
-      if ((r.preconisation || '') !== (au.preco || '')) d.preco = r.preconisation || '';
-      if (r.nc != null && r.nc !== au.nc) d.nc = r.nc;
-      if (Object.keys(d).length){ doc.decisions[c] = Object.assign(doc.decisions[c] || {}, d); ops.doc = true; }
+    /* copie de l'anomalie retirée, hors de l'annulation du croquis : la retenir de nouveau, ou annuler, la rend telle quelle */
+    if (c){
+      doc.sauvegardes = doc.sauvegardes || {};
+      doc.sauvegardes[c] = {id: r.id, createdAt: r.createdAt, observation: r.observation || '', preconisation: r.preconisation || '', localisation: r.localisation || '', installation: r.installation || '',
+        reseau: r.reseau === 'EP' ? 'EP' : 'EU', nc: r.nc, photoNonRequise: !!r.photoNonRequise, categorie: r.categorie || '', auto: r.croquis && r.croquis.auto ? Object.assign({}, r.croquis.auto) : null, garde: !!(r.croquis && r.croquis.garde)};
+      ops.doc = true;
     }
   });
   return ops;
@@ -864,20 +897,23 @@ function regroupes(objs){
   var n = {}; objs.forEach(function(_, i){ n[f(i)] = true; }); return Object.keys(n).length;
 }
 function constatDeduit(doc, an){
-  var rows = ROWS_STD.map(function(s){ return {id: s[0], groupe: s[1], label: s[2], std: true, nb: 0, codes: [], libs: [], oks: [], meth: [], objets: []}; }), autres = {}, recup = {};
+  var rows = ROWS_STD.map(function(s){ return {id: s[0], groupe: s[1], label: s[2], std: true, nb: 0, codes: [], libs: [], oks: [], meth: [], objets: [], types: []}; }), autres = {}, recup = {}, sansCote = [];
   function ligne(o){
     var ty = T[o.t];
-    if (ty.row === 'gout') return rows[o.p.cote === 'arriere' ? 7 : 6];
+    /* descente sans façade indiquée : ni avant ni arrière (le contrôle la demande) */
+    if (ty.row === 'gout') return o.p.cote === 'arriere' ? rows[7] : o.p.cote === 'avant' ? rows[6] : null;
     if (ty.row){ for (var i = 0; i < rows.length; i++) if (rows[i].id === ty.row) return rows[i]; }
     var lab = ty.autre || ty.lib, k = 'autre:' + lab;
-    if (!autres[k]){ autres[k] = {id: k, groupe: ty.nat, label: lab, std: false, nb: 0, codes: [], libs: [], oks: [], meth: [], objets: []}; rows.push(autres[k]); }
+    if (!autres[k]){ autres[k] = {id: k, groupe: ty.nat, label: lab, std: false, nb: 0, codes: [], libs: [], oks: [], meth: [], objets: [], types: []}; rows.push(autres[k]); }
     return autres[k];
   }
   Object.keys(an.resObj).forEach(function(id){
-    var o = an.objs[id], row = ligne(o), ri = raccInfo(an.resObj[id], row.groupe);
+    var o = an.objs[id], row = ligne(o), ri = raccInfo(an.resObj[id], row ? row.groupe : T[o.t].nat || 'EP');
+    if (ri.puisard) recup.puisard = true;
+    if (!row){ sansCote.push(id); return; }
     row.objets.push(id); row.codes.push(ri.code); row.oks.push(ri.ok);
     if (ri.lib && row.libs.indexOf(ri.lib) < 0) row.libs.push(ri.lib);
-    if (ri.puisard) recup.puisard = true;
+    if (row.types.indexOf(T[o.t].lib) < 0) row.types.push(T[o.t].lib);
     (o.p.meth || []).forEach(function(m){ if (row.meth.indexOf(m) < 0) row.meth.push(m); });
   });
   rows.forEach(function(r){
@@ -889,7 +925,8 @@ function constatDeduit(doc, an){
     r.meth.sort(function(a, b){ return METH.map(function(m){ return m[0]; }).indexOf(a) - METH.map(function(m){ return m[0]; }).indexOf(b); });
   });
   var meth = {}; rows.forEach(function(r){ r.meth.forEach(function(m){ meth[m] = true; }); });
-  return {rows: rows, methodes: meth, epRecup: recup};
+  sansCote.forEach(function(id){ (an.objs[id].p.meth || []).forEach(function(m){ meth[m] = true; }); });
+  return {rows: rows, methodes: meth, epRecup: recup, sansCote: sansCote};
 }
 VC.constatDeduit = constatDeduit; VC.RACC_LIB = RACC_LIB;
 
@@ -1110,7 +1147,7 @@ function texteMonde(ctx, t, X, Y, px, vue, police, col, st){
   var cy = t.va === 3 ? -hT / 2 : t.va === 2 ? 0 : t.va === 1 ? hT / 2 : px * .36 - lh * (lignes.length - 1) / 2;
   var ca = Math.cos(ang), sa = Math.sin(ang);
   var sx = p.x + cx * ca - cy * sa, sy = p.y - (cx * sa + cy * ca);
-  var a = -ang; while (a > Math.PI) a -= 2 * Math.PI; while (a <= -Math.PI) a += 2 * Math.PI;
+  var a = normAngle(-ang);
   if (a > Math.PI / 2 + .02) a -= Math.PI; else if (a < -Math.PI / 2 - .02) a += Math.PI;
   ctx.save(); ctx.translate(sx, sy); ctx.rotate(a); if (t.wf && t.wf !== 1) ctx.scale(t.wf, 1);
   ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1189,7 +1226,7 @@ function hachures(ctx, pts, pas, long){
   /* tracé « à supprimer » : petits traits en travers, à pas régulier */
   var reste = pas / 2;
   for (var i = 1; i < pts.length; i++){
-    var a = pts[i - 1], b = pts[i], L = Math.hypot(b.x - a.x, b.y - a.y); if (!L) continue;
+    var a = pts[i - 1], b = pts[i], L = Math.hypot(b.x - a.x, b.y - a.y); if (!L || !isFinite(L) || L / pas > 20000) continue;
     var ux = (b.x - a.x) / L, uy = (b.y - a.y) / L, d = reste;
     while (d <= L){ var x = a.x + ux * d, y = a.y + uy * d; ctx.moveTo(x - (uy - ux * .6) * long / 2, y + (ux + uy * .6) * long / 2); ctx.lineTo(x + (uy - ux * .6) * long / 2, y - (ux + uy * .6) * long / 2); d += pas; }
     reste = d - L;
@@ -1681,45 +1718,55 @@ function editeur(racine, opts){
   /* --- aides au dessin : côtés du bâti (fond cadastral et traits de complément), en mètres locaux --- */
   /* le tracé au glissé est un geste, pas un automatisme : l'aimant ne le coupe pas */
   function aideOn(k){ if (k === 'glisser') return S.aides.glisser !== false; return S.aides.actives !== false && S.aides[k] !== false; }
-  function normAng(a){ while (a > Math.PI) a -= 2 * Math.PI; while (a <= -Math.PI) a += 2 * Math.PI; return a; }
+  function normAng(a){ return normAngle(a); }
   function aretesFond(){
-    var f = S.fond, off = offFond(f), cle = f ? f.id + ':' + off.x + ':' + off.y : '-', c = S.aretes;
+    /* fond masqué ou calque décoché : ses côtés ne guident plus le dessin */
+    var f = S.aff.fond ? S.fond : null, off = offFond(f), cle = f ? f.id + ':' + off.x + ':' + off.y + ':' + f.calques.map(function(k){ return k.vis ? 1 : 0; }).join('') : '-', c = S.aretes;
     if (c && c.cle === cle) return c;
     var segs = [], TU = 8, g = {};
     if (f) f.L.forEach(function(l){
-      var st = f.calques[l.c].style; if (st !== 'bati' && st !== 'batileger') return;
+      var cq = f.calques[l.c], st = cq.style; if ((st !== 'bati' && st !== 'batileger') || !cq.vis) return;
       for (var k = 1; k < l.n; k++){ var i0 = 2 * (l.d + k - 1), i1 = 2 * (l.d + k); segs.push([f.xy[i0] + off.x, f.xy[i0 + 1] + off.y, f.xy[i1] + off.x, f.xy[i1 + 1] + off.y, l]); }
     });
+    /* un trait aberrant (valeur infinie, kilomètres de long) n'est pas une façade : écarté */
+    segs = segs.filter(function(sg){ return isFinite(sg[0]) && isFinite(sg[1]) && isFinite(sg[2]) && isFinite(sg[3]) && Math.abs(sg[2] - sg[0]) + Math.abs(sg[3] - sg[1]) < 2000; });
     segs.forEach(function(sg, i){
-      var x0 = Math.floor(Math.min(sg[0], sg[2]) / TU), x1 = Math.floor(Math.max(sg[0], sg[2]) / TU), y0 = Math.floor(Math.min(sg[1], sg[3]) / TU), y1 = Math.floor(Math.max(sg[1], sg[3]) / TU);
-      for (var a = x0; a <= x1; a++) for (var b = y0; b <= y1; b++){ var k2 = a + ',' + b; (g[k2] = g[k2] || []).push(i); }
+      var x0 = Math.floor(Math.min(sg[0], sg[2]) / TU), x1 = Math.floor(Math.max(sg[0], sg[2]) / TU), y0 = Math.floor(Math.min(sg[1], sg[3]) / TU), y1 = Math.floor(Math.max(sg[1], sg[3]) / TU), a, b, k2;
+      if ((x1 - x0 + 1) * (y1 - y0 + 1) <= 16){ for (a = x0; a <= x1; a++) for (b = y0; b <= y1; b++){ k2 = a + ',' + b; (g[k2] = g[k2] || []).push(i); } return; }
+      /* long côté en biais : points tous les 4 m, chacun inscrit avec ses cases voisines */
+      var vu = {}, n = Math.ceil(Math.hypot(sg[2] - sg[0], sg[3] - sg[1]) / (TU / 2));
+      for (var q = 0; q <= n; q++){
+        var ca = Math.floor((sg[0] + (sg[2] - sg[0]) * q / n) / TU), cb = Math.floor((sg[1] + (sg[3] - sg[1]) * q / n) / TU);
+        for (a = ca - 1; a <= ca + 1; a++) for (b = cb - 1; b <= cb + 1; b++){ k2 = a + ',' + b; if (!vu[k2]){ vu[k2] = 1; (g[k2] = g[k2] || []).push(i); } }
+      }
     });
     return (S.aretes = {cle: cle, segs: segs, g: g, TU: TU});
   }
-  function segsPres(p, R){
+  function segsPres(p, R, sauf){
+    R = Math.min(R, 120);
     var A = aretesFond(), out = [], vu = {}, x0 = Math.floor((p.x - R) / A.TU), x1 = Math.floor((p.x + R) / A.TU), y0 = Math.floor((p.y - R) / A.TU), y1 = Math.floor((p.y + R) / A.TU);
     for (var a = x0; a <= x1; a++) for (var b = y0; b <= y1; b++) (A.g[a + ',' + b] || []).forEach(function(i){ if (!vu[i]){ vu[i] = 1; out.push(A.segs[i]); } });
     var I = idx();
-    S.doc.el.forEach(function(l){ if (l.k !== 'ln' || l.t !== 'lim') return; var P = lignePts(l, I); for (var k = 1; k < P.length; k++) out.push([P[k - 1].x, P[k - 1].y, P[k].x, P[k].y, null]); });
+    S.doc.el.forEach(function(l){ if (l.k !== 'ln' || l.t !== 'lim' || l.id === sauf) return; var P = lignePts(l, I); for (var k = 1; k < P.length; k++) out.push([P[k - 1].x, P[k - 1].y, P[k].x, P[k].y, null]); });
     return out;
   }
-  function areteProche(p, R){
+  function areteProche(p, R, sauf){
     var best = null;
-    segsPres(p, R).forEach(function(sg){ var q = projSeg(p, {x: sg[0], y: sg[1]}, {x: sg[2], y: sg[3]}); if (q.d <= R && Math.hypot(sg[2] - sg[0], sg[3] - sg[1]) > .2 && (!best || q.d < best.d)) best = {s: sg, d: q.d, x: q.x, y: q.y, ang: Math.atan2(sg[3] - sg[1], sg[2] - sg[0])}; });
+    segsPres(p, R, sauf).forEach(function(sg){ var q = projSeg(p, {x: sg[0], y: sg[1]}, {x: sg[2], y: sg[3]}); if (q.d <= R && Math.hypot(sg[2] - sg[0], sg[3] - sg[1]) > .2 && (!best || q.d < best.d)) best = {s: sg, d: q.d, x: q.x, y: q.y, ang: Math.atan2(sg[3] - sg[1], sg[2] - sg[0])}; });
     return best;
   }
-  function coinProche(p, R){
+  function coinProche(p, R, sauf){
     var best = null;
-    segsPres(p, R).forEach(function(sg){ [[sg[0], sg[1]], [sg[2], sg[3]]].forEach(function(c){ var d = Math.hypot(c[0] - p.x, c[1] - p.y); if (d <= R && (!best || d < best.d)) best = {x: c[0], y: c[1], d: d, s: sg}; }); });
+    segsPres(p, R, sauf).forEach(function(sg){ [[sg[0], sg[1]], [sg[2], sg[3]]].forEach(function(c){ var d = Math.hypot(c[0] - p.x, c[1] - p.y); if (d <= R && (!best || d < best.d)) best = {x: c[0], y: c[1], d: d, s: sg}; }); });
     return best;
   }
   /* Redressement d'un segment depuis le point précédent : parallèle ou perpendiculaire au côté de bâti le plus proche, sinon angles du plan */
-  function redresser(pp, m){
+  function redresser(pp, m, sauf){
     var L = Math.hypot(m.x - pp.x, m.y - pp.y); if (L < 1e-6) return null;
     var th = Math.atan2(m.y - pp.y, m.x - pp.x), cands = [], ref = null, k;
     if (aideOn('parallele')){
       var R = Math.max(4, 60 / S.vue.s), mil = {x: (pp.x + m.x) / 2, y: (pp.y + m.y) / 2};
-      ref = [areteProche(pp, R), areteProche(mil, R), areteProche(m, R)].filter(Boolean).sort(function(a, b){ return a.d - b.d; })[0] || null;
+      ref = [areteProche(pp, R, sauf), areteProche(mil, R, sauf), areteProche(m, R, sauf)].filter(Boolean).sort(function(a, b){ return a.d - b.d; })[0] || null;
       if (ref){ for (k = 0; k < 4; k++) cands.push({a: ref.ang + k * Math.PI / 2, ref: ref}); if (aideOn('angles')) for (k = 0; k < 4; k++) cands.push({a: ref.ang + Math.PI / 4 + k * Math.PI / 2, ref: ref}); }
     }
     if (!cands.length && aideOn('angles')){ var r0 = S.doc.rot || 0; for (k = 0; k < 8; k++) cands.push({a: r0 + k * Math.PI / 4}); }
@@ -1732,9 +1779,9 @@ function editeur(racine, opts){
   /* Point libre (traits de complément, objets de façade) : coin, redressement, façade */
   function accrocheLibre(x, y, o){
     o = o || {}; var m = S.vue.monde(x, y);
-    if (aideOn('bati')){ var cn = coinProche(m, 14 / S.vue.s); if (cn) return {x: cn.x, y: cn.y, type: 'coin', arete: cn.s, aide: true}; }
-    if (o.prec){ var rd = redresser(o.prec, m); if (rd) return rd; }
-    if (aideOn('bati')){ var ar = areteProche(m, 10 / S.vue.s); if (ar) return {x: ar.x, y: ar.y, type: 'facade', arete: ar.s, aide: true}; }
+    if (aideOn('bati')){ var cn = coinProche(m, 14 / S.vue.s, o.saufLigne); if (cn) return {x: cn.x, y: cn.y, type: 'coin', arete: cn.s, aide: true}; }
+    if (o.prec){ var rd = redresser(o.prec, m, o.saufLigne); if (rd) return rd; }
+    if (aideOn('bati')){ var ar = areteProche(m, 10 / S.vue.s, o.saufLigne); if (ar) return {x: ar.x, y: ar.y, type: 'facade', arete: ar.s, aide: true}; }
     return {x: m.x, y: m.y};
   }
   function attache(a){ return !!a && (a.type === 'obj' || a.type === 'som' || a.type === 'seg'); }
@@ -1770,6 +1817,8 @@ function editeur(racine, opts){
   cv.addEventListener('pointerdown', function(ev){
     if (!S.doc) return;
     try { cv.setPointerCapture(ev.pointerId); } catch(e){}
+    /* premier doigt d'un nouveau geste : les pointeurs dont le relâchement n'est jamais arrivé (fenêtre fermée, doigt levé ailleurs) sont oubliés */
+    if (ev.isPrimary && Object.keys(S.ptr).length){ S.ptr = {}; finirGeste(true); }
     var p = pos(ev); S.ptr[ev.pointerId] = {x: p.x, y: p.y};
     var ids = Object.keys(S.ptr);
     if (ids.length === 2){
@@ -1828,6 +1877,7 @@ function editeur(racine, opts){
   function enregistrerVue(){ clearTimeout(tVue); tVue = setTimeout(function(){ if (S.doc){ S.doc.vue = {cx: S.vue.cx, cy: S.vue.cy, s: S.vue.s}; if (opts.enregistrerVue) try { opts.enregistrerVue(S.doc); } catch(e){} } }, 600); }
   function finirGeste(annule){
     var g = S.geste; S.geste = null; S.accrocheVue = null; S.apercu = null;
+    if (g && g.type === 'trace' && annule && g.cree && S.brouillon && S.brouillon.pts.length === 1){ S.brouillon = null; majAide(); redessiner(); }
     if (g && g.type === 'glisser'){ if (annule && g.modifie){ S.undo.length && restaurer(S.undo.pop()); } else if (!g.modifie) S.undo.pop(); changement(); }
   }
 
@@ -1858,7 +1908,7 @@ function editeur(racine, opts){
   function glisser(g, p){
     var c = g.cible, w = S.vue.monde(p.x, p.y), w0 = S.vue.monde(g.x0, g.y0), dxw = w.x - w0.x, dyw = w.y - w0.y, rot = S.doc.rot || 0, dP = versPlan(dxw, dyw, rot);
     if (c.k === 'objet'){ var e = el(c.id); e.x = g.o0.x + dxw; e.y = g.o0.y + dyw; synchroSommets(S.doc); }
-    else if (c.k === 'sommet'){ var l = el(c.id), prec = c.i > 0 ? vpos(l.v[c.i - 1], idx()) : null, a = l.t === 'lim' ? accrocheLibre(p.x, p.y, {prec: prec}) : accroche(p.x, p.y, {saufLigne: l.id, prec: prec, col: l.t === 'col'}); l.v[c.i].x = a.x; l.v[c.i].y = a.y; S.accrocheVue = a.type ? a : null; g.accroche = a; }
+    else if (c.k === 'sommet'){ var l = el(c.id), prec = c.i > 0 ? vpos(l.v[c.i - 1], idx()) : null, a = l.t === 'lim' ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, prec: prec, col: l.t === 'col'}); l.v[c.i].x = a.x; l.v[c.i].y = a.y; S.accrocheVue = a.type ? a : null; g.accroche = a; }
     else if (c.k === 'etiq'){ var e2 = el(c.id); e2.lab = {dx: g.lab0.dx + dP.x, dy: g.lab0.dy + dP.y}; }
     else if (c.k === 'bulle'){ var nb = {dx: g.b0.dx + dP.x, dy: g.b0.dy + dP.y}, man = (S.doc.anomManu || []).filter(function(m){ return m.id === c.id; })[0]; if (man) man.bulle = nb; else { var d = S.doc.decisions[c.id] || (S.doc.decisions[c.id] = {}); d.bulle = nb; } }
     analyseLegere(); redessiner();
@@ -1870,11 +1920,21 @@ function editeur(racine, opts){
   /* place une anomalie du dossier sur un objet ; gardée après un changement du dessin, elle retrouve la règle équivalente de cet objet */
   function placerRec(id, objId){
     var r = recDe(id); S.placer = null; if (!r){ majAide(); return; }
-    var cr = Object.assign({}, r.croquis || {}, {objId: objId}), pre = cr.cle ? cr.cle.split(':')[0] : '';
-    if (pre){ var eq = S.liste.filter(function(a){ return a.creer && a.objId === objId && a.cle.split(':')[0] === pre; })[0]; if (eq) cr.cle = eq.cle; }
-    majDossier({maj: [{id: id, champs: {croquis: cr}}]});
+    var cr = Object.assign({}, r.croquis || {}, {objId: objId}), pre = typeof cr.cle === 'string' ? cr.cle.split(':')[0] : '', ops = {maj: [], retirer: []}, msg = '';
+    if (pre){
+      /* même règle sur cet objet : à créer, ou déjà dans le dossier sans y avoir été touchée (doublon retiré) */
+      var eq = S.liste.filter(function(a){ return a.auto && a.objId === objId && a.cle !== cr.cle && a.cle.split(':')[0] === pre && a.st === 'retenue'; })[0];
+      if (eq){
+        var re = eq.appId && recDe(eq.appId);
+        if (!re){ cr.cle = eq.cle; cr.codes = (eq.codes || []).slice(); }
+        else if (recIntact(re)){ cr.cle = eq.cle; cr.codes = (eq.codes || []).slice(); ops.retirer.push(re.id); }
+        else msg = 'Une anomalie équivalente (' + numLib(eq) + ') existe déjà sur cet objet : supprimez celle qui est en trop.';
+      }
+    }
+    ops.maj.push({id: id, champs: {croquis: cr}});
+    majDossier(ops);
     apresDossier(true); selectionner(objId);
-    var it = S.liste.filter(function(a){ return a.appId === id; })[0]; toast('Anomalie ' + (it ? numLib(it) + ' ' : '') + 'placée sur le plan');
+    var it = S.liste.filter(function(a){ return a.appId === id; })[0]; toast(msg || 'Anomalie ' + (it ? numLib(it) + ' ' : '') + 'placée sur le plan', msg ? 6000 : 2600);
   }
   function terminerGlisser(g){
     var c = g.cible; S.accrocheVue = null;
@@ -1924,6 +1984,7 @@ function editeur(racine, opts){
     if (o.k === 'ln'){
       if (OUTILS_LN[o.id].relier){ relierToucher(x, y); return; }
       var b2 = S.brouillon;
+      if (!b2 && S.finAuto && now - S.finAuto.t < 400 && Math.hypot(x - S.finAuto.x, y - S.finAuto.y) < 30){ S.finAuto = null; return; }
       if (b2 && b2.pts.length){ var last = S.vue.ecran(b2.pts[b2.pts.length - 1].x, b2.pts[b2.pts.length - 1].y); if (Math.hypot(x - last.x, y - last.y) <= 18 || (double && b2.pts.length >= 2)){ terminerTrace(); return; } }
       ajouterPointTrace(pointTrace(x, y));
     }
@@ -1942,15 +2003,15 @@ function editeur(racine, opts){
     b2.pts.push({x: a2.x, y: a2.y, snap: at ? a2 : null, aide: a2.aide ? a2.type : null});
     S.sel = null;
     if (a2.aide) montrerAide(a2);
-    /* un tronçon qui touche un objet ou un autre tracé est terminé */
-    if (at && b2.pts.length >= 2 && oo.t === 'tr' && aideOn('finir')){ terminerTrace(); return; }
+    /* un tronçon qui touche un objet ou un autre tracé est terminé ; le second toucher d'un double toucher (habitude « toucher à nouveau pour terminer ») ne commence pas de nouveau tracé */
+    if (at && b2.pts.length >= 2 && oo.t === 'tr' && aideOn('finir')){ var sf = S.vue.ecran(a2.x, a2.y); S.finAuto = {t: Date.now(), x: sf.x, y: sf.y}; terminerTrace(); return; }
     majAide(); majPanneau(); redessiner();
   }
   /* Tracé au glissé : le doigt tire le segment depuis le dernier point (ou depuis l'appui) */
   function demarrerTrace(g){
     var oo = OUTILS_LN[S.outil.id];
     if (oo.relier){ g.relierDep = accroche(g.x0, g.y0, {}); return; }
-    if (!S.brouillon) ajouterPointTrace(pointTrace(g.x0, g.y0));
+    if (!S.brouillon){ ajouterPointTrace(pointTrace(g.x0, g.y0)); g.cree = !!S.brouillon; }
     g.ok = !!S.brouillon;
   }
   function apercuTrace(g, p){
@@ -2006,7 +2067,13 @@ function editeur(racine, opts){
     /* une descente, une gargouille ou un té se pose sur le coin ou la façade du bâti le plus proche */
     if (!a.type && T[t].mur && aideOn('bati')){ var af = accrocheLibre(x, y, {}); if (af.aide){ o.x = af.x; o.y = af.y; montrerAide(af); } }
     S.doc.el.push(o);
-    if (a.type === 'som' && !a.a){ var l = el(a.ligne), ext = l && (a.i === 0 || a.i === l.v.length - 1); if (ext || passage){ o.x = a.x; o.y = a.y; insererDansLigne(S.doc, o, a); } }
+    if (a.type === 'som' && !a.a){ var l = el(a.ligne), ext = l && (a.i === 0 || a.i === l.v.length - 1);
+      if (ext || passage){
+        var Pl = l ? lignePts(l, idx()) : [], j0 = a.i > 0 ? a.i - 1 : 0, j1 = a.i > 0 ? a.i : 1;
+        if (Pl[j0] && Pl[j1] && Math.hypot(Pl[j1].x - Pl[j0].x, Pl[j1].y - Pl[j0].y) > 1e-6) angSeg = Math.atan2(Pl[j1].y - Pl[j0].y, Pl[j1].x - Pl[j0].x);
+        o.x = a.x; o.y = a.y; insererDansLigne(S.doc, o, a);
+      }
+    }
     else if (a.type === 'seg' && passage && t !== 'zone'){ insererDansLigne(S.doc, o, a); var ls = el(a.ligne), Ps = ls ? lignePts(ls, idx()) : []; if (Ps[a.i]) angSeg = Math.atan2(Ps[a.i].y - Ps[a.i - 1].y, Ps[a.i].x - Ps[a.i - 1].x); }
     if (T[t].oriente && aideOn('orienter')){
       var ang = angSeg, ar2 = ang == null ? areteProche(o, 3) : null;
@@ -2060,7 +2127,7 @@ function editeur(racine, opts){
     analyse();
     if (!l.lab && texteEtiquette(l, S.an)) l.lab = placerEtiquette(S.doc, S.an, l, E(), idx());
     S.sel = {id: l.id, sommet: null}; S.panneau = 'fiche';
-    changement(); rendreVisible(l.id);
+    changement(); rendreVisible(l.id); majAide();
     var r = l.t === 'tr' ? resLigne(l, S.an) : null;
     toast((l.t === 'col' ? 'Collecteur' : l.t === 'lim' ? 'Trait' : 'Tronçon') + ' ajouté' + (r ? (r === 'INC' ? ' : réseau à préciser' : r === 'MIX' ? ' : plusieurs réseaux atteints' : ' : réseau ' + libRes(r) + (RES[l.p.res] ? '' : ' déduit')) : '') + ' · ' + frNum(Math.round(longueur(lignePts(l, idx())) * 10) / 10) + ' m');
   }
@@ -2115,7 +2182,7 @@ function editeur(racine, opts){
     }
     else if (o.k === 'ln'){
       var oo = OUTILS_LN[o.id], n = S.brouillon ? S.brouillon.pts.length : 0, gl = aideOn('glisser');
-      h = '<span><strong>' + esc(oo.lib) + '</strong> : ' + (n ? n + ' point' + (n > 1 ? 's' : '') + '. ' + (gl ? 'Glissez ou touchez' : 'Touchez') + ' le point suivant' + (oo.t === 'tr' && aideOn('finir') ? ' ; le tronçon se termine sur un objet' : '') + ' ; touchez à nouveau le dernier point pour terminer.' : (gl ? 'glissez depuis le point de départ, ou touchez-le' : 'touchez le point de départ') + ' (un objet, un tracé ou un point libre)' + (gl ? ' ; deux doigts pour déplacer le plan' : '') + '.') + '</span>'
+      h = '<span><strong>' + esc(oo.lib) + '</strong> : ' + (n ? n + ' point' + (n > 1 ? 's' : '') + '. ' + (gl ? 'Glissez ou touchez' : 'Touchez') + ' le point suivant' + (oo.t === 'tr' && aideOn('finir') ? ' ; le tronçon se termine sur un objet' : '') + (n >= 2 ? ' ; touchez à nouveau le dernier point pour terminer.' : '.') : (gl ? 'glissez depuis le point de départ, ou touchez-le' : 'touchez le point de départ') + ' (un objet, un tracé ou un point libre)' + (gl ? ' ; deux doigts pour déplacer le plan' : '') + '.') + '</span>'
         + (n ? '<button type="button" class="vc-b vc-bt" data-a="retirerPoint">' + ico('annuler', 18) + 'Point</button><button type="button" class="vc-b vc-bt" data-a="annulerTrace">' + ico('fermer', 18) + 'Abandonner</button>' + (n >= 2 ? '<button type="button" class="vc-b vc-bt vc-prim" data-a="terminerTrace">' + ico('valider', 18) + 'Terminer</button>' : '') : '');
     }
     else if (o.k === 'pt') h = '<span>Touchez le plan pour poser : <strong>' + esc(T[o.t].lib) + '</strong>' + (T[o.t].role === 'passage' ? ' (posé sur un tracé, il s\'y insère)' : '') + '.</span>';
@@ -2165,12 +2232,16 @@ function editeur(racine, opts){
     var d = document.createElement('div'); d.className = 'vc-modal';
     d.innerHTML = '<div class="vc-mboite" role="dialog" aria-modal="true" aria-label="' + esc(titre) + '"><h3>' + esc(titre) + '</h3>' + (o.texte ? '<p>' + esc(o.texte) + '</p>' : '')
       + (o.confirmer ? '' : (o.long ? '<textarea rows="3"></textarea>' : '<input type="text" autocomplete="off">'))
-      + '<div class="vc-mact"><button type="button" class="vc-b vc-bt" data-r="0">Annuler</button><button type="button" class="vc-b vc-bt vc-prim' + (o.danger ? ' vc-danger' : '') + '" data-r="1">' + esc(o.ok || 'Valider') + '</button></div></div>';
+      + '<div class="vc-mact"><button type="button" class="vc-b vc-bt" data-r="0">Annuler</button>' + (o.autre ? '<button type="button" class="vc-b vc-bt" data-r="2">' + esc(o.autre) + '</button>' : '')
+      + '<button type="button" class="vc-b vc-bt vc-prim' + (o.danger ? ' vc-danger' : '') + '" data-r="1">' + esc(o.ok || 'Valider') + '</button></div></div>';
     R.appendChild(d);
-    var inp = d.querySelector('input,textarea'); if (inp){ inp.value = val || ''; setTimeout(function(){ inp.focus(); inp.select && inp.select(); }, 30); }
-    function fermer(ok){ d.remove(); if (ok) fn(inp ? inp.value : true); }
-    d.addEventListener('click', function(ev){ var b = ev.target.closest('[data-r]'); if (b) fermer(b.dataset.r === '1'); else if (ev.target === d) fermer(false); });
-    d.addEventListener('keydown', function(ev){ if (ev.key === 'Escape'){ ev.stopPropagation(); fermer(false); } if (ev.key === 'Enter' && !(inp && inp.tagName === 'TEXTAREA')){ ev.preventDefault(); fermer(true); } });
+    var inp = d.querySelector('input,textarea');
+    if (inp){ inp.value = val || ''; setTimeout(function(){ inp.focus(); inp.select && inp.select(); }, 30); }
+    else setTimeout(function(){ var b0 = d.querySelector('[data-r="0"]'); if (b0 && d.isConnected) b0.focus(); }, 30);
+    function fermer(r){ d.remove(); if (r === '1') fn(inp ? inp.value : true); else if (r === '2' && o.autreFn) o.autreFn(); }
+    d.addEventListener('click', function(ev){ var b = ev.target.closest('[data-r]'); if (b) fermer(b.dataset.r); else if (ev.target === d) fermer('0'); });
+    /* Entrée valide depuis le champ seulement : sur un bouton, c'est le bouton choisi qui agit (jamais « Valider » à la place d'« Annuler ») */
+    d.addEventListener('keydown', function(ev){ if (ev.key === 'Escape'){ ev.stopPropagation(); fermer('0'); } else if (ev.key === 'Enter' && inp && ev.target === inp && inp.tagName !== 'TEXTAREA'){ ev.preventDefault(); fermer('1'); } });
   }
   R.querySelector('.vc-barre').addEventListener('click', function(ev){
     var b = ev.target.closest('button'); if (!b) return;
@@ -2184,6 +2255,8 @@ function editeur(racine, opts){
   pan.querySelector('[data-a="fermerPanneau"]').addEventListener('click', fermerPanneau);
   document.addEventListener('keydown', function(ev){
     if (!R.isConnected || !S.doc || ev.target.closest && ev.target.closest('input,textarea,select')) return;
+    /* un dialogue du croquis est ouvert : ses boutons gardent leurs touches, le dessin dessous ne bouge pas (Échap le ferme toujours) */
+    if (R.querySelector('.vc-modal')){ if (ev.key === 'Escape' && !opts.echapHote) fermerNiveau(); return; }
     /* une fenêtre de l'hôte ouverte par-dessus l'éditeur garde ses touches */
     if (ev.target && ev.target !== document.body && ev.target !== document.documentElement && !R.contains(ev.target)) return;
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z'){ ev.preventDefault(); ev.shiftKey ? refaire() : annuler(); }
@@ -2305,7 +2378,8 @@ function editeur(racine, opts){
       + (a.manu || (!a.auto && !INTEG) ? '<button type="button" class="vc-chip" data-a="anomSuppr" data-cle="' + esc(a.cle) + '">Supprimer</button>' : '')
       + (a.dossier ? '<button type="button" class="vc-chip" data-a="recSuppr" data-id="' + esc(a.appId) + '">Supprimer du dossier</button>' : '') + '</div>';
     var orig = a.auto ? 'Déduite du dessin' : a.dossier ? (a.orpheline ? 'Le dessin ne la produit plus : gardée dans le dossier' : 'Anomalie du dossier') : INTEG ? 'Ajoutée sur le croquis' : 'Ajoutée à la main';
-    if (INTEG) orig += a.appId ? ' · dans le dossier' + (a.photos ? ' · ' + a.photos + ' photo' + (a.photos > 1 ? 's' : '') : '') + (a.brouillon ? ' · à valider' : '') : a.st === 'retenue' ? ' · ajoutée au dossier' : ' · hors du dossier';
+    if (INTEG && a.projet) orig = 'Produite par le projet · hors du dossier';
+    else if (INTEG) orig += a.appId ? ' · dans le dossier' + (a.photos ? ' · ' + a.photos + ' photo' + (a.photos > 1 ? 's' : '') : '') + (a.brouillon ? ' · à valider' : '') : a.st === 'retenue' ? ' · ajoutée au dossier' : ' · hors du dossier';
     return h + '<small class="vc-auto">' + esc(orig) + '</small></div></div>';
   }
   function anomsObjet(e){
@@ -2326,11 +2400,14 @@ function editeur(racine, opts){
     var h = '<div class="vc-chips vc-mode">' + [['edl', 'État des lieux'], ['avp', 'Après l\'avant-projet']].map(function(m){ return '<button type="button" class="vc-chip" data-a="mode" data-v="' + m[0] + '" aria-pressed="' + (S.mode === m[0]) + '">' + m[1] + '</button>'; }).join('') + '</div>';
     if (S.mode === 'avp') h += '<p class="vc-muet">Contrôle du projet : les tracés « à supprimer » sont retirés, les objets et tracés « projet » sont pris en compte.</p>';
     h += '<div class="vc-concl ' + (c === 'non_conformes' ? 'ko' : c === 'conformes' || c === 'reserves' ? 'ok' : '') + '">Conclusion proposée : <strong>' + esc(CONCL[c] || 'aucun appareil sur le plan') + '</strong></div>';
+    var prj = INTEG ? ret.filter(function(a){ return a.projet; }) : [];
+    if (prj.length) ret = ret.filter(function(a){ return !a.projet; });
     if (INTEG){
       var np = ret.filter(function(a){ return !a.objId; });
       h += '<h4>Anomalies du dossier (' + ret.length + ')</h4><p class="vc-muet">Les anomalies retenues sont celles de la liste du dossier (mêmes numéros) : la fiche, le constat et les exports les reprennent.' + (np.length ? ' ' + np.length + ' n\'' + (np.length > 1 ? 'ont' : 'a') + ' pas de place sur le plan.' : '') + '</p>'
         + (ret.length ? ret.map(function(a){ return anomHtml(a, true); }).join('') : '<p class="vc-muet">Aucune.</p>');
     } else h += '<h4>Anomalies retenues (' + ret.length + ')</h4>' + (ret.length ? ret.map(function(a){ return anomHtml(a, true); }).join('') : '<p class="vc-muet">Aucune.</p>');
+    if (prj.length) h += '<h4>Contrôle du projet (' + prj.length + ')</h4><p class="vc-muet">Produites par les tracés du projet : elles ne sont pas dans la liste du dossier.</p>' + prj.map(function(a){ return anomHtml(a, true); }).join('');
     if (autres.length) h += '<h4>À arbitrer ou écartées (' + autres.length + ')</h4>' + (INTEG ? '<p class="vc-muet">Hors du dossier tant qu\'elles ne sont pas retenues.</p>' : '') + autres.map(function(a){ return anomHtml(a, true); }).join('');
     h += '<h4>À compléter (' + manque.length + ')</h4>' + (manque.length ? '<ul class="vc-ctl">' + manque.map(function(x){ return '<li><button type="button" data-a="voir" data-id="' + esc(x.id) + '">' + esc(x.txt) + '</button></li>'; }).join('') + '</ul>' : '<p class="vc-muet">Rien : chaque appareil a sa méthode de test et son exutoire.</p>');
     if (info.length) h += '<h4>À vérifier (' + info.length + ')</h4><ul class="vc-ctl info">' + info.map(function(x){ return '<li><button type="button" data-a="voir" data-id="' + esc(x.id) + '">' + esc(x.txt) + '</button></li>'; }).join('') + '</ul>';
@@ -2346,6 +2423,7 @@ function editeur(racine, opts){
     var ms = METH.filter(function(m){ return cd.methodes[m[0]]; }).map(function(m){ return m[1].toLowerCase(); });
     h += '<p><strong>Méthodes de contrôle :</strong> ' + (ms.length ? esc(ms.join(', ')) : 'aucune indiquée') + '</p>';
     if (cd.epRecup.puisard) h += '<p><strong>Ouvrage de récupération des EP :</strong> puisard</p>';
+    if (cd.sansCote.length) h += '<p class="vc-muet">' + (cd.sansCote.length > 1 ? cd.sansCote.length + ' descentes EP sans façade indiquée ne sont comptées' : 'Une descente EP sans façade indiquée n\'est comptée') + ' ni en façade avant ni en façade arrière.</p>';
     if (cd.rows.some(function(r){ return r.nb && !r.raccord && r.libs.length; })) h += '<p class="vc-muet">Un raccordement sans code du formulaire (réseau privé, puisard EP) reste à cocher à la main dans le constat.</p>';
     h += '<p><strong>Conclusion proposée :</strong> ' + esc(CONCL[conclusion(S.liste, S.an)] || '—') + '</p>';
     return h;
@@ -2381,10 +2459,13 @@ function editeur(racine, opts){
   function reglagesHtml(){
     var d = S.doc, Ech = echelleAuto(d), h = '';
     h += champ('Nom du croquis', saisie('nom', d.nom, {a: 'docTxt', lab: 'Nom du croquis'}));
-    h += champ('N° de dossier', saisie('numero', d.numero, {a: 'docTxt', lab: 'Numéro de dossier'}));
-    h += champ('Adresse du branchement', saisie('adresse', d.adresse, {a: 'docTxt', lab: 'Adresse'}));
-    h += champ('Commune', saisie('commune', d.commune, {a: 'docTxt', lab: 'Commune'}));
-    h += champ('Date de visite', '<input class="vc-in" type="date" data-a="docTxt" data-k="date" value="' + esc(d.date || '') + '" aria-label="Date de visite">');
+    if (opts.cartoucheHote) h += champ('Dossier', '<p class="vc-fixe">' + esc([d.numero ? 'n° ' + d.numero : '', d.adresse, d.commune, d.date ? 'visite du ' + String(d.date).split('-').reverse().join('/') : ''].filter(Boolean).join(' · ') || '—') + '</p>', 'repris du dossier : numéro, adresse, commune et date de visite');
+    else {
+      h += champ('N° de dossier', saisie('numero', d.numero, {a: 'docTxt', lab: 'Numéro de dossier'}));
+      h += champ('Adresse du branchement', saisie('adresse', d.adresse, {a: 'docTxt', lab: 'Adresse'}));
+      h += champ('Commune', saisie('commune', d.commune, {a: 'docTxt', lab: 'Commune'}));
+      h += champ('Date de visite', '<input class="vc-in" type="date" data-a="docTxt" data-k="date" value="' + esc(d.date || '') + '" aria-label="Date de visite">');
+    }
     h += champ('Technicien', saisie('technicien', d.technicien, {a: 'docTxt', lab: 'Technicien'}));
     h += champ('Échelle du plan', chipsHtml('echelle', [['0', 'Auto (1/' + Ech + ')'], ['100', '1/100'], ['150', '1/150'], ['200', '1/200'], ['250', '1/250'], ['500', '1/500']], String(d.echelle || 0), {a: 'docEchelle', garder: true}));
     h += champ('Gestionnaire par défaut', ['EU', 'EP', 'UN'].map(function(r){ return '<div class="vc-ligne"><span class="vc-g ' + r + '">' + (r === 'UN' ? 'UN' : r) + '</span>' + chipsHtml(r, [['D', 'Départemental'], ['T', 'Territorial']], (d.gest || {})[r] || 'D', {a: 'docGest', garder: true}) + '</div>'; }).join(''), 'quand le collecteur n\'est pas dessiné');
@@ -2441,12 +2522,12 @@ function editeur(racine, opts){
       if (a === 'dec' && INTEG && cur && cur.appId && cur.photos && b.dataset.v !== 'retenue'){
         var v0 = b.dataset.v, id0 = cur.appId;
         demander('Retirer l\'anomalie ' + numLib(cur) + ' du dossier ?', '', function(){ instantane(); if (m) m.st = v0; else (S.doc.decisions[cle] = S.doc.decisions[cle] || {}).st = v0; changement({forcer: [id0]}); },
-          {confirmer: true, danger: true, ok: 'Retirer', texte: 'Elle a ' + cur.photos + ' photo' + (cur.photos > 1 ? 's' : '') + ' dans le dossier : elles seront supprimées avec elle.'});
+          {confirmer: true, danger: true, ok: 'Retirer', texte: cur.photos > 1 ? 'Ses ' + cur.photos + ' photos, dans le dossier, seront supprimées avec elle.' : 'Sa photo, dans le dossier, sera supprimée avec elle.'});
         return;
       }
       instantane();
       if (a === 'dec'){ if (m) m.st = b.dataset.v; else (S.doc.decisions[cle] = S.doc.decisions[cle] || {}).st = b.dataset.v; }
-      else { var nv = b.dataset.v === '1'; if (cur && !!cur.nc === nv){ S.undo.pop(); return; } if (m) m.nc = nv; else (S.doc.decisions[cle] = S.doc.decisions[cle] || {}).nc = nv; }
+      else { var nv = b.dataset.v === '1'; if (cur && !!cur.nc === nv){ S.undo.pop(); return; } if (m) m.nc = nv; else (S.doc.decisions[cle] = S.doc.decisions[cle] || {}).nc = nv; if (S.doc.sauvegardes && S.doc.sauvegardes[cle]) delete S.doc.sauvegardes[cle].nc; if (m && S.doc.decisions[cle]) delete S.doc.decisions[cle].nc; }
       changement(); return;
     }
     if (a === 'anomSuppr'){
@@ -2489,7 +2570,14 @@ function editeur(racine, opts){
     if (a === 'aide'){ var k = b.dataset.k; S.aides[k] = S.aides[k] === false; majAides(); return; }
     if (a === 'docEchelle'){ instantane(); S.doc.echelle = parseInt(b.dataset.v, 10) || 0; changement(); return; }
     if (a === 'docGest'){ instantane(); S.doc.gest = Object.assign({EU: 'D', EP: 'D', UN: 'D'}, S.doc.gest); S.doc.gest[b.dataset.k] = b.dataset.v; changement(); return; }
-    if (a === 'docSuppr'){ demander('Supprimer ce croquis ?', '', function(){ if (opts.supprimer) opts.supprimer(S.doc); }, {confirmer: true, danger: true, ok: 'Supprimer', texte: opts.texteSupprimer || 'Le croquis sera effacé de cet appareil. Le fond de plan est conservé.'}); return; }
+    if (a === 'docSuppr'){
+      /* texteSupprimer : texte, ou fonction qui rend un texte ou {texte, ok, autre} ; « ok » : opts.supprimer(doc, {anomalies: true}), « autre » : {anomalies: false} */
+      var ts = typeof opts.texteSupprimer === 'function' ? opts.texteSupprimer(S.doc) : opts.texteSupprimer;
+      if (!ts || typeof ts !== 'object') ts = {texte: ts || 'Le croquis sera effacé de cet appareil. Le fond de plan est conservé.'};
+      demander('Supprimer ce croquis ?', '', function(){ if (opts.supprimer) opts.supprimer(S.doc, {anomalies: !!ts.autre}); },
+        {confirmer: true, danger: true, ok: ts.ok || 'Supprimer', texte: ts.texte, autre: ts.autre || '', autreFn: function(){ if (opts.supprimer) opts.supprimer(S.doc, {anomalies: false}); }});
+      return;
+    }
     if (a === 'pdfEdl' || a === 'pdfAvp' || a === 'dxf' || a === 'json'){ sortie(a); return; }
     if (a === 'resultat'){ var w = {x: parseFloat(b.dataset.x), y: parseFloat(b.dataset.y)}; S.vue.cx = w.x; S.vue.cy = w.y; if (S.vue.s < 30) S.vue.s = 45; redessiner(); enregistrerVue(); return; }
   });
@@ -2512,7 +2600,13 @@ function editeur(racine, opts){
       if (champ === 'observation' && !String(v).trim()){ toast('L\'observation ne peut pas être vide'); majPanneau(); return; }
       ch[champ] = String(v); majDossier({maj: [{id: b.dataset.id, champs: ch}]}); apresDossier(true); return;
     }
-    if (a === 'decTxt'){ instantane(); var cle = b.dataset.cle, m = (S.doc.anomManu || []).filter(function(x){ return x.id === cle; })[0]; if (m) m[b.dataset.k] = v; else (S.doc.decisions[cle] = S.doc.decisions[cle] || {})[b.dataset.k] = v; changement({garderPanneau: true}); return; }
+    if (a === 'decTxt'){
+      instantane(); var cle = b.dataset.cle, m = (S.doc.anomManu || []).filter(function(x){ return x.id === cle; })[0], sv = S.doc.sauvegardes && S.doc.sauvegardes[cle];
+      if (m) m[b.dataset.k] = v; else (S.doc.decisions[cle] = S.doc.decisions[cle] || {})[b.dataset.k] = v;
+      if (sv) delete sv[b.dataset.k === 'preco' ? 'preconisation' : 'observation'];
+      if (m && S.doc.decisions[cle]) delete S.doc.decisions[cle][b.dataset.k];
+      changement({garderPanneau: true}); return;
+    }
     if (a === 'docTxt'){ instantane(); S.doc[b.dataset.k] = String(v).trim(); changement({garderPanneau: true}); majBarre(); return; }
     if (a === 'calque' && S.fond){ S.fond.calques[+b.dataset.k].vis = b.checked; if (opts.fondModifie) opts.fondModifie(S.fond); redessiner(); return; }
     if ((a === 'fondFichier' || a === 'reseauFichier') && b.files && b.files[0]){ chargerFichier(b.files[0], a === 'fondFichier' ? 'cadastre' : 'reseau'); b.value = ''; return; }
@@ -2562,7 +2656,7 @@ function editeur(racine, opts){
       if (a === 'dxf'){ var an = analyser(S.doc, 'edl'); annoncer(telecharger(new Blob([ecrireDxf(S.doc, an, anomaliesDoc(S.doc, an, ext()))], {type: 'application/dxf'}), nomFichier('Croquis', 'dxf')), 'DXF enregistré'); return; }
       if (!global.jspdf){ toast('La bibliothèque PDF n\'est pas chargée'); return; }
       var mode = a === 'pdfAvp' ? 'avp' : 'edl';
-      Promise.resolve(pdfPlan(S.doc, S.fond, {mode: mode, logo: opts.logo, reseau: S.reseau, anomalies: ext()})).then(function(blob){ annoncer(telecharger(blob, nomFichier(mode === 'avp' ? 'Avant-projet' : 'Etat des lieux', 'pdf')), 'PDF enregistré'); }).catch(function(err){ toast('PDF impossible : ' + (err && err.message || err), 6000); });
+      Promise.resolve(pdfPlan(S.doc, S.fond, {mode: mode, logo: opts.logo, reseau: S.reseau, anomalies: ext()})).then(function(blob){ annoncer(telecharger(blob, nomFichier(mode === 'avp' ? 'Avant-projet' : opts.cartoucheHote ? 'Plan' : 'État des lieux', 'pdf')), 'PDF enregistré'); }).catch(function(err){ toast('PDF impossible : ' + (err && err.message || err), 6000); });
     } catch(err){ toast('Sortie impossible : ' + (err && err.message || err), 6000); }
   }
 
@@ -2582,6 +2676,7 @@ function editeur(racine, opts){
     if (o.aides) S.aides = Object.assign({}, AIDES_DEFAUT, o.aides);
     S.placer = null; var m0 = R.querySelector('.vc-modal'); if (m0) m0.remove();
     S.doc = doc; S.fond = fond || null; S.reseau = reseau || null; S.undo = []; S.redo = []; S.sel = null; S.brouillon = null; S.panneau = null; S.mode = 'edl'; S.ajoutAnom = null; S.aligner = null;
+    S.ptr = {}; S.geste = null; S.apercu = null; S.accrocheVue = null;
     clearTimeout(tToast); R.querySelector('.vc-toast').classList.remove('on');
     doc.el = doc.el || []; doc.decisions = doc.decisions || {}; doc.ordre = doc.ordre || []; doc.anomManu = doc.anomManu || []; doc.gest = doc.gest || {EU: 'D', EP: 'D', UN: 'D'};
     S.vue.rot = doc.rot || 0;
@@ -2594,7 +2689,7 @@ function editeur(racine, opts){
     fermerNiveau: fermerNiveau, placerAnomalie: function(id){ if (!INTEG || !recDe(id)) return; fermerPanneau(); choisirOutil({k: 'main'}); S.placer = id; majAide(); }, synchroniser: function(){ if (S.doc){ analyse(); synchroniser(); majBarre(); majPanneau(); redessiner(); } }, liste: function(){ return S.liste; }};
 }
 VC.editeur = editeur;
-function exportJson(doc){ var d = copie(doc); d.exporte = nowISO(); d.app = 'VÉDÉ Terrain, labo du croquis ' + VC.version; return d; }
+function exportJson(doc){ var d = copie(doc); d.exporte = nowISO(); d.app = (VC.signature || 'Croquis de terrain') + ' · croquis ' + VC.version; return d; }
 VC.exportJson = exportJson;
 
 /* ---------- Style de l'éditeur (jetons de l'application, valeurs de repli) ---------- */
@@ -2655,6 +2750,7 @@ var CSS = [
 '.vc-chip small{font-weight:500;color:var(--muted,#5C6C78)}',
 '.vc-chip[aria-pressed="true"]{background:var(--brand,#0F5C63);border-color:var(--brand,#0F5C63);color:var(--on-brand,#fff)}',
 '.vc-val{min-width:54px;text-align:center;font-weight:600}',
+'.vc-fixe{margin:2px 0 0;line-height:1.4}',
 '.vc-in{width:100%;min-height:42px;margin-top:6px;padding:8px 10px;border:1px solid var(--line,#C7D1D8);border-radius:10px;background:var(--surface,#fff);color:inherit;font:inherit;font-size:15px}',
 'textarea.vc-in{resize:vertical}',
 '.vc-sommet{margin:12px 0;padding:10px;border-radius:12px;background:var(--surface-2,#F3F6F8)}',
@@ -2703,7 +2799,7 @@ var CSS = [
 '.vc-mboite{width:min(460px,100%);background:var(--surface,#fff);border-radius:16px;padding:16px;box-shadow:var(--shadow,0 18px 50px -22px rgba(9,18,24,.55))}',
 '.vc-mboite h3{margin:0 0 8px;font-size:18px}',
 '.vc-mboite input,.vc-mboite textarea{width:100%;min-height:44px;padding:8px 10px;border:1px solid var(--line,#C7D1D8);border-radius:10px;font:inherit;font-size:16px;background:var(--surface,#fff);color:inherit}',
-'.vc-mact{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}',
+'.vc-mact{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:14px}',
 '.vc-avecpanneau .vc-nav{right:420px}',
 '.vc-avecpanneau .vc-aide{right:420px}',
 '@media (max-width:760px),(orientation:portrait){',
@@ -2759,7 +2855,7 @@ function textePdf(pdf, s, cx, cy, em, ang, o){
     pdf.text(l, x, y, {angle: ang || 0});
   });
 }
-function lisible(deg){ while (deg > 180) deg -= 360; while (deg <= -180) deg += 360; if (deg > 90.5) deg -= 180; else if (deg < -90.5) deg += 180; return deg; }
+function lisible(deg){ deg = deg % 360; if (deg > 180) deg -= 360; else if (deg <= -180) deg += 360; if (deg > 90.5) deg -= 180; else if (deg < -90.5) deg += 180; return deg; }
 function couleurTexte(e, an){
   if (e.k === 'ln') return resLigne(e, an);
   var ty = T[e.t] || {};
@@ -2772,7 +2868,7 @@ function pdfPlan(doc, fond, o){
   o = o || {};
   var mode = o.mode || 'edl', J = global.jspdf.jsPDF, pdf = new J({orientation: 'landscape', unit: 'mm', format: 'a4', compress: true});
   /* o.anomalies : anomalies du dossier (mode intégré), pour des numéros et des textes identiques à ceux du dossier */
-  var ext = o.anomalies || null, an = analyser(doc, mode), liste = anomaliesDoc(doc, an, ext), idx = indexDoc(doc), rot = doc.rot || 0, rotDeg = rot * 180 / Math.PI;
+  var ext = o.anomalies || null, oL = {telQuel: !!o.telQuel}, an = analyser(doc, mode), liste = anomaliesDoc(doc, an, ext, oL), idx = indexDoc(doc), rot = doc.rot || 0, rotDeg = rot * 180 / Math.PI;
   var Ech = doc.echelle > 0 ? doc.echelle : echelleAuto(doc, mode), m = Ech / 1000;
   var F = {x: 7, y: 7, w: CADRE.w, h: CADRE.h}, RC = [F.x, F.y, F.x + F.w, F.y + F.h];
   var b = emprisePlan(doc, idx, mode) || [-10, -10, 10, 10], cP = {x: (b[0] + b[2]) / 2, y: (b[1] + b[3]) / 2};
@@ -2829,7 +2925,7 @@ function pdfPlan(doc, fond, o){
       polyPdf(pdf, mc.pts, 'S', false); pdf.setLineDashPattern([], 0);
       if (st === 'supprimer' && mode === 'avp'){
         pdf.setLineWidth(.3); var reste = 1.5;
-        for (var i = 1; i < mc.pts.length; i++){ var A = mc.pts[i - 1], B = mc.pts[i], L = Math.hypot(B.x - A.x, B.y - A.y); if (!L) continue; var ux = (B.x - A.x) / L, uy = (B.y - A.y) / L, d = reste; while (d <= L){ var x = A.x + ux * d, y = A.y + uy * d; pdf.line(x - (uy - ux * .6) * 1.1, y + (ux + uy * .6) * 1.1, x + (uy - ux * .6) * 1.1, y - (ux + uy * .6) * 1.1); d += 3; } reste = d - L; }
+        for (var i = 1; i < mc.pts.length; i++){ var A = mc.pts[i - 1], B = mc.pts[i], L = Math.hypot(B.x - A.x, B.y - A.y); if (!L || !isFinite(L) || L > 5000) continue; var ux = (B.x - A.x) / L, uy = (B.y - A.y) / L, d = reste; while (d <= L){ var x = A.x + ux * d, y = A.y + uy * d; pdf.line(x - (uy - ux * .6) * 1.1, y + (ux + uy * .6) * 1.1, x + (uy - ux * .6) * 1.1, y - (ux + uy * .6) * 1.1); d += 3; } reste = d - L; }
       }
       if (mc.p && an.sensPiece[mc.p.id]){
         var mi = milieuChemin(mc.pts), sg = an.sensPiece[mc.p.id];
@@ -2857,7 +2953,7 @@ function pdfPlan(doc, fond, o){
     textePdf(pdf, txt, cx, cy, em, 0, {coul: col, halo: true, gras: !libre});
   });
   /* bulles : sur l'avant-projet, celles de l'état des lieux (une préconisation par anomalie) */
-  var listeB = mode === 'avp' ? anomaliesDoc(doc, an.ref, ext) : liste, posB = placerBulles(doc, an, listeB, Ech, idx);
+  var listeB = mode === 'avp' ? anomaliesDoc(doc, an.ref, ext, oL) : liste, posB = placerBulles(doc, an, listeB, Ech, idx);
   listeB.forEach(function(an2){
     if (!an2.num || !an2.objId || !idx[an2.objId]) return;
     var ob = idx[an2.objId]; if (!montrer(ob)) return;
@@ -2897,7 +2993,7 @@ function pdfPlan(doc, fond, o){
   });
   y += 1; pdf.line(X + 3, y, X + W - 3, y); y += 5;
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.setTextColor(20, 20, 20); pdf.text('Légende', X + 3, y); y += 4;
-  var leg = legende(doc, an, mode, ext), hRow = clamp((F.y + F.h - 24 - y) / Math.max(1, leg.length), 3.6, 5.6);
+  var leg = legende(doc, an, mode, ext, oL), hRow = clamp((F.y + F.h - 24 - y) / Math.max(1, leg.length), 3.6, 5.6);
   leg.forEach(function(it){
     var cy = y + hRow / 2 - .4;
     if (it.k === 'ln'){ var c = (RES[it.res] || RES.INC).rgb; pdf.setDrawColor(c[0], c[1], c[2]); pdf.setLineWidth(it.col ? .7 : .45); pdf.setLineDashPattern(it.st === 'projet' ? [3, 1.8] : it.st === 'presume' || (it.res === 'INC' && it.st !== 'supprimer') ? [1.6, 1.2] : [], 0); pdf.line(X + 3, cy, X + 11, cy); pdf.setLineDashPattern([], 0); if (it.st === 'supprimer'){ pdf.setLineWidth(.3); [5, 7.5, 10].forEach(function(dx){ pdf.line(X + dx - .8, cy + 1.1, X + dx + .4, cy - 1.1); }); } }
@@ -2912,12 +3008,12 @@ function pdfPlan(doc, fond, o){
   pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.setTextColor(140, 140, 140); pdf.text(pdfTxt(VC.signature || ''), 290, 205, {align: 'right'});
   /* page 2 */
   pdf.addPage('a4', 'landscape');
-  pageTableaux(pdf, doc, an, liste, mode, ext);
+  pageTableaux(pdf, doc, an, liste, mode, ext, oL);
   var nb = pdf.getNumberOfPages();
   for (var pg = 1; pg <= nb; pg++){ pdf.setPage(pg); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.setTextColor(140, 140, 140); pdf.text('Page ' + pg + ' / ' + nb, 7, 205); }
   return pdf.output('blob');
 }
-function legende(doc, an, mode, ext){
+function legende(doc, an, mode, ext, oL){
   var vus = {}, out = [], st = {};
   doc.el.forEach(function(e){
     if (mode === 'edl' && e.p && e.p.st === 'projet') return;
@@ -2934,7 +3030,7 @@ function legende(doc, an, mode, ext){
   if (st.presume) out.push({k: 'ln', res: 'INC', st: 'presume', lib: 'Tracé présumé (tirets)', o: 2});
   if (st.supprimer) out.push({k: 'ln', res: 'INC', st: 'supprimer', lib: 'Tracé barré : à supprimer', o: 2});
   if (an.pieces.some(function(p){ return an.sensPiece[p.id]; })) out.push({k: 'fleche', lib: 'Sens d\'écoulement', o: 4});
-  if (anomaliesDoc(doc, an, ext).some(function(a){ return a.num && a.objId; })) out.push({k: 'bulle', lib: mode === 'avp' ? 'Préconisation, voir la page 2' : 'Anomalie, voir la page 2', o: 5});
+  if (anomaliesDoc(doc, an, ext, oL).some(function(a){ return a.num && a.objId; })) out.push({k: 'bulle', lib: mode === 'avp' ? 'Préconisation, voir la page 2' : 'Anomalie, voir la page 2', o: 5});
   out.sort(function(a, b){ return a.o - b.o; });
   return out;
 }
@@ -2966,15 +3062,15 @@ function libEquipement(e){
   var ty = T[e.t]; if (e.t !== 'descente') return ty.lib;
   return 'Descente EP' + (e.p.cote === 'arriere' ? ' arrière' : e.p.cote === 'avant' ? ' avant' : '') + (e.p.visitable === 'non' ? ', non visitable' : e.p.visitable === 'oui' ? ', visitable' : '');
 }
-function pageTableaux(pdf, doc, an, liste, mode, ext){
+function pageTableaux(pdf, doc, an, liste, mode, ext, oL){
   var y = 10, ret = liste.filter(function(a){ return a.st === 'retenue'; }), idx = indexDoc(doc);
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(13); pdf.setTextColor(20, 20, 20);
   pdf.text(pdfTxt((mode === 'avp' ? 'Avant-projet' : 'État des lieux') + (doc.numero ? ' · dossier ' + doc.numero : '') + (doc.adresse ? ' · ' + doc.adresse : '') + (doc.commune ? ', ' + doc.commune : '')), 10, y + 4); y += 10;
   var O = [212, 101, 10];
   if (mode === 'avp'){
     /* le dessin du projet doit corriger les raccordements ; les défauts d'ouvrage (tampon, cunette, accès) le sont par la préconisation */
-    var apres = anomaliesDoc(doc, analyser(doc, 'avp'), ext).filter(function(a){ return a.st === 'retenue' && a.auto && (a.cat === 'inversion' || /^fosse:/.test(a.cle)); });
-    var edl = anomaliesDoc(doc, analyser(doc, 'edl'), ext).filter(function(a){ return a.st === 'retenue'; });
+    var apres = anomaliesDoc(doc, analyser(doc, 'avp'), ext, oL).filter(function(a){ return a.st === 'retenue' && a.auto && (a.cat === 'inversion' || /^fosse:/.test(a.cle)); });
+    var edl = anomaliesDoc(doc, analyser(doc, 'edl'), ext, oL).filter(function(a){ return a.st === 'retenue'; });
     y = tableauPdf(pdf, y, [{t: 'N°', w: 10}, {t: 'Préconisation', w: 120}, {t: 'Anomalie traitée', w: 120}, {t: 'Réseau', w: 26}],
       edl.map(function(a){ return {cells: [String(a.num), a.preco || 'à définir', a.obs, a.reseau], coul: [O], gras: [true, true]}; }), 'Préconisations');
     var anA = analyser(doc, 'avp'), idxA = indexDoc(doc);

@@ -9,7 +9,7 @@ Le croquis est la saisie principale : on pose des objets typés sur le plan cada
 - Fond : plan cadastral DXF (cadastre.gouv.fr, R12 à R2018), chargé depuis l'appareil ; il n'en sort pas. Recherche d'un n° de parcelle, d'un n° de voirie ou d'un nom de voie.
 - Réseaux du Département : couche DXF ou GeoJSON affichée sous le croquis. Un fichier en Lambert 93 est ramené automatiquement dans le système du fond (CC42 à CC50), et inversement.
 - Objets : appareils EU (WC, lavabo, douche, évier, lave-linge, chaudière, siphon de garage…), ouvrages EP (descente, grille, caniveau, siphon de sol, drain…), regards, boîtes de branchement, té de visite, poste de relevage, clapet, fosse, puisard, gargouille, collecteurs publics, points de test, zones suspectes, textes.
-- Tronçons : on touche les points successifs ; un point posé sur un objet s'y attache, sur un autre tracé il crée un raccord. Les traits sont redressés à 45° près. On termine en touchant à nouveau le dernier point.
+- Tronçons : on touche les points successifs ; un point posé sur un objet s'y attache, sur un autre tracé il crée un raccord. Les traits sont redressés à 45° près. Un tronçon qui arrive sur un objet ou un autre tracé se termine seul (aide « Terminer sur un objet ») ; sinon on termine en touchant à nouveau le dernier point.
 
 CE QUE L'APPLICATION DÉDUIT DU DESSIN
 - Le réseau de chaque tronçon et son sens d'écoulement, jusqu'à la boîte de branchement, au collecteur, au puisard ou à la gargouille.
@@ -22,8 +22,8 @@ CE QUE L'APPLICATION DÉDUIT DU DESSIN
   - regard sans cunette ou non accessible ;
   - boîte branchée sur le mauvais collecteur ;
   - branchement sans boîte (à arbitrer).
-- Les points à compléter : chaque équipement doit avoir sa méthode de test (visuel, eau, colorant, fumée, résonance, caméra, déclaré) et son exutoire.
-- Le constat déduit : nombre d'installations (une salle de bain ou une cuisine compte une fois), raccordement (EU_D, EP_T…), conformité et méthodes, ligne par ligne comme le constat de l'application. Seul le chemin réellement suivi par l'eau compte : une fosse ou une boîte posée sur une autre branche n'y entre pas.
+- Les points à compléter : chaque équipement doit avoir sa méthode de test (visuel, eau, colorant, fumée, résonance, caméra, déclaré) et son exutoire ; chaque descente, sa façade (avant ou arrière).
+- Le constat déduit : nombre d'installations (une salle de bain ou une cuisine compte une fois), raccordement (EU_D, EP_T…), conformité et méthodes, ligne par ligne comme le constat de l'application. Une descente sans façade indiquée n'est comptée ni en avant ni en arrière. Seul le chemin réellement suivi par l'eau compte : une fosse ou une boîte posée sur une autre branche n'y entre pas.
 - La conclusion proposée reste « à compléter » tant qu'un équipement n'a pas de rejet établi.
 - Après l'avant-projet : les tracés « projet » remplacent les tracés « à supprimer » ; le contrôle dit si les raccordements sont corrigés.
 
