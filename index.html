@@ -3202,7 +3202,7 @@ async function vcChargerFond(file, type){
   if (f.conversion && VC.ed) setTimeout(function(){ VC.ed.toast('Réseaux convertis : ' + f.conversion, 5000); }, 5200);
   return f;
 }
-function vcFondModifie(f){ clearTimeout(VC.fondT); VC.fondT = setTimeout(function(){ DB.put('fonds', sansCache(f)).catch(function(e){ reportError(e, 'Fond de plan'); }); }, 800); }
+function vcFondModifie(f){ clearTimeout(VC.fondT); VC.fondT = setTimeout(function(){ if (!S.etude || S.etude.id !== f.etudeId) return; DB.put('fonds', sansCache(f)).catch(function(e){ reportError(e, 'Fond de plan'); }); }, 800); }
 async function vcSupprimerPlan(doc){
   var ctx = VC.ctx; if (!ctx || ctx.doc !== doc) return;
   var v = ctx.v;
@@ -3241,7 +3241,7 @@ async function vcChoisirFond(v){
   var fs = []; try { fs = (await DB.byIndex('fonds', 'etudeId', v.etudeId)).filter(function(f){ return f.type !== 'reseau' && f.origine; }); } catch(e){}
   fs.sort(function(a, b){ return String(b.cree || '').localeCompare(String(a.cree || '')); });
   var html = '<p>Le croquis se dessine à l\'échelle sur le plan cadastral de la rue (DXF de cadastre.gouv.fr). Le fond reste sur cet appareil et sert à tous les dossiers de l\'étude.</p>'
-    + (fs.length ? '<h3 class="h3">Fonds de l\'étude</h3><div class="sheet-list">' + fs.map(function(f){ return '<button type="button" class="btn" data-m="f" data-id="' + esc(f.id) + '">' + svg(I.plan) + '<span>' + esc(f.nom) + '<small class="muted"> · ' + plural((f.stats && f.stats.lignes) || 0, 'trait', 'traits') + '</small></span></button>'; }).join('') + '</div>' : '')
+    + (fs.length ? '<h3 class="h3">Fonds de l\'étude</h3><div class="sheet-list">' + fs.map(function(f){ return '<button type="button" class="btn" data-m="f" data-id="' + esc(f.id) + '">' + svg(I.plan) + '<span>' + esc(f.nom) + '<small class="muted"> · ' + esc(plural(f.L ? f.L.length : 0, 'trait', 'traits')) + '</small></span></button>'; }).join('') + '</div>' : '')
     + '<div class="btnrow"><label class="btn' + (fs.length ? '' : ' primary') + '">' + svg(I.upload) + 'Charger un plan DXF<input type="file" accept=".dxf,.DXF" data-m="dxf" hidden></label><button type="button" class="btn ghost" data-m="sans">Sans fond pour l\'instant</button></div>'
     + '<p class="muted small" data-m="etat" role="status"></p>';
   return openModal({title: 'Nouveau croquis : fond de plan', html: html, actions: [{label: 'Annuler', value: null}], onMount: function(w, close){
@@ -3314,6 +3314,9 @@ async function vcPreparer(v){
   doc.numero = v.numero || ''; doc.adresse = v.adresse || ''; doc.commune = communeNom(v.commune) || v.commune || ''; if (v.dateVisite) doc.date = v.dateVisite;
   if (!doc.technicien){ var cfg = await mailCfg(); if (cfg.nom) doc.technicien = cfg.nom; }
   var fond = await fondLire(doc.fondId), reseau = await fondLire(doc.reseauId);
+  /* un fond appartient à son étude : celui d'une autre étude n'est pas affiché (il disparaîtrait avec elle) */
+  if (fond && fond.etudeId && fond.etudeId !== v.etudeId) fond = null;
+  if (reseau && reseau.etudeId && reseau.etudeId !== v.etudeId) reseau = null;
   await vcLogoPret();
   if (curVisit() !== v) return null;
   return {doc: doc, fond: fond, reseau: reseau};
@@ -3982,8 +3985,59 @@ function fondValide(f, nPts){
   if (!f || typeof f !== 'object' || typeof f.id !== 'string' || !f.origine || !vcNombre(f.origine.x) || !vcNombre(f.origine.y)) return false;
   if (!Array.isArray(f.L) || !Array.isArray(f.T) || !Array.isArray(f.calques) || !Array.isArray(f.bbox) || f.bbox.length !== 4 || !f.bbox.every(vcNombre)) return false;
   if (!Array.isArray(f.bboxDense) || f.bboxDense.length !== 4 || !f.bboxDense.every(vcNombre)) f.bboxDense = f.bbox.slice();
-  return f.L.every(function(l){ return l && Number.isInteger(l.d) && Number.isInteger(l.n) && l.d >= 0 && l.n >= 0 && l.d + l.n <= nPts && Number.isInteger(l.c) && l.c >= 0 && l.c < f.calques.length; })
+  var okL = f.L.every(function(l){ return l && Number.isInteger(l.d) && Number.isInteger(l.n) && l.d >= 0 && l.n >= 0 && l.d + l.n <= nPts && Number.isInteger(l.c) && l.c >= 0 && l.c < f.calques.length; })
     && f.T.every(function(t){ return t && vcNombre(t.x) && vcNombre(t.y) && Number.isInteger(t.c) && t.c >= 0 && t.c < f.calques.length; });
+  if (!okL) return false;
+  /* sauvegarde peut-être d'un tiers : ce qui s'affiche est recalculé (nombres) ou ramené à du texte */
+  var nl = {}, nt = {};
+  f.L.forEach(function(l){ nl[l.c] = (nl[l.c] || 0) + 1; });
+  f.T.forEach(function(t){ nt[t.c] = (nt[t.c] || 0) + 1; t.t = String(t.t == null ? '' : t.t).slice(0, 200); if (!vcNombre(t.h)) t.h = 1; if (!vcNombre(t.r)) t.r = 0; });
+  f.calques = f.calques.map(function(c, i){ c = c && typeof c === 'object' ? c : {}; return {nom: String(c.nom == null ? 'calque ' + i : c.nom).slice(0, 120), aci: Number.isInteger(c.aci) ? c.aci : 7, rgb: Array.isArray(c.rgb) && c.rgb.length === 3 && c.rgb.every(vcNombre) ? c.rgb.slice() : null, vis: c.vis !== false, nL: nl[i] || 0, nT: nt[i] || 0, style: typeof c.style === 'string' ? c.style.slice(0, 20) : 'autre'}; });
+  var ign = {}, si = f.stats && f.stats.ignores;
+  if (si && typeof si === 'object') Object.keys(si).slice(0, 40).forEach(function(k){ if (Number.isInteger(si[k])) ign[String(k).replace(/[^A-Za-z0-9_]/g, '').slice(0, 30)] = si[k]; });
+  f.stats = {lignes: f.L.length, points: nPts, textes: f.T.length, entites: f.stats && Number.isInteger(f.stats.entites) ? f.stats.entites : f.L.length + f.T.length, ignores: ign};
+  f.nom = String(f.nom == null ? 'Fond de plan' : f.nom).slice(0, 200); f.type = f.type === 'reseau' ? 'reseau' : 'cadastre';
+  f.version = String(f.version == null ? '' : f.version).slice(0, 40); f.encodage = String(f.encodage == null ? '' : f.encodage).slice(0, 40);
+  if (!vcNombre(f.u) || f.u <= 0) f.u = 1;
+  if (f.conversion != null) f.conversion = String(f.conversion).slice(0, 200);
+  delete f.__cache;
+  return true;
+}
+/* croquis d'une sauvegarde : tout est lu et vérifié avant que l'étude de l'appareil soit remplacée */
+async function lireCroquisSauvegarde(zip, data){
+  var visIds = new Set((data.visites || []).map(function(v){ return v && v.id; })), out = {fonds: [], plans: [], ko: 0}, fl = Array.isArray(data.fonds) ? data.fonds : [];
+  for (var fi = 0; fi < fl.length; fi++){
+    try {
+      var fe = fl[fi], fj = fe && typeof fe.path === 'string' && zip.file(fe.path), fb = fe && typeof fe.xyPath === 'string' && zip.file(fe.xyPath);
+      if (!fj || !fb){ out.ko++; continue; }
+      var fo = JSON.parse(await fj.async('string')), fab = await fb.async('arraybuffer');
+      if (fab.byteLength % 4){ out.ko++; continue; }
+      var xy = new Float32Array(fab);
+      if (!fondValide(fo, xy.length / 2)){ out.ko++; continue; }
+      fo.xy = xy; out.fonds.push(fo);
+    } catch(errF){ out.ko++; if (window.console) console.warn('Fond', errF); }
+  }
+  (Array.isArray(data.plans) ? data.plans : []).forEach(function(pl){ if (planValide(pl, visIds)) out.plans.push(pl); else out.ko++; });
+  return out;
+}
+/* un fond d'une autre étude de l'appareil garde son identifiant : celui de la sauvegarde en prend un nouveau */
+async function ecrireCroquisSauvegarde(data, croq){
+  var remap = {};
+  for (var i = 0; i < croq.fonds.length; i++){
+    var fo = croq.fonds[i], deja = await DB.get('fonds', fo.id);
+    fo.etudeId = data.etude.id;
+    if (deja && deja.etudeId !== data.etude.id){ var nid = 'f' + uid().replace(/[^A-Za-z0-9]/g, '').slice(0, 16); remap[fo.id] = nid; fo.id = nid; }
+    await DB.put('fonds', fo); VC_FONDS.delete(fo.id);
+  }
+  croq.plans.forEach(function(pl){
+    pl.etudeId = data.etude.id;
+    if (pl.fondId && remap[pl.fondId]) pl.fondId = remap[pl.fondId];
+    if (pl.reseauId && remap[pl.reseauId]) pl.reseauId = remap[pl.reseauId];
+  });
+  /* une anomalie reliée à un croquis absent de la sauvegarde perd son lien : un futur croquis ne pourrait pas la reconnaître */
+  var avecPlan = new Set(croq.plans.map(function(pl){ return pl.visiteId; }));
+  (data.anomalies || []).forEach(function(a){ if (a && a.croquis && !avecPlan.has(a.visiteId)) delete a.croquis; });
+  if (croq.plans.length) await DB.putMany('plans', croq.plans);
 }
 async function exportEtude(){
   if (!libsOk()) return false;
@@ -4098,9 +4152,12 @@ async function restoreZip(file){
     var data = JSON.parse(await entry.async('string'));
     busy.close();
     if (data.format !== 'vede-terrain' || !data.etude){ toast('Sauvegarde illisible.'); return false; }
+    var croq = await lireCroquisSauvegarde(zip, data);
     var exists = await DB.get('etudes', data.etude.id);
     if (exists){
-      if (!(await confirmModal('Remplacer l\'étude ?', 'L\'étude « ' + data.etude.nom + ' » existe déjà sur cet appareil. Sa version actuelle sera remplacée par celle de la sauvegarde du ' + fmtDT(data.exportedAt) + '.', 'Remplacer', true))) return false;
+      var plansIci = (await DB.keysByIndex('plans', 'etudeId', data.etude.id)).length;
+      if (!(await confirmModal('Remplacer l\'étude ?', 'L\'étude « ' + data.etude.nom + ' » existe déjà sur cet appareil. Sa version actuelle sera remplacée par celle de la sauvegarde du ' + fmtDT(data.exportedAt) + '.'
+        + (plansIci && !croq.plans.length ? ' Ses croquis de terrain (' + plansIci + '), absents de cette sauvegarde, seront effacés.' : plansIci > croq.plans.length ? ' La sauvegarde contient ' + plural(croq.plans.length, 'croquis', 'croquis') + ' de terrain, contre ' + plansIci + ' sur l\'appareil.' : ''), 'Remplacer', true))) return false;
       await deleteEtudeData(data.etude.id);
     }
     var busy2 = busyModal('Restauration en cours'), photos = data.photos || [], restored = new Set(), aIndex = new Map((data.anomalies || []).map(function(a){ return [a.id, a]; }));
@@ -4115,31 +4172,7 @@ async function restoreZip(file){
     /* images du constat : seules des images intégrées sont reprises (une sauvegarde peut venir d'un autre appareil ou d'un tiers) */
     (data.visites || []).forEach(function(v){ var c = v && v.constat; if (!c || typeof c !== 'object') return; ['croquis', 'sigTech', 'sigProp'].forEach(function(k){ if (c[k]) c[k] = imgData(c[k]); }); if (c.croquisV && c.croquisV.fond) c.croquisV.fond = imgData(c.croquisV.fond); });
     (data.visites || []).forEach(function(v){ if (v && v.id) VIS_SUPPR.delete(v.id); });
-    /* croquis de terrain : fonds puis plans ; un fond d'une autre étude de l'appareil garde le sien, celui-ci prend un nouvel identifiant */
-    var visIds = new Set((data.visites || []).map(function(v){ return v && v.id; })), remap = {}, plansR = [], fl = Array.isArray(data.fonds) ? data.fonds : [];
-    for (var fi = 0; fi < fl.length; fi++){
-      try {
-        var fe = fl[fi], fj = fe && typeof fe.path === 'string' && zip.file(fe.path), fb = fe && typeof fe.xyPath === 'string' && zip.file(fe.xyPath); if (!fj || !fb) continue;
-        var fo = JSON.parse(await fj.async('string')), fab = await fb.async('arraybuffer');
-        if (fab.byteLength % 4) continue;
-        var xy = new Float32Array(fab);
-        if (!fondValide(fo, xy.length / 2)) continue;
-        fo.xy = xy; fo.etudeId = data.etude.id;
-        var deja = await DB.get('fonds', fo.id);
-        if (deja && deja.etudeId !== data.etude.id){ var nid = 'f' + uid().replace(/[^A-Za-z0-9]/g, '').slice(0, 16); remap[fo.id] = nid; fo.id = nid; }
-        await DB.put('fonds', fo); VC_FONDS.delete(fo.id);
-      } catch(errF){ if (window.console) console.warn('Fond', errF); }
-    }
-    (Array.isArray(data.plans) ? data.plans : []).forEach(function(pl){
-      if (!planValide(pl, visIds)) return;
-      pl.etudeId = data.etude.id;
-      if (pl.fondId && remap[pl.fondId]) pl.fondId = remap[pl.fondId];
-      if (pl.reseauId && remap[pl.reseauId]) pl.reseauId = remap[pl.reseauId];
-      plansR.push(pl);
-    });
-    var avecPlan = new Set(plansR.map(function(pl){ return pl.visiteId; }));
-    (data.anomalies || []).forEach(function(a){ if (a && a.croquis && !avecPlan.has(a.visiteId)) delete a.croquis; });
-    if (plansR.length) await DB.putMany('plans', plansR);
+    await ecrireCroquisSauvegarde(data, croq);
     await DB.putMany('visites', data.visites || []);
     await DB.putMany('anomalies', data.anomalies || []);
     await DB.put('etudes', data.etude);
@@ -4147,7 +4180,8 @@ async function restoreZip(file){
     if (add.length) await DB.putMany('biblio', add);
     busy2.close();
     S.etude = null; requestPersist();
-    toast('Étude restaurée : ' + plural((data.visites || []).length, 'dossier', 'dossiers'), 3500);
+    toast('Étude restaurée : ' + plural((data.visites || []).length, 'dossier', 'dossiers') + (croq.plans.length ? ', ' + plural(croq.plans.length, 'croquis', 'croquis') + ' de terrain' : '')
+      + (croq.ko ? '. ' + plural(croq.ko, 'élément du croquis illisible ignoré', 'éléments du croquis illisibles ignorés') : ''), croq.ko ? 6000 : 3500);
     go('#/e/' + data.etude.id);
     return true;
   } catch(err){ busy.close(); reportError(err, 'Restauration impossible'); return false; }
