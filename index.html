@@ -3243,13 +3243,25 @@ async function vcChargerFond(file, type){
 }
 function vcFondModifie(f){ clearTimeout(VC.fondT); VC.fondT = setTimeout(function(){ if (!S.etude || S.etude.id !== f.etudeId) return; DB.put('fonds', sansCache(f)).catch(function(e){ reportError(e, 'Fond de plan'); }); }, 800); }
 /* lien retiré (croquis supprimé, plan absent) : l'anomalie reste dans le dossier, sans place sur un plan ; ses codes de préconisation restent lus par le constat */
-function vcDelier(a){
+function vcDelier(a, ambigus){
   var cr = a.croquis || {}, codes = Array.isArray(cr.codes) ? cr.codes.filter(function(k){ return typeof k === 'string'; }) : [];
   var regle = typeof cr.cle === 'string' && cr.cle.indexOf(':') > 0 ? cr.cle.split(':')[0] : typeof cr.regle === 'string' ? cr.regle : '';
   var texte = typeof cr.texte === 'string' ? cr.texte : cr.auto && typeof cr.auto.obs === 'string' ? cr.auto.obs : '';
+  /* une autre anomalie du croquis a la même règle et le même texte (deux WC…) : pas de reprise d'office, elle se replace à la main */
+  if (ambigus && ambigus.has(regle + '|' + texte)) texte = '';
   if (codes.length || regle){ a.croquis = {codes: codes}; if (regle){ a.croquis.regle = regle; if (texte) a.croquis.texte = texte; } } else delete a.croquis;
 }
 function vcLienPlan(a){ return !!(a.croquis && (a.croquis.cle || a.croquis.objId || a.croquis.auto)); }
+/* clés « règle|texte du dessin » portées par plusieurs anomalies reliées d'un même croquis : un nouveau croquis ne saurait pas laquelle reprendre */
+function vcAmbigus(liste){
+  var n = {}, s = new Set();
+  liste.forEach(function(a){
+    var cr = a.croquis || {}, rg = typeof cr.cle === 'string' && cr.cle.indexOf(':') > 0 ? cr.cle.split(':')[0] : typeof cr.regle === 'string' ? cr.regle : '';
+    var tx = typeof cr.texte === 'string' ? cr.texte : cr.auto && typeof cr.auto.obs === 'string' ? cr.auto.obs : '', k = rg + '|' + tx;
+    if (rg && tx){ n[k] = (n[k] || 0) + 1; if (n[k] > 1) s.add(k); }
+  });
+  return s;
+}
 /* anomalies que le croquis a créées et que personne n'a modifiées depuis */
 function vcIntactes(v){
   var V = window.VCroquis, L = VC.ed && VC.ctx && VC.ctx.v === v ? (VC.ed.liste() || []) : [], hors = {};
@@ -3292,9 +3304,10 @@ async function vcSupprimerPlan(doc, o){
   ctx.supprime = true; pending.delete('plans:' + v.id);
   try { await DB.del('plans', v.id); } catch(e){ ctx.supprime = false; reportError(e, 'Suppression du croquis'); return; }
   S.plansV.delete(v.id); VC_RESUMES.delete(v.id);
+  var ambigus = vcAmbigus(anomsOf(v.id).filter(vcLienPlan));
   if (retirer.length) vcAppliquer(v, {retirer: retirer});
   /* les autres anomalies restent dans le dossier, sans lien ; leurs codes de préconisation restent */
-  anomsOf(v.id).forEach(function(a){ if (vcLienPlan(a)){ vcDelier(a); a.updatedAt = nowISO(); saveLater('anomalies', a); } });
+  anomsOf(v.id).forEach(function(a){ if (vcLienPlan(a)){ vcDelier(a, ambigus); a.updatedAt = nowISO(); saveLater('anomalies', a); } });
   /* constat non signé : les valeurs reprises de ce croquis deviennent celles du technicien (un nouveau croquis ne les videra pas) */
   var c = v.constat; if (c && !c.signeLe && c.croqAuto && typeof c.croqAuto === 'object'){ c.croqAuto = {refus: c.croqAuto.refus || {}}; constatTouch(v); }
   touchEtude(); toast(retirer.length ? 'Croquis supprimé, avec ' + (retirer.length > 1 ? 'les ' + retirer.length + ' anomalies qu\'il avait créées.' : 'l\'anomalie qu\'il avait créée.') : 'Croquis supprimé ; les anomalies restent dans le dossier.', 3500);
@@ -3423,7 +3436,8 @@ async function vcPreparer(v){
     }
     if (!choix || curVisit() !== v) return null;
     doc = window.VCroquis.nouveauDoc({nom: 'Croquis de terrain'});
-    anomsOf(v.id).forEach(function(a){ if (vcLienPlan(a)){ vcDelier(a); a.updatedAt = nowISO(); saveLater('anomalies', a); } });
+    var amb = vcAmbigus(anomsOf(v.id).filter(vcLienPlan));
+    anomsOf(v.id).forEach(function(a){ if (vcLienPlan(a)){ vcDelier(a, amb); a.updatedAt = nowISO(); saveLater('anomalies', a); } });
     if (choix.fond){ doc.fondId = choix.fond.id; doc.origine = {x: choix.fond.origine.x, y: choix.fond.origine.y}; doc.u = choix.fond.u || 1; }
   }
   doc.visiteId = v.id; doc.etudeId = v.etudeId;
@@ -4227,7 +4241,9 @@ async function ecrireCroquisSauvegarde(data, croq){
   });
   /* une anomalie reliée à un croquis absent de la sauvegarde perd son lien : un futur croquis ne pourrait pas la reconnaître */
   var avecPlan = new Set(croq.plans.map(function(pl){ return pl.visiteId; }));
-  (data.anomalies || []).forEach(function(a){ if (!a || !a.croquis) return; var l = lienValide(a.croquis); if (!l) delete a.croquis; else if (!avecPlan.has(a.visiteId)){ a.croquis = l; vcDelier(a); } else a.croquis = l; });
+  var sansPlan = {};
+  (data.anomalies || []).forEach(function(a){ if (!a || !a.croquis) return; var l = lienValide(a.croquis); if (!l) delete a.croquis; else { a.croquis = l; if (!avecPlan.has(a.visiteId)) (sansPlan[a.visiteId] = sansPlan[a.visiteId] || []).push(a); } });
+  Object.keys(sansPlan).forEach(function(k){ var amb = vcAmbigus(sansPlan[k].filter(vcLienPlan)); sansPlan[k].forEach(function(a){ vcDelier(a, amb); }); });
   if (croq.plans.length) await DB.putMany('plans', croq.plans);
 }
 async function exportEtude(){

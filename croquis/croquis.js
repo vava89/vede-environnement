@@ -2014,6 +2014,7 @@ function editeur(racine, opts){
 
   /* --- toucher bref : selon l'outil --- */
   function tap(x, y){
+    protegerPanneau();
     var now = Date.now(), double = S.dernierTap && now - S.dernierTap.t < 380 && Math.hypot(x - S.dernierTap.x, y - S.dernierTap.y) < 24;
     S.dernierTap = {t: now, x: x, y: y};
     var o = S.outil;
@@ -2171,8 +2172,8 @@ function editeur(racine, opts){
      s'est terminé (habitude « toucher à nouveau pour terminer »), est ignoré une fois avec l'explication, son relâcher et son clic aussi ;
      ailleurs sur la fiche, le toucher agit aussitôt */
   var panAvale = 0, panSynth = 0, panAppui = false;
-  /* au doigt, le navigateur produit à la fin du toucher qui a terminé le tronçon un clic (et des événements souris) visant ce qui est
-     alors sous le doigt : la fiche qui vient de s'ouvrir ; sans appui sur la fiche, ils sont avalés sans message (400 ms) */
+  /* au doigt, le navigateur produit à la fin d'un toucher sur le plan (pose d'un objet, sélection, fin de tracé) un clic et des événements
+     souris visant ce qui est alors sous le doigt : la fiche qui vient de s'ouvrir ; sans appui sur la fiche, ils sont avalés sans message (400 ms) */
   function protegerPanneau(){ panSynth = Date.now() + 400; panAppui = false; }
   ['mousedown', 'mouseup'].forEach(function(type){
     pan.addEventListener(type, function(ev){ if (Date.now() < panSynth && !panAppui){ ev.stopPropagation(); ev.preventDefault(); } }, true);
@@ -2222,7 +2223,7 @@ function editeur(racine, opts){
     /* fin discrète (arrière-plan, « Retour ») : le panneau ouvert reste tel quel (un choix de fichier en cours n'est pas perdu) */
     if (auto === 'discret'){ changement({garderPanneau: true}); majAide(); return; }
     S.sel = {id: l.id, sommet: null}; S.panneau = 'fiche';
-    changement(); rendreVisible(l.id); majAide(); if (auto === true) protegerPanneau();
+    changement(); rendreVisible(l.id); majAide();
     var r = l.t === 'tr' ? resLigne(l, S.an) : null;
     toast((l.t === 'col' ? 'Collecteur' : l.t === 'lim' ? 'Trait' : 'Tronçon') + ' ajouté' + (r ? (r === 'INC' ? ' : réseau à préciser' : r === 'MIX' ? ' : plusieurs réseaux atteints' : ' : réseau ' + libRes(r) + (RES[l.p.res] ? '' : ' déduit')) : '') + ' · ' + frNum(Math.round(longueur(lignePts(l, idx())) * 10) / 10) + ' m');
   }
@@ -2725,7 +2726,9 @@ function editeur(racine, opts){
         var sC = crsDe(S.doc.origine.x * ud, S.doc.origine.y * ud), dC = crsDe(fo.origine.x * (fo.u || 1), fo.origine.y * (fo.u || 1));
         if (sC && dC && sC !== dC && sC !== 'WGS84' && CRS[sC] && CRS[dC]){
           if (S.reseau){ toast('Ce plan est en ' + dC + ', les réseaux chargés en ' + sC + ' : retirez d\'abord les réseaux (Fond), chargez le plan, puis rechargez les réseaux : ils seront convertis.', 9000); return; }
-          var q = convertir(S.doc.origine.x * ud, S.doc.origine.y * ud, sC, dC); orig = {x: q[0] / ud, y: q[1] / ud}; recale = sC + ' vers ' + dC;
+          /* translation calculée au centre du dessin : l'origine (médiane de toute la rue) peut en être à des centaines de mètres */
+          var bP = emprisePlan(S.doc), c0 = bP ? depuisPlan((bP[0] + bP[2]) / 2, (bP[1] + bP[3]) / 2, S.doc.rot || 0) : {x: 0, y: 0};
+          var q = convertir(S.doc.origine.x * ud + c0.x, S.doc.origine.y * ud + c0.y, sC, dC); orig = {x: (q[0] - c0.x) / ud, y: (q[1] - c0.y) / ud}; recale = sC + ' vers ' + dC;
         }
       }
       if (cale && !decalageFond(fo, {origine: orig, u: ud})){ toast('Ce plan est à plus de 10 000 km du croquis : il n\'est pas chargé.', 7000); return; }
@@ -3226,7 +3229,9 @@ function ecrireDxf(doc, an, liste){
   var Ech = echelleDoc(doc), m = Ech / 1000, u = doc.u || 1, O = doc.origine || {x: 0, y: 0}, idx = indexDoc(doc), rot = doc.rot || 0, rotDeg = rot * 180 / Math.PI;
   var L = [];
   function g(c, v){ var cs = String(c); L.push(cs.length < 3 ? ('   ' + cs).slice(-3) : cs, String(v)); }
-  function f(x){ return (Math.round(x * 10000) / 10000).toFixed(4); }
+  /* décimales selon l'unité du fichier : un dixième de millimètre au moins (4 en mètres, 7 en kilomètres, 8 en miles) */
+  var dec = 4 + Math.max(0, Math.ceil(Math.log10(u))), pw = Math.pow(10, dec);
+  function f(x){ return (Math.round(x * pw) / pw).toFixed(dec); }
   function X(x){ return f(x / u + O.x); } function Y(y){ return f(y / u + O.y); }
   var mu = m / u;
   var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -3408,11 +3413,12 @@ function lireReseau(buf, nom, fondRef){
   brut = /^[\[{]/.test(debut) ? lireGeojson(new TextDecoder('utf-8').decode(u8)) : lireDxf(u8);
   var conv = null;
   if (fondRef){
-    var cible = crsDe(fondRef.origine.x * (fondRef.u || 1), fondRef.origine.y * (fondRef.u || 1)), src = brut.crs, k, n = 0, sx = 0, sy = 0;
-    if (!src){ brut.lignes.slice(0, 50).forEach(function(l){ sx += l.pts[0]; sy += l.pts[1]; n++; }); if (n) src = crsDe(sx / n, sy / n); }
+    var cible = crsDe(fondRef.origine.x * (fondRef.u || 1), fondRef.origine.y * (fondRef.u || 1)), src = brut.crs, k, n = 0, sx = 0, sy = 0, ub = brut.u || 1;
+    if (!src){ brut.lignes.slice(0, 50).forEach(function(l){ sx += l.pts[0]; sy += l.pts[1]; n++; }); if (n) src = crsDe(sx / n * ub, sy / n * ub); }
     if (src && cible && src !== cible && CRS[cible]){
-      brut.lignes.forEach(function(l){ for (k = 0; k < l.pts.length; k += 2){ var q = convertir(l.pts[k], l.pts[k + 1], src, cible); l.pts[k] = q[0]; l.pts[k + 1] = q[1]; } if (l.point){ var c0 = [0, 0]; for (k = 0; k < l.pts.length; k += 2){ c0[0] += l.pts[k]; c0[1] += l.pts[k + 1]; } c0[0] /= l.pts.length / 2; c0[1] /= l.pts.length / 2; l.pts = arcPts(c0[0], c0[1], .45, 0, 2 * Math.PI, []); } });
-      brut.textes.forEach(function(t){ var q = convertir(t.x, t.y, src, cible); t.x = q[0]; t.y = q[1]; });
+      /* lus en unités du fichier (kilomètres, millimètres…) : passés en mètres, puis dans le système du cadastre */
+      brut.lignes.forEach(function(l){ for (k = 0; k < l.pts.length; k += 2){ var q = convertir(l.pts[k] * ub, l.pts[k + 1] * ub, src, cible); l.pts[k] = q[0]; l.pts[k + 1] = q[1]; } if (l.point){ var c0 = [0, 0]; for (k = 0; k < l.pts.length; k += 2){ c0[0] += l.pts[k]; c0[1] += l.pts[k + 1]; } c0[0] /= l.pts.length / 2; c0[1] /= l.pts.length / 2; l.pts = arcPts(c0[0], c0[1], .45, 0, 2 * Math.PI, []); } });
+      brut.textes.forEach(function(t){ var q = convertir(t.x * ub, t.y * ub, src, cible); t.x = q[0]; t.y = q[1]; t.h = (t.h || 0) * ub; });
       brut.u = 1; conv = src + ' vers ' + cible;
     }
   }
