@@ -3394,11 +3394,15 @@ async function vcOuvrir(v, o){
   if (ctx.apres && !VIS_SUPPR.has(v.id)){ go(ctx.apres); return; }
   render();
 }
-/* couches de réseaux chargées ou retirées pendant la séance et qu'aucun croquis n'utilise plus : effacées (aucun écran ne permet de les rechoisir) */
+/* couches de réseaux de l'étude qu'aucun croquis n'utilise plus (remplacées, retirées, même pendant une séance coupée par la fermeture
+   de l'application) : effacées, aucun écran ne permet de les rechoisir ; un fond cadastral, lu une fois, n'est plus relu */
+var VC_CADASTRES = new Set();
 async function vcReseauxInutiles(ctx){
   var ids = Array.from(ctx.reseaux || []);
+  try { (await DB.keysByIndex('fonds', 'etudeId', ctx.v.etudeId)).forEach(function(k){ if (ids.indexOf(k) < 0) ids.push(k); }); } catch(e){}
   for (var i = 0; i < ids.length; i++){
-    try { if (!(await fondUtilise(ids[i]))){ var f = await DB.get('fonds', ids[i]); if (f && f.type === 'reseau'){ await DB.del('fonds', ids[i]); VC_FONDS.delete(ids[i]); } } } catch(e){}
+    if (VC_CADASTRES.has(ids[i])) continue;
+    try { if (!(await fondUtilise(ids[i]))){ var f = await DB.get('fonds', ids[i]); if (f && f.type === 'reseau'){ await DB.del('fonds', ids[i]); VC_FONDS.delete(ids[i]); } else if (f) VC_CADASTRES.add(ids[i]); } } catch(e){}
   }
 }
 /* document du croquis (créé après le choix du fond pour un dossier qui n'en a pas), fonds et logo */
@@ -4184,7 +4188,8 @@ function lienValide(c){
   if (au && typeof au === 'object' && typeof au.obs === 'string' && typeof au.preco === 'string' && (au.reseau === 'EU' || au.reseau === 'EP') && typeof au.nc === 'boolean' && typeof (au.installation == null ? '' : au.installation) === 'string')
     o.auto = {obs: au.obs, preco: au.preco, reseau: au.reseau, nc: au.nc, installation: au.installation || ''};
   if (c.garde === true) o.garde = true;
-  if (typeof c.regle === 'string' && /^[a-z][a-z0-9-]{0,30}$/.test(c.regle)){ o.regle = c.regle; if (typeof c.texte === 'string' && c.texte.length < 500) o.texte = c.texte; }
+  if (typeof c.regle === 'string' && /^[a-z][a-z0-9-]{0,30}$/.test(c.regle)) o.regle = c.regle;
+  if ((o.regle || o.cle) && typeof c.texte === 'string' && c.texte.length < 500) o.texte = c.texte;
   if (o.cle || o.objId) return o;
   if (!o.codes.length && !o.regle) return null;
   var l = {codes: o.codes}; if (o.regle){ l.regle = o.regle; if (o.texte) l.texte = o.texte; } return l;

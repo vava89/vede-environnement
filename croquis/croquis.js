@@ -294,7 +294,7 @@ function lireDxf(input){
   }
   for (var e = 0; e < ents.length; e++) entite(ents[e], M_ID, {lay: null, col: null, pile: {}}, 0);
   var ins = hdr.$INSUNITS && parseInt(hdr.$INSUNITS[70], 10);
-  var U = {1: .0254, 2: .3048, 4: .001, 5: .01, 6: 1, 14: .1}[ins] || 1;
+  var U = {1: .0254, 2: .3048, 3: 1609.344, 4: .001, 5: .01, 6: 1, 7: 1000, 10: .9144, 14: .1}[ins] || 1;
   return {version: (hdr.$ACADVER && hdr.$ACADVER[1]) || dec.version || '', encodage: dec.enc, insunits: ins || 0, u: U,
     calques: ordreCalques.map(function(nm){ return calques[nm]; }), lignes: lignes, textes: textes, ignores: ign, nEnt: nEnt};
 }
@@ -744,11 +744,13 @@ function integEdl(doc, an, ext, forcer, telQuel){
   var idx = indexDoc(doc), regles = reglesInteg(doc, an, idx), parRegle = {}, parCle = {}, liste = [], retirer = {}, sauv = doc.sauvegardes || {};
   regles.forEach(function(a){ parRegle[a.cle] = a; });
   ext.forEach(function(r){ var c = lienCle(r); if (c && parRegle[c] && !parCle[c]) parCle[c] = r; });
-  var reprises = {}, libres = ext.filter(function(r){ var cr = r.croquis; return !!cr && !lienCle(r) && typeof cr.regle === 'string' && typeof cr.texte === 'string' && !(typeof cr.objId === 'string' && cr.objId); });
+  var reprises = {}, evinces = {}, libres = ext.filter(function(r){ var cr = r.croquis; return !!cr && !lienCle(r) && typeof cr.regle === 'string' && typeof cr.texte === 'string' && !(typeof cr.objId === 'string' && cr.objId); });
   libres.forEach(function(r){
     var cr = r.croquis, memes = libres.filter(function(x){ return x !== r && x.croquis.regle === cr.regle && x.croquis.texte === cr.texte; });
-    var rs = regles.filter(function(a){ var d0 = doc.decisions[a.cle] || {}; return !a.manu && !parCle[a.cle] && a.cle.split(':')[0] === cr.regle && a.obs === cr.texte && (d0.st || (a.arbitrer ? 'arbitrer' : 'retenue')) === 'retenue'; });
-    if (rs.length === 1 && !memes.length){ parCle[rs[0].cle] = r; reprises[r.id] = rs[0].cle; }
+    var rs = regles.filter(function(a){ var d0 = doc.decisions[a.cle] || {}, x = parCle[a.cle]; return !a.manu && (!x || (!reprises[x.id] && !evinces[x.id] && recIntact(x))) && a.cle.split(':')[0] === cr.regle && a.obs === cr.texte && (d0.st || (a.arbitrer ? 'arbitrer' : 'retenue')) === 'retenue'; });
+    /* une règle libre d'abord ; sinon une règle dont l'enregistrement, créé par ce croquis, est intact : il laisse la place à l'anomalie gardée */
+    var rl = rs.filter(function(a){ return !parCle[a.cle]; }), choix = rl.length ? rl : rs;
+    if (choix.length === 1 && !memes.length){ var x0 = parCle[choix[0].cle]; if (x0) evinces[x0.id] = x0; parCle[choix[0].cle] = r; reprises[r.id] = choix[0].cle; }
   });
   regles.forEach(function(a){
     var d = doc.decisions[a.cle] || {}, st = d.st || a.stManu || (a.arbitrer ? 'arbitrer' : 'retenue'), r = parCle[a.cle];
@@ -783,6 +785,8 @@ function integEdl(doc, an, ext, forcer, telQuel){
   ext.forEach(function(r){
     var c = lienCle(r);
     if ((c && parCle[c] === r) || reprises[r.id]) return;
+    /* enregistrement intact remplacé par l'anomalie gardée qui revient */
+    if (evinces[r.id] && !telQuel){ retirer[r.id] = r; return; }
     /* le dessin ne produit plus cette anomalie : retirée si personne n'y a touché, sinon gardée et signalée */
     if (c && !parRegle[c] && (recIntact(r) || (doc.decisions[c] && doc.decisions[c].supprimee === true)) && !telQuel){ retirer[r.id] = r; return; }
     var oid = r.croquis && r.croquis.objId, d = doc.decisions['app:' + r.id] || {};
@@ -795,7 +799,7 @@ function integEdl(doc, an, ext, forcer, telQuel){
   liste.filter(function(a){ return a.creer; }).sort(function(a, b){ return ordre.indexOf(a.cle) - ordre.indexOf(b.cle); }).forEach(function(a){ a.num = ++k; });
   liste.forEach(function(a){ if (a.appId) a.num = pos[a.appId]; else if (!a.creer) a.num = null; });
   liste.sort(function(a, b){ return (a.num || 1e9) - (b.num || 1e9) || ordre.indexOf(a.cle) - ordre.indexOf(b.cle); });
-  return {liste: liste, retirer: retirer, regles: parRegle};
+  return {liste: liste, retirer: retirer, regles: parRegle, evinces: evinces};
 }
 function anomaliesInteg(doc, an, ext, forcer, telQuel){
   if (!an.ref) return integEdl(doc, an, ext, forcer, telQuel).liste;
@@ -880,14 +884,17 @@ function reconcilier(doc, an, ext, o){
     var codes = (a.codes || []).slice(), codesChange = JSON.stringify(r.croquis.codes || []) !== JSON.stringify(codes);
     /* anomalie gardée reprise par la règle (croquis refait) : elle en prend la clé */
     var reprise = lienCle(r) !== a.cle, crN = Object.assign({}, r.croquis, {cle: a.cle, objId: a.objId || null, codes: codes}, au ? {auto: nAu} : {});
-    if (reprise){ delete crN.regle; delete crN.texte; }
+    if (reprise) delete crN.regle;
+    /* anomalie reprise (sans « auto ») : elle garde le texte du dessin, tenu à jour, pour être reprise encore par un croquis refait */
+    var texteChg = !au && typeof crN.texte === 'string' && crN.texte !== a.r0.obs; if (texteChg) crN.texte = a.r0.obs;
     if (crN.objId) delete crN.objEfface;
-    if (n || codesChange || reprise || (r.croquis.objId || null) !== (a.objId || null)) ops.maj.push({id: r.id, champs: Object.assign(ch, {croquis: crN})});
+    if (n || codesChange || reprise || texteChg || (r.croquis.objId || null) !== (a.objId || null)) ops.maj.push({id: r.id, champs: Object.assign(ch, {croquis: crN})});
   });
   Object.keys(R.retirer).forEach(function(id){
     var r = R.retirer[id], c = lienCle(r);
     ops.retirer.push(id);
-    if (c){ copieRetrait(doc, c, r); ops.doc = true; }
+    /* l'enregistrement intact remplacé par une anomalie gardée n'a rien à garder */
+    if (c && !R.evinces[id]){ copieRetrait(doc, c, r); ops.doc = true; }
   });
   /* r6 : anomalie du dossier placée sur un objet effacé depuis (placée à la main, ou gardée) : elle n'a plus de place sur le plan */
   ext.forEach(function(r){
@@ -2157,17 +2164,21 @@ function editeur(racine, opts){
       instantane(); var w = S.vue.monde(x, y), o = {id: uid(), k: 'tx', x: w.x, y: w.y, txt: String(txt).trim(), taille: 2.5}; S.doc.el.push(o); S.sel = {id: o.id, sommet: null}; S.panneau = 'fiche'; changement();
     });
   }
-  /* fin automatique : pendant une seconde, comme sur le plan, le premier toucher sur la fiche qui vient de s'ouvrir sous le doigt
-     (habitude « toucher à nouveau pour terminer ») est ignoré une fois, avec l'explication ; son relâcher et son clic aussi */
-  var panProtege = 0, panAvale = 0;
-  function protegerPanneau(){ panProtege = Date.now() + 1000; }
-  ['pointerdown', 'pointerup', 'click'].forEach(function(type){
+  /* fin automatique : pendant une seconde, comme sur le plan, un toucher sur la fiche qui vient de s'ouvrir sous le doigt, là où le tronçon
+     s'est terminé (habitude « toucher à nouveau pour terminer »), est ignoré une fois avec l'explication, son relâcher et son clic aussi ;
+     ailleurs sur la fiche, le toucher agit aussitôt */
+  var panAvale = 0;
+  pan.addEventListener('pointerdown', function(ev){
+    var fa = S.finAuto, t = Date.now(); if (!fa || t - fa.t >= 1000) return;
+    var r = cv.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top;
+    if (Math.hypot(x - fa.tx, y - fa.ty) >= 30 && Math.hypot(x - fa.x, y - fa.y) >= 30) return;
+    S.finAuto = null; panAvale = t + 700; ev.stopPropagation(); ev.preventDefault();
+  }, true);
+  ['pointerup', 'click'].forEach(function(type){
     pan.addEventListener(type, function(ev){
-      var t = Date.now();
-      if (type === 'pointerdown' && t < panProtege){ panProtege = 0; panAvale = t + 700; }
-      if (t >= panAvale) return;
+      if (Date.now() >= panAvale) return;
       ev.stopPropagation(); ev.preventDefault();
-      if (type === 'click'){ panAvale = 0; S.finAuto = null; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); }
+      if (type === 'click'){ panAvale = 0; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); }
     }, true);
   });
   function terminerTrace(auto){
@@ -2199,7 +2210,7 @@ function editeur(racine, opts){
     /* fin discrète (arrière-plan, « Retour ») : le panneau ouvert reste tel quel (un choix de fichier en cours n'est pas perdu) */
     if (auto === 'discret'){ changement({garderPanneau: true}); majAide(); return; }
     S.sel = {id: l.id, sommet: null}; S.panneau = 'fiche';
-    changement(); rendreVisible(l.id); majAide(); if (auto === true) protegerPanneau();
+    changement(); rendreVisible(l.id); majAide();
     var r = l.t === 'tr' ? resLigne(l, S.an) : null;
     toast((l.t === 'col' ? 'Collecteur' : l.t === 'lim' ? 'Trait' : 'Tronçon') + ' ajouté' + (r ? (r === 'INC' ? ' : réseau à préciser' : r === 'MIX' ? ' : plusieurs réseaux atteints' : ' : réseau ' + libRes(r) + (RES[l.p.res] ? '' : ' déduit')) : '') + ' · ' + frNum(Math.round(longueur(lignePts(l, idx())) * 10) / 10) + ' m');
   }
@@ -2333,7 +2344,7 @@ function editeur(racine, opts){
     if (ev.target && ev.target !== document.body && ev.target !== document.documentElement && !R.contains(ev.target)) return;
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z'){ ev.preventDefault(); ev.shiftKey ? refaire() : annuler(); }
     else if (ev.key === 'Escape'){ if (!opts.echapHote) fermerNiveau(); }
-    else if (ev.key === 'Enter' && S.brouillon && !(ev.target.closest && ev.target.closest('button'))) terminerTrace();
+    else if (ev.key === 'Enter' && S.brouillon && (ev.target === R || ev.target === cv || ev.target === document.body || ev.target === document.documentElement)) terminerTrace();
     else if ((ev.key === 'Delete' || ev.key === 'Backspace') && S.sel){ ev.preventDefault(); supprimerSel(); }
   });
   function supprimerSel(){
@@ -2697,13 +2708,22 @@ function editeur(racine, opts){
     toast('Lecture de « ' + f.name + ' »…', 8000);
     Promise.resolve(opts.chargerFond(f, type)).then(function(fo){
       if (!fo) return;
-      if (S.doc.origine && (S.doc.origine.x || S.doc.origine.y) && !decalageFond(fo, S.doc)){ toast('Ce plan est à plus de 10 000 km du croquis : il n\'est pas chargé.', 7000); return; }
+      var ud = S.doc.u || 1, cale = S.doc.origine && (S.doc.origine.x || S.doc.origine.y), recale = '', orig = S.doc.origine;
+      if (type !== 'reseau' && cale){
+        var sC = crsDe(S.doc.origine.x * ud, S.doc.origine.y * ud), dC = crsDe(fo.origine.x * (fo.u || 1), fo.origine.y * (fo.u || 1));
+        if (sC && dC && sC !== dC && sC !== 'WGS84' && CRS[sC] && CRS[dC]){
+          if (S.reseau){ toast('Ce plan est en ' + dC + ', les réseaux chargés en ' + sC + ' : retirez d\'abord les réseaux (Fond), chargez le plan, puis rechargez les réseaux : ils seront convertis.', 9000); return; }
+          var q = convertir(S.doc.origine.x * ud, S.doc.origine.y * ud, sC, dC); orig = {x: q[0] / ud, y: q[1] / ud}; recale = sC + ' vers ' + dC;
+        }
+      }
+      if (cale && !decalageFond(fo, {origine: orig, u: ud})){ toast('Ce plan est à plus de 10 000 km du croquis : il n\'est pas chargé.', 7000); return; }
+      if (recale) S.doc.origine = orig;
       if (type === 'reseau'){ S.reseau = fo; S.doc.reseauId = fo.id; }
       else { S.fond = fo; S.doc.fondId = fo.id; }
       caler(fo);
       changement(); if (type !== 'reseau' && !S.doc.el.length) ajusterVue();
       var ign = Object.keys(fo.stats.ignores || {}).filter(function(k){ return !/^(POINT|VIEWPORT|ATTDEF|SEQEND)$/.test(k); });
-      toast((type === 'reseau' ? 'Réseaux chargés : ' : 'Fond chargé : ') + fo.stats.lignes + ' traits, ' + fo.stats.textes + ' textes' + (ign.length ? ' (non affiché : ' + ign.join(', ') + ')' : ''), 5000);
+      toast((type === 'reseau' ? 'Réseaux chargés : ' : 'Fond chargé : ') + fo.stats.lignes + ' traits, ' + fo.stats.textes + ' textes' + (ign.length ? ' (non affiché : ' + ign.join(', ') + ')' : '') + (recale ? ' ; croquis recalé (' + recale + ')' : ''), recale ? 7000 : 5000);
     }).catch(function(err){ toast('Chargement impossible : ' + (err && err.message ? err.message : err), 7000); });
   }
   /* Calage : un croquis sans origine prend celle du fond ; s'il contient déjà des objets, il est posé au centre du fond */
@@ -2735,13 +2755,14 @@ function editeur(racine, opts){
     } catch(err){ toast('Sortie impossible : ' + (err && err.message || err), 6000); }
   }
 
-  /* ferme le niveau le plus haut (dialogue, tracé, mode, palette, panneau) ; faux s'il n'y avait rien : l'hôte peut alors fermer l'éditeur */
+  /* ferme le niveau le plus haut : ce qui est affiché par-dessus (dialogue, palette, panneau), puis les modes, et le tracé en cours
+     en dernier (l'abandonner perd des points) ; faux s'il n'y avait rien : l'hôte peut alors fermer l'éditeur */
   function fermerNiveau(){
     var m = R.querySelector('.vc-modal'); if (m){ m.remove(); return true; }
-    if (S.brouillon){ annulerTrace(); return true; }
-    if (S.relier || S.aligner || S.placer){ S.relier = null; S.aligner = null; S.placer = null; majAide(); redessiner(); return true; }
     if (S.palette){ fermerPalette(); return true; }
     if (S.sel || S.panneau){ fermerPanneau(); return true; }
+    if (S.relier || S.aligner || S.placer){ S.relier = null; S.aligner = null; S.placer = null; majAide(); redessiner(); return true; }
+    if (S.brouillon){ annulerTrace(); return true; }
     return false;
   }
 
