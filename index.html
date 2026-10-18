@@ -3246,7 +3246,7 @@ function vcFondModifie(f){ clearTimeout(VC.fondT); VC.fondT = setTimeout(functio
 function vcDelier(a){
   var cr = a.croquis || {}, codes = Array.isArray(cr.codes) ? cr.codes.filter(function(k){ return typeof k === 'string'; }) : [];
   var regle = typeof cr.cle === 'string' && cr.cle.indexOf(':') > 0 ? cr.cle.split(':')[0] : typeof cr.regle === 'string' ? cr.regle : '';
-  var texte = cr.auto && typeof cr.auto.obs === 'string' ? cr.auto.obs : typeof cr.texte === 'string' ? cr.texte : '';
+  var texte = typeof cr.texte === 'string' ? cr.texte : cr.auto && typeof cr.auto.obs === 'string' ? cr.auto.obs : '';
   if (codes.length || regle){ a.croquis = {codes: codes}; if (regle){ a.croquis.regle = regle; if (texte) a.croquis.texte = texte; } } else delete a.croquis;
 }
 function vcLienPlan(a){ return !!(a.croquis && (a.croquis.cle || a.croquis.objId || a.croquis.auto)); }

@@ -885,8 +885,11 @@ function reconcilier(doc, an, ext, o){
     /* anomalie gardée reprise par la règle (croquis refait) : elle en prend la clé */
     var reprise = lienCle(r) !== a.cle, crN = Object.assign({}, r.croquis, {cle: a.cle, objId: a.objId || null, codes: codes}, au ? {auto: nAu} : {});
     if (reprise) delete crN.regle;
-    /* anomalie reprise (sans « auto ») : elle garde le texte du dessin, tenu à jour, pour être reprise encore par un croquis refait */
-    var texteChg = !au && typeof crN.texte === 'string' && crN.texte !== a.r0.obs; if (texteChg) crN.texte = a.r0.obs;
+    /* texte actuel du dessin, gardé quand « auto » ne le porte pas (anomalie reprise, ou observation retouchée avant que le dessin change) :
+       après une suppression du croquis, un croquis refait la reprend encore */
+    var tx = a.r0.obs, besoin = !au || nAu.obs !== tx, texteChg = false;
+    if (besoin && crN.texte !== tx){ crN.texte = tx; texteChg = true; }
+    else if (!besoin && crN.texte != null){ delete crN.texte; texteChg = true; }
     if (crN.objId) delete crN.objEfface;
     if (n || codesChange || reprise || texteChg || (r.croquis.objId || null) !== (a.objId || null)) ops.maj.push({id: r.id, champs: Object.assign(ch, {croquis: crN})});
   });
@@ -2167,8 +2170,15 @@ function editeur(racine, opts){
   /* fin automatique : pendant une seconde, comme sur le plan, un toucher sur la fiche qui vient de s'ouvrir sous le doigt, là où le tronçon
      s'est terminé (habitude « toucher à nouveau pour terminer »), est ignoré une fois avec l'explication, son relâcher et son clic aussi ;
      ailleurs sur la fiche, le toucher agit aussitôt */
-  var panAvale = 0;
+  var panAvale = 0, panSynth = 0, panAppui = false;
+  /* au doigt, le navigateur produit à la fin du toucher qui a terminé le tronçon un clic (et des événements souris) visant ce qui est
+     alors sous le doigt : la fiche qui vient de s'ouvrir ; sans appui sur la fiche, ils sont avalés sans message (400 ms) */
+  function protegerPanneau(){ panSynth = Date.now() + 400; panAppui = false; }
+  ['mousedown', 'mouseup'].forEach(function(type){
+    pan.addEventListener(type, function(ev){ if (Date.now() < panSynth && !panAppui){ ev.stopPropagation(); ev.preventDefault(); } }, true);
+  });
   pan.addEventListener('pointerdown', function(ev){
+    panAppui = true;
     var fa = S.finAuto, t = Date.now(); if (!fa || t - fa.t >= 1000) return;
     var r = cv.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top;
     if (Math.hypot(x - fa.tx, y - fa.ty) >= 30 && Math.hypot(x - fa.x, y - fa.y) >= 30) return;
@@ -2176,7 +2186,9 @@ function editeur(racine, opts){
   }, true);
   ['pointerup', 'click'].forEach(function(type){
     pan.addEventListener(type, function(ev){
-      if (Date.now() >= panAvale) return;
+      var t = Date.now();
+      if (t < panSynth && !panAppui){ ev.stopPropagation(); ev.preventDefault(); if (type === 'click') panSynth = 0; return; }
+      if (t >= panAvale) return;
       ev.stopPropagation(); ev.preventDefault();
       if (type === 'click'){ panAvale = 0; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); }
     }, true);
@@ -2210,7 +2222,7 @@ function editeur(racine, opts){
     /* fin discrète (arrière-plan, « Retour ») : le panneau ouvert reste tel quel (un choix de fichier en cours n'est pas perdu) */
     if (auto === 'discret'){ changement({garderPanneau: true}); majAide(); return; }
     S.sel = {id: l.id, sommet: null}; S.panneau = 'fiche';
-    changement(); rendreVisible(l.id); majAide();
+    changement(); rendreVisible(l.id); majAide(); if (auto === true) protegerPanneau();
     var r = l.t === 'tr' ? resLigne(l, S.an) : null;
     toast((l.t === 'col' ? 'Collecteur' : l.t === 'lim' ? 'Trait' : 'Tronçon') + ' ajouté' + (r ? (r === 'INC' ? ' : réseau à préciser' : r === 'MIX' ? ' : plusieurs réseaux atteints' : ' : réseau ' + libRes(r) + (RES[l.p.res] ? '' : ' déduit')) : '') + ' · ' + frNum(Math.round(longueur(lignePts(l, idx())) * 10) / 10) + ' m');
   }
@@ -3354,9 +3366,13 @@ for (var zz = 42; zz <= 50; zz++) CRS['CC' + zz] = lcc({lat1: zz - .75, lat2: zz
 /* Devine le système d'un point (coordonnées du fichier) */
 function crsDe(x, y){
   if (Math.abs(x) <= 180 && Math.abs(y) <= 90) return 'WGS84';
-  if (x > 1000000 && x < 2400000){ var z = Math.round((y - 200000) / 1000000) + 41; if (z >= 42 && z <= 50 && Math.abs(y - ((z - 41) * 1000000 + 200000)) < 650000) return 'CC' + z; }
-  if (x > -400000 && x < 1400000 && y > 6000000 && y < 7200000) return 'L93';
-  return null;
+  var c = [];
+  if (x > 1000000 && x < 2400000){ var z = Math.round((y - 200000) / 1000000) + 41; if (z >= 42 && z <= 50 && Math.abs(y - ((z - 41) * 1000000 + 200000)) < 650000) c.push('CC' + z); }
+  if (x > -400000 && x < 1400000 && y > 6000000 && y < 7200000) c.push('L93');
+  if (c.length < 2) return c[0] || null;
+  /* lecture ambiguë (est de la France en Lambert 93, ou zone CC) : celle qui retombe en France, dans la bande de latitude de sa zone, l'emporte */
+  var ok = c.filter(function(k){ var ll = CRS[k].depuis(x, y); return ll[0] > -5.5 && ll[0] < 10 && ll[1] > 41 && ll[1] < 51.5 && (k === 'L93' || Math.abs(ll[1] - +k.slice(2)) <= 1); });
+  return ok.length === 1 ? ok[0] : null;
 }
 function convertir(x, y, de, vers){
   if (de === vers || !de || !vers) return [x, y];
