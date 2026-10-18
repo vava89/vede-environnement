@@ -2038,7 +2038,7 @@ function constatEval(v, list){
     /* Constat signé : ce qui a été signé est figé ; on signale seulement que le dossier a changé depuis.
        Le contenu attesté (statut, date, nom, adresse du branchement) met le dossier « à compléter » ; les coordonnées (domicile, téléphone, mail) font seulement l'objet d'une mention */
     var liveConf = {}; rows.forEach(function(x){ liveConf[x.r.id] = rowActive(x.r) ? x.conf : ''; });
-    var FV = F.visite || {}, vk = function(k){ return CONTACT_IMP[k] ? ctc(v, k) : v[k]; };
+    var FV = F.base || F.visite || {}, vk = function(k){ return CONTACT_IMP[k] ? ctc(v, k) : v[k]; };
     var dif = function(k){ return idCmp(k, FV[k]) !== idCmp(k, vk(k)); }, why = [];
     E.coordChange = ['domicile', 'domVille', 'tel', 'mail'].some(dif);
     /* ce qui a changé, dans l'ordre du constat, pour le dire au lieu d'un message général */
@@ -2066,7 +2066,13 @@ function constatFigeCalc(v){
     visite: {statut: w.statut, dateVisite: w.dateVisite, absences: (w.absences || []).slice(), nom: ctc(w, 'nom'), adresse: w.adresse, commune: w.commune, domicile: ctc(w, 'domicile'), domVille: ctc(w, 'domVille'), tel: ctc(w, 'tel'), mail: ctc(w, 'mail')}};
 }
 /* Constat signé en v1.3.0, sans gel : figé tel qu'il s'affiche avant que le croquis puisse changer les anomalies (un constat signé ne bouge jamais) */
-function constatGeler(v){ var c = v.constat; if (!c || !c.signeLe || c.fige) return false; c.fige = constatFigeCalc(v); constatTouch(v); return true; }
+function constatGeler(v){
+  var c = v.constat; if (!c || !c.signeLe || c.fige) return false;
+  c.fige = constatFigeCalc(v);
+  /* dossier tel qu'au gel : ce qui avait changé depuis la signature (fiche contact corrigée…) n'était pas signalé avant le gel et ne l'est pas après */
+  c.fige.base = {statut: v.statut, dateVisite: v.dateVisite, nom: ctc(v, 'nom'), adresse: v.adresse, commune: v.commune, domicile: ctc(v, 'domicile'), domVille: ctc(v, 'domVille'), tel: ctc(v, 'tel'), mail: ctc(v, 'mail')};
+  constatTouch(v); return true;
+}
 function constatNonEffectue(v){ return v.statut === 'absent' || v.statut === 'refus' || v.statut === 'hors_zone'; }
 /* Contrôles avant signature : ce qui manque ou se contredit est signalé, rien n'est bloqué */
 function constatIssues(v, list){
@@ -3248,6 +3254,7 @@ function vcTexteSupprimer(){
   var suite = autres ? ' ' + (autres > 1 ? 'Les ' + autres + ' autres anomalies reliées au plan restent' : 'L\'autre anomalie reliée au plan reste') + ' dans la liste du dossier, sans lien avec un plan.' : '';
   if (!it.length) return base + (all.some(vcLienPlan) ? ' Les anomalies reliées au plan restent dans la liste du dossier, sans lien avec un plan.' : '');
   var nums = it.map(function(a){ return 'A' + (all.indexOf(a) + 1); }).join(', '), un = it.length === 1;
+  if (v.constat && v.constat.signeLe) suite += ' Le constat est signé : ' + (un ? 'la retirer' : 'les retirer') + ' le fera différer du dossier jusqu\'à une nouvelle signature.';
   return {texte: base + (un ? ' Le croquis a créé une anomalie que personne n\'a modifiée depuis (' + nums + ') : la retirer aussi du dossier, ou la garder sans lien avec un plan ? Un nouveau croquis la créerait une seconde fois.'
       : ' Le croquis a créé ' + it.length + ' anomalies que personne n\'a modifiées depuis (' + nums + ') : les retirer aussi du dossier, ou les garder sans lien avec un plan ? Un nouveau croquis les créerait une seconde fois.') + suite,
     ok: un ? 'La retirer aussi' : 'Les retirer aussi', autre: un ? 'Garder l\'anomalie' : 'Garder les anomalies'};
@@ -3512,9 +3519,9 @@ function constatDepuisCroquis(v, res, suivi){
     P.rows[r.id] = a;
   }
   res.rows.forEach(function(s){
-    /* appareil déjà compté par le technicien dans une ligne « Autres » : la ligne du formulaire n'est pas remplie (écart signalé) */
-    if (vcAutresDouble(c, s)) return;
     var r = vcLigneConstat(c, s);
+    /* appareil que le technicien compte dans une ligne « Autres » : la ligne du formulaire n'est ni remplie ni vidée (écart signalé) */
+    if (vcAutresDouble(c, s)){ if (r) vus[r.id] = true; return; }
     if (!r && !s.std){
       if (suivi || P.refus[s.id]) return;
       r = {id: rowIdNeuf(c), groupe: s.groupe, label: s.label, std: false, nb: '', raccord: '', conforme: '', methodes: [], croq: s.id};
@@ -3542,16 +3549,22 @@ function constatDepuisCroquis(v, res, suivi){
 /* écarts entre le croquis et le constat, ligne par ligne (affichage et « À vérifier avant de signer ») */
 function vcEcarts(v, c){
   var res = VC_RESUMES.get(v.id); if (!res || !planDe(v.id) || !vcPret()) return [];
-  var out = [], P = c.croqAuto && typeof c.croqAuto === 'object' ? c.croqAuto : {}, refus = P.refus && typeof P.refus === 'object' ? P.refus : {};
+  var out = [], P = c.croqAuto && typeof c.croqAuto === 'object' ? c.croqAuto : {}, refus = P.refus && typeof P.refus === 'object' ? P.refus : {}, autres = {};
   res.rows.forEach(function(s){
     /* ligne « Autres » que le technicien a retirée du constat : son choix */
     if (!s.std && refus[s.id]) return;
     var r = vcLigneConstat(c, s), vals = vcValeurs(s), lab = r ? r.label : s.label, dbl = vcAutresDouble(c, s);
-    if (dbl){ if (r && rowActive(r)) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, compté au constat dans cette ligne et aussi en « ' + dbl.label + ' ».'); return; }
+    if (dbl){
+      if (r && rowActive(r)) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, compté au constat dans cette ligne et aussi en « ' + dbl.label + ' ».');
+      else { var e = autres[dbl.id] || (autres[dbl.id] = {r: dbl, n: 0, d: []}); e.n += s.nb; e.d.push(lab + ' ' + s.nb); }
+      return;
+    }
     if (!r || !rowActive(r)){ out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + (r && String(r.nb == null ? '' : r.nb).trim() === '0' ? '0' : 'nombre non renseigné') + ' au constat.'); return; }
     if (String(r.nb).trim() !== vals.nb) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + String(r.nb).trim() + ' au constat.');
     if (vals.raccord && r.raccord && r.raccord !== vals.raccord) out.push(lab + ' : raccordement « ' + raccLabel(vals.raccord) + ' » sur le croquis de terrain, « ' + raccLabel(r.raccord) + ' » au constat.');
   });
+  /* appareils comptés en « Autres » par le technicien : écart seulement si le nombre diffère du croquis */
+  Object.keys(autres).forEach(function(k){ var e = autres[k], nb = String(e.r.nb == null ? '' : e.r.nb).trim(); if (nb !== String(e.n)) out.push('« ' + e.r.label + ' » : ' + (nb || '0') + ' au constat, ' + e.n + ' sur le croquis de terrain (' + e.d.join(', ') + ').'); });
   if (res.puisard && !(c.epRecup || {}).puisard) out.push('Puisard : sur le croquis de terrain, non coché au constat (ouvrages de récupération des EP).');
   if (res.sansCote) out.push(res.sansCote > 1 ? res.sansCote + ' descentes EP sans façade sur le croquis de terrain : indiquez avant ou arrière pour les compter au constat.' : 'Descente EP sans façade sur le croquis de terrain : indiquez avant ou arrière pour la compter au constat.');
   return out;
