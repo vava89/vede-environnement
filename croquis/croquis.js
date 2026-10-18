@@ -2019,7 +2019,11 @@ function editeur(racine, opts){
     if (o.k === 'ln'){
       if (OUTILS_LN[o.id].relier){ relierToucher(x, y); return; }
       var b2 = S.brouillon;
-      if (!b2 && S.finAuto && now - S.finAuto.t < 400 && Math.hypot(x - S.finAuto.x, y - S.finAuto.y) < 30){ S.finAuto = null; return; }
+      /* juste après une fin automatique, un nouveau toucher sur le même objet est l'habitude « toucher à nouveau pour terminer » : ignoré une fois, avec l'explication */
+      if (!b2 && S.finAuto && now - S.finAuto.t < 1000){
+        var fa = S.finAuto, pres = Math.hypot(x - fa.tx, y - fa.ty) < 30 || Math.hypot(x - fa.x, y - fa.y) < 30, ao = !pres && fa.id ? accroche(x, y, {}) : null;
+        if (pres || (ao && ao.type === 'obj' && ao.id === fa.id)){ S.finAuto = null; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); return; }
+      }
       if (b2 && b2.pts.length){ var last = S.vue.ecran(b2.pts[b2.pts.length - 1].x, b2.pts[b2.pts.length - 1].y); if (Math.hypot(x - last.x, y - last.y) <= 18 || (double && b2.pts.length >= 2)){ terminerTrace(); return; } }
       ajouterPointTrace(pointTrace(x, y));
     }
@@ -2039,7 +2043,10 @@ function editeur(racine, opts){
     S.sel = null;
     if (a2.aide) montrerAide(a2);
     /* un tronçon qui touche un objet ou un autre tracé est terminé ; le second toucher d'un double toucher (habitude « toucher à nouveau pour terminer ») ne commence pas de nouveau tracé */
-    if (at && b2.pts.length >= 2 && oo.t === 'tr' && aideOn('finir')){ var sf = S.vue.ecran(a2.x, a2.y); S.finAuto = {t: Date.now(), x: sf.x, y: sf.y}; terminerTrace(); return; }
+    if (at && b2.pts.length >= 2 && oo.t === 'tr' && aideOn('finir')){
+      var sf = S.vue.ecran(a2.x, a2.y), dt = S.dernierTap && Date.now() - S.dernierTap.t < 1000 ? S.dernierTap : {x: sf.x, y: sf.y};
+      S.finAuto = {t: Date.now(), x: sf.x, y: sf.y, tx: dt.x, ty: dt.y, id: a2.type === 'obj' ? a2.id : null}; terminerTrace(true); return;
+    }
     majAide(); majPanneau(); redessiner();
   }
   /* Tracé au glissé : le doigt tire le segment depuis le dernier point (ou depuis l'appui) */
@@ -2105,6 +2112,8 @@ function editeur(racine, opts){
     if (a.type === 'som' && !a.a){ var l = el(a.ligne), ext = l && (a.i === 0 || a.i === l.v.length - 1);
       if (ext || passage){
         var Pl = l ? lignePts(l, idx()) : [], j0 = a.i > 0 ? a.i - 1 : 0, j1 = a.i > 0 ? a.i : 1;
+        /* gargouille au premier sommet : l'eau sort du tracé, donc du sommet suivant vers celui-ci */
+        if (T[t].role === 'exutoire' && a.i === 0){ j0 = 1; j1 = 0; }
         if (Pl[j0] && Pl[j1] && Math.hypot(Pl[j1].x - Pl[j0].x, Pl[j1].y - Pl[j0].y) > 1e-6) angSeg = Math.atan2(Pl[j1].y - Pl[j0].y, Pl[j1].x - Pl[j0].x);
         o.x = a.x; o.y = a.y; insererDansLigne(S.doc, o, a);
       }
@@ -2135,7 +2144,10 @@ function editeur(racine, opts){
       instantane(); var w = S.vue.monde(x, y), o = {id: uid(), k: 'tx', x: w.x, y: w.y, txt: String(txt).trim(), taille: 2.5}; S.doc.el.push(o); S.sel = {id: o.id, sommet: null}; S.panneau = 'fiche'; changement();
     });
   }
-  function terminerTrace(){
+  /* fin automatique : pendant le double toucher, la fiche qui vient de s'ouvrir sous le doigt ne réagit pas (le toucher passe au plan, qui l'ignore) */
+  var tPan = null;
+  function protegerPanneau(){ pan.style.pointerEvents = 'none'; clearTimeout(tPan); tPan = setTimeout(function(){ pan.style.pointerEvents = ''; }, 450); }
+  function terminerTrace(auto){
     var b = S.brouillon; S.brouillon = null;
     if (!b || b.pts.length < 2){ majAide(); redessiner(); return; }
     instantane();
@@ -2162,7 +2174,7 @@ function editeur(racine, opts){
     analyse();
     if (!l.lab && texteEtiquette(l, S.an)) l.lab = placerEtiquette(S.doc, S.an, l, E(), idx());
     S.sel = {id: l.id, sommet: null}; S.panneau = 'fiche';
-    changement(); rendreVisible(l.id); majAide();
+    changement(); rendreVisible(l.id); majAide(); if (auto === true) protegerPanneau();
     var r = l.t === 'tr' ? resLigne(l, S.an) : null;
     toast((l.t === 'col' ? 'Collecteur' : l.t === 'lim' ? 'Trait' : 'Tronçon') + ' ajouté' + (r ? (r === 'INC' ? ' : réseau à préciser' : r === 'MIX' ? ' : plusieurs réseaux atteints' : ' : réseau ' + libRes(r) + (RES[l.p.res] ? '' : ' déduit')) : '') + ' · ' + frNum(Math.round(longueur(lignePts(l, idx())) * 10) / 10) + ' m');
   }
@@ -2721,7 +2733,7 @@ function editeur(racine, opts){
     choisirOutil({k: 'main'}); majBarre(); majPanneau(); majAides(true); redessiner();
   }
   return {ouvrir: ouvrir, etat: S, redessiner: redessiner, redim: redim, doc: function(){ return S.doc; }, choisirOutil: choisirOutil, toast: toast, enregistrer: enregistrer,
-    tap: tap, terminerTrace: terminerTrace, selectionner: selectionner, ouvrirPanneau: ouvrirPanneau, annuler: annuler, refaire: refaire, ajusterVue: ajusterVue, sortie: sortie,
+    tap: tap, terminerTrace: function(){ terminerTrace(); }, selectionner: selectionner, ouvrirPanneau: ouvrirPanneau, annuler: annuler, refaire: refaire, ajusterVue: ajusterVue, sortie: sortie,
     fermerNiveau: fermerNiveau, placerAnomalie: function(id){ if (!INTEG || !recDe(id)) return; fermerPanneau(); choisirOutil({k: 'main'}); S.placer = id; majAide(); }, synchroniser: function(){ if (S.doc){ analyse(); synchroniser(); majBarre(); majPanneau(); redessiner(); } }, liste: function(){ return S.liste; }};
 }
 VC.editeur = editeur;
