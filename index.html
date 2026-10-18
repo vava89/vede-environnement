@@ -3138,10 +3138,10 @@ function vcPret(){ return !!(S.croq && S.croq.actif && vcModule()); }
 function planDe(vid){ return !!(S.plansV && S.plansV.has(vid)); }
 function vcCtxOk(){ var c = VC.ctx; return !!(c && S.etude && S.etude.id === c.v.etudeId && S.visites.indexOf(c.v) >= 0 && !VIS_SUPPR.has(c.v.id)); }
 function anomLiee(a){ return !!(a && a.croquis && typeof a.croquis.objId === 'string' && a.croquis.objId); }
-/* application mise en arrière-plan (appel, autre application) : le tronçon en cours est terminé, comme au changement d'outil, puis le croquis enregistré */
+/* application mise en arrière-plan (appel, autre application, choix d'un fichier) : le tronçon en cours est terminé, sans changer le panneau ouvert, puis le croquis enregistré */
 function vcSauverEnCours(){
   if (!VC.ed || !VC.ctx) return;
-  try { var b = VC.ed.etat.brouillon; if (b && b.pts && b.pts.length >= 2) VC.ed.terminerTrace(); } catch(e){}
+  try { var b = VC.ed.etat.brouillon; if (b && b.pts && b.pts.length >= 2) VC.ed.terminerTrace('discret'); } catch(e){}
   try { VC.ed.enregistrer(); } catch(e){}
 }
 /* empreinte d'un fichier DXF (FNV-1a 32 bits et taille) : le même plan rechargé est reconnu */
@@ -3229,12 +3229,13 @@ async function vcChargerFond(file, type){
   var ctx = VC.ctx; if (!ctx) throw new Error('croquis fermé');
   var buf = await blobToAB(file), nom = String(file.name || 'Plan').replace(/\.[^.]+$/, ''), V = window.VCroquis, fc = VC.ed && VC.ed.etat.fond;
   var emp = empreinte(buf) + (type === 'reseau' ? '@' + (fc ? fc.id : '') : ''), deja = await fondDejaLa(ctx.v.etudeId, emp);
-  if (deja){ fondRetenir(deja); if (VC.ed) setTimeout(function(){ VC.ed.toast('Ce plan est déjà dans l\'étude : il est réutilisé.', 4000); }, 5200); return deja; }
+  if (deja){ fondRetenir(deja); if (type === 'reseau' && ctx.reseaux) ctx.reseaux.add(deja.id); if (VC.ed) setTimeout(function(){ VC.ed.toast('Ce plan est déjà dans l\'étude : il est réutilisé.', 4000); }, 5200); return deja; }
   var f = type === 'reseau' ? V.lireReseau(buf, nom, fc) : V.lireFondDxf(buf, nom, 'cadastre');
   f.etudeId = ctx.v.etudeId; f.empreinte = emp;
   try { await DB.put('fonds', sansCache(f)); }
   catch(e){ throw new Error('enregistrement impossible sur cet appareil (' + (e && (e.name === 'QuotaExceededError' ? 'espace de stockage plein' : e.message) || e) + ')'); }
   fondRetenir(f); requestPersist(); touchEtude();
+  if (type === 'reseau' && ctx.reseaux) ctx.reseaux.add(f.id);
   if (f.conversion && VC.ed) setTimeout(function(){ VC.ed.toast('Réseaux convertis : ' + f.conversion, 5000); }, 5200);
   return f;
 }
@@ -3269,17 +3270,18 @@ function vcTexteSupprimer(){
   var v = VC.ctx && VC.ctx.v, base = 'Le dessin sera effacé de cet appareil ; le fond de plan est conservé.';
   if (!v) return base;
   var all = anomsOf(v.id), it = vcIntactes(v), autres = all.filter(function(a){ return vcLienPlan(a) && it.indexOf(a) < 0; }).length, n0 = vcRetireesSaisies(v);
-  /* anomalies gardées (complétées, ajoutées à la main…) : un nouveau croquis peut recréer celles qui viennent du dessin ; les placer retire le doublon */
-  var garde = !autres ? '' : ' ' + (autres > 1 ? 'Les ' + autres + (it.length ? ' autres' : '') + ' anomalies reliées au plan restent' : (it.length ? 'L\'autre ' : 'L\'') + 'anomalie reliée au plan reste') + ' dans la liste du dossier, sans lien avec un plan.'
-    + (autres > 1 ? ' Un nouveau croquis du même branchement les reprendra ; si l\'une apparaît en double, placez-la sur son objet (« Placer sur le croquis ») pour retirer le doublon.'
-      : ' Un nouveau croquis du même branchement la reprendra ; si elle apparaît en double, placez-la sur son objet (« Placer sur le croquis ») pour retirer le doublon.');
+  /* anomalies gardées (complétées, ajoutées à la main…) */
+  var garde = !autres ? '' : ' ' + (autres > 1 ? 'Les ' + autres + (it.length ? ' autres' : '') + ' anomalies reliées au plan restent' : (it.length ? 'L\'autre ' : 'L\'') + 'anomalie reliée au plan reste') + ' dans la liste du dossier, sans lien avec un plan.';
+  /* un nouveau croquis du même branchement reprend celles qui viennent du dessin ; les placer retire un éventuel doublon */
+  var nG = autres + it.length, reprise = !nG ? '' : nG > 1 ? ' Un nouveau croquis du même branchement reprendra les anomalies gardées qui viennent du dessin ; si l\'une apparaît en double, placez-la sur son objet (« Placer sur le croquis ») pour retirer le doublon.'
+    : ' Un nouveau croquis du même branchement reprendra l\'anomalie gardée si elle vient du dessin ; si elle apparaît en double, placez-la sur son objet (« Placer sur le croquis ») pour retirer le doublon.';
   /* saisie d'anomalies écartées ou à arbitrer, gardée dans le croquis seulement */
   var perte = !n0 ? '' : ' ' + (n0 > 1 ? n0 + ' anomalies écartées ou à arbitrer gardent' : 'Une anomalie écartée ou à arbitrer garde') + ', dans le croquis seulement, la saisie faite dans le dossier : elle sera perdue. ' + (n0 > 1 ? 'Retenez-les' : 'Retenez-la') + ' d\'abord pour la garder.';
-  if (!it.length) return base + garde + perte;
+  if (!it.length) return base + garde + reprise + perte;
   var nums = it.map(function(a){ return 'A' + (all.indexOf(a) + 1); }).join(', '), un = it.length === 1;
-  var suite = garde + perte + (v.constat && v.constat.signeLe ? ' Le constat est signé : ' + (un ? 'la retirer' : 'les retirer') + ' le fera différer du dossier jusqu\'à une nouvelle signature.' : '');
-  return {texte: base + (un ? ' Le croquis a créé une anomalie que personne n\'a modifiée depuis (' + nums + ') : la retirer aussi du dossier, ou la garder sans lien avec un plan ? Un nouveau croquis la créerait une seconde fois.'
-      : ' Le croquis a créé ' + it.length + ' anomalies que personne n\'a modifiées depuis (' + nums + ') : les retirer aussi du dossier, ou les garder sans lien avec un plan ? Un nouveau croquis les créerait une seconde fois.') + suite,
+  var suite = garde + reprise + perte + (v.constat && v.constat.signeLe ? ' Le constat est signé : ' + (un ? 'la retirer' : 'les retirer') + ' le fera différer du dossier jusqu\'à une nouvelle signature.' : '');
+  return {texte: base + (un ? ' Le croquis a créé une anomalie que personne n\'a modifiée depuis (' + nums + ') : la retirer aussi du dossier, ou la garder sans lien avec un plan ?'
+      : ' Le croquis a créé ' + it.length + ' anomalies que personne n\'a modifiées depuis (' + nums + ') : les retirer aussi du dossier, ou les garder sans lien avec un plan ?') + suite,
     ok: un ? 'La retirer aussi' : 'Les retirer aussi', autre: un ? 'Garder l\'anomalie' : 'Garder les anomalies'};
 }
 async function vcSupprimerPlan(doc, o){
@@ -3362,7 +3364,7 @@ async function vcOuvrir(v, o){
   try { var prep = await vcPreparer(v); } finally { VC.prepa = false; }
   if (!prep) return;
   var doc = prep.doc, fond = prep.fond, reseau = prep.reseau;
-  var ed = vcEditeur(), ctx = VC.ctx = {v: v, doc: doc, rev: doc.rev, rev0: doc.rev || 0, close: null, apres: null};
+  var ed = vcEditeur(), ctx = VC.ctx = {v: v, doc: doc, rev: doc.rev, rev0: doc.rev || 0, close: null, apres: null, reseaux: new Set(doc.reseauId ? [doc.reseauId] : [])};
   await openModal({full: true, noAutofocus: true, label: 'Croquis de terrain', html: '', backValue: function(){ return 'done'; },
     retenir: function(){ return !!(VC.ed && VC.ed.fermerNiveau()); },
     onMount: function(w, close){
@@ -3386,8 +3388,16 @@ async function vcOuvrir(v, o){
     try { var res = vcResumeCalc(v, doc), nf = constatDepuisCroquis(v, res, true); if (nf) toast('Constat mis à jour depuis le croquis (' + plural(nf, 'valeur', 'valeurs') + ').', 3500); } catch(e){ reportError(e, 'Croquis'); }
   } else VC_RESUMES.delete(v.id);
   await flushSaves();
+  await vcReseauxInutiles(ctx);
   if (ctx.apres && !VIS_SUPPR.has(v.id)){ go(ctx.apres); return; }
   render();
+}
+/* couches de réseaux chargées ou retirées pendant la séance et qu'aucun croquis n'utilise plus : effacées (aucun écran ne permet de les rechoisir) */
+async function vcReseauxInutiles(ctx){
+  var ids = Array.from(ctx.reseaux || []);
+  for (var i = 0; i < ids.length; i++){
+    try { if (!(await fondUtilise(ids[i]))){ var f = await DB.get('fonds', ids[i]); if (f && f.type === 'reseau'){ await DB.del('fonds', ids[i]); VC_FONDS.delete(ids[i]); } } } catch(e){}
+  }
 }
 /* document du croquis (créé après le choix du fond pour un dossier qui n'en a pas), fonds et logo */
 async function vcPreparer(v){
@@ -3412,7 +3422,7 @@ async function vcPreparer(v){
   }
   doc.visiteId = v.id; doc.etudeId = v.etudeId;
   /* le cartouche suit le dossier (numéro, adresse ou commune modifiés depuis) */
-  doc.numero = v.numero || ''; doc.adresse = v.adresse || ''; doc.commune = communeNom(v.commune) || v.commune || ''; if (v.dateVisite) doc.date = v.dateVisite;
+  doc.numero = v.numero || ''; doc.adresse = v.adresse || ''; doc.commune = communeNom(v.commune) || v.commune || ''; doc.date = v.dateVisite || '';
   if (!doc.technicien){ var cfg = await mailCfg(); if (cfg.nom) doc.technicien = cfg.nom; }
   var fond = await fondLire(doc.fondId), reseau = await fondLire(doc.reseauId);
   /* un fond appartient à son étude : celui d'une autre étude n'est pas affiché (il disparaîtrait avec elle) */
@@ -3428,7 +3438,7 @@ async function vcPdf(v){
   if (!window.jspdf){ toast('La bibliothèque PDF n\'est pas chargée.'); return; }
   await flushSaves();
   var doc = await DB.get('plans', v.id); if (!doc){ toast('Ce dossier n\'a pas de croquis.'); return; }
-  doc.numero = v.numero || ''; doc.adresse = v.adresse || ''; doc.commune = communeNom(v.commune) || v.commune || ''; if (v.dateVisite) doc.date = v.dateVisite;
+  doc.numero = v.numero || ''; doc.adresse = v.adresse || ''; doc.commune = communeNom(v.commune) || v.commune || ''; doc.date = v.dateVisite || '';
   var bm = busyModal('Plan de l\'état des lieux'), blob;
   try {
     var fond = await fondLire(doc.fondId), reseau = await fondLire(doc.reseauId);
@@ -4092,7 +4102,7 @@ function etudeCsv(e, vs, as){
 function planFileName(v, avp){ var hd = ficheHeader(S.etude, v); return safeNameFr((avp ? 'Avant-projet ' : 'Plan ') + v.numero + (hd.ville ? ' - ' + hd.ville : ''), 120) + '.pdf'; }
 async function vcPlansPdf(v, list){
   var doc = await DB.get('plans', v.id); if (!doc) return [];
-  doc.numero = v.numero || ''; doc.adresse = v.adresse || ''; doc.commune = communeNom(v.commune) || v.commune || ''; if (v.dateVisite) doc.date = v.dateVisite;
+  doc.numero = v.numero || ''; doc.adresse = v.adresse || ''; doc.commune = communeNom(v.commune) || v.commune || ''; doc.date = v.dateVisite || '';
   var fond = await fondLire(doc.fondId), reseau = await fondLire(doc.reseauId), out = [];
   await vcLogoPret();
   var o = {logo: VC.logo || null, reseau: reseau, anomalies: list, telQuel: true};
@@ -4107,9 +4117,10 @@ function xyValide(xy){ for (var i = 0; i < xy.length; i++){ var q = xy[i]; if (!
 /* plan venu d'une sauvegarde (peut-être d'un tiers) : forme vérifiée, éléments douteux écartés */
 function planValide(pl, visIds){
   if (!pl || typeof pl !== 'object' || pl.format !== 'vede-croquis' || !Array.isArray(pl.el) || typeof pl.visiteId !== 'string' || !visIds.has(pl.visiteId)) return false;
-  if (pl.origine && !(vcBorne(pl.origine.x, 1e9) && vcBorne(pl.origine.y, 1e9))) return false;
+  /* unité (mètres par unité du DXF) d'abord : l'origine, en unités du fichier, est jugée en mètres */
+  if (!(vcNombre(pl.u) && pl.u >= 1e-4 && pl.u <= 1e4)) pl.u = 1;
+  if (pl.origine && !(vcNombre(pl.origine.x) && vcNombre(pl.origine.y) && vcBorne(pl.origine.x * pl.u, 1e8) && vcBorne(pl.origine.y * pl.u, 1e8))) return false;
   pl.rot = vcNombre(pl.rot) ? pl.rot % (2 * Math.PI) : 0;
-  if (!(vcNombre(pl.u) && pl.u > 0 && pl.u < 1e6)) pl.u = 1;
   if (!(vcNombre(pl.echelle) && pl.echelle >= 0 && pl.echelle <= 100000)) pl.echelle = 0;
   if (pl.vue && !(vcBorne(pl.vue.cx, 1e7) && vcBorne(pl.vue.cy, 1e7) && vcNombre(pl.vue.s) && pl.vue.s > 0 && pl.vue.s < 1e5)) pl.vue = null;
   pl.el = pl.el.filter(function(e){
@@ -4136,8 +4147,12 @@ function planValide(pl, visIds){
 function fondValide(f, nPts){
   if (!f || typeof f !== 'object' || typeof f.id !== 'string' || !f.origine || !vcNombre(f.origine.x) || !vcNombre(f.origine.y)) return false;
   if (!Array.isArray(f.L) || !Array.isArray(f.T) || !Array.isArray(f.calques) || !Array.isArray(f.bbox) || f.bbox.length !== 4 || !f.bbox.every(vcNombre)) return false;
-  if (!Array.isArray(f.bboxDense) || f.bboxDense.length !== 4 || !f.bboxDense.every(vcNombre)) f.bboxDense = f.bbox.slice();
-  if (!vcBorne(f.origine.x, 1e9) || !vcBorne(f.origine.y, 1e9) || !f.bbox.every(function(x){ return vcBorne(x, 1e7); })) return false;
+  if (!(vcNombre(f.u) && f.u >= 1e-4 && f.u <= 1e4)) f.u = 1;
+  if (!vcBorne(f.origine.x * f.u, 1e8) || !vcBorne(f.origine.y * f.u, 1e8) || !f.bbox.every(function(x){ return vcBorne(x, 1e7); })) return false;
+  /* emprise dense (cadrage de la vue) : dans l'emprise du fond */
+  var bd = Array.isArray(f.bboxDense) && f.bboxDense.length === 4 && f.bboxDense.every(vcNombre) ? f.bboxDense : f.bbox;
+  bd = [Math.max(bd[0], f.bbox[0]), Math.max(bd[1], f.bbox[1]), Math.min(bd[2], f.bbox[2]), Math.min(bd[3], f.bbox[3])];
+  f.bboxDense = bd[2] > bd[0] && bd[3] > bd[1] ? bd : f.bbox.slice();
   var okL = f.L.every(function(l){ return l && Number.isInteger(l.d) && Number.isInteger(l.n) && l.d >= 0 && l.n >= 0 && l.d + l.n <= nPts && Number.isInteger(l.c) && l.c >= 0 && l.c < f.calques.length; })
     && f.T.every(function(t){ return t && vcNombre(t.x) && vcNombre(t.y) && Number.isInteger(t.c) && t.c >= 0 && t.c < f.calques.length; });
   if (!okL) return false;
@@ -4152,7 +4167,6 @@ function fondValide(f, nPts){
   f.stats = {lignes: f.L.length, points: nPts, textes: f.T.length, entites: f.stats && Number.isInteger(f.stats.entites) ? f.stats.entites : f.L.length + f.T.length, ignores: ign};
   f.nom = String(f.nom == null ? 'Fond de plan' : f.nom).slice(0, 200); f.type = f.type === 'reseau' ? 'reseau' : 'cadastre';
   f.version = String(f.version == null ? '' : f.version).slice(0, 40); f.encodage = String(f.encodage == null ? '' : f.encodage).slice(0, 40);
-  if (!vcNombre(f.u) || f.u <= 0) f.u = 1;
   if (f.conversion != null) f.conversion = String(f.conversion).slice(0, 200);
   delete f.__cache;
   return true;
@@ -4241,6 +4255,8 @@ async function exportEtude(){
     root.file(safeName('Recapitulatif - ' + e.nom, 90) + '.xlsx', bytes(recapXlsx(e, vs, as)), {binary: true});
     root.file(safeName('Etude complete - ' + e.nom, 90) + '.csv', etudeCsv(e, vs, as), {compression: 'DEFLATE'});
     var biblio = await DB.all('biblio'), plans = await DB.byIndex('plans', 'etudeId', e.id), fondsE = await DB.byIndex('fonds', 'etudeId', e.id), fondsIdx = [];
+    /* une couche de réseaux qu'aucun croquis n'utilise (remplacée, retirée) n'est pas sauvegardée */
+    fondsE = fondsE.filter(function(f){ return f.type !== 'reseau' || plans.some(function(pl){ return pl.reseauId === f.id; }); });
     fondsE.forEach(function(f){
       var c = sansCache(f), xy = c.xy instanceof Float32Array ? c.xy : new Float32Array(0), nf = '_sauvegarde/fonds/' + String(f.id).replace(/[^A-Za-z0-9_-]/g, '_');
       delete c.xy;

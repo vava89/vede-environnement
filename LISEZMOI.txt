@@ -45,7 +45,9 @@ INSTALLATION SUR LA TABLETTE
 CROQUIS DE TERRAIN (facultatif)
 - Réglages > « Utiliser le croquis de terrain » (coché d'origine). Décoché,
   l'application fonctionne comme avant (pages, constat, exports) ; les
-  croquis déjà dessinés restent sur la tablette et dans les sauvegardes.
+  croquis déjà dessinés restent sur la tablette et dans les sauvegardes,
+  et les anomalies qu'ils ont créées restent dans les dossiers, avec leurs
+  préconisations.
 - Dans un dossier : « Commencer le croquis ». Choisissez le fond de plan :
   un plan cadastral DXF déjà chargé dans l'étude, un DXF de la tablette
   (cadastre.gouv.fr), ou aucun pour l'instant. Le fond reste sur la
