@@ -303,10 +303,11 @@ VC.lireDxf = lireDxf;
 /* ---------- Fond de plan : forme compacte en mètres locaux, autour d'une origine arrondie ----------
    fond = {id, nom, type: 'cadastre'|'reseau', origine: {x, y} (unités du fichier), u (mètres par unité), calques: [{nom, aci, rgb, vis, nL, nT, style}],
            L: {c: calque, aci, rgb, d: indice de départ, n: nombre de points, f: fermé}[], xy: Float32Array, T: textes, bbox, bboxDense, stats} */
-/* décalage d'un fond par rapport à l'origine du croquis, en mètres ; null au-delà de 10 000 km (données altérées) */
+/* décalage d'un fond par rapport à l'origine du croquis, en mètres (chaque origine dans les unités de son fichier) ;
+   null au-delà de 10 000 km (données altérées) */
 function decalageFond(f, doc){
   if (!f || !doc || !f.origine || !doc.origine) return {x: 0, y: 0};
-  var u = f.u || 1, x = (f.origine.x - doc.origine.x) * u, y = (f.origine.y - doc.origine.y) * u;
+  var uf = f.u || 1, ud = doc.u || 1, x = f.origine.x * uf - doc.origine.x * ud, y = f.origine.y * uf - doc.origine.y * ud;
   return isFinite(x) && isFinite(y) && Math.abs(x) <= 1e7 && Math.abs(y) <= 1e7 ? {x: x, y: y} : null;
 }
 VC.decalageFond = decalageFond;
@@ -2156,9 +2157,19 @@ function editeur(racine, opts){
       instantane(); var w = S.vue.monde(x, y), o = {id: uid(), k: 'tx', x: w.x, y: w.y, txt: String(txt).trim(), taille: 2.5}; S.doc.el.push(o); S.sel = {id: o.id, sommet: null}; S.panneau = 'fiche'; changement();
     });
   }
-  /* fin automatique : pendant le double toucher, la fiche qui vient de s'ouvrir sous le doigt ne réagit pas (le toucher passe au plan, qui l'ignore) */
-  var tPan = null;
-  function protegerPanneau(){ pan.style.pointerEvents = 'none'; clearTimeout(tPan); tPan = setTimeout(function(){ pan.style.pointerEvents = ''; }, 450); }
+  /* fin automatique : pendant une seconde, comme sur le plan, le premier toucher sur la fiche qui vient de s'ouvrir sous le doigt
+     (habitude « toucher à nouveau pour terminer ») est ignoré une fois, avec l'explication ; son relâcher et son clic aussi */
+  var panProtege = 0, panAvale = 0;
+  function protegerPanneau(){ panProtege = Date.now() + 1000; }
+  ['pointerdown', 'pointerup', 'click'].forEach(function(type){
+    pan.addEventListener(type, function(ev){
+      var t = Date.now();
+      if (type === 'pointerdown' && t < panProtege){ panProtege = 0; panAvale = t + 700; }
+      if (t >= panAvale) return;
+      ev.stopPropagation(); ev.preventDefault();
+      if (type === 'click'){ panAvale = 0; S.finAuto = null; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); }
+    }, true);
+  });
   function terminerTrace(auto){
     var b = S.brouillon; S.brouillon = null;
     if (!b || b.pts.length < 2){ majAide(); redessiner(); return; }
@@ -3360,7 +3371,7 @@ function lireReseau(buf, nom, fondRef){
   brut = /^[\[{]/.test(debut) ? lireGeojson(new TextDecoder('utf-8').decode(u8)) : lireDxf(u8);
   var conv = null;
   if (fondRef){
-    var cible = crsDe(fondRef.origine.x, fondRef.origine.y), src = brut.crs, k, n = 0, sx = 0, sy = 0;
+    var cible = crsDe(fondRef.origine.x * (fondRef.u || 1), fondRef.origine.y * (fondRef.u || 1)), src = brut.crs, k, n = 0, sx = 0, sy = 0;
     if (!src){ brut.lignes.slice(0, 50).forEach(function(l){ sx += l.pts[0]; sy += l.pts[1]; n++; }); if (n) src = crsDe(sx / n, sy / n); }
     if (src && cible && src !== cible && CRS[cible]){
       brut.lignes.forEach(function(l){ for (k = 0; k < l.pts.length; k += 2){ var q = convertir(l.pts[k], l.pts[k + 1], src, cible); l.pts[k] = q[0]; l.pts[k + 1] = q[1]; } if (l.point){ var c0 = [0, 0]; for (k = 0; k < l.pts.length; k += 2){ c0[0] += l.pts[k]; c0[1] += l.pts[k + 1]; } c0[0] /= l.pts.length / 2; c0[1] /= l.pts.length / 2; l.pts = arcPts(c0[0], c0[1], .45, 0, 2 * Math.PI, []); } });

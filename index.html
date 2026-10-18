@@ -3212,6 +3212,8 @@ function vcAppliquer(v, ops){
     if (v.aucuneAnomalie) v.aucuneAnomalie = false;
     if (v.statut === 'a_visiter' || v.statut === 'absent'){ v.statut = 'visitee'; delete v.statutAvantMotif; if (!v.dateVisite) v.dateVisite = todayStr(); msg = 'Dossier passé en « Visitée »'; }
     v.updatedAt = nowISO(); saveLater('visites', v);
+    /* le cartouche du croquis ouvert reprend la date de visite qui vient d'être posée */
+    if (VC.ctx && VC.ctx.v === v && VC.ctx.doc) VC.ctx.doc.date = v.dateVisite || '';
     if (msg && VC.ed) VC.ed.toast(msg, 3500);
   }
   if (chg) touchEtude();
