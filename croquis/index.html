@@ -244,15 +244,15 @@ var ED = null, LOGO = null;
 (ESSAI ? Promise.reject() : fetch('../icons/logo-embleme.png')).then(function(r){ if (!r.ok) throw 0; return r.blob(); }).then(function(b){
   return new Promise(function(res){ var fr = new FileReader(); fr.onload = function(){ var im = new Image(); im.onload = function(){ LOGO = {data: fr.result, ratio: im.naturalWidth / im.naturalHeight || 1, format: 'PNG'}; res(); }; im.onerror = res; im.src = fr.result; }; fr.readAsDataURL(b); });
 }).catch(function(){});
-var tEnr = null, aEnr = null;
+var tEnr = null, aEnr = null, effaces = {};
 function ouvrir(id){
   return DB.lire('croquis', id).then(function(d){
     if (!d) return toast('Croquis introuvable');
     return Promise.all([d.fondId ? DB.lire('fonds', d.fondId) : null, d.reseauId ? DB.lire('fonds', d.reseauId) : null]).then(function(r){
       var zone = $('#edition'); zone.hidden = false; $('#accueil').hidden = true; document.querySelector('.bar').hidden = true;
       if (!ED) ED = V.editeur(zone, {
-        enregistrer: function(doc){ aEnr = doc; clearTimeout(tEnr); tEnr = setTimeout(sauver, 250); },
-        enregistrerVue: function(doc){ aEnr = doc; clearTimeout(tEnr); tEnr = setTimeout(sauver, 250); },
+        enregistrer: function(doc){ if (effaces[doc.id]) return; aEnr = doc; clearTimeout(tEnr); tEnr = setTimeout(sauver, 250); },
+        enregistrerVue: function(doc){ if (effaces[doc.id]) return; aEnr = doc; clearTimeout(tEnr); tEnr = setTimeout(sauver, 250); },
         chargerFond: function(file, type){
           return lireFichier(file).then(function(buf){
             var nom = file.name.replace(/\.[^.]+$/, ''), f = type === 'reseau' ? V.lireReseau(buf, nom, ED.etat.fond) : V.lireFondDxf(buf, nom, 'cadastre');
@@ -261,7 +261,7 @@ function ouvrir(id){
         },
         fondModifie: function(f){ DB.ecrire('fonds', f); },
         retour: function(){ fermer(); if (history.state && history.state.vcl) history.back(); },
-        supprimer: function(doc){ DB.effacer('croquis', doc.id).then(function(){ fermer(); if (history.state && history.state.vcl) history.back(); toast('Croquis supprimé'); }); },
+        supprimer: function(doc){ effaces[doc.id] = true; clearTimeout(tEnr); tEnr = null; aEnr = null; DB.effacer('croquis', doc.id).then(function(){ fermer(); if (history.state && history.state.vcl) history.back(); toast('Croquis supprimé'); }); },
         telecharger: telecharger,
         aides: (function(){ try { return JSON.parse(localStorage.getItem('vcl-aides') || '{}'); } catch(e){ return {}; } })(),
         enregistrerAides: function(a){ try { localStorage.setItem('vcl-aides', JSON.stringify(a)); } catch(e){} },
@@ -273,7 +273,7 @@ function ouvrir(id){
     });
   });
 }
-function sauver(){ clearTimeout(tEnr); tEnr = null; if (aEnr){ var d = aEnr; aEnr = null; return DB.ecrire('croquis', d).catch(function(e){ toast('Enregistrement impossible : ' + (e && e.message || e), 5000); }); } }
+function sauver(){ clearTimeout(tEnr); tEnr = null; if (aEnr && effaces[aEnr.id]) aEnr = null; if (aEnr){ var d = aEnr; aEnr = null; return DB.ecrire('croquis', d).catch(function(e){ toast('Enregistrement impossible : ' + (e && e.message || e), 5000); }); } }
 function fermer(){ if (ED) ED.enregistrer(); sauver(); $('#edition').hidden = true; $('#accueil').hidden = false; document.querySelector('.bar').hidden = false; accueil(); }
 window.addEventListener('popstate', function(){ if (!$('#edition').hidden) fermer(); });
 document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden'){ if (ED && !$('#edition').hidden) ED.enregistrer(); sauver(); } });

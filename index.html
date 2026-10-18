@@ -3241,20 +3241,43 @@ async function vcChargerFond(file, type){
 function vcFondModifie(f){ clearTimeout(VC.fondT); VC.fondT = setTimeout(function(){ if (!S.etude || S.etude.id !== f.etudeId) return; DB.put('fonds', sansCache(f)).catch(function(e){ reportError(e, 'Fond de plan'); }); }, 800); }
 /* lien retiré (croquis supprimé, plan absent) : l'anomalie reste dans le dossier, sans place sur un plan ; ses codes de préconisation restent lus par le constat */
 function vcDelier(a){
-  var codes = a.croquis && Array.isArray(a.croquis.codes) ? a.croquis.codes.filter(function(k){ return typeof k === 'string'; }) : [];
-  if (codes.length) a.croquis = {codes: codes}; else delete a.croquis;
+  var cr = a.croquis || {}, codes = Array.isArray(cr.codes) ? cr.codes.filter(function(k){ return typeof k === 'string'; }) : [];
+  var regle = typeof cr.cle === 'string' && cr.cle.indexOf(':') > 0 ? cr.cle.split(':')[0] : typeof cr.regle === 'string' ? cr.regle : '';
+  var texte = cr.auto && typeof cr.auto.obs === 'string' ? cr.auto.obs : typeof cr.texte === 'string' ? cr.texte : '';
+  if (codes.length || regle){ a.croquis = {codes: codes}; if (regle){ a.croquis.regle = regle; if (texte) a.croquis.texte = texte; } } else delete a.croquis;
 }
 function vcLienPlan(a){ return !!(a.croquis && (a.croquis.cle || a.croquis.objId || a.croquis.auto)); }
 /* anomalies que le croquis a créées et que personne n'a modifiées depuis */
-function vcIntactes(v){ var V = window.VCroquis; return anomsOf(v.id).filter(function(a){ return a.croquis && V && V.recIntact && V.recIntact(a); }); }
+function vcIntactes(v){
+  var V = window.VCroquis, L = VC.ed && VC.ctx && VC.ctx.v === v ? (VC.ed.liste() || []) : [], hors = {};
+  /* ajoutées sur le croquis, ou « à arbitrer » retenues par le technicien : un nouveau croquis ne les recréerait pas */
+  L.forEach(function(it){ if (it.appId && (it.manu || it.arbitrer)) hors[it.appId] = true; });
+  return anomsOf(v.id).filter(function(a){ return a.croquis && !hors[a.id] && V && V.recIntact && V.recIntact(a); });
+}
+/* anomalies écartées ou à arbitrer dont la copie, gardée dans le croquis seulement, porte une saisie faite dans le dossier */
+function vcRetireesSaisies(v){
+  var doc = VC.ctx && VC.ctx.v === v ? VC.ctx.doc : null, sv = doc && doc.sauvegardes, L = VC.ed ? (VC.ed.liste() || []) : [];
+  if (!sv || typeof sv !== 'object') return 0;
+  return L.filter(function(it){
+    var x = it.st !== 'retenue' && sv[it.cle]; if (!x || typeof x !== 'object') return false;
+    var au = x.auto && typeof x.auto === 'object' ? x.auto : {};
+    return (x.observation || '') !== (au.obs || '') || (x.preconisation || '') !== (au.preco || '') || !!String(x.localisation || '').trim() || (x.installation || '') !== (au.installation || '')
+      || !!x.photoNonRequise || (!!au.reseau && x.reseau !== au.reseau) || (typeof x.nc === 'boolean' && x.nc !== au.nc);
+  }).length;
+}
 function vcTexteSupprimer(){
   var v = VC.ctx && VC.ctx.v, base = 'Le dessin sera effacé de cet appareil ; le fond de plan est conservé.';
   if (!v) return base;
-  var all = anomsOf(v.id), it = vcIntactes(v), autres = all.filter(function(a){ return vcLienPlan(a) && it.indexOf(a) < 0; }).length;
-  var suite = autres ? ' ' + (autres > 1 ? 'Les ' + autres + ' autres anomalies reliées au plan restent' : 'L\'autre anomalie reliée au plan reste') + ' dans la liste du dossier, sans lien avec un plan.' : '';
-  if (!it.length) return base + (all.some(vcLienPlan) ? ' Les anomalies reliées au plan restent dans la liste du dossier, sans lien avec un plan.' : '');
+  var all = anomsOf(v.id), it = vcIntactes(v), autres = all.filter(function(a){ return vcLienPlan(a) && it.indexOf(a) < 0; }).length, n0 = vcRetireesSaisies(v);
+  /* anomalies gardées (complétées, ajoutées à la main…) : un nouveau croquis peut recréer celles qui viennent du dessin ; les placer retire le doublon */
+  var garde = !autres ? '' : ' ' + (autres > 1 ? 'Les ' + autres + (it.length ? ' autres' : '') + ' anomalies reliées au plan restent' : (it.length ? 'L\'autre ' : 'L\'') + 'anomalie reliée au plan reste') + ' dans la liste du dossier, sans lien avec un plan.'
+    + (autres > 1 ? ' Un nouveau croquis du même branchement les reprendra ; si l\'une apparaît en double, placez-la sur son objet (« Placer sur le croquis ») pour retirer le doublon.'
+      : ' Un nouveau croquis du même branchement la reprendra ; si elle apparaît en double, placez-la sur son objet (« Placer sur le croquis ») pour retirer le doublon.');
+  /* saisie d'anomalies écartées ou à arbitrer, gardée dans le croquis seulement */
+  var perte = !n0 ? '' : ' ' + (n0 > 1 ? n0 + ' anomalies écartées ou à arbitrer gardent' : 'Une anomalie écartée ou à arbitrer garde') + ', dans le croquis seulement, la saisie faite dans le dossier : elle sera perdue. ' + (n0 > 1 ? 'Retenez-les' : 'Retenez-la') + ' d\'abord pour la garder.';
+  if (!it.length) return base + garde + perte;
   var nums = it.map(function(a){ return 'A' + (all.indexOf(a) + 1); }).join(', '), un = it.length === 1;
-  if (v.constat && v.constat.signeLe) suite += ' Le constat est signé : ' + (un ? 'la retirer' : 'les retirer') + ' le fera différer du dossier jusqu\'à une nouvelle signature.';
+  var suite = garde + perte + (v.constat && v.constat.signeLe ? ' Le constat est signé : ' + (un ? 'la retirer' : 'les retirer') + ' le fera différer du dossier jusqu\'à une nouvelle signature.' : '');
   return {texte: base + (un ? ' Le croquis a créé une anomalie que personne n\'a modifiée depuis (' + nums + ') : la retirer aussi du dossier, ou la garder sans lien avec un plan ? Un nouveau croquis la créerait une seconde fois.'
       : ' Le croquis a créé ' + it.length + ' anomalies que personne n\'a modifiées depuis (' + nums + ') : les retirer aussi du dossier, ou les garder sans lien avec un plan ? Un nouveau croquis les créerait une seconde fois.') + suite,
     ok: un ? 'La retirer aussi' : 'Les retirer aussi', autre: un ? 'Garder l\'anomalie' : 'Garder les anomalies'};
@@ -3347,7 +3370,7 @@ async function vcOuvrir(v, o){
       w.querySelector('.m-body').appendChild(VC.hote);
       try { ed.ouvrir(doc, fond, reseau, {aides: Object.assign({}, window.VCroquis.AIDES_DEFAUT, S.croq.aides || {})}); }
       catch(e){ reportError(e, 'Croquis illisible'); ctx.erreur = true; setTimeout(function(){ close('erreur'); }, 0); return; }
-      if (o.objet) ed.selectionner(o.objet);
+      if (o.objet){ if ((doc.el || []).some(function(e){ return e.id === o.objet; })) ed.selectionner(o.objet); else if (o.anomalie) ed.placerAnomalie(o.anomalie); }
       if (o.placer) ed.placerAnomalie(o.placer);
       var r = VC.hote.querySelector('.vc'); if (r) r.focus();
       var avis = [];
@@ -3449,7 +3472,7 @@ var VC_ACTIONS = {
   },
   'vc-ouvrir': function(el){ var v = curVisit(); if (v && (!el.dataset.vid || el.dataset.vid === v.id)) return vcOuvrir(v); },
   'vc-pdf': function(el){ var v = curVisit(); if (v && (!el.dataset.vid || el.dataset.vid === v.id)) return vcPdf(v); },
-  'vc-voir': function(){ var v = curVisit(), a = curAnom(); if (!v || !a) return; var oid = a.croquis && a.croquis.objId; return vcOuvrir(v, oid ? {objet: oid} : {placer: a.id}); },
+  'vc-voir': function(){ var v = curVisit(), a = curAnom(); if (!v || !a) return; var oid = a.croquis && a.croquis.objId; return vcOuvrir(v, oid ? {objet: oid, anomalie: a.id} : {placer: a.id}); },
   'vc-actif': async function(el){ if (!S.croq) return; S.croq.actif = !!el.checked; VC_RESUMES.clear(); await croqCfgEcrire(); render(); },
   'vc-aide': async function(el){ if (!S.croq || !vcModule()) return; var a = Object.assign({}, window.VCroquis.AIDES_DEFAUT, S.croq.aides || {}); a[el.dataset.k] = !!el.checked; S.croq.aides = a; await croqCfgEcrire(); if (el.dataset.k === 'actives') render(); }
 };
@@ -3488,8 +3511,7 @@ function vcAutresDouble(c, s){
   if (!s.std || !(s.types || []).length) return null;
   return c.rows.filter(function(r){
     if (r.std || r.groupe !== s.groupe || !rowActive(r)) return false;
-    var lr = norm(r.label).replace(/[-']/g, ' ');
-    return s.types.some(function(t){ return autresMatch(r, norm(t).replace(/[-']/g, ' ')) || autresMatch({label: t}, lr); });
+    return s.types.some(function(t){ return autresMatch(r, norm(t).replace(/[-']/g, ' ')); });
   })[0] || null;
 }
 /* provenance des valeurs reprises du croquis (forme vérifiée : sauvegarde d'un tiers) */
@@ -3504,7 +3526,7 @@ function constatDepuisCroquis(v, res, suivi){
   if (suivi && !(v.constat && v.constat.croqAuto)) return 0;
   var c = constatOf(v), P = vcProvenance(c), n = 0, vus = {};
   /* valeurs reprises d'un autre croquis (supprimé puis recommencé) : elles restent, comme saisies par le technicien */
-  if (res.plan && P.plan && P.plan !== res.plan){ P.rows = {}; P.crees = {}; delete P.puisard; }
+  if (res.plan && P.plan !== res.plan){ P.rows = {}; P.crees = {}; delete P.puisard; }
   if (res.plan) P.plan = res.plan;
   function poser(r, vals){
     var a = P.rows[r.id]; if (!a || typeof a !== 'object') a = {};
@@ -3520,8 +3542,6 @@ function constatDepuisCroquis(v, res, suivi){
   }
   res.rows.forEach(function(s){
     var r = vcLigneConstat(c, s);
-    /* appareil que le technicien compte dans une ligne « Autres » : la ligne du formulaire n'est ni remplie ni vidée (écart signalé) */
-    if (vcAutresDouble(c, s)){ if (r) vus[r.id] = true; return; }
     if (!r && !s.std){
       if (suivi || P.refus[s.id]) return;
       r = {id: rowIdNeuf(c), groupe: s.groupe, label: s.label, std: false, nb: '', raccord: '', conforme: '', methodes: [], croq: s.id};
@@ -3549,22 +3569,18 @@ function constatDepuisCroquis(v, res, suivi){
 /* écarts entre le croquis et le constat, ligne par ligne (affichage et « À vérifier avant de signer ») */
 function vcEcarts(v, c){
   var res = VC_RESUMES.get(v.id); if (!res || !planDe(v.id) || !vcPret()) return [];
-  var out = [], P = c.croqAuto && typeof c.croqAuto === 'object' ? c.croqAuto : {}, refus = P.refus && typeof P.refus === 'object' ? P.refus : {}, autres = {};
+  var out = [], P = c.croqAuto && typeof c.croqAuto === 'object' ? c.croqAuto : {}, refus = P.refus && typeof P.refus === 'object' ? P.refus : {};
   res.rows.forEach(function(s){
     /* ligne « Autres » que le technicien a retirée du constat : son choix */
     if (!s.std && refus[s.id]) return;
     var r = vcLigneConstat(c, s), vals = vcValeurs(s), lab = r ? r.label : s.label, dbl = vcAutresDouble(c, s);
-    if (dbl){
-      if (r && rowActive(r)) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, compté au constat dans cette ligne et aussi en « ' + dbl.label + ' ».');
-      else { var e = autres[dbl.id] || (autres[dbl.id] = {r: dbl, n: 0, d: []}); e.n += s.nb; e.d.push(lab + ' ' + s.nb); }
-      return;
-    }
-    if (!r || !rowActive(r)){ out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + (r && String(r.nb == null ? '' : r.nb).trim() === '0' ? '0' : 'nombre non renseigné') + ' au constat.'); return; }
-    if (String(r.nb).trim() !== vals.nb) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + String(r.nb).trim() + ' au constat.');
+    /* appareil de la même sorte aussi compté en « Autres » : à vérifier, sans rien retirer ni remplir à la place du technicien */
+    var aussi = dbl ? ' ; « ' + dbl.label + ' » (' + (String(dbl.nb == null ? '' : dbl.nb).trim() || '0') + ') figure aussi au constat, en « Autres » : vérifiez qu\'il n\'est pas compté deux fois' : '';
+    if (!r || !rowActive(r)){ out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + (r && String(r.nb == null ? '' : r.nb).trim() === '0' ? '0' : 'nombre non renseigné') + ' au constat' + aussi + '.'); return; }
+    if (String(r.nb).trim() !== vals.nb) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + String(r.nb).trim() + ' au constat' + aussi + '.');
+    else if (dbl) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain' + aussi + '.');
     if (vals.raccord && r.raccord && r.raccord !== vals.raccord) out.push(lab + ' : raccordement « ' + raccLabel(vals.raccord) + ' » sur le croquis de terrain, « ' + raccLabel(r.raccord) + ' » au constat.');
   });
-  /* appareils comptés en « Autres » par le technicien : écart seulement si le nombre diffère du croquis */
-  Object.keys(autres).forEach(function(k){ var e = autres[k], nb = String(e.r.nb == null ? '' : e.r.nb).trim(); if (nb !== String(e.n)) out.push('« ' + e.r.label + ' » : ' + (nb || '0') + ' au constat, ' + e.n + ' sur le croquis de terrain (' + e.d.join(', ') + ').'); });
   if (res.puisard && !(c.epRecup || {}).puisard) out.push('Puisard : sur le croquis de terrain, non coché au constat (ouvrages de récupération des EP).');
   if (res.sansCote) out.push(res.sansCote > 1 ? res.sansCote + ' descentes EP sans façade sur le croquis de terrain : indiquez avant ou arrière pour les compter au constat.' : 'Descente EP sans façade sur le croquis de terrain : indiquez avant ou arrière pour la compter au constat.');
   return out;
@@ -3931,7 +3947,7 @@ var CONSTAT_ACTIONS = {
     var cr = constatOf(v); cr.rows.push({id: rowIdNeuf(cr), groupe: g, label: label, std: false, nb: '1', raccord: '', conforme: '', methodes: []});
     constatTouch(v); render();
   },
-  'c-delrow': async function(el){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; var r = rowById(c, el.dataset.row); if (!r || r.std) return; if (!(await confirmModal('Supprimer la ligne « ' + r.label + ' » ?', 'Les anomalies liées à cette installation ne le seront plus.', 'Supprimer', true))) return; c.rows = c.rows.filter(function(x){ return x !== r; }); if (c.croqAuto){ if (r.croq) (c.croqAuto.refus = c.croqAuto.refus || {})[r.croq] = true; if (c.croqAuto.rows) delete c.croqAuto.rows[r.id]; if (c.croqAuto.crees) delete c.croqAuto.crees[r.id]; } constatTouch(v); render(); },
+  'c-delrow': async function(el){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; var r = rowById(c, el.dataset.row); if (!r || r.std) return; if (!(await confirmModal('Supprimer la ligne « ' + r.label + ' » ?', 'Les anomalies liées à cette installation ne le seront plus.', 'Supprimer', true))) return; c.rows = c.rows.filter(function(x){ return x !== r; }); if (c.croqAuto){ var Pd = vcProvenance(c); if (typeof r.croq === 'string') Pd.refus[r.croq] = true; delete Pd.rows[r.id]; delete Pd.crees[r.id]; } constatTouch(v); render(); },
   'c-boite-so': function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; c.boite = {distEU: 'sans objet', distEP: 'sans objet', profEU: 'sans objet', profEP: 'sans objet', teEU: 'sans objet', teEP: 'sans objet'}; constatTouch(v); render(); },
   'c-obs-fill': function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; c.observations = constatObsAuto(constatEval(v, anomsOf(v.id))); constatTouch(v); render(); },
   'c-croquis': async function(){ var v = curVisit(); if (!v || (v.constat && v.constat.signeLe)) return; await croquisEditor(v); if (v.constat){ await croquisAJour(v); await flushSaves(); } render(); },
@@ -4103,6 +4119,17 @@ function planValide(pl, visIds){
     return vcBorne(e.x, 1e7) && vcBorne(e.y, 1e7);
   });
   ['decisions'].forEach(function(k){ if (!pl[k] || typeof pl[k] !== 'object' || Array.isArray(pl[k])) pl[k] = {}; });
+  if (pl.sauvegardes != null && (typeof pl.sauvegardes !== 'object' || Array.isArray(pl.sauvegardes))) pl.sauvegardes = {};
+  if (pl.sauvegardes) Object.keys(pl.sauvegardes).forEach(function(k){
+    var x = pl.sauvegardes[k]; if (!x || typeof x !== 'object' || Array.isArray(x) || typeof x.id !== 'string'){ delete pl.sauvegardes[k]; return; }
+    ['createdAt', 'observation', 'preconisation', 'localisation', 'installation', 'categorie'].forEach(function(f){ if (x[f] != null && typeof x[f] !== 'string') x[f] = String(x[f]); });
+    if (x.reseau !== 'EU' && x.reseau !== 'EP') x.reseau = 'EU';
+    if (typeof x.nc !== 'boolean') delete x.nc;
+    x.photoNonRequise = x.photoNonRequise === true; x.garde = x.garde === true;
+    if (x.auto != null){ var la = lienValide({cle: 'k', auto: x.auto}); x.auto = la && la.auto ? la.auto : null; }
+    if (!vcNombre(x.seq)) delete x.seq;
+  });
+  if (pl.seq != null && !vcNombre(pl.seq)) delete pl.seq;
   ['ordre', 'anomManu'].forEach(function(k){ if (!Array.isArray(pl[k])) pl[k] = []; });
   return true;
 }
@@ -4141,8 +4168,10 @@ function lienValide(c){
   if (au && typeof au === 'object' && typeof au.obs === 'string' && typeof au.preco === 'string' && (au.reseau === 'EU' || au.reseau === 'EP') && typeof au.nc === 'boolean' && typeof (au.installation == null ? '' : au.installation) === 'string')
     o.auto = {obs: au.obs, preco: au.preco, reseau: au.reseau, nc: au.nc, installation: au.installation || ''};
   if (c.garde === true) o.garde = true;
+  if (typeof c.regle === 'string' && /^[a-z][a-z0-9-]{0,30}$/.test(c.regle)){ o.regle = c.regle; if (typeof c.texte === 'string' && c.texte.length < 500) o.texte = c.texte; }
   if (o.cle || o.objId) return o;
-  return o.codes.length ? {codes: o.codes} : null;
+  if (!o.codes.length && !o.regle) return null;
+  var l = {codes: o.codes}; if (o.regle){ l.regle = o.regle; if (o.texte) l.texte = o.texte; } return l;
 }
 /* croquis d'une sauvegarde : tout est lu et vérifié avant que l'étude de l'appareil soit remplacée */
 async function lireCroquisSauvegarde(zip, data){
@@ -4311,7 +4340,9 @@ async function restoreZip(file){
     }
     (data.anomalies || []).forEach(function(a){ a.photos = (a.photos || []).filter(function(id){ return restored.has(id); }); });
     /* images du constat : seules des images intégrées sont reprises (une sauvegarde peut venir d'un autre appareil ou d'un tiers) */
-    (data.visites || []).forEach(function(v){ if (v && v.constat != null && (typeof v.constat !== 'object' || Array.isArray(v.constat))) delete v.constat; var c0 = v && v.constat; if (!c0) return; var nc0 = newConstat(v); if (!Array.isArray(c0.rows)) c0.rows = nc0.rows; c0.rows = c0.rows.filter(function(r){ return r && typeof r === 'object' && typeof r.id === 'string'; }); ['methodes', 'epRecup', 'precos', 'boite'].forEach(function(k){ if (!c0[k] || typeof c0[k] !== 'object' || Array.isArray(c0[k])) c0[k] = nc0[k]; }); if (c0.croqAuto != null && (typeof c0.croqAuto !== 'object' || Array.isArray(c0.croqAuto))) delete c0.croqAuto; });
+    (data.visites || []).forEach(function(v){ if (v && v.constat != null && (typeof v.constat !== 'object' || Array.isArray(v.constat))) delete v.constat; var c0 = v && v.constat; if (!c0) return; var nc0 = newConstat(v); if (!Array.isArray(c0.rows)) c0.rows = nc0.rows; c0.rows = c0.rows.filter(function(r){ return r && typeof r === 'object' && typeof r.id === 'string'; }); ['methodes', 'epRecup', 'precos', 'boite'].forEach(function(k){ if (!c0[k] || typeof c0[k] !== 'object' || Array.isArray(c0[k])) c0[k] = nc0[k]; }); if (c0.croqAuto != null && (typeof c0.croqAuto !== 'object' || Array.isArray(c0.croqAuto))) delete c0.croqAuto;
+      if (c0.croqAuto){ var P0 = vcProvenance(c0); Object.keys(P0.rows).forEach(function(k){ var x = P0.rows[k]; if (!x || typeof x !== 'object' || Array.isArray(x)) delete P0.rows[k]; }); if (P0.plan != null && typeof P0.plan !== 'string') delete P0.plan; if (P0.puisard !== true) delete P0.puisard; }
+      c0.rows.forEach(function(r){ ['nb', 'raccord', 'conforme', 'label', 'groupe'].forEach(function(f){ if (r[f] != null && typeof r[f] !== 'string') r[f] = String(r[f]); }); r.methodes = Array.isArray(r.methodes) ? r.methodes.filter(function(m){ return typeof m === 'string'; }) : []; if (r.croq != null && typeof r.croq !== 'string') delete r.croq; }); });
     (data.visites || []).forEach(function(v){ var c = v && v.constat; if (!c || typeof c !== 'object') return; ['croquis', 'sigTech', 'sigProp'].forEach(function(k){ if (c[k]) c[k] = imgData(c[k]); }); if (c.croquisV && c.croquisV.fond) c.croquisV.fond = imgData(c.croquisV.fond); });
     (data.visites || []).forEach(function(v){ if (v && v.id) VIS_SUPPR.delete(v.id); });
     await ecrireCroquisSauvegarde(data, croq);

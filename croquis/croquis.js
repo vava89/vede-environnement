@@ -715,7 +715,7 @@ VC.ncAnomalie = function(r){
 function lienCle(r){ var c = r && r.croquis && r.croquis.cle; return typeof c === 'string' ? c : ''; }
 function recIntact(r){
   var au = r && r.croquis && r.croquis.auto; if (!au || r.croquis.garde) return false;
-  return !(r.photos || []).length && !r.brouillon && (r.observation || '') === (au.obs || '') && (r.preconisation || '') === (au.preco || '') && r.reseau === au.reseau
+  return !(r.photos || []).length && !r.brouillon && !r.photoNonRequise && (r.observation || '') === (au.obs || '') && (r.preconisation || '') === (au.preco || '') && r.reseau === au.reseau
     && !String(r.localisation || '').trim() && (r.installation || '') === (au.installation || '') && (r.nc == null || r.nc === au.nc);
 }
 function depuisRec(r){ return {appId: r.id, reseau: r.reseau === 'EP' ? 'EP' : 'EU', obs: r.observation || '', preco: r.preconisation || '', nc: VC.ncAnomalie(r), photos: (r.photos || []).length, brouillon: !!r.brouillon, loc: r.localisation || ''}; }
@@ -724,7 +724,7 @@ function reglesInteg(doc, an, idx){
   var out = an.anomalies.slice();
   (doc.anomManu || []).forEach(function(m){
     if (m.objId && !an.objs[m.objId] && !idx[m.objId]) return;
-    out.push({cle: m.id, objId: m.objId || null, reseau: m.reseau === 'EP' ? 'EP' : 'EU', obs: m.obs || '', preco: m.preco || '', nc: m.nc !== false, auto: false, manu: true, stManu: m.st, cat: 'autre', codes: [], bulle: m.bulle || null});
+    out.push({cle: m.id, objId: m.objId || null, reseau: m.reseau === 'EP' ? 'EP' : 'EU', obs: m.obs || '', preco: m.preco || '', nc: m.nc !== false, auto: false, manu: true, stManu: m.st, cat: 'autre', codes: [], bulle: m.bulle || null, mCopie: m.surCopie || null});
   });
   return out;
 }
@@ -734,6 +734,12 @@ function integEdl(doc, an, ext, forcer, telQuel){
   var idx = indexDoc(doc), regles = reglesInteg(doc, an, idx), parRegle = {}, parCle = {}, liste = [], retirer = {}, sauv = doc.sauvegardes || {};
   regles.forEach(function(a){ parRegle[a.cle] = a; });
   ext.forEach(function(r){ var c = lienCle(r); if (c && parRegle[c] && !parCle[c]) parCle[c] = r; });
+  var reprises = {}, libres = ext.filter(function(r){ var cr = r.croquis; return !!cr && !lienCle(r) && typeof cr.regle === 'string' && typeof cr.texte === 'string' && !(typeof cr.objId === 'string' && cr.objId); });
+  libres.forEach(function(r){
+    var cr = r.croquis, memes = libres.filter(function(x){ return x !== r && x.croquis.regle === cr.regle && x.croquis.texte === cr.texte; });
+    var rs = regles.filter(function(a){ var d0 = doc.decisions[a.cle] || {}; return !a.manu && !parCle[a.cle] && a.cle.split(':')[0] === cr.regle && a.obs === cr.texte && (d0.st || (a.arbitrer ? 'arbitrer' : 'retenue')) === 'retenue'; });
+    if (rs.length === 1 && !memes.length){ parCle[rs[0].cle] = r; reprises[r.id] = rs[0].cle; }
+  });
   regles.forEach(function(a){
     var d = doc.decisions[a.cle] || {}, st = d.st || a.stManu || (a.arbitrer ? 'arbitrer' : 'retenue'), r = parCle[a.cle];
     var it = Object.assign({}, a, {st: st, bulle: d.bulle || a.bulle || null, r0: {obs: a.obs, preco: a.preco || '', reseau: a.reseau, nc: !!a.nc}});
@@ -745,10 +751,19 @@ function integEdl(doc, an, ext, forcer, telQuel){
     }
     if (r) Object.assign(it, depuisRec(r));
     else {
-      /* une anomalie retirée du dossier reprend sa saisie (texte, localisation, ligne, nature…) quand on la retient de nouveau */
-      var sv = sauv[a.cle] || {};
-      it.obs = sv.observation != null ? sv.observation : d.obs || a.obs; it.preco = sv.preconisation != null ? sv.preconisation : d.preco != null && d.preco !== '' ? d.preco : a.preco;
-      it.nc = sv.nc != null ? sv.nc : d.nc != null ? d.nc : a.nc; if (sv.reseau) it.reseau = sv.reseau;
+      /* une anomalie retirée du dossier reprend sa saisie (copie : texte, localisation, ligne, nature…) quand on la retient de nouveau ;
+         une retouche faite ensuite dans le croquis prime sur la copie, et « Annuler » la défait sans toucher à la copie */
+      var sv = sauv[a.cle] && typeof sauv[a.cle] === 'object' ? sauv[a.cle] : null, rt = (a.manu ? a.mCopie : d.surCopie) || {}, vt = a.manu ? {obs: a.obs, preco: a.preco, nc: a.nc} : d;
+      var apres = function(k){ return !!sv && rt[k] === (sv.seq || 0) && vt[k] != null && (k !== 'obs' || String(vt[k]).trim() !== ''); };
+      if (sv){
+        it.obs = apres('obs') ? vt.obs : String(sv.observation != null ? sv.observation : a.obs);
+        it.preco = apres('preco') ? vt.preco : String(sv.preconisation != null ? sv.preconisation : a.preco || '');
+        if (sv.reseau === 'EU' || sv.reseau === 'EP') it.reseau = sv.reseau;
+        /* nature : retouchée depuis, explicite dans la copie, sinon la règle de l'application (rien n'est écrit à la recréation) */
+        if (apres('nc')) it.nc = !!vt.nc; else if (typeof sv.nc === 'boolean') it.nc = sv.nc; else { it.nc = VC.ncAnomalie({reseau: it.reseau, observation: it.obs}); it.ncLibre = true; }
+      }
+      else if (a.manu){ it.obs = a.obs; it.preco = a.preco; it.nc = a.nc; }
+      else { it.obs = d.obs || a.obs; it.preco = d.preco != null && d.preco !== '' ? d.preco : a.preco; it.nc = d.nc != null ? d.nc : a.nc; }
       /* hors de l'éditeur (plans PDF) : seulement ce qui est dans le dossier */
       if (telQuel && st === 'retenue') it.st = st = 'horsdossier';
       it.creer = st === 'retenue';
@@ -757,7 +772,7 @@ function integEdl(doc, an, ext, forcer, telQuel){
   });
   ext.forEach(function(r){
     var c = lienCle(r);
-    if (c && parCle[c] === r) return;
+    if ((c && parCle[c] === r) || reprises[r.id]) return;
     /* le dessin ne produit plus cette anomalie : retirée si personne n'y a touché, sinon gardée et signalée */
     if (c && !parRegle[c] && recIntact(r) && !telQuel){ retirer[r.id] = r; return; }
     var oid = r.croquis && r.croquis.objId, d = doc.decisions['app:' + r.id] || {};
@@ -789,6 +804,16 @@ function anomaliesInteg(doc, an, ext, forcer, telQuel){
   liste.sort(function(a, b){ return (a.num || 1e9) - (b.num || 1e9); });
   return liste;
 }
+/* Copie d'une anomalie retirée du dossier, hors de l'annulation du croquis : la retenir de nouveau, ou annuler, la rend telle quelle.
+   seq : rang de la copie ; une retouche faite ensuite dans le croquis note ce rang (surCopie) et prime sur elle */
+function copieRetrait(doc, cle, r){
+  if (!doc.sauvegardes || typeof doc.sauvegardes !== 'object' || Array.isArray(doc.sauvegardes)) doc.sauvegardes = {};
+  doc.seq = (isFinite(doc.seq) ? +doc.seq : 0) + 1;
+  doc.sauvegardes[cle] = {id: r.id, createdAt: r.createdAt, observation: r.observation || '', preconisation: r.preconisation || '', localisation: r.localisation || '', installation: r.installation || '',
+    reseau: r.reseau === 'EP' ? 'EP' : 'EU', nc: typeof r.nc === 'boolean' ? r.nc : undefined, photoNonRequise: !!r.photoNonRequise, categorie: r.categorie || '',
+    auto: r.croquis && r.croquis.auto ? Object.assign({}, r.croquis.auto) : null, garde: !!(r.croquis && r.croquis.garde), seq: doc.seq};
+}
+VC.copieRetrait = copieRetrait;
 /* Opérations qui mettent les anomalies du dossier en accord avec le croquis (état des lieux) :
    {creer: [champs], maj: [{id, champs}], retirer: [id], doc: bool}. Le texte d'un enregistrement retiré par une décision
    est gardé dans doc.decisions : retenir à nouveau l'anomalie le rend. o.forcer : enregistrements à photos dont le retrait est confirmé. */
@@ -796,6 +821,7 @@ function reconcilier(doc, an, ext, o){
   o = o || {};
   if (!an || an.mode !== 'edl') an = analyser(doc, 'edl');
   var forcer = {}; (o.forcer || []).forEach(function(id){ forcer[id] = true; });
+  if (!doc.sauvegardes || typeof doc.sauvegardes !== 'object' || Array.isArray(doc.sauvegardes)) doc.sauvegardes = {};
   var R = integEdl(doc, an, ext, forcer), ops = {creer: [], maj: [], retirer: [], doc: false}, lignes = null, parId = {};
   ext.forEach(function(r){ parId[r.id] = r; });
   /* ligne du constat de l'équipement en cause (WC, gouttières avant…) : l'anomalie rend cette ligne non conforme */
@@ -812,8 +838,9 @@ function reconcilier(doc, an, ext, o){
       if (sv){
         /* retenue de nouveau (ou retrait annulé) : l'anomalie revient telle qu'elle était dans le dossier */
         ['id', 'createdAt', 'localisation', 'installation', 'photoNonRequise', 'categorie'].forEach(function(k){ if (sv[k] != null) c[k] = sv[k]; });
-        if (sv.nc !== undefined) c.nc = sv.nc;
-        if (sv.auto) c.croquis.auto = sv.auto;
+        /* nature : celle de la copie ou retouchée depuis ; laissée à la règle de l'application si elle l'était (rien d'écrit) */
+        c.nc = a.ncLibre ? null : !!a.nc;
+        if (sv.auto && typeof sv.auto === 'object') c.croquis.auto = sv.auto;
         if (sv.garde) c.croquis.garde = true;
         delete sauv[a.cle]; ops.doc = true;
       }
@@ -841,18 +868,21 @@ function reconcilier(doc, an, ext, o){
       suit('installation', 'installation', ligneDe(a), r.installation || '');
     }
     var codes = (a.codes || []).slice(), codesChange = JSON.stringify(r.croquis.codes || []) !== JSON.stringify(codes);
-    if (n || codesChange || (r.croquis.objId || null) !== (a.objId || null)) ops.maj.push({id: r.id, champs: Object.assign(ch, {croquis: Object.assign({}, r.croquis, {objId: a.objId || null, codes: codes}, au ? {auto: nAu} : {})})});
+    /* anomalie gardée reprise par la règle (croquis refait) : elle en prend la clé */
+    var reprise = lienCle(r) !== a.cle, crN = Object.assign({}, r.croquis, {cle: a.cle, objId: a.objId || null, codes: codes}, au ? {auto: nAu} : {});
+    if (reprise){ delete crN.regle; delete crN.texte; }
+    if (n || codesChange || reprise || (r.croquis.objId || null) !== (a.objId || null)) ops.maj.push({id: r.id, champs: Object.assign(ch, {croquis: crN})});
   });
   Object.keys(R.retirer).forEach(function(id){
     var r = R.retirer[id], c = lienCle(r);
     ops.retirer.push(id);
-    /* copie de l'anomalie retirée, hors de l'annulation du croquis : la retenir de nouveau, ou annuler, la rend telle quelle */
-    if (c){
-      doc.sauvegardes = doc.sauvegardes || {};
-      doc.sauvegardes[c] = {id: r.id, createdAt: r.createdAt, observation: r.observation || '', preconisation: r.preconisation || '', localisation: r.localisation || '', installation: r.installation || '',
-        reseau: r.reseau === 'EP' ? 'EP' : 'EU', nc: r.nc, photoNonRequise: !!r.photoNonRequise, categorie: r.categorie || '', auto: r.croquis && r.croquis.auto ? Object.assign({}, r.croquis.auto) : null, garde: !!(r.croquis && r.croquis.garde)};
-      ops.doc = true;
-    }
+    if (c){ copieRetrait(doc, c, r); ops.doc = true; }
+  });
+  /* r6 : anomalie du dossier placée sur un objet effacé depuis (placée à la main, ou gardée) : elle n'a plus de place sur le plan */
+  ext.forEach(function(r){
+    var cr = r.croquis; if (!cr || typeof cr.objId !== 'string' || !cr.objId || idxD[cr.objId] || R.retirer[r.id]) return;
+    if (ops.maj.some(function(m){ return m.id === r.id; })) return;
+    ops.maj.push({id: r.id, champs: {croquis: Object.assign({}, cr, {objId: null})}});
   });
   return ops;
 }
@@ -1601,6 +1631,11 @@ function editeur(racine, opts){
     try { ops = reconcilier(S.doc, S.mode === 'edl' ? S.an : null, recs, {forcer: forcer}); } catch(e){ return; }
     if (ops.creer.length || ops.maj.length || ops.retirer.length){ majDossier(ops); S.liste = anomaliesDoc(S.doc, S.an, ext()); }
   }
+  /* retouche d'une anomalie retirée du dossier : elle prime sur la copie à laquelle elle s'applique */
+  function noterRetouche(cible, k, cle){
+    var sv = S.doc.sauvegardes && typeof S.doc.sauvegardes === 'object' ? S.doc.sauvegardes[cle] : null; if (!sv || typeof sv !== 'object') return;
+    cible.surCopie = Object.assign({}, cible.surCopie && typeof cible.surCopie === 'object' ? cible.surCopie : {}); cible.surCopie[k] = sv.seq || 0;
+  }
   function majDossier(ops){ try { opts.anomaliesMaj({creer: ops.creer || [], maj: ops.maj || [], retirer: ops.retirer || []}); } catch(e){ toast('Liste du dossier non mise à jour : ' + (e && e.message || e), 5000); } }
   function instantane(){
     S.undo.push(JSON.stringify({el: S.doc.el, decisions: S.doc.decisions, ordre: S.doc.ordre, anomManu: S.doc.anomManu, rot: S.doc.rot}));
@@ -1920,14 +1955,14 @@ function editeur(racine, opts){
   /* place une anomalie du dossier sur un objet ; gardée après un changement du dessin, elle retrouve la règle équivalente de cet objet */
   function placerRec(id, objId){
     var r = recDe(id); S.placer = null; if (!r){ majAide(); return; }
-    var cr = Object.assign({}, r.croquis || {}, {objId: objId}), pre = typeof cr.cle === 'string' ? cr.cle.split(':')[0] : '', ops = {maj: [], retirer: []}, msg = '';
+    var cr = Object.assign({}, r.croquis || {}, {objId: objId}), pre = typeof cr.cle === 'string' ? cr.cle.split(':')[0] : typeof cr.regle === 'string' ? cr.regle : '', ops = {maj: [], retirer: []}, msg = '';
     if (pre){
       /* même règle sur cet objet : à créer, ou déjà dans le dossier sans y avoir été touchée (doublon retiré) */
       var eq = S.liste.filter(function(a){ return a.auto && a.objId === objId && a.cle !== cr.cle && a.cle.split(':')[0] === pre && a.st === 'retenue'; })[0];
       if (eq){
         var re = eq.appId && recDe(eq.appId);
-        if (!re){ cr.cle = eq.cle; cr.codes = (eq.codes || []).slice(); }
-        else if (recIntact(re)){ cr.cle = eq.cle; cr.codes = (eq.codes || []).slice(); ops.retirer.push(re.id); }
+        if (!re){ cr.cle = eq.cle; cr.codes = (eq.codes || []).slice(); delete cr.regle; }
+        else if (recIntact(re)){ cr.cle = eq.cle; cr.codes = (eq.codes || []).slice(); delete cr.regle; ops.retirer.push(re.id); }
         else msg = 'Une anomalie équivalente (' + numLib(eq) + ') existe déjà sur cet objet : supprimez celle qui est en trop.';
       }
     }
@@ -2519,20 +2554,22 @@ function editeur(racine, opts){
       var cle = b.dataset.cle, m = (S.doc.anomManu || []).filter(function(x){ return x.id === cle; })[0], cur = S.liste.filter(function(x){ return x.cle === cle; })[0];
       /* anomalie du dossier : la nature se règle sur l'enregistrement ; un retrait qui emporte des photos se confirme */
       if (a === 'decNc' && INTEG && cur && cur.appId){ var nv0 = b.dataset.v === '1'; if (!!cur.nc !== nv0){ majDossier({maj: [{id: cur.appId, champs: {nc: nv0}}]}); apresDossier(); } return; }
-      if (a === 'dec' && INTEG && cur && cur.appId && cur.photos && b.dataset.v !== 'retenue'){
+      var rec0 = a === 'dec' && INTEG && cur && cur.appId && b.dataset.v !== 'retenue' ? recDe(cur.appId) : null;
+      if (rec0 && (cur.photos || !recIntact(rec0))){
         var v0 = b.dataset.v, id0 = cur.appId;
         demander('Retirer l\'anomalie ' + numLib(cur) + ' du dossier ?', '', function(){ instantane(); if (m) m.st = v0; else (S.doc.decisions[cle] = S.doc.decisions[cle] || {}).st = v0; changement({forcer: [id0]}); },
-          {confirmer: true, danger: true, ok: 'Retirer', texte: cur.photos > 1 ? 'Ses ' + cur.photos + ' photos, dans le dossier, seront supprimées avec elle.' : 'Sa photo, dans le dossier, sera supprimée avec elle.'});
+          {confirmer: true, danger: true, ok: 'Retirer', texte: (cur.photos ? (cur.photos > 1 ? 'Ses ' + cur.photos + ' photos, dans le dossier, seront supprimées avec elle. ' : 'Sa photo, dans le dossier, sera supprimée avec elle. ') : 'Elle a été complétée dans le dossier. ')
+            + 'Sa saisie est gardée dans le croquis : la retenir de nouveau la rend telle quelle, tant que le croquis existe.'});
         return;
       }
       instantane();
       if (a === 'dec'){ if (m) m.st = b.dataset.v; else (S.doc.decisions[cle] = S.doc.decisions[cle] || {}).st = b.dataset.v; }
-      else { var nv = b.dataset.v === '1'; if (cur && !!cur.nc === nv){ S.undo.pop(); return; } if (m) m.nc = nv; else (S.doc.decisions[cle] = S.doc.decisions[cle] || {}).nc = nv; if (S.doc.sauvegardes && S.doc.sauvegardes[cle]) delete S.doc.sauvegardes[cle].nc; if (m && S.doc.decisions[cle]) delete S.doc.decisions[cle].nc; }
+      else { var nv = b.dataset.v === '1'; if (cur && !!cur.nc === nv){ S.undo.pop(); return; } var cibleN = m || (S.doc.decisions[cle] = S.doc.decisions[cle] || {}); cibleN.nc = nv; noterRetouche(cibleN, 'nc', cle); if (m && S.doc.decisions[cle]) delete S.doc.decisions[cle].nc; }
       changement(); return;
     }
     if (a === 'anomSuppr'){
       var cleS = b.dataset.cle, curS = S.liste.filter(function(x){ return x.cle === cleS; })[0];
-      var supprManu = function(){ instantane(); S.doc.anomManu = (S.doc.anomManu || []).filter(function(x){ return x.id !== cleS; }); if (INTEG && curS && curS.appId) majDossier({retirer: [curS.appId]}); changement(); };
+      var supprManu = function(){ instantane(); S.doc.anomManu = (S.doc.anomManu || []).filter(function(x){ return x.id !== cleS; }); if (INTEG && curS && curS.appId){ var rS = recDe(curS.appId); if (rS) copieRetrait(S.doc, cleS, rS); majDossier({retirer: [curS.appId]}); } changement(); };
       if (INTEG && curS && curS.appId) demander('Supprimer l\'anomalie ' + numLib(curS) + ' ?', '', supprManu, {confirmer: true, danger: true, ok: 'Supprimer', texte: 'Elle est retirée du croquis et de la liste du dossier' + (curS.photos ? ', avec ' + (curS.photos > 1 ? 'ses ' + curS.photos + ' photos' : 'sa photo') : '') + '.'});
       else supprManu();
       return;
@@ -2601,9 +2638,8 @@ function editeur(racine, opts){
       ch[champ] = String(v); majDossier({maj: [{id: b.dataset.id, champs: ch}]}); apresDossier(true); return;
     }
     if (a === 'decTxt'){
-      instantane(); var cle = b.dataset.cle, m = (S.doc.anomManu || []).filter(function(x){ return x.id === cle; })[0], sv = S.doc.sauvegardes && S.doc.sauvegardes[cle];
-      if (m) m[b.dataset.k] = v; else (S.doc.decisions[cle] = S.doc.decisions[cle] || {})[b.dataset.k] = v;
-      if (sv) delete sv[b.dataset.k === 'preco' ? 'preconisation' : 'observation'];
+      instantane(); var cle = b.dataset.cle, m = (S.doc.anomManu || []).filter(function(x){ return x.id === cle; })[0], cibleT = m || (S.doc.decisions[cle] = S.doc.decisions[cle] || {});
+      cibleT[b.dataset.k] = v; noterRetouche(cibleT, b.dataset.k, cle);
       if (m && S.doc.decisions[cle]) delete S.doc.decisions[cle][b.dataset.k];
       changement({garderPanneau: true}); return;
     }
