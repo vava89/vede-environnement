@@ -634,6 +634,7 @@ function reglesAnomalies(doc, an){
       var ep = res === 'EP';
       ajoute({cle: 'tampon:' + id, objId: id, reseau: net, obs: lib + ' : tampon béton', preco: 'Remplacement du tampon béton par un tampon fonte', nc: !ep, codes: [], cat: 'regard'});
     }
+    if (o.p.tampon === 'absent'){ var obsT = lib + ' : sans tampon'; ajoute({cle: 'sanstampon:' + id, objId: id, reseau: net, obs: obsT, preco: 'Pose d\'un tampon fonte', nc: VC.ncAnomalie({reseau: net, observation: obsT}), codes: [], cat: 'regard', arbitrer: true}); }
     if (o.p.cunette === 'non' && res !== 'EP') ajoute({cle: 'cunette:' + id, objId: id, reseau: net, obs: lib + ' : sans cunette', preco: 'Création d\'une cunette', nc: true, codes: [], cat: 'regard'});
     if (o.p.acces === 'non') ajoute({cle: 'acces:' + id, objId: id, reseau: net, obs: lib + ' : non accessible', preco: 'Dégagement et mise à niveau du regard pour le rendre visitable', nc: true, codes: [], cat: 'regard'});
     if (ty.boite && an.boites[id]){
@@ -866,6 +867,7 @@ function reconcilier(doc, an, ext, o){
       var ro = parId[a.appId], cr = Object.assign({}, ro.croquis), chg = false;
       if ((cr.codes || []).length){ cr.codes = []; chg = true; }
       if (!cr.garde){ cr.garde = true; chg = true; }
+      if (cr.orpheline !== true){ cr.orpheline = true; chg = true; }
       if (cr.objId && !idxD[cr.objId]){ cr.objEfface = cr.objId; cr.objId = null; chg = true; }
       if (chg) ops.maj.push({id: ro.id, champs: {croquis: cr}});
       return;
@@ -891,7 +893,9 @@ function reconcilier(doc, an, ext, o){
     if (besoin && crN.texte !== tx){ crN.texte = tx; texteChg = true; }
     else if (!besoin && crN.texte != null){ delete crN.texte; texteChg = true; }
     if (crN.objId) delete crN.objEfface;
-    if (n || codesChange || reprise || texteChg || (r.croquis.objId || null) !== (a.objId || null)) ops.maj.push({id: r.id, champs: Object.assign(ch, {croquis: crN})});
+    /* la règle la produit de nouveau : plus orpheline */
+    var plusOrph = crN.orpheline != null; if (plusOrph) delete crN.orpheline;
+    if (n || codesChange || reprise || texteChg || plusOrph || (r.croquis.objId || null) !== (a.objId || null)) ops.maj.push({id: r.id, champs: Object.assign(ch, {croquis: crN})});
   });
   Object.keys(R.retirer).forEach(function(id){
     var r = R.retirer[id], c = lienCle(r);
@@ -944,7 +948,8 @@ function regroupes(objs){
   function f(i){ while (g[i] !== i){ g[i] = g[g[i]]; i = g[i]; } return i; }
   for (var i = 0; i < objs.length; i++) for (var j = i + 1; j < objs.length; j++){
     var a = objs[i], b = objs[j];
-    if ((a.p.niv || '') === (b.p.niv || '') && Math.hypot(a.x - b.x, a.y - b.y) <= 4) g[f(i)] = f(j);
+    var na = a.p.niv || '', nb = b.p.niv || '';
+    if ((na === nb || !na || !nb) && Math.hypot(a.x - b.x, a.y - b.y) <= 4) g[f(i)] = f(j);
   }
   var n = {}; objs.forEach(function(_, i){ n[f(i)] = true; }); return Object.keys(n).length;
 }
@@ -1444,6 +1449,12 @@ function echelleAuto(doc, mode){
   return ECHELLES[ECHELLES.length - 1];
 }
 function echelleDoc(doc){ return doc.echelle > 0 ? doc.echelle : echelleAuto(doc); }
+/* le dessin dépasse-t-il le cadre du plan à son échelle (choisie à la main, ou au 1/500 automatique) : une partie manquerait au PDF */
+function depasseCadre(doc, mode){
+  var b = emprisePlan(doc, null, mode); if (!b) return false;
+  var Ech = echelleDoc(doc); return (b[2] - b[0]) * 1000 / Ech > CADRE.w || (b[3] - b[1]) * 1000 / Ech > CADRE.h;
+}
+VC.depasseCadre = depasseCadre;
 VC.echelleAuto = echelleAuto; VC.echelleDoc = echelleDoc; VC.emprisePlan = emprisePlan; VC.ECHELLES = ECHELLES;
 
 /* ---------- Opérations sur le document (sans interface) ---------- */
@@ -1678,7 +1689,15 @@ function editeur(racine, opts){
     clearTimeout(tEnr); tEnr = setTimeout(enregistrer, 350);
   }
   function enregistrer(){ clearTimeout(tEnr); tEnr = null; if (S.doc && opts.enregistrer) try { S.doc.vue = {cx: S.vue.cx, cy: S.vue.cy, s: S.vue.s}; opts.enregistrer(S.doc); } catch(e){} }
-  function annuler(){ if (!S.undo.length) return toast('Rien à annuler'); S.redo.push(etatCourant()); restaurer(S.undo.pop()); S.sel = null; S.brouillon = null; changement(); }
+  /* action sur une anomalie du dossier depuis le croquis (placement, retrait du plan, texte, nature, suppression) : hors de l'annulation
+     du dessin ; une barrière dans l'historique empêche « Annuler » de défaire à sa place, sans le dire, le geste de dessin précédent */
+  var BARRIERE = 'barriere';
+  function barriere(){ if (S.undo[S.undo.length - 1] !== BARRIERE){ S.undo.push(BARRIERE); if (S.undo.length > 100) S.undo.shift(); } S.redo = []; }
+  function annuler(){
+    if (!S.undo.length) return toast('Rien à annuler');
+    if (S.undo[S.undo.length - 1] === BARRIERE){ S.undo.pop(); return toast('Le dernier changement porte sur une anomalie du dossier : « Annuler » ne le défait pas (pour un placement : « Retirer du plan »). Touchez de nouveau « Annuler » pour revenir sur le dessin.', 6500); }
+    S.redo.push(etatCourant()); restaurer(S.undo.pop()); S.sel = null; S.brouillon = null; changement();
+  }
   function refaire(){ if (!S.redo.length) return toast('Rien à rétablir'); S.undo.push(etatCourant()); restaurer(S.redo.pop()); S.sel = null; changement(); }
 
   /* --- affichage --- */
@@ -1990,7 +2009,7 @@ function editeur(racine, opts){
     }
     delete cr.objEfface;
     ops.maj.push({id: id, champs: {croquis: cr}});
-    majDossier(ops);
+    majDossier(ops); barriere();
     apresDossier(true); selectionner(objId);
     var it = S.liste.filter(function(a){ return a.appId === id; })[0]; toast(msg || 'Anomalie ' + (it ? numLib(it) + ' ' : '') + 'placée sur le plan', msg ? 6000 : 2600);
   }
@@ -2045,7 +2064,7 @@ function editeur(racine, opts){
       var b2 = S.brouillon;
       /* juste après une fin automatique, un nouveau toucher sur le même objet est l'habitude « toucher à nouveau pour terminer » : ignoré une fois, avec l'explication */
       if (!b2 && S.finAuto && now - S.finAuto.t < 1000){
-        var fa = S.finAuto, pres = Math.hypot(x - fa.tx, y - fa.ty) < 30 || Math.hypot(x - fa.x, y - fa.y) < 30, ao = !pres && fa.id ? accroche(x, y, {}) : null;
+        var fa = S.finAuto, R0 = fa.r || 48, pres = Math.hypot(x - fa.tx, y - fa.ty) < R0 || Math.hypot(x - fa.x, y - fa.y) < R0, ao = !pres && fa.id ? accroche(x, y, {}) : null;
         if (pres || (ao && ao.type === 'obj' && ao.id === fa.id)){ S.finAuto = null; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); return; }
       }
       if (b2 && b2.pts.length){ var last = S.vue.ecran(b2.pts[b2.pts.length - 1].x, b2.pts[b2.pts.length - 1].y); if (Math.hypot(x - last.x, y - last.y) <= 18 || (double && b2.pts.length >= 2)){ terminerTrace(); return; } }
@@ -2069,7 +2088,8 @@ function editeur(racine, opts){
     /* un tronçon qui touche un objet ou un autre tracé est terminé ; le second toucher d'un double toucher (habitude « toucher à nouveau pour terminer ») ne commence pas de nouveau tracé */
     if (at && b2.pts.length >= 2 && oo.t === 'tr' && aideOn('finir')){
       var sf = S.vue.ecran(a2.x, a2.y), dt = S.dernierTap && Date.now() - S.dernierTap.t < 1000 ? S.dernierTap : {x: sf.x, y: sf.y};
-      S.finAuto = {t: Date.now(), x: sf.x, y: sf.y, tx: dt.x, ty: dt.y, id: a2.type === 'obj' ? a2.id : null}; terminerTrace(true); return;
+      var zf = a2.type === 'obj' ? S.zones.filter(function(q){ return q.type === 'pt' && q.id === a2.id; })[0] : null;
+      S.finAuto = {t: Date.now(), x: sf.x, y: sf.y, tx: dt.x, ty: dt.y, id: a2.type === 'obj' ? a2.id : null, r: Math.max(48, zf ? Math.max(zf.r, 10) + 12 : 0)}; terminerTrace(true); return;
     }
     majAide(); majPanneau(); redessiner();
   }
@@ -2182,7 +2202,7 @@ function editeur(racine, opts){
     panAppui = true;
     var fa = S.finAuto, t = Date.now(); if (!fa || t - fa.t >= 1000) return;
     var r = cv.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top;
-    if (Math.hypot(x - fa.tx, y - fa.ty) >= 30 && Math.hypot(x - fa.x, y - fa.y) >= 30) return;
+    var R0 = fa.r || 48; if (Math.hypot(x - fa.tx, y - fa.ty) >= R0 && Math.hypot(x - fa.x, y - fa.y) >= R0) return;
     S.finAuto = null; panAvale = t + 700; ev.stopPropagation(); ev.preventDefault();
   }, true);
   ['pointerup', 'click'].forEach(function(type){
@@ -2543,7 +2563,8 @@ function editeur(racine, opts){
   }
   function sortiesHtml(){
     var manque = S.an.controles.filter(function(x){ return x.niveau === 'manque'; }).length, Ech = E();
-    var h = '<p class="vc-muet">Échelle du plan : 1/' + Ech + (S.doc.echelle > 0 ? '' : ' (automatique)') + ' · A4 paysage.' + (manque ? ' <strong>' + manque + ' point' + (manque > 1 ? 's' : '') + ' à compléter</strong> (voir Contrôles).' : '') + '</p>';
+    var h = '<p class="vc-muet">Échelle du plan : 1/' + Ech + (S.doc.echelle > 0 ? '' : ' (automatique)') + ' · A4 paysage.' + (manque ? ' <strong>' + manque + ' point' + (manque > 1 ? 's' : '') + ' à compléter</strong> (voir Contrôles).' : '') + '</p>'
+      + (depasseCadre(S.doc) ? '<p class="vc-muet"><strong>À 1/' + Ech + ', le dessin dépasse le cadre du plan : une partie manquera au PDF.</strong> Choisissez « Auto » ou une échelle plus petite (Réglages du croquis).</p>' : '');
     h += '<div class="vc-sorties">'
       + '<button type="button" class="vc-b vc-bt vc-grand" data-a="pdfEdl">' + ico('sorties', 20) + '<span>Plan de l\'état des lieux<small>PDF : plan, légende, cartouche, anomalies et méthodes de test</small></span></button>'
       + '<button type="button" class="vc-b vc-bt vc-grand" data-a="pdfAvp">' + ico('sorties', 20) + '<span>Plan d\'avant-projet<small>PDF : tracés projet et préconisations</small></span></button>'
@@ -2563,7 +2584,8 @@ function editeur(racine, opts){
       h += champ('Date de visite', '<input class="vc-in" type="date" data-a="docTxt" data-k="date" value="' + esc(d.date || '') + '" aria-label="Date de visite">');
     }
     h += champ('Technicien', saisie('technicien', d.technicien, {a: 'docTxt', lab: 'Technicien'}));
-    h += champ('Échelle du plan', chipsHtml('echelle', [['0', 'Auto (1/' + Ech + ')'], ['100', '1/100'], ['150', '1/150'], ['200', '1/200'], ['250', '1/250'], ['500', '1/500']], String(d.echelle || 0), {a: 'docEchelle', garder: true}));
+    h += champ('Échelle du plan', chipsHtml('echelle', [['0', 'Auto (1/' + Ech + ')'], ['100', '1/100'], ['150', '1/150'], ['200', '1/200'], ['250', '1/250'], ['500', '1/500']], String(d.echelle || 0), {a: 'docEchelle', garder: true})
+      + (depasseCadre(d) ? '<p class="vc-muet"><strong>À cette échelle, le dessin dépasse le cadre du plan : une partie manquera au PDF.</strong></p>' : ''));
     h += champ('Gestionnaire par défaut', ['EU', 'EP', 'UN'].map(function(r){ return '<div class="vc-ligne"><span class="vc-g ' + r + '">' + (r === 'UN' ? 'UN' : r) + '</span>' + chipsHtml(r, [['D', 'Départemental'], ['T', 'Territorial']], (d.gest || {})[r] || 'D', {a: 'docGest', garder: true}) + '</div>'; }).join(''), 'quand le collecteur n\'est pas dessiné');
     h += champ('Orientation', '<div class="vc-chips"><span class="vc-val">' + frNum(Math.round(((d.rot || 0) * 180 / Math.PI) * 10) / 10) + '°</span><button type="button" class="vc-chip" data-a="aligner">' + ico('aligner', 18) + 'Aligner sur une voie</button><button type="button" class="vc-chip" data-a="nordHaut">Nord en haut</button></div>');
     h += champ('Étiquettes', '<button type="button" class="vc-b vc-bt" data-a="replacerTout">Replacer toutes les étiquettes</button>');
@@ -2614,7 +2636,7 @@ function editeur(racine, opts){
     if (a === 'dec' || a === 'decNc'){
       var cle = b.dataset.cle, m = (S.doc.anomManu || []).filter(function(x){ return x.id === cle; })[0], cur = S.liste.filter(function(x){ return x.cle === cle; })[0];
       /* anomalie du dossier : la nature se règle sur l'enregistrement ; un retrait qui emporte des photos se confirme */
-      if (a === 'decNc' && INTEG && cur && cur.appId){ var nv0 = b.dataset.v === '1'; if (!!cur.nc !== nv0){ majDossier({maj: [{id: cur.appId, champs: {nc: nv0}}]}); apresDossier(); } return; }
+      if (a === 'decNc' && INTEG && cur && cur.appId){ var nv0 = b.dataset.v === '1'; if (!!cur.nc !== nv0){ majDossier({maj: [{id: cur.appId, champs: {nc: nv0}}]}); barriere(); apresDossier(); } return; }
       var rec0 = a === 'dec' && INTEG && cur && cur.appId && b.dataset.v !== 'retenue' ? recDe(cur.appId) : null;
       if (rec0 && (cur.photos || !recIntact(rec0))){
         var v0 = b.dataset.v, id0 = cur.appId;
@@ -2639,11 +2661,11 @@ function editeur(racine, opts){
     /* anomalies du dossier (mode intégré) */
     if (a === 'recPlacer'){ var idP = b.dataset.id; fermerPanneau(); choisirOutil({k: 'main'}); S.placer = idP; majAide(); return; }
     if (a === 'recIci' && e){ S.ajoutAnom = null; placerRec(b.dataset.id, e.id); return; }
-    if (a === 'recDeplacer'){ var rD = recDe(b.dataset.id); if (rD){ majDossier({maj: [{id: rD.id, champs: {croquis: Object.assign({}, rD.croquis || {}, {objId: null})}}]}); apresDossier(); } return; }
+    if (a === 'recDeplacer'){ var rD = recDe(b.dataset.id); if (rD){ majDossier({maj: [{id: rD.id, champs: {croquis: Object.assign({}, rD.croquis || {}, {objId: null})}}]}); barriere(); apresDossier(); } return; }
     if (a === 'recOuvrir' && opts.ouvrirAnomalie){ enregistrer(); opts.ouvrirAnomalie(b.dataset.id); return; }
     if (a === 'recSuppr'){
       var cs = S.liste.filter(function(x){ return x.appId === b.dataset.id; })[0]; if (!cs) return;
-      demander('Supprimer l\'anomalie ' + numLib(cs) + ' du dossier ?', '', function(){ majDossier({retirer: [cs.appId]}); apresDossier(); },
+      demander('Supprimer l\'anomalie ' + numLib(cs) + ' du dossier ?', '', function(){ majDossier({retirer: [cs.appId]}); barriere(); apresDossier(); },
         {confirmer: true, danger: true, ok: 'Supprimer', texte: 'Elle est effacée de la liste du dossier' + (cs.photos ? ' avec ' + (cs.photos > 1 ? 'ses ' + cs.photos + ' photos' : 'sa photo') : '') + '. Cette suppression ne s\'annule pas.'});
       return;
     }
@@ -2693,11 +2715,20 @@ function editeur(racine, opts){
       if ((e.p[k] || '') === v) return; instantane(); e.p[k] = v; apresProp(e); return;
     }
     if (a === 'texteLibre' && e){ if (!String(v).trim()){ toast('Le texte est vide'); b.value = e.txt; return; } instantane(); e.txt = String(v).trim(); changement(); return; }
-    if (a === 'type' && e){ instantane(); var ancien = e.p; e.t = v; e.p = Object.assign(defautsPt(v), {meth: ancien.meth || [], niv: ancien.niv || '', obs: ancien.obs || '', st: ancien.st || 'existant', etiq: ancien.etiq || ''}); if (e.lab && !e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); changement(); return; }
+    if (a === 'type' && e){
+      instantane(); var ancien = e.p, nv = defautsPt(v), perdus = [];
+      Object.keys(nv).forEach(function(k){ if (ancien[k] !== undefined) nv[k] = Array.isArray(ancien[k]) ? ancien[k].slice() : ancien[k]; });
+      Object.keys(ancien).forEach(function(k){ var x = ancien[k]; if (!(k in nv) && k !== 'a' && x != null && x !== '' && !(Array.isArray(x) && !x.length)) perdus.push(k); });
+      e.t = v; e.p = Object.assign(nv, {meth: ancien.meth || [], niv: ancien.niv || '', obs: ancien.obs || '', st: ancien.st || 'existant', etiq: ancien.etiq || ''});
+      if (e.lab && !e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx());
+      changement();
+      if (perdus.length) toast('Type changé : ' + (perdus.length > 1 ? perdus.length + ' caractéristiques ne s\'appliquent plus et sont effacées' : 'une caractéristique ne s\'applique plus et est effacée') + ' · « Annuler » les rétablit', 5000);
+      return;
+    }
     if (a === 'recTxt'){
       var champ = b.dataset.k === 'preco' ? 'preconisation' : 'observation', ch = {};
       if (champ === 'observation' && !String(v).trim()){ toast('L\'observation ne peut pas être vide'); majPanneau(); return; }
-      ch[champ] = String(v); majDossier({maj: [{id: b.dataset.id, champs: ch}]}); apresDossier(true); return;
+      ch[champ] = String(v); majDossier({maj: [{id: b.dataset.id, champs: ch}]}); barriere(); apresDossier(true); return;
     }
     if (a === 'decTxt'){
       instantane(); var cle = b.dataset.cle, m = (S.doc.anomManu || []).filter(function(x){ return x.id === cle; })[0], cibleT = m || (S.doc.decisions[cle] = S.doc.decisions[cle] || {});
@@ -2721,14 +2752,15 @@ function editeur(racine, opts){
     toast('Lecture de « ' + f.name + ' »…', 8000);
     Promise.resolve(opts.chargerFond(f, type)).then(function(fo){
       if (!fo) return;
-      var ud = S.doc.u || 1, cale = S.doc.origine && (S.doc.origine.x || S.doc.origine.y), recale = '', orig = S.doc.origine;
+      var ud = S.doc.u || 1, cale = S.doc.origine && (S.doc.origine.x || S.doc.origine.y), recale = '', orig = S.doc.origine, horsPlan = false;
       if (type !== 'reseau' && cale){
-        var sC = crsDe(S.doc.origine.x * ud, S.doc.origine.y * ud), dC = crsDe(fo.origine.x * (fo.u || 1), fo.origine.y * (fo.u || 1));
-        if (sC && dC && sC !== dC && sC !== 'WGS84' && CRS[sC] && CRS[dC]){
-          if (S.reseau){ toast('Ce plan est en ' + dC + ', les réseaux chargés en ' + sC + ' : retirez d\'abord les réseaux (Fond), chargez le plan, puis rechargez les réseaux : ils seront convertis.', 9000); return; }
-          /* translation calculée au centre du dessin : l'origine (médiane de toute la rue) peut en être à des centaines de mètres */
-          var bP = emprisePlan(S.doc), c0 = bP ? depuisPlan((bP[0] + bP[2]) / 2, (bP[1] + bP[3]) / 2, S.doc.rot || 0) : {x: 0, y: 0};
-          var q = convertir(S.doc.origine.x * ud + c0.x, S.doc.origine.y * ud + c0.y, sC, dC); orig = {x: (q[0] - c0.x) / ud, y: (q[1] - c0.y) / ud}; recale = sC + ' vers ' + dC;
+        /* centre du dessin (l'origine, médiane de toute la rue, peut en être à des centaines de mètres), en mètres dans le système du croquis */
+        var bP = emprisePlan(S.doc), c0 = bP ? depuisPlan((bP[0] + bP[2]) / 2, (bP[1] + bP[3]) / 2, S.doc.rot || 0) : {x: 0, y: 0};
+        var Wx = S.doc.origine.x * ud + c0.x, Wy = S.doc.origine.y * ud + c0.y, k = caleSur(Wx, Wy, crsPossibles(Wx, Wy), fo);
+        if (!k) horsPlan = true;
+        else if (k.s){
+          if (S.reseau){ toast('Ce plan est en ' + k.d + ', les réseaux chargés en ' + k.s + ' : retirez d\'abord les réseaux (Fond), chargez le plan, puis rechargez les réseaux : ils seront convertis.', 9000); return; }
+          var q = convertir(Wx, Wy, k.s, k.d); orig = {x: (q[0] - c0.x) / ud, y: (q[1] - c0.y) / ud}; recale = k.s + ' vers ' + k.d;
         }
       }
       if (cale && !decalageFond(fo, {origine: orig, u: ud})){ toast('Ce plan est à plus de 10 000 km du croquis : il n\'est pas chargé.', 7000); return; }
@@ -2738,7 +2770,8 @@ function editeur(racine, opts){
       caler(fo);
       changement(); if (type !== 'reseau' && !S.doc.el.length) ajusterVue();
       var ign = Object.keys(fo.stats.ignores || {}).filter(function(k){ return !/^(POINT|VIEWPORT|ATTDEF|SEQEND)$/.test(k); });
-      toast((type === 'reseau' ? 'Réseaux chargés : ' : 'Fond chargé : ') + fo.stats.lignes + ' traits, ' + fo.stats.textes + ' textes' + (ign.length ? ' (non affiché : ' + ign.join(', ') + ')' : '') + (recale ? ' ; croquis recalé (' + recale + ')' : ''), recale ? 7000 : 5000);
+      toast((type === 'reseau' ? 'Réseaux chargés : ' : 'Fond chargé : ') + fo.stats.lignes + ' traits, ' + fo.stats.textes + ' textes' + (ign.length ? ' (non affiché : ' + ign.join(', ') + ')' : '') + (recale ? ' ; croquis recalé (' + recale + ')' : '')
+        + (horsPlan ? '. Attention : ce plan ne couvre pas le croquis (aucun système de coordonnées ne l\'y ramène) ; vérifiez qu\'il s\'agit du bon plan.' : ''), recale || horsPlan ? 9000 : 5000);
     }).catch(function(err){ toast('Chargement impossible : ' + (err && err.message ? err.message : err), 7000); });
   }
   /* Calage : un croquis sans origine prend celle du fond ; s'il contient déjà des objets, il est posé au centre du fond */
@@ -3369,11 +3402,27 @@ function lcc(def){
 var CRS = {L93: lcc({lat1: 44, lat2: 49, lat0: 46.5, lon0: 3, x0: 700000, y0: 6600000})};
 for (var zz = 42; zz <= 50; zz++) CRS['CC' + zz] = lcc({lat1: zz - .75, lat2: zz + .75, lat0: zz, lon0: 3, x0: 1700000, y0: (zz - 41) * 1000000 + 200000});
 /* Devine le système d'un point (coordonnées du fichier) */
-function crsDe(x, y){
-  if (Math.abs(x) <= 180 && Math.abs(y) <= 90) return 'WGS84';
+/* systèmes de coordonnées possibles d'un point en mètres (Lambert 93, zone CC tirée de y), sans départager */
+function crsPossibles(x, y){
+  if (Math.abs(x) <= 180 && Math.abs(y) <= 90) return ['WGS84'];
   var c = [];
   if (x > 1000000 && x < 2400000){ var z = Math.round((y - 200000) / 1000000) + 41; if (z >= 42 && z <= 50 && Math.abs(y - ((z - 41) * 1000000 + 200000)) < 650000) c.push('CC' + z); }
   if (x > -400000 && x < 1400000 && y > 6000000 && y < 7200000) c.push('L93');
+  return c;
+}
+/* point (x, y en mètres) à ramener sur un plan dont l'emprise est connue : déjà dans son système ({s: null}), ou la seule lecture
+   (système de départ, système du plan) qui le fait tomber à moins de 50 km du plan ; null si aucune ou plusieurs */
+function caleSur(x, y, srcs, f){
+  var uf = f.u || 1, ox = f.origine.x * uf, oy = f.origine.y * uf, b = f.bbox || [0, 0, 0, 0], M = 50000;
+  var pres = function(X, Y){ var lx = X - ox, ly = Y - oy; return lx > b[0] - M && lx < b[2] + M && ly > b[1] - M && ly < b[3] + M; };
+  if (pres(x, y)) return {s: null, d: null};
+  var ds = crsPossibles(ox, oy), out = [];
+  srcs.forEach(function(sc){ ds.forEach(function(d){ if (sc === d || !(sc === 'WGS84' || CRS[sc]) || !CRS[d]) return; var q = convertir(x, y, sc, d); if (pres(q[0], q[1])) out.push({s: sc, d: d}); }); });
+  return out.length === 1 ? out[0] : null;
+}
+VC.caleSur = caleSur;
+function crsDe(x, y){
+  var c = crsPossibles(x, y);
   if (c.length < 2) return c[0] || null;
   /* lecture ambiguë (est de la France en Lambert 93, ou zone CC) : celle qui retombe en France, dans la bande de latitude de sa zone, l'emporte */
   var ok = c.filter(function(k){ var ll = CRS[k].depuis(x, y); return ll[0] > -5.5 && ll[0] < 10 && ll[1] > 41 && ll[1] < 51.5 && (k === 'L93' || Math.abs(ll[1] - +k.slice(2)) <= 1); });
@@ -3414,8 +3463,12 @@ function lireReseau(buf, nom, fondRef){
   var conv = null;
   if (fondRef){
     var cible = crsDe(fondRef.origine.x * (fondRef.u || 1), fondRef.origine.y * (fondRef.u || 1)), src = brut.crs, k, n = 0, sx = 0, sy = 0, ub = brut.u || 1;
-    if (!src){ brut.lignes.slice(0, 50).forEach(function(l){ sx += l.pts[0]; sy += l.pts[1]; n++; }); if (n) src = crsDe(sx / n * ub, sy / n * ub); }
-    if (src && cible && src !== cible && CRS[cible]){
+    brut.lignes.slice(0, 50).forEach(function(l){ sx += l.pts[0]; sy += l.pts[1]; n++; });
+    var mx = n ? sx / n * ub : 0, my = n ? sy / n * ub : 0;
+    if (!src && n) src = crsDe(mx, my);
+    /* système d'un côté ou de l'autre impossible à départager (Haute-Corse…) : la lecture qui fait tomber les réseaux sur le cadastre */
+    if (!(src && cible) && n){ var ch = caleSur(mx, my, src ? [src] : crsPossibles(mx, my), fondRef); if (ch){ src = ch.s; cible = ch.d; } }
+    if (src && cible && src !== cible && CRS[cible] && (src === 'WGS84' || CRS[src])){
       /* lus en unités du fichier (kilomètres, millimètres…) : passés en mètres, puis dans le système du cadastre */
       brut.lignes.forEach(function(l){ for (k = 0; k < l.pts.length; k += 2){ var q = convertir(l.pts[k] * ub, l.pts[k + 1] * ub, src, cible); l.pts[k] = q[0]; l.pts[k + 1] = q[1]; } if (l.point){ var c0 = [0, 0]; for (k = 0; k < l.pts.length; k += 2){ c0[0] += l.pts[k]; c0[1] += l.pts[k + 1]; } c0[0] /= l.pts.length / 2; c0[1] /= l.pts.length / 2; l.pts = arcPts(c0[0], c0[1], .45, 0, 2 * Math.PI, []); } });
       brut.textes.forEach(function(t){ var q = convertir(t.x * ub, t.y * ub, src, cible); t.x = q[0]; t.y = q[1]; t.h = (t.h || 0) * ub; });

@@ -19,6 +19,7 @@ CE QUE L'APPLICATION DÉDUIT DU DESSIN
   - passage par une fosse (eaux usées ou pluviales) ;
   - descente non visitable ;
   - tampon béton (non-conformité en EU, réserve en EP) ;
+  - tampon absent (à arbitrer) ;
   - regard sans cunette ou non accessible ;
   - boîte branchée sur le mauvais collecteur ;
   - branchement sans boîte (à arbitrer).

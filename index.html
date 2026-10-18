@@ -565,6 +565,7 @@ function issuesOf(v, list){
     if (!lignesSansPuce(a.observation).length) out.push({aid: a.id, msg: n + ' : anomalie observée non décrite.'});
     if (!precoLines(a.preconisation).length) out.push({aid: a.id, msg: n + ' : préconisation manquante.'});
     if (!(a.photos || []).length && !a.photoNonRequise) out.push({aid: a.id, msg: n + ' : aucune photo.'});
+    if (vcPret() && vcOrpheline(a)) out.push({aid: a.id, msg: n + ' : le croquis ne la produit plus (dessin corrigé) ; vérifiez-la ou supprimez-la.'});
   });
   return out;
 }
@@ -2095,6 +2096,7 @@ function constatIssues(v, list){
     if (r.conforme === 'oui' && x.auto === 'non') out.push(lab + ' : déclarée conforme alors que ' + (raccOk(r) === false ? 'son raccordement (' + raccLabel(r.raccord).toLowerCase() + ') ne l\'est pas.' : 'une anomalie liée est une non-conformité.'));
   });
   if (!c.reseau) out.push('Réseau desservant non précisé : départemental ou territorial.');
+  if (vcPret()) E.anoms.forEach(function(a){ if (vcOrpheline(a)) out.push('A' + (list.indexOf(a) + 1) + ' « ' + String(a.observation || '').split('\n')[0].slice(0, 80) + ' » : le croquis ne la produit plus (dessin corrigé) ; vérifiez-la ou supprimez-la.'); });
   if (E.conclusion === 'non_conformes' && !PRECO_ALL.some(function(p){ return E.precos[p[0]]; }) && !String(c.observations || '').trim() && !E.anoms.length) out.push('Installations non conformes sans préconisation ni observation.');
   if (c.conclusion && E.auto && c.conclusion !== E.auto) out.push('Conclusion choisie (« ' + conclLabel(c.conclusion) + ' ») différente de celle déduite des installations et anomalies (« ' + conclLabel(E.auto) + ' »).');
   if (!E.conclusion) out.push('Conclusion non précisée.');
@@ -3252,6 +3254,8 @@ function vcDelier(a, ambigus){
   if (codes.length || regle){ a.croquis = {codes: codes}; if (regle){ a.croquis.regle = regle; if (texte) a.croquis.texte = texte; } } else delete a.croquis;
 }
 function vcLienPlan(a){ return !!(a.croquis && (a.croquis.cle || a.croquis.objId || a.croquis.auto)); }
+/* anomalie reliée au croquis que le dessin ne produit plus (dessin corrigé) : gardée dans le dossier, à vérifier */
+function vcOrpheline(a){ return !!(a && a.croquis && a.croquis.orpheline === true && vcLienPlan(a)); }
 /* clés « règle|texte du dessin » portées par plusieurs anomalies reliées d'un même croquis : un nouveau croquis ne saurait pas laquelle reprendre */
 function vcAmbigus(liste){
   var n = {}, s = new Set();
@@ -3466,6 +3470,7 @@ async function vcPdf(v){
     blob = await window.VCroquis.pdfPlan(doc, fond, {mode: 'edl', logo: VC.logo || null, reseau: reseau, anomalies: anomsOf(v.id), telQuel: true});
   } catch(e){ bm.close(); reportError(e, 'Plan PDF'); return; }
   bm.close();
+  if (window.VCroquis.depasseCadre && window.VCroquis.depasseCadre(doc)) toast('À l\'échelle 1/' + window.VCroquis.echelleDoc(doc) + ', le dessin dépasse le cadre du plan : une partie manque. Choisissez « Auto » ou une échelle plus petite dans les Réglages du croquis.', 7000);
   return saveFile(blob, safeNameFr('Plan' + (v.numero ? ' ' + v.numero : '') + (v.commune ? ' - ' + (communeNom(v.commune) || v.commune) : ''), 90) + '.pdf');
 }
 function vcCarteHtml(v){
@@ -3516,6 +3521,7 @@ function vcResumeCalc(v, doc){
   var V = window.VCroquis, an = V.analyser(doc, 'edl'), cd = V.constatDeduit(doc, an);
   var r = {rev: doc.rev || 0, plan: typeof doc.id === 'string' ? doc.id : '', rows: cd.rows.filter(function(x){ return x.nb > 0; }).map(function(x){ return {id: x.id, groupe: x.groupe, label: x.label, std: !!x.std, nb: x.nb, raccord: x.raccord || '', conforme: x.conforme || '', meth: (x.meth || []).slice(), types: (x.types || []).slice()}; }),
     puisard: !!(cd.epRecup && cd.epRecup.puisard), sansCote: (cd.sansCote || []).length};
+  try { r.arbitrer = V.anomaliesDoc(doc, an, anomsOf(v.id), {telQuel: true}).filter(function(a){ return a.st === 'arbitrer'; }).length; } catch(e){ r.arbitrer = 0; }
   VC_RESUMES.set(v.id, r);
   return r;
 }
@@ -3612,6 +3618,8 @@ function vcEcarts(v, c){
     if (vals.raccord && r.raccord && r.raccord !== vals.raccord) out.push(lab + ' : raccordement « ' + raccLabel(vals.raccord) + ' » sur le croquis de terrain, « ' + raccLabel(r.raccord) + ' » au constat.');
   });
   if (res.puisard && !(c.epRecup || {}).puisard) out.push('Puisard : sur le croquis de terrain, non coché au constat (ouvrages de récupération des EP).');
+  if (res.arbitrer) out.push(res.arbitrer > 1 ? 'Le croquis de terrain propose ' + res.arbitrer + ' anomalies « à arbitrer », hors du dossier tant qu\'elles ne sont pas retenues : décidez dans le croquis (Contrôles).'
+    : 'Le croquis de terrain propose une anomalie « à arbitrer », hors du dossier tant qu\'elle n\'est pas retenue : décidez dans le croquis (Contrôles).');
   if (res.sansCote) out.push(res.sansCote > 1 ? res.sansCote + ' descentes EP sans façade sur le croquis de terrain : indiquez avant ou arrière pour les compter au constat.' : 'Descente EP sans façade sur le croquis de terrain : indiquez avant ou arrière pour la compter au constat.');
   return out;
 }
@@ -4202,6 +4210,7 @@ function lienValide(c){
   if (au && typeof au === 'object' && typeof au.obs === 'string' && typeof au.preco === 'string' && (au.reseau === 'EU' || au.reseau === 'EP') && typeof au.nc === 'boolean' && typeof (au.installation == null ? '' : au.installation) === 'string')
     o.auto = {obs: au.obs, preco: au.preco, reseau: au.reseau, nc: au.nc, installation: au.installation || ''};
   if (c.garde === true) o.garde = true;
+  if (c.orpheline === true) o.orpheline = true;
   if (typeof c.regle === 'string' && /^[a-z][a-z0-9-]{0,30}$/.test(c.regle)) o.regle = c.regle;
   if ((o.regle || o.cle) && typeof c.texte === 'string' && c.texte.length < 500) o.texte = c.texte;
   if (o.cle || o.objId) return o;
