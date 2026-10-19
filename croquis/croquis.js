@@ -2143,12 +2143,14 @@ function editeur(racine, opts){
          un toucher sur un autre objet agit, sauf si la vue a glissé (fiche ouverte) au point d'amener un autre objet à l'endroit du premier toucher */
       if (!b2 && S.finAuto && now - S.finAuto.t < 1000){
         var fa = S.finAuto, R0 = fa.r || 48, ao = accroche(x, y, {}), a0 = accroche(fa.tx, fa.ty, {}), glisse = !!(a0 && a0.type === 'obj' && a0.id !== fa.id);
-        var autre = !glisse && !!(ao && ao.type === 'obj' && ao.id !== fa.id);
+        /* ramené dans la vue d'avant le glissement, le toucher visait-il l'objet de fin ? c'est l'habitude, même si un voisin est maintenant tout près */
+        var av = fa.gx || fa.gy ? accroche(x + fa.gx, y + fa.gy, {}) : null, visait = !!(av && av.type === 'obj' && av.id === fa.id);
+        var autre = !glisse && !visait && !!(ao && ao.type === 'obj' && ao.id !== fa.id);
         var pres = !autre && (Math.hypot(x - fa.tx, y - fa.ty) < R0 || Math.hypot(x - fa.x, y - fa.y) < R0);
         if (pres || (ao && ao.type === 'obj' && ao.id === fa.id)){ S.finAuto = null; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); return; }
       }
       if (b2 && b2.pts.length){ var last = S.vue.ecran(b2.pts[b2.pts.length - 1].x, b2.pts[b2.pts.length - 1].y); if (Math.hypot(x - last.x, y - last.y) <= 18 || (double && b2.pts.length >= 2)){ terminerTrace(); return; } }
-      ajouterPointTrace(pointTrace(x, y));
+      ajouterPointTrace(pointTrace(x, y), {x: x, y: y});
     }
   }
   /* Point de tracé selon l'outil : les traits de complément suivent le bâti, les tronçons s'accrochent au réseau */
@@ -2156,7 +2158,8 @@ function editeur(racine, opts){
     var oo = OUTILS_LN[S.outil.id], b = S.brouillon, prec = b && b.pts.length ? b.pts[b.pts.length - 1] : null;
     return oo.t === 'lim' ? accrocheLibre(x, y, {prec: prec}) : accroche(x, y, {prec: prec, col: oo.t === 'col'});
   }
-  function ajouterPointTrace(a2){
+  /* src : point de l'écran qui a posé ce point (toucher, ou fin du glissé) */
+  function ajouterPointTrace(a2, src){
     var oo = OUTILS_LN[S.outil.id], b2 = S.brouillon, at = attache(a2) && oo.t !== 'lim';
     if (!b2){
       S.brouillon = b2 = {outil: S.outil.id, pts: []};
@@ -2167,12 +2170,13 @@ function editeur(racine, opts){
     if (a2.aide) montrerAide(a2);
     /* un tronçon qui touche un objet ou un autre tracé est terminé ; le second toucher d'un double toucher (habitude « toucher à nouveau pour terminer ») ne commence pas de nouveau tracé */
     if (at && b2.pts.length >= 2 && oo.t === 'tr' && aideOn('finir')){
-      var sf = S.vue.ecran(a2.x, a2.y), dt = S.dernierTap && Date.now() - S.dernierTap.t < 1000 ? S.dernierTap : {x: sf.x, y: sf.y};
+      var sf = S.vue.ecran(a2.x, a2.y), dt = src || {x: sf.x, y: sf.y};
       var zf = a2.type === 'obj' ? S.zones.filter(function(q){ return q.type === 'pt' && q.id === a2.id; })[0] : null;
       S.finAuto = {t: Date.now(), x: sf.x, y: sf.y, tx: dt.x, ty: dt.y, id: a2.type === 'obj' ? a2.id : null, r: Math.max(48, zf ? Math.max(zf.r, 10) + 12 : 0)}; terminerTrace(true);
-      /* fin sur un tracé : le raccord créé tient lieu d'objet */
+      /* fin sur un tracé : le raccord créé tient lieu d'objet ; glissement de la vue (fiche ouverte) mesuré à l'écran */
       var fa = S.finAuto, lf = fa && S.sel && el(S.sel.id);
       if (fa && !fa.id && lf && lf.k === 'ln' && lf.v.length){ var v0 = lf.v[0], v1 = lf.v[lf.v.length - 1], vf = Math.hypot(v0.x - a2.x, v0.y - a2.y) < Math.hypot(v1.x - a2.x, v1.y - a2.y) ? v0 : v1; if (vf.a) fa.id = vf.a; }
+      if (fa){ var sf2 = S.vue.ecran(a2.x, a2.y); fa.gx = sf2.x - sf.x; fa.gy = sf2.y - sf.y; }
       return;
     }
     majAide(); majPanneau(); redessiner();
@@ -2181,7 +2185,7 @@ function editeur(racine, opts){
   function demarrerTrace(g){
     var oo = OUTILS_LN[S.outil.id];
     if (oo.relier){ g.relierDep = accroche(g.x0, g.y0, {}); return; }
-    if (!S.brouillon){ ajouterPointTrace(pointTrace(g.x0, g.y0)); g.cree = !!S.brouillon; }
+    if (!S.brouillon){ ajouterPointTrace(pointTrace(g.x0, g.y0), {x: g.x0, y: g.y0}); g.cree = !!S.brouillon; }
     g.ok = !!S.brouillon;
   }
   function apercuTrace(g, p){
@@ -2201,7 +2205,7 @@ function editeur(racine, opts){
     if (!S.brouillon || !ap) { redessiner(); return; }
     var last = S.vue.ecran(S.brouillon.pts[S.brouillon.pts.length - 1].x, S.brouillon.pts[S.brouillon.pts.length - 1].y), a = ap.a, sa = S.vue.ecran(a.x, a.y);
     if (Math.hypot(sa.x - last.x, sa.y - last.y) < 8){ redessiner(); return; }
-    ajouterPointTrace(a);
+    ajouterPointTrace(a, {x: p.x, y: p.y});
   }
   /* --- outil Relier : deux objets, un tronçon droit ou en L d'équerre avec le bâti --- */
   function relierToucher(x, y){
