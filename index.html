@@ -567,6 +567,7 @@ function issuesOf(v, list){
     if (!(a.photos || []).length && !a.photoNonRequise) out.push({aid: a.id, msg: n + ' : aucune photo.'});
     if (vcPret() && vcOrpheline(a)) out.push({aid: a.id, msg: n + ' : le croquis ne la produit plus (dessin corrigé) ; vérifiez-la ou supprimez-la.'});
   });
+  if (vcPret()) vcDoublons(list).forEach(function(l){ out.push({aid: l[l.length - 1].id, msg: vcDoublonsMsg(l, list)}); });
   return out;
 }
 function etudeStats(vs, as){
@@ -2097,6 +2098,7 @@ function constatIssues(v, list){
   });
   if (!c.reseau) out.push('Réseau desservant non précisé : départemental ou territorial.');
   if (vcPret()) E.anoms.forEach(function(a){ if (vcOrpheline(a)) out.push('A' + (list.indexOf(a) + 1) + ' « ' + String(a.observation || '').split('\n')[0].slice(0, 80) + ' » : le croquis ne la produit plus (dessin corrigé) ; vérifiez-la ou supprimez-la.'); });
+  if (vcPret()) vcDoublons(E.anoms).forEach(function(l){ out.push(vcDoublonsMsg(l, list)); });
   if (E.conclusion === 'non_conformes' && !PRECO_ALL.some(function(p){ return E.precos[p[0]]; }) && !String(c.observations || '').trim() && !E.anoms.length) out.push('Installations non conformes sans préconisation ni observation.');
   if (c.conclusion && E.auto && c.conclusion !== E.auto) out.push('Conclusion choisie (« ' + conclLabel(c.conclusion) + ' ») différente de celle déduite des installations et anomalies (« ' + conclLabel(E.auto) + ' »).');
   if (!E.conclusion) out.push('Conclusion non précisée.');
@@ -3256,6 +3258,18 @@ function vcDelier(a, ambigus){
 function vcLienPlan(a){ return !!(a.croquis && (a.croquis.cle || a.croquis.objId || a.croquis.auto)); }
 /* anomalie reliée au croquis que le dessin ne produit plus (dessin corrigé) : gardée dans le dossier, à vérifier */
 function vcOrpheline(a){ return !!(a && a.croquis && a.croquis.orpheline === true && a.croquis.confirmee !== true && vcLienPlan(a)); }
+/* anomalies de même nature (même règle du croquis, même réseau) sur un même objet du plan, dont une gardée ou placée à la main : l'une est en trop */
+function vcDoublons(list){
+  var g = {}, out = [];
+  list.forEach(function(a){
+    var c = a && a.croquis; if (!c || typeof c.objId !== 'string' || !c.objId) return;
+    var p = typeof c.cle === 'string' ? (c.cle.indexOf(':') > 0 ? c.cle.split(':')[0] : '') : typeof c.regle === 'string' ? c.regle : ''; if (!p) return;
+    var k = c.objId + '|' + p + '|' + (a.reseau === 'EP' ? 'EP' : 'EU'); (g[k] = g[k] || []).push(a);
+  });
+  Object.keys(g).forEach(function(k){ var l = g[k]; if (l.length > 1 && l.some(function(a){ return !a.croquis.cle || a.croquis.orpheline === true; })) out.push(l); });
+  return out;
+}
+function vcDoublonsMsg(l, list){ return l.map(function(a){ return 'A' + (list.indexOf(a) + 1); }).join(' et ') + ' : même anomalie sur le même objet du croquis ; supprimez celle qui est en trop.'; }
 /* clés « règle|texte du dessin » portées par plusieurs anomalies reliées d'un même croquis : un nouveau croquis ne saurait pas laquelle reprendre */
 function vcAmbigus(liste){
   var n = {}, s = new Set();
@@ -3473,7 +3487,8 @@ async function vcPdf(v){
   var coupe = !!(window.VCroquis.depasseCadre && window.VCroquis.depasseCadre(doc, 'edl'));
   var ok = await saveFile(blob, safeNameFr('Plan' + (v.numero ? ' ' + v.numero : '') + (v.commune ? ' - ' + (communeNom(v.commune) || v.commune) : ''), 90) + '.pdf');
   /* après le message du téléchargement, qui ne le recouvre donc pas */
-  if (coupe) toast('Attention : à l\'échelle 1/' + (doc.echelle > 0 ? doc.echelle : window.VCroquis.echelleAuto(doc, 'edl')) + ', le dessin dépasse le cadre du plan, une partie manque. Choisissez « Auto » ou une échelle plus petite dans les Réglages du croquis.', 8000);
+  if (coupe) toast(doc.echelle > 0 ? 'Attention : à l\'échelle 1/' + doc.echelle + ', le dessin ne tient pas dans le cadre du plan, une partie manque. Choisissez « Auto » ou une échelle plus petite dans les Réglages du croquis.'
+    : 'Attention : même au 1/' + window.VCroquis.echelleAuto(doc, 'edl') + ', le dessin ne tient pas dans le cadre du plan, une partie manque. Vérifiez qu\'aucun objet n\'a été posé loin du branchement.', 8000);
   return ok;
 }
 function vcCarteHtml(v){
@@ -4218,6 +4233,8 @@ function lienValide(c){
   if (c.garde === true) o.garde = true;
   if (c.orpheline === true) o.orpheline = true;
   if (c.confirmee === true) o.confirmee = true;
+  if (typeof c.place === 'string' && c.place.length < 200) o.place = c.place;
+  if (typeof c.cleAvant === 'string' && c.cleAvant.length < 200) o.cleAvant = c.cleAvant;
   if (typeof c.regle === 'string' && /^[a-z][a-z0-9-]{0,30}$/.test(c.regle)) o.regle = c.regle;
   if ((o.regle || o.cle) && typeof c.texte === 'string' && c.texte.length < 500) o.texte = c.texte;
   if (o.cle || o.objId) return o;
@@ -4309,7 +4326,7 @@ async function exportEtude(){
     var ok = await saveFile(blob, safeName('Obs & preco - ' + e.nom + ' - ' + todayStr(), 120) + '.zip');
     /* après le message du téléchargement, qui ne les recouvre donc pas */
     var avis = (plansKo.length ? 'Plan PDF non joint pour ' + plural(plansKo.length, 'dossier', 'dossiers') + ' (' + plansKo.slice(0, 5).join(', ') + ') : le croquis reste dans la sauvegarde. ' : '')
-      + (plansCoupes.length ? 'Plan coupé à son échelle pour ' + plural(plansCoupes.length, 'dossier', 'dossiers') + ' (' + plansCoupes.slice(0, 5).join(', ') + ') : choisissez « Auto » ou une échelle plus petite dans les Réglages du croquis.' : '');
+      + (plansCoupes.length ? 'Plan coupé pour ' + plural(plansCoupes.length, 'dossier', 'dossiers') + ' (' + plansCoupes.slice(0, 5).join(', ') + ') : vérifiez l\'échelle (Réglages du croquis) et qu\'aucun objet n\'a été posé loin du branchement.' : '');
     if (ok && avis) toast(avis.trim(), 9000);
     if (ok){ e.lastExportAt = nowISO(); if (e.updatedAt > e.lastExportAt) e.updatedAt = e.lastExportAt; await DB.put('etudes', e); render(); }
     return ok;

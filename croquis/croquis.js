@@ -745,7 +745,18 @@ function integEdl(doc, an, ext, forcer, telQuel){
   var idx = indexDoc(doc), regles = reglesInteg(doc, an, idx), parRegle = {}, parCle = {}, liste = [], retirer = {}, sauv = doc.sauvegardes || {};
   regles.forEach(function(a){ parRegle[a.cle] = a; });
   ext.forEach(function(r){ var c = lienCle(r); if (c && parRegle[c] && !parCle[c]) parCle[c] = r; });
-  var reprises = {}, evinces = {}, libres = ext.filter(function(r){ var cr = r.croquis; return !!cr && !lienCle(r) && typeof cr.regle === 'string' && typeof cr.texte === 'string' && !(typeof cr.objId === 'string' && cr.objId); });
+  var reprises = {}, evinces = {};
+  /* anomalie gardée placée par le technicien sur l'objet où le dessin produit la même règle (même réseau) : elle la reprend, sans doublon */
+  regles.forEach(function(a){
+    if (a.manu || parCle[a.cle] || !a.objId) return;
+    var d0 = doc.decisions[a.cle] || {}; if (d0.st && d0.st !== 'retenue') return;
+    var pre = a.cle.split(':')[0], x = ext.filter(function(r){
+      var cr = r.croquis, k = lienCle(r); if (!cr || reprises[r.id] || cr.objId !== a.objId || (r.reseau === 'EP' ? 'EP' : 'EU') !== a.reseau) return false;
+      return k ? !parRegle[k] && k.indexOf(':') > 0 && k.split(':')[0] === pre : cr.regle === pre;
+    })[0];
+    if (x){ parCle[a.cle] = x; reprises[x.id] = a.cle; }
+  });
+  var libres = ext.filter(function(r){ var cr = r.croquis; return !!cr && !lienCle(r) && typeof cr.regle === 'string' && typeof cr.texte === 'string' && !(typeof cr.objId === 'string' && cr.objId); });
   libres.forEach(function(r){
     var cr = r.croquis, memes = libres.filter(function(x){ return x !== r && x.croquis.regle === cr.regle && x.croquis.texte === cr.texte; });
     var rs = regles.filter(function(a){ var d0 = doc.decisions[a.cle] || {}, x = parCle[a.cle]; return !a.manu && (!x || (!reprises[x.id] && !evinces[x.id] && recIntact(x))) && a.cle.split(':')[0] === cr.regle && a.obs === cr.texte && (d0.st || (a.arbitrer ? 'arbitrer' : 'retenue')) === 'retenue'; });
@@ -754,7 +765,8 @@ function integEdl(doc, an, ext, forcer, telQuel){
     if (choix.length === 1 && !memes.length){ var x0 = parCle[choix[0].cle]; if (x0) evinces[x0.id] = x0; parCle[choix[0].cle] = r; reprises[r.id] = choix[0].cle; }
   });
   regles.forEach(function(a){
-    var d = doc.decisions[a.cle] || {}, st = d.st || a.stManu || (a.arbitrer ? 'arbitrer' : 'retenue'), r = parCle[a.cle];
+    /* « à arbitrer » d'office mais déjà dans le dossier (anomalie gardée placée sur l'objet par le technicien) : retenue */
+    var d = doc.decisions[a.cle] || {}, r = parCle[a.cle], st = d.st || a.stManu || (a.arbitrer && !r ? 'arbitrer' : 'retenue');
     var it = Object.assign({}, a, {st: st, bulle: d.bulle || a.bulle || null, r0: {obs: a.obs, preco: a.preco || '', reseau: a.reseau, nc: !!a.nc}});
     delete it.stManu;
     if (r && st !== 'retenue'){
@@ -869,6 +881,8 @@ function reconcilier(doc, an, ext, o){
       if (!cr.garde){ cr.garde = true; chg = true; }
       if (cr.orpheline !== true){ cr.orpheline = true; chg = true; }
       if (cr.objId && !idxD[cr.objId]){ cr.objEfface = cr.objId; cr.objId = null; chg = true; }
+      /* objet de sa règle de nouveau effacé (« Rétablir ») : l'anomalie revient à la place choisie par le technicien, confirmée */
+      if (!cr.objId && typeof cr.place === 'string' && idxD[cr.place]){ cr.objId = cr.place; cr.confirmee = true; delete cr.objEfface; chg = true; }
       if (chg) ops.maj.push({id: ro.id, champs: {croquis: cr}});
       return;
     }
@@ -886,7 +900,7 @@ function reconcilier(doc, an, ext, o){
     var codes = (a.codes || []).slice(), codesChange = JSON.stringify(r.croquis.codes || []) !== JSON.stringify(codes);
     /* anomalie gardée reprise par la règle (croquis refait) : elle en prend la clé */
     var reprise = lienCle(r) !== a.cle, crN = Object.assign({}, r.croquis, {cle: a.cle, objId: a.objId || null, codes: codes}, au ? {auto: nAu} : {});
-    if (reprise) delete crN.regle;
+    if (reprise){ delete crN.regle; delete crN.place; delete crN.cleAvant; }
     /* texte actuel du dessin, gardé quand « auto » ne le porte pas (anomalie reprise, ou observation retouchée avant que le dessin change) :
        après une suppression du croquis, un croquis refait la reprend encore */
     var tx = a.r0.obs, besoin = !au || nAu.obs !== tx, texteChg = false;
@@ -1453,22 +1467,48 @@ function emprisePlan(doc, idx, mode){
   doc.el.forEach(function(e){
     if (!surPlan(e, mode)) return;
     if (e.k === 'ln' && e.t === 'col' && autres) return;
-    if (e.k === 'pt' || e.k === 'tx') ajoute(e.x, e.y); else if (e.k === 'ln') lignePts(e, idx).forEach(function(p){ ajoute(p.x, p.y); });
+    if (e.k === 'pt' && e.t === 'zone'){ var rz = num(e.p.r) || 1.5; ajoute(e.x - rz, e.y - rz); ajoute(e.x + rz, e.y + rz); ajoute(e.x - rz, e.y + rz); ajoute(e.x + rz, e.y - rz); }
+    else if (e.k === 'pt' || e.k === 'tx') ajoute(e.x, e.y); else if (e.k === 'ln') lignePts(e, idx).forEach(function(p){ ajoute(p.x, p.y); });
   });
   return x0 === Infinity ? null : [x0, y0, x1, y1];
 }
+/* zones du cadre occupées par la rose du nord (en haut à droite) et l'échelle graphique (en bas à gauche), en mm ; Lp : longueur de la barre */
+function zonesReservees(F, Lp){ return [[F.x + F.w - 22, F.y + 1, F.x + F.w, F.y + 23], [F.x + 4, F.y + F.h - 14, F.x + Lp + 38, F.y + F.h - 4]]; }
+function barreEchelle(m){ var Lm = 1; [1, 2, 5, 10, 20, 50, 100].forEach(function(v){ if (v / m <= 45) Lm = v; }); return Lm; }
+/* points du plan d'un mode (repère du plan, mètres) : objets, avec le rayon de leur symbole (mm) ou de leur zone (m), et sommets des tracés ;
+   les collecteurs de la rue débordent du cadre par nature */
+function pointsPlan(doc, mode, idx){
+  idx = idx || indexDoc(doc); var rot = doc.rot || 0, l = [];
+  doc.el.forEach(function(e){
+    if (!surPlan(e, mode) || e.k === 'tx' || (e.k === 'ln' && e.t === 'col')) return;
+    if (e.k === 'pt'){ var p = versPlan(e.x, e.y, rot), z = e.t === 'zone'; l.push({x: p.x, y: p.y, r: z ? 0 : rayonSymbole(e.t) + .3, rm: z ? (num(e.p.r) || 1.5) : 0, masque: !z}); }
+    else if (e.k === 'ln') lignePts(e, idx).forEach(function(q){ var p2 = versPlan(q.x, q.y, rot); l.push({x: p2.x, y: p2.y, r: .4, rm: 0, masque: false}); });
+  });
+  return {l: l, b: emprisePlan(doc, idx, mode)};
+}
+/* plan d'un mode à l'échelle E, centré sur son emprise comme le PDF : un objet ou un sommet hors du cadre, ou un objet caché sous la rose
+   du nord ou l'échelle graphique ? */
+function coupePlan(doc, mode, E, pts){
+  pts = pts || pointsPlan(doc, mode); if (!pts.b) return false;
+  var m = E / 1000, W = CADRE.w, H = CADRE.h, cx = (pts.b[0] + pts.b[2]) / 2, cy = (pts.b[1] + pts.b[3]) / 2, zr = zonesReservees({x: 0, y: 0, w: W, h: H}, barreEchelle(m) / m);
+  return pts.l.some(function(q){
+    var X = W / 2 + (q.x - cx) / m, Y = H / 2 - (q.y - cy) / m, r = q.rm ? q.rm / m : q.r;
+    if (X - r < 0 || X + r > W || Y - r < 0 || Y + r > H) return true;
+    return q.masque && zr.some(function(z){ return X + r > z[0] && X - r < z[2] && Y + r > z[1] && Y - r < z[3]; });
+  });
+}
 function echelleAuto(doc, mode){
-  var b = emprisePlan(doc, null, mode); if (!b) return 200;
+  var pts = pointsPlan(doc, mode), b = pts.b; if (!b) return 200;
   var w = (b[2] - b[0]) + 6, h = (b[3] - b[1]) + 6;
-  for (var i = 0; i < ECHELLES.length; i++) if (w * 1000 / ECHELLES[i] <= CADRE.w * .92 && h * 1000 / ECHELLES[i] <= CADRE.h * .92) return ECHELLES[i];
+  for (var i = 0; i < ECHELLES.length; i++) if (w * 1000 / ECHELLES[i] <= CADRE.w * .92 && h * 1000 / ECHELLES[i] <= CADRE.h * .92 && !coupePlan(doc, mode, ECHELLES[i], pts)) return ECHELLES[i];
   return ECHELLES[ECHELLES.length - 1];
 }
 function echelleDoc(doc){ return doc.echelle > 0 ? doc.echelle : echelleAuto(doc); }
 /* le dessin dépasse-t-il le cadre du plan à son échelle (choisie à la main, ou au 1/500 automatique) : une partie manquerait au PDF */
 function depasseCadre(doc, mode){
   mode = mode || 'edl';
-  var b = emprisePlan(doc, null, mode); if (!b) return false;
-  var Ech = doc.echelle > 0 ? doc.echelle : echelleAuto(doc, mode); return (b[2] - b[0]) * 1000 / Ech > CADRE.w || (b[3] - b[1]) * 1000 / Ech > CADRE.h;
+  var pts = pointsPlan(doc, mode); if (!pts.b) return false;
+  return coupePlan(doc, mode, doc.echelle > 0 ? doc.echelle : echelleAuto(doc, mode), pts);
 }
 /* échelle de chaque plan (choisie à la main pour les deux, ou automatique pour chacun) et plans qui dépassent leur cadre ; avant-projet s'il y a du projet */
 function echellesPlans(doc){
@@ -1674,7 +1714,14 @@ function editeur(racine, opts){
   var pan = R.querySelector('.vc-panneau'), pcorps = pan.querySelector('.vc-pcorps'), ptitre = pan.querySelector('h2');
 
   /* --- état et document --- */
-  function E(){ return S.doc ? echelleDoc(S.doc) : 200; }
+  /* échelle du plan du mode affiché (état des lieux ou avant-projet) : échelle écrite sous le plan, pose des étiquettes et des bulles */
+  var memoE = {};
+  function E(){
+    if (!S.doc) return 200; if (S.doc.echelle > 0) return S.doc.echelle;
+    var k = (S.doc.rev || 0) + '|' + S.mode + '|' + S.doc.el.length + '|' + (S.doc.rot || 0);
+    if (memoE.k !== k) memoE = {k: k, v: echelleAuto(S.doc, S.mode === 'avp' ? 'avp' : 'edl')};
+    return memoE.v;
+  }
   function idx(){ return indexDoc(S.doc); }
   function el(id){ for (var i = 0; i < S.doc.el.length; i++) if (S.doc.el[i].id === id) return S.doc.el[i]; return null; }
   function offFond(f){ return decalageFond(f, S.doc) || {x: 0, y: 0}; }
@@ -2020,8 +2067,8 @@ function editeur(racine, opts){
     var r = recDe(id); S.placer = null; if (!r){ majAide(); return; }
     var cr = Object.assign({}, r.croquis || {}, {objId: objId}), pre = typeof cr.cle === 'string' ? cr.cle.split(':')[0] : typeof cr.regle === 'string' ? cr.regle : '', ops = {maj: [], retirer: []}, msg = '';
     if (pre){
-      /* même règle sur cet objet : à créer, ou déjà dans le dossier sans y avoir été touchée (doublon retiré) */
-      var eq = S.liste.filter(function(a){ return a.auto && a.objId === objId && a.cle !== cr.cle && a.cle.split(':')[0] === pre && a.st === 'retenue'; })[0];
+      /* même règle sur cet objet : à créer, proposée à arbitrer d'office (le placement la retient), ou déjà dans le dossier sans y avoir été touchée (doublon retiré) */
+      var eq = S.liste.filter(function(a){ return a.auto && a.objId === objId && a.cle !== cr.cle && a.cle.split(':')[0] === pre && (a.st === 'retenue' || (a.st === 'arbitrer' && !(S.doc.decisions[a.cle] || {}).st)); })[0];
       if (eq){
         var re = eq.appId && recDe(eq.appId);
         if (!re){ cr.cle = eq.cle; cr.codes = (eq.codes || []).slice(); delete cr.regle; }
@@ -2029,9 +2076,17 @@ function editeur(racine, opts){
         else msg = 'Une anomalie équivalente (' + numLib(eq) + ') existe déjà sur cet objet : supprimez celle qui est en trop.';
       }
     }
-    /* anomalie que le dessin ne produit plus, placée par le technicien : elle garde sa clé (le dessin qui la produit de nouveau la reprend,
-       sans doublon) ; confirmée, elle n'est plus rappelée, sauf si une anomalie équivalente reste sur l'objet */
-    if (typeof cr.cle === 'string' && !S.liste.some(function(a){ return a.cle === cr.cle; }) && !msg) cr.confirmee = true; else delete cr.confirmee;
+    /* anomalie que le dessin ne produit plus, placée par le technicien : confirmée, elle n'est plus rappelée (un doublon sur l'objet l'est, par l'application) */
+    var cle0 = typeof cr.cle === 'string' ? cr.cle : '';
+    delete cr.confirmee; delete cr.place; delete cr.cleAvant;
+    if (cle0 && !S.liste.some(function(a){ return a.cle === cle0; })){
+      var mK = (S.doc.anomManu || []).filter(function(x){ return x.id === cle0; })[0], oK = mK ? mK.objId : cle0.split(':')[1];
+      /* sur son objet, ou son objet effacé : elle garde sa clé (le dessin qui la produit de nouveau la reprend, sans doublon) ; placée ailleurs
+         que sur son objet effacé, elle y retourne si l'objet revient (« Annuler »), et revient à la place choisie s'il est de nouveau effacé */
+      if (!oK || oK === objId || !el(oK)){ cr.confirmee = true; if (oK && oK !== objId) cr.place = objId; }
+      /* sur un autre objet : elle lui appartient désormais (placement à la main, nom de la règle gardé) */
+      else { if (cle0.indexOf(':') > 0) cr.regle = cle0.split(':')[0]; cr.cleAvant = cle0; delete cr.cle; delete cr.orpheline; }
+    }
     delete cr.objEfface;
     ops.maj.push({id: id, champs: {croquis: cr}});
     majDossier(ops); barriere();
@@ -2088,9 +2143,10 @@ function editeur(racine, opts){
       if (OUTILS_LN[o.id].relier){ relierToucher(x, y); return; }
       var b2 = S.brouillon;
       /* juste après une fin automatique, un nouveau toucher sur le même objet est l'habitude « toucher à nouveau pour terminer » : ignoré une fois, avec l'explication ;
-         un toucher sur un autre objet agit, sauf si la vue a glissé depuis (l'objet arrivé sous le doigt n'est pas celui que le technicien visait) */
+         un toucher sur un autre objet agit, sauf si la vue a glissé (fiche ouverte) au point d'amener un autre objet à l'endroit du premier toucher */
       if (!b2 && S.finAuto && now - S.finAuto.t < 1000){
-        var fa = S.finAuto, R0 = fa.r || 48, ao = accroche(x, y, {}), autre = !fa.bouge && !!(ao && ao.type === 'obj' && ao.id !== fa.id);
+        var fa = S.finAuto, R0 = fa.r || 48, ao = accroche(x, y, {}), a0 = accroche(fa.tx, fa.ty, {}), glisse = !!(a0 && a0.type === 'obj' && a0.id !== fa.id);
+        var autre = !glisse && !!(ao && ao.type === 'obj' && ao.id !== fa.id);
         var pres = !autre && (Math.hypot(x - fa.tx, y - fa.ty) < R0 || Math.hypot(x - fa.x, y - fa.y) < R0);
         if (pres || (ao && ao.type === 'obj' && ao.id === fa.id)){ S.finAuto = null; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); return; }
       }
@@ -2117,12 +2173,9 @@ function editeur(racine, opts){
       var sf = S.vue.ecran(a2.x, a2.y), dt = S.dernierTap && Date.now() - S.dernierTap.t < 1000 ? S.dernierTap : {x: sf.x, y: sf.y};
       var zf = a2.type === 'obj' ? S.zones.filter(function(q){ return q.type === 'pt' && q.id === a2.id; })[0] : null;
       S.finAuto = {t: Date.now(), x: sf.x, y: sf.y, tx: dt.x, ty: dt.y, id: a2.type === 'obj' ? a2.id : null, r: Math.max(48, zf ? Math.max(zf.r, 10) + 12 : 0)}; terminerTrace(true);
-      /* fin sur un tracé : le raccord créé tient lieu d'objet ; la fiche ouverte a pu faire glisser la vue : ce qui est sous le doigt a changé */
+      /* fin sur un tracé : le raccord créé tient lieu d'objet */
       var fa = S.finAuto, lf = fa && S.sel && el(S.sel.id);
-      if (fa){
-        if (!fa.id && lf && lf.k === 'ln' && lf.v.length){ var v0 = lf.v[0], v1 = lf.v[lf.v.length - 1], vf = Math.hypot(v0.x - a2.x, v0.y - a2.y) < Math.hypot(v1.x - a2.x, v1.y - a2.y) ? v0 : v1; if (vf.a) fa.id = vf.a; }
-        var sf2 = S.vue.ecran(a2.x, a2.y); fa.bouge = Math.hypot(sf2.x - sf.x, sf2.y - sf.y) > 12;
-      }
+      if (fa && !fa.id && lf && lf.k === 'ln' && lf.v.length){ var v0 = lf.v[0], v1 = lf.v[lf.v.length - 1], vf = Math.hypot(v0.x - a2.x, v0.y - a2.y) < Math.hypot(v1.x - a2.x, v1.y - a2.y) ? v0 : v1; if (vf.a) fa.id = vf.a; }
       return;
     }
     majAide(); majPanneau(); redessiner();
@@ -2605,7 +2658,7 @@ function editeur(racine, opts){
   function sortiesHtml(){
     var manque = S.an.controles.filter(function(x){ return x.niveau === 'manque'; }).length, P = echellesPlans(S.doc);
     var h = '<p class="vc-muet">Échelle du plan : 1/' + P.edl + (P.auto ? ' (automatique' + (P.avp && P.avp !== P.edl ? ' ; avant-projet 1/' + P.avp : '') + ')' : '') + ' · A4 paysage.' + (manque ? ' <strong>' + manque + ' point' + (manque > 1 ? 's' : '') + ' à compléter</strong> (voir Contrôles).' : '') + '</p>'
-      + (P.coupeEdl || P.coupeAvp ? '<p class="vc-muet"><strong>' + avisCadre(P) + '</strong> Choisissez « Auto » ou une échelle plus petite (Réglages du croquis).</p>' : '');
+      + (P.coupeEdl || P.coupeAvp ? '<p class="vc-muet"><strong>' + avisCadre(P) + '</strong></p>' : '');
     h += '<div class="vc-sorties">'
       + '<button type="button" class="vc-b vc-bt vc-grand" data-a="pdfEdl">' + ico('sorties', 20) + '<span>Plan de l\'état des lieux<small>PDF : plan, légende, cartouche, anomalies et méthodes de test</small></span></button>'
       + '<button type="button" class="vc-b vc-bt vc-grand" data-a="pdfAvp">' + ico('sorties', 20) + '<span>Plan d\'avant-projet<small>PDF : tracés projet et préconisations</small></span></button>'
@@ -2614,9 +2667,11 @@ function editeur(racine, opts){
       + '</div>';
     return h;
   }
-  /* plan coupé à son échelle : lequel, à quelle échelle */
-  function avisCadre(P){
-    return 'À 1/' + (P.coupeEdl ? P.edl : P.avp) + ', le dessin dépasse le cadre du plan' + (P.coupeEdl && P.coupeAvp ? 's de l\'état des lieux et d\'avant-projet' : P.coupeEdl ? ' de l\'état des lieux' : ' d\'avant-projet') + ' : une partie manquera au PDF.';
+  /* plan coupé à son échelle : lequel, à quelle échelle, que faire (en automatique, seul le 1/5000 peut être coupé : un objet posé loin ?) */
+  function avisCadre(P, ici){
+    var qui = P.coupeEdl && P.coupeAvp ? 'des plans de l\'état des lieux et d\'avant-projet' : P.coupeEdl ? 'du plan de l\'état des lieux' : 'du plan d\'avant-projet', E0 = P.coupeEdl ? P.edl : P.avp;
+    if (P.auto) return 'Même au 1/' + E0 + ', le dessin ne tient pas dans le cadre ' + qui + ' : une partie manquera au PDF. Vérifiez qu\'aucun objet n\'a été posé loin du branchement.';
+    return 'À 1/' + E0 + ', le dessin ne tient pas dans le cadre ' + qui + ' : une partie manquera au PDF. Choisissez « Auto » ou une échelle plus petite' + (ici ? '.' : ' (Réglages du croquis).');
   }
   function reglagesHtml(){
     var d = S.doc, eA = echelleAuto(d, 'edl'), P = echellesPlans(d), aA = P.avp ? echelleAuto(d, 'avp') : 0, h = '';
@@ -2630,7 +2685,7 @@ function editeur(racine, opts){
     }
     h += champ('Technicien', saisie('technicien', d.technicien, {a: 'docTxt', lab: 'Technicien'}));
     h += champ('Échelle du plan', chipsHtml('echelle', [['0', 'Auto (1/' + eA + (aA && aA !== eA ? ', avant-projet 1/' + aA : '') + ')'], ['100', '1/100'], ['150', '1/150'], ['200', '1/200'], ['250', '1/250'], ['500', '1/500']], String(d.echelle || 0), {a: 'docEchelle', garder: true})
-      + (P.coupeEdl || P.coupeAvp ? '<p class="vc-muet"><strong>' + avisCadre(P) + '</strong></p>' : ''));
+      + (P.coupeEdl || P.coupeAvp ? '<p class="vc-muet"><strong>' + avisCadre(P, true) + '</strong></p>' : ''));
     h += champ('Gestionnaire par défaut', ['EU', 'EP', 'UN'].map(function(r){ return '<div class="vc-ligne"><span class="vc-g ' + r + '">' + (r === 'UN' ? 'UN' : r) + '</span>' + chipsHtml(r, [['D', 'Départemental'], ['T', 'Territorial']], (d.gest || {})[r] || 'D', {a: 'docGest', garder: true}) + '</div>'; }).join(''), 'quand le collecteur n\'est pas dessiné');
     h += champ('Orientation', '<div class="vc-chips"><span class="vc-val">' + frNum(Math.round(((d.rot || 0) * 180 / Math.PI) * 10) / 10) + '°</span><button type="button" class="vc-chip" data-a="aligner">' + ico('aligner', 18) + 'Aligner sur une voie</button><button type="button" class="vc-chip" data-a="nordHaut">Nord en haut</button></div>');
     h += champ('Étiquettes', '<button type="button" class="vc-b vc-bt" data-a="replacerTout">Replacer toutes les étiquettes</button>');
@@ -2706,7 +2761,14 @@ function editeur(racine, opts){
     /* anomalies du dossier (mode intégré) */
     if (a === 'recPlacer'){ var idP = b.dataset.id; fermerPanneau(); choisirOutil({k: 'main'}); S.placer = idP; majAide(); return; }
     if (a === 'recIci' && e){ S.ajoutAnom = null; placerRec(b.dataset.id, e.id); return; }
-    if (a === 'recDeplacer'){ var rD = recDe(b.dataset.id); if (rD){ majDossier({maj: [{id: rD.id, champs: {croquis: Object.assign({}, rD.croquis || {}, {objId: null})}}]}); barriere(); apresDossier(); } return; }
+    if (a === 'recDeplacer'){
+      var rD = recDe(b.dataset.id); if (!rD) return;
+      /* l'anomalie redevient telle qu'avant son placement : rappelée tant que le dessin ne la produit pas */
+      var crD = Object.assign({}, rD.croquis || {}, {objId: null}), cA = crD.cleAvant;
+      delete crD.confirmee; delete crD.place; delete crD.cleAvant;
+      if (typeof cA === 'string' && !crD.cle && !S.liste.some(function(x){ return x.cle === cA; }) && !(ext() || []).some(function(x){ return x !== rD && x.croquis && x.croquis.cle === cA; })){ crD.cle = cA; delete crD.regle; }
+      majDossier({maj: [{id: rD.id, champs: {croquis: crD}}]}); barriere(); apresDossier(); return;
+    }
     if (a === 'recOuvrir' && opts.ouvrirAnomalie){ enregistrer(); opts.ouvrirAnomalie(b.dataset.id); return; }
     if (a === 'recSuppr'){
       var cs = S.liste.filter(function(x){ return x.appId === b.dataset.id; })[0]; if (!cs) return;
@@ -3066,6 +3128,20 @@ function pdfPlan(doc, fond, o){
   var F = {x: 7, y: 7, w: CADRE.w, h: CADRE.h}, RC = [F.x, F.y, F.x + F.w, F.y + F.h];
   var b = emprisePlan(doc, idx, mode) || [-10, -10, 10, 10], cP = {x: (b[0] + b[2]) / 2, y: (b[1] + b[3]) / 2};
   function papier(x, y){ var p = versPlan(x, y, rot); return {x: F.x + F.w / 2 + (p.x - cP.x) / m, y: F.y + F.h / 2 - (p.y - cP.y) / m}; }
+  /* étiquettes, textes et bulles (boîte w × h centrée en cx, cy) : ramenés dans le cadre, hors de la rose du nord et de l'échelle graphique */
+  var reserve = zonesReservees(F, barreEchelle(m) / m);
+  function dansCadre(cx, cy, w, h){
+    var x0 = F.x + 1 + w / 2, x1 = F.x + F.w - 1 - w / 2, y0 = F.y + 1 + h / 2, y1 = F.y + F.h - 1 - h / 2;
+    if (x0 <= x1) cx = Math.min(Math.max(cx, x0), x1); if (y0 <= y1) cy = Math.min(Math.max(cy, y0), y1);
+    reserve.forEach(function(z){
+      if (cx + w / 2 <= z[0] || cx - w / 2 >= z[2] || cy + h / 2 <= z[1] || cy - h / 2 >= z[3]) return;
+      var c = [{x: z[0] - .5 - w / 2, y: cy}, {x: z[2] + .5 + w / 2, y: cy}, {x: cx, y: z[1] - .5 - h / 2}, {x: cx, y: z[3] + .5 + h / 2}]
+        .filter(function(q){ return q.x >= x0 - 1e-6 && q.x <= x1 + 1e-6 && q.y >= y0 - 1e-6 && q.y <= y1 + 1e-6; })
+        .sort(function(p, q){ return Math.hypot(p.x - cx, p.y - cy) - Math.hypot(q.x - cx, q.y - cy); })[0];
+      if (c){ cx = c.x; cy = c.y; }
+    });
+    return {x: cx, y: cy};
+  }
   var titre = mode === 'avp' ? 'Plan d\'avant-projet' : 'Plan de l\'état des lieux';
   pdf.setProperties({title: pdfTxt(titre + (doc.numero ? ' ' + doc.numero : '')), creator: pdfTxt(VC.signature || 'Croquis de terrain')});
   pdf.setLineCap('round'); pdf.setLineJoin('round');
@@ -3140,6 +3216,7 @@ function pdfPlan(doc, fond, o){
     if (!txt || (!libre && e.lab && e.lab.off)) return;
     var a = ancre(e, idx), A = papier(a.x, a.y), lab = libre ? {dx: 0, dy: 0} : (e.lab || placerEtiquette(doc, an, e, Ech, idx) || {dx: 0, dy: 0});
     var cx = A.x + lab.dx / m, cy = A.y - lab.dy / m, em = libre ? (num(e.taille) || 2.5) : TAILLE_ETIQ, col = libre ? [25, 25, 25] : hexRgb(TXT_RES[couleurTexte(e, an)] || TXT_RES.INC);
+    var bq = boiteTexte(txt, em), q0 = dansCadre(cx, cy, bq.w, bq.h); cx = q0.x; cy = q0.y;
     if (!libre && e.k === 'pt'){
       var bt = boiteTexte(txt, em), bx = [cx - bt.w / 2, cy - bt.h / 2, cx + bt.w / 2, cy + bt.h / 2], R = rayonSymbole(e.t), dd = Math.hypot(cx - A.x, cy - A.y), bord = boiteBord(bx, A.x, A.y, cx, cy);
       if (bord && dd > R + 3 && Math.hypot(bord.x - A.x, bord.y - A.y) > R + .8){ pdf.setDrawColor(col[0], col[1], col[2]); pdf.setLineWidth(.15); pdf.line(A.x + (cx - A.x) / dd * R, A.y + (cy - A.y) / dd * R, bord.x, bord.y); }
@@ -3151,7 +3228,8 @@ function pdfPlan(doc, fond, o){
   listeB.forEach(function(an2){
     if (!an2.num || !an2.objId || !idx[an2.objId]) return;
     var ob = idx[an2.objId]; if (!montrer(ob)) return;
-    var P0 = ancreBulle(ob, idx), A = papier(P0.x, P0.y), d = posB[an2.cle] || bulleDefaut(ob, Ech), cx = A.x + d.dx / m, cy = A.y - d.dy / m, r = TAILLE_BULLE, R = ob.k === 'pt' ? rayonSymbole(ob.t) : 1, dd = Math.hypot(cx - A.x, cy - A.y);
+    var P0 = ancreBulle(ob, idx), A = papier(P0.x, P0.y), d = posB[an2.cle] || bulleDefaut(ob, Ech), cx = A.x + d.dx / m, cy = A.y - d.dy / m, r = TAILLE_BULLE, R = ob.k === 'pt' ? rayonSymbole(ob.t) : 1;
+    var qb = dansCadre(cx, cy, 2 * r + .6, 2 * r + .6); cx = qb.x; cy = qb.y; var dd = Math.hypot(cx - A.x, cy - A.y);
     pdf.setDrawColor(212, 101, 10); pdf.setLineWidth(.25);
     if (dd > R + r + .3) pdf.line(A.x + (cx - A.x) / dd * R, A.y + (cy - A.y) / dd * R, cx - (cx - A.x) / dd * r, cy - (cy - A.y) / dd * r);
     pdf.setFillColor(255, 255, 255); pdf.circle(cx, cy, r, 'FD');
@@ -3165,7 +3243,7 @@ function pdfPlan(doc, fond, o){
   pdf.setFillColor(30, 30, 30); pdf.triangle(nx + vx * 6, ny + vy * 6, nx - vx * 3.5 - vy * 2.8, ny - vy * 3.5 + vx * 2.8, nx - vx * 1.5, ny - vy * 1.5, 'F');
   pdf.setFillColor(255, 255, 255); pdf.triangle(nx + vx * 6, ny + vy * 6, nx - vx * 3.5 + vy * 2.8, ny - vy * 3.5 - vx * 2.8, nx - vx * 1.5, ny - vy * 1.5, 'FD');
   textePdf(pdf, 'N', nx + vx * 9.5, ny + vy * 9.5, 2.6, 0, {gras: true, coul: [30, 30, 30], halo: true});
-  var pas = [1, 2, 5, 10, 20, 50, 100], Lm = 1; pas.forEach(function(v){ if (v / m <= 45) Lm = v; });
+  var Lm = barreEchelle(m);
   var sx = F.x + 6, sy = F.y + F.h - 8, Lp = Lm / m;
   pdf.setFillColor(255, 255, 255); pdf.setDrawColor(255, 255, 255); pdf.rect(sx - 2, sy - 6, Lp + 34, 10, 'F');
   pdf.setDrawColor(30, 30, 30); pdf.setLineWidth(.2); pdf.setFillColor(30, 30, 30); pdf.rect(sx, sy, Lp / 2, 1.4, 'FD'); pdf.setFillColor(255, 255, 255); pdf.rect(sx + Lp / 2, sy, Lp / 2, 1.4, 'FD');
