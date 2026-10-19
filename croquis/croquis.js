@@ -745,28 +745,16 @@ function integEdl(doc, an, ext, forcer, telQuel){
   var idx = indexDoc(doc), regles = reglesInteg(doc, an, idx), parRegle = {}, parCle = {}, liste = [], retirer = {}, sauv = doc.sauvegardes || {};
   regles.forEach(function(a){ parRegle[a.cle] = a; });
   ext.forEach(function(r){ var c = lienCle(r); if (c && parRegle[c] && !parCle[c]) parCle[c] = r; });
-  var reprises = {}, evinces = {};
-  /* anomalie gardée placée par le technicien sur l'objet où le dessin produit la même règle (même réseau) : elle la reprend, sans doublon */
-  regles.forEach(function(a){
-    if (a.manu || parCle[a.cle] || !a.objId) return;
-    var d0 = doc.decisions[a.cle] || {}; if (d0.st && d0.st !== 'retenue') return;
-    var pre = a.cle.split(':')[0], x = ext.filter(function(r){
-      var cr = r.croquis, k = lienCle(r); if (!cr || reprises[r.id] || cr.objId !== a.objId || (r.reseau === 'EP' ? 'EP' : 'EU') !== a.reseau) return false;
-      return k ? !parRegle[k] && k.indexOf(':') > 0 && k.split(':')[0] === pre : cr.regle === pre;
-    })[0];
-    if (x){ parCle[a.cle] = x; reprises[x.id] = a.cle; }
-  });
-  var libres = ext.filter(function(r){ var cr = r.croquis; return !!cr && !lienCle(r) && typeof cr.regle === 'string' && typeof cr.texte === 'string' && !(typeof cr.objId === 'string' && cr.objId); });
+  var reprises = {}, evinces = {}, libres = ext.filter(function(r){ var cr = r.croquis; return !!cr && !lienCle(r) && typeof cr.regle === 'string' && typeof cr.texte === 'string' && !(typeof cr.objId === 'string' && cr.objId); });
   libres.forEach(function(r){
     var cr = r.croquis, memes = libres.filter(function(x){ return x !== r && x.croquis.regle === cr.regle && x.croquis.texte === cr.texte; });
-    var rs = regles.filter(function(a){ var d0 = doc.decisions[a.cle] || {}, x = parCle[a.cle]; return !a.manu && (!x || (!reprises[x.id] && !evinces[x.id] && recIntact(x))) && a.cle.split(':')[0] === cr.regle && a.obs === cr.texte && (d0.st || (a.arbitrer ? 'arbitrer' : 'retenue')) === 'retenue'; });
+    var rs = regles.filter(function(a){ var d0 = doc.decisions[a.cle] || {}, x = parCle[a.cle]; return !a.manu && !(x ? false : sauv[a.cle]) && (!x || (!reprises[x.id] && !evinces[x.id] && recIntact(x))) && a.cle.split(':')[0] === cr.regle && a.obs === cr.texte && (d0.st || (a.arbitrer ? 'arbitrer' : 'retenue')) === 'retenue'; });
     /* une règle libre d'abord ; sinon une règle dont l'enregistrement, créé par ce croquis, est intact : il laisse la place à l'anomalie gardée */
     var rl = rs.filter(function(a){ return !parCle[a.cle]; }), choix = rl.length ? rl : rs;
     if (choix.length === 1 && !memes.length){ var x0 = parCle[choix[0].cle]; if (x0) evinces[x0.id] = x0; parCle[choix[0].cle] = r; reprises[r.id] = choix[0].cle; }
   });
   regles.forEach(function(a){
-    /* « à arbitrer » d'office mais déjà dans le dossier (anomalie gardée placée sur l'objet par le technicien) : retenue */
-    var d = doc.decisions[a.cle] || {}, r = parCle[a.cle], st = d.st || a.stManu || (a.arbitrer && !r ? 'arbitrer' : 'retenue');
+    var d = doc.decisions[a.cle] || {}, st = d.st || a.stManu || (a.arbitrer ? 'arbitrer' : 'retenue'), r = parCle[a.cle];
     var it = Object.assign({}, a, {st: st, bulle: d.bulle || a.bulle || null, r0: {obs: a.obs, preco: a.preco || '', reseau: a.reseau, nc: !!a.nc}});
     delete it.stManu;
     if (r && st !== 'retenue'){
@@ -1278,8 +1266,12 @@ function placerEtiquette(doc, an, e, E, idx, obstacles){
     obstacles.segs.forEach(function(sg){ if (segBoite(sg, bx)) sc += 1; });
     if (sc < bs){ bs = sc; best = c; }
   });
-  return best ? {dx: best.dx, dy: best.dy} : null;
+  return best ? {dx: best.dx, dy: best.dy, E: E} : null;
 }
+/* décalage d'une étiquette (mètres) pour un plan ou une vue à l'échelle E : même écart sur le papier qu'à son échelle de pose (lab.E) */
+function decalLab(lab, E){ lab = lab || {}; var k = vcEchelle(lab.E) && E > 0 ? E / lab.E : 1; return {dx: (lab.dx || 0) * k, dy: (lab.dy || 0) * k}; }
+function vcEchelle(x){ return typeof x === 'number' && isFinite(x) && x >= 50 && x <= 100000; }
+VC.decalLab = decalLab;
 function segBoite(s, b){
   var x1 = s[0], y1 = s[1], x2 = s[2], y2 = s[3];
   if (Math.max(x1, x2) < b[0] || Math.min(x1, x2) > b[2] || Math.max(y1, y2) < b[1] || Math.min(y1, y2) > b[3]) return false;
@@ -1298,7 +1290,7 @@ function obstaclesPlan(doc, an, E, idx, sauf){
     if (e.id !== sauf && e.lab && !e.lab.off){
       var txt = texteEtiquette(e, an); if (!txt) return;
       var b = boiteTexte(txt, TAILLE_ETIQ * m), a = ancre(e, idx), A2 = versPlan(a.x, a.y, rot);
-      boites.push([A2.x + e.lab.dx - b.w / 2, A2.y + e.lab.dy - b.h / 2, A2.x + e.lab.dx + b.w / 2, A2.y + e.lab.dy + b.h / 2]);
+      var dl = decalLab(e.lab, E); boites.push([A2.x + dl.dx - b.w / 2, A2.y + dl.dy - b.h / 2, A2.x + dl.dx + b.w / 2, A2.y + dl.dy + b.h / 2]);
     }
   });
   return {boites: boites, segs: segs};
@@ -1392,7 +1384,7 @@ function dessinerCroquis(ctx, doc, an, vue, dpr, o){
     var libre = e.k === 'tx', txt = libre ? e.txt : texteEtiquette(e, an);
     if (!txt || (!libre && (!montrer || (e.lab && e.lab.off)))) return;
     var h = libre ? Math.max(9, (num(e.taille) || 2.5) * k) : hpx; if (libre && h < 6.5 && o.sel !== e.id) h = 6.5;
-    var a = ancre(e, idx), A = vue.ecran(a.x, a.y), lab = libre ? {dx: 0, dy: 0} : (e.lab || placerEtiquette(doc, an, e, E, idx) || {dx: 0, dy: 0});
+    var a = ancre(e, idx), A = vue.ecran(a.x, a.y), lab = libre ? {dx: 0, dy: 0} : decalLab(e.lab || placerEtiquette(doc, an, e, E, idx) || {dx: 0, dy: 0}, E);
     var cx = A.x + lab.dx * vue.s, cy = A.y - lab.dy * vue.s, L = String(txt).split('\n');
     var col = libre ? '#1f2328' : e.k === 'pt' ? (TXT_RES[(function(){ var r = an.resPt[e.id]; var ty = T[e.t]; if (e.p.st === 'projet') return 'PRJ'; if (ty.role === 'source') return ty.nat; if (ty.role === 'note') return 'ANN'; return r; })()] || TXT_RES.INC) : TXT_RES[resLigne(e, an)] || TXT_RES.INC;
     ctx.globalAlpha = attenue(e) ? .4 : 1;
@@ -1490,11 +1482,14 @@ function pointsPlan(doc, mode, idx){
    du nord ou l'échelle graphique ? */
 function coupePlan(doc, mode, E, pts){
   pts = pts || pointsPlan(doc, mode); if (!pts.b) return false;
-  var m = E / 1000, W = CADRE.w, H = CADRE.h, cx = (pts.b[0] + pts.b[2]) / 2, cy = (pts.b[1] + pts.b[3]) / 2, zr = zonesReservees({x: 0, y: 0, w: W, h: H}, barreEchelle(m) / m);
+  var m = E / 1000, W = CADRE.w, H = CADRE.h, cx = (pts.b[0] + pts.b[2]) / 2, cy = (pts.b[1] + pts.b[3]) / 2, zb = zonesReservees({x: 0, y: 0, w: W, h: H}, barreEchelle(m) / m)[1];
+  /* rose du nord : disque de 7 mm de rayon et lettre N, à 9,5 mm du centre vers le nord du plan */
+  var dn = versPlan(0, 1, doc.rot || 0), nX = W - 11, nY = 12, lX = nX + dn.x * 9.5, lY = nY - dn.y * 9.5;
   return pts.l.some(function(q){
     var X = W / 2 + (q.x - cx) / m, Y = H / 2 - (q.y - cy) / m, r = q.rm ? q.rm / m : q.r;
     if (X - r < 0 || X + r > W || Y - r < 0 || Y + r > H) return true;
-    return q.masque && zr.some(function(z){ return X + r > z[0] && X - r < z[2] && Y + r > z[1] && Y - r < z[3]; });
+    if (!q.masque) return false;
+    return Math.hypot(X - nX, Y - nY) < 7.3 + r || (Math.abs(X - lX) < 1.6 + r && Math.abs(Y - lY) < 1.6 + r) || (X + r > zb[0] && X - r < zb[2] && Y + r > zb[1] && Y - r < zb[3]);
   });
 }
 function echelleAuto(doc, mode){
@@ -2046,7 +2041,7 @@ function editeur(racine, opts){
     var c = g.cible, e = el(c.id) || el(c.objId);
     if (c.k === 'milieu'){ var I = idx(), P = lignePts(e, I), a = P[c.i - 1], b = P[c.i]; e.v.splice(c.i, 0, {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, a: null}); c.k = 'sommet'; S.sel = {id: e.id, sommet: c.i}; }
     if (c.k === 'sommet'){ var v = e.v[c.i]; if (v.a){ var o = el(v.a); if (o){ v.x = o.x; v.y = o.y; } v.a = null; } S.sel = {id: e.id, sommet: c.i}; }
-    if (c.k === 'etiq'){ var I2 = idx(), an0 = ancre(e, I2); g.lab0 = e.lab && !e.lab.off ? {dx: e.lab.dx, dy: e.lab.dy} : (placerEtiquette(S.doc, S.an, e, E(), I2) || {dx: 0, dy: 0}); g.a0 = an0; }
+    if (c.k === 'etiq'){ var I2 = idx(), an0 = ancre(e, I2); g.lab0 = decalLab(e.lab && !e.lab.off ? e.lab : (placerEtiquette(S.doc, S.an, e, E(), I2) || {dx: 0, dy: 0}), E()); g.a0 = an0; }
     if (c.k === 'bulle'){ var ob = el(c.objId); g.b0 = placerBulles(S.doc, S.an, S.liste, E(), idx())[c.id] || bulleDefaut(ob, E()); }
     if (c.k === 'objet'){ g.o0 = {x: e.x, y: e.y}; }
   }
@@ -2054,7 +2049,7 @@ function editeur(racine, opts){
     var c = g.cible, w = S.vue.monde(p.x, p.y), w0 = S.vue.monde(g.x0, g.y0), dxw = w.x - w0.x, dyw = w.y - w0.y, rot = S.doc.rot || 0, dP = versPlan(dxw, dyw, rot);
     if (c.k === 'objet'){ var e = el(c.id); e.x = g.o0.x + dxw; e.y = g.o0.y + dyw; synchroSommets(S.doc); }
     else if (c.k === 'sommet'){ var l = el(c.id), prec = c.i > 0 ? vpos(l.v[c.i - 1], idx()) : null, a = l.t === 'lim' ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, prec: prec, col: l.t === 'col'}); l.v[c.i].x = a.x; l.v[c.i].y = a.y; S.accrocheVue = a.type ? a : null; g.accroche = a; }
-    else if (c.k === 'etiq'){ var e2 = el(c.id); e2.lab = {dx: g.lab0.dx + dP.x, dy: g.lab0.dy + dP.y}; }
+    else if (c.k === 'etiq'){ var e2 = el(c.id); e2.lab = {dx: g.lab0.dx + dP.x, dy: g.lab0.dy + dP.y, E: E()}; }
     else if (c.k === 'bulle'){ var nb = {dx: g.b0.dx + dP.x, dy: g.b0.dy + dP.y}, man = (S.doc.anomManu || []).filter(function(m){ return m.id === c.id; })[0]; if (man) man.bulle = nb; else { var d = S.doc.decisions[c.id] || (S.doc.decisions[c.id] = {}); d.bulle = nb; } }
     analyseLegere(); redessiner();
   }
@@ -2067,11 +2062,13 @@ function editeur(racine, opts){
     var r = recDe(id); S.placer = null; if (!r){ majAide(); return; }
     var cr = Object.assign({}, r.croquis || {}, {objId: objId}), pre = typeof cr.cle === 'string' ? cr.cle.split(':')[0] : typeof cr.regle === 'string' ? cr.regle : '', ops = {maj: [], retirer: []}, msg = '';
     if (pre){
-      /* même règle sur cet objet : à créer, proposée à arbitrer d'office (le placement la retient), ou déjà dans le dossier sans y avoir été touchée (doublon retiré) */
-      var eq = S.liste.filter(function(a){ return a.auto && a.objId === objId && a.cle !== cr.cle && a.cle.split(':')[0] === pre && (a.st === 'retenue' || (a.st === 'arbitrer' && !(S.doc.decisions[a.cle] || {}).st)); })[0];
+      /* même règle sur cet objet : à créer, ou déjà dans le dossier sans y avoir été touchée (doublon retiré) ; une copie d'anomalie retirée
+         de cette règle qui attend dans le croquis revient telle quelle : pas de reprise (le doublon est rappelé) */
+      var eq = S.liste.filter(function(a){ return a.auto && a.objId === objId && a.cle !== cr.cle && a.cle.split(':')[0] === pre && a.st === 'retenue'; })[0];
       if (eq){
         var re = eq.appId && recDe(eq.appId);
-        if (!re){ cr.cle = eq.cle; cr.codes = (eq.codes || []).slice(); delete cr.regle; }
+        if (!re && !(S.doc.sauvegardes || {})[eq.cle]){ cr.cle = eq.cle; cr.codes = (eq.codes || []).slice(); delete cr.regle; }
+        else if (!re) msg = 'Une anomalie équivalente (' + numLib(eq) + ') revient au dossier avec sa saisie : supprimez celle qui est en trop.';
         else if (recIntact(re)){ cr.cle = eq.cle; cr.codes = (eq.codes || []).slice(); delete cr.regle; ops.retirer.push(re.id); }
         else msg = 'Une anomalie équivalente (' + numLib(eq) + ') existe déjà sur cet objet : supprimez celle qui est en trop.';
       }
@@ -3130,6 +3127,23 @@ function pdfPlan(doc, fond, o){
   function papier(x, y){ var p = versPlan(x, y, rot); return {x: F.x + F.w / 2 + (p.x - cP.x) / m, y: F.y + F.h / 2 - (p.y - cP.y) / m}; }
   /* étiquettes, textes et bulles (boîte w × h centrée en cx, cy) : ramenés dans le cadre, hors de la rose du nord et de l'échelle graphique */
   var reserve = zonesReservees(F, barreEchelle(m) / m);
+  function dansRC(P){ return P.x >= RC[0] && P.x <= RC[2] && P.y >= RC[1] && P.y <= RC[3]; }
+  /* milieu et direction du plus long morceau visible d'un tracé (au moins 2 cm), sur le papier : null sinon */
+  function morceauVisible(e){
+    var W = lignePts(e, idx).map(function(q){ return papier(q.x, q.y); }), best = null;
+    for (var i = 1; i < W.length; i++){
+      var A0 = W[i - 1], B0 = W[i], dx = B0.x - A0.x, dy = B0.y - A0.y, t0 = 0, t1 = 1, ok = true;
+      [[-dx, A0.x - RC[0]], [dx, RC[2] - A0.x], [-dy, A0.y - RC[1]], [dy, RC[3] - A0.y]].forEach(function(c){
+        if (!ok) return; var pp = c[0], qq = c[1];
+        if (pp === 0){ if (qq < 0) ok = false; return; }
+        var r = qq / pp; if (pp < 0){ if (r > t1) ok = false; else if (r > t0) t0 = r; } else { if (r < t0) ok = false; else if (r < t1) t1 = r; }
+      });
+      if (!ok) continue;
+      var L = Math.hypot(dx, dy) * (t1 - t0); if (!(L > 20) || !isFinite(L)) continue;
+      if (!best || L > best.L){ var Ld = Math.hypot(dx, dy); best = {L: L, x: A0.x + dx * (t0 + t1) / 2, y: A0.y + dy * (t0 + t1) / 2, ux: dx / Ld, uy: dy / Ld}; }
+    }
+    return best;
+  }
   function dansCadre(cx, cy, w, h){
     var x0 = F.x + 1 + w / 2, x1 = F.x + F.w - 1 - w / 2, y0 = F.y + 1 + h / 2, y1 = F.y + F.h - 1 - h / 2;
     if (x0 <= x1) cx = Math.min(Math.max(cx, x0), x1); if (y0 <= y1) cy = Math.min(Math.max(cy, y0), y1);
@@ -3215,8 +3229,17 @@ function pdfPlan(doc, fond, o){
     var libre = e.k === 'tx', txt = libre ? e.txt : texteEtiquette(e, an);
     if (!txt || (!libre && e.lab && e.lab.off)) return;
     var a = ancre(e, idx), A = papier(a.x, a.y), lab = libre ? {dx: 0, dy: 0} : (e.lab || placerEtiquette(doc, an, e, Ech, idx) || {dx: 0, dy: 0});
-    var cx = A.x + lab.dx / m, cy = A.y - lab.dy / m, em = libre ? (num(e.taille) || 2.5) : TAILLE_ETIQ, col = libre ? [25, 25, 25] : hexRgb(TXT_RES[couleurTexte(e, an)] || TXT_RES.INC);
-    var bq = boiteTexte(txt, em), q0 = dansCadre(cx, cy, bq.w, bq.h); cx = q0.x; cy = q0.y;
+    var dl = decalLab(lab, Ech), cx = A.x + dl.dx / m, cy = A.y - dl.dy / m, em = libre ? (num(e.taille) || 2.5) : TAILLE_ETIQ, col = libre ? [25, 25, 25] : hexRgb(TXT_RES[couleurTexte(e, an)] || TXT_RES.INC);
+    var bq = boiteTexte(txt, em);
+    if (dansRC(A)){ var q0 = dansCadre(cx, cy, bq.w, bq.h); cx = q0.x; cy = q0.y; }
+    else if (!libre && e.k === 'ln'){
+      /* ancre hors du cadre (collecteur de la rue) : au milieu du plus long morceau visible, à côté du trait, vers le centre du plan */
+      var mv = morceauVisible(e);
+      if (mv){
+        var nx = -mv.uy, ny = mv.ux; if ((F.x + F.w / 2 - mv.x) * nx + (F.y + F.h / 2 - mv.y) * ny < 0){ nx = -nx; ny = -ny; }
+        var ext = Math.abs(nx) * bq.w / 2 + Math.abs(ny) * bq.h / 2, q1 = dansCadre(mv.x + nx * (1.4 + ext), mv.y + ny * (1.4 + ext), bq.w, bq.h); cx = q1.x; cy = q1.y;
+      }
+    }
     if (!libre && e.k === 'pt'){
       var bt = boiteTexte(txt, em), bx = [cx - bt.w / 2, cy - bt.h / 2, cx + bt.w / 2, cy + bt.h / 2], R = rayonSymbole(e.t), dd = Math.hypot(cx - A.x, cy - A.y), bord = boiteBord(bx, A.x, A.y, cx, cy);
       if (bord && dd > R + 3 && Math.hypot(bord.x - A.x, bord.y - A.y) > R + .8){ pdf.setDrawColor(col[0], col[1], col[2]); pdf.setLineWidth(.15); pdf.line(A.x + (cx - A.x) / dd * R, A.y + (cy - A.y) / dd * R, bord.x, bord.y); }
@@ -3229,7 +3252,7 @@ function pdfPlan(doc, fond, o){
     if (!an2.num || !an2.objId || !idx[an2.objId]) return;
     var ob = idx[an2.objId]; if (!montrer(ob)) return;
     var P0 = ancreBulle(ob, idx), A = papier(P0.x, P0.y), d = posB[an2.cle] || bulleDefaut(ob, Ech), cx = A.x + d.dx / m, cy = A.y - d.dy / m, r = TAILLE_BULLE, R = ob.k === 'pt' ? rayonSymbole(ob.t) : 1;
-    var qb = dansCadre(cx, cy, 2 * r + .6, 2 * r + .6); cx = qb.x; cy = qb.y; var dd = Math.hypot(cx - A.x, cy - A.y);
+    if (dansRC(A)){ var qb = dansCadre(cx, cy, 2 * r + .6, 2 * r + .6); cx = qb.x; cy = qb.y; } var dd = Math.hypot(cx - A.x, cy - A.y);
     pdf.setDrawColor(212, 101, 10); pdf.setLineWidth(.25);
     if (dd > R + r + .3) pdf.line(A.x + (cx - A.x) / dd * R, A.y + (cy - A.y) / dd * R, cx - (cx - A.x) / dd * r, cy - (cy - A.y) / dd * r);
     pdf.setFillColor(255, 255, 255); pdf.circle(cx, cy, r, 'FD');
@@ -3487,7 +3510,7 @@ function ecrireDxf(doc, an, liste){
   doc.el.forEach(function(e){
     var libre = e.k === 'tx', txt = libre ? e.txt : texteEtiquette(e, an);
     if (!txt || (!libre && e.lab && e.lab.off)) return;
-    var a = ancre(e, idx), lab = libre ? {dx: 0, dy: 0} : (e.lab || placerEtiquette(doc, an, e, Ech, idx) || {dx: 0, dy: 0}), d = depuisPlan(lab.dx, lab.dy, rot);
+    var a = ancre(e, idx), lab = libre ? {dx: 0, dy: 0} : decalLab(e.lab || placerEtiquette(doc, an, e, Ech, idx) || {dx: 0, dy: 0}, Ech), d = depuisPlan(lab.dx, lab.dy, rot);
     var r = couleurTexte(e, an), col = libre ? 7 : (RES[r] || RES.INC).aci;
     texte(txt, a.x + d.x, a.y + d.y, (libre ? (num(e.taille) || 2.5) : TAILLE_ETIQ) * .72 * m, libre ? 'VEDE-ANNOTATIONS' : 'VEDE-ETIQUETTES', col, rotDeg);
   });
