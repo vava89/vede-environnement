@@ -2198,7 +2198,8 @@ function editeur(racine, opts){
      ailleurs sur la fiche, le toucher agit aussitôt */
   var panAvale = 0, panSynth = 0, panAppui = false;
   /* au doigt, le navigateur produit à la fin d'un toucher sur le plan (pose d'un objet, sélection, fin de tracé) un clic et des événements
-     souris visant ce qui est alors sous le doigt : la fiche qui vient de s'ouvrir ; sans appui sur la fiche, ils sont avalés sans message (400 ms) */
+     souris visant ce qui est alors sous le doigt : la fiche qui vient de s'ouvrir ; sans appui sur la fiche, ils sont avalés sans message (400 ms).
+     Le clavier n'est jamais filtré (clic sans compte d'appuis : Entrée ou Espace sur un bouton) */
   function protegerPanneau(){ panSynth = Date.now() + 400; panAppui = false; }
   ['mousedown', 'mouseup'].forEach(function(type){
     pan.addEventListener(type, function(ev){ if (Date.now() < panSynth && !panAppui){ ev.stopPropagation(); ev.preventDefault(); } }, true);
@@ -2212,6 +2213,7 @@ function editeur(racine, opts){
   }, true);
   ['pointerup', 'click'].forEach(function(type){
     pan.addEventListener(type, function(ev){
+      if (type === 'click' && !ev.detail) return;
       var t = Date.now();
       if (t < panSynth && !panAppui){ ev.stopPropagation(); ev.preventDefault(); if (type === 'click') panSynth = 0; return; }
       if (t >= panAvale) return;
@@ -2360,10 +2362,11 @@ function editeur(racine, opts){
     if (inp){ inp.value = val || ''; setTimeout(function(){ inp.focus(); inp.select && inp.select(); }, 30); }
     else setTimeout(function(){ var b0 = d.querySelector('[data-r="0"]'); if (b0 && d.isConnected) b0.focus(); }, 30);
     function fermer(r){ d.remove(); if (r === '1') fn(inp ? inp.value : true); else if (r === '2' && o.autreFn) o.autreFn(); }
-    /* au doigt, le clic que le navigateur produit à la fin du toucher qui a ouvert ce dialogue tombe dessus : sans appui sur le dialogue, il est avalé (400 ms) */
+    /* au doigt, le clic que le navigateur produit à la fin du toucher qui a ouvert ce dialogue tombe dessus : sans appui sur le dialogue, il est avalé (400 ms) ;
+       le clavier n'est jamais filtré (Entrée ou Espace sur un bouton) */
     var t0 = Date.now(), appui = false;
     d.addEventListener('pointerdown', function(){ appui = true; }, true);
-    d.addEventListener('click', function(ev){ if (!appui && Date.now() - t0 < 400){ ev.stopPropagation(); ev.preventDefault(); } }, true);
+    d.addEventListener('click', function(ev){ if (ev.detail && !appui && Date.now() - t0 < 400){ ev.stopPropagation(); ev.preventDefault(); } }, true);
     d.addEventListener('click', function(ev){ var b = ev.target.closest('[data-r]'); if (b) fermer(b.dataset.r); else if (ev.target === d) fermer('0'); });
     /* Entrée valide depuis le champ seulement : sur un bouton, c'est le bouton choisi qui agit (jamais « Valider » à la place d'« Annuler ») */
     d.addEventListener('keydown', function(ev){ if (ev.key === 'Escape'){ ev.stopPropagation(); fermer('0'); } else if (ev.key === 'Enter' && inp && ev.target === inp && inp.tagName !== 'TEXTAREA'){ ev.preventDefault(); fermer('1'); } });
