@@ -3167,7 +3167,7 @@ function vcEcarter(doc, cle){
   return true;
 }
 async function vcAnomalieSupprimee(v, a){
-  var cle = a && a.croquis && a.croquis.cle; if (!cle || !planDe(v.id)) return;
+  var cle = a && a.croquis && a.croquis.cle; if (!cle || !planDe(v.id) || a.croquis.orpheline === true) return;
   var doc = VC.ctx && VC.ctx.v === v ? VC.ctx.doc : await DB.get('plans', v.id).catch(function(){ return null; });
   if (doc && vcEcarter(doc, cle)){ doc.modifie = nowISO(); saveLater('plans', doc); }
 }
@@ -3470,8 +3470,11 @@ async function vcPdf(v){
     blob = await window.VCroquis.pdfPlan(doc, fond, {mode: 'edl', logo: VC.logo || null, reseau: reseau, anomalies: anomsOf(v.id), telQuel: true});
   } catch(e){ bm.close(); reportError(e, 'Plan PDF'); return; }
   bm.close();
-  if (window.VCroquis.depasseCadre && window.VCroquis.depasseCadre(doc)) toast('À l\'échelle 1/' + window.VCroquis.echelleDoc(doc) + ', le dessin dépasse le cadre du plan : une partie manque. Choisissez « Auto » ou une échelle plus petite dans les Réglages du croquis.', 7000);
-  return saveFile(blob, safeNameFr('Plan' + (v.numero ? ' ' + v.numero : '') + (v.commune ? ' - ' + (communeNom(v.commune) || v.commune) : ''), 90) + '.pdf');
+  var coupe = !!(window.VCroquis.depasseCadre && window.VCroquis.depasseCadre(doc, 'edl'));
+  var ok = await saveFile(blob, safeNameFr('Plan' + (v.numero ? ' ' + v.numero : '') + (v.commune ? ' - ' + (communeNom(v.commune) || v.commune) : ''), 90) + '.pdf');
+  /* après le message du téléchargement, qui ne le recouvre donc pas */
+  if (coupe) toast('Attention : à l\'échelle 1/' + (doc.echelle > 0 ? doc.echelle : window.VCroquis.echelleAuto(doc, 'edl')) + ', le dessin dépasse le cadre du plan, une partie manque. Choisissez « Auto » ou une échelle plus petite dans les Réglages du croquis.', 8000);
+  return ok;
 }
 function vcCarteHtml(v){
   if (!vcPret()) return '';

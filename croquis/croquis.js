@@ -944,12 +944,14 @@ function raccInfo(r, groupe){
 }
 /* Une salle de bain ou une cuisine compte une fois : ses appareils sont regroupés par niveau et par proximité (4 m) */
 function regroupes(objs){
-  var g = objs.map(function(_, i){ return i; });
+  var g = objs.map(function(_, i){ return i; }), niv = objs.map(function(o){ return o.p.niv || ''; });
   function f(i){ while (g[i] !== i){ g[i] = g[g[i]]; i = g[i]; } return i; }
   for (var i = 0; i < objs.length; i++) for (var j = i + 1; j < objs.length; j++){
-    var a = objs[i], b = objs[j];
-    var na = a.p.niv || '', nb = b.p.niv || '';
-    if ((na === nb || !na || !nb) && Math.hypot(a.x - b.x, a.y - b.y) <= 4) g[f(i)] = f(j);
+    var a = objs[i], b = objs[j]; if (Math.hypot(a.x - b.x, a.y - b.y) > 4) continue;
+    /* un niveau non indiqué ne sépare pas ; deux niveaux indiqués différents restent séparés, même reliés par un appareil sans niveau */
+    var ri = f(i), rj = f(j); if (ri === rj) continue;
+    var ni = niv[ri], nj = niv[rj]; if (ni && nj && ni !== nj) continue;
+    g[ri] = rj; niv[rj] = nj || ni;
   }
   var n = {}; objs.forEach(function(_, i){ n[f(i)] = true; }); return Object.keys(n).length;
 }
@@ -1451,8 +1453,9 @@ function echelleAuto(doc, mode){
 function echelleDoc(doc){ return doc.echelle > 0 ? doc.echelle : echelleAuto(doc); }
 /* le dessin dépasse-t-il le cadre du plan à son échelle (choisie à la main, ou au 1/500 automatique) : une partie manquerait au PDF */
 function depasseCadre(doc, mode){
+  mode = mode || 'edl';
   var b = emprisePlan(doc, null, mode); if (!b) return false;
-  var Ech = echelleDoc(doc); return (b[2] - b[0]) * 1000 / Ech > CADRE.w || (b[3] - b[1]) * 1000 / Ech > CADRE.h;
+  var Ech = doc.echelle > 0 ? doc.echelle : echelleAuto(doc, mode); return (b[2] - b[0]) * 1000 / Ech > CADRE.w || (b[3] - b[1]) * 1000 / Ech > CADRE.h;
 }
 VC.depasseCadre = depasseCadre;
 VC.echelleAuto = echelleAuto; VC.echelleDoc = echelleDoc; VC.emprisePlan = emprisePlan; VC.ECHELLES = ECHELLES;
@@ -1692,10 +1695,10 @@ function editeur(racine, opts){
   /* action sur une anomalie du dossier depuis le croquis (placement, retrait du plan, texte, nature, suppression) : hors de l'annulation
      du dessin ; une barrière dans l'historique empêche « Annuler » de défaire à sa place, sans le dire, le geste de dessin précédent */
   var BARRIERE = 'barriere';
-  function barriere(){ if (S.undo[S.undo.length - 1] !== BARRIERE){ S.undo.push(BARRIERE); if (S.undo.length > 100) S.undo.shift(); } S.redo = []; }
+  function barriere(){ if (S.undo[S.undo.length - 1] !== BARRIERE){ S.undo.push(BARRIERE); if (S.undo.length > 100) S.undo.shift(); } }
   function annuler(){
     if (!S.undo.length) return toast('Rien à annuler');
-    if (S.undo[S.undo.length - 1] === BARRIERE){ S.undo.pop(); return toast('Le dernier changement porte sur une anomalie du dossier : « Annuler » ne le défait pas (pour un placement : « Retirer du plan »). Touchez de nouveau « Annuler » pour revenir sur le dessin.', 6500); }
+    if (S.undo[S.undo.length - 1] === BARRIERE){ S.undo.pop(); majBarre(); return toast('Le dernier changement porte sur une anomalie du dossier : « Annuler » ne le défait pas (pour un placement : « Retirer du plan »).' + (S.undo.length ? ' Touchez de nouveau « Annuler » pour revenir sur le dessin.' : ''), 6500); }
     S.redo.push(etatCourant()); restaurer(S.undo.pop()); S.sel = null; S.brouillon = null; changement();
   }
   function refaire(){ if (!S.redo.length) return toast('Rien à rétablir'); S.undo.push(etatCourant()); restaurer(S.redo.pop()); S.sel = null; changement(); }
@@ -2007,7 +2010,8 @@ function editeur(racine, opts){
         else msg = 'Une anomalie équivalente (' + numLib(eq) + ') existe déjà sur cet objet : supprimez celle qui est en trop.';
       }
     }
-    delete cr.objEfface;
+    if (typeof cr.cle === 'string' && !S.liste.some(function(a){ return a.cle === cr.cle; })){ if (cr.cle.indexOf(':') > 0 && !cr.regle) cr.regle = cr.cle.split(':')[0]; delete cr.cle; }
+    delete cr.objEfface; delete cr.orpheline;
     ops.maj.push({id: id, champs: {croquis: cr}});
     majDossier(ops); barriere();
     apresDossier(true); selectionner(objId);
@@ -2064,7 +2068,8 @@ function editeur(racine, opts){
       var b2 = S.brouillon;
       /* juste après une fin automatique, un nouveau toucher sur le même objet est l'habitude « toucher à nouveau pour terminer » : ignoré une fois, avec l'explication */
       if (!b2 && S.finAuto && now - S.finAuto.t < 1000){
-        var fa = S.finAuto, R0 = fa.r || 48, pres = Math.hypot(x - fa.tx, y - fa.ty) < R0 || Math.hypot(x - fa.x, y - fa.y) < R0, ao = !pres && fa.id ? accroche(x, y, {}) : null;
+        var fa = S.finAuto, R0 = fa.r || 48, ao = fa.id ? accroche(x, y, {}) : null, autre = !!(ao && ao.type === 'obj' && ao.id !== fa.id);
+        var pres = !autre && (Math.hypot(x - fa.tx, y - fa.ty) < R0 || Math.hypot(x - fa.x, y - fa.y) < R0);
         if (pres || (ao && ao.type === 'obj' && ao.id === fa.id)){ S.finAuto = null; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); return; }
       }
       if (b2 && b2.pts.length){ var last = S.vue.ecran(b2.pts[b2.pts.length - 1].x, b2.pts[b2.pts.length - 1].y); if (Math.hypot(x - last.x, y - last.y) <= 18 || (double && b2.pts.length >= 2)){ terminerTrace(); return; } }
@@ -2355,6 +2360,10 @@ function editeur(racine, opts){
     if (inp){ inp.value = val || ''; setTimeout(function(){ inp.focus(); inp.select && inp.select(); }, 30); }
     else setTimeout(function(){ var b0 = d.querySelector('[data-r="0"]'); if (b0 && d.isConnected) b0.focus(); }, 30);
     function fermer(r){ d.remove(); if (r === '1') fn(inp ? inp.value : true); else if (r === '2' && o.autreFn) o.autreFn(); }
+    /* au doigt, le clic que le navigateur produit à la fin du toucher qui a ouvert ce dialogue tombe dessus : sans appui sur le dialogue, il est avalé (400 ms) */
+    var t0 = Date.now(), appui = false;
+    d.addEventListener('pointerdown', function(){ appui = true; }, true);
+    d.addEventListener('click', function(ev){ if (!appui && Date.now() - t0 < 400){ ev.stopPropagation(); ev.preventDefault(); } }, true);
     d.addEventListener('click', function(ev){ var b = ev.target.closest('[data-r]'); if (b) fermer(b.dataset.r); else if (ev.target === d) fermer('0'); });
     /* Entrée valide depuis le champ seulement : sur un bouton, c'est le bouton choisi qui agit (jamais « Valider » à la place d'« Annuler ») */
     d.addEventListener('keydown', function(ev){ if (ev.key === 'Escape'){ ev.stopPropagation(); fermer('0'); } else if (ev.key === 'Enter' && inp && ev.target === inp && inp.tagName !== 'TEXTAREA'){ ev.preventDefault(); fermer('1'); } });
@@ -2564,7 +2573,8 @@ function editeur(racine, opts){
   function sortiesHtml(){
     var manque = S.an.controles.filter(function(x){ return x.niveau === 'manque'; }).length, Ech = E();
     var h = '<p class="vc-muet">Échelle du plan : 1/' + Ech + (S.doc.echelle > 0 ? '' : ' (automatique)') + ' · A4 paysage.' + (manque ? ' <strong>' + manque + ' point' + (manque > 1 ? 's' : '') + ' à compléter</strong> (voir Contrôles).' : '') + '</p>'
-      + (depasseCadre(S.doc) ? '<p class="vc-muet"><strong>À 1/' + Ech + ', le dessin dépasse le cadre du plan : une partie manquera au PDF.</strong> Choisissez « Auto » ou une échelle plus petite (Réglages du croquis).</p>' : '');
+      + (function(){ var dE = depasseCadre(S.doc, 'edl'), dA = S.doc.el.some(function(e){ return e.p && e.p.st === 'projet'; }) && depasseCadre(S.doc, 'avp'); if (!dE && !dA) return '';
+        return '<p class="vc-muet"><strong>À 1/' + Ech + ', le dessin dépasse le cadre du plan' + (dE && dA ? '' : dE ? ' de l\'état des lieux' : ' d\'avant-projet') + ' : une partie manquera au PDF.</strong> Choisissez « Auto » ou une échelle plus petite (Réglages du croquis).</p>'; })();
     h += '<div class="vc-sorties">'
       + '<button type="button" class="vc-b vc-bt vc-grand" data-a="pdfEdl">' + ico('sorties', 20) + '<span>Plan de l\'état des lieux<small>PDF : plan, légende, cartouche, anomalies et méthodes de test</small></span></button>'
       + '<button type="button" class="vc-b vc-bt vc-grand" data-a="pdfAvp">' + ico('sorties', 20) + '<span>Plan d\'avant-projet<small>PDF : tracés projet et préconisations</small></span></button>'
@@ -2585,7 +2595,7 @@ function editeur(racine, opts){
     }
     h += champ('Technicien', saisie('technicien', d.technicien, {a: 'docTxt', lab: 'Technicien'}));
     h += champ('Échelle du plan', chipsHtml('echelle', [['0', 'Auto (1/' + Ech + ')'], ['100', '1/100'], ['150', '1/150'], ['200', '1/200'], ['250', '1/250'], ['500', '1/500']], String(d.echelle || 0), {a: 'docEchelle', garder: true})
-      + (depasseCadre(d) ? '<p class="vc-muet"><strong>À cette échelle, le dessin dépasse le cadre du plan : une partie manquera au PDF.</strong></p>' : ''));
+      + (depasseCadre(d, 'edl') ? '<p class="vc-muet"><strong>À cette échelle, le dessin dépasse le cadre du plan : une partie manquera au PDF.</strong></p>' : ''));
     h += champ('Gestionnaire par défaut', ['EU', 'EP', 'UN'].map(function(r){ return '<div class="vc-ligne"><span class="vc-g ' + r + '">' + (r === 'UN' ? 'UN' : r) + '</span>' + chipsHtml(r, [['D', 'Départemental'], ['T', 'Territorial']], (d.gest || {})[r] || 'D', {a: 'docGest', garder: true}) + '</div>'; }).join(''), 'quand le collecteur n\'est pas dessiné');
     h += champ('Orientation', '<div class="vc-chips"><span class="vc-val">' + frNum(Math.round(((d.rot || 0) * 180 / Math.PI) * 10) / 10) + '°</span><button type="button" class="vc-chip" data-a="aligner">' + ico('aligner', 18) + 'Aligner sur une voie</button><button type="button" class="vc-chip" data-a="nordHaut">Nord en haut</button></div>');
     h += champ('Étiquettes', '<button type="button" class="vc-b vc-bt" data-a="replacerTout">Replacer toutes les étiquettes</button>');
@@ -2718,7 +2728,8 @@ function editeur(racine, opts){
     if (a === 'type' && e){
       instantane(); var ancien = e.p, nv = defautsPt(v), perdus = [];
       Object.keys(nv).forEach(function(k){ if (ancien[k] !== undefined) nv[k] = Array.isArray(ancien[k]) ? ancien[k].slice() : ancien[k]; });
-      Object.keys(ancien).forEach(function(k){ var x = ancien[k]; if (!(k in nv) && k !== 'a' && x != null && x !== '' && !(Array.isArray(x) && !x.length)) perdus.push(k); });
+      var gardes = {a: 1, meth: 1, niv: 1, obs: 1, st: 1, etiq: 1};
+      Object.keys(ancien).forEach(function(k){ var x = ancien[k]; if (!(k in nv) && !gardes[k] && x != null && x !== '' && !(Array.isArray(x) && !x.length)) perdus.push(k); });
       e.t = v; e.p = Object.assign(nv, {meth: ancien.meth || [], niv: ancien.niv || '', obs: ancien.obs || '', st: ancien.st || 'existant', etiq: ancien.etiq || ''});
       if (e.lab && !e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx());
       changement();
@@ -3413,7 +3424,7 @@ function crsPossibles(x, y){
 /* point (x, y en mètres) à ramener sur un plan dont l'emprise est connue : déjà dans son système ({s: null}), ou la seule lecture
    (système de départ, système du plan) qui le fait tomber à moins de 50 km du plan ; null si aucune ou plusieurs */
 function caleSur(x, y, srcs, f){
-  var uf = f.u || 1, ox = f.origine.x * uf, oy = f.origine.y * uf, b = f.bbox || [0, 0, 0, 0], M = 50000;
+  var uf = f.u || 1, ox = f.origine.x * uf, oy = f.origine.y * uf, b = f.bboxDense || f.bbox || [0, 0, 0, 0], M = 50000;
   var pres = function(X, Y){ var lx = X - ox, ly = Y - oy; return lx > b[0] - M && lx < b[2] + M && ly > b[1] - M && ly < b[3] + M; };
   if (pres(x, y)) return {s: null, d: null};
   var ds = crsPossibles(ox, oy), out = [];
