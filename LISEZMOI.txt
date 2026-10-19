@@ -65,8 +65,10 @@ CROQUIS DE TERRAIN (facultatif)
 - Tant qu'on n'y touche pas, une anomalie déduite suit le dessin (texte mis
   à jour, retirée si le dessin ne la produit plus). Dès qu'on la modifie
   (texte, photo, localisation), c'est elle qui fait foi : le dessin ne la
-  change plus et ne la retire jamais sans demander. Une anomalie supprimée
-  dans le dossier est écartée sur le croquis.
+  change plus et ne la retire jamais sans demander : si le dessin ne la
+  produit plus, le dossier rappelle de la vérifier ; la placer sur le plan
+  la confirme. Une anomalie supprimée dans le dossier est écartée sur le
+  croquis.
 - Supprimer un croquis (Réglages du croquis) : on choisit de retirer aussi
   les anomalies qu'il a créées et que personne n'a modifiées, ou de les
   garder dans la liste du dossier, sans lien avec un plan.

@@ -893,8 +893,8 @@ function reconcilier(doc, an, ext, o){
     if (besoin && crN.texte !== tx){ crN.texte = tx; texteChg = true; }
     else if (!besoin && crN.texte != null){ delete crN.texte; texteChg = true; }
     if (crN.objId) delete crN.objEfface;
-    /* la règle la produit de nouveau : plus orpheline */
-    var plusOrph = crN.orpheline != null; if (plusOrph) delete crN.orpheline;
+    /* la règle la produit de nouveau : plus orpheline (ni confirmée comme telle) */
+    var plusOrph = crN.orpheline != null || crN.confirmee != null; if (plusOrph){ delete crN.orpheline; delete crN.confirmee; }
     if (n || codesChange || reprise || texteChg || plusOrph || (r.croquis.objId || null) !== (a.objId || null)) ops.maj.push({id: r.id, champs: Object.assign(ch, {croquis: crN})});
   });
   Object.keys(R.retirer).forEach(function(id){
@@ -942,18 +942,29 @@ function raccInfo(r, groupe){
   }
   return {code: '', lib: '', ok: null};
 }
-/* Une salle de bain ou une cuisine compte une fois : ses appareils sont regroupés par niveau et par proximité (4 m) */
+/* Une salle de bain ou une cuisine compte une fois : ses appareils sont regroupés de proche en proche (4 m) et par niveau. Un appareil
+   sans niveau indiqué se rattache à chaque niveau voisin ; deux niveaux indiqués ne se mêlent jamais. Le compte ne dépend pas de l'ordre du dessin */
 function regroupes(objs){
-  var g = objs.map(function(_, i){ return i; }), niv = objs.map(function(o){ return o.p.niv || ''; });
-  function f(i){ while (g[i] !== i){ g[i] = g[g[i]]; i = g[i]; } return i; }
-  for (var i = 0; i < objs.length; i++) for (var j = i + 1; j < objs.length; j++){
-    var a = objs[i], b = objs[j]; if (Math.hypot(a.x - b.x, a.y - b.y) > 4) continue;
-    /* un niveau non indiqué ne sépare pas ; deux niveaux indiqués différents restent séparés, même reliés par un appareil sans niveau */
-    var ri = f(i), rj = f(j); if (ri === rj) continue;
-    var ni = niv[ri], nj = niv[rj]; if (ni && nj && ni !== nj) continue;
-    g[ri] = rj; niv[rj] = nj || ni;
+  var niv = objs.map(function(o){ return o.p.niv || ''; });
+  function proches(i, j){ return Math.hypot(objs[i].x - objs[j].x, objs[i].y - objs[j].y) <= 4; }
+  /* groupes de proche en proche des appareils retenus */
+  function groupes(garder){
+    var g = {}, ids = objs.map(function(_, i){ return i; }).filter(garder);
+    ids.forEach(function(i){ g[i] = i; });
+    function f(i){ while (g[i] !== i){ g[i] = g[g[i]]; i = g[i]; } return i; }
+    for (var a = 0; a < ids.length; a++) for (var b = a + 1; b < ids.length; b++) if (proches(ids[a], ids[b])) g[f(ids[a])] = f(ids[b]);
+    var m = {}; ids.forEach(function(i){ (m[f(i)] = m[f(i)] || []).push(i); }); return Object.keys(m).map(function(k){ return m[k]; });
   }
-  var n = {}; objs.forEach(function(_, i){ n[f(i)] = true; }); return Object.keys(n).length;
+  var n = 0, niveaux = niv.filter(function(v, i){ return v && niv.indexOf(v) === i; });
+  /* chaque niveau indiqué : ses appareils et ceux sans niveau ; un groupe compte s'il a un appareil de ce niveau */
+  niveaux.forEach(function(L){
+    n += groupes(function(i){ return !niv[i] || niv[i] === L; }).filter(function(gr){ return gr.some(function(i){ return niv[i] === L; }); }).length;
+  });
+  /* appareils sans niveau loin de tout appareil de niveau indiqué */
+  n += groupes(function(i){ return !niv[i]; }).filter(function(gr){
+    return !gr.some(function(i){ return niv.some(function(v, j){ return v && proches(i, j); }); });
+  }).length;
+  return n;
 }
 function constatDeduit(doc, an){
   var rows = ROWS_STD.map(function(s){ return {id: s[0], groupe: s[1], label: s[2], std: true, nb: 0, codes: [], libs: [], oks: [], meth: [], objets: [], types: []}; }), autres = {}, recup = {}, sansCote = [];
@@ -1432,13 +1443,15 @@ VC.dessinerCroquis = dessinerCroquis; VC.bulleDefaut = bulleDefaut;
 /* ---------- Échelle du plan : la plus grande qui fait tenir le croquis dans le cadre du PDF ---------- */
 var ECHELLES = [100, 150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000, 2500, 5000];
 var CADRE = {w: 205, h: 192};
+/* ce que dessine le plan d'un mode : l'état des lieux, tout sauf le projet ; l'avant-projet, tout, ouvrages à supprimer compris (barrés) */
+function surPlan(e, mode){ return mode !== 'edl' || actif(e, 'edl'); }
 function emprisePlan(doc, idx, mode){
   idx = idx || indexDoc(doc); var rot = doc.rot || 0, x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   function ajoute(x, y){ var p = versPlan(x, y, rot); if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x; if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y; }
   /* les collecteurs de la rue ne comptent que par leurs piquages : sinon leur longueur imposerait une petite échelle */
-  var autres = doc.el.some(function(e){ return !(e.k === 'ln' && e.t === 'col') && (!mode || actif(e, mode)); });
+  var autres = doc.el.some(function(e){ return !(e.k === 'ln' && e.t === 'col') && surPlan(e, mode); });
   doc.el.forEach(function(e){
-    if (mode && !actif(e, mode)) return;
+    if (!surPlan(e, mode)) return;
     if (e.k === 'ln' && e.t === 'col' && autres) return;
     if (e.k === 'pt' || e.k === 'tx') ajoute(e.x, e.y); else if (e.k === 'ln') lignePts(e, idx).forEach(function(p){ ajoute(p.x, p.y); });
   });
@@ -1457,7 +1470,13 @@ function depasseCadre(doc, mode){
   var b = emprisePlan(doc, null, mode); if (!b) return false;
   var Ech = doc.echelle > 0 ? doc.echelle : echelleAuto(doc, mode); return (b[2] - b[0]) * 1000 / Ech > CADRE.w || (b[3] - b[1]) * 1000 / Ech > CADRE.h;
 }
-VC.depasseCadre = depasseCadre;
+/* échelle de chaque plan (choisie à la main pour les deux, ou automatique pour chacun) et plans qui dépassent leur cadre ; avant-projet s'il y a du projet */
+function echellesPlans(doc){
+  var projet = doc.el.some(function(e){ return e.p && e.p.st === 'projet'; }), auto = !(doc.echelle > 0);
+  return {auto: auto, edl: auto ? echelleAuto(doc, 'edl') : doc.echelle, avp: projet ? (auto ? echelleAuto(doc, 'avp') : doc.echelle) : 0,
+    coupeEdl: depasseCadre(doc, 'edl'), coupeAvp: projet && depasseCadre(doc, 'avp')};
+}
+VC.depasseCadre = depasseCadre; VC.echellesPlans = echellesPlans;
 VC.echelleAuto = echelleAuto; VC.echelleDoc = echelleDoc; VC.emprisePlan = emprisePlan; VC.ECHELLES = ECHELLES;
 
 /* ---------- Opérations sur le document (sans interface) ---------- */
@@ -2010,8 +2029,10 @@ function editeur(racine, opts){
         else msg = 'Une anomalie équivalente (' + numLib(eq) + ') existe déjà sur cet objet : supprimez celle qui est en trop.';
       }
     }
-    if (typeof cr.cle === 'string' && !S.liste.some(function(a){ return a.cle === cr.cle; })){ if (cr.cle.indexOf(':') > 0 && !cr.regle) cr.regle = cr.cle.split(':')[0]; delete cr.cle; }
-    delete cr.objEfface; delete cr.orpheline;
+    /* anomalie que le dessin ne produit plus, placée par le technicien : elle garde sa clé (le dessin qui la produit de nouveau la reprend,
+       sans doublon) ; confirmée, elle n'est plus rappelée, sauf si une anomalie équivalente reste sur l'objet */
+    if (typeof cr.cle === 'string' && !S.liste.some(function(a){ return a.cle === cr.cle; }) && !msg) cr.confirmee = true; else delete cr.confirmee;
+    delete cr.objEfface;
     ops.maj.push({id: id, champs: {croquis: cr}});
     majDossier(ops); barriere();
     apresDossier(true); selectionner(objId);
@@ -2066,9 +2087,10 @@ function editeur(racine, opts){
     if (o.k === 'ln'){
       if (OUTILS_LN[o.id].relier){ relierToucher(x, y); return; }
       var b2 = S.brouillon;
-      /* juste après une fin automatique, un nouveau toucher sur le même objet est l'habitude « toucher à nouveau pour terminer » : ignoré une fois, avec l'explication */
+      /* juste après une fin automatique, un nouveau toucher sur le même objet est l'habitude « toucher à nouveau pour terminer » : ignoré une fois, avec l'explication ;
+         un toucher sur un autre objet agit, sauf si la vue a glissé depuis (l'objet arrivé sous le doigt n'est pas celui que le technicien visait) */
       if (!b2 && S.finAuto && now - S.finAuto.t < 1000){
-        var fa = S.finAuto, R0 = fa.r || 48, ao = fa.id ? accroche(x, y, {}) : null, autre = !!(ao && ao.type === 'obj' && ao.id !== fa.id);
+        var fa = S.finAuto, R0 = fa.r || 48, ao = accroche(x, y, {}), autre = !fa.bouge && !!(ao && ao.type === 'obj' && ao.id !== fa.id);
         var pres = !autre && (Math.hypot(x - fa.tx, y - fa.ty) < R0 || Math.hypot(x - fa.x, y - fa.y) < R0);
         if (pres || (ao && ao.type === 'obj' && ao.id === fa.id)){ S.finAuto = null; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); return; }
       }
@@ -2094,7 +2116,14 @@ function editeur(racine, opts){
     if (at && b2.pts.length >= 2 && oo.t === 'tr' && aideOn('finir')){
       var sf = S.vue.ecran(a2.x, a2.y), dt = S.dernierTap && Date.now() - S.dernierTap.t < 1000 ? S.dernierTap : {x: sf.x, y: sf.y};
       var zf = a2.type === 'obj' ? S.zones.filter(function(q){ return q.type === 'pt' && q.id === a2.id; })[0] : null;
-      S.finAuto = {t: Date.now(), x: sf.x, y: sf.y, tx: dt.x, ty: dt.y, id: a2.type === 'obj' ? a2.id : null, r: Math.max(48, zf ? Math.max(zf.r, 10) + 12 : 0)}; terminerTrace(true); return;
+      S.finAuto = {t: Date.now(), x: sf.x, y: sf.y, tx: dt.x, ty: dt.y, id: a2.type === 'obj' ? a2.id : null, r: Math.max(48, zf ? Math.max(zf.r, 10) + 12 : 0)}; terminerTrace(true);
+      /* fin sur un tracé : le raccord créé tient lieu d'objet ; la fiche ouverte a pu faire glisser la vue : ce qui est sous le doigt a changé */
+      var fa = S.finAuto, lf = fa && S.sel && el(S.sel.id);
+      if (fa){
+        if (!fa.id && lf && lf.k === 'ln' && lf.v.length){ var v0 = lf.v[0], v1 = lf.v[lf.v.length - 1], vf = Math.hypot(v0.x - a2.x, v0.y - a2.y) < Math.hypot(v1.x - a2.x, v1.y - a2.y) ? v0 : v1; if (vf.a) fa.id = vf.a; }
+        var sf2 = S.vue.ecran(a2.x, a2.y); fa.bouge = Math.hypot(sf2.x - sf.x, sf2.y - sf.y) > 12;
+      }
+      return;
     }
     majAide(); majPanneau(); redessiner();
   }
@@ -2574,10 +2603,9 @@ function editeur(racine, opts){
     return h;
   }
   function sortiesHtml(){
-    var manque = S.an.controles.filter(function(x){ return x.niveau === 'manque'; }).length, Ech = E();
-    var h = '<p class="vc-muet">Échelle du plan : 1/' + Ech + (S.doc.echelle > 0 ? '' : ' (automatique)') + ' · A4 paysage.' + (manque ? ' <strong>' + manque + ' point' + (manque > 1 ? 's' : '') + ' à compléter</strong> (voir Contrôles).' : '') + '</p>'
-      + (function(){ var dE = depasseCadre(S.doc, 'edl'), dA = S.doc.el.some(function(e){ return e.p && e.p.st === 'projet'; }) && depasseCadre(S.doc, 'avp'); if (!dE && !dA) return '';
-        return '<p class="vc-muet"><strong>À 1/' + Ech + ', le dessin dépasse le cadre du plan' + (dE && dA ? '' : dE ? ' de l\'état des lieux' : ' d\'avant-projet') + ' : une partie manquera au PDF.</strong> Choisissez « Auto » ou une échelle plus petite (Réglages du croquis).</p>'; })();
+    var manque = S.an.controles.filter(function(x){ return x.niveau === 'manque'; }).length, P = echellesPlans(S.doc);
+    var h = '<p class="vc-muet">Échelle du plan : 1/' + P.edl + (P.auto ? ' (automatique' + (P.avp && P.avp !== P.edl ? ' ; avant-projet 1/' + P.avp : '') + ')' : '') + ' · A4 paysage.' + (manque ? ' <strong>' + manque + ' point' + (manque > 1 ? 's' : '') + ' à compléter</strong> (voir Contrôles).' : '') + '</p>'
+      + (P.coupeEdl || P.coupeAvp ? '<p class="vc-muet"><strong>' + avisCadre(P) + '</strong> Choisissez « Auto » ou une échelle plus petite (Réglages du croquis).</p>' : '');
     h += '<div class="vc-sorties">'
       + '<button type="button" class="vc-b vc-bt vc-grand" data-a="pdfEdl">' + ico('sorties', 20) + '<span>Plan de l\'état des lieux<small>PDF : plan, légende, cartouche, anomalies et méthodes de test</small></span></button>'
       + '<button type="button" class="vc-b vc-bt vc-grand" data-a="pdfAvp">' + ico('sorties', 20) + '<span>Plan d\'avant-projet<small>PDF : tracés projet et préconisations</small></span></button>'
@@ -2586,8 +2614,12 @@ function editeur(racine, opts){
       + '</div>';
     return h;
   }
+  /* plan coupé à son échelle : lequel, à quelle échelle */
+  function avisCadre(P){
+    return 'À 1/' + (P.coupeEdl ? P.edl : P.avp) + ', le dessin dépasse le cadre du plan' + (P.coupeEdl && P.coupeAvp ? 's de l\'état des lieux et d\'avant-projet' : P.coupeEdl ? ' de l\'état des lieux' : ' d\'avant-projet') + ' : une partie manquera au PDF.';
+  }
   function reglagesHtml(){
-    var d = S.doc, Ech = echelleAuto(d), h = '';
+    var d = S.doc, eA = echelleAuto(d, 'edl'), P = echellesPlans(d), aA = P.avp ? echelleAuto(d, 'avp') : 0, h = '';
     h += champ('Nom du croquis', saisie('nom', d.nom, {a: 'docTxt', lab: 'Nom du croquis'}));
     if (opts.cartoucheHote) h += champ('Dossier', '<p class="vc-fixe">' + esc([d.numero ? 'n° ' + d.numero : '', d.adresse, d.commune, d.date ? 'visite du ' + String(d.date).split('-').reverse().join('/') : ''].filter(Boolean).join(' · ') || '—') + '</p>', 'repris du dossier : numéro, adresse, commune et date de visite');
     else {
@@ -2597,8 +2629,8 @@ function editeur(racine, opts){
       h += champ('Date de visite', '<input class="vc-in" type="date" data-a="docTxt" data-k="date" value="' + esc(d.date || '') + '" aria-label="Date de visite">');
     }
     h += champ('Technicien', saisie('technicien', d.technicien, {a: 'docTxt', lab: 'Technicien'}));
-    h += champ('Échelle du plan', chipsHtml('echelle', [['0', 'Auto (1/' + Ech + ')'], ['100', '1/100'], ['150', '1/150'], ['200', '1/200'], ['250', '1/250'], ['500', '1/500']], String(d.echelle || 0), {a: 'docEchelle', garder: true})
-      + (depasseCadre(d, 'edl') ? '<p class="vc-muet"><strong>À cette échelle, le dessin dépasse le cadre du plan : une partie manquera au PDF.</strong></p>' : ''));
+    h += champ('Échelle du plan', chipsHtml('echelle', [['0', 'Auto (1/' + eA + (aA && aA !== eA ? ', avant-projet 1/' + aA : '') + ')'], ['100', '1/100'], ['150', '1/150'], ['200', '1/200'], ['250', '1/250'], ['500', '1/500']], String(d.echelle || 0), {a: 'docEchelle', garder: true})
+      + (P.coupeEdl || P.coupeAvp ? '<p class="vc-muet"><strong>' + avisCadre(P) + '</strong></p>' : ''));
     h += champ('Gestionnaire par défaut', ['EU', 'EP', 'UN'].map(function(r){ return '<div class="vc-ligne"><span class="vc-g ' + r + '">' + (r === 'UN' ? 'UN' : r) + '</span>' + chipsHtml(r, [['D', 'Départemental'], ['T', 'Territorial']], (d.gest || {})[r] || 'D', {a: 'docGest', garder: true}) + '</div>'; }).join(''), 'quand le collecteur n\'est pas dessiné');
     h += champ('Orientation', '<div class="vc-chips"><span class="vc-val">' + frNum(Math.round(((d.rot || 0) * 180 / Math.PI) * 10) / 10) + '°</span><button type="button" class="vc-chip" data-a="aligner">' + ico('aligner', 18) + 'Aligner sur une voie</button><button type="button" class="vc-chip" data-a="nordHaut">Nord en haut</button></div>');
     h += champ('Étiquettes', '<button type="button" class="vc-b vc-bt" data-a="replacerTout">Replacer toutes les étiquettes</button>');

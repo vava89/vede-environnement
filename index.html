@@ -3255,7 +3255,7 @@ function vcDelier(a, ambigus){
 }
 function vcLienPlan(a){ return !!(a.croquis && (a.croquis.cle || a.croquis.objId || a.croquis.auto)); }
 /* anomalie reliée au croquis que le dessin ne produit plus (dessin corrigé) : gardée dans le dossier, à vérifier */
-function vcOrpheline(a){ return !!(a && a.croquis && a.croquis.orpheline === true && vcLienPlan(a)); }
+function vcOrpheline(a){ return !!(a && a.croquis && a.croquis.orpheline === true && a.croquis.confirmee !== true && vcLienPlan(a)); }
 /* clés « règle|texte du dessin » portées par plusieurs anomalies reliées d'un même croquis : un nouveau croquis ne saurait pas laquelle reprendre */
 function vcAmbigus(liste){
   var n = {}, s = new Set();
@@ -4137,8 +4137,11 @@ async function vcPlansPdf(v, list){
   var fond = await fondLire(doc.fondId), reseau = await fondLire(doc.reseauId), out = [];
   await vcLogoPret();
   var o = {logo: VC.logo || null, reseau: reseau, anomalies: list, telQuel: true};
+  var projet = (doc.el || []).some(function(e){ return e && e.p && e.p.st === 'projet'; });
   out.push({nom: planFileName(v, false), ab: await blobToAB(await window.VCroquis.pdfPlan(doc, fond, Object.assign({mode: 'edl'}, o)))});
-  if ((doc.el || []).some(function(e){ return e && e.p && e.p.st === 'projet'; })) out.push({nom: planFileName(v, true), ab: await blobToAB(await window.VCroquis.pdfPlan(doc, fond, Object.assign({mode: 'avp'}, o)))});
+  if (projet) out.push({nom: planFileName(v, true), ab: await blobToAB(await window.VCroquis.pdfPlan(doc, fond, Object.assign({mode: 'avp'}, o)))});
+  /* plan coupé à son échelle : signalé à la fin de l'export */
+  out.coupe = !!(window.VCroquis.depasseCadre && (window.VCroquis.depasseCadre(doc, 'edl') || (projet && window.VCroquis.depasseCadre(doc, 'avp'))));
   return out;
 }
 function vcNombre(x){ return typeof x === 'number' && isFinite(x); }
@@ -4214,6 +4217,7 @@ function lienValide(c){
     o.auto = {obs: au.obs, preco: au.preco, reseau: au.reseau, nc: au.nc, installation: au.installation || ''};
   if (c.garde === true) o.garde = true;
   if (c.orpheline === true) o.orpheline = true;
+  if (c.confirmee === true) o.confirmee = true;
   if (typeof c.regle === 'string' && /^[a-z][a-z0-9-]{0,30}$/.test(c.regle)) o.regle = c.regle;
   if ((o.regle || o.cle) && typeof c.texte === 'string' && c.texte.length < 500) o.texte = c.texte;
   if (o.cle || o.objId) return o;
@@ -4264,7 +4268,7 @@ async function exportEtude(){
   var e = S.etude, vs = S.visites.slice(), as = S.anoms.slice(), busy = busyModal('Préparation de l\'export'), pdfOk = !!(window.jspdf && window.jspdf.jsPDF);
   try {
     var zip = new JSZip(), rootName = safeName('Obs & preco - ' + e.nom, 90), root = zip.folder(rootName);
-    var by = groupBy(as, 'visiteId'), photoIndex = [], used = new Set(), done = 0, plansKo = [];
+    var by = groupBy(as, 'visiteId'), photoIndex = [], used = new Set(), done = 0, plansKo = [], plansCoupes = [];
     for (var vi = 0; vi < vs.length; vi++){
       var v = vs[vi], list = (by.get(v.id) || []).slice().sort(byCreated);
       done++;
@@ -4283,7 +4287,7 @@ async function exportEtude(){
         }
       }
       if (pdfOk){ var d = newPdf(); d.setProperties({title: 'Préco ' + v.numero, author: 'SAS VÉDÉ Environnement', creator: 'VÉDÉ Terrain'}); await fichePdfDoc(d, v, {}, true); vf.file(ficheFileName(v), d.output('arraybuffer'), {binary: true}); }
-      if (pdfOk && vcPret() && planDe(v.id)){ try { (await vcPlansPdf(v, list)).forEach(function(x){ vf.file(x.nom, x.ab, {binary: true}); }); } catch(errP){ plansKo.push(v.numero); if (window.console) console.warn('Plan', v.numero, errP); } }
+      if (pdfOk && vcPret() && planDe(v.id)){ try { var pls = await vcPlansPdf(v, list); pls.forEach(function(x){ vf.file(x.nom, x.ab, {binary: true}); }); if (pls.coupe) plansCoupes.push(v.numero); } catch(errP){ plansKo.push(v.numero); if (window.console) console.warn('Plan', v.numero, errP); } }
       if (pdfOk && v.constat && v.constat.signeLe){ var dc = newPdf(); dc.setProperties({title: 'Constat ' + v.numero, author: 'SAS VÉDÉ Environnement', creator: 'VÉDÉ Terrain'}); drawConstat(dc, v, list, true); vf.file(constatFileName(v), dc.output('arraybuffer'), {binary: true}); }
       busy.set('Dossiers préparés : ' + done + ' sur ' + vs.length, 0.5 * done / Math.max(1, vs.length));
     }
@@ -4302,8 +4306,11 @@ async function exportEtude(){
     root.file('_sauvegarde/vede-terrain-sauvegarde.json', JSON.stringify({format: 'vede-terrain', version: 1, app: VERSION, exportedAt: nowISO(), etude: e, visites: vs, anomalies: as, photos: photoIndex, biblio: biblio, plans: plans, fonds: fondsIdx}), {compression: 'DEFLATE'});
     var blob = await zip.generateAsync({type: 'blob', mimeType: 'application/zip'}, function(m){ busy.set('Compression : ' + Math.round(m.percent) + ' %', 0.5 + m.percent / 200); });
     busy.close();
-    if (plansKo.length) toast('Plan PDF non joint pour ' + plural(plansKo.length, 'dossier', 'dossiers') + ' (' + plansKo.slice(0, 5).join(', ') + ') : le croquis reste dans la sauvegarde.', 6000);
     var ok = await saveFile(blob, safeName('Obs & preco - ' + e.nom + ' - ' + todayStr(), 120) + '.zip');
+    /* après le message du téléchargement, qui ne les recouvre donc pas */
+    var avis = (plansKo.length ? 'Plan PDF non joint pour ' + plural(plansKo.length, 'dossier', 'dossiers') + ' (' + plansKo.slice(0, 5).join(', ') + ') : le croquis reste dans la sauvegarde. ' : '')
+      + (plansCoupes.length ? 'Plan coupé à son échelle pour ' + plural(plansCoupes.length, 'dossier', 'dossiers') + ' (' + plansCoupes.slice(0, 5).join(', ') + ') : choisissez « Auto » ou une échelle plus petite dans les Réglages du croquis.' : '');
+    if (ok && avis) toast(avis.trim(), 9000);
     if (ok){ e.lastExportAt = nowISO(); if (e.updatedAt > e.lastExportAt) e.updatedAt = e.lastExportAt; await DB.put('etudes', e); render(); }
     return ok;
   } catch(err){ busy.close(); reportError(err, 'Export impossible'); return false; }
