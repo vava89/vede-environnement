@@ -2142,7 +2142,7 @@ function editeur(racine, opts){
     if (ch && now - ch.t < 600 && Math.hypot(x - ch.x, y - ch.y) < 48){ S.clicHors = null; toast('Le bouton touché vient de disparaître : touchez de nouveau le plan pour y dessiner.', 3500); return; }
     if (gf && gf.glisse && now - gf.t < 600 && Math.hypot(x - gf.tx, y - gf.ty) < 48){ S.gardeFiche = null; toast('Le plan vient de glisser pour montrer la fiche : touchez-le de nouveau.', 3500); return; }
     var o = S.outil;
-    if (S.aligner){ var w = S.vue.monde(x, y); S.aligner.push(w); if (S.aligner.length === 2){ var a = S.aligner[0], b = S.aligner[1]; S.aligner = null; if (Math.hypot(b.x - a.x, b.y - a.y) > 1e-6){ instantane(); var ang = Math.atan2(b.y - a.y, b.x - a.x); while (ang > Math.PI / 2) ang -= Math.PI; while (ang <= -Math.PI / 2) ang += Math.PI; S.doc.rot = ang; S.vue.rot = ang; replacerTraces(); changement(); toast('Plan orienté selon la voie'); } majAide(); } else { majAide(); redessiner(); } return; }
+    if (S.aligner){ var w = S.vue.monde(x, y); S.aligner.push(w); if (S.aligner.length === 2){ var a = S.aligner[0], b = S.aligner[1]; S.aligner = null; if (Math.hypot(b.x - a.x, b.y - a.y) > 1e-6){ instantane(); var ang = Math.atan2(b.y - a.y, b.x - a.x), r0 = S.doc.rot || 0; while (ang > Math.PI / 2) ang -= Math.PI; while (ang <= -Math.PI / 2) ang += Math.PI; S.doc.rot = ang; S.vue.rot = ang; replacerTraces(r0); changement(); toast('Plan orienté selon la voie'); } majAide(); } else { majAide(); redessiner(); } return; }
     if (S.placer){
       var zp = toucher(x, y), cible = zp ? (zp.type === 'bulle' ? zp.objId : zp.id) : null, ep = cible && el(cible);
       if (!ep || ep.k === 'tx' || (ep.k === 'ln' && ep.t !== 'tr')){ toast('Touchez un objet ou un tronçon du croquis'); return; }
@@ -2440,10 +2440,22 @@ function editeur(racine, opts){
     var c0 = S.vue.monde(S.vue.w / 2, S.vue.h / 2), c1 = S.vue.monde(S.vue.w / 2 + dx, S.vue.h / 2 + dy);
     S.vue.cx += c1.x - c0.x; S.vue.cy += c1.y - c0.y; enregistrerVue();
   }
-  /* plan tourné : les étiquettes de tracé posées d'office sont reposées le long de leur trait ; celles déplacées à la main restent */
-  function replacerTraces(){
-    var I = idx(); analyse();
-    S.doc.el.forEach(function(x){ if (x.k === 'ln' && x.lab && !x.lab.off && !x.lab.main) x.lab = placerEtiquette(S.doc, S.an, x, E(), I) || x.lab; });
+  /* plan tourné (r0 : orientation d'avant) : les étiquettes de tracé posées d'office sont reposées le long de leur trait ; celles placées à la
+     main et les bulles déplacées tournent avec le dessin, à la même place par rapport à lui */
+  function replacerTraces(r0){
+    var I = idx(), r1 = S.doc.rot || 0, tourne = Math.abs(r1 - (r0 || 0)) > 1e-12;
+    /* décalage noté dans les axes du plan d'avant : tourné avec le dessin */
+    function suivre(o){ var w = depuisPlan(o.dx, o.dy, r0 || 0), q = versPlan(w.x, w.y, r1); o.dx = q.x; o.dy = q.y; }
+    analyse();
+    S.doc.el.forEach(function(x){
+      if (!x.lab || x.lab.off) return;
+      if (x.lab.main){ if (tourne) suivre(x.lab); }
+      else if (x.k === 'ln') x.lab = placerEtiquette(S.doc, S.an, x, E(), I) || x.lab;
+    });
+    if (tourne){
+      Object.keys(S.doc.decisions || {}).forEach(function(k){ var d = S.doc.decisions[k]; if (d && d.bulle) suivre(d.bulle); });
+      (S.doc.anomManu || []).forEach(function(m){ if (m.bulle) suivre(m.bulle); });
+    }
   }
   function choisirOutil(o){
     if (S.brouillon && S.brouillon.pts.length >= 2) terminerTrace(); else S.brouillon = null;
@@ -2497,7 +2509,7 @@ function editeur(racine, opts){
     var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a;
     if (a === 'zoomp' || a === 'zoomm'){ S.vue.s = clamp(S.vue.s * (a === 'zoomp' ? 1.5 : 1 / 1.5), .02, 2000); redessiner(); enregistrerVue(); }
     else if (a === 'ajuster') ajusterVue();
-    else if (a === 'rotg' || a === 'rotd' || a === 'nord'){ instantane(); S.doc.rot = a === 'nord' ? 0 : (S.doc.rot || 0) + (a === 'rotg' ? 1 : -1) * Math.PI / 12; S.vue.rot = S.doc.rot; replacerTraces(); changement({garderPanneau: true}); }
+    else if (a === 'rotg' || a === 'rotd' || a === 'nord'){ instantane(); var r0 = S.doc.rot || 0; S.doc.rot = a === 'nord' ? 0 : r0 + (a === 'rotg' ? 1 : -1) * Math.PI / 12; S.vue.rot = S.doc.rot; replacerTraces(r0); changement({garderPanneau: true}); }
     else if (a === 'aides'){ S.aides.actives = S.aides.actives === false; majAides(); toast(S.aides.actives ? 'Aides au dessin activées' : 'Aides au dessin désactivées : tracé libre'); }
   });
   function majAides(sansEnregistrer){
@@ -2912,7 +2924,7 @@ function editeur(racine, opts){
     if (a === 'fondRetirer'){ demander('Retirer le fond de plan ?', '', function(){ S.fond = null; S.doc.fondId = null; if (opts.fondRetire) opts.fondRetire(S.doc); changement(); }, {confirmer: true, ok: 'Retirer', texte: 'Le croquis reste en place ; le fond peut être rechargé.'}); return; }
     if (a === 'reseauRetirer'){ S.reseau = null; S.doc.reseauId = null; changement(); return; }
     if (a === 'aligner'){ S.aligner = []; fermerPanneau(); choisirOutil({k: 'main'}); S.aligner = []; majAide(); return; }
-    if (a === 'nordHaut'){ instantane(); S.doc.rot = 0; S.vue.rot = 0; replacerTraces(); changement(); return; }
+    if (a === 'nordHaut'){ instantane(); var r0 = S.doc.rot || 0; S.doc.rot = 0; S.vue.rot = 0; replacerTraces(r0); changement(); return; }
     if (a === 'replacerTout'){ instantane(); var I = idx(); S.doc.el.forEach(function(x){ if (x.k !== 'tx' && !(x.lab && x.lab.off)) x.lab = null; }); S.doc.el.forEach(function(x){ if (x.k !== 'tx' && x.lab === null && texteEtiquette(x, S.an)) x.lab = placerEtiquette(S.doc, S.an, x, E(), I); }); changement(); toast('Étiquettes replacées'); return; }
     if (a === 'aide'){ var k = b.dataset.k; S.aides[k] = S.aides[k] === false; majAides(); return; }
     if (a === 'docEchelle'){ instantane(); S.doc.echelle = parseInt(b.dataset.v, 10) || 0; changement(); return; }
@@ -3366,7 +3378,9 @@ function pdfPlan(doc, fond, o){
     var a = ancre(e, idx), A = papier(a.x, a.y), lab = libre ? {dx: 0, dy: 0} : (e.lab || placerEtiquette(doc, an, e, Ech, idx) || {dx: 0, dy: 0});
     var dl = decalLab(lab, Ech), cx = A.x + dl.dx / m, cy = A.y - dl.dy / m, em = libre ? (num(e.taille) || 2.5) : TAILLE_ETIQ, col = libre ? [25, 25, 25] : hexRgb(TXT_RES[couleurTexte(e, an)] || TXT_RES.INC);
     var bq = boiteTexte(txt, em), labDedans = cx >= RC[0] && cx <= RC[2] && cy >= RC[1] && cy <= RC[3];
-    if (dansRC(A) || labDedans){ var q0 = dansCadre(cx, cy, bq.w, bq.h); cx = q0.x; cy = q0.y; }
+    /* ancre hors du cadre : seule une étiquette placée à la main garde sa position (ramenée dans le cadre) ; posée d'office, elle se place
+       le long de la partie visible de son trait */
+    if (dansRC(A) || (labDedans && e.lab && e.lab.main)){ var q0 = dansCadre(cx, cy, bq.w, bq.h); cx = q0.x; cy = q0.y; }
     else if (!libre && e.k === 'ln'){
       /* ancre et étiquette hors du cadre (collecteur de la rue) : le long du plus long morceau visible, d'un côté du trait, là où elle
          ne touche ni un autre trait, ni un symbole, ni une étiquette déjà posée ; à égalité, au milieu et du côté du centre du plan */
