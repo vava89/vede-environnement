@@ -2112,15 +2112,21 @@ function editeur(racine, opts){
   }
 
   /* --- toucher bref : selon l'outil --- */
-  /* toucher sur le plan : une fiche qu'il ouvre (pose, choix) est gardée contre le second toucher d'un double toucher */
+  /* toucher sur le plan : comme le clic qu'il ne produit plus, il ramène le focus sur l'éditeur (champ de saisie quitté, saisie enregistrée,
+     clavier fermé ; bouton du panneau qui ne reste pas actif pour la touche Entrée) ; une fiche qu'il ouvre (pose, choix) est gardée contre
+     le second toucher d'un double toucher */
   function tap(x, y){
+    var ae = document.activeElement; if (ae !== R && (!ae || ae === document.body || R.contains(ae))) try { R.focus({preventScroll: true}); } catch(e){}
     var s0 = S.sel && S.sel.id, p0 = S.panneau, r = tapPlan(x, y), s1 = S.sel && S.sel.id;
     if (S.panneau === 'fiche' && s1 && (s1 !== s0 || p0 !== 'fiche') && !(S.finAuto && Date.now() - S.finAuto.t < 100)) S.gardeFiche = {t: Date.now(), tx: x, ty: y, r: 48};
+    if (S.dernierTap) S.dernierTap.vue = cleVue();
     return r;
   }
+  /* vue du plan après un toucher : un double toucher suppose qu'elle n'a pas bougé entre les deux touchers */
+  function cleVue(){ return [S.vue.cx, S.vue.cy, S.vue.s, S.vue.rot || 0].join(','); }
   function tapPlan(x, y){
     protegerPanneau();
-    var now = Date.now(), double = S.dernierTap && now - S.dernierTap.t < 380 && Math.hypot(x - S.dernierTap.x, y - S.dernierTap.y) < 24;
+    var now = Date.now(), double = S.dernierTap && now - S.dernierTap.t < 380 && Math.hypot(x - S.dernierTap.x, y - S.dernierTap.y) < 24 && S.dernierTap.vue === cleVue();
     S.dernierTap = {t: now, x: x, y: y};
     var o = S.outil;
     if (S.aligner){ var w = S.vue.monde(x, y); S.aligner.push(w); if (S.aligner.length === 2){ var a = S.aligner[0], b = S.aligner[1]; S.aligner = null; if (Math.hypot(b.x - a.x, b.y - a.y) > 1e-6){ instantane(); var ang = Math.atan2(b.y - a.y, b.x - a.x); while (ang > Math.PI / 2) ang -= Math.PI; while (ang <= -Math.PI / 2) ang += Math.PI; S.doc.rot = ang; S.vue.rot = ang; replacerTraces(); changement(); toast('Plan orienté selon la voie'); } majAide(); } else { majAide(); redessiner(); } return; }
