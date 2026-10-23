@@ -1734,12 +1734,20 @@ function editeur(racine, opts){
     cible.surCopie = Object.assign({}, cible.surCopie && typeof cible.surCopie === 'object' ? cible.surCopie : {}); cible.surCopie[k] = sv.seq || 0;
   }
   function majDossier(ops){ try { opts.anomaliesMaj({creer: ops.creer || [], maj: ops.maj || [], retirer: ops.retirer || []}); } catch(e){ toast('Liste du dossier non mise à jour : ' + (e && e.message || e), 5000); } }
+  /* état que « Annuler » rétablit : le dessin, les décisions sur ses anomalies, l'orientation et les textes du croquis (Réglages) */
+  var TEXTES_DOC = ['nom', 'numero', 'adresse', 'commune', 'date', 'technicien'];
+  function etatCourant(){
+    var t = {}; TEXTES_DOC.forEach(function(k){ if (S.doc[k] != null) t[k] = S.doc[k]; });
+    return JSON.stringify({el: S.doc.el, decisions: S.doc.decisions, ordre: S.doc.ordre, anomManu: S.doc.anomManu, rot: S.doc.rot, txt: t});
+  }
   function instantane(){
-    S.undo.push(JSON.stringify({el: S.doc.el, decisions: S.doc.decisions, ordre: S.doc.ordre, anomManu: S.doc.anomManu, rot: S.doc.rot}));
+    S.undo.push(etatCourant());
     if (S.undo.length > 100) S.undo.shift(); S.redo = [];
   }
-  function restaurer(json){ var o = JSON.parse(json); S.doc.el = o.el; S.doc.decisions = o.decisions || {}; S.doc.ordre = o.ordre || []; S.doc.anomManu = o.anomManu || []; S.doc.rot = o.rot || 0; S.vue.rot = S.doc.rot; }
-  function etatCourant(){ return JSON.stringify({el: S.doc.el, decisions: S.doc.decisions, ordre: S.doc.ordre, anomManu: S.doc.anomManu, rot: S.doc.rot}); }
+  function restaurer(json){
+    var o = JSON.parse(json); S.doc.el = o.el; S.doc.decisions = o.decisions || {}; S.doc.ordre = o.ordre || []; S.doc.anomManu = o.anomManu || []; S.doc.rot = o.rot || 0; S.vue.rot = S.doc.rot;
+    if (o.txt) TEXTES_DOC.forEach(function(k){ if (o.txt[k] != null) S.doc[k] = o.txt[k]; else delete S.doc[k]; });
+  }
   var tEnr = null;
   function changement(o){
     o = o || {};
@@ -1982,8 +1990,8 @@ function editeur(racine, opts){
     }
     if (g.type === 'attente'){
       if (Math.hypot(p.x - g.x0, p.y - g.y0) < (g.souris ? 4 : 9)) return;
-      if (g.cible){ instantane(); g.type = 'glisser'; g.modifie = false; demarrerGlisser(g); }
-      else if (S.outil.k === 'ln' && aideOn('glisser') && !g.panForce){ g.type = 'trace'; demarrerTrace(g); }
+      if (g.cible){ quitterSaisie(); instantane(); g.type = 'glisser'; g.modifie = false; demarrerGlisser(g); }
+      else if (S.outil.k === 'ln' && aideOn('glisser') && !g.panForce){ quitterSaisie(); g.type = 'trace'; demarrerTrace(g); }
       else { g.type = 'pan'; g.w0 = S.vue.monde(g.x0, g.y0); }
     }
     if (g.type === 'trace'){ apercuTrace(g, p); return; }
@@ -2113,12 +2121,12 @@ function editeur(racine, opts){
 
   /* --- toucher bref : selon l'outil --- */
   /* toucher sur le plan : comme le clic qu'il ne produit plus, il ramène le focus sur l'éditeur (champ de saisie quitté, saisie enregistrée,
-     clavier fermé ; bouton du panneau qui ne reste pas actif pour la touche Entrée) ; une fiche qu'il ouvre (pose, choix) est gardée contre
-     le second toucher d'un double toucher */
+     clavier fermé ; bouton du panneau qui ne reste pas actif pour la touche Entrée). Une fiche qu'il ouvre (pose, choix) est gardée contre
+     le second toucher d'un double toucher (majPanneau) ; si la vue a glissé pour la montrer, le plan l'est aussi */
   function tap(x, y){
     var ae = document.activeElement; if (ae !== R && (!ae || ae === document.body || R.contains(ae))) try { R.focus({preventScroll: true}); } catch(e){}
-    var s0 = S.sel && S.sel.id, p0 = S.panneau, r = tapPlan(x, y), s1 = S.sel && S.sel.id;
-    if (S.panneau === 'fiche' && s1 && (s1 !== s0 || p0 !== 'fiche') && !(S.finAuto && Date.now() - S.finAuto.t < 100)) S.gardeFiche = {t: Date.now(), tx: x, ty: y, r: 48};
+    var t0 = Date.now(), v0 = cleVue(), r = tapPlan(x, y), gf = S.gardeFiche;
+    if (gf && gf.t >= t0 && cleVue() !== v0) gf.glisse = true;
     if (S.dernierTap) S.dernierTap.vue = cleVue();
     return r;
   }
@@ -2128,6 +2136,11 @@ function editeur(racine, opts){
     protegerPanneau();
     var now = Date.now(), double = S.dernierTap && now - S.dernierTap.t < 380 && Math.hypot(x - S.dernierTap.x, y - S.dernierTap.y) < 24 && S.dernierTap.vue === cleVue();
     S.dernierTap = {t: now, x: x, y: y};
+    /* second toucher d'un double toucher : sur un bouton qui vient de disparaître (fiche fermée, palette), ou après une pose ou un choix qui a
+       fait glisser la vue pour montrer la fiche ; ignoré une fois, avec l'explication */
+    var ch = S.clicHors, gf = S.gardeFiche;
+    if (ch && now - ch.t < 600 && Math.hypot(x - ch.x, y - ch.y) < 48){ S.clicHors = null; toast('Le bouton touché vient de disparaître : touchez de nouveau le plan pour y dessiner.', 3500); return; }
+    if (gf && gf.glisse && now - gf.t < 600 && Math.hypot(x - gf.tx, y - gf.ty) < 48){ S.gardeFiche = null; toast('Le plan vient de glisser pour montrer la fiche : touchez-le de nouveau.', 3500); return; }
     var o = S.outil;
     if (S.aligner){ var w = S.vue.monde(x, y); S.aligner.push(w); if (S.aligner.length === 2){ var a = S.aligner[0], b = S.aligner[1]; S.aligner = null; if (Math.hypot(b.x - a.x, b.y - a.y) > 1e-6){ instantane(); var ang = Math.atan2(b.y - a.y, b.x - a.x); while (ang > Math.PI / 2) ang -= Math.PI; while (ang <= -Math.PI / 2) ang += Math.PI; S.doc.rot = ang; S.vue.rot = ang; replacerTraces(); changement(); toast('Plan orienté selon la voie'); } majAide(); } else { majAide(); redessiner(); } return; }
     if (S.placer){
@@ -2165,11 +2178,28 @@ function editeur(racine, opts){
         if (pres || (ao && ao.type === 'obj' && ao.id === fa.id)){ S.finAuto = null; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); return; }
       }
       if (rel){ relierToucher(x, y, double); return; }
-      /* un seul point : le second toucher d'un double toucher au départ est ignoré ; un toucher sur le départ seul abandonne le tronçon, en le disant */
-      if (b2 && b2.pts.length === 1 && double) return;
-      if (b2 && b2.pts.length){ var last = S.vue.ecran(b2.pts[b2.pts.length - 1].x, b2.pts[b2.pts.length - 1].y); if (Math.hypot(x - last.x, y - last.y) <= 18 || (double && b2.pts.length >= 2)){ if (b2.pts.length === 1){ annulerTrace(); toast('Tronçon abandonné'); return; } terminerTrace(); return; } }
-      ajouterPointTrace(pointTrace(x, y), {x: x, y: y});
+      /* toucher sur le dernier point (et non sur un autre objet ou tracé tout proche, plan vu de loin) : au départ, le second toucher d'un
+         double toucher est ignoré et un toucher plus lent abandonne le tronçon, en le disant ; ensuite, il termine le tracé */
+      var at = pointTrace(x, y);
+      if (b2 && b2.pts.length){
+        var pl = b2.pts[b2.pts.length - 1], last = S.vue.ecran(pl.x, pl.y), dl = Math.hypot(x - last.x, y - last.y), vise = visePoint(at, pl);
+        if (b2.pts.length === 1 && double && vise && (attache(at) || dl <= 18)){ toast('Départ du tronçon posé : touchez le point suivant.', 2500); return; }
+        if (vise && (dl <= 18 || (double && b2.pts.length >= 2))){ if (b2.pts.length === 1){ annulerTrace(); toast('Tronçon abandonné'); return; } terminerTrace(); return; }
+      }
+      ajouterPointTrace(at, {x: x, y: y});
     }
+  }
+  /* le toucher (accroche a) vise-t-il ce point du tracé, plutôt qu'un autre objet ou tracé tout proche ? Un toucher libre près de lui le vise */
+  function visePoint(a, pt){
+    if (!attache(a)) return true;
+    var s0 = pt.snap; if (!s0) return false;
+    return memeCible(a, s0);
+  }
+  /* deux accroches désignent-elles la même chose : le même objet, ou le même point d'un même tracé (à 12 px près) ? */
+  function memeCible(a, b){
+    if (a.type === 'obj' || b.type === 'obj') return a.type === b.type && a.id === b.id;
+    var sa = S.vue.ecran(a.x, a.y), sb = S.vue.ecran(b.x, b.y);
+    return !!a.ligne && a.ligne === b.ligne && Math.hypot(sa.x - sb.x, sa.y - sb.y) <= 12;
   }
   /* Point de tracé selon l'outil : les traits de complément suivent le bâti, les tronçons s'accrochent au réseau */
   function pointTrace(x, y){
@@ -2227,6 +2257,7 @@ function editeur(racine, opts){
     if (oo.relier){
       var dep = g.relierDep, arr = accroche(p.x, p.y, {});
       if (!attache(dep) || !attache(arr)){ toast('Glissez d\'un objet ou d\'un tracé jusqu\'à un autre'); redessiner(); return; }
+      if (memeCible(arr, dep)){ redessiner(); return; }
       relierCreer(dep, arr, {x: p.x, y: p.y}); return;
     }
     if (!S.brouillon || !ap) { if (!habitudeGlisse(g)) redessiner(); return; }
@@ -2243,7 +2274,7 @@ function editeur(racine, opts){
     }
     var dep = S.relier;
     if (!attache(a)){ toast('Touchez l\'objet d\'arrivée : un regard, une boîte, un tracé…'); return; }
-    if (a.type === 'obj' && dep.type === 'obj' && a.id === dep.id){ if (double) return; S.relier = null; majAide(); redessiner(); return; }
+    if (memeCible(a, dep)){ if (double) return; S.relier = null; majAide(); redessiner(); return; }
     S.relier = null; relierCreer(dep, a, {x: x, y: y});
   }
   function routeRelier(dep, arr){
@@ -2534,7 +2565,9 @@ function editeur(racine, opts){
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z'){ ev.preventDefault(); ev.shiftKey ? refaire() : annuler(); }
     else if (ev.key === 'Escape'){ if (!opts.echapHote) fermerNiveau(); }
     else if (ev.key === 'Enter' && S.brouillon && (ev.target === R || ev.target === cv || ev.target === document.body || ev.target === document.documentElement)) terminerTrace();
-    else if ((ev.key === 'Delete' || ev.key === 'Backspace') && S.sel){ ev.preventDefault(); supprimerSel(); }
+    /* l'objet choisi n'est supprimé au clavier que le focus sur le plan : pas quand il est tombé sur la page (fiche reconstruite pendant une
+       saisie), où « Retour arrière » corrigerait une faute de frappe */
+    else if ((ev.key === 'Delete' || ev.key === 'Backspace') && S.sel && (ev.target === R || ev.target === cv)){ ev.preventDefault(); supprimerSel(); }
   });
   function supprimerSel(){
     if (!S.sel) return; var e = el(S.sel.id); if (!e) return;
@@ -2759,16 +2792,37 @@ function editeur(racine, opts){
     return h;
   }
   var TITRES = {fiche: '', controles: 'Contrôles', constat: 'Constat déduit', calques: 'Fond et réseaux', sorties: 'Sorties', reglages: 'Réglages du croquis'};
+  /* saisie en cours dans le panneau (clavier ouvert) : enregistrée par son événement « change », sur l'élément que décrit la fiche */
+  function quitterSaisie(){ var ae = document.activeElement; if (ae && ae !== pcorps && pcorps.contains(ae) && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) ae.blur(); }
+  /* après une saisie, la fiche n'est pas reconstruite pendant le toucher en cours sur le panneau (la puce, le champ ou le bouton touché
+     disparaîtrait avant son clic : puce non appliquée, focus perdu, clavier fermé), mais aussitôt après ; si ce toucher a ouvert un autre
+     champ de la fiche, elle l'est au prochain changement (la saisie, elle, est déjà enregistrée) */
+  var panBas = false, panMajAttente = false;
+  function majPanneauBientot(){ panMajAttente = true; setTimeout(majPanneauDifferee, 0); }
+  function majPanneauDifferee(){
+    if (!panMajAttente || panBas) return;
+    var ae = document.activeElement; if (ae && pcorps.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
+    panMajAttente = false; majPanneau();
+  }
+  pan.addEventListener('pointerdown', function(){ panBas = true; }, true);
+  /* dernier appui (garde de la fiche) et dernier clic sur la fiche, la palette ou la barre d'aide, qui peuvent disparaître ou se déplacer
+     (garde du plan), en coordonnées du plan */
+  function surPlan(ev){ var r = cv.getBoundingClientRect(); return {t: Date.now(), x: ev.clientX - r.left, y: ev.clientY - r.top}; }
+  R.addEventListener('pointerdown', function(ev){ S.appui = surPlan(ev); }, true);
+  R.addEventListener('click', function(ev){ if (ev.detail && (pan.contains(ev.target) || pal.contains(ev.target) || aide.contains(ev.target))) S.clicHors = surPlan(ev); }, true);
+  ['pointerup', 'pointercancel'].forEach(function(t){ R.addEventListener(t, function(){ if (!panBas) return; panBas = false; if (panMajAttente) setTimeout(majPanneauDifferee, 0); }, true); });
   function majPanneau(){
-    /* saisie en cours (clavier ouvert) : enregistrée, sur l'élément que décrit la fiche, avant que la fiche change ou se ferme (toucher sur le
-       plan, « retour ») ; sans cela le champ disparaît sans événement « change » et la saisie est perdue */
-    var ae = document.activeElement; if (ae && ae !== pcorps && pcorps.contains(ae) && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) ae.blur();
+    /* saisie en cours : enregistrée avant que la fiche change ou se ferme (toucher sur le plan, « retour ») ; sans cela le champ disparaît
+       sans événement « change » et la saisie est perdue */
+    quitterSaisie(); panMajAttente = false;
     var n = S.panneau;
     if (n === 'fiche' && !(S.sel && el(S.sel.id))) n = S.panneau = null;
     R.querySelectorAll('.vc-barre [data-p]').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.p === n ? 'true' : 'false'); });
     if (!n){ pan.hidden = true; pan.dataset.id = ''; R.classList.remove('vc-avecpanneau'); return; }
     var top = pan.dataset.n === n + (S.sel ? S.sel.id : '') ? pcorps.scrollTop : 0;
-    var e = n === 'fiche' ? el(S.sel.id) : null;
+    var e = n === 'fiche' ? el(S.sel.id) : null, tg = Date.now();
+    /* fiche ouverte, ou d'un autre élément, juste après un appui : elle a pu venir sous le doigt (second toucher d'un double toucher) */
+    if (e && (pan.hidden || pan.dataset.n !== n + e.id) && S.appui && tg - S.appui.t < 700 && !(S.finAuto && tg - S.finAuto.t < 100)) S.gardeFiche = {t: tg, tx: S.appui.x, ty: S.appui.y, r: 48};
     ptitre.textContent = n === 'fiche' ? (e.k === 'pt' ? 'Objet' : e.k === 'ln' ? (e.t === 'col' ? 'Collecteur' : 'Tracé') : 'Texte') : TITRES[n];
     pcorps.innerHTML = n === 'fiche' ? ficheHtml(e) : n === 'controles' ? controlesHtml() : n === 'constat' ? constatHtml() : n === 'calques' ? calquesHtml() : n === 'sorties' ? sortiesHtml() : reglagesHtml();
     pan.hidden = false; pan.dataset.n = n + (S.sel ? S.sel.id : ''); pan.dataset.id = e ? e.id : ''; pcorps.scrollTop = top; R.classList.add('vc-avecpanneau');
@@ -2874,10 +2928,10 @@ function editeur(racine, opts){
     if (a === 'pdfEdl' || a === 'pdfAvp' || a === 'dxf' || a === 'json'){ sortie(a); return; }
     if (a === 'resultat'){ var w = {x: parseFloat(b.dataset.x), y: parseFloat(b.dataset.y)}; S.vue.cx = w.x; S.vue.cy = w.y; if (S.vue.s < 30) S.vue.s = 45; redessiner(); enregistrerVue(); return; }
   });
-  function apresProp(e){
+  function apresProp(e, o){
     if (e.p.st === '') e.p.st = 'existant';
     if (!e.lab && texteEtiquette(e, S.an)){ analyse(); e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); }
-    changement();
+    changement(o);
   }
   pcorps.addEventListener('change', function(ev){
     var b = ev.target.closest('[data-a]'); if (!b) return;
@@ -2885,9 +2939,9 @@ function editeur(racine, opts){
     var a = b.dataset.a, fid = pan.dataset.id, e = fid ? el(fid) : S.sel && el(S.sel.id), v = b.value;
     if (a === 'propTxt' && e){
       var k = b.dataset.k; if (k === 'prof' || k === 'long' || k === 'diam'){ v = String(v).trim(); if (v && num(v) == null){ toast('Nombre attendu, par exemple 0,80'); b.value = e.p[k] || ''; return; } }
-      if ((e.p[k] || '') === v) return; instantane(); e.p[k] = v; apresProp(e); return;
+      if ((e.p[k] || '') === v) return; instantane(); e.p[k] = v; apresProp(e, {garderPanneau: true}); majPanneauBientot(); return;
     }
-    if (a === 'texteLibre' && e){ if (!String(v).trim()){ toast('Le texte est vide'); b.value = e.txt; return; } instantane(); e.txt = String(v).trim(); changement(); return; }
+    if (a === 'texteLibre' && e){ if (!String(v).trim()){ toast('Le texte est vide'); b.value = e.txt; return; } instantane(); e.txt = String(v).trim(); changement({garderPanneau: true}); majPanneauBientot(); return; }
     if (a === 'type' && e){
       instantane(); var ancien = e.p, nv = defautsPt(v), perdus = [];
       Object.keys(nv).forEach(function(k){ if (ancien[k] !== undefined) nv[k] = Array.isArray(ancien[k]) ? ancien[k].slice() : ancien[k]; });
@@ -2901,7 +2955,7 @@ function editeur(racine, opts){
     }
     if (a === 'recTxt'){
       var champ = b.dataset.k === 'preco' ? 'preconisation' : 'observation', ch = {};
-      if (champ === 'observation' && !String(v).trim()){ toast('L\'observation ne peut pas être vide'); majPanneau(); return; }
+      if (champ === 'observation' && !String(v).trim()){ toast('L\'observation ne peut pas être vide'); majPanneauBientot(); return; }
       ch[champ] = String(v); majDossier({maj: [{id: b.dataset.id, champs: ch}]}); barriere(); apresDossier(true); return;
     }
     if (a === 'decTxt'){
