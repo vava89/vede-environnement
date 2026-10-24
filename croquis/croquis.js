@@ -2178,28 +2178,25 @@ function editeur(racine, opts){
         if (pres || (ao && ao.type === 'obj' && ao.id === fa.id)){ S.finAuto = null; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); return; }
       }
       if (rel){ relierToucher(x, y, double); return; }
-      /* toucher sur le dernier point (et non sur un autre objet ou tracé tout proche, plan vu de loin) : au départ, le second toucher d'un
-         double toucher est ignoré et un toucher plus lent abandonne le tronçon, en le disant ; ensuite, il termine le tracé */
+      /* toucher sur le dernier point ou tout près (second toucher d'un double toucher, ou toucher à 18 px) : c'est le geste habituel, sauf
+         s'il vise un autre objet (plan vu de loin : un toucher rapide sur un objet voisin pose le point suivant). Au départ, le second toucher
+         d'un double toucher est ignoré, en le disant, et un toucher plus lent abandonne le tronçon ; ensuite, il termine le tracé (au point
+         libre, même près d'un autre tracé) */
       var at = pointTrace(x, y);
       if (b2 && b2.pts.length){
-        var pl = b2.pts[b2.pts.length - 1], last = S.vue.ecran(pl.x, pl.y), dl = Math.hypot(x - last.x, y - last.y), vise = visePoint(at, pl);
-        if (b2.pts.length === 1 && double && vise && (attache(at) || dl <= 18)){ toast('Départ du tronçon posé : touchez le point suivant.', 2500); return; }
-        if (vise && (dl <= 18 || (double && b2.pts.length >= 2))){ if (b2.pts.length === 1){ annulerTrace(); toast('Tronçon abandonné'); return; } terminerTrace(); return; }
+        var pl = b2.pts[b2.pts.length - 1], last = S.vue.ecran(pl.x, pl.y), dl = Math.hypot(x - last.x, y - last.y);
+        var autreObjet = at.type === 'obj' && !(pl.snap && pl.snap.type === 'obj' && pl.snap.id === at.id);
+        if (!autreObjet && b2.pts.length === 1 && double && (attache(at) || dl <= 18)){ toast('Départ du tronçon posé : touchez le point suivant.', 2500); return; }
+        if (!autreObjet && (dl <= 18 || (double && b2.pts.length >= 2))){ if (b2.pts.length === 1){ annulerTrace(); toast('Tronçon abandonné'); return; } terminerTrace(); return; }
       }
       ajouterPointTrace(at, {x: x, y: y});
     }
   }
-  /* le toucher (accroche a) vise-t-il ce point du tracé, plutôt qu'un autre objet ou tracé tout proche ? Un toucher libre près de lui le vise */
-  function visePoint(a, pt){
-    if (!attache(a)) return true;
-    var s0 = pt.snap; if (!s0) return false;
-    return memeCible(a, s0);
-  }
-  /* deux accroches désignent-elles la même chose : le même objet, ou le même point d'un même tracé (à 12 px près) ? */
-  function memeCible(a, b){
+  /* deux accroches désignent-elles la même chose : le même objet, ou deux points d'un même tracé à moins de tol px (12 par défaut) ? */
+  function memeCible(a, b, tol){
     if (a.type === 'obj' || b.type === 'obj') return a.type === b.type && a.id === b.id;
     var sa = S.vue.ecran(a.x, a.y), sb = S.vue.ecran(b.x, b.y);
-    return !!a.ligne && a.ligne === b.ligne && Math.hypot(sa.x - sb.x, sa.y - sb.y) <= 12;
+    return !!a.ligne && a.ligne === b.ligne && Math.hypot(sa.x - sb.x, sa.y - sb.y) <= (tol || 12);
   }
   /* Point de tracé selon l'outil : les traits de complément suivent le bâti, les tronçons s'accrochent au réseau */
   function pointTrace(x, y){
@@ -2257,7 +2254,7 @@ function editeur(racine, opts){
     if (oo.relier){
       var dep = g.relierDep, arr = accroche(p.x, p.y, {});
       if (!attache(dep) || !attache(arr)){ toast('Glissez d\'un objet ou d\'un tracé jusqu\'à un autre'); redessiner(); return; }
-      if (memeCible(arr, dep)){ redessiner(); return; }
+      if (memeCible(arr, dep, 18)){ redessiner(); return; }
       relierCreer(dep, arr, {x: p.x, y: p.y}); return;
     }
     if (!S.brouillon || !ap) { if (!habitudeGlisse(g)) redessiner(); return; }
@@ -2274,7 +2271,7 @@ function editeur(racine, opts){
     }
     var dep = S.relier;
     if (!attache(a)){ toast('Touchez l\'objet d\'arrivée : un regard, une boîte, un tracé…'); return; }
-    if (memeCible(a, dep)){ if (double) return; S.relier = null; majAide(); redessiner(); return; }
+    if (memeCible(a, dep, double ? 24 : 18)){ if (double) return; S.relier = null; majAide(); redessiner(); return; }
     S.relier = null; relierCreer(dep, a, {x: x, y: y});
   }
   function routeRelier(dep, arr){
@@ -2824,6 +2821,12 @@ function editeur(racine, opts){
   R.addEventListener('pointerup', function(){ S.relache = Date.now(); }, true);
   R.addEventListener('click', function(ev){ if (ev.detail && (pan.contains(ev.target) || pal.contains(ev.target) || aide.contains(ev.target))) S.clicHors = surPlan(ev); }, true);
   ['pointerup', 'pointercancel'].forEach(function(t){ R.addEventListener(t, function(){ if (!panBas) return; panBas = false; if (panMajAttente) setTimeout(majPanneauDifferee, 0); }, true); });
+  pcorps.addEventListener('focusout', function(){ if (panMajAttente) setTimeout(majPanneauDifferee, 0); });
+  /* en attendant, les puces de la caractéristique saisie et le texte proposé pour l'étiquette suivent la valeur enregistrée */
+  function rafraichirFiche(e, k){
+    pcorps.querySelectorAll('[data-a="prop"][data-k="' + k + '"]').forEach(function(c){ if (!c.dataset.multi) c.setAttribute('aria-pressed', String(String(e.p[k] == null ? '' : e.p[k]) === c.dataset.v)); });
+    var et = pcorps.querySelector('input[data-k="etiq"]'); if (et){ var auto = texteEtiquette(Object.assign({}, e, {p: Object.assign({}, e.p, {etiq: ''})}), S.an); et.placeholder = auto || 'pas d\'étiquette automatique'; }
+  }
   function majPanneau(){
     /* saisie en cours : enregistrée avant que la fiche change ou se ferme (toucher sur le plan, « retour ») ; sans cela le champ disparaît
        sans événement « change » et la saisie est perdue */
@@ -2953,7 +2956,7 @@ function editeur(racine, opts){
     var a = b.dataset.a, fid = pan.dataset.id, e = fid ? el(fid) : S.sel && el(S.sel.id), v = b.value;
     if (a === 'propTxt' && e){
       var k = b.dataset.k; if (k === 'prof' || k === 'long' || k === 'diam'){ v = String(v).trim(); if (v && num(v) == null){ toast('Nombre attendu, par exemple 0,80'); b.value = e.p[k] || ''; return; } }
-      if ((e.p[k] || '') === v) return; instantane(); e.p[k] = v; apresProp(e, {garderPanneau: true}); majPanneauBientot(); return;
+      if ((e.p[k] || '') === v) return; instantane(); e.p[k] = v; apresProp(e, {garderPanneau: true}); rafraichirFiche(e, k); majPanneauBientot(); return;
     }
     if (a === 'texteLibre' && e){ if (!String(v).trim()){ toast('Le texte est vide'); b.value = e.txt; return; } instantane(); e.txt = String(v).trim(); changement({garderPanneau: true}); majPanneauBientot(); return; }
     if (a === 'type' && e){
