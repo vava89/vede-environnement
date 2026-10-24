@@ -2821,6 +2821,7 @@ function editeur(racine, opts){
      (garde du plan), en coordonnées du plan */
   function surPlan(ev){ var r = cv.getBoundingClientRect(); return {t: Date.now(), x: ev.clientX - r.left, y: ev.clientY - r.top}; }
   R.addEventListener('pointerdown', function(ev){ S.appui = surPlan(ev); }, true);
+  R.addEventListener('pointerup', function(){ S.relache = Date.now(); }, true);
   R.addEventListener('click', function(ev){ if (ev.detail && (pan.contains(ev.target) || pal.contains(ev.target) || aide.contains(ev.target))) S.clicHors = surPlan(ev); }, true);
   ['pointerup', 'pointercancel'].forEach(function(t){ R.addEventListener(t, function(){ if (!panBas) return; panBas = false; if (panMajAttente) setTimeout(majPanneauDifferee, 0); }, true); });
   function majPanneau(){
@@ -2833,8 +2834,9 @@ function editeur(racine, opts){
     if (!n){ pan.hidden = true; pan.dataset.id = ''; R.classList.remove('vc-avecpanneau'); return; }
     var top = pan.dataset.n === n + (S.sel ? S.sel.id : '') ? pcorps.scrollTop : 0;
     var e = n === 'fiche' ? el(S.sel.id) : null, tg = Date.now();
-    /* fiche ouverte, ou d'un autre élément, juste après un appui : elle a pu venir sous le doigt (second toucher d'un double toucher) */
-    if (e && (pan.hidden || pan.dataset.n !== n + e.id) && S.appui && tg - S.appui.t < 700 && !(S.finAuto && tg - S.finAuto.t < 100)) S.gardeFiche = {t: tg, tx: S.appui.x, ty: S.appui.y, r: 48};
+    /* fiche ouverte, ou d'un autre élément, par un toucher ou un clic qui vient de finir : elle a pu venir sous le doigt (second toucher d'un
+       double toucher) */
+    if (e && (pan.hidden || pan.dataset.n !== n + e.id) && S.appui && tg - S.appui.t < 700 && S.relache && tg - S.relache < 300 && !(S.finAuto && tg - S.finAuto.t < 100)) S.gardeFiche = {t: tg, tx: S.appui.x, ty: S.appui.y, r: 48};
     ptitre.textContent = n === 'fiche' ? (e.k === 'pt' ? 'Objet' : e.k === 'ln' ? (e.t === 'col' ? 'Collecteur' : 'Tracé') : 'Texte') : TITRES[n];
     pcorps.innerHTML = n === 'fiche' ? ficheHtml(e) : n === 'controles' ? controlesHtml() : n === 'constat' ? constatHtml() : n === 'calques' ? calquesHtml() : n === 'sorties' ? sortiesHtml() : reglagesHtml();
     pan.hidden = false; pan.dataset.n = n + (S.sel ? S.sel.id : ''); pan.dataset.id = e ? e.id : ''; pcorps.scrollTop = top; R.classList.add('vc-avecpanneau');
