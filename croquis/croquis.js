@@ -2179,16 +2179,17 @@ function editeur(racine, opts){
       }
       if (rel){ relierToucher(x, y, double); return; }
       /* ce que vise un toucher près du dernier point : le point lui-même (même objet, ou même point d'un tracé à 24 px), un autre objet, un
-         autre tracé (visé si le doigt en est plus près que du dernier point), ou un point libre. Le point lui-même, ou tout près (18 px, ou
-         second toucher d'un double toucher), c'est le geste habituel : au départ, second toucher ignoré, en le disant, ou abandon du
-         tronçon ; ensuite, fin du tracé. Un autre objet ou un autre tracé visé : le point suivant (plan vu de loin : toucher rapide sur un
-         voisin) */
+         autre tracé (visé si le doigt en est nettement plus près que du dernier point), ou un point libre. La distance au dernier point se
+         mesure aussi depuis l'endroit où le doigt l'a posé (le plus court des deux). Le point lui-même, ou tout près (18 px, ou second
+         toucher d'un double toucher), c'est le geste habituel : au départ, second toucher ignoré, en le disant, ou abandon du tronçon ;
+         ensuite, fin du tracé. Un autre objet ou un autre tracé visé : le point suivant (plan vu de loin : toucher rapide sur un voisin) */
       var at = pointTrace(x, y);
       if (b2 && b2.pts.length){
         var pl = b2.pts[b2.pts.length - 1], sp = pl.snap, un = b2.pts.length === 1, last = S.vue.ecran(pl.x, pl.y), dl = Math.hypot(x - last.x, y - last.y);
+        if (pl.doigt){ var ed = S.vue.ecran(pl.doigt.x, pl.doigt.y); dl = Math.min(dl, Math.hypot(x - ed.x, y - ed.y)); }
         var sa = S.vue.ecran(at.x, at.y), ds = Math.hypot(x - sa.x, y - sa.y);
         var lui = at.type === 'obj' ? !!(sp && sp.type === 'obj' && sp.id === at.id) : attache(at) && !!(sp && sp.type !== 'obj' && memeCible(at, sp, 24));
-        var autre = !lui && (at.type === 'obj' || (attache(at) && ds < dl));
+        var autre = !lui && (at.type === 'obj' || (attache(at) && ds + 6 < dl));
         if (un && !lui && attache(at) && at.type !== 'obj' && sp && sp.type !== 'obj' && at.ligne === sp.ligne){ S.dernierTap = null; toast('Le tronçon suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return; }
         if (lui || (!autre && (dl <= 18 || (double && (!un || attache(at)))))){
           if (un){ S.dernierTap = null; if (double){ toast('Départ du tronçon posé : touchez le point suivant.', 2500); return; } annulerTrace(); toast('Tronçon abandonné'); return; }
@@ -2218,7 +2219,8 @@ function editeur(racine, opts){
       S.brouillon = b2 = {outil: S.outil.id, pts: []};
       if (a2.type === 'som' && !a2.a && oo.t === 'tr'){ var l0 = el(a2.ligne); if (l0 && l0.t === 'tr' && (a2.i === 0 || a2.i === l0.v.length - 1)) b2.prolonge = {id: l0.id, debut: a2.i === 0}; }
     }
-    b2.pts.push({x: a2.x, y: a2.y, snap: at ? a2 : null, aide: a2.aide ? a2.type : null});
+    /* doigt : là où le doigt a posé le point (le point lui-même peut avoir été redressé ou accroché plus loin) */
+    b2.pts.push({x: a2.x, y: a2.y, snap: at ? a2 : null, aide: a2.aide ? a2.type : null, doigt: src ? S.vue.monde(src.x, src.y) : null});
     S.sel = null;
     if (a2.aide) montrerAide(a2);
     /* un tronçon qui touche un objet ou un autre tracé est terminé ; le second toucher d'un double toucher (habitude « toucher à nouveau pour terminer ») ne commence pas de nouveau tracé */
