@@ -2173,23 +2173,39 @@ function editeur(racine, opts){
         var fa = S.finAuto, R0 = fa.r || 48, ao = accroche(x, y, {}), a0 = accroche(fa.tx, fa.ty, {}), glisse = !!(a0 && a0.type === 'obj' && a0.id !== fa.id);
         /* ramené dans la vue d'avant le glissement, le toucher visait-il l'objet de fin ? c'est l'habitude, même si un voisin est maintenant tout près */
         var av = fa.gx || fa.gy ? accroche(x + fa.gx, y + fa.gy, {}) : null, visait = !!(av && av.type === 'obj' && av.id === fa.id);
-        var autre = !glisse && !visait && !!(ao && ao.type === 'obj' && ao.id !== fa.id);
+        /* un autre objet n'est visé que si le doigt est sur son symbole, ou nettement plus près de son bord (6 px de marge) que du toucher de
+           fin et de l'objet de fin (avant et après le glissement) : vu de loin, le second toucher d'habitude tombe vite dans la zone d'un voisin */
+        var zao = ao && ao.type === 'obj' ? zonePt(ao.id) : null, dao = zao ? Math.max(0, Math.hypot(x - zao.x, y - zao.y) - zao.r) : Infinity;
+        var dfa = Math.min(Math.hypot(x - fa.tx, y - fa.ty), Math.hypot(x - fa.x, y - fa.y), Math.hypot(x - fa.x - (fa.gx || 0), y - fa.y - (fa.gy || 0)));
+        /* symboles qui se chevauchent (plan vu de loin) : le doigt sur le symbole de l'objet de fin, c'est lui, même si un voisin est plus près */
+        var zfa = fa.id ? zonePt(fa.id) : null, surFin = !!zfa && (Math.hypot(x - zfa.x, y - zfa.y) <= zfa.r || Math.hypot(x - fa.x, y - fa.y) <= zfa.r);
+        var autre = !glisse && !visait && !surFin && !!(ao && ao.type === 'obj' && ao.id !== fa.id) && (dao <= 4 || dao + 6 < dfa);
         var pres = !autre && (Math.hypot(x - fa.tx, y - fa.ty) < R0 || Math.hypot(x - fa.x, y - fa.y) < R0);
-        if (pres || (ao && ao.type === 'obj' && ao.id === fa.id)){ S.finAuto = null; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); return; }
+        if (pres || surFin || (ao && ao.type === 'obj' && ao.id === fa.id)){ S.finAuto = null; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); return; }
       }
       if (rel){ relierToucher(x, y, double); return; }
-      /* ce que vise un toucher près du dernier point : le point lui-même (même objet, ou même point d'un tracé à 24 px), un autre objet, un
-         autre tracé (visé si le doigt en est nettement plus près que du dernier point), ou un point libre. La distance au dernier point se
-         mesure aussi depuis l'endroit où le doigt l'a posé (le plus court des deux). Le point lui-même, ou tout près (18 px, ou second
-         toucher d'un double toucher), c'est le geste habituel : au départ, second toucher ignoré, en le disant, ou abandon du tronçon ;
-         ensuite, fin du tracé. Un autre objet ou un autre tracé visé : le point suivant (plan vu de loin : toucher rapide sur un voisin) */
+      /* ce que vise un toucher près du dernier point : le point lui-même (même objet, ou même point d'un tracé à 24 px), un autre objet ou un
+         autre tracé (visé si le doigt est sur le symbole de l'objet, ou en est nettement plus près que du dernier point : 6 px de marge, depuis
+         le bord du symbole), ou un point libre. La distance au dernier point se mesure aussi depuis l'endroit où le doigt l'a posé (le plus
+         court des deux). Le point lui-même, ou tout près (18 px, ou second toucher d'un double toucher), c'est le geste habituel : au départ,
+         second toucher ignoré, en le disant, ou abandon du tronçon ; ensuite, fin du tracé. Un autre objet ou un autre tracé visé : le point
+         suivant (plan vu de loin : toucher rapide sur un voisin) */
       var at = pointTrace(x, y);
       if (b2 && b2.pts.length){
         var pl = b2.pts[b2.pts.length - 1], sp = pl.snap, un = b2.pts.length === 1, last = S.vue.ecran(pl.x, pl.y), dl = Math.hypot(x - last.x, y - last.y);
         if (pl.doigt){ var ed = S.vue.ecran(pl.doigt.x, pl.doigt.y); dl = Math.min(dl, Math.hypot(x - ed.x, y - ed.y)); }
         var sa = S.vue.ecran(at.x, at.y), ds = Math.hypot(x - sa.x, y - sa.y);
         var lui = at.type === 'obj' ? !!(sp && sp.type === 'obj' && sp.id === at.id) : attache(at) && !!(sp && sp.type !== 'obj' && memeCible(at, sp, 24));
-        var autre = !lui && (at.type === 'obj' || (attache(at) && ds + 6 < dl));
+        /* symboles qui se chevauchent (plan vu de loin) : le doigt sur le symbole de l'objet du dernier point, c'est lui, même si un voisin est plus près */
+        if (!lui && at.type === 'obj' && sp && sp.type === 'obj'){ var zs = zonePt(sp.id); if (zs && Math.hypot(x - zs.x, y - zs.y) <= zs.r) lui = true; }
+        /* le point d'un tracé (départ d'une prolongation, ou sur un collecteur) s'accroche avant un tracé voisin tout proche : un toucher à
+           l'écart de ce point, nettement plus près d'un autre tracé, vise cet autre tracé */
+        if (lui && at.type !== 'obj' && ds > 8){
+          var a3 = accroche(x, y, {col: OUTILS_LN[S.outil.id].t === 'col', saufLigne: at.ligne}), s3 = S.vue.ecran(a3.x, a3.y), d3 = Math.hypot(x - s3.x, y - s3.y);
+          if (attache(a3) && d3 + 6 < dl){ at = a3; ds = d3; lui = false; }
+        }
+        var zo = at.type === 'obj' ? zonePt(at.id) : null, dv = zo ? Math.max(0, Math.hypot(x - zo.x, y - zo.y) - zo.r) : ds;
+        var autre = !lui && attache(at) && ((!!zo && dv <= 4) || dv + 6 < dl);
         if (un && !lui && attache(at) && at.type !== 'obj' && sp && sp.type !== 'obj' && at.ligne === sp.ligne){ S.dernierTap = null; toast('Le tronçon suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return; }
         if (lui || (!autre && (dl <= 18 || (double && (!un || attache(at)))))){
           if (un){ S.dernierTap = null; if (double){ toast('Départ du tronçon posé : touchez le point suivant.', 2500); return; } annulerTrace(); toast('Tronçon abandonné'); return; }
