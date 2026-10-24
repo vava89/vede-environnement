@@ -2178,20 +2178,28 @@ function editeur(racine, opts){
         if (pres || (ao && ao.type === 'obj' && ao.id === fa.id)){ S.finAuto = null; toast('Tronçon déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.', 3500); return; }
       }
       if (rel){ relierToucher(x, y, double); return; }
-      /* toucher sur le dernier point ou tout près (second toucher d'un double toucher, ou toucher à 18 px) : c'est le geste habituel, sauf
-         s'il vise un autre objet (plan vu de loin : un toucher rapide sur un objet voisin pose le point suivant). Au départ, le second toucher
-         d'un double toucher est ignoré, en le disant, et un toucher plus lent abandonne le tronçon ; ensuite, il termine le tracé (au point
-         libre, même près d'un autre tracé) */
+      /* ce que vise un toucher près du dernier point : le point lui-même (même objet, ou même point d'un tracé à 24 px), un autre objet, un
+         autre tracé (visé si le doigt en est plus près que du dernier point), ou un point libre. Le point lui-même, ou tout près (18 px, ou
+         second toucher d'un double toucher), c'est le geste habituel : au départ, second toucher ignoré, en le disant, ou abandon du
+         tronçon ; ensuite, fin du tracé. Un autre objet ou un autre tracé visé : le point suivant (plan vu de loin : toucher rapide sur un
+         voisin) */
       var at = pointTrace(x, y);
       if (b2 && b2.pts.length){
-        var pl = b2.pts[b2.pts.length - 1], last = S.vue.ecran(pl.x, pl.y), dl = Math.hypot(x - last.x, y - last.y);
-        var autreObjet = at.type === 'obj' && !(pl.snap && pl.snap.type === 'obj' && pl.snap.id === at.id);
-        if (!autreObjet && b2.pts.length === 1 && double && (attache(at) || dl <= 18)){ toast('Départ du tronçon posé : touchez le point suivant.', 2500); return; }
-        if (!autreObjet && (dl <= 18 || (double && b2.pts.length >= 2))){ if (b2.pts.length === 1){ annulerTrace(); toast('Tronçon abandonné'); return; } terminerTrace(); return; }
+        var pl = b2.pts[b2.pts.length - 1], sp = pl.snap, un = b2.pts.length === 1, last = S.vue.ecran(pl.x, pl.y), dl = Math.hypot(x - last.x, y - last.y);
+        var sa = S.vue.ecran(at.x, at.y), ds = Math.hypot(x - sa.x, y - sa.y);
+        var lui = at.type === 'obj' ? !!(sp && sp.type === 'obj' && sp.id === at.id) : attache(at) && !!(sp && sp.type !== 'obj' && memeCible(at, sp, 24));
+        var autre = !lui && (at.type === 'obj' || (attache(at) && ds < dl));
+        if (un && !lui && attache(at) && at.type !== 'obj' && sp && sp.type !== 'obj' && at.ligne === sp.ligne){ S.dernierTap = null; toast('Le tronçon suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return; }
+        if (lui || (!autre && (dl <= 18 || (double && (!un || attache(at)))))){
+          if (un){ S.dernierTap = null; if (double){ toast('Départ du tronçon posé : touchez le point suivant.', 2500); return; } annulerTrace(); toast('Tronçon abandonné'); return; }
+          terminerTrace(); return;
+        }
       }
       ajouterPointTrace(at, {x: x, y: y});
     }
   }
+  /* deux points d'un même tracé (collecteur, tronçon), à toute distance */
+  function memeTrace(a, b){ return a.type !== 'obj' && b.type !== 'obj' && !!a.ligne && a.ligne === b.ligne; }
   /* deux accroches désignent-elles la même chose : le même objet, ou deux points d'un même tracé à moins de tol px (12 par défaut) ? */
   function memeCible(a, b, tol){
     if (a.type === 'obj' || b.type === 'obj') return a.type === b.type && a.id === b.id;
@@ -2220,6 +2228,7 @@ function editeur(racine, opts){
       S.finAuto = {t: Date.now(), x: sf.x, y: sf.y, tx: dt.x, ty: dt.y, id: a2.type === 'obj' ? a2.id : null, r: Math.max(48, zf ? Math.max(zf.r, 10) + 12 : 0)}; terminerTrace(true);
       /* fin sur un tracé : le raccord créé tient lieu d'objet ; glissement de la vue (fiche ouverte) mesuré à l'écran */
       var fa = S.finAuto, lf = fa && S.sel && el(S.sel.id);
+      if (fa && !(lf && lf.k === 'ln')){ S.finAuto = null; fa = null; }
       if (fa && !fa.id && lf && lf.k === 'ln' && lf.v.length){ var v0 = lf.v[0], v1 = lf.v[lf.v.length - 1], vf = Math.hypot(v0.x - a2.x, v0.y - a2.y) < Math.hypot(v1.x - a2.x, v1.y - a2.y) ? v0 : v1; if (vf.a) fa.id = vf.a; }
       if (fa){ var sf2 = S.vue.ecran(a2.x, a2.y); fa.gx = sf2.x - sf.x; fa.gy = sf2.y - sf.y; }
       return;
@@ -2255,6 +2264,7 @@ function editeur(racine, opts){
       var dep = g.relierDep, arr = accroche(p.x, p.y, {});
       if (!attache(dep) || !attache(arr)){ toast('Glissez d\'un objet ou d\'un tracé jusqu\'à un autre'); redessiner(); return; }
       if (memeCible(arr, dep, 18)){ redessiner(); return; }
+      if (memeTrace(arr, dep)){ toast('Un tracé ne se relie pas à lui-même : glissez jusqu\'à l\'objet d\'arrivée (regard, boîte, autre tracé…).', 3500); redessiner(); return; }
       relierCreer(dep, arr, {x: p.x, y: p.y}); return;
     }
     if (!S.brouillon || !ap) { if (!habitudeGlisse(g)) redessiner(); return; }
@@ -2272,6 +2282,7 @@ function editeur(racine, opts){
     var dep = S.relier;
     if (!attache(a)){ toast('Touchez l\'objet d\'arrivée : un regard, une boîte, un tracé…'); return; }
     if (memeCible(a, dep, double ? 24 : 18)){ if (double) return; S.relier = null; majAide(); redessiner(); return; }
+    if (memeTrace(a, dep)){ toast('Un tracé ne se relie pas à lui-même : touchez l\'objet d\'arrivée (regard, boîte, autre tracé…).', 3500); return; }
     S.relier = null; relierCreer(dep, a, {x: x, y: y});
   }
   function routeRelier(dep, arr){
@@ -2822,6 +2833,9 @@ function editeur(racine, opts){
   R.addEventListener('click', function(ev){ if (ev.detail && (pan.contains(ev.target) || pal.contains(ev.target) || aide.contains(ev.target))) S.clicHors = surPlan(ev); }, true);
   ['pointerup', 'pointercancel'].forEach(function(t){ R.addEventListener(t, function(){ if (!panBas) return; panBas = false; if (panMajAttente) setTimeout(majPanneauDifferee, 0); }, true); });
   pcorps.addEventListener('focusout', function(){ if (panMajAttente) setTimeout(majPanneauDifferee, 0); });
+  /* état montré par une puce au début du toucher (avant l'enregistrement d'une saisie voisine, qui peut le changer) */
+  var pucePressee = null;
+  pcorps.addEventListener('pointerdown', function(ev){ var c = ev.target.closest && ev.target.closest('[data-a="prop"]'); pucePressee = c ? {el: c, on: c.getAttribute('aria-pressed') === 'true', t: Date.now()} : null; }, true);
   /* en attendant, les puces de la caractéristique saisie et le texte proposé pour l'étiquette suivent la valeur enregistrée */
   function rafraichirFiche(e, k){
     pcorps.querySelectorAll('[data-a="prop"][data-k="' + k + '"]').forEach(function(c){ if (!c.dataset.multi) c.setAttribute('aria-pressed', String(String(e.p[k] == null ? '' : e.p[k]) === c.dataset.v)); });
@@ -2841,7 +2855,9 @@ function editeur(racine, opts){
        double toucher) */
     if (e && (pan.hidden || pan.dataset.n !== n + e.id) && S.appui && tg - S.appui.t < 700 && S.relache && tg - S.relache < 300 && !(S.finAuto && tg - S.finAuto.t < 100)) S.gardeFiche = {t: tg, tx: S.appui.x, ty: S.appui.y, r: 48};
     ptitre.textContent = n === 'fiche' ? (e.k === 'pt' ? 'Objet' : e.k === 'ln' ? (e.t === 'col' ? 'Collecteur' : 'Tracé') : 'Texte') : TITRES[n];
+    var enCours = {}; if (pan.dataset.n === n + (S.sel ? S.sel.id : '')) pcorps.querySelectorAll('input[id], textarea[id]').forEach(function(i){ if (!i.dataset.a && i.value) enCours[i.id] = i.value; });
     pcorps.innerHTML = n === 'fiche' ? ficheHtml(e) : n === 'controles' ? controlesHtml() : n === 'constat' ? constatHtml() : n === 'calques' ? calquesHtml() : n === 'sorties' ? sortiesHtml() : reglagesHtml();
+    Object.keys(enCours).forEach(function(id){ var i = document.getElementById(id); if (i && pcorps.contains(i) && !i.value) i.value = enCours[id]; });
     pan.hidden = false; pan.dataset.n = n + (S.sel ? S.sel.id : ''); pan.dataset.id = e ? e.id : ''; pcorps.scrollTop = top; R.classList.add('vc-avecpanneau');
   }
   function centrerSur(id){
@@ -2857,8 +2873,8 @@ function editeur(racine, opts){
       if (b.dataset.multi){ var arr = (e.p[k] || []).slice(), i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); e.p[k] = arr; }
       else if (k === 'sens') e.p.sens = parseInt(v, 10) || 0;
       else if (b.dataset.garder) e.p[k] = v;
-      else e.p[k] = e.p[k] === v ? '' : v;
-      apresProp(e); return;
+      else { var pp = pucePressee, montree = pp && pp.el === b && Date.now() - pp.t < 2000 ? pp.on : e.p[k] === v; e.p[k] = montree && e.p[k] === v ? '' : v; }
+      pucePressee = null; apresProp(e); return;
     }
     if (a === 'orienter' && e){ instantane(); e.p.a = (((e.p.a || 0) + parseFloat(b.dataset.v)) % 360 + 360) % 360; changement(); return; }
     if (a === 'rayon' && e){ instantane(); e.p.r = clamp((num(e.p.r) || 1.5) + parseFloat(b.dataset.v), .5, 30); changement(); return; }
