@@ -1734,11 +1734,13 @@ function editeur(racine, opts){
     cible.surCopie = Object.assign({}, cible.surCopie && typeof cible.surCopie === 'object' ? cible.surCopie : {}); cible.surCopie[k] = sv.seq || 0;
   }
   function majDossier(ops){ try { opts.anomaliesMaj({creer: ops.creer || [], maj: ops.maj || [], retirer: ops.retirer || []}); } catch(e){ toast('Liste du dossier non mise à jour : ' + (e && e.message || e), 5000); } }
-  /* état que « Annuler » rétablit : le dessin, les décisions sur ses anomalies, l'orientation et les textes du croquis (Réglages) */
+  /* état que « Annuler » rétablit : le dessin, les décisions sur ses anomalies, l'orientation, l'échelle, les gestionnaires par défaut et les
+     textes du croquis (Réglages) ; dans l'application, numéro, adresse, commune et date de visite sont repris du dossier : ils n'en font pas partie */
   var TEXTES_DOC = ['nom', 'numero', 'adresse', 'commune', 'date', 'technicien'];
+  function textesDoc(){ return opts.cartoucheHote ? ['nom', 'technicien'] : TEXTES_DOC; }
   function etatCourant(){
-    var t = {}; TEXTES_DOC.forEach(function(k){ if (S.doc[k] != null) t[k] = S.doc[k]; });
-    return JSON.stringify({el: S.doc.el, decisions: S.doc.decisions, ordre: S.doc.ordre, anomManu: S.doc.anomManu, rot: S.doc.rot, txt: t});
+    var t = {}; textesDoc().forEach(function(k){ if (S.doc[k] != null) t[k] = S.doc[k]; });
+    return JSON.stringify({el: S.doc.el, decisions: S.doc.decisions, ordre: S.doc.ordre, anomManu: S.doc.anomManu, rot: S.doc.rot, echelle: S.doc.echelle || 0, gest: S.doc.gest || null, txt: t});
   }
   function instantane(){
     S.undo.push(etatCourant());
@@ -1746,7 +1748,9 @@ function editeur(racine, opts){
   }
   function restaurer(json){
     var o = JSON.parse(json); S.doc.el = o.el; S.doc.decisions = o.decisions || {}; S.doc.ordre = o.ordre || []; S.doc.anomManu = o.anomManu || []; S.doc.rot = o.rot || 0; S.vue.rot = S.doc.rot;
-    if (o.txt) TEXTES_DOC.forEach(function(k){ if (o.txt[k] != null) S.doc[k] = o.txt[k]; else delete S.doc[k]; });
+    if ('echelle' in o) S.doc.echelle = o.echelle || 0;
+    if ('gest' in o) S.doc.gest = o.gest || {EU: 'D', EP: 'D', UN: 'D'};
+    if (o.txt) textesDoc().forEach(function(k){ if (o.txt[k] != null) S.doc[k] = o.txt[k]; else delete S.doc[k]; });
   }
   var tEnr = null;
   function changement(o){
