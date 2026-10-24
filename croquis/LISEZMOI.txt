@@ -1,0 +1,50 @@
+CROQUIS DE TERRAIN : MODULE ET LABORATOIRE
+
+Le module croquis.js est intégré à VÉDÉ Terrain depuis la version 1.6.0 (voir le LISEZMOI de l'application) : un croquis par dossier, anomalies reliées à la liste du dossier, reprise dans le constat.
+La page index.html de ce dossier reste le laboratoire du module : base de données séparée sur l'appareil (« vede-croquis-labo »), sans lien avec les études.
+Remarque : sur une tablette où VÉDÉ Terrain est installée, l'adresse du dossier croquis/ ouvre l'application elle-même. Le labo s'essaie donc par sa version d'essai privée, ou sur un appareil sans l'application.
+
+PRINCIPE
+Le croquis est la saisie principale : on pose des objets typés sur le plan cadastral à l'échelle, on les relie par des tronçons, et l'application en déduit où chaque eau se rejette.
+- Fond : plan cadastral DXF (cadastre.gouv.fr, R12 à R2018), chargé depuis l'appareil ; il n'en sort pas. Recherche d'un n° de parcelle, d'un n° de voirie ou d'un nom de voie.
+- Réseaux du Département : couche DXF ou GeoJSON affichée sous le croquis. Un fichier en Lambert 93 est ramené automatiquement dans le système du fond (CC42 à CC50), et inversement.
+- Objets : appareils EU (WC, lavabo, douche, évier, lave-linge, chaudière, siphon de garage…), ouvrages EP (descente, grille, caniveau, siphon de sol, drain…), regards, boîtes de branchement, té de visite, poste de relevage, clapet, fosse, puisard, gargouille, collecteurs publics, points de test, zones suspectes, textes.
+- Tronçons : on touche les points successifs ; un point posé sur un objet s'y attache, sur un autre tracé il crée un raccord. Les traits sont redressés à 45° près. Un tronçon qui arrive sur un objet ou un autre tracé se termine seul (aide « Terminer sur un objet ») ; sinon on termine en touchant à nouveau le dernier point.
+
+CE QUE L'APPLICATION DÉDUIT DU DESSIN
+- Le réseau de chaque tronçon et son sens d'écoulement, jusqu'à la boîte de branchement, au collecteur, au puisard ou à la gargouille.
+- Les anomalies, à retenir, à arbitrer ou à écarter :
+  - eaux usées vers l'EP, un puisard, la gargouille ou le milieu naturel ;
+  - eaux pluviales vers l'EU ;
+  - passage par une fosse (eaux usées ou pluviales) ;
+  - descente non visitable ;
+  - tampon béton (non-conformité en EU, réserve en EP) ;
+  - tampon absent (à arbitrer) ;
+  - regard sans cunette ou non accessible ;
+  - boîte branchée sur le mauvais collecteur ;
+  - branchement sans boîte (à arbitrer).
+- Les points à compléter : chaque équipement doit avoir sa méthode de test (visuel, eau, colorant, fumée, résonance, caméra, déclaré) et son exutoire ; chaque descente, sa façade (avant ou arrière).
+- Le constat déduit : nombre d'installations (une salle de bain ou une cuisine compte une fois), raccordement (EU_D, EP_T…), conformité et méthodes, ligne par ligne comme le constat de l'application. Une descente sans façade indiquée n'est comptée ni en avant ni en arrière. Seul le chemin réellement suivi par l'eau compte : une fosse ou une boîte posée sur une autre branche n'y entre pas.
+- La conclusion proposée reste « à compléter » tant qu'un équipement n'a pas de rejet établi.
+- Après l'avant-projet : les tracés « projet » remplacent les tracés « à supprimer » ; le contrôle dit si les raccordements sont corrigés.
+
+SORTIES
+- Plan de l'état des lieux en PDF (A4 paysage) :
+  - le plan, à l'échelle choisie automatiquement du 1/100 au 1/500 ;
+  - le nord et la barre d'échelle ;
+  - le cartouche et la légende des seuls objets utilisés ;
+  - en page 2, les anomalies et préconisations, puis chaque équipement avec son rejet et sa méthode de contrôle.
+- Plan d'avant-projet en PDF.
+- Plan pour la DAO : DXF R12 en coordonnées du fond, calques VEDE-…, symboles en blocs à l'échelle du plan ; il se superpose au cadastre.
+- Sauvegarde du croquis (.json), sans le fond.
+
+LIMITES DE CETTE VERSION
+- Dans le labo, pas de lien avec les études : ce lien n'existe que dans l'application.
+- Pas de photos rattachées aux objets.
+- Pas d'estimation.
+- Pas de gabarits d'implantation.
+- Hors connexion seulement une fois la page chargée.
+- Un DXF binaire doit être réenregistré en DXF texte ; les hachures ne sont pas affichées.
+- Le placement des étiquettes et des bulles est une proposition : on les déplace au doigt.
+
+Données : la démonstration utilise un cadastre inventé (« rue Fictive », coordonnées fictives). Ne jamais déposer de fichier réel dans ce dépôt.

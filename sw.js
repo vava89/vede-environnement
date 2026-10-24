@@ -1,5 +1,5 @@
 /* VÉDÉ Terrain : garde l'application disponible sans connexion */
-const CACHE = 'vede-terrain-1.5.1';
+const CACHE = 'vede-terrain-1.6.0';
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,6 +7,7 @@ const ASSETS = [
   "./lib/xlsx.full.min.js",
   "./lib/jszip.min.js",
   "./lib/jspdf.umd.min.js",
+  "./croquis/croquis.js",
   "./fonts/fonts.css",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
