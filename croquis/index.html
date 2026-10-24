@@ -125,7 +125,8 @@ var DB = (function(){
   }
   function tx(store, mode, fn){
     return ouvrir().then(function(d){
-      if (!d) return fn(null);
+      /* sans IndexedDB : la mémoire de la page, résultat rendu comme celui de la base */
+      if (!d){ var m = fn(null); return m && m.result !== undefined ? m.result : m; }
       return new Promise(function(res, rej){ try { var t = d.transaction(store, mode), s = t.objectStore(store), out = fn(s); t.oncomplete = function(){ res(out && out.result !== undefined ? out.result : out); }; t.onerror = function(){ rej(t.error); }; t.onabort = function(){ rej(t.error); }; } catch(e){ rej(e); } });
     });
   }
