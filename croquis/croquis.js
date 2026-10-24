@@ -1772,9 +1772,9 @@ function editeur(racine, opts){
   function annuler(){
     if (!S.undo.length) return toast('Rien à annuler');
     if (S.undo[S.undo.length - 1] === BARRIERE){ S.undo.pop(); majBarre(); return toast('Le dernier changement porte sur une anomalie du dossier : « Annuler » ne le défait pas (pour un placement : « Retirer du plan »).' + (S.undo.length ? ' Touchez de nouveau « Annuler » pour revenir sur le dessin.' : ''), 6500); }
-    S.redo.push(etatCourant()); restaurer(S.undo.pop()); S.sel = null; S.brouillon = null; changement();
+    S.redo.push(etatCourant()); restaurer(S.undo.pop()); S.sel = null; S.brouillon = null; S.relier = null; changement(); majAide();
   }
-  function refaire(){ if (!S.redo.length) return toast('Rien à rétablir'); S.undo.push(etatCourant()); restaurer(S.redo.pop()); S.sel = null; changement(); }
+  function refaire(){ if (!S.redo.length) return toast('Rien à rétablir'); S.undo.push(etatCourant()); restaurer(S.redo.pop()); S.sel = null; S.brouillon = null; S.relier = null; changement(); majAide(); }
 
   /* --- affichage --- */
   function redim(){
@@ -2116,8 +2116,9 @@ function editeur(racine, opts){
       if (a.type === 'obj'){ l.v[c.i].a = a.id; }
       else { var j = jonctionSur(S.doc, a); if (j && j.id !== l.id){ l.v[c.i].a = j.id; l.v[c.i].x = j.x; l.v[c.i].y = j.y; } }
       dedoublonner(l);
-      if (S.sel && S.sel.sommet != null && S.sel.sommet >= l.v.length) S.sel.sommet = null;
     }
+    /* un sommet qui a quitté un raccord : le raccord qui ne relie plus deux tracés disparaît, comme avec « Détacher » */
+    if (c.k === 'sommet'){ nettoyerJonctions(S.doc); var ls = el(c.id); if (S.sel && S.sel.sommet != null && (!ls || S.sel.sommet >= ls.v.length)) S.sel.sommet = null; }
     if (c.k === 'objet'){
       /* objet lâché sur une extrémité libre de tronçon : il s'y attache */
       var e = el(c.id), s = S.vue.ecran(e.x, e.y), aa = accroche(s.x, s.y, {saufObj: e.id});
@@ -2574,7 +2575,7 @@ function editeur(racine, opts){
     var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a;
     if (a === 'zoomp' || a === 'zoomm'){ S.vue.s = clamp(S.vue.s * (a === 'zoomp' ? 1.5 : 1 / 1.5), .02, 2000); redessiner(); enregistrerVue(); }
     else if (a === 'ajuster') ajusterVue();
-    else if (a === 'rotg' || a === 'rotd' || a === 'nord'){ instantane(); var r0 = S.doc.rot || 0; S.doc.rot = a === 'nord' ? 0 : r0 + (a === 'rotg' ? 1 : -1) * Math.PI / 12; S.vue.rot = S.doc.rot; replacerTraces(r0); changement({garderPanneau: true}); }
+    else if (a === 'rotg' || a === 'rotd' || a === 'nord'){ if (a === 'nord' && !(S.doc.rot || 0)) return; instantane(); var r0 = S.doc.rot || 0; S.doc.rot = a === 'nord' ? 0 : r0 + (a === 'rotg' ? 1 : -1) * Math.PI / 12; S.vue.rot = S.doc.rot; replacerTraces(r0); changement({garderPanneau: S.panneau !== 'reglages'}); }
     else if (a === 'aides'){ S.aides.actives = S.aides.actives === false; majAides(); toast(S.aides.actives ? 'Aides au dessin activées' : 'Aides au dessin désactivées : tracé libre'); }
   });
   function majAides(sansEnregistrer){
@@ -2926,7 +2927,10 @@ function editeur(racine, opts){
     var b = ev.target.closest('[data-a]'); if (!b || b.tagName === 'INPUT' && b.type !== 'checkbox' || b.tagName === 'TEXTAREA' || b.tagName === 'SELECT') return;
     var a = b.dataset.a, e = S.sel && el(S.sel.id);
     if (a === 'prop' && e){
-      instantane(); var k = b.dataset.k, v = b.dataset.v;
+      var k = b.dataset.k, v = b.dataset.v;
+      /* puce déjà choisie (réseau, statut, gestionnaire, sens) : rien ne change, pas de pas d'annulation */
+      if (!b.dataset.multi && (k === 'sens' ? (parseInt(v, 10) || 0) === (e.p.sens || 0) : b.dataset.garder && e.p[k] === v)){ pucePressee = null; return; }
+      instantane();
       if (b.dataset.multi){ var arr = (e.p[k] || []).slice(), i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); e.p[k] = arr; }
       else if (k === 'sens') e.p.sens = parseInt(v, 10) || 0;
       else if (b.dataset.garder) e.p[k] = v;
@@ -3002,11 +3006,11 @@ function editeur(racine, opts){
     if (a === 'fondRetirer'){ demander('Retirer le fond de plan ?', '', function(){ S.fond = null; S.doc.fondId = null; if (opts.fondRetire) opts.fondRetire(S.doc); changement(); }, {confirmer: true, ok: 'Retirer', texte: 'Le croquis reste en place ; le fond peut être rechargé.'}); return; }
     if (a === 'reseauRetirer'){ S.reseau = null; S.doc.reseauId = null; changement(); return; }
     if (a === 'aligner'){ S.aligner = []; fermerPanneau(); choisirOutil({k: 'main'}); S.aligner = []; majAide(); return; }
-    if (a === 'nordHaut'){ instantane(); var r0 = S.doc.rot || 0; S.doc.rot = 0; S.vue.rot = 0; replacerTraces(r0); changement(); return; }
+    if (a === 'nordHaut'){ if (!(S.doc.rot || 0)) return; instantane(); var r0 = S.doc.rot || 0; S.doc.rot = 0; S.vue.rot = 0; replacerTraces(r0); changement(); return; }
     if (a === 'replacerTout'){ instantane(); var I = idx(); S.doc.el.forEach(function(x){ if (x.k !== 'tx' && !(x.lab && x.lab.off)) x.lab = null; }); S.doc.el.forEach(function(x){ if (x.k !== 'tx' && x.lab === null && texteEtiquette(x, S.an)) x.lab = placerEtiquette(S.doc, S.an, x, E(), I); }); changement(); toast('Étiquettes replacées'); return; }
     if (a === 'aide'){ var k = b.dataset.k; S.aides[k] = S.aides[k] === false; majAides(); return; }
-    if (a === 'docEchelle'){ instantane(); S.doc.echelle = parseInt(b.dataset.v, 10) || 0; changement(); return; }
-    if (a === 'docGest'){ instantane(); S.doc.gest = Object.assign({EU: 'D', EP: 'D', UN: 'D'}, S.doc.gest); S.doc.gest[b.dataset.k] = b.dataset.v; changement(); return; }
+    if (a === 'docEchelle'){ var ve = parseInt(b.dataset.v, 10) || 0; if ((S.doc.echelle || 0) === ve) return; instantane(); S.doc.echelle = ve; changement(); return; }
+    if (a === 'docGest'){ var g0 = Object.assign({EU: 'D', EP: 'D', UN: 'D'}, S.doc.gest); if (g0[b.dataset.k] === b.dataset.v) return; instantane(); S.doc.gest = g0; S.doc.gest[b.dataset.k] = b.dataset.v; changement(); return; }
     if (a === 'docSuppr'){
       /* texteSupprimer : texte, ou fonction qui rend un texte ou {texte, ok, autre} ; « ok » : opts.supprimer(doc, {anomalies: true}), « autre » : {anomalies: false} */
       var ts = typeof opts.texteSupprimer === 'function' ? opts.texteSupprimer(S.doc) : opts.texteSupprimer;
