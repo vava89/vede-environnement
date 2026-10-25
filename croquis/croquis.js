@@ -1521,14 +1521,14 @@ function jonctionSur(doc, snap){
   if (snap.type === 'som'){
     var v = l.v[snap.i]; if (!v) return null;
     if (v.a && idx[v.a]) return idx[v.a];
-    var j = {id: uid(), k: 'pt', t: 'jonction', x: v.x, y: v.y, p: defautsPt('jonction'), lab: {off: true}}; doc.el.push(j); v.a = j.id; return j;
+    var j = {id: uid(), k: 'pt', t: 'jonction', x: v.x, y: v.y, p: defautsPt('jonction'), lab: {off: true}, auto: true}; doc.el.push(j); v.a = j.id; return j;
   }
   /* segment : reprojection sur le tracé tel qu'il est maintenant */
   var P = lignePts(l, idx), best = null;
   for (var i = 1; i < P.length; i++){ var q = projSeg(snap, P[i - 1], P[i]); if (!best || q.d < best.d) best = {i: i, x: q.x, y: q.y, d: q.d, t: q.t}; }
   if (!best) return null;
   if (best.t < 1e-6 || best.t > 1 - 1e-6) return jonctionSur(doc, {type: 'som', ligne: l.id, i: best.t < .5 ? best.i - 1 : best.i});
-  var j2 = {id: uid(), k: 'pt', t: 'jonction', x: best.x, y: best.y, p: defautsPt('jonction'), lab: {off: true}}; doc.el.push(j2);
+  var j2 = {id: uid(), k: 'pt', t: 'jonction', x: best.x, y: best.y, p: defautsPt('jonction'), lab: {off: true}, auto: true}; doc.el.push(j2);
   l.v.splice(best.i, 0, {x: best.x, y: best.y, a: j2.id});
   return j2;
 }
@@ -1551,15 +1551,26 @@ function supprimerElement(doc, id){
   doc.anomManu = (doc.anomManu || []).filter(function(m){ return m.objId !== id; });
   nettoyerJonctions(doc);
 }
-function nettoyerJonctions(doc){
-  var usage = {};
+/* raccord créé par le dessin (jonctionSur) : marqué, ou, dans un croquis plus ancien, sans étiquette ; un raccord posé à la main n'en est pas un */
+function jonctionAuto(o){ return o.auto === true || (o.auto !== false && !!(o.lab && o.lab.off)); }
+/* b est-il sur le segment a-c (à 1 cm près) ? son retrait ne change pas le tracé */
+function aligne(a, b, c){
+  var dx = c.x - a.x, dy = c.y - a.y, L2 = dx * dx + dy * dy; if (L2 < 1e-12) return false;
+  var t = ((b.x - a.x) * dx + (b.y - a.y) * dy) / L2; if (t <= 0 || t >= 1) return false;
+  var px = a.x + t * dx - b.x, py = a.y + t * dy - b.y; return px * px + py * py < 1e-4;
+}
+/* Un raccord du dessin qui ne relie plus deux tracés disparaît ; son sommet intermédiaire n'est retiré que s'il est aligné avec ses voisins (sinon
+   c'est un coude du tracé, gardé en sommet libre). Un raccord posé à la main, ou portant une anomalie, reste. seules : raccords à examiner (tous sinon) */
+function nettoyerJonctions(doc, seules){
+  var usage = {}, anomalie = {};
   doc.el.forEach(function(l){ if (l.k === 'ln') l.v.forEach(function(v, i){ if (v.a) (usage[v.a] = usage[v.a] || []).push({l: l, i: i}); }); });
+  (doc.anomManu || []).forEach(function(m){ if (m.objId) anomalie[m.objId] = true; });
   var retirer = {};
   doc.el.forEach(function(o){
-    if (o.k !== 'pt' || o.t !== 'jonction') return;
+    if (o.k !== 'pt' || o.t !== 'jonction' || !jonctionAuto(o) || anomalie[o.id] || (seules && seules.indexOf(o.id) < 0)) return;
     var u = usage[o.id] || [], lignes = {}; u.forEach(function(x){ lignes[x.l.id] = true; });
     if (Object.keys(lignes).length >= 2) return;
-    u.forEach(function(x){ var v = x.l.v[x.i]; v.a = null; if (x.i > 0 && x.i < x.l.v.length - 1 && x.l.v.length > 2) v.__retirer = true; });
+    u.forEach(function(x){ var v = x.l.v[x.i]; v.a = null; if (x.i > 0 && x.i < x.l.v.length - 1 && x.l.v.length > 2 && aligne(x.l.v[x.i - 1], v, x.l.v[x.i + 1])) v.__retirer = true; });
     retirer[o.id] = true;
   });
   if (!Object.keys(retirer).length) return;
@@ -2058,7 +2069,16 @@ function editeur(racine, opts){
   function demarrerGlisser(g){
     var c = g.cible, e = el(c.id) || el(c.objId);
     if (c.k === 'milieu'){ var I = idx(), P = lignePts(e, I), a = P[c.i - 1], b = P[c.i]; e.v.splice(c.i, 0, {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, a: null}); c.k = 'sommet'; S.sel = {id: e.id, sommet: c.i}; }
-    if (c.k === 'sommet'){ var v = e.v[c.i]; if (v.a){ var o = el(v.a); if (o){ v.x = o.x; v.y = o.y; } v.a = null; } S.sel = {id: e.id, sommet: c.i}; }
+    if (c.k === 'sommet'){
+      var v = e.v[c.i], o = v.a && el(v.a);
+      /* point intermédiaire posé sur un raccord où arrive un autre tracé (branchement sur le collecteur) : le raccord se déplace et les tracés
+         raccordés suivent ; « Détacher » sépare le point */
+      if (o && o.t === 'jonction' && c.i > 0 && c.i < e.v.length - 1 && S.doc.el.some(function(l){ return l.k === 'ln' && l.id !== e.id && l.v.some(function(w){ return w.a === o.id; }); })){
+        S.sel = {id: e.id, sommet: c.i}; g.cible = {k: 'objet', id: o.id}; g.o0 = {x: o.x, y: o.y}; return;
+      }
+      if (v.a){ if (o){ v.x = o.x; v.y = o.y; } g.quitte = v.a; v.a = null; }
+      S.sel = {id: e.id, sommet: c.i}; g.sommet = v;
+    }
     if (c.k === 'etiq'){ var I2 = idx(), an0 = ancre(e, I2); g.lab0 = decalLab(e.lab && !e.lab.off ? e.lab : (placerEtiquette(S.doc, S.an, e, E(), I2) || {dx: 0, dy: 0}), E()); g.a0 = an0; }
     if (c.k === 'bulle'){ var ob = el(c.objId); g.b0 = placerBulles(S.doc, S.an, S.liste, E(), idx())[c.id] || bulleDefaut(ob, E()); }
     if (c.k === 'objet'){ g.o0 = {x: e.x, y: e.y}; }
@@ -2117,8 +2137,11 @@ function editeur(racine, opts){
       else { var j = jonctionSur(S.doc, a); if (j && j.id !== l.id){ l.v[c.i].a = j.id; l.v[c.i].x = j.x; l.v[c.i].y = j.y; } }
       dedoublonner(l);
     }
-    /* un sommet qui a quitté un raccord : le raccord qui ne relie plus deux tracés disparaît, comme avec « Détacher » */
-    if (c.k === 'sommet'){ nettoyerJonctions(S.doc); var ls = el(c.id); if (S.sel && S.sel.sommet != null && (!ls || S.sel.sommet >= ls.v.length)) S.sel.sommet = null; }
+    /* un sommet qui a quitté un raccord : ce raccord, s'il ne relie plus deux tracés, disparaît (comme avec « Détacher ») ; le point choisi reste le sommet glissé */
+    if (c.k === 'sommet'){
+      if (g.quitte) nettoyerJonctions(S.doc, [g.quitte]);
+      var ls = el(c.id), ni = ls && g.sommet ? ls.v.indexOf(g.sommet) : -1; if (S.sel && S.sel.sommet != null) S.sel.sommet = ni >= 0 ? ni : null;
+    }
     if (c.k === 'objet'){
       /* objet lâché sur une extrémité libre de tronçon : il s'y attache */
       var e = el(c.id), s = S.vue.ecran(e.x, e.y), aa = accroche(s.x, s.y, {saufObj: e.id});
@@ -2575,7 +2598,7 @@ function editeur(racine, opts){
     var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a;
     if (a === 'zoomp' || a === 'zoomm'){ S.vue.s = clamp(S.vue.s * (a === 'zoomp' ? 1.5 : 1 / 1.5), .02, 2000); redessiner(); enregistrerVue(); }
     else if (a === 'ajuster') ajusterVue();
-    else if (a === 'rotg' || a === 'rotd' || a === 'nord'){ if (a === 'nord' && !(S.doc.rot || 0)) return; instantane(); var r0 = S.doc.rot || 0; S.doc.rot = a === 'nord' ? 0 : r0 + (a === 'rotg' ? 1 : -1) * Math.PI / 12; S.vue.rot = S.doc.rot; replacerTraces(r0); changement({garderPanneau: S.panneau !== 'reglages'}); }
+    else if (a === 'rotg' || a === 'rotd' || a === 'nord'){ if (a === 'nord' && Math.abs(S.doc.rot || 0) < 1e-9) return; instantane(); var r0 = S.doc.rot || 0, r1 = a === 'nord' ? 0 : r0 + (a === 'rotg' ? 1 : -1) * Math.PI / 12; S.doc.rot = Math.abs(r1) < 1e-9 ? 0 : r1; S.vue.rot = S.doc.rot; replacerTraces(r0); changement({garderPanneau: S.panneau !== 'reglages'}); }
     else if (a === 'aides'){ S.aides.actives = S.aides.actives === false; majAides(); toast(S.aides.actives ? 'Aides au dessin activées' : 'Aides au dessin désactivées : tracé libre'); }
   });
   function majAides(sansEnregistrer){
@@ -2939,7 +2962,7 @@ function editeur(racine, opts){
     }
     if (a === 'orienter' && e){ instantane(); e.p.a = (((e.p.a || 0) + parseFloat(b.dataset.v)) % 360 + 360) % 360; changement(); return; }
     if (a === 'rayon' && e){ instantane(); e.p.r = clamp((num(e.p.r) || 1.5) + parseFloat(b.dataset.v), .5, 30); changement(); return; }
-    if (a === 'tailleTexte' && e){ instantane(); e.taille = parseFloat(b.dataset.v) || 2.5; changement(); return; }
+    if (a === 'tailleTexte' && e){ var tt = parseFloat(b.dataset.v) || 2.5; if ((num(e.taille) || 2.5) === tt) return; instantane(); e.taille = tt; changement(); return; }
     if (a === 'etiqOnOff' && e){ instantane(); if (e.lab && e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); else e.lab = {off: true}; changement(); return; }
     if (a === 'etiqReplacer' && e){ instantane(); e.lab = null; e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); changement(); return; }
     if (a === 'supprimer'){ supprimerSel(); return; }
@@ -2958,9 +2981,11 @@ function editeur(racine, opts){
             + 'Sa saisie est gardée dans le croquis : la retenir de nouveau la rend telle quelle, tant que le croquis existe.'});
         return;
       }
+      /* décision ou nature déjà choisies : rien ne change, pas de pas d'annulation */
+      if (a === 'dec' ? (m ? m.st : (S.doc.decisions[cle] || {}).st) === b.dataset.v : !!(cur && !!cur.nc === (b.dataset.v === '1'))) return;
       instantane();
       if (a === 'dec'){ if (m) m.st = b.dataset.v; else (S.doc.decisions[cle] = S.doc.decisions[cle] || {}).st = b.dataset.v; }
-      else { var nv = b.dataset.v === '1'; if (cur && !!cur.nc === nv){ S.undo.pop(); return; } var cibleN = m || (S.doc.decisions[cle] = S.doc.decisions[cle] || {}); cibleN.nc = nv; noterRetouche(cibleN, 'nc', cle); if (m && S.doc.decisions[cle]) delete S.doc.decisions[cle].nc; }
+      else { var nv = b.dataset.v === '1'; var cibleN = m || (S.doc.decisions[cle] = S.doc.decisions[cle] || {}); cibleN.nc = nv; noterRetouche(cibleN, 'nc', cle); if (m && S.doc.decisions[cle]) delete S.doc.decisions[cle].nc; }
       changement(); return;
     }
     if (a === 'anomSuppr'){
@@ -3006,7 +3031,7 @@ function editeur(racine, opts){
     if (a === 'fondRetirer'){ demander('Retirer le fond de plan ?', '', function(){ S.fond = null; S.doc.fondId = null; if (opts.fondRetire) opts.fondRetire(S.doc); changement(); }, {confirmer: true, ok: 'Retirer', texte: 'Le croquis reste en place ; le fond peut être rechargé.'}); return; }
     if (a === 'reseauRetirer'){ S.reseau = null; S.doc.reseauId = null; changement(); return; }
     if (a === 'aligner'){ S.aligner = []; fermerPanneau(); choisirOutil({k: 'main'}); S.aligner = []; majAide(); return; }
-    if (a === 'nordHaut'){ if (!(S.doc.rot || 0)) return; instantane(); var r0 = S.doc.rot || 0; S.doc.rot = 0; S.vue.rot = 0; replacerTraces(r0); changement(); return; }
+    if (a === 'nordHaut'){ if (Math.abs(S.doc.rot || 0) < 1e-9) return; instantane(); var r0 = S.doc.rot || 0; S.doc.rot = 0; S.vue.rot = 0; replacerTraces(r0); changement(); return; }
     if (a === 'replacerTout'){ instantane(); var I = idx(); S.doc.el.forEach(function(x){ if (x.k !== 'tx' && !(x.lab && x.lab.off)) x.lab = null; }); S.doc.el.forEach(function(x){ if (x.k !== 'tx' && x.lab === null && texteEtiquette(x, S.an)) x.lab = placerEtiquette(S.doc, S.an, x, E(), I); }); changement(); toast('Étiquettes replacées'); return; }
     if (a === 'aide'){ var k = b.dataset.k; S.aides[k] = S.aides[k] === false; majAides(); return; }
     if (a === 'docEchelle'){ var ve = parseInt(b.dataset.v, 10) || 0; if ((S.doc.echelle || 0) === ve) return; instantane(); S.doc.echelle = ve; changement(); return; }
