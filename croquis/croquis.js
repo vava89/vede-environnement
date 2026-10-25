@@ -2145,7 +2145,8 @@ function editeur(racine, opts){
     if (c.k === 'objet'){
       /* objet lâché sur une extrémité libre de tronçon : il s'y attache */
       var e = el(c.id), s = S.vue.ecran(e.x, e.y), aa = accroche(s.x, s.y, {saufObj: e.id});
-      if (aa.type === 'som' && !aa.a){ var l2 = el(aa.ligne); if (l2 && (aa.i === 0 || aa.i === l2.v.length - 1)) l2.v[aa.i].a = e.id; }
+      /* … pas celle d'un tracé déjà lié à l'objet (son tuyau, le collecteur où il est posé) : il se refermerait sur lui */
+      if (aa.type === 'som' && !aa.a){ var l2 = el(aa.ligne); if (l2 && (aa.i === 0 || aa.i === l2.v.length - 1) && !l2.v.some(function(w){ return w.a === e.id; })) l2.v[aa.i].a = e.id; }
     }
     changement();
   }
@@ -2235,7 +2236,7 @@ function editeur(racine, opts){
         if (!lui && sp && sp.type !== 'obj' && at.type === 'obj' && dl <= 24 && objetSurTrace(at.id, sp.ligne)) lui = true;
         /* le point d'un tracé (départ d'une prolongation, ou sur un collecteur) s'accroche avant un tracé voisin tout proche : un toucher à
            l'écart de ce point, nettement plus près d'un autre tracé, vise cet autre tracé */
-        if (lui && at.type !== 'obj' && ds > 8){
+        if (lui && at.type !== 'obj' && ds > 8 && sp && sp.type !== 'obj'){
           var a3 = accroche(x, y, {col: OUTILS_LN[S.outil.id].t === 'col', saufLigne: at.ligne}), s3 = S.vue.ecran(a3.x, a3.y), d3 = Math.hypot(x - s3.x, y - s3.y);
           if (attache(a3) && d3 + 6 < dl){ at = a3; ds = d3; lui = false; }
         }
@@ -2244,7 +2245,7 @@ function editeur(racine, opts){
         /* un objet non visé ne cache pas le tracé sous le doigt (collecteur, à côté d'un raccord ou d'un regard) : visé s'il est nettement plus près que le dernier point */
         if (!lui && !autre && at.type === 'obj'){
           var a4 = accroche(x, y, {col: OUTILS_LN[S.outil.id].t === 'col', sansObj: true}), s4 = S.vue.ecran(a4.x, a4.y), d4 = Math.hypot(x - s4.x, y - s4.y);
-          if (attache(a4) && d4 + 6 < dl){ at = a4; ds = d4; autre = true; }
+          if (attache(a4) && d4 + 6 < dl){ if (cibleDepart(a4, sp, x, y)) lui = true; else { at = a4; ds = d4; autre = true; } }
         }
         if (un && !lui && attache(at) && at.type !== 'obj' && sp && sp.type !== 'obj' && at.ligne === sp.ligne){ S.dernierTap = null; toast('Le tronçon suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return; }
         if (lui || (!autre && (dl <= 18 || (double && (!un || attache(at)))))){
@@ -2308,7 +2309,7 @@ function editeur(racine, opts){
     var fa = S.finAuto, b = S.brouillon;
     if (!g.cree || !fa || Date.now() - fa.t > 1500 || !b || b.pts.length !== 1) return false;
     var s0 = b.pts[0].snap, R0 = fa.r || 48, pres = Math.hypot(g.x0 - fa.tx, g.y0 - fa.ty) < R0 || Math.hypot(g.x0 - fa.x, g.y0 - fa.y) < R0;
-    if (!s0 || !(s0.type === 'obj' ? s0.id === fa.id : !!fa.ligne && s0.ligne === fa.ligne && pres)) return false;
+    if (!s0 || !(s0.type === 'obj' ? s0.id === fa.id : pres && ((!!fa.ligne && s0.ligne === fa.ligne) || (!!fa.id && tracePropre(s0, fa.id, g.x0, g.y0))))) return false;
     S.brouillon = null; S.finAuto = null; majAide(); redessiner();
     toast(msgFin(fa), 3500); return true;
   }
@@ -2336,8 +2337,12 @@ function editeur(racine, opts){
       relierCreer(dep, arr, {x: p.x, y: p.y}); return;
     }
     if (!S.brouillon || !ap) { if (!habitudeGlisse(g)) redessiner(); return; }
-    var last = S.vue.ecran(S.brouillon.pts[S.brouillon.pts.length - 1].x, S.brouillon.pts[S.brouillon.pts.length - 1].y), a = ap.a, sa = S.vue.ecran(a.x, a.y);
-    if (Math.hypot(sa.x - last.x, sa.y - last.y) < 8){ if (!habitudeGlisse(g)) redessiner(); return; }
+    var b0 = S.brouillon, last = S.vue.ecran(b0.pts[b0.pts.length - 1].x, b0.pts[b0.pts.length - 1].y), a = ap.a, sa = S.vue.ecran(a.x, a.y);
+    /* toucher qui roule sous le doigt (glissé de moins de 24 px) : juste après une fin, c'est le toucher d'habitude ; au départ, une arrivée qui
+       désigne le départ (même objet, son propre tracé, objet posé sur le tracé de départ) n'est pas un point */
+    var pres8 = Math.hypot(sa.x - last.x, sa.y - last.y) < 8, court = Math.hypot(p.x - g.x0, p.y - g.y0) < 24;
+    if ((pres8 || court) && habitudeGlisse(g)) return;
+    if (pres8 || (court && b0.pts.length === 1 && cibleDepart(a, b0.pts[0].snap, p.x, p.y))){ redessiner(); return; }
     ajouterPointTrace(a, {x: p.x, y: p.y});
   }
   /* --- outil Relier : deux objets, un tronçon droit ou en L d'équerre avec le bâti --- */
@@ -2360,6 +2365,13 @@ function editeur(racine, opts){
   function tracePropre(a, id, x, y){ var l = a && a.ligne && el(a.ligne), z = zonePt(id); return !!l && !!z && l.v.some(function(v){ return v.a === id; }) && Math.hypot(x - z.x, y - z.y) <= Math.max(z.r, 10) + 12; }
   /* l'objet id est-il posé sur le tracé ligne (un de ses sommets) ? */
   function objetSurTrace(id, ligne){ var l = ligne && el(ligne); return !!l && l.v.some(function(v){ return v.a === id; }); }
+  /* une accroche a désigne-t-elle le départ s0 d'un tracé : le même objet, un tracé propre de l'objet de départ (doigt dans sa zone), l'objet
+     posé sur le tracé de départ, ou le même point de ce tracé (24 px) ? */
+  function cibleDepart(a, s0, x, y){
+    if (!s0 || !attache(a)) return false;
+    if (s0.type === 'obj') return a.type === 'obj' ? a.id === s0.id : tracePropre(a, s0.id, x, y);
+    return a.type === 'obj' ? objetSurTrace(a.id, s0.ligne) : memeCible(a, s0, 24);
+  }
   /* Relier : une arrivée liée au départ (tracé propre de l'objet de départ, ou objet posé sur le tracé de départ, à tol px) est le départ lui-même */
   function cibleLiee(a, dep, x, y, tol){
     if (dep.type === 'obj' && a.type !== 'obj' && attache(a)) return tracePropre(a, dep.id, x, y);
