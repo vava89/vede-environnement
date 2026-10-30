@@ -2108,9 +2108,20 @@ function editeur(racine, opts){
     var c = g.cible, w = S.vue.monde(p.x, p.y), w0 = S.vue.monde(g.x0, g.y0), dxw = w.x - w0.x, dyw = w.y - w0.y, rot = S.doc.rot || 0, dP = versPlan(dxw, dyw, rot);
     if (c.k === 'objet'){ var e = el(c.id); e.x = g.o0.x + dxw; e.y = g.o0.y + dyw; synchroSommets(S.doc); }
     else if (c.k === 'sommet'){
-      /* les objets déjà liés au tracé (son départ, un regard ou un raccord qu'il porte) ne sont pas des cibles : il se refermerait sur lui */
-      var l = el(c.id), prec = c.i > 0 ? vpos(l.v[c.i - 1], idx()) : null, siens = {}; l.v.forEach(function(w, k){ if (k !== c.i && w.a) siens[w.a] = true; });
-      var a = l.t === 'lim' ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, saufObjs: siens, prec: prec, col: l.t === 'col'}); l.v[c.i].x = a.x; l.v[c.i].y = a.y; S.accrocheVue = a.type ? a : null; g.accroche = a;
+      /* un objet déjà lié au tracé n'est une cible que si le sommet s'y fond avec son voisin (coude glissé sur l'objet de l'extrémité voisine :
+         le coude disparaît) ; il est écarté si s'y raccrocher réduirait le tracé à un point ou le refermerait sur lui */
+      var l = el(c.id), prec = c.i > 0 ? vpos(l.v[c.i - 1], idx()) : null, siens = {};
+      l.v.forEach(function(w, k){
+        if (k === c.i || !w.a || siens[w.a]) return;
+        var ks = []; l.v.forEach(function(u, kk){ if (kk !== c.i && u.a === w.a) ks.push(kk); });
+        if (ks.some(function(kk){ return Math.abs(kk - c.i) !== 1; }) || l.v.length - ks.length < 2) siens[w.a] = true;
+      });
+      var a = l.t === 'lim' ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, saufObjs: siens, prec: prec, col: l.t === 'col'});
+      /* le tracé propre d'un objet écarté (sortie de la boîte de départ…), sous le doigt dans la zone de cet objet, n'est pas une cible non plus */
+      if ((a.type === 'som' || a.type === 'seg') && Object.keys(siens).some(function(id){ var z = zonePt(id); return !!z && Math.hypot(p.x - z.x, p.y - z.y) <= Math.max(z.r, 10) + 12 && objetSurTrace(id, a.ligne); })){
+        var m0 = S.vue.monde(p.x, p.y); a = (prec && redresser(prec, m0)) || {x: m0.x, y: m0.y};
+      }
+      l.v[c.i].x = a.x; l.v[c.i].y = a.y; S.accrocheVue = a.type ? a : null; g.accroche = a;
     }
     else if (c.k === 'etiq'){ var e2 = el(c.id); e2.lab = {dx: g.lab0.dx + dP.x, dy: g.lab0.dy + dP.y, E: E(), main: true}; }
     else if (c.k === 'bulle'){ var nb = {dx: g.b0.dx + dP.x, dy: g.b0.dy + dP.y}, man = (S.doc.anomManu || []).filter(function(m){ return m.id === c.id; })[0]; if (man) man.bulle = nb; else { var d = S.doc.decisions[c.id] || (S.doc.decisions[c.id] = {}); d.bulle = nb; } }
@@ -2395,7 +2406,10 @@ function editeur(racine, opts){
     /* juste après une fin, un glissé court qui finit nettement sur une autre cible (autre objet : doigt sur son symbole, ou nettement plus près
        de son bord que de la fin ; autre tracé), à l'écart du symbole de l'objet de fin, est un départ volontaire depuis l'objet de fin */
     var fa = S.finAuto, autreFin = false;
-    if (court && !pres8 && un && fa && attache(a) && !cibleDepart(a, p0.snap, p.x, p.y) && !(a.type !== 'obj' && !!fa.ligne && a.ligne === fa.ligne)){
+    /* … mais jamais un tracé qui porte l'objet de fin (ou de départ), ni un objet posé sur un tel tracé : c'est le toucher d'habitude qui roule */
+    var propres = [fa && fa.id, p0.snap && p0.snap.type === 'obj' ? p0.snap.id : null].filter(Boolean);
+    var lie = function(t){ return propres.some(function(id){ return t.type !== 'obj' ? objetSurTrace(id, t.ligne) : S.doc.el.some(function(l){ return l.k === 'ln' && l.v.some(function(v){ return v.a === id; }) && l.v.some(function(v){ return v.a === t.id; }); }); }); };
+    if (court && !pres8 && un && fa && attache(a) && !cibleDepart(a, p0.snap, p.x, p.y) && !(a.type !== 'obj' && !!fa.ligne && a.ligne === fa.ligne) && !lie(a)){
       var zf = fa.id ? zonePt(fa.id) : null, dFin = zf ? Math.max(0, Math.hypot(p.x - zf.x, p.y - zf.y) - zf.r) : Math.min(Math.hypot(p.x - fa.x, p.y - fa.y), Math.hypot(p.x - fa.tx, p.y - fa.ty));
       var za = a.type === 'obj' ? zonePt(a.id) : null, dv = za ? Math.max(0, Math.hypot(p.x - za.x, p.y - za.y) - za.r) : Math.hypot(p.x - sa.x, p.y - sa.y);
       autreFin = dFin > 6 && (dv <= 4 || dv + 6 < dFin);
@@ -2406,8 +2420,13 @@ function editeur(racine, opts){
        départ, c'est le second toucher d'habitude, ignoré (arrivée libre, ou qui désigne le départ) */
     var dPl = function(x, y){ var d = Math.hypot(x - last.x, y - last.y); if (pl.doigt){ var ed = S.vue.ecran(pl.doigt.x, pl.doigt.y); d = Math.min(d, Math.hypot(x - ed.x, y - ed.y)); } return d; };
     var pres18 = pres8 || (court && dPl(p.x, p.y) <= 18), libre = !attache(a);
-    if (!un && pres18 && (libre || (!!pl.snap && cibleDepart(a, pl.snap, p.x, p.y)))){ terminerGarde(pl.snap || pl, {x: p.x, y: p.y}); return; }
-    if (pres8 || (court && un && (cibleDepart(a, p0.snap, p.x, p.y) || (pres18 && libre && !p0.snap)))){ redessiner(); return; }
+    /* arrivée sur une autre cible près du dernier point : comme pour un toucher, visée seulement si le doigt est sur le symbole de l'objet, ou
+       nettement plus près d'elle (6 px) que du dernier point ; sinon c'est le geste habituel */
+    var visee = false;
+    if (pres18 && !libre){ var dl0 = dPl(p.x, p.y), zo = a.type === 'obj' ? zonePt(a.id) : null, dv0 = zo ? Math.max(0, Math.hypot(p.x - zo.x, p.y - zo.y) - zo.r) : Math.hypot(p.x - sa.x, p.y - sa.y); visee = (!!zo && dv0 <= 4) || dv0 + 6 < dl0; }
+    var habituel = pres18 && (libre || !visee || (!!pl.snap && cibleDepart(a, pl.snap, p.x, p.y)));
+    if (!un && habituel){ terminerGarde(pl.snap || pl, {x: p.x, y: p.y}); return; }
+    if (un && (pres8 || (court && (cibleDepart(a, p0.snap, p.x, p.y) || habituel)))){ redessiner(); return; }
     ajouterPointTrace(a, {x: p.x, y: p.y});
   }
   /* --- outil Relier : deux objets, un tronçon droit ou en L d'équerre avec le bâti --- */
