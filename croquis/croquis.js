@@ -1537,19 +1537,19 @@ function insererDansLigne(doc, o, snap){
   var idx = indexDoc(doc), l = idx[snap.ligne]; if (!l) return;
   if (snap.type === 'som'){ var v = l.v[snap.i]; if (v){ v.a = o.id; v.x = o.x; v.y = o.y; } return; }
   var P = lignePts(l, idx), best = null;
-  for (var i = 1; i < P.length; i++){ var q = projSeg(o, P[i - 1], P[i]); if (!best || q.d < best.d) best = {i: i, q: q}; }
+  for (var i = 1; i < P.length; i++){ var q = projSeg(o, P[i - 1], P[i]); if (!best || q.d < best.q.d) best = {i: i, q: q}; }
   if (!best) return;
   o.x = best.q.x; o.y = best.q.y;
   l.v.splice(best.i, 0, {x: o.x, y: o.y, a: o.id});
 }
 function synchroSommets(doc){ var idx = indexDoc(doc); doc.el.forEach(function(e){ if (e.k === 'ln') e.v.forEach(function(v){ var o = v.a && idx[v.a]; if (o && o.k === 'pt'){ v.x = o.x; v.y = o.y; } else if (v.a) v.a = null; }); }); }
 /* Suppression : les sommets attachés à un objet supprimé restent en place ; une jonction devenue inutile disparaît */
-function supprimerElement(doc, id){
+function supprimerElement(doc, id, gardes){
   var idx = indexDoc(doc), e = idx[id]; if (!e) return;
   doc.el = doc.el.filter(function(x){ return x.id !== id; });
   if (e.k === 'pt') doc.el.forEach(function(l){ if (l.k === 'ln') l.v.forEach(function(v){ if (v.a === id){ v.a = null; v.x = e.x; v.y = e.y; } }); });
   doc.anomManu = (doc.anomManu || []).filter(function(m){ return m.objId !== id; });
-  nettoyerJonctions(doc);
+  nettoyerJonctions(doc, null, gardes);
 }
 /* raccord créé par le dessin (jonctionSur) : marqué, ou, dans un croquis plus ancien, sans étiquette ; un raccord posé à la main n'en est pas un */
 function jonctionAuto(o){ return o.auto === true || (o.auto !== false && !!(o.lab && o.lab.off)); }
@@ -1560,14 +1560,15 @@ function aligne(a, b, c){
   var px = a.x + t * dx - b.x, py = a.y + t * dy - b.y; return px * px + py * py < 1e-4;
 }
 /* Un raccord du dessin qui ne relie plus deux tracés disparaît ; son sommet intermédiaire n'est retiré que s'il est aligné avec ses voisins (sinon
-   c'est un coude du tracé, gardé en sommet libre). Un raccord posé à la main, ou portant une anomalie, reste. seules : raccords à examiner (tous sinon) */
-function nettoyerJonctions(doc, seules){
+   c'est un coude du tracé, gardé en sommet libre). Un raccord posé à la main, ou portant une anomalie (du croquis, ou du dossier : gardes),
+   reste. seules : raccords à examiner (tous sinon) */
+function nettoyerJonctions(doc, seules, gardes){
   var usage = {}, anomalie = {};
   doc.el.forEach(function(l){ if (l.k === 'ln') l.v.forEach(function(v, i){ if (v.a) (usage[v.a] = usage[v.a] || []).push({l: l, i: i}); }); });
   (doc.anomManu || []).forEach(function(m){ if (m.objId) anomalie[m.objId] = true; });
   var retirer = {};
   doc.el.forEach(function(o){
-    if (o.k !== 'pt' || o.t !== 'jonction' || !jonctionAuto(o) || anomalie[o.id] || (seules && seules.indexOf(o.id) < 0)) return;
+    if (o.k !== 'pt' || o.t !== 'jonction' || !jonctionAuto(o) || anomalie[o.id] || (gardes && gardes[o.id]) || (seules && seules.indexOf(o.id) < 0)) return;
     var u = usage[o.id] || [], lignes = {}; u.forEach(function(x){ lignes[x.l.id] = true; });
     if (Object.keys(lignes).length >= 2) return;
     u.forEach(function(x){ var v = x.l.v[x.i]; v.a = null; if (x.i > 0 && x.i < x.l.v.length - 1 && x.l.v.length > 2 && aligne(x.l.v[x.i - 1], v, x.l.v[x.i + 1])) v.__retirer = true; });
@@ -1578,8 +1579,28 @@ function nettoyerJonctions(doc, seules){
   doc.el.forEach(function(l){ if (l.k === 'ln') l.v = l.v.filter(function(v){ return !v.__retirer; }); });
 }
 /* Sommets consécutifs identiques (même objet ou même point) : un seul */
+/* Raccord jid quitté par un sommet du tracé l (glissé, point retiré) : quand un autre tracé y finit (branchement) et que le raccord est encore
+   sur l (à 1 cm près : collecteur prolongé dans son alignement, point aligné retiré), il redevient un point de l ; le branchement reste raccordé */
+function garderRaccord(doc, l, jid){
+  var idx = indexDoc(doc), j = idx[jid];
+  if (!l || !j || j.t !== 'jonction' || l.v.some(function(v){ return v.a === jid; })) return false;
+  if (!doc.el.some(function(m){ return m.k === 'ln' && m !== l && m.v.length && (m.v[0].a === jid || m.v[m.v.length - 1].a === jid); })) return false;
+  for (var k = 0; k < l.v.length; k++){ var v = l.v[k]; if (!v.a && Math.hypot(v.x - j.x, v.y - j.y) < .01){ v.a = jid; v.x = j.x; v.y = j.y; return true; } }
+  var P = lignePts(l, idx);
+  for (var i = 1; i < P.length; i++){ var q = projSeg(j, P[i - 1], P[i]); if (q.d < .01 && q.t > 1e-6 && q.t < 1 - 1e-6){ l.v.splice(i, 0, {x: j.x, y: j.y, a: jid}); return true; } }
+  return false;
+}
+/* le point intermédiaire i du tracé l porte-t-il un raccord où finit un autre tracé, aligné avec ses voisins ? le retirer ne changerait rien
+   au tracé et détacherait le branchement : il est gardé (« Détacher » l'en sépare) */
+function pointPorteur(doc, l, i){
+  var idx = indexDoc(doc), v = l.v[i], j = v && v.a && idx[v.a];
+  if (!j || j.t !== 'jonction' || i <= 0 || i >= l.v.length - 1) return false;
+  if (!doc.el.some(function(m){ return m.k === 'ln' && m !== l && m.v.length && (m.v[0].a === j.id || m.v[m.v.length - 1].a === j.id); })) return false;
+  var P = lignePts(l, idx), q = projSeg(j, P[i - 1], P[i + 1]);
+  return q.d < .01 && q.t > 1e-6 && q.t < 1 - 1e-6;
+}
 function dedoublonner(l){ l.v = l.v.filter(function(v, i){ if (!i) return true; var p = l.v[i - 1]; return !(v.a && v.a === p.a) && !(!v.a && !p.a && Math.hypot(v.x - p.x, v.y - p.y) < 1e-3); }); }
-VC.ops = {jonctionSur: jonctionSur, insererDansLigne: insererDansLigne, supprimerElement: supprimerElement, nettoyerJonctions: nettoyerJonctions, synchroSommets: synchroSommets, dedoublonner: dedoublonner};
+VC.ops = {jonctionSur: jonctionSur, insererDansLigne: insererDansLigne, supprimerElement: supprimerElement, nettoyerJonctions: nettoyerJonctions, garderRaccord: garderRaccord, synchroSommets: synchroSommets, dedoublonner: dedoublonner};
 
 /* ---------- Icônes (traits, 24 × 24) ---------- */
 var ICO = {
@@ -2132,6 +2153,29 @@ function editeur(racine, opts){
     apresDossier(true); selectionner(objId);
     var it = S.liste.filter(function(a){ return a.appId === id; })[0]; toast(msg || 'Anomalie ' + (it ? numLib(it) + ' ' : '') + 'placée sur le plan', msg ? 6000 : 2600);
   }
+  /* raccords qui portent une anomalie du dossier placée sur le croquis : jamais retirés d'office */
+  function gardesJ(){ var g = {}; (S.liste || []).forEach(function(a){ if (a.dossier && a.objId) g[a.objId] = true; }); return g; }
+  /* raccord quitté par un sommet du tracé l : gardé sur l si un branchement y finit et qu'il est encore sur l ; sinon, s'il ne relie plus deux
+     tracés, il disparaît (tous : nettoyage de tout le croquis) ; un tracé qui y finissait et n'est plus raccordé est signalé. Vrai si gardé */
+  function quitterRaccord(l, jid, tous){
+    var j = jid && el(jid);
+    if (j && j.t === 'jonction' && garderRaccord(S.doc, l, jid)) return true;
+    var fins = j && j.t === 'jonction' ? S.doc.el.filter(function(m){ return m.k === 'ln' && m !== l && m.v.length && (m.v[0].a === jid || m.v[m.v.length - 1].a === jid); }) : [];
+    if (tous || jid) nettoyerJonctions(S.doc, tous ? null : [jid], gardesJ());
+    var reste = S.doc.el.filter(function(m){ return m.k === 'ln' && m.v.some(function(v){ return v.a === jid; }); }).length;
+    if (fins.length && reste < 2) toast('Le tracé qui arrivait à ce point n\'y est plus raccordé : glissez son extrémité pour le raccorder de nouveau.', 4500);
+    return false;
+  }
+  /* « Retirer ce point » (ou touche Suppr) : le point aligné qui porte un branchement reste, sans pas d'annulation, en le disant
+     (pointPorteur) ; un autre point retiré quitte son raccord (quitterRaccord) */
+  function retirerSommet(e){
+    if (pointPorteur(S.doc, e, S.sel.sommet)){ toast('Point gardé : un autre tracé y est raccordé. « Détacher » l\'en sépare.', 4000); return; }
+    instantane();
+    var i = S.sel.sommet, v = e.v[i], jq = v && v.a ? v.a : null;
+    e.v.splice(i, 1); S.sel.sommet = null;
+    quitterRaccord(e, jq, true);
+    changement();
+  }
   function terminerGlisser(g){
     var c = g.cible; S.accrocheVue = null;
     if (!g.modifie){ S.undo.pop(); return; }
@@ -2143,7 +2187,7 @@ function editeur(racine, opts){
     }
     /* un sommet qui a quitté un raccord : ce raccord, s'il ne relie plus deux tracés, disparaît (comme avec « Détacher ») ; le point choisi reste le sommet glissé */
     if (c.k === 'sommet'){
-      if (g.quitte) nettoyerJonctions(S.doc, [g.quitte]);
+      if (g.quitte) quitterRaccord(el(c.id), g.quitte);
       var ls = el(c.id), ni = ls && g.sommet ? ls.v.indexOf(g.sommet) : -1; if (S.sel && S.sel.sommet != null) S.sel.sommet = ni >= 0 ? ni : null;
     }
     if (c.k === 'objet'){
@@ -2705,9 +2749,9 @@ function editeur(racine, opts){
   });
   function supprimerSel(){
     if (!S.sel) return; var e = el(S.sel.id); if (!e) return;
+    if (e.k === 'ln' && S.sel.sommet != null && e.v.length > 2){ retirerSommet(e); return; }
     instantane();
-    if (e.k === 'ln' && S.sel.sommet != null && e.v.length > 2){ e.v.splice(S.sel.sommet, 1); S.sel.sommet = null; nettoyerJonctions(S.doc); changement(); return; }
-    supprimerElement(S.doc, e.id); S.sel = null; changement(); toast('Supprimé · « Annuler » le rétablit');
+    supprimerElement(S.doc, e.id, gardesJ()); S.sel = null; changement(); toast('Supprimé · « Annuler » le rétablit');
   }
   global.addEventListener('resize', redim);
   if (global.ResizeObserver) new ResizeObserver(redim).observe(R);
@@ -3000,8 +3044,8 @@ function editeur(racine, opts){
     if (a === 'etiqReplacer' && e){ instantane(); e.lab = null; e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); changement(); return; }
     if (a === 'supprimer'){ supprimerSel(); return; }
     if (a === 'inverserCoude' && e && e.v.length === 3 && !e.v[1].a){ instantane(); var I3 = idx(), A3 = vpos(e.v[0], I3), B3 = vpos(e.v[2], I3); e.v[1] = {x: A3.x + B3.x - e.v[1].x, y: A3.y + B3.y - e.v[1].y, a: null}; changement(); return; }
-    if (a === 'sommetSuppr' && e && S.sel.sommet != null){ instantane(); e.v.splice(S.sel.sommet, 1); S.sel.sommet = null; nettoyerJonctions(S.doc); changement(); return; }
-    if (a === 'sommetDetacher' && e && S.sel.sommet != null){ instantane(); e.v[S.sel.sommet].a = null; nettoyerJonctions(S.doc); changement(); return; }
+    if (a === 'sommetSuppr' && e && S.sel.sommet != null){ retirerSommet(e); return; }
+    if (a === 'sommetDetacher' && e && S.sel.sommet != null){ instantane(); e.v[S.sel.sommet].a = null; nettoyerJonctions(S.doc, null, gardesJ()); changement(); return; }
     if (a === 'dec' || a === 'decNc'){
       var cle = b.dataset.cle, m = (S.doc.anomManu || []).filter(function(x){ return x.id === cle; })[0], cur = S.liste.filter(function(x){ return x.cle === cle; })[0];
       /* anomalie du dossier : la nature se règle sur l'enregistrement ; un retrait qui emporte des photos se confirme */
