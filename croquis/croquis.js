@@ -1958,7 +1958,7 @@ function editeur(racine, opts){
     o = o || {}; var I = idx(), best = null, bd = Infinity, ob = null, dob = Infinity, de = Infinity, surObj = {};
     for (var i = 0; i < S.zones.length; i++){
       var z = S.zones[i]; if (z.type !== 'pt' || z.zone) continue;
-      surObj[z.id] = 1; if (o.sansObj || o.saufObj === z.id) continue;
+      surObj[z.id] = 1; if (o.sansObj || o.saufObj === z.id || (o.saufObjs && o.saufObjs[z.id])) continue;
       var d = Math.hypot(x - z.x, y - z.y); if (d <= Math.max(z.r, 10) + 12 && d < dob){ dob = d; de = Math.max(0, d - z.r); var ob0 = I[z.id]; ob = {type: 'obj', id: z.id, x: ob0.x, y: ob0.y}; }
     }
     S.doc.el.forEach(function(l){
@@ -2086,7 +2086,11 @@ function editeur(racine, opts){
   function glisser(g, p){
     var c = g.cible, w = S.vue.monde(p.x, p.y), w0 = S.vue.monde(g.x0, g.y0), dxw = w.x - w0.x, dyw = w.y - w0.y, rot = S.doc.rot || 0, dP = versPlan(dxw, dyw, rot);
     if (c.k === 'objet'){ var e = el(c.id); e.x = g.o0.x + dxw; e.y = g.o0.y + dyw; synchroSommets(S.doc); }
-    else if (c.k === 'sommet'){ var l = el(c.id), prec = c.i > 0 ? vpos(l.v[c.i - 1], idx()) : null, a = l.t === 'lim' ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, prec: prec, col: l.t === 'col'}); l.v[c.i].x = a.x; l.v[c.i].y = a.y; S.accrocheVue = a.type ? a : null; g.accroche = a; }
+    else if (c.k === 'sommet'){
+      /* les objets déjà liés au tracé (son départ, un regard ou un raccord qu'il porte) ne sont pas des cibles : il se refermerait sur lui */
+      var l = el(c.id), prec = c.i > 0 ? vpos(l.v[c.i - 1], idx()) : null, siens = {}; l.v.forEach(function(w, k){ if (k !== c.i && w.a) siens[w.a] = true; });
+      var a = l.t === 'lim' ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, saufObjs: siens, prec: prec, col: l.t === 'col'}); l.v[c.i].x = a.x; l.v[c.i].y = a.y; S.accrocheVue = a.type ? a : null; g.accroche = a;
+    }
     else if (c.k === 'etiq'){ var e2 = el(c.id); e2.lab = {dx: g.lab0.dx + dP.x, dy: g.lab0.dy + dP.y, E: E(), main: true}; }
     else if (c.k === 'bulle'){ var nb = {dx: g.b0.dx + dP.x, dy: g.b0.dy + dP.y}, man = (S.doc.anomManu || []).filter(function(m){ return m.id === c.id; })[0]; if (man) man.bulle = nb; else { var d = S.doc.decisions[c.id] || (S.doc.decisions[c.id] = {}); d.bulle = nb; } }
     analyseLegere(); redessiner();
@@ -2309,7 +2313,9 @@ function editeur(racine, opts){
     var fa = S.finAuto, b = S.brouillon;
     if (!g.cree || !fa || Date.now() - fa.t > 1500 || !b || b.pts.length !== 1) return false;
     var s0 = b.pts[0].snap, R0 = fa.r || 48, pres = Math.hypot(g.x0 - fa.tx, g.y0 - fa.ty) < R0 || Math.hypot(g.x0 - fa.x, g.y0 - fa.y) < R0;
-    if (!s0 || !(s0.type === 'obj' ? s0.id === fa.id : pres && ((!!fa.ligne && s0.ligne === fa.ligne) || (!!fa.id && tracePropre(s0, fa.id, g.x0, g.y0))))) return false;
+    /* départ sur l'objet de fin, sur le tracé fini ou un tracé propre de l'objet de fin, ou départ libre (trait du complément du fond,
+       extrémité libre) près de la fin */
+    if (!(s0 ? (s0.type === 'obj' ? s0.id === fa.id : pres && ((!!fa.ligne && s0.ligne === fa.ligne) || (!!fa.id && tracePropre(s0, fa.id, g.x0, g.y0)))) : pres)) return false;
     S.brouillon = null; S.finAuto = null; majAide(); redessiner();
     toast(msgFin(fa), 3500); return true;
   }
@@ -2341,8 +2347,23 @@ function editeur(racine, opts){
     /* toucher qui roule sous le doigt (glissé de moins de 24 px) : juste après une fin, c'est le toucher d'habitude ; au départ, une arrivée qui
        désigne le départ (même objet, son propre tracé, objet posé sur le tracé de départ) n'est pas un point */
     var pres8 = Math.hypot(sa.x - last.x, sa.y - last.y) < 8, court = Math.hypot(p.x - g.x0, p.y - g.y0) < 24;
-    if ((pres8 || court) && habitudeGlisse(g)) return;
-    if (pres8 || (court && b0.pts.length === 1 && cibleDepart(a, b0.pts[0].snap, p.x, p.y))){ redessiner(); return; }
+    var pl = b0.pts[b0.pts.length - 1], p0 = b0.pts[0], un = b0.pts.length === 1;
+    /* juste après une fin, un glissé court qui finit nettement sur une autre cible (autre objet : doigt sur son symbole, ou nettement plus près
+       de son bord que de la fin ; autre tracé), à l'écart du symbole de l'objet de fin, est un départ volontaire depuis l'objet de fin */
+    var fa = S.finAuto, autreFin = false;
+    if (court && !pres8 && un && fa && attache(a) && !cibleDepart(a, p0.snap, p.x, p.y) && !(a.type !== 'obj' && !!fa.ligne && a.ligne === fa.ligne)){
+      var zf = fa.id ? zonePt(fa.id) : null, dFin = zf ? Math.max(0, Math.hypot(p.x - zf.x, p.y - zf.y) - zf.r) : Math.min(Math.hypot(p.x - fa.x, p.y - fa.y), Math.hypot(p.x - fa.tx, p.y - fa.ty));
+      var za = a.type === 'obj' ? zonePt(a.id) : null, dv = za ? Math.max(0, Math.hypot(p.x - za.x, p.y - za.y) - za.r) : Math.hypot(p.x - sa.x, p.y - sa.y);
+      autreFin = dFin > 6 && (dv <= 4 || dv + 6 < dFin);
+    }
+    if ((pres8 || (court && !autreFin)) && habitudeGlisse(g)) return;
+    /* toucher qui roule près du dernier point (glissé court lâché à 18 px ou moins de lui, ou de l'endroit où le doigt l'a posé, comme un toucher) :
+       ensuite, c'est « toucher de nouveau le dernier point », le tracé est terminé (arrivée libre, ou sur la cible du dernier point) ; au
+       départ, c'est le second toucher d'habitude, ignoré (arrivée libre, ou qui désigne le départ) */
+    var dPl = function(x, y){ var d = Math.hypot(x - last.x, y - last.y); if (pl.doigt){ var ed = S.vue.ecran(pl.doigt.x, pl.doigt.y); d = Math.min(d, Math.hypot(x - ed.x, y - ed.y)); } return d; };
+    var pres18 = pres8 || (court && dPl(p.x, p.y) <= 18), libre = !attache(a);
+    if (!un && pres18 && (libre || (!!pl.snap && cibleDepart(a, pl.snap, p.x, p.y)))){ terminerGarde(pl.snap || pl, {x: p.x, y: p.y}); return; }
+    if (pres8 || (court && un && (cibleDepart(a, p0.snap, p.x, p.y) || (pres18 && libre && !p0.snap)))){ redessiner(); return; }
     ajouterPointTrace(a, {x: p.x, y: p.y});
   }
   /* --- outil Relier : deux objets, un tronçon droit ou en L d'équerre avec le bâti --- */
