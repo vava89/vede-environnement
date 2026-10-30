@@ -2993,8 +2993,8 @@ function editeur(racine, opts){
             + 'Sa saisie est gardée dans le croquis : la retenir de nouveau la rend telle quelle, tant que le croquis existe.'});
         return;
       }
-      /* décision ou nature déjà choisies : rien ne change, pas de pas d'annulation */
-      if (a === 'dec' ? (m ? m.st : (S.doc.decisions[cle] || {}).st) === b.dataset.v : !!(cur && !!cur.nc === (b.dataset.v === '1'))) return;
+      /* décision (l'enregistrée, sinon celle par défaut) ou nature déjà choisies : rien ne change, pas de pas d'annulation */
+      if (a === 'dec' ? ((m ? m.st : (S.doc.decisions[cle] || {}).st) || (!m && cur && cur.arbitrer ? 'arbitrer' : 'retenue')) === b.dataset.v : !!(cur && !!cur.nc === (b.dataset.v === '1'))) return;
       instantane();
       if (a === 'dec'){ if (m) m.st = b.dataset.v; else (S.doc.decisions[cle] = S.doc.decisions[cle] || {}).st = b.dataset.v; }
       else { var nv = b.dataset.v === '1'; var cibleN = m || (S.doc.decisions[cle] = S.doc.decisions[cle] || {}); cibleN.nc = nv; noterRetouche(cibleN, 'nc', cle); if (m && S.doc.decisions[cle]) delete S.doc.decisions[cle].nc; }
