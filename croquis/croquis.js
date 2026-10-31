@@ -1452,15 +1452,16 @@ var CADRE = {w: 205, h: 192};
 /* ce que dessine le plan d'un mode : l'état des lieux, tout sauf le projet ; l'avant-projet, tout, ouvrages à supprimer compris (barrés) */
 function surPlan(e, mode, caches){ return !(caches && caches[e.id]) && (mode !== 'edl' || actif(e, 'edl')); }
 /* raccords du dessin qu'un plan ne montre pas : sur l'état des lieux, ceux qui ne relient deux tracés qu'avec le projet (tuyau projeté
-   raccordé à un collecteur existant) ; avec porte (objets qui portent une anomalie), aussi ceux qui ne relient plus deux tracés et ne portent
-   rien (restés d'un croquis plus ancien, ou d'une anomalie supprimée dans le dossier). Un raccord posé à la main est toujours montré */
+   raccordé à un collecteur existant), même s'ils portent une anomalie (comme un ouvrage projeté : sa bulle est sur l'avant-projet) ; avec
+   porte (objets qui portent une anomalie), aussi ceux qui ne relient plus deux tracés et ne portent rien (restés d'un croquis plus ancien, ou
+   d'une anomalie supprimée dans le dossier). Un raccord posé à la main est toujours montré */
 function raccordsCaches(doc, mode, porte){
   var u = {}, c = {};
   doc.el.forEach(function(l){ if (l.k !== 'ln') return; var prj = !actif(l, 'edl'), vus = {}; l.v.forEach(function(v){ if (!v.a || vus[v.a]) return; vus[v.a] = true; var x = u[v.a] || (u[v.a] = {n: 0, prj: 0}); x.n++; if (prj) x.prj++; }); });
   doc.el.forEach(function(o){
-    if (o.k !== 'pt' || o.t !== 'jonction' || !jonctionAuto(o) || (porte && porte[o.id])) return;
+    if (o.k !== 'pt' || o.t !== 'jonction' || !jonctionAuto(o)) return;
     var x = u[o.id] || {n: 0, prj: 0};
-    if ((porte && x.n < 2) || (mode === 'edl' && x.prj && x.n - x.prj < 2)) c[o.id] = true;
+    if ((porte && !porte[o.id] && x.n < 2) || (mode === 'edl' && x.prj && x.n - x.prj < 2)) c[o.id] = true;
   });
   return c;
 }
@@ -2248,16 +2249,18 @@ function editeur(racine, opts){
      clavier fermé ; bouton du panneau qui ne reste pas actif pour la touche Entrée). Une fiche qu'il ouvre (pose, choix) est gardée contre
      le second toucher d'un double toucher (majPanneau) ; si la vue a glissé pour la montrer, le plan l'est aussi */
   /* tAppui : heure de l'appui d'un toucher qui roule (glissé court), dont le lever arrive plus tard que celui d'un toucher net */
-  function tap(x, y, tAppui){
+  function tap(x, y, tAppui, cibleRoule){
     var ae = document.activeElement; if (ae !== R && (!ae || ae === document.body || R.contains(ae))) try { R.focus({preventScroll: true}); } catch(e){}
-    var t0 = Date.now(), v0 = cleVue(), r = tapPlan(x, y, tAppui), gf = S.gardeFiche;
+    var t0 = Date.now(), v0 = cleVue(), r = tapPlan(x, y, tAppui, cibleRoule), gf = S.gardeFiche;
     if (gf && gf.t >= t0 && cleVue() !== v0) gf.glisse = true;
     if (S.dernierTap) S.dernierTap.vue = cleVue();
     return r;
   }
   /* vue du plan après un toucher : un double toucher suppose qu'elle n'a pas bougé entre les deux touchers */
   function cleVue(){ return [S.vue.cx, S.vue.cy, S.vue.s, S.vue.rot || 0].join(','); }
-  function tapPlan(x, y, tAppui){
+  /* cibleRoule : ce que désigne un toucher qui roule quand ce n'est pas ce qui est sous le doigt levé (Relier : départ resté sur un objet et son
+     propre tracé, ou glissé court qui ne vise pas l'arrivée) */
+  function tapPlan(x, y, tAppui, cibleRoule){
     protegerPanneau();
     /* tq : heure du toucher pour ses fenêtres (double toucher, gardes) ; l'appui pour un toucher qui roule */
     var now = Date.now(), tq = Math.min(now, tAppui || now), double = S.dernierTap && tq - S.dernierTap.t < 380 && Math.hypot(x - S.dernierTap.x, y - S.dernierTap.y) < 24 && S.dernierTap.vue === cleVue();
@@ -2292,7 +2295,7 @@ function editeur(racine, opts){
     if (o.k === 'tx'){ poserTexte(x, y); return; }
     if (o.k === 'ln'){
       var b2 = S.brouillon, rel = !!OUTILS_LN[o.id].relier;
-      if (rel && S.relier){ relierToucher(x, y, double); return; }
+      if (rel && S.relier){ relierToucher(x, y, double, cibleRoule); return; }
       /* juste après une fin automatique, un nouveau toucher sur le même objet est l'habitude « toucher à nouveau pour terminer » : ignoré une fois, avec l'explication ;
          un toucher sur un autre objet agit, sauf si la vue a glissé (fiche ouverte) au point d'amener un autre objet à l'endroit du premier toucher */
       if (!b2 && S.finAuto && tq - S.finAuto.t < 1000){
@@ -2309,7 +2312,7 @@ function editeur(racine, opts){
         var pres = !autre && (Math.hypot(x - fa.tx, y - fa.ty) < R0 || Math.hypot(x - fa.x, y - fa.y) < R0);
         if (pres || surFin || (ao && ao.type === 'obj' && !!fa.id && ao.id === fa.id)){ S.finAuto = null; toast(msgFin(fa), 3500); return; }
       }
-      if (rel){ relierToucher(x, y, double); return; }
+      if (rel){ relierToucher(x, y, double, cibleRoule); return; }
       /* ce que vise un toucher près du dernier point : le point lui-même (même objet, ou même point d'un tracé à 24 px), un autre objet ou un
          autre tracé (visé si le doigt est sur le symbole de l'objet, ou en est nettement plus près que du dernier point : 6 px de marge, depuis
          le bord du symbole), ou un point libre. La distance au dernier point se mesure aussi depuis l'endroit où le doigt l'a posé (le plus
@@ -2341,7 +2344,9 @@ function editeur(racine, opts){
           var a4 = accroche(x, y, {col: OUTILS_LN[S.outil.id].t === 'col', sansObj: true}), s4 = S.vue.ecran(a4.x, a4.y), d4 = Math.hypot(x - s4.x, y - s4.y);
           if (attache(a4) && d4 + 6 < dl){ if (cibleDepart(a4, sp, x, y)) lui = true; else { at = a4; ds = d4; autre = true; } }
         }
-        if (un && !lui && attache(at) && at.type !== 'obj' && sp && sp.type !== 'obj' && at.ligne === sp.ligne){ S.dernierTap = null; toast('Le tronçon suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return; }
+        /* au départ, un point sur le tracé de départ (même collecteur, même tuyau, ou tracé qui porte l'objet de départ), ou un objet que porte ce
+           tracé, hors du geste habituel, est refusé */
+        if (un && !lui && attache(at) && sp && memeTrace(at, sp)){ S.dernierTap = null; toast('Le tronçon suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return; }
         if (lui || (!autre && (dl <= 18 || (double && (!un || attache(at)))))){
           if (un){ S.dernierTap = null; if (double){ toast('Départ du tronçon posé : touchez le point suivant.', 2500); return; } annulerTrace(); toast('Tronçon abandonné'); return; }
           /* fin par le geste habituel : comme après une fin automatique, le second toucher qui suit (double toucher) ne prolonge pas le tronçon fini */
@@ -2351,8 +2356,14 @@ function editeur(racine, opts){
       ajouterPointTrace(at, {x: x, y: y});
     }
   }
-  /* deux points d'un même tracé (collecteur, tronçon), à toute distance */
-  function memeTrace(a, b){ return a.type !== 'obj' && b.type !== 'obj' && !!a.ligne && a.ligne === b.ligne; }
+  /* deux accroches sur un même tracé, à toute distance : deux points de ce tracé (collecteur, tronçon), ou un point de ce tracé et un objet posé
+     sur lui */
+  function memeTrace(a, b){
+    if (a.type !== 'obj' && b.type !== 'obj') return !!a.ligne && a.ligne === b.ligne;
+    if (a.type === 'obj' && b.type === 'obj') return false;
+    var o = a.type === 'obj' ? a : b, t = a.type === 'obj' ? b : a;
+    return attache(t) && objetSurTrace(o.id, t.ligne);
+  }
   /* deux accroches désignent-elles la même chose : le même objet, ou deux points d'un même tracé à moins de tol px (12 par défaut) ? */
   function memeCible(a, b, tol){
     if (a.type === 'obj' || b.type === 'obj') return a.type === b.type && a.id === b.id;
@@ -2417,8 +2428,38 @@ function editeur(racine, opts){
     if (!o || (a.type === 'obj' && a.id === o.id) || !(Math.hypot(x - z.x, y - z.y) <= z.r || Math.hypot(x - fa.x, y - fa.y) <= z.r)) return a;
     return {type: 'obj', id: o.id, x: o.x, y: o.y};
   }
+  /* juste après une fin dont la fiche a fait glisser la vue : le doigt posé près du premier toucher ou de l'objet de fin d'avant le glissement,
+     hors du symbole actuel de l'objet de fin, c'est le second toucher d'habitude (ce qui est maintenant sous le doigt y a glissé) */
+  function apresGlissement(x, y, t){
+    var fa = S.finAuto; if (!fa || !(fa.gx || fa.gy) || t - fa.t > 1500) return false;
+    var z = fa.id ? zonePt(fa.id) : null, R0 = fa.r || 48;
+    if (z && Math.hypot(x - z.x, y - z.y) <= z.r) return false;
+    return Math.hypot(x - fa.tx, y - fa.ty) < R0 || Math.hypot(x - fa.x, y - fa.y) < R0;
+  }
+  /* Relier, juste après une liaison : un glissé court parti de l'objet d'arrivée est le toucher d'habitude qui roule, ignoré une fois avec
+     l'explication (comme avec l'outil Tronçon), sauf s'il finit nettement sur une autre cible : doigt sur son symbole, ou nettement plus près
+     d'elle, à plus de 6 px du symbole de l'arrivée, et visée comme le point suivant d'un tronçon (viseeRelier) ; jamais la liaison faite, un
+     tracé qui porte l'arrivée ni un objet posé sur un tel tracé */
+  function habitudeRelier(dep, a, g, p){
+    var fa = S.finAuto; if (!fa || !fa.id || Date.now() - fa.t > 1500 || dep.type !== 'obj' || dep.id !== fa.id) return false;
+    var lie = a.type !== 'obj' ? objetSurTrace(fa.id, a.ligne) : S.doc.el.some(function(l){ return l.k === 'ln' && l.v.some(function(v){ return v.a === fa.id; }) && l.v.some(function(v){ return v.a === a.id; }); });
+    var zf = zonePt(fa.id), dFin = zf ? Math.max(0, Math.hypot(p.x - zf.x, p.y - zf.y) - zf.r) : Math.hypot(p.x - fa.x, p.y - fa.y);
+    var za = a.type === 'obj' ? zonePt(a.id) : null, sa = S.vue.ecran(a.x, a.y), dv = za ? Math.max(0, Math.hypot(p.x - za.x, p.y - za.y) - za.r) : Math.hypot(p.x - sa.x, p.y - sa.y);
+    if (!lie && dFin > 6 && (dv <= 4 || dv + 6 < dFin) && viseeRelier(dep, a, g, p)) return false;
+    S.finAuto = null; redessiner(); toast(msgFin(fa), 3500); return true;
+  }
+  /* Relier, glissé court sans départ en attente : l'arrivée est-elle nettement visée, comme le point suivant d'un tronçon (doigt sur son
+     symbole, ou nettement plus près d'elle, 6 px de marge, que du départ et de l'appui, à 18 px ou moins ; jamais à moins de 8 px du départ) ? */
+  function viseeRelier(dep, a, g, p){
+    var sd = S.vue.ecran(dep.x, dep.y), sa = S.vue.ecran(a.x, a.y);
+    if (Math.hypot(sa.x - sd.x, sa.y - sd.y) < 8) return false;
+    var dl = Math.min(Math.hypot(p.x - sd.x, p.y - sd.y), Math.hypot(p.x - g.x0, p.y - g.y0)); if (dl > 18) return true;
+    var za = a.type === 'obj' ? zonePt(a.id) : null, dv = za ? Math.max(0, Math.hypot(p.x - za.x, p.y - za.y) - za.r) : Math.hypot(p.x - sa.x, p.y - sa.y);
+    return (!!za && dv <= 4) || dv + 6 < dl;
+  }
   function demarrerTrace(g){
     var oo = OUTILS_LN[S.outil.id];
+    g.glisseFin = apresGlissement(g.x0, g.y0, g.t0 || Date.now());
     if (oo.relier){ g.relierDep = surObjetFin(accroche(g.x0, g.y0, {}), g.x0, g.y0); return; }
     if (!S.brouillon){ var a0 = pointTrace(g.x0, g.y0); ajouterPointTrace(oo.t === 'lim' ? a0 : surObjetFin(a0, g.x0, g.y0), {x: g.x0, y: g.y0}); g.cree = !!S.brouillon; }
     g.ok = !!S.brouillon;
@@ -2434,10 +2475,20 @@ function editeur(racine, opts){
     var oo = OUTILS_LN[S.outil.id], ap = S.apercu; S.apercu = null; S.accrocheVue = null;
     /* toucher qui roule sous le doigt (glissé de moins de 24 px) : c'est un toucher à l'endroit où le doigt se lève, avec toutes ses règles */
     var court = Math.hypot(p.x - g.x0, p.y - g.y0) < 24;
+    /* juste après une fin dont la fiche a fait glisser la vue, le toucher d'habitude qui roule là où était l'objet de fin : c'est un toucher à
+       l'endroit où le doigt se lève, avec ses gardes (plan qui a glissé, tracé déjà terminé) ; le départ posé par ce glissé est retiré */
+    if (court && g.glisseFin){ if (g.cree){ S.brouillon = null; majAide(); } redessiner(); tap(p.x, p.y, g.t0); return; }
     if (oo.relier){
       var dep = g.relierDep, arr = accroche(p.x, p.y, {}), meme = attache(dep) && attache(arr) && (surSymbole(dep, p.x, p.y) || memeCible(arr, dep, 18) || cibleLiee(arr, dep, p.x, p.y, 18));
-      /* toucher d'arrivée quand un départ attend ; sinon toucher de départ, resté sur un même objet ou un même point (ou libre) */
-      if (court && (S.relier || meme || !attache(dep) || !attache(arr))){ redessiner(); tap(p.x, p.y, g.t0); return; }
+      if (court && !S.relier && !meme && attache(dep) && attache(arr) && habitudeRelier(dep, arr, g, p)) return;
+      /* sans départ en attente, un glissé court qui ne vise pas nettement l'arrivée est le toucher de départ, sur l'objet ou le tracé de départ */
+      var depart = court && !S.relier && !meme && attache(dep) && attache(arr) && !viseeRelier(dep, arr, g, p);
+      /* toucher d'arrivée quand un départ attend ; sinon toucher de départ, resté sur un même objet ou un même point (ou libre) : resté sur un
+         objet et son propre tracé, le départ est cet objet */
+      if (court && (S.relier || meme || depart || !attache(dep) || !attache(arr))){
+        var vise = S.relier ? null : depart ? dep : meme ? (dep.type === 'obj' ? dep : arr.type === 'obj' ? arr : null) : null;
+        redessiner(); tap(p.x, p.y, g.t0, vise); return;
+      }
       if (!attache(dep) || !attache(arr)){ toast('Glissez d\'un objet ou d\'un tracé jusqu\'à un autre'); redessiner(); return; }
       if (meme){ redessiner(); return; }
       if (memeTrace(arr, dep)){ toast('Un tracé ne se relie pas à lui-même : glissez jusqu\'à l\'objet d\'arrivée (regard, boîte, autre tracé…).', 3500); redessiner(); return; }
@@ -2477,18 +2528,23 @@ function editeur(racine, opts){
     if (pres18 && !libre){ var dl0 = dPl(p.x, p.y), zo = a.type === 'obj' ? zonePt(a.id) : null, dv0 = zo ? Math.max(0, Math.hypot(p.x - zo.x, p.y - zo.y) - zo.r) : Math.hypot(p.x - sa.x, p.y - sa.y); visee = (!!zo && dv0 <= 4) || dv0 + 6 < dl0; }
     var habituel = pres18 && (libre || !visee || (!!pl.snap && cibleDepart(a, pl.snap, p.x, p.y)));
     if (!un && habituel){ terminerGarde(pl.snap || pl, {x: p.x, y: p.y}); return; }
-    if (un && (pres8 || (court && (cibleDepart(a, p0.snap, p.x, p.y) || habituel)))){ redessiner(); return; }
-    /* au départ, un tronçon qui suivrait le tracé de départ (même collecteur, même tuyau) est refusé, comme au toucher ; le départ posé par ce
-       glissé est retiré */
-    if (un && attache(a) && a.type !== 'obj' && p0.snap && p0.snap.type !== 'obj' && a.ligne === p0.snap.ligne){
+    /* au départ, le doigt levé sur le symbole de l'objet de départ, c'est lui, même si le centre d'un voisin est plus près (comme au toucher) ;
+       ce toucher qui roule compte pour un double toucher avec le suivant */
+    if (un && (pres8 || (court && (cibleDepart(a, p0.snap, p.x, p.y) || surSymbole(p0.snap, p.x, p.y) || habituel)))){
+      if (court && g.cree) S.dernierTap = {t: Date.now(), x: p.x, y: p.y, vue: cleVue()};
+      redessiner(); return;
+    }
+    /* au départ, un tronçon qui suivrait le tracé de départ (même collecteur, même tuyau, tracé qui porte l'objet de départ, ou objet que porte
+       ce tracé) est refusé, comme au toucher ; le départ posé par ce glissé est retiré */
+    if (un && attache(a) && p0.snap && memeTrace(a, p0.snap)){
       if (g.cree) S.brouillon = null; S.dernierTap = null; majAide(); redessiner();
       toast(g.cree ? 'Le tronçon suivrait le tracé de départ : glissez jusqu\'à un point hors de ce tracé.' : 'Le tronçon suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return;
     }
     ajouterPointTrace(a, {x: p.x, y: p.y});
   }
   /* --- outil Relier : deux objets, un tronçon droit ou en L d'équerre avec le bâti --- */
-  function relierToucher(x, y, double){
-    var a = accroche(x, y, {});
+  function relierToucher(x, y, double, cibleRoule){
+    var a = cibleRoule || accroche(x, y, {});
     if (!S.relier){
       if (!attache(a)){ toast('Touchez d\'abord l\'objet de départ'); return; }
       S.relier = a; majAide(); redessiner(); return;
