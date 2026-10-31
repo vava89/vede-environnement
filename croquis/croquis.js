@@ -534,11 +534,16 @@ function analyser(doc, mode){
     boites[id] = {cols: cols, gest: cols.length ? cols[0].gest : null};
   });
   function gestDe(t){ if (t.col) return t.gest; if (t.boite && boites[t.id] && boites[t.id].gest) return boites[t.id].gest; return (doc.gest && doc.gest[t.res]) || 'D'; }
-  /* extrémité libre d'un tracé : sommet sans objet, ou raccord qui, sur ce plan, ne relie que lui (ses autres tracés sont projetés sur l'état
-     des lieux, ou à supprimer sur l'avant-projet : tuyau projeté parti de l'extrémité d'un tuyau existant) */
-  var lieHorsPlan = {};
-  doc.el.forEach(function(e){ if (e.k === 'ln' && !actif(e, mode)) e.v.forEach(function(v){ if (v.a) lieHorsPlan[v.a] = true; }); });
-  function boutLibre(nd){ if (nd.indexOf('x:') === 0) return true; var ob = objs[nd]; return !!ob && ob.t === 'jonction' && !!lieHorsPlan[nd] && (adj[nd] || []).length === 1; }
+  /* extrémité libre d'un tracé : sommet sans objet ; sur l'état des lieux, aussi un raccord du dessin (sans anomalie du croquis) qui ne relie
+     que lui, ses autres tracés étant projetés : tuyau projeté parti de l'extrémité d'un tuyau existant ; sans eux, ce raccord n'existerait pas.
+     Un raccord posé à la main reste un nœud. Sur l'avant-projet, le tuyau à supprimer d'un raccord n'en fait pas une extrémité libre : la
+     branche qui y reste n'a plus d'exutoire après travaux */
+  var lieHorsPlan = {}, anomSur = {};
+  if (mode !== 'avp'){
+    doc.el.forEach(function(e){ if (e.k === 'ln' && !actif(e, mode)) e.v.forEach(function(v){ if (v.a) lieHorsPlan[v.a] = true; }); });
+    (doc.anomManu || []).forEach(function(m){ if (m.objId) anomSur[m.objId] = true; });
+  }
+  function boutLibre(nd){ if (nd.indexOf('x:') === 0) return true; var ob = objs[nd]; return !!ob && ob.t === 'jonction' && !!lieHorsPlan[nd] && jonctionAuto(ob) && !anomSur[nd] && (adj[nd] || []).length === 1; }
   /* Sources */
   var resObj = {};
   Object.keys(objs).forEach(function(id){
@@ -552,10 +557,14 @@ function analyser(doc, mode){
     });
     /* sans exutoire dessiné : réseau présumé d'après les tronçons indiqués sur le chemin vers une extrémité libre */
     if (!nets.length){
-      var ex = {};
-      Object.keys(r.vus).forEach(function(nd){ if (!boutLibre(nd)) return; chemin(r, nd).pieces.forEach(function(p){ if (!p.col && /^(EU|EP|UN)$/.test(p.l.p.res || '')) ex[p.l.p.res] = true; }); });
+      var ex = {}, versLibres = [];
+      Object.keys(r.vus).forEach(function(nd){ if (!boutLibre(nd)) return; var ch = chemin(r, nd); versLibres.push(ch); ch.pieces.forEach(function(p){ if (!p.col && /^(EU|EP|UN)$/.test(p.l.p.res || '')) ex[p.l.p.res] = true; }); });
       var exl = Object.keys(ex);
-      if (exl.length === 1){ nets = exl; presume = true; gests[exl[0]] = (doc.gest && doc.gest[exl[0]]) || 'D'; }
+      if (exl.length === 1){
+        nets = exl; presume = true; gests[exl[0]] = (doc.gest && doc.gest[exl[0]]) || 'D';
+        /* fosse septique ou boîte sur le chemin de l'exutoire présumé : comme sur celui d'un exutoire dessiné */
+        versLibres.forEach(function(ch){ ch.nodes.forEach(function(nd){ var ob = objs[nd], tt = ob && T[ob.t]; if (tt && tt.fosse && !fosse) fosse = nd; if (tt && tt.boite && !boite) boite = nd; }); });
+      }
     }
     var etat = !Object.keys(r.pieces).length ? 'nonrelie' : !nets.length ? 'sansexu' : nets.length > 1 ? 'multiple' : 'ok';
     resObj[id] = {etat: etat, res: nets.length === 1 ? nets[0] : null, nets: nets, gest: nets.length === 1 ? gests[nets[0]] : null, presume: presume, fosse: fosse, boite: boite, term: r.term, entree: entree};
@@ -2011,23 +2020,27 @@ function editeur(racine, opts){
       surObj[z.id] = 1; if (o.sansObj || o.saufObj === z.id || (o.saufObjs && o.saufObjs[z.id])) continue;
       var d = Math.hypot(x - z.x, y - z.y); if (d <= Math.max(z.r, 10) + 12 && d < dob){ dob = d; de = Math.max(0, d - z.r); var ob0 = I[z.id]; ob = {type: 'obj', id: z.id, x: ob0.x, y: ob0.y}; }
     }
-    /* de deux tracés superposés (à 1 px près : remplaçant « Projet » posé sur le tuyau « À supprimer »), celui du plan de l'accroche, puis le
-       plus proche, puis le plus récent */
-    var cands = [];
+    /* sommets (16 px) et segments (13 px) des tracés. Un sommet (coude, point intermédiaire, extrémité libre) passe avant le tracé sous le doigt,
+       sauf le sommet d'un autre tracé nettement plus loin que lui (6 px de marge, comme pour les objets), ou hors du plan de l'accroche quand un
+       tracé de ce plan passe aussi près (tuyau « À supprimer » qui a un sommet là où son remplaçant « Projet », posé dessus, n'en a pas). De
+       deux tracés superposés (à 1 px près), celui du plan de l'accroche, puis le plus proche, puis le plus ancien (au croisement d'un collecteur
+       et d'un branchement dessiné après lui : le collecteur) */
+    var plan = o.plan || planAccroche(), som = [], seg = [];
     S.doc.el.forEach(function(l){
       if (l.k !== 'ln' || l.t === 'lim' || o.saufLigne === l.id || (o.col && l.t !== 'col')) return;
-      var P = lignePts(l, I);
-      P.forEach(function(p, i){ if (surObj[l.v[i].a]) return; var s = S.vue.ecran(p.x, p.y), d = Math.hypot(x - s.x, y - s.y); if (d <= 16) cands.push({d: d, l: l, a: {type: 'som', ligne: l.id, i: i, x: p.x, y: p.y, a: l.v[i].a || null}}); });
+      var P = lignePts(l, I), Q = P.map(function(p){ return S.vue.ecran(p.x, p.y); });
+      P.forEach(function(p, i){ if (surObj[l.v[i].a]) return; var d = Math.hypot(x - Q[i].x, y - Q[i].y); if (d <= 16) som.push({d: d, l: l, a: {type: 'som', ligne: l.id, i: i, x: p.x, y: p.y, a: l.v[i].a || null}}); });
+      for (var i = 1; i < Q.length; i++){ var q = projSeg({x: x, y: y}, Q[i - 1], Q[i]); if (q.d <= 13){ var w = S.vue.monde(q.x, q.y); seg.push({d: q.d, l: l, a: {type: 'seg', ligne: l.id, i: i, x: w.x, y: w.y}}); } }
     });
-    if (!cands.length) S.doc.el.forEach(function(l){
-      if (l.k !== 'ln' || l.t === 'lim' || o.saufLigne === l.id || (o.col && l.t !== 'col')) return;
-      var P = lignePts(l, I).map(function(p){ return S.vue.ecran(p.x, p.y); });
-      for (var i = 1; i < P.length; i++){ var q = projSeg({x: x, y: y}, P[i - 1], P[i]); if (q.d <= 13){ var w = S.vue.monde(q.x, q.y); cands.push({d: q.d, l: l, a: {type: 'seg', ligne: l.id, i: i, x: w.x, y: w.y}}); } }
-    });
+    var dseg = Math.min.apply(null, seg.map(function(c){ return c.d; }).concat([Infinity]));
+    som = som.filter(function(c){ return c.d <= dseg + 6 || seg.some(function(q){ return q.l === c.l && q.d <= dseg + 1; }); });
+    var dsom = Math.min.apply(null, som.map(function(c){ return c.d; }).concat([Infinity]));
+    if (!som.some(function(c){ return c.d <= dsom + 1 && traceDuPlan(c.l, plan); }) && seg.some(function(q){ return q.d <= dsom + 1 && traceDuPlan(q.l, plan); })) som = [];
+    var cands = som.length ? som : seg;
     if (cands.length){
-      var plan = o.plan || planAccroche(), dmin = Math.min.apply(null, cands.map(function(c){ return c.d; }));
+      var dmin = Math.min.apply(null, cands.map(function(c){ return c.d; }));
       var c0 = cands.filter(function(c){ return c.d <= dmin + 1; }).map(function(c){ return {c: c, k: [traceDuPlan(c.l, plan) ? 1 : 0, -Math.round(c.d * 1e4), S.doc.el.indexOf(c.l)]}; })
-        .sort(function(a, b){ return b.k[0] - a.k[0] || b.k[1] - a.k[1] || b.k[2] - a.k[2]; })[0].c;
+        .sort(function(a, b){ return b.k[0] - a.k[0] || b.k[1] - a.k[1] || a.k[2] - b.k[2]; })[0].c;
       best = c0.a; bd = c0.d;
     }
     if (ob && !(best && bd + 6 < de)) return ob;
