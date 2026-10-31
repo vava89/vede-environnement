@@ -1450,14 +1450,27 @@ VC.dessinerCroquis = dessinerCroquis; VC.bulleDefaut = bulleDefaut;
 var ECHELLES = [100, 150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000, 2500, 5000];
 var CADRE = {w: 205, h: 192};
 /* ce que dessine le plan d'un mode : l'état des lieux, tout sauf le projet ; l'avant-projet, tout, ouvrages à supprimer compris (barrés) */
-function surPlan(e, mode){ return mode !== 'edl' || actif(e, 'edl'); }
+function surPlan(e, mode, caches){ return !(caches && caches[e.id]) && (mode !== 'edl' || actif(e, 'edl')); }
+/* raccords du dessin qu'un plan ne montre pas : sur l'état des lieux, ceux qui ne relient deux tracés qu'avec le projet (tuyau projeté
+   raccordé à un collecteur existant) ; avec porte (objets qui portent une anomalie), aussi ceux qui ne relient plus deux tracés et ne portent
+   rien (restés d'un croquis plus ancien, ou d'une anomalie supprimée dans le dossier). Un raccord posé à la main est toujours montré */
+function raccordsCaches(doc, mode, porte){
+  var u = {}, c = {};
+  doc.el.forEach(function(l){ if (l.k !== 'ln') return; var prj = !actif(l, 'edl'), vus = {}; l.v.forEach(function(v){ if (!v.a || vus[v.a]) return; vus[v.a] = true; var x = u[v.a] || (u[v.a] = {n: 0, prj: 0}); x.n++; if (prj) x.prj++; }); });
+  doc.el.forEach(function(o){
+    if (o.k !== 'pt' || o.t !== 'jonction' || !jonctionAuto(o) || (porte && porte[o.id])) return;
+    var x = u[o.id] || {n: 0, prj: 0};
+    if ((porte && x.n < 2) || (mode === 'edl' && x.prj && x.n - x.prj < 2)) c[o.id] = true;
+  });
+  return c;
+}
 function emprisePlan(doc, idx, mode){
-  idx = idx || indexDoc(doc); var rot = doc.rot || 0, x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  idx = idx || indexDoc(doc); var rot = doc.rot || 0, x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, rc = raccordsCaches(doc, mode, null);
   function ajoute(x, y){ var p = versPlan(x, y, rot); if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x; if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y; }
   /* les collecteurs de la rue ne comptent que par leurs piquages : sinon leur longueur imposerait une petite échelle */
-  var autres = doc.el.some(function(e){ return !(e.k === 'ln' && e.t === 'col') && surPlan(e, mode); });
+  var autres = doc.el.some(function(e){ return !(e.k === 'ln' && e.t === 'col') && surPlan(e, mode, rc); });
   doc.el.forEach(function(e){
-    if (!surPlan(e, mode)) return;
+    if (!surPlan(e, mode, rc)) return;
     if (e.k === 'ln' && e.t === 'col' && autres) return;
     if (e.k === 'pt' && e.t === 'zone'){ var rz = num(e.p.r) || 1.5; ajoute(e.x - rz, e.y - rz); ajoute(e.x + rz, e.y + rz); ajoute(e.x - rz, e.y + rz); ajoute(e.x + rz, e.y - rz); }
     else if (e.k === 'pt' || e.k === 'tx') ajoute(e.x, e.y); else if (e.k === 'ln') lignePts(e, idx).forEach(function(p){ ajoute(p.x, p.y); });
@@ -1470,9 +1483,9 @@ function barreEchelle(m){ var Lm = 1; [1, 2, 5, 10, 20, 50, 100].forEach(functio
 /* points du plan d'un mode (repère du plan, mètres) : objets, avec le rayon de leur symbole (mm) ou de leur zone (m), et sommets des tracés ;
    les collecteurs de la rue débordent du cadre par nature */
 function pointsPlan(doc, mode, idx){
-  idx = idx || indexDoc(doc); var rot = doc.rot || 0, l = [];
+  idx = idx || indexDoc(doc); var rot = doc.rot || 0, l = [], rc = raccordsCaches(doc, mode, null);
   doc.el.forEach(function(e){
-    if (!surPlan(e, mode) || e.k === 'tx' || (e.k === 'ln' && e.t === 'col')) return;
+    if (!surPlan(e, mode, rc) || e.k === 'tx' || (e.k === 'ln' && e.t === 'col')) return;
     if (e.k === 'pt'){ var p = versPlan(e.x, e.y, rot), z = e.t === 'zone'; l.push({x: p.x, y: p.y, r: z ? 0 : rayonSymbole(e.t) + .3, rm: z ? (num(e.p.r) || 1.5) : 0, masque: !z}); }
     else if (e.k === 'ln') lignePts(e, idx).forEach(function(q){ var p2 = versPlan(q.x, q.y, rot); l.push({x: p2.x, y: p2.y, r: .4, rm: 0, masque: false}); });
   });
@@ -1804,9 +1817,9 @@ function editeur(racine, opts){
   function annuler(){
     if (!S.undo.length) return toast('Rien à annuler');
     if (S.undo[S.undo.length - 1] === BARRIERE){ S.undo.pop(); majBarre(); return toast('Le dernier changement porte sur une anomalie du dossier : « Annuler » ne le défait pas (pour un placement : « Retirer du plan »).' + (S.undo.length ? ' Touchez de nouveau « Annuler » pour revenir sur le dessin.' : ''), 6500); }
-    S.redo.push(etatCourant()); restaurer(S.undo.pop()); S.sel = null; S.brouillon = null; S.relier = null; changement(); majAide();
+    S.redo.push(etatCourant()); restaurer(S.undo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; changement(); majAide();
   }
-  function refaire(){ if (!S.redo.length) return toast('Rien à rétablir'); S.undo.push(etatCourant()); restaurer(S.redo.pop()); S.sel = null; S.brouillon = null; S.relier = null; changement(); majAide(); }
+  function refaire(){ if (!S.redo.length) return toast('Rien à rétablir'); S.undo.push(etatCourant()); restaurer(S.redo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; changement(); majAide(); }
 
   /* --- affichage --- */
   function redim(){
@@ -2108,18 +2121,24 @@ function editeur(racine, opts){
     var c = g.cible, w = S.vue.monde(p.x, p.y), w0 = S.vue.monde(g.x0, g.y0), dxw = w.x - w0.x, dyw = w.y - w0.y, rot = S.doc.rot || 0, dP = versPlan(dxw, dyw, rot);
     if (c.k === 'objet'){ var e = el(c.id); e.x = g.o0.x + dxw; e.y = g.o0.y + dyw; synchroSommets(S.doc); }
     else if (c.k === 'sommet'){
-      /* un objet déjà lié au tracé n'est une cible que si le sommet s'y fond avec son voisin (coude glissé sur l'objet de l'extrémité voisine :
-         le coude disparaît) ; il est écarté si s'y raccrocher réduirait le tracé à un point ou le refermerait sur lui */
-      var l = el(c.id), prec = c.i > 0 ? vpos(l.v[c.i - 1], idx()) : null, siens = {};
+      /* un objet déjà lié au tracé n'est une cible que si un coude s'y fond avec son voisin (coude glissé sur l'objet de l'extrémité voisine :
+         le coude disparaît) ; il est écarté si s'y raccrocher réduirait le tracé à un point ou le refermerait sur lui, et pour une extrémité
+         (glissée le long du collecteur sous le regard ou la boîte que porte le sommet voisin, elle reste raccordée au collecteur) */
+      var l = el(c.id), prec = c.i > 0 ? vpos(l.v[c.i - 1], idx()) : null, siens = {}, bout = c.i === 0 || c.i === l.v.length - 1;
       l.v.forEach(function(w, k){
         if (k === c.i || !w.a || siens[w.a]) return;
         var ks = []; l.v.forEach(function(u, kk){ if (kk !== c.i && u.a === w.a) ks.push(kk); });
-        if (ks.some(function(kk){ return Math.abs(kk - c.i) !== 1; }) || l.v.length - ks.length < 2) siens[w.a] = true;
+        if (bout || ks.some(function(kk){ return Math.abs(kk - c.i) !== 1; }) || l.v.length - ks.length < 2) siens[w.a] = true;
       });
       var a = l.t === 'lim' ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, saufObjs: siens, prec: prec, col: l.t === 'col'});
-      /* le tracé propre d'un objet écarté (sortie de la boîte de départ…), sous le doigt dans la zone de cet objet, n'est pas une cible non plus */
-      if ((a.type === 'som' || a.type === 'seg') && Object.keys(siens).some(function(id){ var z = zonePt(id); return !!z && Math.hypot(p.x - z.x, p.y - z.y) <= Math.max(z.r, 10) + 12 && objetSurTrace(id, a.ligne); })){
-        var m0 = S.vue.monde(p.x, p.y); a = (prec && redresser(prec, m0)) || {x: m0.x, y: m0.y};
+      /* un tracé qui porte un objet du tracé (sortie d'une boîte, collecteur d'un regard ou d'un raccord) n'est pas une cible : s'y raccrocher
+         refermerait le tracé sur cet objet. Le doigt dans la zone de l'objet d'un sommet voisin, le coude s'y fond (coude glissé sur la boîte
+         voisine, le doigt sur sa sortie) ; sinon le sommet reste libre */
+      var porteurs = (a.type === 'som' || a.type === 'seg') ? l.v.filter(function(w, k){ return k !== c.i && !!w.a && objetSurTrace(w.a, a.ligne); }).map(function(w){ return w.a; }) : [];
+      if (porteurs.length){
+        var voisin = [l.v[c.i - 1], l.v[c.i + 1]].map(function(w){ return w && w.a; }).filter(function(id){ var z = id && !siens[id] && porteurs.indexOf(id) >= 0 ? zonePt(id) : null; return !!z && Math.hypot(p.x - z.x, p.y - z.y) <= Math.max(z.r, 10) + 12; })[0], ov = voisin && el(voisin);
+        if (ov) a = {type: 'obj', id: ov.id, x: ov.x, y: ov.y};
+        else { var m0 = S.vue.monde(p.x, p.y); a = (prec && redresser(prec, m0)) || {x: m0.x, y: m0.y}; }
       }
       l.v[c.i].x = a.x; l.v[c.i].y = a.y; S.accrocheVue = a.type ? a : null; g.accroche = a;
     }
@@ -2134,6 +2153,7 @@ function editeur(racine, opts){
   /* place une anomalie du dossier sur un objet ; gardée après un changement du dessin, elle retrouve la règle équivalente de cet objet */
   function placerRec(id, objId){
     var r = recDe(id); S.placer = null; if (!r){ majAide(); return; }
+    var avant = r.croquis && typeof r.croquis.objId === 'string' ? r.croquis.objId : null;
     var cr = Object.assign({}, r.croquis || {}, {objId: objId}), pre = typeof cr.cle === 'string' ? cr.cle.split(':')[0] : typeof cr.regle === 'string' ? cr.regle : '', ops = {maj: [], retirer: []}, msg = '';
     if (pre){
       /* même règle sur cet objet : à créer, ou déjà dans le dossier sans y avoir été touchée (doublon retiré) ; une copie d'anomalie retirée
@@ -2162,19 +2182,32 @@ function editeur(racine, opts){
     ops.maj.push({id: id, champs: {croquis: cr}});
     majDossier(ops); barriere();
     apresDossier(true); selectionner(objId);
+    if (avant && avant !== objId) libererRaccord(avant);
     var it = S.liste.filter(function(a){ return a.appId === id; })[0]; toast(msg || 'Anomalie ' + (it ? numLib(it) + ' ' : '') + 'placée sur le plan', msg ? 6000 : 2600);
   }
   /* raccords qui portent une anomalie du dossier placée sur le croquis : jamais retirés d'office */
   function gardesJ(){ var g = {}; (S.liste || []).forEach(function(a){ if (a.dossier && a.objId) g[a.objId] = true; }); return g; }
+  /* raccord quitté par une anomalie (placée ailleurs, retirée du plan, supprimée) : s'il ne relie plus deux tracés et ne porte plus rien, il
+     disparaît, comme après un glissé */
+  function libererRaccord(id){
+    var o = id && el(id); if (!o || o.k !== 'pt' || o.t !== 'jonction') return;
+    var es = S.sel && el(S.sel.id), vs = es && es.k === 'ln' && S.sel.sommet != null ? es.v[S.sel.sommet] : null;
+    var n = S.doc.el.length; nettoyerJonctions(S.doc, [id], gardesJ()); if (S.doc.el.length === n) return;
+    if (S.sel && !el(S.sel.id)) S.sel = null;
+    /* le point choisi reste le même sommet (un point aligné retiré avant lui décale les numéros) */
+    if (S.sel && vs){ var ni = es.v.indexOf(vs); S.sel.sommet = ni >= 0 ? ni : null; }
+    changement();
+  }
   /* raccord quitté par un sommet du tracé l : gardé sur l si un branchement y finit et qu'il est encore sur l ; sinon, s'il ne relie plus deux
-     tracés, il disparaît (tous : nettoyage de tout le croquis) ; un tracé qui y finissait et n'est plus raccordé est signalé. Vrai si gardé */
+     tracés, il disparaît (tous : nettoyage de tout le croquis). Les tuyaux qui finissaient sur ce raccord et n'y sont plus raccordés à aucun
+     autre tracé (collecteur, tracé qui le traverse) sont signalés ; l'extrémité d'un collecteur laissée libre ne l'est pas. Vrai si gardé */
   function quitterRaccord(l, jid, tous){
     var j = jid && el(jid);
     if (j && j.t === 'jonction' && garderRaccord(S.doc, l, jid)) return true;
-    var fins = j && j.t === 'jonction' ? S.doc.el.filter(function(m){ return m.k === 'ln' && m !== l && m.v.length && (m.v[0].a === jid || m.v[m.v.length - 1].a === jid); }) : [];
+    var fins = j && j.t === 'jonction' ? S.doc.el.filter(function(m){ return m.k === 'ln' && m !== l && m.t === 'tr' && m.v.length && (m.v[0].a === jid || m.v[m.v.length - 1].a === jid); }) : [];
     if (tous || jid) nettoyerJonctions(S.doc, tous ? null : [jid], gardesJ());
-    var reste = S.doc.el.filter(function(m){ return m.k === 'ln' && m.v.some(function(v){ return v.a === jid; }); }).length;
-    if (fins.length && reste < 2) toast('Le tracé qui arrivait à ce point n\'y est plus raccordé : glissez son extrémité pour le raccorder de nouveau.', 4500);
+    var porte = S.doc.el.some(function(m){ return m.k === 'ln' && fins.indexOf(m) < 0 && m.v.some(function(v){ return v.a === jid; }); });
+    if (fins.length && !porte) toast(fins.length > 1 ? 'Les tracés qui arrivaient à ce point n\'y sont plus raccordés : glissez leur extrémité pour les raccorder de nouveau.' : 'Le tracé qui arrivait à ce point n\'y est plus raccordé : glissez son extrémité pour le raccorder de nouveau.', 4500);
     return false;
   }
   /* « Retirer ce point » (ou touche Suppr) : le point aligné qui porte un branchement reste, sans pas d'annulation, en le disant
@@ -2214,24 +2247,26 @@ function editeur(racine, opts){
   /* toucher sur le plan : comme le clic qu'il ne produit plus, il ramène le focus sur l'éditeur (champ de saisie quitté, saisie enregistrée,
      clavier fermé ; bouton du panneau qui ne reste pas actif pour la touche Entrée). Une fiche qu'il ouvre (pose, choix) est gardée contre
      le second toucher d'un double toucher (majPanneau) ; si la vue a glissé pour la montrer, le plan l'est aussi */
-  function tap(x, y){
+  /* tAppui : heure de l'appui d'un toucher qui roule (glissé court), dont le lever arrive plus tard que celui d'un toucher net */
+  function tap(x, y, tAppui){
     var ae = document.activeElement; if (ae !== R && (!ae || ae === document.body || R.contains(ae))) try { R.focus({preventScroll: true}); } catch(e){}
-    var t0 = Date.now(), v0 = cleVue(), r = tapPlan(x, y), gf = S.gardeFiche;
+    var t0 = Date.now(), v0 = cleVue(), r = tapPlan(x, y, tAppui), gf = S.gardeFiche;
     if (gf && gf.t >= t0 && cleVue() !== v0) gf.glisse = true;
     if (S.dernierTap) S.dernierTap.vue = cleVue();
     return r;
   }
   /* vue du plan après un toucher : un double toucher suppose qu'elle n'a pas bougé entre les deux touchers */
   function cleVue(){ return [S.vue.cx, S.vue.cy, S.vue.s, S.vue.rot || 0].join(','); }
-  function tapPlan(x, y){
+  function tapPlan(x, y, tAppui){
     protegerPanneau();
-    var now = Date.now(), double = S.dernierTap && now - S.dernierTap.t < 380 && Math.hypot(x - S.dernierTap.x, y - S.dernierTap.y) < 24 && S.dernierTap.vue === cleVue();
+    /* tq : heure du toucher pour ses fenêtres (double toucher, gardes) ; l'appui pour un toucher qui roule */
+    var now = Date.now(), tq = Math.min(now, tAppui || now), double = S.dernierTap && tq - S.dernierTap.t < 380 && Math.hypot(x - S.dernierTap.x, y - S.dernierTap.y) < 24 && S.dernierTap.vue === cleVue();
     S.dernierTap = {t: now, x: x, y: y};
     /* second toucher d'un double toucher : sur un bouton qui vient de disparaître (fiche fermée, palette), ou après une pose ou un choix qui a
        fait glisser la vue pour montrer la fiche ; ignoré une fois, avec l'explication */
     var ch = S.clicHors, gf = S.gardeFiche;
-    if (ch && now - ch.t < 600 && Math.hypot(x - ch.x, y - ch.y) < 48){ S.clicHors = null; toast('Le bouton touché vient de disparaître : touchez de nouveau le plan pour y dessiner.', 3500); return; }
-    if (gf && gf.glisse && now - gf.t < 600 && Math.hypot(x - gf.tx, y - gf.ty) < 48){ S.gardeFiche = null; toast('Le plan vient de glisser pour montrer la fiche : touchez-le de nouveau.', 3500); return; }
+    if (ch && tq - ch.t < 600 && Math.hypot(x - ch.x, y - ch.y) < 48){ S.clicHors = null; toast('Le bouton touché vient de disparaître : touchez de nouveau le plan pour y dessiner.', 3500); return; }
+    if (gf && gf.glisse && tq - gf.t < 600 && Math.hypot(x - gf.tx, y - gf.ty) < 48){ S.gardeFiche = null; toast('Le plan vient de glisser pour montrer la fiche : touchez-le de nouveau.', 3500); return; }
     var o = S.outil;
     if (S.aligner){ var w = S.vue.monde(x, y); S.aligner.push(w); if (S.aligner.length === 2){ var a = S.aligner[0], b = S.aligner[1]; S.aligner = null; if (Math.hypot(b.x - a.x, b.y - a.y) > 1e-6){ instantane(); var ang = Math.atan2(b.y - a.y, b.x - a.x), r0 = S.doc.rot || 0; while (ang > Math.PI / 2) ang -= Math.PI; while (ang <= -Math.PI / 2) ang += Math.PI; S.doc.rot = ang; S.vue.rot = ang; replacerTraces(r0); changement(); toast('Plan orienté selon la voie'); } majAide(); } else { majAide(); redessiner(); } return; }
     if (S.placer){
@@ -2260,7 +2295,7 @@ function editeur(racine, opts){
       if (rel && S.relier){ relierToucher(x, y, double); return; }
       /* juste après une fin automatique, un nouveau toucher sur le même objet est l'habitude « toucher à nouveau pour terminer » : ignoré une fois, avec l'explication ;
          un toucher sur un autre objet agit, sauf si la vue a glissé (fiche ouverte) au point d'amener un autre objet à l'endroit du premier toucher */
-      if (!b2 && S.finAuto && now - S.finAuto.t < 1000){
+      if (!b2 && S.finAuto && tq - S.finAuto.t < 1000){
         var fa = S.finAuto, R0 = fa.r || 48, ao = accroche(x, y, {}), a0 = accroche(fa.tx, fa.ty, {}), glisse = !!(a0 && a0.type === 'obj' && a0.id !== fa.id);
         /* ramené dans la vue d'avant le glissement, le toucher visait-il l'objet de fin ? c'est l'habitude, même si un voisin est maintenant tout près */
         var av = fa.gx || fa.gy ? accroche(x + fa.gx, y + fa.gy, {}) : null, visait = !!(av && av.type === 'obj' && av.id === fa.id);
@@ -2375,10 +2410,17 @@ function editeur(racine, opts){
     toast(msgFin(fa), 3500); return true;
   }
   /* Tracé au glissé : le doigt tire le segment depuis le dernier point (ou depuis l'appui) */
+  /* juste après une fin, le doigt posé sur le symbole de l'objet de fin (ou là où il était avant le glissement de la vue), c'est lui, même si
+     le centre d'un voisin est plus près (symboles qui se chevauchent, plan vu de loin), comme pour un toucher */
+  function surObjetFin(a, x, y){
+    var fa = S.finAuto, z = fa && fa.id && Date.now() - fa.t <= 1500 ? zonePt(fa.id) : null, o = z && el(fa.id);
+    if (!o || (a.type === 'obj' && a.id === o.id) || !(Math.hypot(x - z.x, y - z.y) <= z.r || Math.hypot(x - fa.x, y - fa.y) <= z.r)) return a;
+    return {type: 'obj', id: o.id, x: o.x, y: o.y};
+  }
   function demarrerTrace(g){
     var oo = OUTILS_LN[S.outil.id];
-    if (oo.relier){ g.relierDep = accroche(g.x0, g.y0, {}); return; }
-    if (!S.brouillon){ ajouterPointTrace(pointTrace(g.x0, g.y0), {x: g.x0, y: g.y0}); g.cree = !!S.brouillon; }
+    if (oo.relier){ g.relierDep = surObjetFin(accroche(g.x0, g.y0, {}), g.x0, g.y0); return; }
+    if (!S.brouillon){ var a0 = pointTrace(g.x0, g.y0); ajouterPointTrace(oo.t === 'lim' ? a0 : surObjetFin(a0, g.x0, g.y0), {x: g.x0, y: g.y0}); g.cree = !!S.brouillon; }
     g.ok = !!S.brouillon;
   }
   function apercuTrace(g, p){
@@ -2390,18 +2432,27 @@ function editeur(racine, opts){
   }
   function finTrace(g, p){
     var oo = OUTILS_LN[S.outil.id], ap = S.apercu; S.apercu = null; S.accrocheVue = null;
+    /* toucher qui roule sous le doigt (glissé de moins de 24 px) : c'est un toucher à l'endroit où le doigt se lève, avec toutes ses règles */
+    var court = Math.hypot(p.x - g.x0, p.y - g.y0) < 24;
     if (oo.relier){
-      var dep = g.relierDep, arr = accroche(p.x, p.y, {});
+      var dep = g.relierDep, arr = accroche(p.x, p.y, {}), meme = attache(dep) && attache(arr) && (surSymbole(dep, p.x, p.y) || memeCible(arr, dep, 18) || cibleLiee(arr, dep, p.x, p.y, 18));
+      /* toucher d'arrivée quand un départ attend ; sinon toucher de départ, resté sur un même objet ou un même point (ou libre) */
+      if (court && (S.relier || meme || !attache(dep) || !attache(arr))){ redessiner(); tap(p.x, p.y, g.t0); return; }
       if (!attache(dep) || !attache(arr)){ toast('Glissez d\'un objet ou d\'un tracé jusqu\'à un autre'); redessiner(); return; }
-      if (surSymbole(dep, p.x, p.y) || memeCible(arr, dep, 18) || cibleLiee(arr, dep, p.x, p.y, 18)){ redessiner(); return; }
+      if (meme){ redessiner(); return; }
       if (memeTrace(arr, dep)){ toast('Un tracé ne se relie pas à lui-même : glissez jusqu\'à l\'objet d\'arrivée (regard, boîte, autre tracé…).', 3500); redessiner(); return; }
+      /* un glissé d'un objet à un autre remplace le départ qui attendait */
+      if (S.relier){ S.relier = null; majAide(); }
       relierCreer(dep, arr, {x: p.x, y: p.y}); return;
     }
+    /* tracé déjà commencé : le toucher qui roule le termine, vise une autre cible ou pose un point, exactement comme un toucher (symboles qui se
+       chevauchent, tracé sous un regard voisin, double toucher, tracé de départ suivi…) */
+    if (court && S.brouillon && !g.cree){ redessiner(); tap(p.x, p.y, g.t0); return; }
     if (!S.brouillon || !ap) { if (!habitudeGlisse(g)) redessiner(); return; }
     var b0 = S.brouillon, last = S.vue.ecran(b0.pts[b0.pts.length - 1].x, b0.pts[b0.pts.length - 1].y), a = ap.a, sa = S.vue.ecran(a.x, a.y);
     /* toucher qui roule sous le doigt (glissé de moins de 24 px) : juste après une fin, c'est le toucher d'habitude ; au départ, une arrivée qui
        désigne le départ (même objet, son propre tracé, objet posé sur le tracé de départ) n'est pas un point */
-    var pres8 = Math.hypot(sa.x - last.x, sa.y - last.y) < 8, court = Math.hypot(p.x - g.x0, p.y - g.y0) < 24;
+    var pres8 = Math.hypot(sa.x - last.x, sa.y - last.y) < 8;
     var pl = b0.pts[b0.pts.length - 1], p0 = b0.pts[0], un = b0.pts.length === 1;
     /* juste après une fin, un glissé court qui finit nettement sur une autre cible (autre objet : doigt sur son symbole, ou nettement plus près
        de son bord que de la fin ; autre tracé), à l'écart du symbole de l'objet de fin, est un départ volontaire depuis l'objet de fin */
@@ -2427,6 +2478,12 @@ function editeur(racine, opts){
     var habituel = pres18 && (libre || !visee || (!!pl.snap && cibleDepart(a, pl.snap, p.x, p.y)));
     if (!un && habituel){ terminerGarde(pl.snap || pl, {x: p.x, y: p.y}); return; }
     if (un && (pres8 || (court && (cibleDepart(a, p0.snap, p.x, p.y) || habituel)))){ redessiner(); return; }
+    /* au départ, un tronçon qui suivrait le tracé de départ (même collecteur, même tuyau) est refusé, comme au toucher ; le départ posé par ce
+       glissé est retiré */
+    if (un && attache(a) && a.type !== 'obj' && p0.snap && p0.snap.type !== 'obj' && a.ligne === p0.snap.ligne){
+      if (g.cree) S.brouillon = null; S.dernierTap = null; majAide(); redessiner();
+      toast(g.cree ? 'Le tronçon suivrait le tracé de départ : glissez jusqu\'à un point hors de ce tracé.' : 'Le tronçon suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return;
+    }
     ajouterPointTrace(a, {x: p.x, y: p.y});
   }
   /* --- outil Relier : deux objets, un tronçon droit ou en L d'équerre avec le bâti --- */
@@ -3057,14 +3114,14 @@ function editeur(racine, opts){
       pucePressee = null; apresProp(e); return;
     }
     if (a === 'orienter' && e){ instantane(); e.p.a = (((e.p.a || 0) + parseFloat(b.dataset.v)) % 360 + 360) % 360; changement(); return; }
-    if (a === 'rayon' && e){ instantane(); e.p.r = clamp((num(e.p.r) || 1.5) + parseFloat(b.dataset.v), .5, 30); changement(); return; }
+    if (a === 'rayon' && e){ var r0 = num(e.p.r) || 1.5, nr = clamp(r0 + parseFloat(b.dataset.v), .5, 30); if (nr === r0) return; instantane(); e.p.r = nr; changement(); return; }
     if (a === 'tailleTexte' && e){ var tt = parseFloat(b.dataset.v) || 2.5; if ((num(e.taille) || 2.5) === tt) return; instantane(); e.taille = tt; changement(); return; }
     if (a === 'etiqOnOff' && e){ instantane(); if (e.lab && e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); else e.lab = {off: true}; changement(); return; }
     if (a === 'etiqReplacer' && e){ instantane(); e.lab = null; e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); changement(); return; }
     if (a === 'supprimer'){ supprimerSel(); return; }
     if (a === 'inverserCoude' && e && e.v.length === 3 && !e.v[1].a){ instantane(); var I3 = idx(), A3 = vpos(e.v[0], I3), B3 = vpos(e.v[2], I3); e.v[1] = {x: A3.x + B3.x - e.v[1].x, y: A3.y + B3.y - e.v[1].y, a: null}; changement(); return; }
     if (a === 'sommetSuppr' && e && S.sel.sommet != null){ retirerSommet(e); return; }
-    if (a === 'sommetDetacher' && e && S.sel.sommet != null){ instantane(); e.v[S.sel.sommet].a = null; nettoyerJonctions(S.doc, null, gardesJ()); changement(); return; }
+    if (a === 'sommetDetacher' && e && S.sel.sommet != null){ instantane(); var vd = e.v[S.sel.sommet]; vd.a = null; nettoyerJonctions(S.doc, null, gardesJ()); var nd = e.v.indexOf(vd); S.sel.sommet = nd >= 0 ? nd : null; changement(); return; }
     if (a === 'dec' || a === 'decNc'){
       var cle = b.dataset.cle, m = (S.doc.anomManu || []).filter(function(x){ return x.id === cle; })[0], cur = S.liste.filter(function(x){ return x.cle === cle; })[0];
       /* anomalie du dossier : la nature se règle sur l'enregistrement ; un retrait qui emporte des photos se confirme */
@@ -3087,7 +3144,7 @@ function editeur(racine, opts){
     if (a === 'anomSuppr'){
       var cleS = b.dataset.cle, curS = S.liste.filter(function(x){ return x.cle === cleS; })[0];
       /* la suppression est notée dans le dessin (decisions) : « Annuler » l'efface, « Rétablir » la refait */
-      var supprManu = function(){ instantane(); S.doc.anomManu = (S.doc.anomManu || []).filter(function(x){ return x.id !== cleS; }); (S.doc.decisions[cleS] = S.doc.decisions[cleS] || {}).supprimee = true; if (INTEG && curS && curS.appId){ var rS = recDe(curS.appId); if (rS) copieRetrait(S.doc, cleS, rS); majDossier({retirer: [curS.appId]}); } changement(); };
+      var supprManu = function(){ instantane(); S.doc.anomManu = (S.doc.anomManu || []).filter(function(x){ return x.id !== cleS; }); (S.doc.decisions[cleS] = S.doc.decisions[cleS] || {}).supprimee = true; if (INTEG && curS && curS.appId){ var rS = recDe(curS.appId); if (rS) copieRetrait(S.doc, cleS, rS); majDossier({retirer: [curS.appId]}); } changement(); if (curS) libererRaccord(curS.objId); };
       if (INTEG && curS && curS.appId) demander('Supprimer l\'anomalie ' + numLib(curS) + ' ?', '', supprManu, {confirmer: true, danger: true, ok: 'Supprimer', texte: 'Elle est retirée du croquis et de la liste du dossier' + (curS.photos ? ', avec ' + (curS.photos > 1 ? 'ses ' + curS.photos + ' photos' : 'sa photo') : '') + '.'});
       else supprManu();
       return;
@@ -3097,16 +3154,17 @@ function editeur(racine, opts){
     if (a === 'recIci' && e){ S.ajoutAnom = null; placerRec(b.dataset.id, e.id); return; }
     if (a === 'recDeplacer'){
       var rD = recDe(b.dataset.id); if (!rD) return;
+      var oD = rD.croquis && typeof rD.croquis.objId === 'string' ? rD.croquis.objId : null;
       /* l'anomalie redevient telle qu'avant son placement : rappelée tant que le dessin ne la produit pas */
       var crD = Object.assign({}, rD.croquis || {}, {objId: null}), cA = crD.cleAvant;
       delete crD.confirmee; delete crD.place; delete crD.cleAvant;
       if (typeof cA === 'string' && !crD.cle && !S.liste.some(function(x){ return x.cle === cA; }) && !(ext() || []).some(function(x){ return x !== rD && x.croquis && x.croquis.cle === cA; })){ crD.cle = cA; delete crD.regle; }
-      majDossier({maj: [{id: rD.id, champs: {croquis: crD}}]}); barriere(); apresDossier(); return;
+      majDossier({maj: [{id: rD.id, champs: {croquis: crD}}]}); barriere(); apresDossier(); libererRaccord(oD); return;
     }
     if (a === 'recOuvrir' && opts.ouvrirAnomalie){ enregistrer(); opts.ouvrirAnomalie(b.dataset.id); return; }
     if (a === 'recSuppr'){
       var cs = S.liste.filter(function(x){ return x.appId === b.dataset.id; })[0]; if (!cs) return;
-      demander('Supprimer l\'anomalie ' + numLib(cs) + ' du dossier ?', '', function(){ majDossier({retirer: [cs.appId]}); barriere(); apresDossier(); },
+      demander('Supprimer l\'anomalie ' + numLib(cs) + ' du dossier ?', '', function(){ majDossier({retirer: [cs.appId]}); barriere(); apresDossier(); libererRaccord(cs.objId); },
         {confirmer: true, danger: true, ok: 'Supprimer', texte: 'Elle est effacée de la liste du dossier' + (cs.photos ? ' avec ' + (cs.photos > 1 ? 'ses ' + cs.photos + ' photos' : 'sa photo') : '') + '. Cette suppression ne s\'annule pas.'});
       return;
     }
@@ -3460,6 +3518,9 @@ function pdfPlan(doc, fond, o){
   /* o.anomalies : anomalies du dossier (mode intégré), pour des numéros et des textes identiques à ceux du dossier */
   var ext = o.anomalies || null, oL = {telQuel: !!o.telQuel}, an = analyser(doc, mode), liste = anomaliesDoc(doc, an, ext, oL), idx = indexDoc(doc), rot = doc.rot || 0, rotDeg = rot * 180 / Math.PI;
   var Ech = doc.echelle > 0 ? doc.echelle : echelleAuto(doc, mode), m = Ech / 1000;
+  /* raccords non imprimés (raccordsCaches) : montrer() s'en sert dès le placement des étiquettes */
+  var porteA = {}; liste.forEach(function(a){ if (a.objId) porteA[a.objId] = true; });
+  var cachesJ = raccordsCaches(doc, mode, porteA);
   var F = {x: 7, y: 7, w: CADRE.w, h: CADRE.h}, RC = [F.x, F.y, F.x + F.w, F.y + F.h];
   var b = emprisePlan(doc, idx, mode) || [-10, -10, 10, 10], cP = {x: (b[0] + b[2]) / 2, y: (b[1] + b[3]) / 2};
   function papier(x, y){ var p = versPlan(x, y, rot); return {x: F.x + F.w / 2 + (p.x - cP.x) / m, y: F.y + F.h / 2 - (p.y - cP.y) / m}; }
@@ -3540,7 +3601,7 @@ function pdfPlan(doc, fond, o){
   }
   /* croquis */
   var parLigne = {}; an.pieces.forEach(function(p){ (parLigne[p.l.id] = parLigne[p.l.id] || []).push(p); });
-  function montrer(e){ var st = e.p && e.p.st; if (mode === 'edl') return st !== 'projet'; return true; }
+  function montrer(e){ var st = e.p && e.p.st; if (cachesJ[e.id]) return false; if (mode === 'edl') return st !== 'projet'; return true; }
   doc.el.forEach(function(e){
     if (e.k !== 'pt' || e.t !== 'zone' || !montrer(e)) return;
     var c = papier(e.x, e.y), r = (num(e.p.r) || 1.5) / m; pdf.setDrawColor(212, 101, 10); pdf.setLineWidth(.25); pdf.setLineDashPattern([1.2, .9], 0); pdf.circle(c.x, c.y, r, 'S'); pdf.setLineDashPattern([], 0);
