@@ -475,7 +475,9 @@ function analyser(doc, mode){
   var idx = indexDoc(doc), objs = {}, lignes = {}, adj = {}, pieces = [];
   doc.el.forEach(function(e){ if (!actif(e, mode)) return; if (e.k === 'pt' && T[e.t]) objs[e.id] = e; else if (e.k === 'ln' && (e.t === 'tr' || e.t === 'col')) lignes[e.id] = e; });
   function lier(n, p){ (adj[n] = adj[n] || []).push(p); }
-  function noeud(l, i){ var v = l.v[i]; return v.a && objs[v.a] ? v.a : 'x:' + l.id + ':' + i; }
+  /* sommet posé sur un objet absent de ce plan : extrémité libre, sauf sur l'avant-projet un ouvrage « À supprimer » (fosse, regard…) : il
+     relie encore les tuyaux qui y restent (raccordement direct) sans compter comme ouvrage ; celui qui y finit seul n'a plus d'exutoire */
+  function noeud(l, i){ var v = l.v[i], o = v.a && idx[v.a]; if (o && objs[v.a]) return v.a; if (mode === 'avp' && o && o.k === 'pt' && !actif(o, mode)) return 'h:' + v.a; return 'x:' + l.id + ':' + i; }
   Object.keys(lignes).forEach(function(id){
     var l = lignes[id], att = [];
     l.v.forEach(function(v, i){ if (v.a && objs[v.a]) att.push(i); });
@@ -534,16 +536,13 @@ function analyser(doc, mode){
     boites[id] = {cols: cols, gest: cols.length ? cols[0].gest : null};
   });
   function gestDe(t){ if (t.col) return t.gest; if (t.boite && boites[t.id] && boites[t.id].gest) return boites[t.id].gest; return (doc.gest && doc.gest[t.res]) || 'D'; }
-  /* extrémité libre d'un tracé : sommet sans objet ; sur l'état des lieux, aussi un raccord du dessin (sans anomalie du croquis) qui ne relie
-     que lui, ses autres tracés étant projetés : tuyau projeté parti de l'extrémité d'un tuyau existant ; sans eux, ce raccord n'existerait pas.
-     Un raccord posé à la main reste un nœud. Sur l'avant-projet, le tuyau à supprimer d'un raccord n'en fait pas une extrémité libre : la
-     branche qui y reste n'a plus d'exutoire après travaux */
-  var lieHorsPlan = {}, anomSur = {};
-  if (mode !== 'avp'){
-    doc.el.forEach(function(e){ if (e.k === 'ln' && !actif(e, mode)) e.v.forEach(function(v){ if (v.a) lieHorsPlan[v.a] = true; }); });
-    (doc.anomManu || []).forEach(function(m){ if (m.objId) anomSur[m.objId] = true; });
-  }
-  function boutLibre(nd){ if (nd.indexOf('x:') === 0) return true; var ob = objs[nd]; return !!ob && ob.t === 'jonction' && !!lieHorsPlan[nd] && jonctionAuto(ob) && !anomSur[nd] && (adj[nd] || []).length === 1; }
+  /* extrémité libre d'un tracé : sommet sans objet ; sur l'état des lieux, aussi un raccord du dessin qui ne relie que lui, ses autres tracés
+     étant projetés : tuyau projeté parti de l'extrémité d'un tuyau existant ; sans eux, ce raccord n'existerait pas (une anomalie notée sur
+     lui n'y change rien). Un raccord posé à la main reste un nœud. Sur l'avant-projet, le tuyau à supprimer d'un raccord n'en fait pas une
+     extrémité libre : la branche qui y reste n'a plus d'exutoire après travaux */
+  var lieHorsPlan = {};
+  if (mode !== 'avp') doc.el.forEach(function(e){ if (e.k === 'ln' && !actif(e, mode)) e.v.forEach(function(v){ if (v.a) lieHorsPlan[v.a] = true; }); });
+  function boutLibre(nd){ if (nd.indexOf('x:') === 0) return true; var ob = objs[nd]; return !!ob && ob.t === 'jonction' && !!lieHorsPlan[nd] && jonctionAuto(ob) && (adj[nd] || []).length === 1; }
   /* Sources */
   var resObj = {};
   Object.keys(objs).forEach(function(id){
@@ -562,8 +561,12 @@ function analyser(doc, mode){
       var exl = Object.keys(ex);
       if (exl.length === 1){
         nets = exl; presume = true; gests[exl[0]] = (doc.gest && doc.gest[exl[0]]) || 'D';
-        /* fosse septique ou boîte sur le chemin de l'exutoire présumé : comme sur celui d'un exutoire dessiné */
-        versLibres.forEach(function(ch){ ch.nodes.forEach(function(nd){ var ob = objs[nd], tt = ob && T[ob.t]; if (tt && tt.fosse && !fosse) fosse = nd; if (tt && tt.boite && !boite) boite = nd; }); });
+        /* fosse septique ou boîte sur le chemin de l'exutoire présumé : comme sur celui d'un exutoire dessiné, quand elle est sur chaque chemin
+           vers une extrémité libre qui porte ce réseau ; une autre extrémité libre peut être une arrivée (fosse en amont du regard, son entrée
+           venant de la maison, appareils non dessinés) */
+        var portent = versLibres.filter(function(ch){ return ch.pieces.some(function(p){ return !p.col && p.l.p.res === exl[0]; }); });
+        portent[0].nodes.forEach(function(nd){ var ob = objs[nd], tt = ob && T[ob.t]; if (!tt || !portent.every(function(ch){ return ch.nodes.indexOf(nd) >= 0; })) return;
+          if (tt.fosse && !fosse) fosse = nd; if (tt.boite && !boite) boite = nd; });
       }
     }
     var etat = !Object.keys(r.pieces).length ? 'nonrelie' : !nets.length ? 'sansexu' : nets.length > 1 ? 'multiple' : 'ok';
@@ -2012,7 +2015,7 @@ function editeur(racine, opts){
   /* Accroche d'un point de tracé : objet, sommet, segment ; sinon point libre redressé par les aides. L'objet le plus proche (zone d'accroche :
      symbole + 12 px) passe avant les tracés, sauf si le doigt est nettement plus près d'un tracé (6 px de marge) que du bord de son symbole :
      vu de loin, la zone d'un raccord ou d'un regard déborde sur le collecteur voisin. Le sommet d'un tracé posé sur un objet est cet objet : il
-     ne compte pas comme sommet. sansObj : tracés seulement */
+     ne compte pas comme sommet. sansObj : tracés seulement ; sansSeg : sommets seulement */
   function accroche(x, y, o){
     o = o || {}; var I = idx(), best = null, bd = Infinity, ob = null, dob = Infinity, de = Infinity, surObj = {};
     for (var i = 0; i < S.zones.length; i++){
@@ -2020,20 +2023,20 @@ function editeur(racine, opts){
       surObj[z.id] = 1; if (o.sansObj || o.saufObj === z.id || (o.saufObjs && o.saufObjs[z.id])) continue;
       var d = Math.hypot(x - z.x, y - z.y); if (d <= Math.max(z.r, 10) + 12 && d < dob){ dob = d; de = Math.max(0, d - z.r); var ob0 = I[z.id]; ob = {type: 'obj', id: z.id, x: ob0.x, y: ob0.y}; }
     }
-    /* sommets (16 px) et segments (13 px) des tracés. Un sommet (coude, point intermédiaire, extrémité libre) passe avant le tracé sous le doigt,
-       sauf le sommet d'un autre tracé nettement plus loin que lui (6 px de marge, comme pour les objets), ou hors du plan de l'accroche quand un
-       tracé de ce plan passe aussi près (tuyau « À supprimer » qui a un sommet là où son remplaçant « Projet », posé dessus, n'en a pas). De
-       deux tracés superposés (à 1 px près), celui du plan de l'accroche, puis le plus proche, puis le plus ancien (au croisement d'un collecteur
-       et d'un branchement dessiné après lui : le collecteur) */
+    /* sommets (16 px) et segments (13 px) des tracés. Un sommet (coude, point intermédiaire, extrémité libre) passe avant les segments, sauf
+       le sommet d'un tracé qui passe plus loin du doigt que le plus proche (à 1 px près : deux tuyaux d'une même tranchée, le doigt sur l'un,
+       un coude de l'autre tout près), ou hors du plan de l'accroche quand un tracé de ce plan passe aussi près (tuyau « À supprimer » qui a un
+       sommet là où son remplaçant « Projet », posé dessus, n'en a pas). De deux tracés superposés (à 1 px près), celui du plan de l'accroche,
+       puis le plus proche, puis le plus ancien (au croisement d'un collecteur et d'un branchement dessiné après lui : le collecteur) */
     var plan = o.plan || planAccroche(), som = [], seg = [];
     S.doc.el.forEach(function(l){
       if (l.k !== 'ln' || l.t === 'lim' || o.saufLigne === l.id || (o.col && l.t !== 'col')) return;
       var P = lignePts(l, I), Q = P.map(function(p){ return S.vue.ecran(p.x, p.y); });
       P.forEach(function(p, i){ if (surObj[l.v[i].a]) return; var d = Math.hypot(x - Q[i].x, y - Q[i].y); if (d <= 16) som.push({d: d, l: l, a: {type: 'som', ligne: l.id, i: i, x: p.x, y: p.y, a: l.v[i].a || null}}); });
-      for (var i = 1; i < Q.length; i++){ var q = projSeg({x: x, y: y}, Q[i - 1], Q[i]); if (q.d <= 13){ var w = S.vue.monde(q.x, q.y); seg.push({d: q.d, l: l, a: {type: 'seg', ligne: l.id, i: i, x: w.x, y: w.y}}); } }
+      if (!o.sansSeg) for (var i = 1; i < Q.length; i++){ var q = projSeg({x: x, y: y}, Q[i - 1], Q[i]); if (q.d <= 13){ var w = S.vue.monde(q.x, q.y); seg.push({d: q.d, l: l, a: {type: 'seg', ligne: l.id, i: i, x: w.x, y: w.y}}); } }
     });
     var dseg = Math.min.apply(null, seg.map(function(c){ return c.d; }).concat([Infinity]));
-    som = som.filter(function(c){ return c.d <= dseg + 6 || seg.some(function(q){ return q.l === c.l && q.d <= dseg + 1; }); });
+    som = som.filter(function(c){ return c.d <= dseg + 1 || seg.some(function(q){ return q.l === c.l && q.d <= dseg + 1; }); });
     var dsom = Math.min.apply(null, som.map(function(c){ return c.d; }).concat([Infinity]));
     if (!som.some(function(c){ return c.d <= dsom + 1 && traceDuPlan(c.l, plan); }) && seg.some(function(q){ return q.d <= dsom + 1 && traceDuPlan(q.l, plan); })) som = [];
     var cands = som.length ? som : seg;
@@ -2279,8 +2282,9 @@ function editeur(racine, opts){
       var ls = el(c.id), ni = ls && g.sommet ? ls.v.indexOf(g.sommet) : -1; if (S.sel && S.sel.sommet != null) S.sel.sommet = ni >= 0 ? ni : null;
     }
     if (c.k === 'objet'){
-      /* objet lâché sur une extrémité libre de tronçon : il s'y attache */
-      var e = el(c.id), s = S.vue.ecran(e.x, e.y), aa = accroche(s.x, s.y, {saufObj: e.id});
+      /* objet lâché sur une extrémité libre de tronçon : il s'y attache. Seuls les sommets comptent : les tracés qu'il porte suivent le doigt,
+         et le tracé qui passe sous lui n'est pas une cible */
+      var e = el(c.id), s = S.vue.ecran(e.x, e.y), aa = accroche(s.x, s.y, {saufObj: e.id, sansSeg: true});
       /* … pas celle d'un tracé déjà lié à l'objet (son tuyau, le collecteur où il est posé) : il se refermerait sur lui */
       if (aa.type === 'som' && !aa.a){ var l2 = el(aa.ligne); if (l2 && (aa.i === 0 || aa.i === l2.v.length - 1) && !l2.v.some(function(w){ return w.a === e.id; })) l2.v[aa.i].a = e.id; }
     }
