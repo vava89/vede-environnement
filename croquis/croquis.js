@@ -536,13 +536,14 @@ function analyser(doc, mode){
     boites[id] = {cols: cols, gest: cols.length ? cols[0].gest : null};
   });
   function gestDe(t){ if (t.col) return t.gest; if (t.boite && boites[t.id] && boites[t.id].gest) return boites[t.id].gest; return (doc.gest && doc.gest[t.res]) || 'D'; }
-  /* extrémité libre d'un tracé : sommet sans objet ; sur l'état des lieux, aussi un raccord du dessin qui ne relie que lui, ses autres tracés
-     étant projetés : tuyau projeté parti de l'extrémité d'un tuyau existant ; sans eux, ce raccord n'existerait pas (une anomalie notée sur
-     lui n'y change rien). Un raccord posé à la main reste un nœud. Sur l'avant-projet, le tuyau à supprimer d'un raccord n'en fait pas une
-     extrémité libre : la branche qui y reste n'a plus d'exutoire après travaux */
-  var lieHorsPlan = {};
-  if (mode !== 'avp') doc.el.forEach(function(e){ if (e.k === 'ln' && !actif(e, mode)) e.v.forEach(function(v){ if (v.a) lieHorsPlan[v.a] = true; }); });
-  function boutLibre(nd){ if (nd.indexOf('x:') === 0) return true; var ob = objs[nd]; return !!ob && ob.t === 'jonction' && !!lieHorsPlan[nd] && jonctionAuto(ob) && (adj[nd] || []).length === 1; }
+  /* extrémité libre d'un tracé : sommet sans objet ; aussi un raccord du dessin qui ne relie que lui : sur l'état des lieux quand ses autres
+     tracés sont projetés (tuyau projeté parti de l'extrémité d'un tuyau existant ; sans eux, ce raccord n'existerait pas), et sur les deux
+     plans quand il n'a plus d'autre tracé (gardé par une anomalie notée sur lui) : une anomalie ne change pas l'analyse. Un raccord posé à la
+     main reste un nœud. Sur l'avant-projet, le tuyau à supprimer d'un raccord n'en fait pas une extrémité libre : la branche qui y reste n'a
+     plus d'exutoire après travaux */
+  var lieHorsPlan = {}, lignesDe = {};
+  doc.el.forEach(function(e){ if (e.k === 'ln') e.v.forEach(function(v){ if (!v.a) return; if (e.t === 'tr' || e.t === 'col') (lignesDe[v.a] = lignesDe[v.a] || {})[e.id] = true; if (mode !== 'avp' && !actif(e, mode)) lieHorsPlan[v.a] = true; }); });
+  function boutLibre(nd){ if (nd.indexOf('x:') === 0) return true; var ob = objs[nd]; return !!ob && ob.t === 'jonction' && jonctionAuto(ob) && (adj[nd] || []).length === 1 && (!!lieHorsPlan[nd] || Object.keys(lignesDe[nd] || {}).length === 1); }
   /* Sources */
   var resObj = {};
   Object.keys(objs).forEach(function(id){
