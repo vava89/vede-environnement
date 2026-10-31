@@ -534,6 +534,11 @@ function analyser(doc, mode){
     boites[id] = {cols: cols, gest: cols.length ? cols[0].gest : null};
   });
   function gestDe(t){ if (t.col) return t.gest; if (t.boite && boites[t.id] && boites[t.id].gest) return boites[t.id].gest; return (doc.gest && doc.gest[t.res]) || 'D'; }
+  /* extrémité libre d'un tracé : sommet sans objet, ou raccord qui, sur ce plan, ne relie que lui (ses autres tracés sont projetés sur l'état
+     des lieux, ou à supprimer sur l'avant-projet : tuyau projeté parti de l'extrémité d'un tuyau existant) */
+  var lieHorsPlan = {};
+  doc.el.forEach(function(e){ if (e.k === 'ln' && !actif(e, mode)) e.v.forEach(function(v){ if (v.a) lieHorsPlan[v.a] = true; }); });
+  function boutLibre(nd){ if (nd.indexOf('x:') === 0) return true; var ob = objs[nd]; return !!ob && ob.t === 'jonction' && !!lieHorsPlan[nd] && (adj[nd] || []).length === 1; }
   /* Sources */
   var resObj = {};
   Object.keys(objs).forEach(function(id){
@@ -548,7 +553,7 @@ function analyser(doc, mode){
     /* sans exutoire dessiné : réseau présumé d'après les tronçons indiqués sur le chemin vers une extrémité libre */
     if (!nets.length){
       var ex = {};
-      Object.keys(r.vus).forEach(function(nd){ if (nd.indexOf('x:') !== 0) return; chemin(r, nd).pieces.forEach(function(p){ if (!p.col && /^(EU|EP|UN)$/.test(p.l.p.res || '')) ex[p.l.p.res] = true; }); });
+      Object.keys(r.vus).forEach(function(nd){ if (!boutLibre(nd)) return; chemin(r, nd).pieces.forEach(function(p){ if (!p.col && /^(EU|EP|UN)$/.test(p.l.p.res || '')) ex[p.l.p.res] = true; }); });
       var exl = Object.keys(ex);
       if (exl.length === 1){ nets = exl; presume = true; gests[exl[0]] = (doc.gest && doc.gest[exl[0]]) || 'D'; }
     }
@@ -2006,22 +2011,37 @@ function editeur(racine, opts){
       surObj[z.id] = 1; if (o.sansObj || o.saufObj === z.id || (o.saufObjs && o.saufObjs[z.id])) continue;
       var d = Math.hypot(x - z.x, y - z.y); if (d <= Math.max(z.r, 10) + 12 && d < dob){ dob = d; de = Math.max(0, d - z.r); var ob0 = I[z.id]; ob = {type: 'obj', id: z.id, x: ob0.x, y: ob0.y}; }
     }
+    /* de deux tracés superposés (à 1 px près : remplaçant « Projet » posé sur le tuyau « À supprimer »), celui du plan de l'accroche, puis le
+       plus proche, puis le plus récent */
+    var cands = [];
     S.doc.el.forEach(function(l){
       if (l.k !== 'ln' || l.t === 'lim' || o.saufLigne === l.id || (o.col && l.t !== 'col')) return;
       var P = lignePts(l, I);
-      P.forEach(function(p, i){ if (surObj[l.v[i].a]) return; var s = S.vue.ecran(p.x, p.y), d = Math.hypot(x - s.x, y - s.y); if (d <= 16 && d < bd){ bd = d; best = {type: 'som', ligne: l.id, i: i, x: p.x, y: p.y, a: l.v[i].a || null}; } });
+      P.forEach(function(p, i){ if (surObj[l.v[i].a]) return; var s = S.vue.ecran(p.x, p.y), d = Math.hypot(x - s.x, y - s.y); if (d <= 16) cands.push({d: d, l: l, a: {type: 'som', ligne: l.id, i: i, x: p.x, y: p.y, a: l.v[i].a || null}}); });
     });
-    if (!best) S.doc.el.forEach(function(l){
+    if (!cands.length) S.doc.el.forEach(function(l){
       if (l.k !== 'ln' || l.t === 'lim' || o.saufLigne === l.id || (o.col && l.t !== 'col')) return;
       var P = lignePts(l, I).map(function(p){ return S.vue.ecran(p.x, p.y); });
-      for (var i = 1; i < P.length; i++){ var q = projSeg({x: x, y: y}, P[i - 1], P[i]); if (q.d <= 13 && q.d < bd){ bd = q.d; var w = S.vue.monde(q.x, q.y); best = {type: 'seg', ligne: l.id, i: i, x: w.x, y: w.y}; } }
+      for (var i = 1; i < P.length; i++){ var q = projSeg({x: x, y: y}, P[i - 1], P[i]); if (q.d <= 13){ var w = S.vue.monde(q.x, q.y); cands.push({d: q.d, l: l, a: {type: 'seg', ligne: l.id, i: i, x: w.x, y: w.y}}); } }
     });
+    if (cands.length){
+      var plan = o.plan || planAccroche(), dmin = Math.min.apply(null, cands.map(function(c){ return c.d; }));
+      var c0 = cands.filter(function(c){ return c.d <= dmin + 1; }).map(function(c){ return {c: c, k: [traceDuPlan(c.l, plan) ? 1 : 0, -Math.round(c.d * 1e4), S.doc.el.indexOf(c.l)]}; })
+        .sort(function(a, b){ return b.k[0] - a.k[0] || b.k[1] - a.k[1] || b.k[2] - a.k[2]; })[0].c;
+      best = c0.a; bd = c0.d;
+    }
     if (ob && !(best && bd + 6 < de)) return ob;
     if (best) return best;
     var m = S.vue.monde(x, y);
     if (o.prec){ var rd = redresser(o.prec, m); if (rd) return rd; }
     return {x: m.x, y: m.y};
   }
+
+  /* le tracé l est-il sur le plan donné (état des lieux : pas le projet ; avant-projet : pas ce qui est à supprimer) ? */
+  function traceDuPlan(l, plan){ var st = l.p && l.p.st; return plan === 'avp' ? st !== 'supprimer' : st !== 'projet'; }
+  /* plan d'une accroche : celui du tracé que dessine l'outil (outil Projet : l'avant-projet ; autres outils de tracé : l'existant), sinon le
+     plan affiché (pose d'un objet, outil Choisir) */
+  function planAccroche(){ var oo = S.outil && S.outil.k === 'ln' ? OUTILS_LN[S.outil.id] : null; return oo ? (oo.st === 'projet' ? 'avp' : 'edl') : S.mode; }
 
   /* --- gestes --- */
   function pos(ev){ var r = cv.getBoundingClientRect(); return {x: ev.clientX - r.left, y: ev.clientY - r.top}; }
@@ -2141,7 +2161,7 @@ function editeur(racine, opts){
         var ks = []; l.v.forEach(function(u, kk){ if (kk !== c.i && u.a === w.a) ks.push(kk); });
         if (bout || ks.some(function(kk){ return Math.abs(kk - c.i) !== 1; }) || l.v.length - ks.length < 2) siens[w.a] = true;
       });
-      var a = l.t === 'lim' ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, saufObjs: siens, prec: prec, col: l.t === 'col'});
+      var a = l.t === 'lim' ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, saufObjs: siens, prec: prec, col: l.t === 'col', plan: l.p && l.p.st === 'projet' ? 'avp' : 'edl'});
       /* un tracé qui porte un objet du tracé (sortie d'une boîte, collecteur d'un regard ou d'un raccord) n'est pas une cible : s'y raccrocher
          refermerait le tracé sur cet objet. Le doigt dans la zone de l'objet d'un sommet voisin, le coude s'y fond (coude glissé sur la boîte
          voisine, le doigt sur sa sortie) ; sinon le sommet reste libre */
@@ -2291,13 +2311,14 @@ function editeur(racine, opts){
       var z = toucher(x, y);
       if (!z){ if (S.sel){ S.sel = null; majPanneau(); redessiner(); } return; }
       if (z.type === 'bulle'){ selectionner(z.objId); return; }
-      /* tracés superposés : le tracé choisi garde ses points ; ailleurs, toucher de nouveau les mêmes tracés passe au suivant */
+      /* tracés superposés (remplaçant « Projet » posé sur le tuyau « À supprimer ») : sans l'un d'eux choisi, sa fiche ouverte, le toucher
+         choisit celui du plan affiché (tracesSous) ; l'un d'eux choisi, il garde ses points et le second toucher d'un double toucher, et
+         toucher de nouveau les mêmes tracés ailleurs passe au suivant */
       var sup = z.type === 'ln' ? tracesSous(x, y).map(function(q){ return q.id; }) : [];
       if (sup.length > 1){
-        if (S.sel && sup.indexOf(S.sel.id) >= 0) z = {type: 'ln', id: S.sel.id};
-        var cle = sup.slice().sort().join(','), c0 = S.superpose, k = c0 && c0.cle === cle ? (c0.k + 1) % sup.length : 0;
-        var surPt = S.sel && z.id === S.sel.id && lignePts(el(z.id), idx()).some(function(q){ var sq = S.vue.ecran(q.x, q.y); return Math.hypot(x - sq.x, y - sq.y) <= 18; });
-        if (!surPt){ S.superpose = {cle: cle, k: k}; z = {type: 'ln', id: sup[k]}; }
+        var ks = S.sel && S.panneau === 'fiche' ? sup.indexOf(S.sel.id) : -1;
+        var surPt = ks >= 0 && lignePts(el(S.sel.id), idx()).some(function(q){ var sq = S.vue.ecran(q.x, q.y); return Math.hypot(x - sq.x, y - sq.y) <= 18; });
+        z = {type: 'ln', id: ks < 0 ? sup[0] : surPt || double ? S.sel.id : sup[(ks + 1) % sup.length]};
       }
       if (z.type === 'ln' && S.sel && S.sel.id === z.id){
         var e = el(z.id), P = lignePts(e, idx()).map(function(p){ return S.vue.ecran(p.x, p.y); });
@@ -2366,6 +2387,8 @@ function editeur(racine, opts){
         /* au départ, hors du geste habituel, un point sur le tracé de départ (même collecteur, même tuyau, ou tracé qui porte l'objet de départ),
            ou un objet que porte ce tracé, est refusé */
         if (un && !habituel && attache(at) && sp && memeTrace(at, sp)){ S.dernierTap = null; toast(at.type === 'obj' && sp.type === 'obj' ? msgRelies(at, sp, 'touchez le point suivant ailleurs.') : 'Le tronçon suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return; }
+        /* ensuite, un tuyau prolongé ne revient pas sur lui-même (un point de son tracé, ou un objet qu'il porte) : il se refermerait en boucle */
+        if (!un && !habituel && b2.prolonge && attache(at) && surProlonge(at, b2.prolonge.id)){ S.dernierTap = null; toast('Le tronçon reviendrait sur le tuyau qu\'il prolonge : touchez son point suivant ailleurs.', 3500); return; }
         if (habituel){
           if (un){ S.dernierTap = null; if (double){ toast('Départ du tronçon posé : touchez le point suivant.', 2500); return; } annulerTrace(); toast('Tronçon abandonné'); return; }
           /* fin par le geste habituel : comme après une fin automatique, le second toucher qui suit (double toucher) ne prolonge pas le tronçon fini */
@@ -2423,7 +2446,9 @@ function editeur(racine, opts){
     var oo = OUTILS_LN[S.outil.id], b2 = S.brouillon, at = attache(a2) && oo.t !== 'lim';
     if (!b2){
       S.brouillon = b2 = {outil: S.outil.id, pts: []};
-      if (a2.type === 'som' && !a2.a && oo.t === 'tr'){ var l0 = el(a2.ligne); if (l0 && l0.t === 'tr' && (a2.i === 0 || a2.i === l0.v.length - 1)) b2.prolonge = {id: l0.id, debut: a2.i === 0}; }
+      /* prolongation : extrémité libre d'un tuyau du statut que dessine l'outil (existant, présumé, projet) ; sinon le nouveau tuyau part d'un
+         raccord posé sur cette extrémité (tuyau projeté au bout d'un tuyau existant) */
+      if (a2.type === 'som' && !a2.a && oo.t === 'tr'){ var l0 = el(a2.ligne); if (l0 && l0.t === 'tr' && (a2.i === 0 || a2.i === l0.v.length - 1) && ((l0.p && l0.p.st) || 'existant') === ((oo.p && oo.p.st) || 'existant')) b2.prolonge = {id: l0.id, debut: a2.i === 0}; }
     }
     /* doigt : là où le doigt a posé le point (le point lui-même peut avoir été redressé ou accroché plus loin) */
     b2.pts.push({x: a2.x, y: a2.y, snap: at ? a2 : null, aide: a2.aide ? a2.type : null, doigt: src ? S.vue.monde(src.x, src.y) : null});
@@ -2590,6 +2615,8 @@ function editeur(racine, opts){
       if (g.cree) S.brouillon = null; S.dernierTap = null; majAide(); redessiner();
       toast(a.type === 'obj' && p0.snap.type === 'obj' ? msgRelies(a, p0.snap, g.cree ? 'glissez jusqu\'à un autre point.' : 'touchez le point suivant ailleurs.') : g.cree ? 'Le tronçon suivrait le tracé de départ : glissez jusqu\'à un point hors de ce tracé.' : 'Le tronçon suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return;
     }
+    /* ensuite, un tuyau prolongé ne revient pas sur lui-même (un point de son tracé, ou un objet qu'il porte) : il se refermerait en boucle */
+    if (!un && b0.prolonge && attache(a) && surProlonge(a, b0.prolonge.id)){ S.dernierTap = null; redessiner(); toast('Le tronçon reviendrait sur le tuyau qu\'il prolonge : glissez jusqu\'à un point hors de ce tuyau.', 3500); return; }
     ajouterPointTrace(a, {x: p.x, y: p.y});
   }
   /* --- outil Relier : deux objets, un tronçon droit ou en L d'équerre avec le bâti --- */
@@ -2616,6 +2643,8 @@ function editeur(racine, opts){
   /* le point de tracé a est-il sur un tracé propre de l'objet id (un tracé dont un sommet est posé sur lui), le doigt dans la zone d'accroche de l'objet ? */
   function tracePropre(a, id, x, y){ var l = a && a.ligne && el(a.ligne), z = zonePt(id); return !!l && !!z && l.v.some(function(v){ return v.a === id; }) && Math.hypot(x - z.x, y - z.y) <= Math.max(z.r, 10) + 12; }
   /* l'objet id est-il posé sur le tracé ligne (un de ses sommets) ? */
+  /* accroche sur le tuyau id que prolonge le tracé : un point de ce tuyau, ou un objet qu'il porte */
+  function surProlonge(a, id){ return a.type === 'obj' ? objetSurTrace(a.id, id) : a.ligne === id; }
   function objetSurTrace(id, ligne){ var l = ligne && el(ligne); return !!l && l.v.some(function(v){ return v.a === id; }); }
   /* une accroche a désigne-t-elle le départ s0 d'un tracé : le même objet, un tracé propre de l'objet de départ (doigt dans sa zone), l'objet
      posé sur le tracé de départ, ou le même point de ce tracé (24 px) ? */
