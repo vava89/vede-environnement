@@ -2344,10 +2344,11 @@ function editeur(racine, opts){
           var a4 = accroche(x, y, {col: OUTILS_LN[S.outil.id].t === 'col', sansObj: true}), s4 = S.vue.ecran(a4.x, a4.y), d4 = Math.hypot(x - s4.x, y - s4.y);
           if (attache(a4) && d4 + 6 < dl){ if (cibleDepart(a4, sp, x, y)) lui = true; else { at = a4; ds = d4; autre = true; } }
         }
-        /* au départ, un point sur le tracé de départ (même collecteur, même tuyau, ou tracé qui porte l'objet de départ), ou un objet que porte ce
-           tracé, hors du geste habituel, est refusé */
-        if (un && !lui && attache(at) && sp && memeTrace(at, sp)){ S.dernierTap = null; toast('Le tronçon suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return; }
-        if (lui || (!autre && (dl <= 18 || (double && (!un || attache(at)))))){
+        var habituel = lui || (!autre && (dl <= 18 || (double && (!un || attache(at)))));
+        /* au départ, hors du geste habituel, un point sur le tracé de départ (même collecteur, même tuyau, ou tracé qui porte l'objet de départ),
+           ou un objet que porte ce tracé, est refusé */
+        if (un && !habituel && attache(at) && sp && memeTrace(at, sp)){ S.dernierTap = null; toast('Le tronçon suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return; }
+        if (habituel){
           if (un){ S.dernierTap = null; if (double){ toast('Départ du tronçon posé : touchez le point suivant.', 2500); return; } annulerTrace(); toast('Tronçon abandonné'); return; }
           /* fin par le geste habituel : comme après une fin automatique, le second toucher qui suit (double toucher) ne prolonge pas le tronçon fini */
           terminerGarde(sp || pl, {x: x, y: y}); return;
@@ -2356,11 +2357,11 @@ function editeur(racine, opts){
       ajouterPointTrace(at, {x: x, y: y});
     }
   }
-  /* deux accroches sur un même tracé, à toute distance : deux points de ce tracé (collecteur, tronçon), ou un point de ce tracé et un objet posé
-     sur lui */
+  /* deux accroches sur un même tracé, à toute distance : deux points de ce tracé (collecteur, tronçon), un point de ce tracé et un objet posé
+     sur lui, ou deux objets posés sur lui */
   function memeTrace(a, b){
     if (a.type !== 'obj' && b.type !== 'obj') return !!a.ligne && a.ligne === b.ligne;
-    if (a.type === 'obj' && b.type === 'obj') return false;
+    if (a.type === 'obj' && b.type === 'obj') return a.id !== b.id && S.doc.el.some(function(l){ return l.k === 'ln' && objetSurTrace(a.id, l.id) && objetSurTrace(b.id, l.id); });
     var o = a.type === 'obj' ? a : b, t = a.type === 'obj' ? b : a;
     return attache(t) && objetSurTrace(o.id, t.ligne);
   }
@@ -2491,7 +2492,7 @@ function editeur(racine, opts){
       }
       if (!attache(dep) || !attache(arr)){ toast('Glissez d\'un objet ou d\'un tracé jusqu\'à un autre'); redessiner(); return; }
       if (meme){ redessiner(); return; }
-      if (memeTrace(arr, dep)){ toast('Un tracé ne se relie pas à lui-même : glissez jusqu\'à l\'objet d\'arrivée (regard, boîte, autre tracé…).', 3500); redessiner(); return; }
+      if (memeTrace(arr, dep)){ toast(arr.type === 'obj' && dep.type === 'obj' ? 'Ces deux objets sont déjà reliés par un tracé : glissez jusqu\'à un autre objet d\'arrivée.' : 'Un tracé ne se relie pas à lui-même : glissez jusqu\'à l\'objet d\'arrivée (regard, boîte, autre tracé…).', 3500); redessiner(); return; }
       /* un glissé d'un objet à un autre remplace le départ qui attendait */
       if (S.relier){ S.relier = null; majAide(); }
       relierCreer(dep, arr, {x: p.x, y: p.y}); return;
@@ -2553,7 +2554,7 @@ function editeur(racine, opts){
     if (!attache(a)){ toast('Touchez l\'objet d\'arrivée : un regard, une boîte, un tracé…'); return; }
     /* symboles qui se chevauchent (plan vu de loin) : le doigt sur le symbole de l'objet de départ, c'est lui, même si un voisin est plus près */
     if (surSymbole(dep, x, y) || memeCible(a, dep, double ? 24 : 18) || cibleLiee(a, dep, x, y, double ? 24 : 18)){ if (double) return; S.relier = null; majAide(); redessiner(); return; }
-    if (memeTrace(a, dep)){ toast('Un tracé ne se relie pas à lui-même : touchez l\'objet d\'arrivée (regard, boîte, autre tracé…).', 3500); return; }
+    if (memeTrace(a, dep)){ toast(a.type === 'obj' && dep.type === 'obj' ? 'Ces deux objets sont déjà reliés par un tracé : touchez un autre objet d\'arrivée.' : 'Un tracé ne se relie pas à lui-même : touchez l\'objet d\'arrivée (regard, boîte, autre tracé…).', 3500); return; }
     S.relier = null; relierCreer(dep, a, {x: x, y: y});
   }
   /* le doigt (x, y, écran) est-il sur le symbole de l'objet a ? */
