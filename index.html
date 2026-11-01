@@ -4145,7 +4145,8 @@ function etudeCsv(e, vs, as){
   });
   return '\ufeff' + rows.map(function(r){ return r.map(csvCell).join(';'); }).join('\r\n') + '\r\n';
 }
-/* Croquis de terrain dans l'export : plan PDF du dossier (et avant-projet s'il y a des tracés projet) ; sauvegarde des plans et des fonds.
+/* Croquis de terrain dans l'export : plan PDF du dossier (et avant-projet s'il diffère de l'état des lieux : tracé projeté ou ouvrage à
+   supprimer) ; sauvegarde des plans et des fonds.
    Un fond est écrit en deux fichiers : sa description en JSON et son tableau de points en binaire (Float32Array). */
 function planFileName(v, avp){ var hd = ficheHeader(S.etude, v); return safeNameFr((avp ? 'Avant-projet ' : 'Plan ') + v.numero + (hd.ville ? ' - ' + hd.ville : ''), 120) + '.pdf'; }
 async function vcPlansPdf(v, list){
@@ -4154,7 +4155,7 @@ async function vcPlansPdf(v, list){
   var fond = await fondLire(doc.fondId), reseau = await fondLire(doc.reseauId), out = [];
   await vcLogoPret();
   var o = {logo: VC.logo || null, reseau: reseau, anomalies: list, telQuel: true};
-  var projet = (doc.el || []).some(function(e){ return e && e.p && e.p.st === 'projet'; });
+  var projet = (doc.el || []).some(function(e){ return e && e.p && (e.p.st === 'projet' || e.p.st === 'supprimer'); });
   out.push({nom: planFileName(v, false), ab: await blobToAB(await window.VCroquis.pdfPlan(doc, fond, Object.assign({mode: 'edl'}, o)))});
   if (projet) out.push({nom: planFileName(v, true), ab: await blobToAB(await window.VCroquis.pdfPlan(doc, fond, Object.assign({mode: 'avp'}, o)))});
   /* plan coupé à son échelle : signalé à la fin de l'export */
