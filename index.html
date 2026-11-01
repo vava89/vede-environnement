@@ -3539,7 +3539,7 @@ function vcResumeCalc(v, doc){
   var V = window.VCroquis, an = V.analyser(doc, 'edl'), cd = V.constatDeduit(doc, an);
   var r = {rev: doc.rev || 0, plan: typeof doc.id === 'string' ? doc.id : '', rows: cd.rows.filter(function(x){ return x.nb > 0; }).map(function(x){ return {id: x.id, groupe: x.groupe, label: x.label, std: !!x.std, nb: x.nb, raccord: x.raccord || '', conforme: x.conforme || '', meth: (x.meth || []).slice(), types: (x.types || []).slice()}; }),
     puisard: !!(cd.epRecup && cd.epRecup.puisard), sansCote: (cd.sansCote || []).length};
-  try { r.arbitrer = V.anomaliesDoc(doc, an, anomsOf(v.id), {telQuel: true}).filter(function(a){ return a.st === 'arbitrer'; }).length; } catch(e){ r.arbitrer = 0; }
+  try { var La = V.anomaliesDoc(doc, an, anomsOf(v.id), {telQuel: true}); r.arbitrer = La.filter(function(a){ return a.st === 'arbitrer'; }).length; r.horsdossier = La.filter(function(a){ return a.st === 'horsdossier'; }).length; } catch(e){ r.arbitrer = 0; r.horsdossier = 0; }
   VC_RESUMES.set(v.id, r);
   return r;
 }
@@ -3638,6 +3638,8 @@ function vcEcarts(v, c){
   if (res.puisard && !(c.epRecup || {}).puisard) out.push('Puisard : sur le croquis de terrain, non coché au constat (ouvrages de récupération des EP).');
   if (res.arbitrer) out.push(res.arbitrer > 1 ? 'Le croquis de terrain propose ' + res.arbitrer + ' anomalies « à arbitrer », hors du dossier tant qu\'elles ne sont pas retenues : décidez dans le croquis (Contrôles).'
     : 'Le croquis de terrain propose une anomalie « à arbitrer », hors du dossier tant qu\'elle n\'est pas retenue : décidez dans le croquis (Contrôles).');
+  if (res.horsdossier) out.push(res.horsdossier > 1 ? 'Le croquis de terrain retient ' + res.horsdossier + ' anomalies absentes de la liste du dossier : ouvrez puis refermez le croquis pour les y reprendre.'
+    : 'Le croquis de terrain retient une anomalie absente de la liste du dossier : ouvrez puis refermez le croquis pour l\'y reprendre.');
   if (res.sansCote) out.push(res.sansCote > 1 ? res.sansCote + ' descentes EP sans façade sur le croquis de terrain : indiquez avant ou arrière pour les compter au constat.' : 'Descente EP sans façade sur le croquis de terrain : indiquez avant ou arrière pour la compter au constat.');
   return out;
 }

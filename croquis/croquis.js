@@ -473,7 +473,8 @@ VC.vpos = vpos; VC.lignePts = lignePts; VC.longueur = longueur; VC.indexDoc = in
 function analyser(doc, mode){
   mode = mode || 'edl';
   var idx = indexDoc(doc), objs = {}, lignes = {}, adj = {}, pieces = [];
-  doc.el.forEach(function(e){ if (!actif(e, mode)) return; if (e.k === 'pt' && T[e.t]) objs[e.id] = e; else if (e.k === 'ln' && (e.t === 'tr' || e.t === 'col')) lignes[e.id] = e; });
+  /* une zone suspecte n'est pas un nœud : annotation, elle ne relie aucun tuyau (croquis d'avant où elle en tient un) */
+  doc.el.forEach(function(e){ if (!actif(e, mode)) return; if (e.k === 'pt' && T[e.t]){ if (e.t !== 'zone') objs[e.id] = e; } else if (e.k === 'ln' && (e.t === 'tr' || e.t === 'col')) lignes[e.id] = e; });
   function lier(n, p){ (adj[n] = adj[n] || []).push(p); }
   /* sommet posé sur un objet absent de ce plan : extrémité libre, sauf sur l'avant-projet un ouvrage « À supprimer » (fosse, regard…) : il
      relie encore les tuyaux qui y restent (raccordement direct), qu'ils y finissent ou le traversent, et le collecteur qui le porte, sans
@@ -540,15 +541,33 @@ function analyser(doc, mode){
   /* extrémité libre d'un tracé : sommet sans objet ; aussi un raccord du dessin qui ne relie que lui : sur l'état des lieux quand ses autres
      tracés sont projetés (tuyau projeté parti de l'extrémité d'un tuyau existant ; sans eux, ce raccord n'existerait pas), et sur les deux
      plans quand il n'a plus d'autre tracé (gardé par une anomalie notée sur lui) : une anomalie ne change pas l'analyse. Un raccord posé à la
-     main reste un nœud. De même un point de test ou une zone suspecte au bout d'un seul tuyau : une annotation ne change pas l'analyse ;
-     entre deux tuyaux, il les relie. Sur l'avant-projet, le tuyau à supprimer d'un raccord n'en fait pas une extrémité libre : la branche qui
+     main reste un nœud. De même un point de test au bout d'un seul tuyau : une annotation ne change pas l'analyse ; entre deux tuyaux, il
+     les relie. Sur l'avant-projet, le tuyau à supprimer d'un raccord n'en fait pas une extrémité libre : la branche qui
      y reste n'a plus d'exutoire après travaux */
   var lieHorsPlan = {}, lignesDe = {};
   doc.el.forEach(function(e){ if (e.k === 'ln') e.v.forEach(function(v){ if (!v.a) return; if (e.t === 'tr' || e.t === 'col') (lignesDe[v.a] = lignesDe[v.a] || {})[e.id] = true; if (mode !== 'avp' && !actif(e, mode)) lieHorsPlan[v.a] = true; }); });
   function boutLibre(nd){ if (nd.indexOf('x:') === 0) return true; var ob = objs[nd]; return !!ob && (ob.t === 'jonction' && jonctionAuto(ob) || T[ob.t].role === 'note') && (adj[nd] || []).length === 1 && (!!lieHorsPlan[nd] || Object.keys(lignesDe[nd] || {}).length === 1); }
-  /* réseaux indiqués les plus proches d'une extrémité libre, par toutes les branches où l'eau y arrive (sans franchir un exutoire) : s'ils
-     diffèrent (WC en « Tronçon EU » et descente en « Tronçon EP » réunis dans un regard dont la sortie, laissée libre, n'est pas indiquée),
-     rien n'est présumé vers elle */
+  /* une pièce amène l'eau d'un équipement quand il en est un au-delà d'elle (en remontant l'écoulement, sans la franchir ni passer un
+     exutoire) ; une branche de sortie qui ne mène qu'à des extrémités libres n'en amène pas */
+  function amontSource(nd, sauf){
+    var vus = {}, file = [nd]; vus[nd] = true;
+    while (file.length){
+      var n = file.shift(), ob = objs[n]; if (ob && T[ob.t].role === 'source') return true;
+      if (terminal(n)) continue;
+      (adj[n] || []).forEach(function(p){
+        if (p === sauf) return;
+        var autre = p.a === n ? p.b : p.a;
+        if (p.sens === 1 && p.a === n && p.b !== n) return;
+        if (p.sens === -1 && p.b === n && p.a !== n) return;
+        if (!vus[autre]){ vus[autre] = true; file.push(autre); }
+      });
+    }
+    return false;
+  }
+  /* réseaux indiqués les plus proches d'une extrémité libre, par toutes les branches où l'eau y arrive (sans franchir un exutoire) ; un
+     tronçon indiqué n'y compte que s'il amène l'eau d'un équipement (pas la branche de sortie indiquée d'un regard qui a aussi une arrivée
+     ou une seconde sortie laissée libre). S'ils diffèrent (WC en « Tronçon EU » et descente en « Tronçon EP » réunis dans un regard dont la
+     sortie, laissée libre, n'est pas indiquée), rien n'est présumé vers elle */
   var resVers = {};
   function reseauxVers(nd){
     if (resVers[nd]) return resVers[nd];
@@ -559,7 +578,7 @@ function analyser(doc, mode){
         var autre = p.a === n ? p.b : p.a;
         if (p.sens === 1 && p.a === n && p.b !== n) return;
         if (p.sens === -1 && p.b === n && p.a !== n) return;
-        if (!p.col && /^(EU|EP|UN)$/.test(p.l.p.res || '')){ q[p.l.p.res] = true; return; }
+        if (!p.col && /^(EU|EP|UN)$/.test(p.l.p.res || '')){ if (amontSource(autre, p)) q[p.l.p.res] = true; return; }
         if (vus[autre] || terminal(autre)) return;
         vus[autre] = true; file.push(autre);
       });
@@ -750,6 +769,9 @@ function anomaliesDoc(doc, an, ext, o){
 function conclusion(liste, an){
   var ret = liste.filter(function(a){ return a.st === 'retenue'; });
   if (ret.some(function(a){ return a.nc; })) return 'non_conformes';
+  /* plan PDF hors de l'éditeur : le dessin retient une anomalie que la liste du dossier n'a pas encore (croquis fait avec une version
+     précédente, pas encore rouvert) : aucune conformité n'est proposée */
+  if (liste.some(function(a){ return a.st === 'horsdossier'; })) return 'croquis';
   /* pas de conformité proposée tant qu'un équipement n'a pas de rejet établi */
   if (Object.keys(an.resObj).some(function(id){ return an.resObj[id].etat !== 'ok'; })) return 'incomplet';
   if (ret.length) return 'reserves';
@@ -968,7 +990,8 @@ function ecarterAnomalie(doc, cle){
   return true;
 }
 VC.reconcilier = reconcilier; VC.ecarterAnomalie = ecarterAnomalie; VC.recIntact = recIntact;
-var CONCL = {conformes: 'Conformes', non_conformes: 'Non conformes', reserves: 'Conformes avec réserves', incomplet: 'À compléter : un équipement n\'a pas de rejet établi'};
+var CONCL = {conformes: 'Conformes', non_conformes: 'Non conformes', reserves: 'Conformes avec réserves', incomplet: 'À compléter : un équipement n\'a pas de rejet établi',
+  croquis: 'À compléter : le croquis retient une anomalie absente de la liste du dossier (rouvrir le croquis)'};
 VC.CONCL = CONCL;
 
 /* ---------- Constat déduit : lignes de l'application (nombre, raccordement, conformité, méthodes) ---------- */
@@ -1580,7 +1603,8 @@ function jonctionSur(doc, snap){
   var idx = indexDoc(doc), l = idx[snap.ligne]; if (!l) return null;
   if (snap.type === 'som'){
     var v = l.v[snap.i]; if (!v) return null;
-    if (v.a && idx[v.a]) return idx[v.a];
+    /* une zone suspecte ne relie rien : le sommet qu'elle tiendrait reçoit un raccord */
+    if (v.a && idx[v.a] && idx[v.a].t !== 'zone') return idx[v.a];
     var j = {id: uid(), k: 'pt', t: 'jonction', x: v.x, y: v.y, p: defautsPt('jonction'), lab: {off: true}, auto: true}; doc.el.push(j); v.a = j.id; return j;
   }
   /* segment : reprojection sur le tracé tel qu'il est maintenant */
@@ -2044,7 +2068,8 @@ function editeur(racine, opts){
   /* Accroche d'un point de tracé : objet, sommet, segment ; sinon point libre redressé par les aides. L'objet le plus proche (zone d'accroche :
      symbole + 12 px) passe avant les tracés, sauf si le doigt est nettement plus près d'un tracé (6 px de marge) que du bord de son symbole :
      vu de loin, la zone d'un raccord ou d'un regard déborde sur le collecteur voisin. Le sommet d'un tracé posé sur un objet est cet objet : il
-     ne compte pas comme sommet. sansObj : tracés seulement ; sansSeg : sommets seulement ; rayonSom : rayon des sommets (16 px) */
+     ne compte pas comme sommet. sansObj : tracés seulement ; sansSeg : sommets seulement ; rayonSom : rayon des sommets (16 px) ; bouts : id
+     d'un objet, seules comptent les extrémités libres des tracés qui ne le portent pas (objet lâché) */
   function accroche(x, y, o){
     o = o || {}; var I = idx(), best = null, bd = Infinity, ob = null, dob = Infinity, de = Infinity, surObj = {};
     for (var i = 0; i < S.zones.length; i++){
@@ -2061,7 +2086,8 @@ function editeur(racine, opts){
     S.doc.el.forEach(function(l){
       if (l.k !== 'ln' || l.t === 'lim' || o.saufLigne === l.id || (o.col && l.t !== 'col')) return;
       var P = lignePts(l, I), Q = P.map(function(p){ return S.vue.ecran(p.x, p.y); });
-      P.forEach(function(p, i){ if (surObj[l.v[i].a]) return; var d = Math.hypot(x - Q[i].x, y - Q[i].y); if (d <= (o.rayonSom || 16)) som.push({d: d, l: l, a: {type: 'som', ligne: l.id, i: i, x: p.x, y: p.y, a: l.v[i].a || null}}); });
+      P.forEach(function(p, i){ if (surObj[l.v[i].a]) return; if (o.bouts && (l.v[i].a || (i && i !== P.length - 1) || l.v.some(function(w){ return w.a === o.bouts; }))) return;
+        var d = Math.hypot(x - Q[i].x, y - Q[i].y); if (d <= (o.rayonSom || 16)) som.push({d: d, l: l, a: {type: 'som', ligne: l.id, i: i, x: p.x, y: p.y, a: l.v[i].a && !(I[l.v[i].a] && I[l.v[i].a].t === 'zone') ? l.v[i].a : null}}); });
       if (!o.sansSeg) for (var i = 1; i < Q.length; i++){ var q = projSeg({x: x, y: y}, Q[i - 1], Q[i]); if (q.d <= 13){ var w = S.vue.monde(q.x, q.y); seg.push({d: q.d, l: l, a: {type: 'seg', ligne: l.id, i: i, x: w.x, y: w.y}}); } }
     });
     var dseg = Math.min.apply(null, seg.map(function(c){ return c.d; }).concat([Infinity]));
@@ -2191,7 +2217,11 @@ function editeur(racine, opts){
     }
     if (c.k === 'etiq'){ var I2 = idx(), an0 = ancre(e, I2); g.lab0 = decalLab(e.lab && !e.lab.off ? e.lab : (placerEtiquette(S.doc, S.an, e, E(), I2) || {dx: 0, dy: 0}), E()); g.a0 = an0; }
     if (c.k === 'bulle'){ var ob = el(c.objId); g.b0 = placerBulles(S.doc, S.an, S.liste, E(), idx())[c.id] || bulleDefaut(ob, E()); }
-    if (c.k === 'objet'){ g.o0 = {x: e.x, y: e.y}; }
+    if (c.k === 'objet'){
+      g.o0 = {x: e.x, y: e.y};
+      /* zone suspecte qui tiendrait encore le bout d'un tuyau (croquis d'avant) : le bout reste à sa place */
+      if (e.t === 'zone') S.doc.el.forEach(function(l){ if (l.k === 'ln') l.v.forEach(function(v){ if (v.a === e.id){ v.x = e.x; v.y = e.y; v.a = null; } }); });
+    }
   }
   function glisser(g, p){
     var c = g.cible, w = S.vue.monde(p.x, p.y), w0 = S.vue.monde(g.x0, g.y0), dxw = w.x - w0.x, dyw = w.y - w0.y, rot = S.doc.rot || 0, dP = versPlan(dxw, dyw, rot);
@@ -2312,10 +2342,10 @@ function editeur(racine, opts){
     }
     if (c.k === 'objet' && el(c.id) && el(c.id).t !== 'zone'){
       /* objet lâché sur une extrémité libre de tronçon : il s'y attache. Seuls les sommets comptent, jusqu'au bord de son symbole (16 px au
-         moins) : les tracés qu'il porte suivent le doigt, et ni le tracé qui passe sous lui ni un objet voisin ne sont des cibles. Une zone
-         suspecte, annotation, ne s'attache à rien */
+         moins) : les tracés qu'il porte suivent le doigt, et ni le tracé qui passe sous lui, ni un objet voisin, ni un coude plus proche ne
+         sont des cibles. Une zone suspecte, annotation, ne s'attache à rien */
       var e = el(c.id), s = S.vue.ecran(e.x, e.y), ze = S.zones.filter(function(z){ return z.type === 'pt' && !z.zone && z.id === e.id; })[0];
-      var aa = accroche(s.x, s.y, {saufObj: e.id, sansObj: true, sansSeg: true, rayonSom: Math.max(16, ze ? ze.r : 0)});
+      var aa = accroche(s.x, s.y, {saufObj: e.id, sansObj: true, sansSeg: true, bouts: e.id, rayonSom: Math.max(16, ze ? ze.r : 0)});
       /* … pas celle d'un tracé déjà lié à l'objet (son tuyau, le collecteur où il est posé) : il se refermerait sur lui */
       if (aa.type === 'som' && !aa.a){ var l2 = el(aa.ligne); if (l2 && (aa.i === 0 || aa.i === l2.v.length - 1) && !l2.v.some(function(w){ return w.a === e.id; })) l2.v[aa.i].a = e.id; }
     }
@@ -2377,6 +2407,12 @@ function editeur(racine, opts){
     if (o.k === 'pt'){
       var z2 = toucher(x, y);
       if (z2 && z2.type === 'pt' && !z2.zone && Math.hypot(x - z2.x, y - z2.y) <= z2.r + 4){ selectionner(z2.id); return; }
+      /* outil Zone suspecte : toucher dans une zone la choisit (les zones ne s'empilent pas) ; les autres outils posent leur objet dedans */
+      if (o.t === 'zone' && z2 && z2.type === 'pt' && z2.zone && Math.hypot(x - z2.x, y - z2.y) <= z2.r){ selectionner(z2.id); return; }
+      /* second toucher d'un double toucher, ou toucher répété aussitôt, là où le doigt vient de poser un objet que l'accroche a déplacé (bout
+         d'un tuyau, point d'un tracé) ou une zone suspecte (qui ne se choisit pas au toucher) : il choisit cet objet, sans en poser un second */
+      var dp = S.dernierePose;
+      if (dp && tq - dp.t < 700 && Math.hypot(x - dp.x, y - dp.y) < 24 && dp.vue === cleVue() && el(dp.id)){ selectionner(dp.id); return; }
       poserObjet(o.t, x, y); return;
     }
     if (o.k === 'tx'){ poserTexte(x, y); return; }
@@ -2762,7 +2798,7 @@ function editeur(racine, opts){
     }
     analyse();
     if (!T[t].sansEtiquette) o.lab = placerEtiquette(S.doc, S.an, o, E(), idx()) || null;
-    S.sel = {id: o.id, sommet: null}; S.panneau = 'fiche';
+    S.sel = {id: o.id, sommet: null}; S.panneau = 'fiche'; S.dernierePose = {t: Date.now(), x: x, y: y, id: o.id, vue: cleVue()};
     changement(); rendreVisible(o.id);
     vibrer();
   }
@@ -3518,6 +3554,8 @@ function editeur(racine, opts){
     S.ptr = {}; S.geste = null; S.apercu = null; S.accrocheVue = null;
     clearTimeout(tToast); R.querySelector('.vc-toast').classList.remove('on');
     doc.el = doc.el || []; doc.decisions = doc.decisions || {}; doc.ordre = doc.ordre || []; doc.anomManu = doc.anomManu || []; doc.gest = doc.gest || {EU: 'D', EP: 'D', UN: 'D'};
+    /* croquis d'avant la v1.6.1 : une zone suspecte ne tient aucun tuyau ; le bout qu'elle avait pris redevient libre, à sa place */
+    var iz = indexDoc(doc); doc.el.forEach(function(l){ if (l.k === 'ln' && l.v) l.v.forEach(function(v){ var oz = v.a && iz[v.a]; if (oz && oz.k === 'pt' && oz.t === 'zone'){ v.x = oz.x; v.y = oz.y; v.a = null; } }); });
     S.vue.rot = doc.rot || 0;
     /* fond trop loin du croquis (sauvegarde altérée) : non affiché, plutôt que des calculs démesurés */
     var loin = [S.fond, S.reseau].filter(function(f){ return f && !decalageFond(f, doc); });
@@ -3981,13 +4019,15 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL){
   var O = [212, 101, 10];
   if (mode === 'avp'){
     /* le dessin du projet doit corriger les raccordements ; les défauts d'ouvrage (tampon, cunette, accès) le sont par la préconisation */
-    var apres = anomaliesDoc(doc, analyser(doc, 'avp'), ext, oL).filter(function(a){ return a.st === 'retenue' && a.auto && (a.cat === 'inversion' || /^fosse:/.test(a.cle)); });
-    var edl = anomaliesDoc(doc, analyser(doc, 'edl'), ext, oL).filter(function(a){ return a.st === 'retenue'; });
+    var apres = anomaliesDoc(doc, analyser(doc, 'avp'), ext, oL).filter(function(a){ return (a.st === 'retenue' || a.st === 'horsdossier') && a.auto && (a.cat === 'inversion' || /^fosse:/.test(a.cle)); });
+    var edlL = anomaliesDoc(doc, analyser(doc, 'edl'), ext, oL), edl = edlL.filter(function(a){ return a.st === 'retenue'; });
     y = tableauPdf(pdf, y, [{t: 'N°', w: 10}, {t: 'Préconisation', w: 120}, {t: 'Anomalie traitée', w: 120}, {t: 'Réseau', w: 26}],
       edl.map(function(a){ return {cells: [String(a.num), a.preco || 'à définir', a.obs, a.reseau], coul: [O], gras: [true, true]}; }), 'Préconisations');
     var anA = analyser(doc, 'avp'), idxA = indexDoc(doc);
     var orphelins = Object.keys(anA.resObj).filter(function(id){ return anA.resObj[id].etat !== 'ok'; }).map(function(id){ var e = anA.resObj[id]; return {cells: ['Après travaux : ' + libEquipement(idxA[id]) + (e.etat === 'nonrelie' ? ' n\'est plus relié' : e.etat === 'multiple' ? ' est relié à plusieurs réseaux' : ' n\'a pas d\'exutoire dessiné') + ' : raccordement à compléter dans le projet']}; });
-    var lignesC = apres.map(function(a){ return {cells: ['Reste après travaux : ' + a.obs]}; }).concat(orphelins);
+    /* hors de l'éditeur : le dessin retient une anomalie que la liste du dossier n'a pas encore (croquis à rouvrir) */
+    var aReprendre = edlL.some(function(a){ return a.st === 'horsdossier'; }) ? [{cells: ['À reprendre : le croquis retient une anomalie absente de la liste du dossier (rouvrir le croquis)']}] : [];
+    var lignesC = aReprendre.concat(apres.map(function(a){ return {cells: ['Reste après travaux : ' + a.obs]}; })).concat(orphelins);
     y = tableauPdf(pdf, y, [{t: 'Contrôle du projet', w: 276}], lignesC.length ? lignesC : [{cells: ['Après travaux, le dessin ne fait plus apparaître d\'anomalie de raccordement.']}], 'Contrôle de l\'avant-projet');
     return;
   }
