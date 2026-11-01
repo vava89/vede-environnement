@@ -2374,13 +2374,15 @@ function editeur(racine, opts){
   /* --- toucher bref : selon l'outil --- */
   /* toucher sur le plan : comme le clic qu'il ne produit plus, il ramène le focus sur l'éditeur (champ de saisie quitté, saisie enregistrée,
      clavier fermé ; bouton du panneau qui ne reste pas actif pour la touche Entrée). Une fiche qu'il ouvre (pose, choix) est gardée contre
-     le second toucher d'un double toucher (majPanneau) ; si la vue a glissé pour la montrer, le plan l'est aussi */
+     le second toucher d'un double toucher (majPanneau) ; si la vue a glissé pour la montrer, le plan l'est aussi, et la garde d'une pose ou
+     d'un choix (S.dernierePose) note la vue d'après ce glissement : un toucher répété au même endroit de l'écran choisit encore l'objet */
   /* tAppui : heure de l'appui d'un toucher qui roule (glissé court), dont le lever arrive plus tard que celui d'un toucher net */
   function tap(x, y, tAppui, cibleRoule){
     var ae = document.activeElement; if (ae !== R && (!ae || ae === document.body || R.contains(ae))) try { R.focus({preventScroll: true}); } catch(e){}
     var t0 = Date.now(), v0 = cleVue(), r = tapPlan(x, y, tAppui, cibleRoule), gf = S.gardeFiche;
     if (gf && gf.t >= t0 && cleVue() !== v0) gf.glisse = true;
     if (S.dernierTap) S.dernierTap.vue = cleVue();
+    if (S.dernierePose && S.dernierePose.t >= t0) S.dernierePose.vue = cleVue();
     return r;
   }
   /* vue du plan après un toucher : un double toucher suppose qu'elle n'a pas bougé entre les deux touchers */
@@ -2436,9 +2438,10 @@ function editeur(racine, opts){
       /* une bulle d'anomalie touchée : son objet, comme avec Choisir */
       if (z2 && z2.type === 'bulle' && el(z2.objId)){ choisirPose(z2.objId); return; }
       /* second toucher d'un double toucher, ou toucher répété aussitôt, là où le doigt vient de poser un objet que l'accroche a déplacé (bout
-         d'un tuyau, point d'un tracé), une zone suspecte, ou de choisir un objet : il choisit cet objet, sans en poser un second */
+         d'un tuyau, point d'un tracé), une zone suspecte, ou de choisir un objet : il choisit cet objet, sans en poser un second ; la garde
+         repart de ce toucher (triple toucher) */
       var dp = S.dernierePose;
-      if (dp && tq - dp.t < 700 && Math.hypot(x - dp.x, y - dp.y) < 24 && dp.vue === cleVue() && el(dp.id)){ selectionner(dp.id); return; }
+      if (dp && tq - dp.t < 700 && Math.hypot(x - dp.x, y - dp.y) < 24 && dp.vue === cleVue() && el(dp.id)){ choisirPose(dp.id); return; }
       poserObjet(o.t, x, y); return;
     }
     if (o.k === 'tx'){ poserTexte(x, y); return; }
@@ -2556,9 +2559,10 @@ function editeur(racine, opts){
     var oo = OUTILS_LN[S.outil.id], b2 = S.brouillon, at = attache(a2) && oo.t !== 'lim';
     if (!b2){
       S.brouillon = b2 = {outil: S.outil.id, pts: []};
-      /* prolongation : extrémité libre d'un tuyau du statut que dessine l'outil (existant, présumé, projet) ; sinon le nouveau tuyau part d'un
-         raccord posé sur cette extrémité (tuyau projeté au bout d'un tuyau existant) */
-      if (a2.type === 'som' && !a2.a && oo.t === 'tr'){ var l0 = el(a2.ligne); if (l0 && l0.t === 'tr' && (a2.i === 0 || a2.i === l0.v.length - 1) && ((l0.p && l0.p.st) || 'existant') === ((oo.p && oo.p.st) || 'existant')) b2.prolonge = {id: l0.id, debut: a2.i === 0}; }
+      /* prolongation : extrémité libre d'un tuyau du statut que dessine l'outil (existant, présumé, projet) et d'un réseau qu'il ne contredit
+         pas (Tronçon, ou Tronçon EU sur un tuyau EU) ; sinon le nouveau tuyau part d'un raccord posé sur cette extrémité et garde ce que
+         l'outil indique (tuyau projeté au bout d'un tuyau existant, branche « Tronçon EP » au bout du tuyau « Tronçon EU » d'un WC) */
+      if (a2.type === 'som' && !a2.a && oo.t === 'tr'){ var l0 = el(a2.ligne); if (l0 && l0.t === 'tr' && (a2.i === 0 || a2.i === l0.v.length - 1) && ((l0.p && l0.p.st) || 'existant') === ((oo.p && oo.p.st) || 'existant') && (!(oo.p && oo.p.res) || oo.p.res === (l0.p && l0.p.res))) b2.prolonge = {id: l0.id, debut: a2.i === 0}; }
     }
     /* doigt : là où le doigt a posé le point (le point lui-même peut avoir été redressé ou accroché plus loin) */
     b2.pts.push({x: a2.x, y: a2.y, snap: at ? a2 : null, aide: a2.aide ? a2.type : null, doigt: src ? S.vue.monde(src.x, src.y) : null});
@@ -3477,6 +3481,8 @@ function editeur(racine, opts){
       var gardes = {a: 1, meth: 1, niv: 1, obs: 1, st: 1, etiq: 1};
       Object.keys(ancien).forEach(function(k){ var x = ancien[k]; if (!(k in nv) && !gardes[k] && x != null && x !== '' && !(Array.isArray(x) && !x.length)) perdus.push(k); });
       e.t = v; e.p = Object.assign(nv, {meth: ancien.meth || [], niv: ancien.niv || '', obs: ancien.obs || '', st: ancien.st || 'existant', etiq: ancien.etiq || ''});
+      /* une zone suspecte ne tient aucun tuyau : un point de test qui reliait deux tuyaux laisse un raccord à sa place, comme à l'ouverture */
+      if (v === 'zone') libererZones(S.doc, e.id);
       if (e.lab && !e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx());
       changement();
       if (perdus.length) toast('Type changé : ' + (perdus.length > 1 ? perdus.length + ' caractéristiques ne s\'appliquent plus et sont effacées' : 'une caractéristique ne s\'applique plus et est effacée') + ' · « Annuler » les rétablit', 5000);
