@@ -476,12 +476,13 @@ function analyser(doc, mode){
   doc.el.forEach(function(e){ if (!actif(e, mode)) return; if (e.k === 'pt' && T[e.t]) objs[e.id] = e; else if (e.k === 'ln' && (e.t === 'tr' || e.t === 'col')) lignes[e.id] = e; });
   function lier(n, p){ (adj[n] = adj[n] || []).push(p); }
   /* sommet posé sur un objet absent de ce plan : extrémité libre, sauf sur l'avant-projet un ouvrage « À supprimer » (fosse, regard…) : il
-     relie encore les tuyaux qui y restent (raccordement direct) sans compter comme ouvrage ; celui qui y finit seul n'a plus d'exutoire */
+     relie encore les tuyaux qui y restent (raccordement direct), qu'ils y finissent ou le traversent, et le collecteur qui le porte, sans
+     compter comme ouvrage ; celui qui y finit seul n'a plus d'exutoire */
   function noeud(l, i){ var v = l.v[i], o = v.a && idx[v.a]; if (o && objs[v.a]) return v.a; if (mode === 'avp' && o && o.k === 'pt' && !actif(o, mode)) return 'h:' + v.a; return 'x:' + l.id + ':' + i; }
   Object.keys(lignes).forEach(function(id){
     var l = lignes[id], att = [];
-    l.v.forEach(function(v, i){ if (v.a && objs[v.a]) att.push(i); });
-    if (l.t === 'col'){ att.forEach(function(i){ var p = {id: id + ':c' + i, l: l, a: l.v[i].a, b: 'C:' + id, col: true, i0: i, i1: i, sens: 0}; lier(p.a, p); lier(p.b, p); }); return; }
+    l.v.forEach(function(v, i){ if (v.a && (objs[v.a] || noeud(l, i).indexOf('h:') === 0)) att.push(i); });
+    if (l.t === 'col'){ att.forEach(function(i){ var p = {id: id + ':c' + i, l: l, a: noeud(l, i), b: 'C:' + id, col: true, i0: i, i1: i, sens: 0}; lier(p.a, p); lier(p.b, p); }); return; }
     if (l.v.length < 2) return;
     var b = att.slice(); if (b[0] !== 0) b.unshift(0); if (b[b.length - 1] !== l.v.length - 1) b.push(l.v.length - 1);
     for (var k = 0; k + 1 < b.length; k++){
@@ -555,17 +556,19 @@ function analyser(doc, mode){
       ch.nodes.forEach(function(nd){ var ob = objs[nd], tt = ob && T[ob.t]; if (tt && tt.fosse && !fosse) fosse = nd; if (tt && tt.boite && !boite) boite = nd; });
       if (t.col) entree[t.id] = ch.nodes[1] || id;
     });
-    /* sans exutoire dessiné : réseau présumé d'après les tronçons indiqués sur le chemin vers une extrémité libre */
+    /* sans exutoire dessiné : réseau présumé d'après les tronçons indiqués sur le chemin vers une extrémité libre : pour chaque extrémité, le
+       tronçon indiqué le plus proche d'elle (tuyau « Tronçon EU » du WC arrivé sur une branche « Tronçon EP » laissée libre : EP) */
     if (!nets.length){
       var ex = {}, versLibres = [];
-      Object.keys(r.vus).forEach(function(nd){ if (!boutLibre(nd)) return; var ch = chemin(r, nd); versLibres.push(ch); ch.pieces.forEach(function(p){ if (!p.col && /^(EU|EP|UN)$/.test(p.l.p.res || '')) ex[p.l.p.res] = true; }); });
+      Object.keys(r.vus).forEach(function(nd){ if (!boutLibre(nd)) return; var ch = chemin(r, nd); versLibres.push(ch); ch.res = null;
+        ch.pieces.some(function(p){ if (!p.col && /^(EU|EP|UN)$/.test(p.l.p.res || '')){ ch.res = p.l.p.res; return true; } return false; }); if (ch.res) ex[ch.res] = true; });
       var exl = Object.keys(ex);
       if (exl.length === 1){
         nets = exl; presume = true; gests[exl[0]] = (doc.gest && doc.gest[exl[0]]) || 'D';
         /* fosse septique ou boîte sur le chemin de l'exutoire présumé : comme sur celui d'un exutoire dessiné, quand elle est sur chaque chemin
            vers une extrémité libre qui porte ce réseau ; une autre extrémité libre peut être une arrivée (fosse en amont du regard, son entrée
            venant de la maison, appareils non dessinés) */
-        var portent = versLibres.filter(function(ch){ return ch.pieces.some(function(p){ return !p.col && p.l.p.res === exl[0]; }); });
+        var portent = versLibres.filter(function(ch){ return ch.res === exl[0]; });
         portent[0].nodes.forEach(function(nd){ var ob = objs[nd], tt = ob && T[ob.t]; if (!tt || !portent.every(function(ch){ return ch.nodes.indexOf(nd) >= 0; })) return;
           if (tt.fosse && !fosse) fosse = nd; if (tt.boite && !boite) boite = nd; });
       }
@@ -2016,7 +2019,7 @@ function editeur(racine, opts){
   /* Accroche d'un point de tracé : objet, sommet, segment ; sinon point libre redressé par les aides. L'objet le plus proche (zone d'accroche :
      symbole + 12 px) passe avant les tracés, sauf si le doigt est nettement plus près d'un tracé (6 px de marge) que du bord de son symbole :
      vu de loin, la zone d'un raccord ou d'un regard déborde sur le collecteur voisin. Le sommet d'un tracé posé sur un objet est cet objet : il
-     ne compte pas comme sommet. sansObj : tracés seulement ; sansSeg : sommets seulement */
+     ne compte pas comme sommet. sansObj : tracés seulement ; sansSeg : sommets seulement ; rayonSom : rayon des sommets (16 px) */
   function accroche(x, y, o){
     o = o || {}; var I = idx(), best = null, bd = Infinity, ob = null, dob = Infinity, de = Infinity, surObj = {};
     for (var i = 0; i < S.zones.length; i++){
@@ -2033,7 +2036,7 @@ function editeur(racine, opts){
     S.doc.el.forEach(function(l){
       if (l.k !== 'ln' || l.t === 'lim' || o.saufLigne === l.id || (o.col && l.t !== 'col')) return;
       var P = lignePts(l, I), Q = P.map(function(p){ return S.vue.ecran(p.x, p.y); });
-      P.forEach(function(p, i){ if (surObj[l.v[i].a]) return; var d = Math.hypot(x - Q[i].x, y - Q[i].y); if (d <= 16) som.push({d: d, l: l, a: {type: 'som', ligne: l.id, i: i, x: p.x, y: p.y, a: l.v[i].a || null}}); });
+      P.forEach(function(p, i){ if (surObj[l.v[i].a]) return; var d = Math.hypot(x - Q[i].x, y - Q[i].y); if (d <= (o.rayonSom || 16)) som.push({d: d, l: l, a: {type: 'som', ligne: l.id, i: i, x: p.x, y: p.y, a: l.v[i].a || null}}); });
       if (!o.sansSeg) for (var i = 1; i < Q.length; i++){ var q = projSeg({x: x, y: y}, Q[i - 1], Q[i]); if (q.d <= 13){ var w = S.vue.monde(q.x, q.y); seg.push({d: q.d, l: l, a: {type: 'seg', ligne: l.id, i: i, x: w.x, y: w.y}}); } }
     });
     var dseg = Math.min.apply(null, seg.map(function(c){ return c.d; }).concat([Infinity]));
@@ -2283,9 +2286,10 @@ function editeur(racine, opts){
       var ls = el(c.id), ni = ls && g.sommet ? ls.v.indexOf(g.sommet) : -1; if (S.sel && S.sel.sommet != null) S.sel.sommet = ni >= 0 ? ni : null;
     }
     if (c.k === 'objet'){
-      /* objet lâché sur une extrémité libre de tronçon : il s'y attache. Seuls les sommets comptent : les tracés qu'il porte suivent le doigt,
-         et le tracé qui passe sous lui n'est pas une cible */
-      var e = el(c.id), s = S.vue.ecran(e.x, e.y), aa = accroche(s.x, s.y, {saufObj: e.id, sansSeg: true});
+      /* objet lâché sur une extrémité libre de tronçon : il s'y attache. Seuls les sommets comptent, jusqu'au bord de son symbole (16 px au
+         moins) : les tracés qu'il porte suivent le doigt, et le tracé qui passe sous lui n'est pas une cible */
+      var e = el(c.id), s = S.vue.ecran(e.x, e.y), ze = S.zones.filter(function(z){ return z.type === 'pt' && z.id === e.id; })[0];
+      var aa = accroche(s.x, s.y, {saufObj: e.id, sansSeg: true, rayonSom: Math.max(16, ze ? ze.r : 0)});
       /* … pas celle d'un tracé déjà lié à l'objet (son tuyau, le collecteur où il est posé) : il se refermerait sur lui */
       if (aa.type === 'som' && !aa.a){ var l2 = el(aa.ligne); if (l2 && (aa.i === 0 || aa.i === l2.v.length - 1) && !l2.v.some(function(w){ return w.a === e.id; })) l2.v[aa.i].a = e.id; }
     }
