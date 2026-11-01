@@ -592,7 +592,7 @@ function analyser(doc, mode){
   var resObj = {};
   Object.keys(objs).forEach(function(id){
     var o = objs[id], ty = T[o.t]; if (ty.role !== 'source') return;
-    var r = parcours([id]), nets = [], gests = {}, fosse = null, boite = null, entree = {}, presume = false, cfl = null;
+    var r = parcours([id]), nets = [], gests = {}, fosse = null, boite = null, entree = {}, presume = false, cfl = null, amb = null, ambArr = false;
     r.term.forEach(function(t){
       if (nets.indexOf(t.res) < 0) nets.push(t.res); gests[t.res] = gestDe(t);
       var ch = chemin(r, t.noeud);
@@ -600,24 +600,27 @@ function analyser(doc, mode){
       if (t.col) entree[t.id] = ch.nodes[1] || id;
     });
     /* sans exutoire dessiné : réseau présumé d'après les tronçons indiqués sur le chemin vers une extrémité libre : pour chaque extrémité, le
-       tronçon indiqué le plus proche d'elle (tuyau « Tronçon EU » du WC arrivé sur une branche « Tronçon EP » laissée libre : EP), sur sa
-       propre branche, avant le tronc qu'elle partage avec une autre extrémité de la source (le tuyau de l'équipement jusqu'au regard où les
-       branches se séparent) ; le tronc ne donne son réseau qu'à défaut d'une indication propre à une branche (WC « Tronçon EU » vers un
-       regard dont la sortie et l'entrée laissées libres ne sont pas indiquées : EU) ; aucun
-       quand d'autres branches amènent un autre réseau indiqué à l'une des extrémités qui portent ce réseau (les Contrôles le disent) ; une
+       tronçon indiqué le plus proche d'elle (tuyau « Tronçon EU » du WC arrivé sur une branche « Tronçon EP » laissée libre : EP), s'il
+       est aussi le plus proche de chaque autre extrémité au-delà de lui : le tronc qu'une extrémité partage avec d'autres (le tuyau de
+       l'équipement jusqu'au regard où les branches se séparent, ou une branche indiquée qui se partage ensuite) ne donne son réseau qu'à
+       défaut d'une indication propre aux branches qui le suivent (WC « Tronçon EU » vers un regard dont la sortie et l'entrée laissées
+       libres ne sont pas indiquées : EU ; branche « Tronçon EP » vers un regard de jardin d'où partent la rue et le garage, laissés libres,
+       et entrée de la maison laissée libre : EP) ; aucun
+       quand d'autres branches amènent un autre réseau indiqué à l'une des extrémités qui portent ce réseau (les Contrôles le disent), ni
+       quand des extrémités libres portent des réseaux différents (amb : les Contrôles et la fiche les nomment, et conseillent d'orienter une
+       arrivée quand l'une de ces extrémités peut en être une, ambArr) ; une
        extrémité que la source n'atteint que par des tuyaux sans réseau indiqué (entrée de la maison, seconde sortie ou trop-plein laissés
        libres) ne lui en donne aucun et ne l'annule pas */
     if (!nets.length){
-      var ex = {}, versLibres = [], conflit = {}, nbChemins = {};
+      var ex = {}, versLibres = [], conflit = {};
       var indiqueRes = function(p){ return !p.col && /^(EU|EP|UN)$/.test(p.l.p.res || ''); };
       Object.keys(r.vus).forEach(function(nd){ if (boutLibre(nd)) versLibres.push(chemin(r, nd)); });
-      versLibres.forEach(function(ch){ ch.pieces.forEach(function(p){ var k = pieces.indexOf(p); nbChemins[k] = (nbChemins[k] || 0) + 1; }); });
-      versLibres.forEach(function(ch){ ch.res = null; ch.propreBranche = null;
-        ch.pieces.some(function(p){ if (nbChemins[pieces.indexOf(p)] > 1) return true; if (indiqueRes(p)){ ch.propreBranche = p.l.p.res; return true; } return false; });
-        ch.pieces.some(function(p){ if (indiqueRes(p)){ ch.res = p.l.p.res; return true; } return false; }); });
-      if (versLibres.some(function(ch){ return ch.propreBranche; })) versLibres.forEach(function(ch){ ch.res = ch.propreBranche; });
+      versLibres.forEach(function(ch){ ch.res = null; ch.proche = null; ch.pieces.some(function(p){ if (indiqueRes(p)){ ch.proche = p; return true; } return false; }); });
+      versLibres.forEach(function(ch){ var p = ch.proche; if (p && versLibres.every(function(c2){ return c2.pieces.indexOf(p) < 0 || c2.proche === p; })) ch.res = p.l.p.res; });
       versLibres.forEach(function(ch){ if (ch.res) ex[ch.res] = true; });
       var exl = Object.keys(ex);
+      if (exl.length > 1){ amb = ['EU', 'EP', 'UN'].filter(function(k){ return ex[k]; });
+        ambArr = versLibres.some(function(ch){ return ch.res && ch.pieces.length > 1 && !ch.pieces[0].sens; }); }
       if (exl.length === 1) versLibres.forEach(function(ch){ if (ch.res !== exl[0]) return; var rv = reseauxVers(ch.nodes[0]); if (rv.length > 1) rv.forEach(function(k){ conflit[k] = true; }); });
       if (exl.length === 1 && Object.keys(conflit).length) cfl = ['EU', 'EP', 'UN'].filter(function(k){ return conflit[k]; });
       if (exl.length === 1 && !cfl){
@@ -631,7 +634,7 @@ function analyser(doc, mode){
       }
     }
     var etat = !Object.keys(r.pieces).length ? 'nonrelie' : !nets.length ? 'sansexu' : nets.length > 1 ? 'multiple' : 'ok';
-    resObj[id] = {etat: etat, res: nets.length === 1 ? nets[0] : null, nets: nets, gest: nets.length === 1 ? gests[nets[0]] : null, presume: presume, conflit: cfl, fosse: fosse, boite: boite, term: r.term, entree: entree};
+    resObj[id] = {etat: etat, res: nets.length === 1 ? nets[0] : null, nets: nets, gest: nets.length === 1 ? gests[nets[0]] : null, presume: presume, conflit: cfl, ambigu: amb, ambiguArrivee: ambArr, fosse: fosse, boite: boite, term: r.term, entree: entree};
   });
   /* Réseau de chaque pièce (couleur), regards traversés, flèches d'écoulement */
   var resPiece = {}, resNoeud = {};
@@ -734,7 +737,7 @@ function controles(doc, an){
       if (!(o.p.meth || []).length) c(id, 'manque', lib + ' : méthode de test à indiquer', 'meth');
       if (r){
         if (r.etat === 'nonrelie') c(id, 'manque', lib + ' : non relié au réseau sur le dessin', 'relie');
-        else if (r.etat === 'sansexu') c(id, 'manque', lib + ' : exutoire non dessiné' + (r.conflit ? ', tronçons ' + listeEt(r.conflit.map(libRes)) + ' réunis vers la même extrémité libre (indiquer le réseau du tronçon commun, ou le sens du tracé d\'une arrivée)' : ' (prolonger le tracé ou indiquer le réseau du tronçon)'), 'exu');
+        else if (r.etat === 'sansexu') c(id, 'manque', lib + ' : exutoire non dessiné' + (r.conflit ? ', tronçons ' + listeEt(r.conflit.map(libRes)) + ' réunis vers la même extrémité libre (indiquer le réseau du tronçon commun, ou le sens du tracé d\'une arrivée)' : r.ambigu ? ', extrémités libres de réseaux ' + listeEt(r.ambigu.map(libRes)) + (r.ambiguArrivee ? ' (prolonger le tracé, ou indiquer le sens du tracé d\'une arrivée)' : ' (prolonger le tracé jusqu\'à l\'exutoire)') : ' (prolonger le tracé ou indiquer le réseau du tronçon)'), 'exu');
         else if (r.etat === 'multiple') c(id, 'manque', lib + ' : relié à plusieurs réseaux (' + r.nets.map(function(x){ return EXU_LIB[x] || x; }).join(', ') + ') : indiquer le sens d\'écoulement d\'un tronçon', 'multi');
       }
       if (o.t === 'descente'){
@@ -2599,6 +2602,13 @@ function editeur(racine, opts){
     if (fa && fa.id) return quoi + ' déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.';
     return quoi + ' déjà terminé.' + (t === 'col' || t === 'lim' ? '' : ' Pour le prolonger, touchez de nouveau son extrémité.');
   }
+  /* même explication pour un toucher ignoré sur la fiche ou une barre qui vient de se placer sous le doigt après la fin : l'objet ou
+     l'extrémité de fin est dessous, il faut fermer la fiche pour les toucher */
+  function msgFinSous(fa, fiche){
+    var t = fa && fa.lt, quoi = t === 'col' ? 'Collecteur' : t === 'lim' ? 'Trait' : 'Tronçon', deb = quoi + ' déjà terminé' + (fa && fa.id ? ' sur cet objet' : '') + ' : ';
+    if (!fiche) return deb + 'ce bouton vient de se placer sous le doigt (fiche ouverte), touchez-le de nouveau pour vous en servir.';
+    return deb + 'sa fiche vient de s\'ouvrir sous le doigt, touchez-la de nouveau pour la modifier' + (fa && fa.id ? ' ; pour partir de l\'objet, fermez la fiche puis touchez-le.' : t === 'col' || t === 'lim' ? '.' : ' ; pour le prolonger, fermez la fiche puis touchez son extrémité.');
+  }
   /* juste après la fin d'un tronçon, le toucher d'habitude qui roule un peu sous le doigt devient un glissé resté sur l'objet de fin (ou sur
      le tronçon fini) : ce n'est pas un départ, il est ignoré avec l'explication */
   function habitudeGlisse(g){
@@ -2809,10 +2819,19 @@ function editeur(racine, opts){
     if (T[t].oriente) o.p.a = Math.round(((S.doc.rot || 0) * 180 / Math.PI) * 10) / 10;
     /* accroche aux seuls tracés : le symbole sous le doigt est déjà choisi (tapPlan) ; au-delà, l'objet se pose sur le tuyau ou l'extrémité
        libre la plus proche, même tout près d'un objet voisin (comme au lâcher d'un glissé) */
-    var a = accroche(x, y, {sansObj: true}), passage = T[t].role === 'passage' || T[t].role === 'exutoire', angSeg = null;
-    /* une descente, une gargouille ou un té se pose sur le coin ou la façade du bâti le plus proche */
-    if (!a.type && T[t].mur && aideOn('bati')){ var af = accrocheLibre(x, y, {}); if (af.aide){ o.x = af.x; o.y = af.y; montrerAide(af); } }
+    var a = accroche(x, y, {sansObj: true}), passage = T[t].role === 'passage' || T[t].role === 'exutoire', angSeg = null, boutSous = null;
+    /* rien à moins de 16 px : l'extrémité libre d'un tuyau sous le symbole du nouvel objet (plan vu de près, symbole plus grand que 16 px)
+       s'y raccorde, comme au lâcher d'un glissé ; l'objet reste sous le doigt. Une zone suspecte, annotation, ne s'attache à rien */
+    if (!a.type && t !== 'zone'){
+      var RS = rayonSymbole(t), rN = RS * Math.max(S.vue.s * E() / 1000, (t === 'jonction' ? 4 : 8.5) / RS);
+      if (rN > 16){ var ab = accroche(x, y, {sansObj: true, sansSeg: true, bouts: o.id, rayonSom: rN}); if (ab.type === 'som' && !ab.a) boutSous = ab; }
+    }
+    /* une descente, une gargouille ou un té se pose sur le coin ou la façade du bâti le plus proche, sauf si ce point est sur un symbole déjà
+       posé (descente au même coin) : l'objet reste alors sous le doigt, visible et touchable */
+    if (!a.type && !boutSous && T[t].mur && aideOn('bati')){ var af = accrocheLibre(x, y, {}), sa = af.aide ? S.vue.ecran(af.x, af.y) : null;
+      if (sa && !S.zones.some(function(z){ return z.type === 'pt' && !z.zone && Math.hypot(sa.x - z.x, sa.y - z.y) < z.r + 4; })){ o.x = af.x; o.y = af.y; montrerAide(af); } }
     S.doc.el.push(o);
+    if (boutSous){ var lb = el(boutSous.ligne); if (lb && (boutSous.i === 0 || boutSous.i === lb.v.length - 1)){ lb.v[boutSous.i].a = o.id; lb.v[boutSous.i].x = o.x; lb.v[boutSous.i].y = o.y; } }
     /* une zone suspecte ne s'attache pas à l'extrémité libre touchée (ni à un tracé) : c'est une annotation */
     if (a.type === 'som' && !a.a && t !== 'zone'){ var l = el(a.ligne), ext = l && (a.i === 0 || a.i === l.v.length - 1);
       if (ext || passage){
@@ -2862,16 +2881,18 @@ function editeur(racine, opts){
   });
   /* second toucher tombé sur ce qui vient de se placer sous le doigt (la fiche qui s'ouvre, les barres de navigation et d'aide déplacées
      à côté d'elle) : habitude « toucher à nouveau pour terminer » après une fin automatique, ou second toucher d'un double toucher qui a posé
-     ou choisi un objet ; ignoré une fois, au même endroit seulement, et avec lui le toucher qui le suit aussitôt (triple toucher : moins de
-     600 ms, la fenêtre de la garde, à moins de 48 px). Rend l'explication, ou '' */
+     ou choisi un objet ; ignoré une fois, au même endroit seulement, et avec lui, une seule fois, le toucher qui le suit aussitôt (triple
+     toucher : avant la fin de la fenêtre de la garde, 600 ms après une pose ou un choix, 1 s après une fin, comptée depuis le relâcher du
+     toucher ignoré, à moins de 48 px ; le suivant agit). Rend l'explication, ou '' */
   function secondToucher(ev, fiche){
     var t = Date.now(), r = cv.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, ar = S.avaleRepete;
-    if (ar && t - ar.t < 600 && Math.hypot(x - ar.x, y - ar.y) < 48){ S.avaleRepete = {t: t, x: x, y: y, m: ar.m}; return ar.m; }
+    if (ar && t - ar.t < ar.w && Math.hypot(x - ar.x, y - ar.y) < 48){ S.avaleRepete = null; return ar.m; }
     var fa = S.finAuto && t - S.finAuto.t < 1000 ? S.finAuto : S.gardeFiche && t - S.gardeFiche.t < 600 ? S.gardeFiche : null; if (!fa) return '';
     var R0 = fa.r || 48; if (Math.hypot(x - fa.tx, y - fa.ty) >= R0 && (fa.x == null || Math.hypot(x - fa.x, y - fa.y) >= R0)) return '';
-    var m = fa === S.finAuto ? msgFin(fa)
+    var fin = fa === S.finAuto, m = fin ? msgFinSous(fa, fiche)
       : fiche ? 'La fiche vient de s\'ouvrir sous le doigt : touchez-la de nouveau pour la modifier.' : 'Ce bouton vient de se placer sous le doigt (fiche ouverte) : touchez-le de nouveau pour vous en servir.';
-    S.finAuto = null; S.gardeFiche = null; S.avaleRepete = {t: t, x: x, y: y, m: m}; return m;
+    /* t : relâcher du toucher ignoré, noté par les écouteurs qui avalent son relâcher (à défaut, son appui) */
+    S.finAuto = null; S.gardeFiche = null; S.avaleRepete = {t: t, x: x, y: y, m: m, w: fin ? 1000 : 600}; return m;
   }
   var msgAvale = '';
   /* le relâcher et le clic du toucher ignoré sont avalés, quel que soit le compte d'appuis du clic (nul quand l'appui a été annulé) ;
@@ -2889,6 +2910,7 @@ function editeur(racine, opts){
       barre.addEventListener(type, function(ev){
         if (Date.now() >= barreAvale) return;
         ev.stopPropagation(); ev.preventDefault();
+        if (type === 'pointerup' && S.avaleRepete) S.avaleRepete.t = Date.now();
         if (type === 'click'){ barreAvale = 0; toast(barreMsg, 3500); }
       }, true);
     });
@@ -2900,6 +2922,7 @@ function editeur(racine, opts){
       if (t < panSynth && !panAppui && !(type === 'click' && !ev.detail)){ ev.stopPropagation(); ev.preventDefault(); if (type === 'click') panSynth = 0; return; }
       if (t >= panAvale) return;
       ev.stopPropagation(); ev.preventDefault();
+      if (type === 'pointerup' && S.avaleRepete) S.avaleRepete.t = t;
       if (type === 'click'){ panAvale = 0; toast(msgAvale, 3500); }
     }, true);
   });
@@ -3121,7 +3144,7 @@ function editeur(racine, opts){
     var r = S.an.resObj[e.id], a = S.liste.filter(function(x){ return x.objId === e.id && x.st === 'retenue'; });
     if (!r) return {cls: 'att', txt: S.mode === 'avp' ? 'Hors de l\'avant-projet' : 'Projet : non analysé dans l\'état des lieux'};
     if (r.etat === 'nonrelie') return {cls: 'ko', txt: 'Non relié : tracez un tronçon depuis cet objet'};
-    if (r.etat === 'sansexu') return {cls: 'att', txt: r.conflit ? 'Exutoire non dessiné : tronçons ' + listeEt(r.conflit.map(libRes)) + ' réunis vers la même extrémité libre, indiquez le réseau du tronçon commun, ou le sens du tracé d\'une arrivée' : 'Exutoire non dessiné : prolongez le tracé ou indiquez le réseau du tronçon'};
+    if (r.etat === 'sansexu') return {cls: 'att', txt: r.conflit ? 'Exutoire non dessiné : tronçons ' + listeEt(r.conflit.map(libRes)) + ' réunis vers la même extrémité libre, indiquez le réseau du tronçon commun, ou le sens du tracé d\'une arrivée' : r.ambigu ? 'Exutoire non dessiné : extrémités libres de réseaux ' + listeEt(r.ambigu.map(libRes)) + (r.ambiguArrivee ? ', prolongez le tracé ou indiquez le sens du tracé d\'une arrivée' : ', prolongez le tracé jusqu\'à l\'exutoire') : 'Exutoire non dessiné : prolongez le tracé ou indiquez le réseau du tronçon'};
     if (r.etat === 'multiple') return {cls: 'ko', txt: 'Relié à plusieurs réseaux : indiquez le sens d\'écoulement'};
     var txt = 'Rejet : ' + (EXU_LIB[r.res] || r.res) + (/^(EU|EP|UN)$/.test(r.res) && r.gest ? ' ' + GEST_LIB[r.gest] : '') + (r.presume ? ' (d\'après le tronçon)' : '');
     return a.length ? {cls: 'ko', txt: txt + ' · anomalie' + (a.length > 1 ? 's' : '') + ' n° ' + a.map(function(x){ return x.num; }).join(', ')} : {cls: 'ok', txt: txt};
