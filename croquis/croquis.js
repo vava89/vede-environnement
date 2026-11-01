@@ -2863,10 +2863,10 @@ function editeur(racine, opts){
   /* second toucher tombé sur ce qui vient de se placer sous le doigt (la fiche qui s'ouvre, les barres de navigation et d'aide déplacées
      à côté d'elle) : habitude « toucher à nouveau pour terminer » après une fin automatique, ou second toucher d'un double toucher qui a posé
      ou choisi un objet ; ignoré une fois, au même endroit seulement, et avec lui le toucher qui le suit aussitôt (triple toucher : moins de
-     380 ms, à moins de 48 px). Rend l'explication, ou '' */
+     600 ms, la fenêtre de la garde, à moins de 48 px). Rend l'explication, ou '' */
   function secondToucher(ev, fiche){
     var t = Date.now(), r = cv.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, ar = S.avaleRepete;
-    if (ar && t - ar.t < 380 && Math.hypot(x - ar.x, y - ar.y) < 48){ S.avaleRepete = {t: t, x: x, y: y, m: ar.m}; return ar.m; }
+    if (ar && t - ar.t < 600 && Math.hypot(x - ar.x, y - ar.y) < 48){ S.avaleRepete = {t: t, x: x, y: y, m: ar.m}; return ar.m; }
     var fa = S.finAuto && t - S.finAuto.t < 1000 ? S.finAuto : S.gardeFiche && t - S.gardeFiche.t < 600 ? S.gardeFiche : null; if (!fa) return '';
     var R0 = fa.r || 48; if (Math.hypot(x - fa.tx, y - fa.ty) >= R0 && (fa.x == null || Math.hypot(x - fa.x, y - fa.y) >= R0)) return '';
     var m = fa === S.finAuto ? msgFin(fa)
