@@ -523,6 +523,58 @@ function analyser(doc, mode){
     }
     return {term: term, pieces: pcs, parent: parent, vus: vus, dist: dist};
   }
+  /* Graphe des plus courts chemins d'un parcours r depuis s : prédécesseurs de chaque nœud atteint (un exutoire n'est pas traversé, un
+     tronçon orienté ne se remonte pas). Contrairement au chemin gardé par le parcours (le premier trouvé), il ne dépend pas de l'ordre du
+     dessin quand plusieurs chemins ont la même longueur (tuyaux parallèles, by-pass) */
+  function predsDe(r, s){
+    var pr = {};
+    Object.keys(r.vus).forEach(function(v){
+      if (v === s) return;
+      (adj[v] || []).forEach(function(p){
+        var u = p.a === v ? p.b : p.a; if (u === v || !r.vus[u] || r.dist[u] + 1 !== r.dist[v]) return;
+        if (u !== s && terminal(u)) return;
+        if (p.sens === 1 && p.a !== u) return;
+        if (p.sens === -1 && p.b !== u) return;
+        (pr[v] = pr[v] || []).push({n: u, p: p});
+      });
+    });
+    return pr;
+  }
+  /* boîte sur chaque plus court chemin de la source s jusqu'à l'exutoire t (ou l'exutoire est la boîte) ; null sinon */
+  function boiteSur(pr, s, t){
+    var ot = objs[t]; if (ot && T[ot.t].boite) return t;
+    var vus = {}, file = [t], bt = []; vus[t] = true;
+    while (file.length){ var v = file.shift(); (pr[v] || []).forEach(function(q){ var u = q.n; if (vus[u]) return; vus[u] = true; var ou = objs[u]; if (ou && T[ou.t].boite){ bt.push(u); return; } file.push(u); }); }
+    return vus[s] || !bt.length ? null : bt.sort()[0];
+  }
+  /* le nœud b est sur chaque plus court chemin de s jusqu'à e */
+  function domineDag(pr, s, b, e){ if (b === e) return true; var vus = {}, file = [e]; vus[e] = true; while (file.length){ var v = file.shift(); if (v === s) return false; (pr[v] || []).forEach(function(q){ if (q.n === b || vus[q.n]) return; vus[q.n] = true; file.push(q.n); }); } return true; }
+  function indiqueRes(p){ return !p.col && /^(EU|EP|UN)$/.test(p.l.p.res || ''); }
+  /* extrémité libre e vue de la source s : pièces indiquées les plus proches d'elle sur les plus courts chemins (S, au même rang) */
+  function versExtremite(pr, s, e){
+    var S = [], niv = [e], vus = {}; vus[e] = true;
+    while (niv.length && !S.length){ var nx = [];
+      niv.forEach(function(v){ (pr[v] || []).forEach(function(q){ if (indiqueRes(q.p)){ if (S.indexOf(q.p) < 0) S.push(q.p); } else if (q.n !== s && !vus[q.n]){ vus[q.n] = true; nx.push(q.n); } }); });
+      niv = nx; }
+    return {nodes: [e], S: S, pr: pr, s: s};
+  }
+  /* une extrémité peut être une arrivée si son tuyau n'est pas celui de l'appareil et si, en remontant depuis elle par des pièces non
+     orientées (l'eau y va vers l'extrémité), un nœud réunit trois pièces ou plus avant la source */
+  function arriveePossible(ch){
+    var pr = ch.pr, s = ch.s, e = ch.nodes[0], q0 = (pr[e] || [])[0], arr = false;
+    if (!q0 || q0.p.l.v.some(function(w){ return w.a === s; })) return false;
+    var vus = {}, file = [e]; vus[e] = true;
+    while (file.length && !arr){ var v = file.shift(); (pr[v] || []).forEach(function(q){ if (arr || q.p.sens) return; var u = q.n; if (u === s) return; if ((adj[u] || []).length >= 3){ arr = true; return; } if (!vus[u]){ vus[u] = true; file.push(u); } }); }
+    return arr;
+  }
+  /* extrémités libres (bouts) qu'un plus court chemin de la source atteint par la pièce p : celles en aval de son nœud aval */
+  function boutsSous(r, pr, p, memo, bouts){
+    if (!memo.sc){ memo.sc = {}; Object.keys(pr).forEach(function(v){ pr[v].forEach(function(q){ (memo.sc[q.n] = memo.sc[q.n] || []).push(v); }); }); }
+    if (memo[p.id]) return memo[p.id];
+    var v0 = r.dist[p.a] > r.dist[p.b] ? p.a : p.b, vus = {}, file = [v0], out = []; vus[v0] = true;
+    while (file.length){ var n = file.shift(); if (bouts[n]) out.push(bouts[n]); (memo.sc[n] || []).forEach(function(w){ if (!vus[w]){ vus[w] = true; file.push(w); } }); }
+    return (memo[p.id] = out);
+  }
   /* Chemin d'un nœud atteint jusqu'au départ : nœuds (du nœud au départ) et pièces traversées */
   function chemin(r, noeud){ var nodes = [], pcs = [], c = noeud; while (r.parent[c]){ nodes.push(c); pcs.push(r.parent[c].p); c = r.parent[c].n; } nodes.push(c); return {nodes: nodes, pieces: pcs}; }
   /* Gestionnaire et cohérence des boîtes au réseau indiqué : collecteurs atteints au-delà de la boîte */
@@ -533,7 +585,7 @@ function analyser(doc, mode){
     var o = objs[id]; if (!T[o.t].boite || !terminal(id)) return;
     var r = parcours([id], {traverserDepart: true, terminal: terminalCollecteur}), cols = r.term.filter(function(t){ return t.col; }), mn = Infinity;
     cols.forEach(function(t){ if (t.dist < mn) mn = t.dist; });
-    cols = cols.filter(function(t){ return t.dist === mn; });
+    cols = cols.filter(function(t){ return t.dist === mn; }).sort(function(a, b){ return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
     boites[id] = {cols: cols, gest: cols.length ? cols[0].gest : null};
   });
   function gestDe(t){ if (t.col) return t.gest; if (t.boite && boites[t.id] && boites[t.id].gest) return boites[t.id].gest; return (doc.gest && doc.gest[t.res]) || 'D'; }
@@ -592,12 +644,15 @@ function analyser(doc, mode){
   var resObj = {};
   Object.keys(objs).forEach(function(id){
     var o = objs[id], ty = T[o.t]; if (ty.role !== 'source') return;
-    var r = parcours([id]), nets = [], gests = {}, fosse = null, boite = null, entree = {}, presume = false, cfl = null, amb = null, ambArr = false;
+    var r = parcours([id]), pr = predsDe(r, id), nets = [], gests = {}, fosse = null, boite = null, entree = {}, presume = false, cfl = null, amb = null, ambArr = false;
+    /* exutoires du plus proche au plus lointain (à égalité, dans un ordre fixe) ; fosse septique sur le chemin de l'eau ; boîte sur chaque
+       plus court chemin ; regard où le branchement arrive sur le collecteur (celui d'un plus court chemin sans boîte, s'il y en a) */
+    r.term.sort(function(a, b){ return a.dist - b.dist || (a.noeud < b.noeud ? -1 : a.noeud > b.noeud ? 1 : 0); });
     r.term.forEach(function(t){
       if (nets.indexOf(t.res) < 0) nets.push(t.res); gests[t.res] = gestDe(t);
-      var ch = chemin(r, t.noeud);
-      ch.nodes.forEach(function(nd){ var ob = objs[nd], tt = ob && T[ob.t]; if (tt && tt.fosse && !fosse) fosse = nd; if (tt && tt.boite && !boite) boite = nd; });
-      if (t.col) entree[t.id] = ch.nodes[1] || id;
+      chemin(r, t.noeud).nodes.forEach(function(nd){ var ob = objs[nd], tt = ob && T[ob.t]; if (tt && tt.fosse && !fosse) fosse = nd; });
+      if (!boite) boite = boiteSur(pr, id, t.noeud);
+      if (t.col){ var ps = (pr[t.noeud] || []).map(function(q){ return q.n; }).sort(), sb = ps.filter(function(u){ return !boiteSur(pr, id, u); }); entree[t.id] = sb[0] || ps[0] || id; }
     });
     /* sans exutoire dessiné : réseau présumé d'après les tronçons indiqués sur le chemin vers une extrémité libre : pour chaque extrémité, le
        tronçon indiqué le plus proche d'elle (tuyau « Tronçon EU » du WC arrivé sur une branche « Tronçon EP » laissée libre : EP), s'il
@@ -613,21 +668,21 @@ function analyser(doc, mode){
        libres) ne lui en donne aucun et ne l'annule pas */
     if (!nets.length){
       var ex = {}, versLibres = [], conflit = {};
-      var indiqueRes = function(p){ return !p.col && /^(EU|EP|UN)$/.test(p.l.p.res || ''); };
-      Object.keys(r.vus).forEach(function(nd){ if (boutLibre(nd)) versLibres.push(chemin(r, nd)); });
-      versLibres.forEach(function(ch){ ch.res = null; ch.proche = null; ch.pieces.some(function(p){ if (indiqueRes(p)){ ch.proche = p; return true; } return false; }); });
-      versLibres.forEach(function(ch){ var p = ch.proche; if (p && versLibres.every(function(c2){ return c2.pieces.indexOf(p) < 0 || c2.proche === p; })) ch.res = p.l.p.res; });
+      /* sur tous les plus courts chemins de la source : chaque pièce indiquée la plus proche de l'extrémité lui donne son réseau si elle est
+         aussi parmi les plus proches de chaque autre extrémité qu'un de ces chemins atteint par elle ; des réseaux différents au même rang
+         (tuyaux parallèles, chemins de même longueur indiqués autrement) : l'extrémité porte le réseau des autres s'il en fait partie (les
+         réseaux réunis y sont alors signalés), sinon le premier des siens */
+      Object.keys(r.vus).sort().forEach(function(nd){ if (boutLibre(nd)) versLibres.push(versExtremite(pr, id, nd)); });
+      var bouts = {}, memo = {}; versLibres.forEach(function(ch){ bouts[ch.nodes[0]] = ch; });
+      versLibres.forEach(function(ch){ var ok = ch.S.length && ch.S.every(function(p){ return boutsSous(r, pr, p, memo, bouts).every(function(c2){ return c2.S.indexOf(p) >= 0; }); });
+        ch.nets = []; if (ok) ch.S.forEach(function(p){ if (ch.nets.indexOf(p.l.p.res) < 0) ch.nets.push(p.l.p.res); });
+        ch.res = ch.nets.length === 1 ? ch.nets[0] : null; });
+      var ex0 = {}; versLibres.forEach(function(ch){ if (ch.res) ex0[ch.res] = true; }); var exl0 = Object.keys(ex0);
+      versLibres.forEach(function(ch){ if (ch.nets.length < 2) return; var ns = ['EU', 'EP', 'UN'].filter(function(k){ return ch.nets.indexOf(k) >= 0; }); ch.res = exl0.length === 1 && ns.indexOf(exl0[0]) >= 0 ? exl0[0] : ns[0]; });
       versLibres.forEach(function(ch){ if (ch.res) ex[ch.res] = true; });
       var exl = Object.keys(ex);
       if (exl.length > 1){ amb = ['EU', 'EP', 'UN'].filter(function(k){ return ex[k]; });
-        /* une extrémité peut être une arrivée si son tuyau n'est pas celui de l'appareil et si, en remontant depuis elle, un nœud réunit trois
-           pièces ou plus avant toute pièce orientée (l'eau y va vers l'extrémité) et avant la source */
-        var peutArriver = function(ch){
-          if (!ch.pieces.length || ch.pieces[0].l.v.some(function(w){ return w.a === id; })) return false;
-          for (var i = 0; i < ch.pieces.length; i++){ if (ch.pieces[i].sens) return false; var nd = ch.nodes[i + 1]; if (nd == null || nd === id) return false; if ((adj[nd] || []).length >= 3) return true; }
-          return false;
-        };
-        ambArr = versLibres.some(function(ch){ return ch.res && peutArriver(ch); }); }
+        ambArr = versLibres.some(function(ch){ return ch.res && arriveePossible(ch); }); }
       if (exl.length === 1) versLibres.forEach(function(ch){ if (ch.res !== exl[0]) return; var rv = reseauxVers(ch.nodes[0]); if (rv.length > 1) rv.forEach(function(k){ conflit[k] = true; }); });
       if (exl.length === 1 && Object.keys(conflit).length) cfl = ['EU', 'EP', 'UN'].filter(function(k){ return conflit[k]; });
       if (exl.length === 1 && !cfl){
@@ -635,9 +690,11 @@ function analyser(doc, mode){
         /* fosse septique ou boîte sur le chemin de l'exutoire présumé : comme sur celui d'un exutoire dessiné, quand elle est sur chaque chemin
            vers une extrémité libre qui porte ce réseau ; une autre extrémité libre peut être une arrivée (fosse en amont du regard, son entrée
            venant de la maison, appareils non dessinés) */
-        var portent = versLibres.filter(function(ch){ return ch.res === exl[0]; });
+        var porte = versLibres.filter(function(ch){ return ch.res === exl[0]; }), portent = porte.map(function(ch){ return chemin(r, ch.nodes[0]); });
         portent[0].nodes.forEach(function(nd){ var ob = objs[nd], tt = ob && T[ob.t]; if (!tt || !portent.every(function(ch){ return ch.nodes.indexOf(nd) >= 0; })) return;
-          if (tt.fosse && !fosse) fosse = nd; if (tt.boite && !boite) boite = nd; });
+          if (tt.fosse && !fosse) fosse = nd; });
+        boite = Object.keys(objs).filter(function(n){ return T[objs[n].t].boite && r.vus[n] && porte.every(function(ch){ return domineDag(pr, id, n, ch.nodes[0]); }); })
+          .sort(function(a, b){ return (r.dist[b] - r.dist[a]) || (a < b ? -1 : a > b ? 1 : 0); })[0] || null;
       }
     }
     var etat = !Object.keys(r.pieces).length ? 'nonrelie' : !nets.length ? 'sansexu' : nets.length > 1 ? 'multiple' : 'ok';
