@@ -2798,7 +2798,9 @@ function editeur(racine, opts){
     instantane();
     var w = S.vue.monde(x, y), o = {id: uid(), k: 'pt', t: t, x: w.x, y: w.y, p: defautsPt(t), lab: null};
     if (T[t].oriente) o.p.a = Math.round(((S.doc.rot || 0) * 180 / Math.PI) * 10) / 10;
-    var a = accroche(x, y, {}), passage = T[t].role === 'passage' || T[t].role === 'exutoire', angSeg = null;
+    /* accroche aux seuls tracés : le symbole sous le doigt est déjà choisi (tapPlan) ; au-delà, l'objet se pose sur le tuyau ou l'extrémité
+       libre la plus proche, même tout près d'un objet voisin (comme au lâcher d'un glissé) */
+    var a = accroche(x, y, {sansObj: true}), passage = T[t].role === 'passage' || T[t].role === 'exutoire', angSeg = null;
     /* une descente, une gargouille ou un té se pose sur le coin ou la façade du bâti le plus proche */
     if (!a.type && T[t].mur && aideOn('bati')){ var af = accrocheLibre(x, y, {}); if (af.aide){ o.x = af.x; o.y = af.y; montrerAide(af); } }
     S.doc.el.push(o);
@@ -2851,14 +2853,16 @@ function editeur(racine, opts){
   });
   /* second toucher tombé sur ce qui vient de se placer sous le doigt (la fiche qui s'ouvre, les barres de navigation et d'aide déplacées
      à côté d'elle) : habitude « toucher à nouveau pour terminer » après une fin automatique, ou second toucher d'un double toucher qui a posé
-     ou choisi un objet ; ignoré une fois, au même endroit seulement. Rend l'explication, ou '' */
+     ou choisi un objet ; ignoré une fois, au même endroit seulement, et avec lui le toucher qui le suit aussitôt (triple toucher : moins de
+     380 ms, à moins de 48 px). Rend l'explication, ou '' */
   function secondToucher(ev, fiche){
-    var t = Date.now(), fa = S.finAuto && t - S.finAuto.t < 1000 ? S.finAuto : S.gardeFiche && t - S.gardeFiche.t < 600 ? S.gardeFiche : null; if (!fa) return '';
-    var r = cv.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top;
+    var t = Date.now(), r = cv.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, ar = S.avaleRepete;
+    if (ar && t - ar.t < 380 && Math.hypot(x - ar.x, y - ar.y) < 48){ S.avaleRepete = {t: t, x: x, y: y, m: ar.m}; return ar.m; }
+    var fa = S.finAuto && t - S.finAuto.t < 1000 ? S.finAuto : S.gardeFiche && t - S.gardeFiche.t < 600 ? S.gardeFiche : null; if (!fa) return '';
     var R0 = fa.r || 48; if (Math.hypot(x - fa.tx, y - fa.ty) >= R0 && (fa.x == null || Math.hypot(x - fa.x, y - fa.y) >= R0)) return '';
     var m = fa === S.finAuto ? msgFin(fa)
       : fiche ? 'La fiche vient de s\'ouvrir sous le doigt : touchez-la de nouveau pour la modifier.' : 'Ce bouton vient de se placer sous le doigt (fiche ouverte) : touchez-le de nouveau pour vous en servir.';
-    S.finAuto = null; S.gardeFiche = null; return m;
+    S.finAuto = null; S.gardeFiche = null; S.avaleRepete = {t: t, x: x, y: y, m: m}; return m;
   }
   var msgAvale = '';
   /* le relâcher et le clic du toucher ignoré sont avalés, quel que soit le compte d'appuis du clic (nul quand l'appui a été annulé) ;
