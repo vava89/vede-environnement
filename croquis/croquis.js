@@ -620,7 +620,14 @@ function analyser(doc, mode){
       versLibres.forEach(function(ch){ if (ch.res) ex[ch.res] = true; });
       var exl = Object.keys(ex);
       if (exl.length > 1){ amb = ['EU', 'EP', 'UN'].filter(function(k){ return ex[k]; });
-        ambArr = versLibres.some(function(ch){ return ch.res && ch.pieces.length > 1 && !ch.pieces[0].sens; }); }
+        /* une extrémité peut être une arrivée si son tuyau n'est pas celui de l'appareil et si, en remontant depuis elle, un nœud réunit trois
+           pièces ou plus avant toute pièce orientée (l'eau y va vers l'extrémité) et avant la source */
+        var peutArriver = function(ch){
+          if (!ch.pieces.length || ch.pieces[0].l.v.some(function(w){ return w.a === id; })) return false;
+          for (var i = 0; i < ch.pieces.length; i++){ if (ch.pieces[i].sens) return false; var nd = ch.nodes[i + 1]; if (nd == null || nd === id) return false; if ((adj[nd] || []).length >= 3) return true; }
+          return false;
+        };
+        ambArr = versLibres.some(function(ch){ return ch.res && peutArriver(ch); }); }
       if (exl.length === 1) versLibres.forEach(function(ch){ if (ch.res !== exl[0]) return; var rv = reseauxVers(ch.nodes[0]); if (rv.length > 1) rv.forEach(function(k){ conflit[k] = true; }); });
       if (exl.length === 1 && Object.keys(conflit).length) cfl = ['EU', 'EP', 'UN'].filter(function(k){ return conflit[k]; });
       if (exl.length === 1 && !cfl){
@@ -2099,7 +2106,7 @@ function editeur(racine, opts){
   /* Accroche d'un point de tracé : objet, sommet, segment ; sinon point libre redressé par les aides. L'objet le plus proche (zone d'accroche :
      symbole + 12 px) passe avant les tracés, sauf si le doigt est nettement plus près d'un tracé (6 px de marge) que du bord de son symbole :
      vu de loin, la zone d'un raccord ou d'un regard déborde sur le collecteur voisin. Le sommet d'un tracé posé sur un objet est cet objet : il
-     ne compte pas comme sommet. sansObj : tracés seulement ; sansSeg : sommets seulement ; rayonSom : rayon des sommets (16 px) ; bouts : id
+     ne compte pas comme sommet. sansObj : tracés seulement ; sansSeg : sommets seulement ; rayonSom : rayon des sommets (16 px) ; rayonSeg : celui des segments (13 px) ; bouts : id
      d'un objet, seules comptent les extrémités libres des tracés qui ne le portent pas (objet lâché) */
   function accroche(x, y, o){
     o = o || {}; var I = idx(), best = null, bd = Infinity, ob = null, dob = Infinity, de = Infinity, surObj = {};
@@ -2119,7 +2126,7 @@ function editeur(racine, opts){
       var P = lignePts(l, I), Q = P.map(function(p){ return S.vue.ecran(p.x, p.y); });
       P.forEach(function(p, i){ if (surObj[l.v[i].a]) return; if (o.bouts && (l.v[i].a || (i && i !== P.length - 1) || l.v.some(function(w){ return w.a === o.bouts; }))) return;
         var d = Math.hypot(x - Q[i].x, y - Q[i].y); if (d <= (o.rayonSom || 16)) som.push({d: d, l: l, a: {type: 'som', ligne: l.id, i: i, x: p.x, y: p.y, a: l.v[i].a && !(I[l.v[i].a] && I[l.v[i].a].t === 'zone') ? l.v[i].a : null}}); });
-      if (!o.sansSeg) for (var i = 1; i < Q.length; i++){ var q = projSeg({x: x, y: y}, Q[i - 1], Q[i]); if (q.d <= 13){ var w = S.vue.monde(q.x, q.y); seg.push({d: q.d, l: l, a: {type: 'seg', ligne: l.id, i: i, x: w.x, y: w.y}}); } }
+      if (!o.sansSeg) for (var i = 1; i < Q.length; i++){ var q = projSeg({x: x, y: y}, Q[i - 1], Q[i]); if (q.d <= (o.rayonSeg || 13)){ var w = S.vue.monde(q.x, q.y); seg.push({d: q.d, l: l, a: {type: 'seg', ligne: l.id, i: i, x: w.x, y: w.y}}); } }
     });
     var dseg = Math.min.apply(null, seg.map(function(c){ return c.d; }).concat([Infinity]));
     som = som.filter(function(c){ return c.d <= dseg + 1 || seg.some(function(q){ return q.l === c.l && q.d <= dseg + 1; }); });
@@ -2149,6 +2156,7 @@ function editeur(racine, opts){
   function pos(ev){ var r = cv.getBoundingClientRect(); return {x: ev.clientX - r.left, y: ev.clientY - r.top}; }
   cv.addEventListener('pointerdown', function(ev){
     if (!S.doc) return;
+    S.avaleRepete = null;
     try { cv.setPointerCapture(ev.pointerId); } catch(e){}
     /* premier doigt d'un nouveau geste : les pointeurs dont le relâchement n'est jamais arrivé (fenêtre fermée, doigt levé ailleurs) sont oubliés */
     if (ev.isPrimary && Object.keys(S.ptr).length){ S.ptr = {}; finirGeste(true); }
@@ -2604,10 +2612,11 @@ function editeur(racine, opts){
   }
   /* même explication pour un toucher ignoré sur la fiche ou une barre qui vient de se placer sous le doigt après la fin : l'objet ou
      l'extrémité de fin est dessous, il faut fermer la fiche pour les toucher */
-  function msgFinSous(fa, fiche){
+  function msgFinSous(fa, fiche, bouton){
     var t = fa && fa.lt, quoi = t === 'col' ? 'Collecteur' : t === 'lim' ? 'Trait' : 'Tronçon', deb = quoi + ' déjà terminé' + (fa && fa.id ? ' sur cet objet' : '') + ' : ';
-    if (!fiche) return deb + 'ce bouton vient de se placer sous le doigt (fiche ouverte), touchez-le de nouveau pour vous en servir.';
-    return deb + 'sa fiche vient de s\'ouvrir sous le doigt, touchez-la de nouveau pour la modifier' + (fa && fa.id ? ' ; pour partir de l\'objet, fermez la fiche puis touchez-le.' : t === 'col' || t === 'lim' ? '.' : ' ; pour le prolonger, fermez la fiche puis touchez son extrémité.');
+    var suite = fa && fa.id ? ' ; pour partir de l\'objet, fermez la fiche puis touchez-le.' : t === 'col' || t === 'lim' ? '.' : ' ; pour le prolonger, fermez la fiche puis touchez son extrémité.';
+    if (!fiche) return deb + (bouton ? 'ce bouton vient de se placer sous le doigt (fiche ouverte), touchez-le de nouveau pour vous en servir.' : 'cette barre vient de se placer sous le doigt (fiche ouverte)' + suite);
+    return deb + 'sa fiche vient de s\'ouvrir sous le doigt, touchez-la de nouveau pour la modifier' + suite;
   }
   /* juste après la fin d'un tronçon, le toucher d'habitude qui roule un peu sous le doigt devient un glissé resté sur l'objet de fin (ou sur
      le tronçon fini) : ce n'est pas un départ, il est ignoré avec l'explication */
@@ -2825,11 +2834,15 @@ function editeur(racine, opts){
     if (!a.type && t !== 'zone'){
       var RS = rayonSymbole(t), rN = RS * Math.max(S.vue.s * E() / 1000, (t === 'jonction' ? 4 : 8.5) / RS);
       if (rN > 16){ var ab = accroche(x, y, {sansObj: true, sansSeg: true, bouts: o.id, rayonSom: rN}); if (ab.type === 'som' && !ab.a) boutSous = ab; }
+      /* … ou, pour un ouvrage de passage, le tuyau qui passe sous son symbole dessiné (à moins de 0,6 fois son rayon : dans la forme dessinée)
+         le reçoit, comme posé sur le trait */
+      if (!boutSous && passage && rN * 0.6 > 13){ var asg = accroche(x, y, {sansObj: true, rayonSeg: rN * 0.6}); if (asg.type === 'seg') a = asg; }
     }
-    /* une descente, une gargouille ou un té se pose sur le coin ou la façade du bâti le plus proche, sauf si ce point est sur un symbole déjà
-       posé (descente au même coin) : l'objet reste alors sous le doigt, visible et touchable */
+    /* une descente, une gargouille ou un té se pose sur le coin ou la façade du bâti le plus proche, sauf si un objet est déjà posé sur ce
+       point (descente au même coin : son centre à moins de la moitié de son rayon, 4 px au moins) ; l'objet reste alors sous le doigt,
+       visible et touchable. Un symbole voisin qui n'est pas sur le point (regard au pied de la descente) ne l'en empêche pas */
     if (!a.type && !boutSous && T[t].mur && aideOn('bati')){ var af = accrocheLibre(x, y, {}), sa = af.aide ? S.vue.ecran(af.x, af.y) : null;
-      if (sa && !S.zones.some(function(z){ return z.type === 'pt' && !z.zone && Math.hypot(sa.x - z.x, sa.y - z.y) < z.r + 4; })){ o.x = af.x; o.y = af.y; montrerAide(af); } }
+      if (sa && !S.zones.some(function(z){ return z.type === 'pt' && !z.zone && Math.hypot(sa.x - z.x, sa.y - z.y) < Math.max(4, z.r / 2); })){ o.x = af.x; o.y = af.y; montrerAide(af); } }
     S.doc.el.push(o);
     if (boutSous){ var lb = el(boutSous.ligne); if (lb && (boutSous.i === 0 || boutSous.i === lb.v.length - 1)){ lb.v[boutSous.i].a = o.id; lb.v[boutSous.i].x = o.x; lb.v[boutSous.i].y = o.y; } }
     /* une zone suspecte ne s'attache pas à l'extrémité libre touchée (ni à un tracé) : c'est une annotation */
@@ -2887,10 +2900,14 @@ function editeur(racine, opts){
   function secondToucher(ev, fiche){
     var t = Date.now(), r = cv.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, ar = S.avaleRepete;
     if (ar && t - ar.t < ar.w && Math.hypot(x - ar.x, y - ar.y) < 48){ S.avaleRepete = null; return ar.m; }
+    /* un toucher qui n'est pas celui qui suit aussitôt (ailleurs, ou trop tard) met fin à la chaîne */
+    S.avaleRepete = null;
     var fa = S.finAuto && t - S.finAuto.t < 1000 ? S.finAuto : S.gardeFiche && t - S.gardeFiche.t < 600 ? S.gardeFiche : null; if (!fa) return '';
     var R0 = fa.r || 48; if (Math.hypot(x - fa.tx, y - fa.ty) >= R0 && (fa.x == null || Math.hypot(x - fa.x, y - fa.y) >= R0)) return '';
-    var fin = fa === S.finAuto, m = fin ? msgFinSous(fa, fiche)
-      : fiche ? 'La fiche vient de s\'ouvrir sous le doigt : touchez-la de nouveau pour la modifier.' : 'Ce bouton vient de se placer sous le doigt (fiche ouverte) : touchez-le de nouveau pour vous en servir.';
+    /* sur une barre, hors d'un bouton (texte de la barre d'aide) : rien à toucher de nouveau, il faut fermer la fiche pour atteindre le plan */
+    var bouton = !fiche && !!(ev.target && ev.target.closest && ev.target.closest('button'));
+    var fin = fa === S.finAuto, m = fin ? msgFinSous(fa, fiche, bouton)
+      : fiche ? 'La fiche vient de s\'ouvrir sous le doigt : touchez-la de nouveau pour la modifier.' : bouton ? 'Ce bouton vient de se placer sous le doigt (fiche ouverte) : touchez-le de nouveau pour vous en servir.' : 'Cette barre vient de se placer sous le doigt (fiche ouverte) : fermez la fiche pour toucher le plan dessous.';
     /* t : relâcher du toucher ignoré, noté par les écouteurs qui avalent son relâcher (à défaut, son appui) */
     S.finAuto = null; S.gardeFiche = null; S.avaleRepete = {t: t, x: x, y: y, m: m, w: fin ? 1000 : 600}; return m;
   }
