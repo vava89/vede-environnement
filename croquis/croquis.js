@@ -600,14 +600,23 @@ function analyser(doc, mode){
       if (t.col) entree[t.id] = ch.nodes[1] || id;
     });
     /* sans exutoire dessiné : réseau présumé d'après les tronçons indiqués sur le chemin vers une extrémité libre : pour chaque extrémité, le
-       tronçon indiqué le plus proche d'elle (tuyau « Tronçon EU » du WC arrivé sur une branche « Tronçon EP » laissée libre : EP) ; aucun
+       tronçon indiqué le plus proche d'elle (tuyau « Tronçon EU » du WC arrivé sur une branche « Tronçon EP » laissée libre : EP), sur sa
+       propre branche, avant le tronc qu'elle partage avec une autre extrémité de la source (le tuyau de l'équipement jusqu'au regard où les
+       branches se séparent) ; le tronc ne donne son réseau qu'à défaut d'une indication propre à une branche (WC « Tronçon EU » vers un
+       regard dont la sortie et l'entrée laissées libres ne sont pas indiquées : EU) ; aucun
        quand d'autres branches amènent un autre réseau indiqué à l'une des extrémités qui portent ce réseau (les Contrôles le disent) ; une
        extrémité que la source n'atteint que par des tuyaux sans réseau indiqué (entrée de la maison, seconde sortie ou trop-plein laissés
        libres) ne lui en donne aucun et ne l'annule pas */
     if (!nets.length){
-      var ex = {}, versLibres = [], conflit = {};
-      Object.keys(r.vus).forEach(function(nd){ if (!boutLibre(nd)) return; var ch = chemin(r, nd); versLibres.push(ch); ch.res = null;
-        ch.pieces.some(function(p){ if (!p.col && /^(EU|EP|UN)$/.test(p.l.p.res || '')){ ch.res = p.l.p.res; return true; } return false; }); if (ch.res) ex[ch.res] = true; });
+      var ex = {}, versLibres = [], conflit = {}, nbChemins = {};
+      var indiqueRes = function(p){ return !p.col && /^(EU|EP|UN)$/.test(p.l.p.res || ''); };
+      Object.keys(r.vus).forEach(function(nd){ if (boutLibre(nd)) versLibres.push(chemin(r, nd)); });
+      versLibres.forEach(function(ch){ ch.pieces.forEach(function(p){ var k = pieces.indexOf(p); nbChemins[k] = (nbChemins[k] || 0) + 1; }); });
+      versLibres.forEach(function(ch){ ch.res = null; ch.propreBranche = null;
+        ch.pieces.some(function(p){ if (nbChemins[pieces.indexOf(p)] > 1) return true; if (indiqueRes(p)){ ch.propreBranche = p.l.p.res; return true; } return false; });
+        ch.pieces.some(function(p){ if (indiqueRes(p)){ ch.res = p.l.p.res; return true; } return false; }); });
+      if (versLibres.some(function(ch){ return ch.propreBranche; })) versLibres.forEach(function(ch){ ch.res = ch.propreBranche; });
+      versLibres.forEach(function(ch){ if (ch.res) ex[ch.res] = true; });
       var exl = Object.keys(ex);
       if (exl.length === 1) versLibres.forEach(function(ch){ if (ch.res !== exl[0]) return; var rv = reseauxVers(ch.nodes[0]); if (rv.length > 1) rv.forEach(function(k){ conflit[k] = true; }); });
       if (exl.length === 1 && Object.keys(conflit).length) cfl = ['EU', 'EP', 'UN'].filter(function(k){ return conflit[k]; });
