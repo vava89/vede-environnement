@@ -674,8 +674,8 @@ function analyser(doc, mode){
          réseaux réunis y sont alors signalés), sinon le premier des siens */
       Object.keys(r.vus).sort().forEach(function(nd){ if (boutLibre(nd)) versLibres.push(versExtremite(pr, id, nd)); });
       var bouts = {}, memo = {}; versLibres.forEach(function(ch){ bouts[ch.nodes[0]] = ch; });
-      versLibres.forEach(function(ch){ var ok = ch.S.length && ch.S.every(function(p){ return boutsSous(r, pr, p, memo, bouts).every(function(c2){ return c2.S.indexOf(p) >= 0; }); });
-        ch.nets = []; if (ok) ch.S.forEach(function(p){ if (ch.nets.indexOf(p.l.p.res) < 0) ch.nets.push(p.l.p.res); });
+      versLibres.forEach(function(ch){ ch.nets = [];
+        ch.S.forEach(function(p){ if (ch.nets.indexOf(p.l.p.res) < 0 && boutsSous(r, pr, p, memo, bouts).every(function(c2){ return c2.S.indexOf(p) >= 0; })) ch.nets.push(p.l.p.res); });
         ch.res = ch.nets.length === 1 ? ch.nets[0] : null; });
       var ex0 = {}; versLibres.forEach(function(ch){ if (ch.res) ex0[ch.res] = true; }); var exl0 = Object.keys(ex0);
       versLibres.forEach(function(ch){ if (ch.nets.length < 2) return; var ns = ['EU', 'EP', 'UN'].filter(function(k){ return ch.nets.indexOf(k) >= 0; }); ch.res = exl0.length === 1 && ns.indexOf(exl0[0]) >= 0 ? exl0[0] : ns[0]; });
