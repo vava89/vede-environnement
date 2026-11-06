@@ -1123,9 +1123,11 @@ function reconcilier(doc, an, ext, o){
   if (!doc.sauvegardes || typeof doc.sauvegardes !== 'object' || Array.isArray(doc.sauvegardes)) doc.sauvegardes = {};
   var R = integEdl(doc, an, ext, forcer), ops = {creer: [], maj: [], retirer: [], doc: false}, lignes = null, parId = {};
   ext.forEach(function(r){ parId[r.id] = r; });
-  /* ligne du constat de l'équipement en cause (WC, gouttières avant…) : l'anomalie rend cette ligne non conforme */
+  /* ligne du constat de l'équipement en cause (WC, gouttières avant…) : l'anomalie rend cette ligne non conforme. Une anomalie posée à la
+     main sur un objet (bibliothèque ou saisie libre) va sur la ligne de cet objet, un lavabo sur « Évier » : le mot « lavabo » de son texte
+     ne la range pas en salle de bain */
   function ligneDe(a){
-    if (!REGLES_LIGNE.test(a.cle) || !a.objId) return '';
+    if (!a.objId || !(REGLES_LIGNE.test(a.cle) || a.manu)) return '';
     if (!lignes){ lignes = {}; constatDeduit(doc, an).rows.forEach(function(r){ if (r.std) r.objets.forEach(function(id){ lignes[id] = r.id; }); }); }
     return lignes[a.objId] || '';
   }

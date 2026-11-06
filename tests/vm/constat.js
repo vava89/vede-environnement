@@ -29,4 +29,25 @@ cas.forEach(k => {
   const autres = rows.filter(r => !r.std && r.nb).map(r => r.label + ' ×' + r.nb);
   R.ok(Object.keys(k.att).every(lib => vu[lib] === k.att[lib]) && !autres.length, k.n + ' : ' + JSON.stringify(vu) + (autres.length ? ', lignes « Autres » : ' + autres.join(', ') : ''));
 });
+
+/* anomalie posée sur un objet du croquis (bibliothèque ou saisie libre, doc.anomManu) : elle va sur la ligne de cet objet, comme une anomalie
+   déduite ; posée sur un lavabo, sur la ligne « Évier » (le mot « lavabo » de son texte ne la range plus en salle de bain ; échoue sur 26ad292).
+   Posée sur un tronçon, aucune ligne : l'application décide d'après le texte, comme en v1.5.1. Dossier de la v1.6.2 : un enregistrement intact
+   suit le dessin, une ligne choisie par le technicien reste la sienne */
+const MANU = 'Lavabo : non siphonné', PRECO = 'Poser un siphon';
+const manu = (objs, objId, ext) => { const d = vers(objs); d.anomManu = [{id: 'm1', objId, reseau: 'EU', obs: MANU, preco: PRECO, nc: true, st: 'retenue'}];
+  return V.reconcilier(d, V.analyser(d, 'edl'), ext || [], {}); };
+const cree = ops => { const c = ops.creer.find(x => x.croquis && x.croquis.cle === 'm1'); return c ? c.installation + '/' + c.croquis.auto.installation : 'absente'; };
+const rec = inst => [{id: 'r1', reseau: 'EU', observation: MANU, preconisation: PRECO, localisation: '', installation: inst, nc: true, photos: [], categorie: 'autre',
+  croquis: {cle: 'm1', objId: 'la', codes: [], auto: {obs: MANU, preco: PRECO, reseau: 'EU', nc: true, installation: ''}}}];
+const maj = ops => { const m = ops.maj.find(x => x.id === 'r1'); return m ? (m.champs.installation === undefined ? '-' : m.champs.installation) + '/' + m.champs.croquis.auto.installation : 'aucune'; };
+const LA = ['la', 'lavabo', 0, 0], DO = ['do', 'douche', 4, 0], WC = ['w', 'wc', 8, 0];
+[
+  {n: 'anomalie de la bibliothèque posée sur un lavabo seul : ligne « Évier »', vu: () => cree(manu([LA], 'la')), att: 'evier/evier'},
+  {n: 'posée sur un lavabo à côté d\'une douche : ligne « Évier », pas la salle de bain', vu: () => cree(manu([LA, DO, WC], 'la')), att: 'evier/evier'},
+  {n: 'posée sur un WC : ligne « WC »', vu: () => cree(manu([LA, DO, WC], 'w')), att: 'wc/wc'},
+  {n: 'posée sur un tronçon : aucune ligne, l\'application décide d\'après le texte (témoin)', vu: () => cree(manu([LA, DO], 'Lla')), att: '/'},
+  {n: 'dossier de la v1.6.2, enregistrement intact sans ligne : passe sur la ligne « Évier »', vu: () => maj(manu([LA, DO], 'la', rec(''))), att: 'evier/evier'},
+  {n: 'dossier de la v1.6.2, ligne « Salle de bain » choisie par le technicien : gardée (témoin)', vu: () => maj(manu([LA, DO], 'la', rec('sdb'))), att: 'aucune'},
+].forEach(k => { const vu = k.vu(); R.ok(vu === k.att, k.n + ' : ' + vu + (vu === k.att ? '' : ' (attendu ' + k.att + ')')); });
 R.fin();

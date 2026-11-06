@@ -25,7 +25,7 @@ CE QUE L'APPLICATION DÉDUIT DU DESSIN
   - boîte branchée sur le mauvais collecteur ;
   - branchement sans boîte (à arbitrer).
 - Les points à compléter : chaque équipement doit avoir sa méthode de test (visuel, eau, colorant, fumée, résonance, caméra, déclaré) et son exutoire ; chaque descente, sa façade (avant ou arrière).
-- Le constat déduit : nombre d'installations (une salle de bain ou une cuisine compte une fois), raccordement (EU_D, EP_T…), conformité et méthodes, ligne par ligne comme le constat de l'application. Une descente sans façade indiquée n'est comptée ni en avant ni en arrière. Seul le chemin réellement suivi par l'eau compte : une fosse ou une boîte posée sur une autre branche n'y entre pas.
+- Le constat déduit : nombre d'installations (chaque objet dessiné en compte une, sans regroupement ; un lavabo compte sur la ligne « Évier »), raccordement (EU_D, EP_T…), conformité et méthodes, ligne par ligne comme le constat de l'application. Une descente sans façade indiquée n'est comptée ni en avant ni en arrière. Seul le chemin réellement suivi par l'eau compte : une fosse ou une boîte posée sur une autre branche n'y entre pas. Une anomalie posée sur un objet (bibliothèque ou saisie libre) rend non conforme la ligne de cet objet.
 - La conclusion proposée reste « à compléter » tant qu'un équipement n'a pas de rejet établi, ou qu'une fosse est à arbitrer.
 - Après l'avant-projet : les tracés « projet » remplacent les tracés « à supprimer » ; le contrôle dit si les raccordements sont corrigés.
 
