@@ -9,5 +9,5 @@
 - v1.6.2 en ligne : déploiement de 0e3d191 réussi le 6 nov. 2026 (le premier essai avait échoué côté GitHub Pages ; relancer une tâche dans la même exécution crée une seconde archive « github-pages » et échoue : relancer par une nouvelle exécution manuelle de « Mise en ligne »).
 - Publication de la v1.6.3 : l'utilisateur veut être prévenu quand elle est prête (« fais moi signe ») avant la mise en ligne ; il a une liste d'améliorations pour une v1.7.0.
 - Ensuite : relecture de m84, m85, m86 (pas encore relus) ; suite des correctifs pour la v1.6.3 (numéro de version d'abord), dont les mineurs connus ci-dessus.
-- Réglage du résumé du fil (f333f70) : à la prochaine session, vérifier que la fenêtre vaut 300 000 (get_session : autocompact_state) ; sinon proposer CLAUDE_CODE_AUTO_COMPACT_WINDOW=300000 dans l'environnement cloud.
+- Réglage du résumé du fil (f333f70) vérifié le 6 nov. 2026 : fenêtre effective 280 000, seuil 257 600, source settings (get_session : autocompact_state) ; les crochets SessionStart (resume, compact) remettent cet état dans le fil.
 - Tests : `sh tests/tout.sh --navigateur` (tout vert sur 88c892d). Cas perdus de l'ancienne matrice à réécrire (tests/LISEZMOI.md).
