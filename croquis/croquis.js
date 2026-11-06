@@ -2971,11 +2971,19 @@ function editeur(racine, opts){
     if (!lf || lf.k !== 'ln' || !lf.v.length){ S.finAuto = null; return; }
     var sf2 = S.vue.ecran(arr.x, arr.y); if (!fa.id) fa.id = lf.v[lf.v.length - 1].a || null; fa.gx = sf2.x - sf.x; fa.gy = sf2.y - sf.y;
   }
-  /* sens de l'eau sur le segment k0-k1 du tuyau l : celui indiqué sur le tuyau, sinon celui que l'eau d'une source y suit jusqu'à son
-     exutoire (analyse d'avant la pose) ; 0 s'il n'est pas connu */
-  function sensEau(l, k0, k1){
-    var sf = l.p && (l.p.sens === 1 || l.p.sens === -1) ? l.p.sens : 0;
-    if (!sf && S.an && S.an.sensSource) S.an.pieces.forEach(function(pc){ if (!sf && pc.l.id === l.id && pc.i0 <= k0 && pc.i1 >= k1 && S.an.sensSource[pc.id]) sf = S.an.sensSource[pc.id]; });
+  /* sens de l'eau sur le segment k0-k1 du tuyau l : celui indiqué sur le tuyau, sinon celui que l'eau d'une source y suit sûrement (analyse
+     d'avant la pose) ; avec parDistance (clapet), sinon celui de la flèche du plan d'après la distance aux exutoires (branchement d'une
+     boîte, tuyau entre deux boîtes), sauf sur une pièce qui touche un exutoire dessiné ou une boîte au réseau indiqué sans collecteur :
+     un trop-plein peut en partir ; 0 s'il n'est pas connu */
+  function sensEau(l, k0, k1, parDistance){
+    var sf = l.p && (l.p.sens === 1 || l.p.sens === -1) ? l.p.sens : 0, an = S.an;
+    if (sf || !an) return sf;
+    var pcs = an.pieces.filter(function(pc){ return pc.l.id === l.id && pc.i0 <= k0 && pc.i1 >= k1; });
+    pcs.forEach(function(pc){ if (!sf && an.sensSource && an.sensSource[pc.id]) sf = an.sensSource[pc.id]; });
+    if (!sf && parDistance && an.dist) pcs.forEach(function(pc){
+      var bord = [pc.a, pc.b].some(function(n){ return an.dist[n] === 0 && n.indexOf('C:') !== 0; });
+      if (!sf && !bord && an.sensPiece[pc.id]) sf = an.sensPiece[pc.id];
+    });
     return sf;
   }
   function poserObjet(t, x, y){
@@ -3058,9 +3066,9 @@ function editeur(racine, opts){
     else if (a.type === 'seg' && passage && t !== 'zone'){ insererDansLigne(S.doc, o, a); var ls = el(a.ligne), Ps = ls ? lignePts(ls, idx()) : []; if (Ps[a.i]){ angSeg = Math.atan2(Ps[a.i].y - Ps[a.i - 1].y, Ps[a.i].x - Ps[a.i - 1].x); segRef = {l: ls, k0: a.i - 1, k1: a.i}; } }
     if (T[t].oriente && aideOn('orienter')){
       var ang = angSeg, ar2 = ang == null ? areteProche(o, 3) : null;
-      /* un clapet suit le sens de l'eau : celui indiqué sur le tuyau, sinon celui que l'eau d'une source y suit jusqu'à son exutoire (analyse
-         d'avant la pose), sinon le sens du tracé */
-      if (ang != null && t === 'clapet' && segRef && sensEau(segRef.l, segRef.k0, segRef.k1) === -1) ang += Math.PI;
+      /* un clapet suit le sens de l'eau : celui indiqué sur le tuyau, sinon celui que l'eau d'une source y suit sûrement (analyse d'avant la
+         pose), sinon la distance aux exutoires (hors trop-plein), sinon le sens du tracé */
+      if (ang != null && t === 'clapet' && segRef && sensEau(segRef.l, segRef.k0, segRef.k1, true) === -1) ang += Math.PI;
       if (ar2){
         ang = ar2.ang;
         if (t === 'gargouille'){
