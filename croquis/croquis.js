@@ -575,6 +575,21 @@ function analyser(doc, mode){
     while (file.length){ var n = file.shift(); if (bouts[n]) out.push(bouts[n]); (memo.sc[n] || []).forEach(function(w){ if (!vus[w]){ vus[w] = true; file.push(w); } }); }
     return (memo[p.id] = out);
   }
+  /* extrémités libres atteintes par la source id et leur réseau : sur tous les plus courts chemins de la source, chaque pièce indiquée la
+     plus proche de l'extrémité lui donne son réseau si elle est aussi parmi les plus proches de chaque autre extrémité qu'un de ces chemins
+     atteint par elle ; des réseaux différents au même rang (tuyaux parallèles, chemins de même longueur indiqués autrement) : l'extrémité
+     porte le réseau des autres s'il en fait partie (les réseaux réunis y sont alors signalés), sinon le premier des siens */
+  function libresDe(r, pr, id){
+    var versLibres = [];
+    Object.keys(r.vus).sort().forEach(function(nd){ if (boutLibre(nd)) versLibres.push(versExtremite(pr, id, nd)); });
+    var bouts = {}, memo = {}; versLibres.forEach(function(ch){ bouts[ch.nodes[0]] = ch; });
+    versLibres.forEach(function(ch){ ch.nets = [];
+      ch.S.forEach(function(p){ if (ch.nets.indexOf(p.l.p.res) < 0 && boutsSous(r, pr, p, memo, bouts).every(function(c2){ return c2.S.indexOf(p) >= 0; })) ch.nets.push(p.l.p.res); });
+      ch.res = ch.nets.length === 1 ? ch.nets[0] : null; });
+    var ex0 = {}; versLibres.forEach(function(ch){ if (ch.res) ex0[ch.res] = true; }); var exl0 = Object.keys(ex0);
+    versLibres.forEach(function(ch){ if (ch.nets.length < 2) return; var ns = ['EU', 'EP', 'UN'].filter(function(k){ return ch.nets.indexOf(k) >= 0; }); ch.res = exl0.length === 1 && ns.indexOf(exl0[0]) >= 0 ? exl0[0] : ns[0]; });
+    return versLibres;
+  }
   /* Chemin d'un nœud atteint jusqu'au départ : nœuds (du nœud au départ) et pièces traversées */
   function chemin(r, noeud){ var nodes = [], pcs = [], c = noeud; while (r.parent[c]){ nodes.push(c); pcs.push(r.parent[c].p); c = r.parent[c].n; } nodes.push(c); return {nodes: nodes, pieces: pcs}; }
   /* Gestionnaire et cohérence des boîtes au réseau indiqué : collecteurs atteints au-delà de la boîte */
@@ -668,17 +683,7 @@ function analyser(doc, mode){
        libres) ne lui en donne aucun et ne l'annule pas */
     if (!nets.length){
       var ex = {}, versLibres = [], conflit = {};
-      /* sur tous les plus courts chemins de la source : chaque pièce indiquée la plus proche de l'extrémité lui donne son réseau si elle est
-         aussi parmi les plus proches de chaque autre extrémité qu'un de ces chemins atteint par elle ; des réseaux différents au même rang
-         (tuyaux parallèles, chemins de même longueur indiqués autrement) : l'extrémité porte le réseau des autres s'il en fait partie (les
-         réseaux réunis y sont alors signalés), sinon le premier des siens */
-      Object.keys(r.vus).sort().forEach(function(nd){ if (boutLibre(nd)) versLibres.push(versExtremite(pr, id, nd)); });
-      var bouts = {}, memo = {}; versLibres.forEach(function(ch){ bouts[ch.nodes[0]] = ch; });
-      versLibres.forEach(function(ch){ ch.nets = [];
-        ch.S.forEach(function(p){ if (ch.nets.indexOf(p.l.p.res) < 0 && boutsSous(r, pr, p, memo, bouts).every(function(c2){ return c2.S.indexOf(p) >= 0; })) ch.nets.push(p.l.p.res); });
-        ch.res = ch.nets.length === 1 ? ch.nets[0] : null; });
-      var ex0 = {}; versLibres.forEach(function(ch){ if (ch.res) ex0[ch.res] = true; }); var exl0 = Object.keys(ex0);
-      versLibres.forEach(function(ch){ if (ch.nets.length < 2) return; var ns = ['EU', 'EP', 'UN'].filter(function(k){ return ch.nets.indexOf(k) >= 0; }); ch.res = exl0.length === 1 && ns.indexOf(exl0[0]) >= 0 ? exl0[0] : ns[0]; });
+      versLibres = libresDe(r, pr, id);
       versLibres.forEach(function(ch){ if (ch.res) ex[ch.res] = true; });
       var exl = Object.keys(ex);
       if (exl.length > 1){ amb = ['EU', 'EP', 'UN'].filter(function(k){ return ex[k]; });
@@ -697,8 +702,16 @@ function analyser(doc, mode){
           .sort(function(a, b){ return (r.dist[b] - r.dist[a]) || (a < b ? -1 : a > b ? 1 : 0); })[0] || null;
       }
     }
+    /* avant-projet, exutoire dessiné : une extrémité libre qui porte un autre réseau indiqué (ancienne sortie gardée à côté du raccordement,
+       ou arrivée non orientée) laisse les réseaux mêlés après travaux : relevée pour les Contrôles et le contrôle de l'avant-projet */
+    var sortiesLibres = null;
+    if (mode === 'avp' && nets.length && !presume){
+      var dessines = nets.map(function(k){ return k === 'INF' || k === 'GARG' || k === 'MILIEU' ? 'EP' : k; }), la = {};
+      libresDe(r, pr, id).forEach(function(ch){ if (ch.res && dessines.indexOf(ch.res) < 0) la[ch.res] = true; });
+      sortiesLibres = ['EU', 'EP', 'UN'].filter(function(k){ return la[k]; }); if (!sortiesLibres.length) sortiesLibres = null;
+    }
     var etat = !Object.keys(r.pieces).length ? 'nonrelie' : !nets.length ? 'sansexu' : nets.length > 1 ? 'multiple' : 'ok';
-    resObj[id] = {etat: etat, res: nets.length === 1 ? nets[0] : null, nets: nets, gest: nets.length === 1 ? gests[nets[0]] : null, presume: presume, conflit: cfl, ambigu: amb, ambiguArrivee: ambArr, fosse: fosse, boite: boite, term: r.term, entree: entree};
+    resObj[id] = {etat: etat, res: nets.length === 1 ? nets[0] : null, nets: nets, gest: nets.length === 1 ? gests[nets[0]] : null, presume: presume, conflit: cfl, ambigu: amb, ambiguArrivee: ambArr, fosse: fosse, boite: boite, term: r.term, entree: entree, sortiesLibres: sortiesLibres};
   });
   /* Réseau de chaque pièce (couleur), regards traversés, flèches d'écoulement */
   var resPiece = {}, resNoeud = {};
@@ -803,6 +816,7 @@ function controles(doc, an){
         if (r.etat === 'nonrelie') c(id, 'manque', lib + ' : non relié au réseau sur le dessin', 'relie');
         else if (r.etat === 'sansexu') c(id, 'manque', lib + ' : exutoire non dessiné' + (r.conflit ? ', tronçons ' + listeEt(r.conflit.map(libRes)) + ' réunis vers la même extrémité libre (indiquer le réseau du tronçon commun, ou le sens du tracé d\'une arrivée)' : r.ambigu ? ', extrémités libres de réseaux ' + listeEt(r.ambigu.map(libRes)) + (r.ambiguArrivee ? ' (prolonger le tracé, ou indiquer le sens du tracé d\'une arrivée)' : ' (prolonger le tracé jusqu\'à l\'exutoire)') : ' (prolonger le tracé ou indiquer le réseau du tronçon)'), 'exu');
         else if (r.etat === 'multiple') c(id, 'manque', lib + ' : relié à plusieurs réseaux (' + r.nets.map(function(x){ return EXU_LIB[x] || x; }).join(', ') + ') : indiquer le sens d\'écoulement d\'un tronçon', 'multi');
+        if (r.etat === 'ok' && r.sortiesLibres) c(id, 'manque', lib + ' : sortie ' + listeEt(r.sortiesLibres.map(libRes)) + ' laissée libre à côté de l\'exutoire dessiné (la passer « À supprimer », la prolonger, ou indiquer le sens du tracé d\'une arrivée)', 'sortielibre');
       }
       if (o.t === 'descente'){
         if (!o.p.visitable) c(id, 'manque', 'Descente EP : visitable ou non à indiquer', 'visit');
@@ -818,7 +832,8 @@ function controles(doc, an){
   });
   Object.keys(an.lignes).forEach(function(id){
     var l = an.lignes[id]; if (l.t !== 'tr' || l.v.length < 2) return;
-    var libres = [0, l.v.length - 1].filter(function(i){ return !(l.v[i].a && an.objs[l.v[i].a]); });
+    /* sur l'avant-projet, un ouvrage « À supprimer » qui relie encore d'autres tuyaux (raccordement direct) n'en fait pas une extrémité libre */
+    var libres = [0, l.v.length - 1].filter(function(i){ var va = l.v[i].a; return !(va && (an.objs[va] || (an.mode === 'avp' && (an.adj['h:' + va] || []).length > 1))); });
     if (libres.length) c(id, 'info', 'Tronçon : extrémité' + (libres.length > 1 ? 's' : '') + ' libre' + (libres.length > 1 ? 's' : '') + ', non reliée' + (libres.length > 1 ? 's' : '') + ' à un objet', 'libre');
   });
   var ordre = {manque: 0, info: 1};
@@ -878,6 +893,14 @@ function recIntact(r){
   return !(r.photos || []).length && !r.brouillon && !r.photoNonRequise && (r.observation || '') === (au.obs || '') && (r.preconisation || '') === (au.preco || '') && r.reseau === au.reseau
     && !String(r.localisation || '').trim() && (r.installation || '') === (au.installation || '') && (r.nc == null || r.nc === au.nc);
 }
+/* champs de la copie d'une anomalie retirée que le technicien avait retouchés : la copie y diffère de la valeur que le dessin donnait alors
+   (sv.auto) ; sans valeurs du dessin notées (copie plus ancienne), tout revient tel quel */
+function copieRetouchee(sv){
+  var sa = sv && sv.auto && typeof sv.auto === 'object' ? sv.auto : null;
+  if (!sa) return {obs: true, preco: true, reseau: true, nc: true, installation: true};
+  return {obs: String(sv.observation || '') !== String(sa.obs || ''), preco: String(sv.preconisation || '') !== String(sa.preco || ''), reseau: sv.reseau !== sa.reseau,
+    nc: typeof sv.nc === 'boolean' && sv.nc !== sa.nc, installation: String(sv.installation || '') !== String(sa.installation || '')};
+}
 function depuisRec(r){ return {appId: r.id, reseau: r.reseau === 'EP' ? 'EP' : 'EU', obs: r.observation || '', preco: r.preconisation || '', nc: VC.ncAnomalie(r), photos: (r.photos || []).length, brouillon: !!r.brouillon, loc: r.localisation || ''}; }
 /* anomalies du dessin : déduites, plus celles ajoutées sur un objet du croquis (doc.anomManu) */
 function reglesInteg(doc, an, idx){
@@ -914,15 +937,18 @@ function integEdl(doc, an, ext, forcer, telQuel){
     if (r) Object.assign(it, depuisRec(r));
     else {
       /* une anomalie retirée du dossier reprend sa saisie (copie : texte, localisation, ligne, nature…) quand on la retient de nouveau ;
-         une retouche faite ensuite dans le croquis prime sur la copie, et « Annuler » la défait sans toucher à la copie */
+         une retouche faite ensuite dans le croquis prime sur la copie, et « Annuler » la défait sans toucher à la copie. Ce que personne
+         n'avait retouché dans la copie suit le dessin d'aujourd'hui (le texte, le réseau ou la nature ont pu changer entre-temps) */
       var sv = sauv[a.cle] && typeof sauv[a.cle] === 'object' ? sauv[a.cle] : null, rt = (a.manu ? a.mCopie : d.surCopie) || {}, vt = a.manu ? {obs: a.obs, preco: a.preco, nc: a.nc} : d;
       var apres = function(k){ return !!sv && rt[k] === (sv.seq || 0) && vt[k] != null && (k !== 'obs' || String(vt[k]).trim() !== ''); };
       if (sv){
-        it.obs = apres('obs') ? vt.obs : String(sv.observation != null ? sv.observation : a.obs);
-        it.preco = apres('preco') ? vt.preco : String(sv.preconisation != null ? sv.preconisation : a.preco || '');
-        if (sv.reseau === 'EU' || sv.reseau === 'EP') it.reseau = sv.reseau;
-        /* nature : retouchée depuis, explicite dans la copie, sinon la règle de l'application (rien n'est écrit à la recréation) */
-        if (apres('nc')) it.nc = !!vt.nc; else if (typeof sv.nc === 'boolean') it.nc = sv.nc; else { it.nc = VC.ncAnomalie({reseau: it.reseau, observation: it.obs}); it.ncLibre = true; }
+        var ret = copieRetouchee(sv);
+        it.obs = apres('obs') ? vt.obs : ret.obs && sv.observation != null ? String(sv.observation) : a.obs;
+        it.preco = apres('preco') ? vt.preco : ret.preco && sv.preconisation != null ? String(sv.preconisation) : a.preco || '';
+        if (ret.reseau && (sv.reseau === 'EU' || sv.reseau === 'EP')) it.reseau = sv.reseau;
+        /* nature : retouchée depuis, retouchée dans la copie, celle du dessin d'aujourd'hui si la copie avait celle du dessin d'alors, sinon la
+           règle de l'application (rien n'est écrit à la recréation) */
+        if (apres('nc')) it.nc = !!vt.nc; else if (typeof sv.nc === 'boolean') it.nc = ret.nc ? sv.nc : !!a.nc; else { it.nc = VC.ncAnomalie({reseau: it.reseau, observation: it.obs}); it.ncLibre = true; }
       }
       else if (a.manu){ it.obs = a.obs; it.preco = a.preco; it.nc = a.nc; }
       else { it.obs = d.obs || a.obs; it.preco = d.preco != null && d.preco !== '' ? d.preco : a.preco; it.nc = d.nc != null ? d.nc : a.nc; }
@@ -1001,10 +1027,15 @@ function reconcilier(doc, an, ext, o){
         croquis: {cle: a.cle, objId: a.objId || null, codes: (a.codes || []).slice(), auto: {obs: a.r0.obs, preco: a.r0.preco, reseau: a.r0.reseau, nc: a.r0.nc, installation: inst}}};
       if (sv){
         /* retenue de nouveau (ou retrait annulé) : l'anomalie revient telle qu'elle était dans le dossier */
-        ['id', 'createdAt', 'localisation', 'installation', 'photoNonRequise', 'categorie'].forEach(function(k){ if (sv[k] != null) c[k] = sv[k]; });
+        var ret = copieRetouchee(sv), sa = sv.auto && typeof sv.auto === 'object' ? sv.auto : null;
+        ['id', 'createdAt', 'localisation', 'photoNonRequise', 'categorie'].forEach(function(k){ if (sv[k] != null) c[k] = sv[k]; });
+        /* ligne du constat : celle de la copie si le technicien l'avait changée, sinon celle du dessin d'aujourd'hui */
+        if (sv.installation != null && ret.installation) c.installation = sv.installation;
         /* nature : celle de la copie ou retouchée depuis ; laissée à la règle de l'application si elle l'était (rien d'écrit) */
         c.nc = a.ncLibre ? null : !!a.nc;
-        if (sv.auto && typeof sv.auto === 'object') c.croquis.auto = sv.auto;
+        /* valeurs du dessin notées : celles de la copie pour ce qui avait été retouché (la retouche reste reconnue), celles d'aujourd'hui
+           pour le reste (elles suivront le dessin) */
+        if (sa){ var au0 = c.croquis.auto; c.croquis.auto = {obs: ret.obs ? sa.obs : au0.obs, preco: ret.preco ? sa.preco : au0.preco, reseau: ret.reseau ? sa.reseau : au0.reseau, nc: ret.nc ? sa.nc : au0.nc, installation: ret.installation ? sa.installation : au0.installation}; }
         if (sv.garde) c.croquis.garde = true;
         delete sauv[a.cle]; ops.doc = true;
       }
@@ -1718,6 +1749,13 @@ function insererDansLigne(doc, o, snap){
   var P = lignePts(l, idx), best = null;
   for (var i = 1; i < P.length; i++){ var q = projSeg(o, P[i - 1], P[i]); if (!best || q.d < best.q.d) best = {i: i, q: q}; }
   if (!best) return;
+  /* projection sur un sommet (coude, extrémité) : l'objet le prend s'il est libre, comme jonctionSur ; tenu par un autre objet, rien n'est
+     ajouté (pas de second sommet caché sous le symbole) */
+  if (best.q.t < 1e-6 || best.q.t > 1 - 1e-6){
+    var k = best.q.t < .5 ? best.i - 1 : best.i, w = l.v[k], ow = w && w.a ? idx[w.a] : null;
+    if (w && (!ow || ow.t === 'zone')){ o.x = P[k].x; o.y = P[k].y; w.a = o.id; w.x = o.x; w.y = o.y; }
+    return;
+  }
   o.x = best.q.x; o.y = best.q.y;
   l.v.splice(best.i, 0, {x: o.x, y: o.y, a: o.id});
 }
@@ -2475,7 +2513,10 @@ function editeur(racine, opts){
        fait glisser la vue pour montrer la fiche ; ignoré une fois, avec l'explication */
     var ch = S.clicHors, gf = S.gardeFiche;
     if (ch && tq - ch.t < 600 && Math.hypot(x - ch.x, y - ch.y) < 48){ S.clicHors = null; toast('Le bouton touché vient de disparaître : touchez de nouveau le plan pour y dessiner.', 3500); return; }
-    if (gf && gf.glisse && tq - gf.t < 600 && Math.hypot(x - gf.tx, y - gf.ty) < 48){ S.gardeFiche = null; toast('Le plan vient de glisser pour montrer la fiche : touchez-le de nouveau.', 3500); return; }
+    if (gf && gf.glisse && tq - gf.t < 600 && Math.hypot(x - gf.tx, y - gf.ty) < 48){ S.gardeFiche = null;
+      /* outil d'objet : la garde du double toucher repart de ce toucher ignoré (comme choisirPose), le suivant aussitôt choisit encore l'objet */
+      var dpg = S.dernierePose; if (S.outil.k === 'pt' && dpg && el(dpg.id)) S.dernierePose = {t: Date.now(), x: x, y: y, id: dpg.id, vue: cleVue()};
+      toast('Le plan vient de glisser pour montrer la fiche : touchez-le de nouveau.', 3500); return; }
     var o = S.outil;
     if (S.aligner){ var w = S.vue.monde(x, y); S.aligner.push(w); if (S.aligner.length === 2){ var a = S.aligner[0], b = S.aligner[1]; S.aligner = null; if (Math.hypot(b.x - a.x, b.y - a.y) > 1e-6){ instantane(); var ang = Math.atan2(b.y - a.y, b.x - a.x), r0 = S.doc.rot || 0; while (ang > Math.PI / 2) ang -= Math.PI; while (ang <= -Math.PI / 2) ang += Math.PI; S.doc.rot = ang; S.vue.rot = ang; replacerTraces(r0); changement(); toast('Plan orienté selon la voie'); } majAide(); } else { majAide(); redessiner(); } return; }
     if (S.placer){
@@ -2898,10 +2939,30 @@ function editeur(racine, opts){
     /* une descente, une gargouille ou un té se pose sur le coin ou la façade du bâti le plus proche, sauf si un objet est déjà posé sur ce
        point (descente au même coin : son centre à moins de la moitié de son rayon, 4 px au moins) ; l'objet reste alors sous le doigt,
        visible et touchable. Un symbole voisin qui n'est pas sur le point (regard au pied de la descente) ne l'en empêche pas */
-    if (!a.type && !boutSous && T[t].mur && aideOn('bati')){ var af = accrocheLibre(x, y, {}), sa = af.aide ? S.vue.ecran(af.x, af.y) : null;
+    /* … sauf si l'objet prend l'accroche (extrémité libre d'un tuyau ; tuyau ou coude où un ouvrage de passage s'insère) : un tuyau qui passe
+       ou un coude voisin qu'il ne prend pas ne l'en empêche pas */
+    var lpr = a.type === 'som' && !a.a ? el(a.ligne) : null, prend = (!!lpr && (a.i === 0 || a.i === lpr.v.length - 1 || passage)) || (a.type === 'seg' && passage);
+    if (!prend && !boutSous && T[t].mur && aideOn('bati')){ var af = accrocheLibre(x, y, {}), sa = af.aide ? S.vue.ecran(af.x, af.y) : null;
       if (sa && !S.zones.some(function(z){ return z.type === 'pt' && !z.zone && Math.hypot(sa.x - z.x, sa.y - z.y) < Math.max(4, z.r / 2); })){ o.x = af.x; o.y = af.y; montrerAide(af); } }
     S.doc.el.push(o);
     if (boutSous){ var lb = el(boutSous.ligne); if (lb && (boutSous.i === 0 || boutSous.i === lb.v.length - 1)){ lb.v[boutSous.i].a = o.id; lb.v[boutSous.i].x = o.x; lb.v[boutSous.i].y = o.y; } }
+    /* le symbole dessiné d'un ouvrage de passage couvre un raccord posé d'office du tuyau touché (tuyaux qui s'y rejoignent) : l'ouvrage prend
+       sa place, tous ces tuyaux passent par lui (au lieu d'entrer dans un seul, selon le côté du doigt) ; un raccord qui porte une anomalie
+       reste, l'ouvrage se pose alors comme avant */
+    if (passage && t !== 'jonction' && t !== 'zone' && (a.type === 'seg' || (a.type === 'som' && !a.a))){
+      var RSo = rayonSymbole(t), rNo = RSo * Math.max(S.vue.s * E() / 1000, 8.5 / RSo), lt = el(a.ligne), gj = gardesJ(), aj = {}, pa = S.vue.ecran(a.x, a.y), rj = null, dj = Infinity;
+      (S.doc.anomManu || []).forEach(function(m){ if (m.objId) aj[m.objId] = true; });
+      /* un raccord posé sur un collecteur (arrivée d'un branchement) reste : l'ouvrage ne saute pas sur le collecteur */
+      S.doc.el.forEach(function(l2){ if (l2.k === 'ln' && l2.t === 'col') l2.v.forEach(function(v){ if (v.a) aj[v.a] = true; }); });
+      if (lt) lt.v.forEach(function(v){ var e = v.a && el(v.a); if (!e || e.k !== 'pt' || e.t !== 'jonction' || !jonctionAuto(e) || gj[e.id] || aj[e.id]) return;
+        var q = S.vue.ecran(e.x, e.y), d = Math.hypot(q.x - pa.x, q.y - pa.y); if (d < rNo && d < dj){ dj = d; rj = e; } });
+      if (rj){
+        o.x = rj.x; o.y = rj.y;
+        S.doc.el.forEach(function(l2){ if (l2.k === 'ln') l2.v.forEach(function(v){ if (v.a === rj.id){ v.a = o.id; v.x = o.x; v.y = o.y; } }); });
+        S.doc.el = S.doc.el.filter(function(e){ return e !== rj; });
+        a = {type: null};
+      }
+    }
     /* une zone suspecte ne s'attache pas à l'extrémité libre touchée (ni à un tracé) : c'est une annotation */
     if (a.type === 'som' && !a.a && t !== 'zone'){ var l = el(a.ligne), ext = l && (a.i === 0 || a.i === l.v.length - 1);
       if (ext || passage){
@@ -4172,6 +4233,8 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL){
       edl.map(function(a){ return {cells: [String(a.num), a.preco || 'à définir', a.obs, a.reseau], coul: [O], gras: [true, true]}; }), 'Préconisations');
     var anA = analyser(doc, 'avp'), idxA = indexDoc(doc);
     var orphelins = Object.keys(anA.resObj).filter(function(id){ return anA.resObj[id].etat !== 'ok'; }).map(function(id){ var e = anA.resObj[id]; return {cells: ['Après travaux : ' + libEquipement(idxA[id]) + (e.etat === 'nonrelie' ? ' n\'est plus relié' : e.etat === 'multiple' ? ' est relié à plusieurs réseaux' : ' n\'a pas d\'exutoire dessiné') + ' : raccordement à compléter dans le projet']}; });
+    /* ancienne sortie d'un autre réseau laissée libre à côté du raccordement du projet */
+    Object.keys(anA.resObj).forEach(function(id){ var e = anA.resObj[id]; if (e.etat === 'ok' && e.sortiesLibres) orphelins.push({cells: ['Après travaux : ' + libEquipement(idxA[id]) + ' garde une sortie ' + listeEt(e.sortiesLibres.map(libRes)) + ' laissée libre : la passer « À supprimer » ou la raccorder dans le projet']}); });
     /* hors de l'éditeur : le dessin retient une anomalie que la liste du dossier n'a pas encore (croquis à rouvrir) */
     var nHors = edlL.filter(function(a){ return a.st === 'horsdossier'; }).length, aReprendre = nHors ? [{cells: [texteAReprendre(nHors)]}] : [];
     var lignesC = aReprendre.concat(apres.map(function(a){ return {cells: ['Reste après travaux : ' + a.obs]}; })).concat(orphelins);
