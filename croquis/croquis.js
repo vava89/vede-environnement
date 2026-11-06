@@ -475,13 +475,16 @@ function analyser(doc, mode){
   var idx = indexDoc(doc), objs = {}, lignes = {}, adj = {}, pieces = [];
   doc.el.forEach(function(e){ if (!actif(e, mode)) return; if (e.k === 'pt' && T[e.t]) objs[e.id] = e; else if (e.k === 'ln' && (e.t === 'tr' || e.t === 'col')) lignes[e.id] = e; });
   function lier(n, p){ (adj[n] = adj[n] || []).push(p); }
-  /* sommet posé sur un objet absent de ce plan : extrémité libre, sauf sur l'avant-projet un ouvrage « À supprimer » (fosse, regard…) : il
-     relie encore les tuyaux qui y restent (raccordement direct), qu'ils y finissent ou le traversent, et le collecteur qui le porte, sans
-     compter comme ouvrage ; celui qui y finit seul n'a plus d'exutoire */
-  function noeud(l, i){ var v = l.v[i], o = v.a && idx[v.a]; if (o && objs[v.a]) return v.a; if (mode === 'avp' && o && o.k === 'pt' && !actif(o, mode)) return 'h:' + v.a; return 'x:' + l.id + ':' + i; }
+  /* sommet posé sur un objet absent de ce plan (sur l'avant-projet un ouvrage « À supprimer », sur l'état des lieux un ouvrage « Projet » :
+     fosse, regard, boîte…) : il relie encore les tuyaux qui y restent (raccordement direct), qu'ils y finissent ou le traversent, et le
+     collecteur qui le porte, sans compter comme ouvrage ; celui qui y finit seul n'a pas d'exutoire */
+  function noeud(l, i){ var v = l.v[i], o = v.a && idx[v.a]; if (o && objs[v.a]) return v.a; if (o && o.k === 'pt' && !actif(o, mode)) return 'h:' + v.a; return 'x:' + l.id + ':' + i; }
+  /* un objet absent de ce plan qui ne tient qu'un sommet intermédiaire d'un seul tuyau le laisse d'un seul tenant (pas de nœud en plus : les
+     plus courts chemins ne changent pas) ; il fait un nœud là où finit un tuyau ou là où il tient plusieurs tuyaux */
+  var tenuPar = {}; Object.keys(lignes).forEach(function(id){ lignes[id].v.forEach(function(v){ if (v.a) (tenuPar[v.a] = tenuPar[v.a] || {})[id] = true; }); });
   Object.keys(lignes).forEach(function(id){
     var l = lignes[id], att = [];
-    l.v.forEach(function(v, i){ if (v.a && (objs[v.a] || noeud(l, i).indexOf('h:') === 0)) att.push(i); });
+    l.v.forEach(function(v, i){ if (v.a && (objs[v.a] || (noeud(l, i).indexOf('h:') === 0 && (i === 0 || i === l.v.length - 1 || Object.keys(tenuPar[v.a]).length > 1)))) att.push(i); });
     if (l.t === 'col'){ att.forEach(function(i){ var p = {id: id + ':c' + i, l: l, a: noeud(l, i), b: 'C:' + id, col: true, i0: i, i1: i, sens: 0}; lier(p.a, p); lier(p.b, p); }); return; }
     if (l.v.length < 2) return;
     var b = att.slice(); if (b[0] !== 0) b.unshift(0); if (b[b.length - 1] !== l.v.length - 1) b.push(l.v.length - 1);
@@ -497,7 +500,8 @@ function analyser(doc, mode){
     if (ty.boite && /^(EU|EP|UN)$/.test(o.p.res || '')) return {res: o.p.res, via: 'boite', id: o.id, boite: true};
     return null;
   }
-  /* Parcours en largeur : les départs terminaux sont atteints sans être traversés, sauf o.traverserDepart ; o.terminal remplace la règle des exutoires.
+  /* Parcours en largeur : les départs terminaux sont atteints sans être traversés, sauf o.traverserDepart ; o.terminal remplace la règle des exutoires ;
+     o.sauf : nœuds à ne pas atteindre.
      Les parents gardés permettent de suivre le chemin de l'eau jusqu'à chaque exutoire atteint, sans les branches voisines. */
   function parcours(departs, o){
     o = o || {}; var estTerm = o.terminal || terminal;
@@ -514,7 +518,7 @@ function analyser(doc, mode){
         if (p.sens === 1 && p.b === n && p.a !== n) return;
         if (p.sens === -1 && p.a === n && p.b !== n) return;
         pcs[p.id] = p;
-        if (vus[autre]) return;
+        if (vus[autre] || (o.sauf && o.sauf[autre])) return;
         vus[autre] = true; parent[autre] = {n: n, p: p}; dist[autre] = dist[n] + 1;
         var t = estTerm(autre);
         if (t){ if (!tvus[autre]){ tvus[autre] = true; term.push(Object.assign({noeud: autre, dist: dist[autre]}, t)); } return; }
@@ -523,8 +527,103 @@ function analyser(doc, mode){
     }
     return {term: term, pieces: pcs, parent: parent, vus: vus, dist: dist};
   }
-  /* Chemin d'un nœud atteint jusqu'au départ : nœuds (du nœud au départ) et pièces traversées */
-  function chemin(r, noeud){ var nodes = [], pcs = [], c = noeud; while (r.parent[c]){ nodes.push(c); pcs.push(r.parent[c].p); c = r.parent[c].n; } nodes.push(c); return {nodes: nodes, pieces: pcs}; }
+  /* Graphe des plus courts chemins d'un parcours r depuis s : prédécesseurs de chaque nœud atteint (un exutoire n'est pas traversé, un
+     tronçon orienté ne se remonte pas). Contrairement au chemin gardé par le parcours (le premier trouvé), il ne dépend pas de l'ordre du
+     dessin quand plusieurs chemins ont la même longueur (tuyaux parallèles, by-pass) */
+  function predsDe(r, s){
+    var pr = {};
+    Object.keys(r.vus).forEach(function(v){
+      if (v === s) return;
+      (adj[v] || []).forEach(function(p){
+        var u = p.a === v ? p.b : p.a; if (u === v || !r.vus[u] || r.dist[u] + 1 !== r.dist[v]) return;
+        if (u !== s && terminal(u)) return;
+        if (p.sens === 1 && p.a !== u) return;
+        if (p.sens === -1 && p.b !== u) return;
+        (pr[v] = pr[v] || []).push({n: u, p: p});
+      });
+    });
+    return pr;
+  }
+  /* boîte sur chaque plus court chemin de la source s jusqu'à l'exutoire t (ou l'exutoire est la boîte) ; null sinon */
+  function boiteSur(pr, s, t){
+    var ot = objs[t]; if (ot && T[ot.t].boite) return t;
+    var vus = {}, file = [t], bt = []; vus[t] = true;
+    while (file.length){ var v = file.shift(); (pr[v] || []).forEach(function(q){ var u = q.n; if (vus[u]) return; vus[u] = true; var ou = objs[u]; if (ou && T[ou.t].boite){ bt.push(u); return; } file.push(u); }); }
+    return vus[s] || !bt.length ? null : bt.sort()[0];
+  }
+  /* le nœud b est sur chaque plus court chemin de s jusqu'à e */
+  function domineDag(pr, s, b, e){ if (b === e) return true; var vus = {}, file = [e]; vus[e] = true; while (file.length){ var v = file.shift(); if (v === s) return false; (pr[v] || []).forEach(function(q){ if (q.n === b || vus[q.n]) return; vus[q.n] = true; file.push(q.n); }); } return true; }
+  function indiqueRes(p){ return !p.col && /^(EU|EP|UN)$/.test(p.l.p.res || ''); }
+  /* extrémité libre e vue de la source s : pièces indiquées les plus proches d'elle sur les plus courts chemins (S, au même rang) */
+  function versExtremite(pr, s, e){
+    var S = [], niv = [e], vus = {}; vus[e] = true;
+    while (niv.length && !S.length){ var nx = [];
+      niv.forEach(function(v){ (pr[v] || []).forEach(function(q){ if (indiqueRes(q.p)){ if (S.indexOf(q.p) < 0) S.push(q.p); } else if (q.n !== s && !vus[q.n]){ vus[q.n] = true; nx.push(q.n); } }); });
+      niv = nx; }
+    return {nodes: [e], S: S, pr: pr, s: s};
+  }
+  /* une extrémité peut être une arrivée si son tuyau n'est pas celui de l'appareil et si, en remontant depuis elle par des pièces non
+     orientées (l'eau y va vers l'extrémité), un nœud réunit trois pièces ou plus avant la source */
+  function arriveePossible(ch){
+    var pr = ch.pr, s = ch.s, e = ch.nodes[0], q0 = (pr[e] || [])[0], arr = false;
+    if (!q0 || q0.p.l.v.some(function(w){ return w.a === s; })) return false;
+    var vus = {}, file = [e]; vus[e] = true;
+    while (file.length && !arr){ var v = file.shift(); (pr[v] || []).forEach(function(q){ if (arr || q.p.sens) return; var u = q.n; if (u === s) return; if ((adj[u] || []).length >= 3){ arr = true; return; } if (!vus[u]){ vus[u] = true; file.push(u); } }); }
+    return arr;
+  }
+  /* extrémités libres (bouts) qu'un plus court chemin de la source atteint par la pièce p : celles en aval de son nœud aval */
+  function boutsSous(r, pr, p, memo, bouts){
+    if (!memo.sc){ memo.sc = {}; Object.keys(pr).forEach(function(v){ pr[v].forEach(function(q){ (memo.sc[q.n] = memo.sc[q.n] || []).push(v); }); }); }
+    if (memo[p.id]) return memo[p.id];
+    var v0 = r.dist[p.a] > r.dist[p.b] ? p.a : p.b, vus = {}, file = [v0], out = []; vus[v0] = true;
+    while (file.length){ var n = file.shift(); if (bouts[n]) out.push(bouts[n]); (memo.sc[n] || []).forEach(function(w){ if (!vus[w]){ vus[w] = true; file.push(w); } }); }
+    return (memo[p.id] = out);
+  }
+  /* extrémités libres atteintes par la source id et leur réseau : sur tous les plus courts chemins de la source, chaque pièce indiquée la
+     plus proche de l'extrémité lui donne son réseau si elle est aussi parmi les plus proches de chaque autre extrémité qu'un de ces chemins
+     atteint par elle ; des réseaux différents au même rang (tuyaux parallèles, chemins de même longueur indiqués autrement) : l'extrémité
+     porte le réseau des autres s'il en fait partie (les réseaux réunis y sont alors signalés), sinon le premier des siens */
+  function libresDe(r, pr, id){
+    var versLibres = [];
+    Object.keys(r.vus).sort().forEach(function(nd){ if (boutLibre(nd)) versLibres.push(versExtremite(pr, id, nd)); });
+    var bouts = {}, memo = {}; versLibres.forEach(function(ch){ bouts[ch.nodes[0]] = ch; });
+    versLibres.forEach(function(ch){ ch.nets = [];
+      ch.S.forEach(function(p){ if (ch.nets.indexOf(p.l.p.res) < 0 && boutsSous(r, pr, p, memo, bouts).every(function(c2){ return c2.S.indexOf(p) >= 0; })) ch.nets.push(p.l.p.res); });
+      ch.res = ch.nets.length === 1 ? ch.nets[0] : null; });
+    var ex0 = {}; versLibres.forEach(function(ch){ if (ch.res) ex0[ch.res] = true; }); var exl0 = Object.keys(ex0);
+    versLibres.forEach(function(ch){ if (ch.nets.length < 2) return; var ns = ['EU', 'EP', 'UN'].filter(function(k){ return ch.nets.indexOf(k) >= 0; }); ch.res = exl0.length === 1 && ns.indexOf(exl0[0]) >= 0 ? exl0[0] : ns[0]; });
+    return versLibres;
+  }
+  /* fosse septique comptée pour la source id (règle du 6 novembre 2026 : une fosse hors fonction grâce à un by-pass ne donne pas d'anomalie) :
+     une fosse compte quand l'eau ne peut l'éviter vers aucune des cibles (exutoires dessinés, ou extrémités libres qui portent le réseau
+     présumé) : elle est sur tout chemin jusqu'à chacune ; sinon, quand l'eau ne peut éviter toutes les fosses à la fois (fosses en
+     parallèle), une fosse d'un plus court chemin compte. La plus éloignée de la source d'abord, à égalité dans un ordre fixe : le résultat
+     ne dépend pas de l'ordre du dessin. Une fosse sur tout chemin est sur tout plus court chemin : seules celles-là sont vérifiées (nombres
+     de plus courts chemins, modulo deux nombres premiers), une traversée chacune */
+  function fosseDe(id, r, pr, cibles){
+    var tf = Object.keys(objs).filter(function(n){ return T[objs[n].t].fosse && r.vus[n]; }).sort(); if (!tf.length || !cibles.length) return null;
+    var M = [1000003, 999983], ordre = Object.keys(r.vus).sort(function(a, b){ return r.dist[a] - r.dist[b]; }), av = {};
+    ordre.forEach(function(v){ var c = v === id ? [1, 1] : [0, 0]; (pr[v] || []).forEach(function(q){ var d = av[q.n]; if (d){ c[0] = (c[0] + d[0]) % M[0]; c[1] = (c[1] + d[1]) % M[1]; } }); av[v] = c; });
+    var surTous = {}, surUn = {}; tf.forEach(function(f){ surTous[f] = true; });
+    cibles.forEach(function(t){
+      var bw = {}; bw[t] = [1, 1];
+      for (var k = ordre.length - 1; k >= 0; k--){ var v = ordre[k], b = bw[v]; if (!b) continue; (pr[v] || []).forEach(function(q){ var c = bw[q.n] || (bw[q.n] = [0, 0]); c[0] = (c[0] + b[0]) % M[0]; c[1] = (c[1] + b[1]) % M[1]; }); }
+      tf.forEach(function(f){ var a = av[f], b = bw[f], z = av[t];
+        if (a && b && (a[0] || a[1]) && (b[0] || b[1])) surUn[f] = true;
+        if (!(a && b && z && (a[0] * b[0]) % M[0] === z[0] && (a[1] * b[1]) % M[1] === z[1])) surTous[f] = false; });
+    });
+    var ev = {}, evitee = function(f){ if (!ev[f]){ var sf = {}; sf[f] = true; ev[f] = parcours([id], {sauf: sf}).vus; } return ev[f]; };
+    var ok = tf.filter(function(f){ return surTous[f] && cibles.every(function(n){ return !evitee(f)[n]; }); });
+    if (!ok.length){ var sf = {}; tf.forEach(function(f){ sf[f] = true; }); var vus = parcours([id], {sauf: sf}).vus;
+      /* fosses en parallèle : celles par lesquelles l'eau atteint une cible sans traverser d'autre fosse (une fosse en aval, contournée par
+         son by-pass, n'en est pas) ; à défaut, celles d'un plus court chemin */
+      if (cibles.every(function(n){ return !vus[n]; })){
+        var seule = tf.filter(function(f){ if (!surUn[f]) return false; var so = {}; tf.forEach(function(g){ if (g !== f) so[g] = true; }); var vf = parcours([id], {sauf: so}).vus; return cibles.some(function(n){ return vf[n]; }); });
+        ok = seule.length ? seule : tf.filter(function(f){ return surUn[f]; });
+      } }
+    ok.sort(function(a, b){ return (r.dist[b] - r.dist[a]) || (a < b ? -1 : a > b ? 1 : 0); });
+    return ok[0] || null;
+  }
   /* Gestionnaire et cohérence des boîtes au réseau indiqué : collecteurs atteints au-delà de la boîte */
   /* le collecteur le plus proche de la boîte, en traversant les autres boîtes (boîte intérieure puis boîte en limite) */
   function terminalCollecteur(n){ if (n.indexOf('C:') === 0) return terminal(n); var ob = objs[n], tt = ob && T[ob.t]; return tt && tt.exu ? terminal(n) : null; }
@@ -533,7 +632,7 @@ function analyser(doc, mode){
     var o = objs[id]; if (!T[o.t].boite || !terminal(id)) return;
     var r = parcours([id], {traverserDepart: true, terminal: terminalCollecteur}), cols = r.term.filter(function(t){ return t.col; }), mn = Infinity;
     cols.forEach(function(t){ if (t.dist < mn) mn = t.dist; });
-    cols = cols.filter(function(t){ return t.dist === mn; });
+    cols = cols.filter(function(t){ return t.dist === mn; }).sort(function(a, b){ return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
     boites[id] = {cols: cols, gest: cols.length ? cols[0].gest : null};
   });
   function gestDe(t){ if (t.col) return t.gest; if (t.boite && boites[t.id] && boites[t.id].gest) return boites[t.id].gest; return (doc.gest && doc.gest[t.res]) || 'D'; }
@@ -543,9 +642,20 @@ function analyser(doc, mode){
      main reste un nœud. De même un point de test ou une zone suspecte (croquis d'avant) au bout d'un seul tuyau : une annotation ne change
      pas l'analyse ; entre deux tuyaux, il les relie. Sur l'avant-projet, le tuyau à supprimer d'un raccord n'en fait pas une extrémité libre : la branche qui
      y reste n'a plus d'exutoire après travaux */
+  /* sens de l'eau de chaque pièce que l'eau d'une source parcourt jusqu'à ses cibles (plus courts chemins) : +1 dans le sens du tracé, -1 à
+     l'inverse, 0 si deux sources la parcourent en sens contraires ; une pièce qu'aucune source ne parcourt n'en a pas (queue au-delà d'un
+     raccord, trop-plein d'un puisard, tuyau après une boîte au réseau indiqué) */
+  var sensSource = {};
+  function noterSens(pr, cibles){
+    var vers = {}, file = []; cibles.forEach(function(n){ if (!vers[n]){ vers[n] = true; file.push(n); } });
+    while (file.length){ var v = file.shift(); (pr[v] || []).forEach(function(q){ var sg = q.p.a === q.n ? 1 : -1, o = sensSource[q.p.id]; sensSource[q.p.id] = o == null || o === sg ? sg : 0; if (!vers[q.n]){ vers[q.n] = true; file.push(q.n); } }); }
+  }
   var lieHorsPlan = {}, lignesDe = {};
   doc.el.forEach(function(e){ if (e.k === 'ln') e.v.forEach(function(v){ if (!v.a) return; if (e.t === 'tr' || e.t === 'col') (lignesDe[v.a] = lignesDe[v.a] || {})[e.id] = true; if (mode !== 'avp' && !actif(e, mode)) lieHorsPlan[v.a] = true; }); });
-  function boutLibre(nd){ if (nd.indexOf('x:') === 0) return true; var ob = objs[nd]; return !!ob && (ob.t === 'jonction' && jonctionAuto(ob) || T[ob.t].role === 'note') && (adj[nd] || []).length === 1 && (!!lieHorsPlan[nd] || Object.keys(lignesDe[nd] || {}).length === 1); }
+  /* sur l'état des lieux, un tuyau existant qui finit seul sur un ouvrage « Projet » a une extrémité libre (l'ouvrage n'existe pas encore),
+     sauf sur un appareil « Projet » (son attente est une arrivée, pas une sortie) ; sur l'avant-projet, celui qui finit seul sur un ouvrage
+     « À supprimer » n'a plus d'exutoire */
+  function boutLibre(nd){ if (nd.indexOf('x:') === 0) return true; if (nd.indexOf('h:') === 0){ var oh = idx[nd.slice(2)]; return mode !== 'avp' && (adj[nd] || []).length === 1 && !(oh && T[oh.t] && T[oh.t].role === 'source'); } var ob = objs[nd]; return !!ob && (ob.t === 'jonction' && jonctionAuto(ob) || T[ob.t].role === 'note') && (adj[nd] || []).length === 1 && (!!lieHorsPlan[nd] || Object.keys(lignesDe[nd] || {}).length === 1); }
   /* une pièce amène l'eau d'un équipement quand il en est un au-delà d'elle (en remontant l'écoulement, sans la franchir ni passer un
      exutoire), ou quand un tracé orienté vers elle l'y amène (sens relevé : arrivée du voisin, appareils non dessinés) ; une branche de
      sortie qui ne mène qu'à des extrémités libres n'en amène pas */
@@ -592,13 +702,16 @@ function analyser(doc, mode){
   var resObj = {};
   Object.keys(objs).forEach(function(id){
     var o = objs[id], ty = T[o.t]; if (ty.role !== 'source') return;
-    var r = parcours([id]), nets = [], gests = {}, fosse = null, boite = null, entree = {}, presume = false, cfl = null, amb = null, ambArr = false;
+    var r = parcours([id]), pr = predsDe(r, id), nets = [], gests = {}, fosse = null, boite = null, entree = {}, presume = false, cfl = null, amb = null, ambArr = false;
+    /* exutoires du plus proche au plus lointain (à égalité, dans un ordre fixe) ; boîte sur chaque plus court chemin ; regard où le
+       branchement arrive sur le collecteur (celui d'un plus court chemin sans boîte, s'il y en a) ; fosse septique (fosseDe) */
+    r.term.sort(function(a, b){ return a.dist - b.dist || (a.noeud < b.noeud ? -1 : a.noeud > b.noeud ? 1 : 0); });
     r.term.forEach(function(t){
       if (nets.indexOf(t.res) < 0) nets.push(t.res); gests[t.res] = gestDe(t);
-      var ch = chemin(r, t.noeud);
-      ch.nodes.forEach(function(nd){ var ob = objs[nd], tt = ob && T[ob.t]; if (tt && tt.fosse && !fosse) fosse = nd; if (tt && tt.boite && !boite) boite = nd; });
-      if (t.col) entree[t.id] = ch.nodes[1] || id;
+      if (!boite) boite = boiteSur(pr, id, t.noeud);
+      if (t.col){ var ps = (pr[t.noeud] || []).map(function(q){ return q.n; }).sort(), sb = ps.filter(function(u){ return !boiteSur(pr, id, u); }); entree[t.id] = sb[0] || ps[0] || id; }
     });
+    if (r.term.length){ fosse = fosseDe(id, r, pr, r.term.map(function(t){ return t.noeud; })); noterSens(pr, r.term.map(function(t){ return t.noeud; })); }
     /* sans exutoire dessiné : réseau présumé d'après les tronçons indiqués sur le chemin vers une extrémité libre : pour chaque extrémité, le
        tronçon indiqué le plus proche d'elle (tuyau « Tronçon EU » du WC arrivé sur une branche « Tronçon EP » laissée libre : EP), s'il
        est aussi le plus proche de chaque autre extrémité au-delà de lui : le tronc qu'une extrémité partage avec d'autres (le tuyau de
@@ -613,28 +726,35 @@ function analyser(doc, mode){
        libres) ne lui en donne aucun et ne l'annule pas */
     if (!nets.length){
       var ex = {}, versLibres = [], conflit = {};
-      var indiqueRes = function(p){ return !p.col && /^(EU|EP|UN)$/.test(p.l.p.res || ''); };
-      Object.keys(r.vus).forEach(function(nd){ if (boutLibre(nd)) versLibres.push(chemin(r, nd)); });
-      versLibres.forEach(function(ch){ ch.res = null; ch.proche = null; ch.pieces.some(function(p){ if (indiqueRes(p)){ ch.proche = p; return true; } return false; }); });
-      versLibres.forEach(function(ch){ var p = ch.proche; if (p && versLibres.every(function(c2){ return c2.pieces.indexOf(p) < 0 || c2.proche === p; })) ch.res = p.l.p.res; });
+      versLibres = libresDe(r, pr, id);
       versLibres.forEach(function(ch){ if (ch.res) ex[ch.res] = true; });
       var exl = Object.keys(ex);
       if (exl.length > 1){ amb = ['EU', 'EP', 'UN'].filter(function(k){ return ex[k]; });
-        ambArr = versLibres.some(function(ch){ return ch.res && ch.pieces.length > 1 && !ch.pieces[0].sens; }); }
+        ambArr = versLibres.some(function(ch){ return ch.res && arriveePossible(ch); }); }
       if (exl.length === 1) versLibres.forEach(function(ch){ if (ch.res !== exl[0]) return; var rv = reseauxVers(ch.nodes[0]); if (rv.length > 1) rv.forEach(function(k){ conflit[k] = true; }); });
       if (exl.length === 1 && Object.keys(conflit).length) cfl = ['EU', 'EP', 'UN'].filter(function(k){ return conflit[k]; });
       if (exl.length === 1 && !cfl){
         nets = exl; presume = true; gests[exl[0]] = (doc.gest && doc.gest[exl[0]]) || 'D';
-        /* fosse septique ou boîte sur le chemin de l'exutoire présumé : comme sur celui d'un exutoire dessiné, quand elle est sur chaque chemin
-           vers une extrémité libre qui porte ce réseau ; une autre extrémité libre peut être une arrivée (fosse en amont du regard, son entrée
-           venant de la maison, appareils non dessinés) */
-        var portent = versLibres.filter(function(ch){ return ch.res === exl[0]; });
-        portent[0].nodes.forEach(function(nd){ var ob = objs[nd], tt = ob && T[ob.t]; if (!tt || !portent.every(function(ch){ return ch.nodes.indexOf(nd) >= 0; })) return;
-          if (tt.fosse && !fosse) fosse = nd; if (tt.boite && !boite) boite = nd; });
+        /* fosse septique ou boîte de l'exutoire présumé : comme pour un exutoire dessiné, vers chaque extrémité libre qui porte ce réseau ; une
+           autre extrémité libre peut être une arrivée (fosse en amont du regard, son entrée venant de la maison, appareils non dessinés) */
+        var porte = versLibres.filter(function(ch){ return ch.res === exl[0]; });
+        fosse = fosseDe(id, r, pr, porte.map(function(ch){ return ch.nodes[0]; })); noterSens(pr, porte.map(function(ch){ return ch.nodes[0]; }));
+        boite = Object.keys(objs).filter(function(n){ return T[objs[n].t].boite && r.vus[n] && porte.every(function(ch){ return domineDag(pr, id, n, ch.nodes[0]); }); })
+          .sort(function(a, b){ return (r.dist[b] - r.dist[a]) || (a < b ? -1 : a > b ? 1 : 0); })[0] || null;
       }
+      /* sans réseau établi, une seule extrémité libre : l'eau y va (sens de ses pièces, pour un clapet posé dessus) */
+      if (!presume && versLibres.length === 1) noterSens(pr, [versLibres[0].nodes[0]]);
+    }
+    /* avant-projet, exutoire dessiné : une extrémité libre qui porte un autre réseau indiqué (ancienne sortie gardée à côté du raccordement,
+       ou arrivée non orientée) laisse les réseaux mêlés après travaux : relevée pour les Contrôles et le contrôle de l'avant-projet */
+    var sortiesLibres = null;
+    if (mode === 'avp' && nets.length && !presume){
+      var dessines = nets.map(function(k){ return k === 'INF' || k === 'GARG' || k === 'MILIEU' ? 'EP' : k; }), la = {};
+      libresDe(r, pr, id).forEach(function(ch){ if (ch.res && dessines.indexOf(ch.res) < 0) la[ch.res] = true; });
+      sortiesLibres = ['EU', 'EP', 'UN'].filter(function(k){ return la[k]; }); if (!sortiesLibres.length) sortiesLibres = null;
     }
     var etat = !Object.keys(r.pieces).length ? 'nonrelie' : !nets.length ? 'sansexu' : nets.length > 1 ? 'multiple' : 'ok';
-    resObj[id] = {etat: etat, res: nets.length === 1 ? nets[0] : null, nets: nets, gest: nets.length === 1 ? gests[nets[0]] : null, presume: presume, conflit: cfl, ambigu: amb, ambiguArrivee: ambArr, fosse: fosse, boite: boite, term: r.term, entree: entree};
+    resObj[id] = {etat: etat, res: nets.length === 1 ? nets[0] : null, nets: nets, gest: nets.length === 1 ? gests[nets[0]] : null, presume: presume, conflit: cfl, ambigu: amb, ambiguArrivee: ambArr, fosse: fosse, boite: boite, term: r.term, entree: entree, sortiesLibres: sortiesLibres};
   });
   /* Réseau de chaque pièce (couleur), regards traversés, flèches d'écoulement */
   var resPiece = {}, resNoeud = {};
@@ -642,6 +762,8 @@ function analyser(doc, mode){
     var dep = p.sens === 1 ? [p.b] : p.sens === -1 ? [p.a] : [p.a, p.b];
     var r = parcours(dep), nets = [];
     r.term.forEach(function(t){ var k = /^(EU|EP|UN)$/.test(t.res) ? t.res : (t.res === 'INF' || t.res === 'GARG' || t.res === 'MILIEU' ? 'EP' : t.res); if (nets.indexOf(k) < 0) nets.push(k); });
+    /* toujours dans le même ordre (EU, EP, unitaire) : le message « le dessin le relie à » ne dépend pas de l'ordre du dessin */
+    nets.sort(function(x, y){ var a = ['EU', 'EP', 'UN'].indexOf(x), b = ['EU', 'EP', 'UN'].indexOf(y); return (a < 0 ? 9 : a) - (b < 0 ? 9 : b); });
     var expl = RES[p.l.p.res] ? p.l.p.res : null, res = expl || (nets.length === 1 ? nets[0] : nets.length > 1 ? 'MIX' : 'INC');
     resPiece[p.id] = {res: res, deduit: !expl, nets: nets, contredit: !!(expl && nets.length && nets.indexOf(expl) < 0 && !(nets.length === 1 && nets[0] === 'UN'))};
     [p.a, p.b].forEach(function(n){ if (!objs[n]) return; var q = resNoeud[n] || (resNoeud[n] = {}); nets.forEach(function(x){ q[x] = true; }); if (expl) q[expl] = true; });
@@ -658,6 +780,9 @@ function analyser(doc, mode){
   var sensPiece = {};
   pieces.forEach(function(p){
     if (p.sens) { sensPiece[p.id] = p.sens; return; }
+    /* sens que l'eau d'une source y suit jusqu'à son exutoire, sinon d'après la distance aux exutoires (un trop-plein qui part d'un puisard,
+       un tuyau qui part d'une boîte au réseau indiqué : vers l'aval) */
+    if (sensSource[p.id]) { sensPiece[p.id] = sensSource[p.id]; return; }
     var da = dist[p.a], db = dist[p.b];
     if (da != null && db != null && da !== db) sensPiece[p.id] = da > db ? 1 : -1;
   });
@@ -673,7 +798,7 @@ function analyser(doc, mode){
     resPt[id] = q.length === 1 ? q[0] : q.length > 1 ? 'MIX' : (ty.role === 'note' ? 'ANN' : 'INC');
   });
   Object.keys(lignes).forEach(function(id){ if (lignes[id].t === 'col') lignes[id].v.forEach(function(v){ if (v.a && objs[v.a] && (resPt[v.a] === 'INC' || objs[v.a].t === 'regard_pub' && !RES[objs[v.a].p.res])) resPt[v.a] = RES[lignes[id].p.res] ? lignes[id].p.res : 'EU'; }); });
-  var an = {mode: mode, objs: objs, lignes: lignes, pieces: pieces, adj: adj, resObj: resObj, resPiece: resPiece, sensPiece: sensPiece, resPt: resPt, boites: boites, dist: dist};
+  var an = {mode: mode, objs: objs, lignes: lignes, pieces: pieces, adj: adj, resObj: resObj, resPiece: resPiece, sensPiece: sensPiece, sensSource: sensSource, resPt: resPt, boites: boites, dist: dist};
   /* après l'avant-projet : l'état des lieux sert de référence (numéros d'anomalie, réseau des tracés à supprimer) */
   if (mode === 'avp') an.ref = analyser(doc, 'edl');
   an.anomalies = reglesAnomalies(doc, an);
@@ -689,6 +814,13 @@ function listeEt(a){ return a.length > 1 ? a.slice(0, -1).join(', ') + ' et ' + 
 function reglesAnomalies(doc, an){
   var out = [], vu = {};
   function ajoute(a){ if (vu[a.cle]) return; vu[a.cle] = true; a.auto = true; out.push(a); }
+  /* « pas de boîte » : une anomalie par collecteur et réseau ; quand plusieurs appareils y arrivent par des branchements différents, elle
+     se place à l'entrée de celui qui a le plus petit identifiant (le premier posé), quel que soit l'ordre des objets dans le dessin */
+  var sbSrc = {};
+  Object.keys(an.resObj).forEach(function(id){
+    var r = an.resObj[id], t0 = r.etat === 'ok' && !r.boite && r.term.filter(function(t){ return t.col; })[0]; if (!t0) return;
+    var k = 'sansboite:' + t0.id + ':' + t0.res; if (!sbSrc[k] || id < sbSrc[k]) sbSrc[k] = id;
+  });
   Object.keys(an.resObj).forEach(function(id){
     var o = an.objs[id], ty = T[o.t], r = an.resObj[id], lib = libObj(o);
     if (r.etat === 'ok'){
@@ -703,8 +835,8 @@ function reglesAnomalies(doc, an){
       if (ty.nat === 'EU' && r.fosse && an.objs[r.fosse]) ajoute({cle: 'fosse:' + r.fosse, objId: r.fosse, reseau: 'EU', obs: 'Fosse septique : eaux usées traversant la fosse', preco: 'Suppression de la fosse septique et raccordement direct au branchement EU', nc: true, codes: ['suppFosse'], cat: 'autre'});
       if (ty.nat === 'EP' && r.fosse && an.objs[r.fosse]) ajoute({cle: 'ep-fosse:' + id, objId: id, reseau: 'EP', obs: lib + ' : rejet dans la fosse septique', preco: 'Déconnexion des EP de la fosse ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['decoEP', 'raccEPep'], cat: 'inversion'});
       if (r.term.some(function(t){ return t.col; }) && !r.boite){
-        var t0 = r.term.filter(function(t){ return t.col; })[0], ent = r.entree[t0.id] || id;
-        ajoute({cle: 'sansboite:' + t0.id + ':' + t0.res, objId: an.objs[ent] ? ent : id, reseau: t0.res === 'EP' ? 'EP' : 'EU', obs: 'Branchement ' + libRes(t0.res) + ' : pas de boîte de branchement en limite de propriété', preco: 'Création d\'une boîte de branchement ' + libRes(t0.res) + ' en limite de propriété, sur le branchement existant', nc: true, codes: ['boiteEx_' + (t0.res === 'UN' ? 'UN' : t0.res)], cat: 'regard', arbitrer: true});
+        var t0 = r.term.filter(function(t){ return t.col; })[0], s0 = sbSrc['sansboite:' + t0.id + ':' + t0.res] || id, ent = an.resObj[s0].entree[t0.id] || s0;
+        ajoute({cle: 'sansboite:' + t0.id + ':' + t0.res, objId: an.objs[ent] ? ent : s0, reseau: t0.res === 'EP' ? 'EP' : 'EU', obs: 'Branchement ' + libRes(t0.res) + ' : pas de boîte de branchement en limite de propriété', preco: 'Création d\'une boîte de branchement ' + libRes(t0.res) + ' en limite de propriété, sur le branchement existant', nc: true, codes: ['boiteEx_' + (t0.res === 'UN' ? 'UN' : t0.res)], cat: 'regard', arbitrer: true});
       }
     }
     if (o.t === 'descente' && o.p.visitable === 'non') ajoute({cle: 'dep-nv:' + id, objId: id, reseau: 'EP', obs: 'Descente EP' + (o.p.cote ? ' ' + (o.p.cote === 'arriere' ? 'arrière' : 'avant') : '') + ' : non visitable', preco: 'Pose d\'un té de visite en pied de descente', nc: true, codes: [], cat: 'descente'});
@@ -739,6 +871,8 @@ function controles(doc, an){
         if (r.etat === 'nonrelie') c(id, 'manque', lib + ' : non relié au réseau sur le dessin', 'relie');
         else if (r.etat === 'sansexu') c(id, 'manque', lib + ' : exutoire non dessiné' + (r.conflit ? ', tronçons ' + listeEt(r.conflit.map(libRes)) + ' réunis vers la même extrémité libre (indiquer le réseau du tronçon commun, ou le sens du tracé d\'une arrivée)' : r.ambigu ? ', extrémités libres de réseaux ' + listeEt(r.ambigu.map(libRes)) + (r.ambiguArrivee ? ' (prolonger le tracé, ou indiquer le sens du tracé d\'une arrivée)' : ' (prolonger le tracé jusqu\'à l\'exutoire)') : ' (prolonger le tracé ou indiquer le réseau du tronçon)'), 'exu');
         else if (r.etat === 'multiple') c(id, 'manque', lib + ' : relié à plusieurs réseaux (' + r.nets.map(function(x){ return EXU_LIB[x] || x; }).join(', ') + ') : indiquer le sens d\'écoulement d\'un tronçon', 'multi');
+        if (r.etat === 'ok' && r.sortiesLibres){ var pl = r.sortiesLibres.length > 1;
+          c(id, 'manque', lib + (pl ? ' : sorties ' : ' : sortie ') + listeEt(r.sortiesLibres.map(libRes)) + (pl ? ' laissées libres à côté de l\'exutoire dessiné (les passer « À supprimer », les prolonger, ou indiquer le sens du tracé d\'une arrivée)' : ' laissée libre à côté de l\'exutoire dessiné (la passer « À supprimer », la prolonger, ou indiquer le sens du tracé d\'une arrivée)'), 'sortielibre'); }
       }
       if (o.t === 'descente'){
         if (!o.p.visitable) c(id, 'manque', 'Descente EP : visitable ou non à indiquer', 'visit');
@@ -748,13 +882,18 @@ function controles(doc, an){
     if (ty.regard && o.t !== 'regard_pub' && !o.p.tampon) c(id, 'info', lib + ' : tampon à indiquer', 'tampon');
     if (ty.boite && !/^(EU|EP|UN)$/.test(o.p.res || '') && an.resPt[id] === 'INC') c(id, 'manque', 'Boîte de branchement : réseau à indiquer', 'boiteres');
   });
+  var dits = {};
   an.pieces.forEach(function(p){
-    var rp = an.resPiece[p.id];
-    if (rp && rp.contredit) c(p.l.id, 'info', 'Tronçon ' + libRes(p.l.p.res) + ' : le dessin le relie à ' + rp.nets.map(function(x){ return EXU_LIB[x] || x; }).join(', '), 'contredit');
+    var rp = an.resPiece[p.id]; if (!(rp && rp.contredit)) return;
+    /* une fois par tuyau (un regard au milieu le coupe en deux pièces qui disent la même chose) */
+    var txt = 'Tronçon ' + libRes(p.l.p.res) + ' : le dessin le relie à ' + rp.nets.map(function(x){ return EXU_LIB[x] || x; }).join(', ');
+    if (dits[p.l.id + '|' + txt]) return; dits[p.l.id + '|' + txt] = true; c(p.l.id, 'info', txt, 'contredit');
   });
   Object.keys(an.lignes).forEach(function(id){
     var l = an.lignes[id]; if (l.t !== 'tr' || l.v.length < 2) return;
-    var libres = [0, l.v.length - 1].filter(function(i){ return !(l.v[i].a && an.objs[l.v[i].a]); });
+    /* un ouvrage absent de ce plan (« À supprimer », « Projet ») qui relie encore d'autres tuyaux (raccordement direct) n'en fait pas une
+       extrémité libre */
+    var libres = [0, l.v.length - 1].filter(function(i){ var va = l.v[i].a; return !(va && (an.objs[va] || (an.adj['h:' + va] || []).length > 1)); });
     if (libres.length) c(id, 'info', 'Tronçon : extrémité' + (libres.length > 1 ? 's' : '') + ' libre' + (libres.length > 1 ? 's' : '') + ', non reliée' + (libres.length > 1 ? 's' : '') + ' à un objet', 'libre');
   });
   var ordre = {manque: 0, info: 1};
@@ -814,6 +953,14 @@ function recIntact(r){
   return !(r.photos || []).length && !r.brouillon && !r.photoNonRequise && (r.observation || '') === (au.obs || '') && (r.preconisation || '') === (au.preco || '') && r.reseau === au.reseau
     && !String(r.localisation || '').trim() && (r.installation || '') === (au.installation || '') && (r.nc == null || r.nc === au.nc);
 }
+/* champs de la copie d'une anomalie retirée que le technicien avait retouchés : la copie y diffère de la valeur que le dessin donnait alors
+   (sv.auto) ; sans valeurs du dessin notées (copie plus ancienne), tout revient tel quel */
+function copieRetouchee(sv){
+  var sa = sv && sv.auto && typeof sv.auto === 'object' ? sv.auto : null;
+  if (!sa) return {obs: true, preco: true, reseau: true, nc: true, installation: true};
+  return {obs: String(sv.observation || '') !== String(sa.obs || ''), preco: String(sv.preconisation || '') !== String(sa.preco || ''), reseau: sv.reseau !== sa.reseau,
+    nc: typeof sv.nc === 'boolean' && sv.nc !== sa.nc, installation: String(sv.installation || '') !== String(sa.installation || '')};
+}
 function depuisRec(r){ return {appId: r.id, reseau: r.reseau === 'EP' ? 'EP' : 'EU', obs: r.observation || '', preco: r.preconisation || '', nc: VC.ncAnomalie(r), photos: (r.photos || []).length, brouillon: !!r.brouillon, loc: r.localisation || ''}; }
 /* anomalies du dessin : déduites, plus celles ajoutées sur un objet du croquis (doc.anomManu) */
 function reglesInteg(doc, an, idx){
@@ -850,15 +997,18 @@ function integEdl(doc, an, ext, forcer, telQuel){
     if (r) Object.assign(it, depuisRec(r));
     else {
       /* une anomalie retirée du dossier reprend sa saisie (copie : texte, localisation, ligne, nature…) quand on la retient de nouveau ;
-         une retouche faite ensuite dans le croquis prime sur la copie, et « Annuler » la défait sans toucher à la copie */
+         une retouche faite ensuite dans le croquis prime sur la copie, et « Annuler » la défait sans toucher à la copie. Ce que personne
+         n'avait retouché dans la copie suit le dessin d'aujourd'hui (le texte, le réseau ou la nature ont pu changer entre-temps) */
       var sv = sauv[a.cle] && typeof sauv[a.cle] === 'object' ? sauv[a.cle] : null, rt = (a.manu ? a.mCopie : d.surCopie) || {}, vt = a.manu ? {obs: a.obs, preco: a.preco, nc: a.nc} : d;
       var apres = function(k){ return !!sv && rt[k] === (sv.seq || 0) && vt[k] != null && (k !== 'obs' || String(vt[k]).trim() !== ''); };
       if (sv){
-        it.obs = apres('obs') ? vt.obs : String(sv.observation != null ? sv.observation : a.obs);
-        it.preco = apres('preco') ? vt.preco : String(sv.preconisation != null ? sv.preconisation : a.preco || '');
-        if (sv.reseau === 'EU' || sv.reseau === 'EP') it.reseau = sv.reseau;
-        /* nature : retouchée depuis, explicite dans la copie, sinon la règle de l'application (rien n'est écrit à la recréation) */
-        if (apres('nc')) it.nc = !!vt.nc; else if (typeof sv.nc === 'boolean') it.nc = sv.nc; else { it.nc = VC.ncAnomalie({reseau: it.reseau, observation: it.obs}); it.ncLibre = true; }
+        var ret = copieRetouchee(sv);
+        it.obs = apres('obs') ? vt.obs : ret.obs && sv.observation != null ? String(sv.observation) : a.obs;
+        it.preco = apres('preco') ? vt.preco : ret.preco && sv.preconisation != null ? String(sv.preconisation) : a.preco || '';
+        if (ret.reseau && (sv.reseau === 'EU' || sv.reseau === 'EP')) it.reseau = sv.reseau;
+        /* nature : retouchée depuis, retouchée dans la copie, celle du dessin d'aujourd'hui si la copie avait celle du dessin d'alors, sinon la
+           règle de l'application (rien n'est écrit à la recréation) */
+        if (apres('nc')) it.nc = !!vt.nc; else if (typeof sv.nc === 'boolean') it.nc = ret.nc ? sv.nc : !!a.nc; else { it.nc = VC.ncAnomalie({reseau: it.reseau, observation: it.obs}); it.ncLibre = true; }
       }
       else if (a.manu){ it.obs = a.obs; it.preco = a.preco; it.nc = a.nc; }
       else { it.obs = d.obs || a.obs; it.preco = d.preco != null && d.preco !== '' ? d.preco : a.preco; it.nc = d.nc != null ? d.nc : a.nc; }
@@ -937,10 +1087,15 @@ function reconcilier(doc, an, ext, o){
         croquis: {cle: a.cle, objId: a.objId || null, codes: (a.codes || []).slice(), auto: {obs: a.r0.obs, preco: a.r0.preco, reseau: a.r0.reseau, nc: a.r0.nc, installation: inst}}};
       if (sv){
         /* retenue de nouveau (ou retrait annulé) : l'anomalie revient telle qu'elle était dans le dossier */
-        ['id', 'createdAt', 'localisation', 'installation', 'photoNonRequise', 'categorie'].forEach(function(k){ if (sv[k] != null) c[k] = sv[k]; });
+        var ret = copieRetouchee(sv), sa = sv.auto && typeof sv.auto === 'object' ? sv.auto : null;
+        ['id', 'createdAt', 'localisation', 'photoNonRequise', 'categorie'].forEach(function(k){ if (sv[k] != null) c[k] = sv[k]; });
+        /* ligne du constat : celle de la copie si le technicien l'avait changée, sinon celle du dessin d'aujourd'hui */
+        if (sv.installation != null && ret.installation) c.installation = sv.installation;
         /* nature : celle de la copie ou retouchée depuis ; laissée à la règle de l'application si elle l'était (rien d'écrit) */
         c.nc = a.ncLibre ? null : !!a.nc;
-        if (sv.auto && typeof sv.auto === 'object') c.croquis.auto = sv.auto;
+        /* valeurs du dessin notées : celles de la copie pour ce qui avait été retouché (la retouche reste reconnue), celles d'aujourd'hui
+           pour le reste (elles suivront le dessin) */
+        if (sa){ var au0 = c.croquis.auto; c.croquis.auto = {obs: ret.obs ? sa.obs : au0.obs, preco: ret.preco ? sa.preco : au0.preco, reseau: ret.reseau ? sa.reseau : au0.reseau, nc: ret.nc ? sa.nc : au0.nc, installation: ret.installation ? sa.installation : au0.installation}; }
         if (sv.garde) c.croquis.garde = true;
         delete sauv[a.cle]; ops.doc = true;
       }
@@ -1654,6 +1809,13 @@ function insererDansLigne(doc, o, snap){
   var P = lignePts(l, idx), best = null;
   for (var i = 1; i < P.length; i++){ var q = projSeg(o, P[i - 1], P[i]); if (!best || q.d < best.q.d) best = {i: i, q: q}; }
   if (!best) return;
+  /* projection sur un sommet (coude, extrémité) : l'objet le prend s'il est libre, comme jonctionSur ; tenu par un autre objet, rien n'est
+     ajouté (pas de second sommet caché sous le symbole) */
+  if (best.q.t < 1e-6 || best.q.t > 1 - 1e-6){
+    var k = best.q.t < .5 ? best.i - 1 : best.i, w = l.v[k], ow = w && w.a ? idx[w.a] : null;
+    if (w && (!ow || ow.t === 'zone')){ o.x = P[k].x; o.y = P[k].y; w.a = o.id; w.x = o.x; w.y = o.y; }
+    return;
+  }
   o.x = best.q.x; o.y = best.q.y;
   l.v.splice(best.i, 0, {x: o.x, y: o.y, a: o.id});
 }
@@ -1662,7 +1824,15 @@ function synchroSommets(doc){ var idx = indexDoc(doc); doc.el.forEach(function(e
 function supprimerElement(doc, id, gardes){
   var idx = indexDoc(doc), e = idx[id]; if (!e) return;
   doc.el = doc.el.filter(function(x){ return x.id !== id; });
-  if (e.k === 'pt') doc.el.forEach(function(l){ if (l.k === 'ln') l.v.forEach(function(v){ if (v.a === id){ v.a = null; v.x = e.x; v.y = e.y; } }); });
+  if (e.k === 'pt'){
+    /* ouvrage de passage (regard, boîte, fosse…), exutoire ou point de test où se rejoignent plusieurs tuyaux : ils restent raccordés entre
+       eux par un raccord posé d'office à sa place (comme avant qu'il prenne celle d'un raccord) ; un raccord supprimé, lui, les sépare */
+    var tenus = [], nl = {};
+    doc.el.forEach(function(l){ if (l.k === 'ln') l.v.forEach(function(v){ if (v.a === id){ tenus.push(v); nl[l.id] = true; } }); });
+    var rl = T[e.t] && T[e.t].role, j = (rl === 'passage' || rl === 'exutoire' || rl === 'note') && e.t !== 'jonction' && e.t !== 'zone' && Object.keys(nl).length > 1 ? {id: uid(), k: 'pt', t: 'jonction', x: e.x, y: e.y, p: defautsPt('jonction'), lab: {off: true}, auto: true} : null;
+    if (j) doc.el.push(j);
+    tenus.forEach(function(v){ v.a = j ? j.id : null; v.x = e.x; v.y = e.y; });
+  }
   doc.anomManu = (doc.anomManu || []).filter(function(m){ return m.objId !== id; });
   nettoyerJonctions(doc, null, gardes);
 }
@@ -2099,7 +2269,7 @@ function editeur(racine, opts){
   /* Accroche d'un point de tracé : objet, sommet, segment ; sinon point libre redressé par les aides. L'objet le plus proche (zone d'accroche :
      symbole + 12 px) passe avant les tracés, sauf si le doigt est nettement plus près d'un tracé (6 px de marge) que du bord de son symbole :
      vu de loin, la zone d'un raccord ou d'un regard déborde sur le collecteur voisin. Le sommet d'un tracé posé sur un objet est cet objet : il
-     ne compte pas comme sommet. sansObj : tracés seulement ; sansSeg : sommets seulement ; rayonSom : rayon des sommets (16 px) ; bouts : id
+     ne compte pas comme sommet. sansObj : tracés seulement ; sansSeg : sommets seulement ; rayonSom : rayon des sommets (16 px) ; rayonSeg : celui des segments (13 px) ; bouts : id
      d'un objet, seules comptent les extrémités libres des tracés qui ne le portent pas (objet lâché) */
   function accroche(x, y, o){
     o = o || {}; var I = idx(), best = null, bd = Infinity, ob = null, dob = Infinity, de = Infinity, surObj = {};
@@ -2119,7 +2289,7 @@ function editeur(racine, opts){
       var P = lignePts(l, I), Q = P.map(function(p){ return S.vue.ecran(p.x, p.y); });
       P.forEach(function(p, i){ if (surObj[l.v[i].a]) return; if (o.bouts && (l.v[i].a || (i && i !== P.length - 1) || l.v.some(function(w){ return w.a === o.bouts; }))) return;
         var d = Math.hypot(x - Q[i].x, y - Q[i].y); if (d <= (o.rayonSom || 16)) som.push({d: d, l: l, a: {type: 'som', ligne: l.id, i: i, x: p.x, y: p.y, a: l.v[i].a && !(I[l.v[i].a] && I[l.v[i].a].t === 'zone') ? l.v[i].a : null}}); });
-      if (!o.sansSeg) for (var i = 1; i < Q.length; i++){ var q = projSeg({x: x, y: y}, Q[i - 1], Q[i]); if (q.d <= 13){ var w = S.vue.monde(q.x, q.y); seg.push({d: q.d, l: l, a: {type: 'seg', ligne: l.id, i: i, x: w.x, y: w.y}}); } }
+      if (!o.sansSeg) for (var i = 1; i < Q.length; i++){ var q = projSeg({x: x, y: y}, Q[i - 1], Q[i]); if (q.d <= (o.rayonSeg || 13)){ var w = S.vue.monde(q.x, q.y); seg.push({d: q.d, l: l, a: {type: 'seg', ligne: l.id, i: i, x: w.x, y: w.y}}); } }
     });
     var dseg = Math.min.apply(null, seg.map(function(c){ return c.d; }).concat([Infinity]));
     som = som.filter(function(c){ return c.d <= dseg + 1 || seg.some(function(q){ return q.l === c.l && q.d <= dseg + 1; }); });
@@ -2149,6 +2319,7 @@ function editeur(racine, opts){
   function pos(ev){ var r = cv.getBoundingClientRect(); return {x: ev.clientX - r.left, y: ev.clientY - r.top}; }
   cv.addEventListener('pointerdown', function(ev){
     if (!S.doc) return;
+    S.avaleRepete = null;
     try { cv.setPointerCapture(ev.pointerId); } catch(e){}
     /* premier doigt d'un nouveau geste : les pointeurs dont le relâchement n'est jamais arrivé (fenêtre fermée, doigt levé ailleurs) sont oubliés */
     if (ev.isPrimary && Object.keys(S.ptr).length){ S.ptr = {}; finirGeste(true); }
@@ -2410,7 +2581,10 @@ function editeur(racine, opts){
        fait glisser la vue pour montrer la fiche ; ignoré une fois, avec l'explication */
     var ch = S.clicHors, gf = S.gardeFiche;
     if (ch && tq - ch.t < 600 && Math.hypot(x - ch.x, y - ch.y) < 48){ S.clicHors = null; toast('Le bouton touché vient de disparaître : touchez de nouveau le plan pour y dessiner.', 3500); return; }
-    if (gf && gf.glisse && tq - gf.t < 600 && Math.hypot(x - gf.tx, y - gf.ty) < 48){ S.gardeFiche = null; toast('Le plan vient de glisser pour montrer la fiche : touchez-le de nouveau.', 3500); return; }
+    if (gf && gf.glisse && tq - gf.t < 600 && Math.hypot(x - gf.tx, y - gf.ty) < 48){ S.gardeFiche = null;
+      /* outil d'objet : la garde du double toucher repart de ce toucher ignoré (comme choisirPose), le suivant aussitôt choisit encore l'objet */
+      var dpg = S.dernierePose; if (S.outil.k === 'pt' && dpg && el(dpg.id)) S.dernierePose = {t: Date.now(), x: x, y: y, id: dpg.id, vue: cleVue()};
+      toast('Le plan vient de glisser pour montrer la fiche : touchez-le de nouveau.', 3500); return; }
     var o = S.outil;
     if (S.aligner){ var w = S.vue.monde(x, y); S.aligner.push(w); if (S.aligner.length === 2){ var a = S.aligner[0], b = S.aligner[1]; S.aligner = null; if (Math.hypot(b.x - a.x, b.y - a.y) > 1e-6){ instantane(); var ang = Math.atan2(b.y - a.y, b.x - a.x), r0 = S.doc.rot || 0; while (ang > Math.PI / 2) ang -= Math.PI; while (ang <= -Math.PI / 2) ang += Math.PI; S.doc.rot = ang; S.vue.rot = ang; replacerTraces(r0); changement(); toast('Plan orienté selon la voie'); } majAide(); } else { majAide(); redessiner(); } return; }
     if (S.placer){
@@ -2604,10 +2778,11 @@ function editeur(racine, opts){
   }
   /* même explication pour un toucher ignoré sur la fiche ou une barre qui vient de se placer sous le doigt après la fin : l'objet ou
      l'extrémité de fin est dessous, il faut fermer la fiche pour les toucher */
-  function msgFinSous(fa, fiche){
+  function msgFinSous(fa, fiche, bouton){
     var t = fa && fa.lt, quoi = t === 'col' ? 'Collecteur' : t === 'lim' ? 'Trait' : 'Tronçon', deb = quoi + ' déjà terminé' + (fa && fa.id ? ' sur cet objet' : '') + ' : ';
-    if (!fiche) return deb + 'ce bouton vient de se placer sous le doigt (fiche ouverte), touchez-le de nouveau pour vous en servir.';
-    return deb + 'sa fiche vient de s\'ouvrir sous le doigt, touchez-la de nouveau pour la modifier' + (fa && fa.id ? ' ; pour partir de l\'objet, fermez la fiche puis touchez-le.' : t === 'col' || t === 'lim' ? '.' : ' ; pour le prolonger, fermez la fiche puis touchez son extrémité.');
+    var suite = fa && fa.id ? ' ; pour partir de l\'objet, fermez la fiche puis touchez-le.' : t === 'col' || t === 'lim' ? '.' : ' ; pour le prolonger, fermez la fiche puis touchez son extrémité.';
+    if (!fiche) return deb + (bouton ? 'ce bouton vient de se placer sous le doigt (fiche ouverte), touchez-le de nouveau pour vous en servir.' : 'cette barre vient de se placer sous le doigt (fiche ouverte)' + suite);
+    return deb + 'sa fiche vient de s\'ouvrir sous le doigt, touchez-la de nouveau pour la modifier' + suite;
   }
   /* juste après la fin d'un tronçon, le toucher d'habitude qui roule un peu sous le doigt devient un glissé resté sur l'objet de fin (ou sur
      le tronçon fini) : ce n'est pas un départ, il est ignoré avec l'explication */
@@ -2813,38 +2988,96 @@ function editeur(racine, opts){
     if (!lf || lf.k !== 'ln' || !lf.v.length){ S.finAuto = null; return; }
     var sf2 = S.vue.ecran(arr.x, arr.y); if (!fa.id) fa.id = lf.v[lf.v.length - 1].a || null; fa.gx = sf2.x - sf.x; fa.gy = sf2.y - sf.y;
   }
+  /* sens de l'eau sur le segment k0-k1 du tuyau l : celui indiqué sur le tuyau, sinon celui que l'eau d'une source y suit jusqu'à son
+     exutoire (analyse d'avant la pose) ; 0 s'il n'est pas connu */
+  function sensEau(l, k0, k1){
+    var sf = l.p && (l.p.sens === 1 || l.p.sens === -1) ? l.p.sens : 0;
+    if (!sf && S.an && S.an.sensSource) S.an.pieces.forEach(function(pc){ if (!sf && pc.l.id === l.id && pc.i0 <= k0 && pc.i1 >= k1 && S.an.sensSource[pc.id]) sf = S.an.sensSource[pc.id]; });
+    return sf;
+  }
   function poserObjet(t, x, y){
     instantane();
     var w = S.vue.monde(x, y), o = {id: uid(), k: 'pt', t: t, x: w.x, y: w.y, p: defautsPt(t), lab: null};
     if (T[t].oriente) o.p.a = Math.round(((S.doc.rot || 0) * 180 / Math.PI) * 10) / 10;
     /* accroche aux seuls tracés : le symbole sous le doigt est déjà choisi (tapPlan) ; au-delà, l'objet se pose sur le tuyau ou l'extrémité
        libre la plus proche, même tout près d'un objet voisin (comme au lâcher d'un glissé) */
-    var a = accroche(x, y, {sansObj: true}), passage = T[t].role === 'passage' || T[t].role === 'exutoire', angSeg = null, boutSous = null;
+    var a = accroche(x, y, {sansObj: true}), passage = T[t].role === 'passage' || T[t].role === 'exutoire', angSeg = null, segRef = null, boutSous = null;
     /* rien à moins de 16 px : l'extrémité libre d'un tuyau sous le symbole du nouvel objet (plan vu de près, symbole plus grand que 16 px)
        s'y raccorde, comme au lâcher d'un glissé ; l'objet reste sous le doigt. Une zone suspecte, annotation, ne s'attache à rien */
     if (!a.type && t !== 'zone'){
       var RS = rayonSymbole(t), rN = RS * Math.max(S.vue.s * E() / 1000, (t === 'jonction' ? 4 : 8.5) / RS);
       if (rN > 16){ var ab = accroche(x, y, {sansObj: true, sansSeg: true, bouts: o.id, rayonSom: rN}); if (ab.type === 'som' && !ab.a) boutSous = ab; }
+      /* … ou, pour un ouvrage de passage, le tuyau qui passe sous son symbole dessiné (à moins de 0,6 fois son rayon : dans la forme dessinée)
+         le reçoit, comme posé sur le trait */
+      if (!boutSous && passage && rN * 0.6 > 13){ var asg = accroche(x, y, {sansObj: true, rayonSeg: rN * 0.6}); if (asg.type === 'seg') a = asg; }
     }
-    /* une descente, une gargouille ou un té se pose sur le coin ou la façade du bâti le plus proche, sauf si ce point est sur un symbole déjà
-       posé (descente au même coin) : l'objet reste alors sous le doigt, visible et touchable */
-    if (!a.type && !boutSous && T[t].mur && aideOn('bati')){ var af = accrocheLibre(x, y, {}), sa = af.aide ? S.vue.ecran(af.x, af.y) : null;
-      if (sa && !S.zones.some(function(z){ return z.type === 'pt' && !z.zone && Math.hypot(sa.x - z.x, sa.y - z.y) < z.r + 4; })){ o.x = af.x; o.y = af.y; montrerAide(af); } }
+    /* une descente, une gargouille ou un té se pose sur le coin ou la façade du bâti le plus proche, sauf si un objet est déjà posé sur ce
+       point (descente au même coin : son centre à moins de la moitié de son rayon, 4 px au moins) ; l'objet reste alors sous le doigt,
+       visible et touchable. Un symbole voisin qui n'est pas sur le point (regard au pied de la descente) ne l'en empêche pas */
+    /* … sauf si l'objet prend l'accroche (extrémité libre d'un tuyau ; tuyau ou coude où un ouvrage de passage s'insère) : un tuyau qui passe
+       ou un coude voisin qu'il ne prend pas ne l'en empêche pas */
+    var lpr = a.type === 'som' && !a.a ? el(a.ligne) : null, prend = (!!lpr && (a.i === 0 || a.i === lpr.v.length - 1 || passage)) || (a.type === 'seg' && passage);
+    if (!prend && !boutSous && T[t].mur && aideOn('bati')){ var af = accrocheLibre(x, y, {}), sa = af.aide ? S.vue.ecran(af.x, af.y) : null;
+      if (sa && !S.zones.some(function(z){ return z.type === 'pt' && !z.zone && Math.hypot(sa.x - z.x, sa.y - z.y) < Math.max(4, z.r / 2); })){ o.x = af.x; o.y = af.y; montrerAide(af); } }
     S.doc.el.push(o);
-    if (boutSous){ var lb = el(boutSous.ligne); if (lb && (boutSous.i === 0 || boutSous.i === lb.v.length - 1)){ lb.v[boutSous.i].a = o.id; lb.v[boutSous.i].x = o.x; lb.v[boutSous.i].y = o.y; } }
+    if (boutSous){ var lb = el(boutSous.ligne); if (lb && (boutSous.i === 0 || boutSous.i === lb.v.length - 1)){ lb.v[boutSous.i].a = o.id; lb.v[boutSous.i].x = o.x; lb.v[boutSous.i].y = o.y;
+      /* orientation : le segment d'extrémité, comme sur un bout libre touché (une gargouille au premier sommet regarde vers la sortie) */
+      var Pb = lignePts(lb, idx()), b0 = boutSous.i > 0 ? boutSous.i - 1 : 0, b1 = boutSous.i > 0 ? boutSous.i : 1;
+      if (T[t].role === 'exutoire' && boutSous.i === 0){ b0 = 1; b1 = 0; }
+      if (Pb[b0] && Pb[b1] && Math.hypot(Pb[b1].x - Pb[b0].x, Pb[b1].y - Pb[b0].y) > 1e-6){ angSeg = Math.atan2(Pb[b1].y - Pb[b0].y, Pb[b1].x - Pb[b0].x); if (b0 < b1) segRef = {l: lb, k0: b0, k1: b1}; } } }
+    /* le symbole dessiné d'un ouvrage de passage couvre un raccord posé d'office du tuyau touché (tuyaux qui s'y rejoignent) : l'ouvrage prend
+       sa place, tous ces tuyaux passent par lui (au lieu d'entrer dans un seul, selon le côté du doigt) ; un raccord qui porte une anomalie
+       reste, l'ouvrage se pose alors comme avant */
+    /* … sauf sur le bout libre touché d'un tuyau : l'ouvrage le prend (le raccord voisin reste en amont, sur le même tuyau) */
+    var lt0 = a.ligne ? el(a.ligne) : null, boutTouche = a.type === 'som' && !!lt0 && (a.i === 0 || a.i === lt0.v.length - 1);
+    if (passage && t !== 'jonction' && t !== 'zone' && (a.type === 'seg' || (a.type === 'som' && !a.a && !boutTouche))){
+      var RSo = rayonSymbole(t), rNo = RSo * Math.max(S.vue.s * E() / 1000, 8.5 / RSo), lt = el(a.ligne), gj = gardesJ(), aj = {}, pa = S.vue.ecran(a.x, a.y), rj = null, dj = Infinity;
+      (S.doc.anomManu || []).forEach(function(m){ if (m.objId) aj[m.objId] = true; });
+      /* un raccord posé sur un collecteur (arrivée d'un branchement) reste : l'ouvrage ne saute pas sur le collecteur */
+      S.doc.el.forEach(function(l2){ if (l2.k === 'ln' && l2.t === 'col') l2.v.forEach(function(v){ if (v.a) aj[v.a] = true; }); });
+      if (lt) lt.v.forEach(function(v){ var e = v.a && el(v.a); if (!e || e.k !== 'pt' || e.t !== 'jonction' || !jonctionAuto(e) || gj[e.id] || aj[e.id]) return;
+        var q = S.vue.ecran(e.x, e.y), d = Math.hypot(q.x - pa.x, q.y - pa.y); if (d < rNo && d < dj){ dj = d; rj = e; } });
+      /* … sauf si un bout libre du tuyau touché est sous le symbole, plus près du doigt que ce raccord : l'ouvrage prend ce bout (le doigt le
+         visait et l'a manqué de peu) */
+      if (rj && lt){ var Pq = lignePts(lt, idx()), qr = S.vue.ecran(rj.x, rj.y), dr = Math.hypot(qr.x - x, qr.y - y), kb = -1, db = Infinity;
+        [0, lt.v.length - 1].forEach(function(k){ if (lt.v[k].a || !Pq[k]) return; var qb = S.vue.ecran(Pq[k].x, Pq[k].y), d2 = Math.hypot(qb.x - x, qb.y - y); if (d2 < rNo && d2 < dr && d2 < db){ db = d2; kb = k; } });
+        if (kb >= 0){ rj = null; a = {type: 'som', ligne: lt.id, i: kb, x: Pq[kb].x, y: Pq[kb].y, a: null}; } }
+      if (rj){
+        /* orientation (clapet, caniveau, gargouille) : le segment du tuyau touché qui arrive au raccord ; une gargouille regarde vers le
+           raccord (l'eau sort là), les autres suivent le tracé (le clapet ensuite le sens de l'eau) */
+        var Pt = lignePts(lt, idx()), kr = -1; lt.v.forEach(function(v, k){ if (kr < 0 && v.a === rj.id) kr = k; });
+        if (kr >= 0){
+          var q0 = a.type === 'seg' ? (kr === a.i - 1 || kr === a.i ? a.i - 1 : kr < a.i - 1 ? kr : kr - 1) : (kr < a.i ? kr : kr - 1); q0 = Math.max(0, Math.min(q0, Pt.length - 2));
+          var q1 = q0 + 1;
+          if (Pt[q0] && Pt[q1] && Math.hypot(Pt[q1].x - Pt[q0].x, Pt[q1].y - Pt[q0].y) > 1e-6){
+            /* gargouille : dans le sens de l'eau sur ce segment s'il est connu (l'eau sort là), sinon vers le raccord */
+            var se = T[t].role === 'exutoire' ? sensEau(lt, q0, q1) : 0;
+            if (T[t].role === 'exutoire' && (se === -1 || (!se && kr === q0))) angSeg = Math.atan2(Pt[q0].y - Pt[q1].y, Pt[q0].x - Pt[q1].x);
+            else { angSeg = Math.atan2(Pt[q1].y - Pt[q0].y, Pt[q1].x - Pt[q0].x); if (T[t].role !== 'exutoire') segRef = {l: lt, k0: q0, k1: q1}; }
+          }
+        }
+        o.x = rj.x; o.y = rj.y;
+        S.doc.el.forEach(function(l2){ if (l2.k === 'ln') l2.v.forEach(function(v){ if (v.a === rj.id){ v.a = o.id; v.x = o.x; v.y = o.y; } }); });
+        S.doc.el = S.doc.el.filter(function(e){ return e !== rj; });
+        a = {type: null};
+      }
+    }
     /* une zone suspecte ne s'attache pas à l'extrémité libre touchée (ni à un tracé) : c'est une annotation */
     if (a.type === 'som' && !a.a && t !== 'zone'){ var l = el(a.ligne), ext = l && (a.i === 0 || a.i === l.v.length - 1);
       if (ext || passage){
         var Pl = l ? lignePts(l, idx()) : [], j0 = a.i > 0 ? a.i - 1 : 0, j1 = a.i > 0 ? a.i : 1;
         /* gargouille au premier sommet : l'eau sort du tracé, donc du sommet suivant vers celui-ci */
         if (T[t].role === 'exutoire' && a.i === 0){ j0 = 1; j1 = 0; }
-        if (Pl[j0] && Pl[j1] && Math.hypot(Pl[j1].x - Pl[j0].x, Pl[j1].y - Pl[j0].y) > 1e-6) angSeg = Math.atan2(Pl[j1].y - Pl[j0].y, Pl[j1].x - Pl[j0].x);
+        if (Pl[j0] && Pl[j1] && Math.hypot(Pl[j1].x - Pl[j0].x, Pl[j1].y - Pl[j0].y) > 1e-6){ angSeg = Math.atan2(Pl[j1].y - Pl[j0].y, Pl[j1].x - Pl[j0].x); if (j0 < j1 && l) segRef = {l: l, k0: j0, k1: j1}; }
         o.x = a.x; o.y = a.y; insererDansLigne(S.doc, o, a);
       }
     }
-    else if (a.type === 'seg' && passage && t !== 'zone'){ insererDansLigne(S.doc, o, a); var ls = el(a.ligne), Ps = ls ? lignePts(ls, idx()) : []; if (Ps[a.i]) angSeg = Math.atan2(Ps[a.i].y - Ps[a.i - 1].y, Ps[a.i].x - Ps[a.i - 1].x); }
+    else if (a.type === 'seg' && passage && t !== 'zone'){ insererDansLigne(S.doc, o, a); var ls = el(a.ligne), Ps = ls ? lignePts(ls, idx()) : []; if (Ps[a.i]){ angSeg = Math.atan2(Ps[a.i].y - Ps[a.i - 1].y, Ps[a.i].x - Ps[a.i - 1].x); segRef = {l: ls, k0: a.i - 1, k1: a.i}; } }
     if (T[t].oriente && aideOn('orienter')){
       var ang = angSeg, ar2 = ang == null ? areteProche(o, 3) : null;
+      /* un clapet suit le sens de l'eau : celui indiqué sur le tuyau, sinon celui que l'eau d'une source y suit jusqu'à son exutoire (analyse
+         d'avant la pose), sinon le sens du tracé */
+      if (ang != null && t === 'clapet' && segRef && sensEau(segRef.l, segRef.k0, segRef.k1) === -1) ang += Math.PI;
       if (ar2){
         ang = ar2.ang;
         if (t === 'gargouille'){
@@ -2887,10 +3120,14 @@ function editeur(racine, opts){
   function secondToucher(ev, fiche){
     var t = Date.now(), r = cv.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, ar = S.avaleRepete;
     if (ar && t - ar.t < ar.w && Math.hypot(x - ar.x, y - ar.y) < 48){ S.avaleRepete = null; return ar.m; }
+    /* un toucher qui n'est pas celui qui suit aussitôt (ailleurs, ou trop tard) met fin à la chaîne */
+    S.avaleRepete = null;
     var fa = S.finAuto && t - S.finAuto.t < 1000 ? S.finAuto : S.gardeFiche && t - S.gardeFiche.t < 600 ? S.gardeFiche : null; if (!fa) return '';
     var R0 = fa.r || 48; if (Math.hypot(x - fa.tx, y - fa.ty) >= R0 && (fa.x == null || Math.hypot(x - fa.x, y - fa.y) >= R0)) return '';
-    var fin = fa === S.finAuto, m = fin ? msgFinSous(fa, fiche)
-      : fiche ? 'La fiche vient de s\'ouvrir sous le doigt : touchez-la de nouveau pour la modifier.' : 'Ce bouton vient de se placer sous le doigt (fiche ouverte) : touchez-le de nouveau pour vous en servir.';
+    /* sur une barre, hors d'un bouton (texte de la barre d'aide) : rien à toucher de nouveau, il faut fermer la fiche pour atteindre le plan */
+    var bouton = !fiche && !!(ev.target && ev.target.closest && ev.target.closest('button'));
+    var fin = fa === S.finAuto, m = fin ? msgFinSous(fa, fiche, bouton)
+      : fiche ? 'La fiche vient de s\'ouvrir sous le doigt : touchez-la de nouveau pour la modifier.' : bouton ? 'Ce bouton vient de se placer sous le doigt (fiche ouverte) : touchez-le de nouveau pour vous en servir.' : 'Cette barre vient de se placer sous le doigt (fiche ouverte) : fermez la fiche pour toucher le plan dessous.';
     /* t : relâcher du toucher ignoré, noté par les écouteurs qui avalent son relâcher (à défaut, son appui) */
     S.finAuto = null; S.gardeFiche = null; S.avaleRepete = {t: t, x: x, y: y, m: m, w: fin ? 1000 : 600}; return m;
   }
@@ -4098,6 +4335,8 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL){
       edl.map(function(a){ return {cells: [String(a.num), a.preco || 'à définir', a.obs, a.reseau], coul: [O], gras: [true, true]}; }), 'Préconisations');
     var anA = analyser(doc, 'avp'), idxA = indexDoc(doc);
     var orphelins = Object.keys(anA.resObj).filter(function(id){ return anA.resObj[id].etat !== 'ok'; }).map(function(id){ var e = anA.resObj[id]; return {cells: ['Après travaux : ' + libEquipement(idxA[id]) + (e.etat === 'nonrelie' ? ' n\'est plus relié' : e.etat === 'multiple' ? ' est relié à plusieurs réseaux' : ' n\'a pas d\'exutoire dessiné') + ' : raccordement à compléter dans le projet']}; });
+    /* ancienne sortie d'un autre réseau laissée libre à côté du raccordement du projet */
+    Object.keys(anA.resObj).forEach(function(id){ var e = anA.resObj[id]; if (e.etat === 'ok' && e.sortiesLibres) orphelins.push({cells: ['Après travaux : ' + libEquipement(idxA[id]) + (e.sortiesLibres.length > 1 ? ' garde des sorties ' + listeEt(e.sortiesLibres.map(libRes)) + ' laissées libres : les passer « À supprimer » ou les raccorder dans le projet' : ' garde une sortie ' + listeEt(e.sortiesLibres.map(libRes)) + ' laissée libre : la passer « À supprimer » ou la raccorder dans le projet')]}); });
     /* hors de l'éditeur : le dessin retient une anomalie que la liste du dossier n'a pas encore (croquis à rouvrir) */
     var nHors = edlL.filter(function(a){ return a.st === 'horsdossier'; }).length, aReprendre = nHors ? [{cells: [texteAReprendre(nHors)]}] : [];
     var lignesC = aReprendre.concat(apres.map(function(a){ return {cells: ['Reste après travaux : ' + a.obs]}; })).concat(orphelins);
