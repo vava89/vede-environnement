@@ -1,0 +1,7 @@
+# État des travaux (tenu à jour à chaque envoi ; relu après chaque résumé du fil)
+- Branche claude/zen-euler-nksn77. Dernière fusion : v1.6.1 (PR #9). Version en cours : 1.6.2.
+- Correctifs depuis cette fusion : m76, m77, m79, m80, m81 (dans le dépôt) ; m78 prêt hors du dépôt (worktree du dossier de travail, `wt-m78`), à intégrer après la relecture en cours : 6/20 avec m78. Fusion de la v1.6.2 au plus tard au 20e correctif (m95).
+- Décision du 6 nov. 2026 : fosse septique hors fonction grâce à un by-pass = pas d'anomalie (règle « jamais » : la fosse ne compte que si l'eau ne peut pas l'éviter). m78 = fosseDe + parcours({sauf}) dans croquis/croquis.js, fonction chemin supprimée ; tests : fosse-contournee.js lancé par tout.sh (jamais, 42/42), aleatoire.js strict avec fosse (0 écart sur 8 000 analyses), regles.js cas by-pass (20/20).
+- En cours : relecture revue-af de m80 + m81 (workflow, 2 relecteurs + sceptiques pour majeur/bloquant). Ensuite : correctifs qui en sortent, intégration de m78, relecture de m78.
+- À signaler dans la PR v1.6.2 (points à trancher) : lavabo seul compté « Salle de bain » ; évier à côté d'un lave-vaisselle compté deux fois ; le PDF imprime la « Conclusion proposée » même quand la conclusion du constat a été changée à la main.
+- Tests : `sh tests/tout.sh --navigateur` (tout vert sur 88c892d). Cas perdus de l'ancienne matrice à réécrire (tests/LISEZMOI.md).

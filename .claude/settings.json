@@ -1,0 +1,20 @@
+{
+  "autoCompactWindow": 300000,
+  "hooks": {
+    "PreCompact": [
+      {
+        "hooks": [
+          { "type": "command", "command": "sh \"${CLAUDE_PROJECT_DIR:-.}/.claude/compaction/consignes.sh\"", "timeout": 20 }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|compact",
+        "hooks": [
+          { "type": "command", "command": "sh \"${CLAUDE_PROJECT_DIR:-.}/.claude/compaction/apres.sh\"", "timeout": 20 }
+        ]
+      }
+    ]
+  }
+}

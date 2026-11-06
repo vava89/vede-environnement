@@ -27,11 +27,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
-      # le site publié est le dépôt sans les tests (tests/) : ils restent dans le dépôt, hors de la tablette
+      # le site publié est le dépôt sans les tests (tests/) ni les consignes de travail (CLAUDE.md, .claude/) : ils restent dans le dépôt, hors de la tablette
       - name: Contenu publié, sans les tests
         run: |
           mkdir _site
-          tar --exclude=./_site --exclude=./tests --exclude=./.git --exclude=./.github -cf - . | tar -xf - -C _site
+          tar --exclude=./_site --exclude=./tests --exclude=./CLAUDE.md --exclude=./.claude --exclude=./.git --exclude=./.github -cf - . | tar -xf - -C _site
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
