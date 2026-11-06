@@ -390,7 +390,8 @@ var T = {};
 function def(id, o){ o.id = id; T[id] = o; }
 /* fam : famille de la palette ; nat : eaux produites ; role : source, passage, exutoire ou note ; row : ligne du constat ; autre : libellé d'une ligne « Autres » */
 def('wc', {fam: 'eu', lib: 'WC', ab: 'WC', nat: 'EU', role: 'source', forme: 'app', row: 'wc'});
-def('lavabo', {fam: 'eu', lib: 'Lavabo', ab: 'La', nat: 'EU', role: 'source', forme: 'app', row: 'sdb'});
+/* lavabo : compté pour lui-même (ligne « Autres » du constat) ; celui d'une salle de bain ou d'une cuisine est compris dans l'objet de la pièce */
+def('lavabo', {fam: 'eu', lib: 'Lavabo', ab: 'La', nat: 'EU', role: 'source', forme: 'app', autre: 'Lavabo'});
 def('douche', {fam: 'eu', lib: 'Douche', ab: 'Do', g: 'f', nat: 'EU', role: 'source', forme: 'app', row: 'sdb'});
 def('baignoire', {fam: 'eu', lib: 'Baignoire', ab: 'Ba', g: 'f', nat: 'EU', role: 'source', forme: 'app', row: 'sdb'});
 def('sdb', {fam: 'eu', lib: 'Salle de bain', ab: 'SdB', g: 'f', nat: 'EU', role: 'source', forme: 'app', row: 'sdb'});
