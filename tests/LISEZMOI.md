@@ -35,11 +35,12 @@ Chaque fichier affiche son bilan (« analyse : 68/68 ») et sort en erreur au pr
 | `vm/aleatoire.js` | croquis aléatoires (`vm/generateur.js`) : aucune exception, même résultat quel que soit l'ordre du dessin (fosse comprise), dossier stable |
 | `navigateur/commun.js` | outils communs : serveur local, application dans un profil neuf, étude et dossier fictifs, fond fictif, touchers au doigt sur le plan |
 | `navigateur/fumee.js` | parcours complet : étude et dossier créés à la main, croquis sur le fond fictif, anomalie reprise dans le dossier, plan PDF, réouverture hors connexion |
-| `navigateur/gestes.js` | gestes de l'éditeur corrigés en v1.6.2 : ouvrage posé sur un raccord, coude libre vu de près, descente près d'une façade, triple toucher quand la fiche fait glisser le plan |
+| `navigateur/gestes.js` | gestes de l'éditeur corrigés en v1.6.2 : ouvrage posé sur un raccord (puis passé « Projet », supprimé, ou touché sur un bout libre ; clapet orienté), coude libre vu de près, descente près d'une façade, triple toucher quand la fiche fait glisser le plan |
+| `navigateur/dossier.js` | croquis et dossier : la nature (NC ou réserve) choisie à la main reste celle du technicien quand une anomalie écartée revient et que le dessin change |
 
 Les tests du navigateur ne changent rien à l'application : ils gardent l'éditeur du croquis qu'elle crée (`window.__vcEd`) et les fichiers
 qu'elle enregistre (`window.__VT_SAVE`), dans un profil neuf de Chromium. Chaque scénario de `gestes.js` échoue sur la version d'avant
-sa correction (19cbe31) et passe sur la version corrigée.
+sa correction (19cbe31 pour m80, 46cf8fe pour m82) et passe sur la version corrigée.
 
 ## À refaire
 

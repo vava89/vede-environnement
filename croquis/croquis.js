@@ -475,10 +475,10 @@ function analyser(doc, mode){
   var idx = indexDoc(doc), objs = {}, lignes = {}, adj = {}, pieces = [];
   doc.el.forEach(function(e){ if (!actif(e, mode)) return; if (e.k === 'pt' && T[e.t]) objs[e.id] = e; else if (e.k === 'ln' && (e.t === 'tr' || e.t === 'col')) lignes[e.id] = e; });
   function lier(n, p){ (adj[n] = adj[n] || []).push(p); }
-  /* sommet posé sur un objet absent de ce plan : extrémité libre, sauf sur l'avant-projet un ouvrage « À supprimer » (fosse, regard…) : il
-     relie encore les tuyaux qui y restent (raccordement direct), qu'ils y finissent ou le traversent, et le collecteur qui le porte, sans
-     compter comme ouvrage ; celui qui y finit seul n'a plus d'exutoire */
-  function noeud(l, i){ var v = l.v[i], o = v.a && idx[v.a]; if (o && objs[v.a]) return v.a; if (mode === 'avp' && o && o.k === 'pt' && !actif(o, mode)) return 'h:' + v.a; return 'x:' + l.id + ':' + i; }
+  /* sommet posé sur un objet absent de ce plan (sur l'avant-projet un ouvrage « À supprimer », sur l'état des lieux un ouvrage « Projet » :
+     fosse, regard, boîte…) : il relie encore les tuyaux qui y restent (raccordement direct), qu'ils y finissent ou le traversent, et le
+     collecteur qui le porte, sans compter comme ouvrage ; celui qui y finit seul n'a pas d'exutoire */
+  function noeud(l, i){ var v = l.v[i], o = v.a && idx[v.a]; if (o && objs[v.a]) return v.a; if (o && o.k === 'pt' && !actif(o, mode)) return 'h:' + v.a; return 'x:' + l.id + ':' + i; }
   Object.keys(lignes).forEach(function(id){
     var l = lignes[id], att = [];
     l.v.forEach(function(v, i){ if (v.a && (objs[v.a] || noeud(l, i).indexOf('h:') === 0)) att.push(i); });
@@ -835,7 +835,8 @@ function controles(doc, an){
         if (r.etat === 'nonrelie') c(id, 'manque', lib + ' : non relié au réseau sur le dessin', 'relie');
         else if (r.etat === 'sansexu') c(id, 'manque', lib + ' : exutoire non dessiné' + (r.conflit ? ', tronçons ' + listeEt(r.conflit.map(libRes)) + ' réunis vers la même extrémité libre (indiquer le réseau du tronçon commun, ou le sens du tracé d\'une arrivée)' : r.ambigu ? ', extrémités libres de réseaux ' + listeEt(r.ambigu.map(libRes)) + (r.ambiguArrivee ? ' (prolonger le tracé, ou indiquer le sens du tracé d\'une arrivée)' : ' (prolonger le tracé jusqu\'à l\'exutoire)') : ' (prolonger le tracé ou indiquer le réseau du tronçon)'), 'exu');
         else if (r.etat === 'multiple') c(id, 'manque', lib + ' : relié à plusieurs réseaux (' + r.nets.map(function(x){ return EXU_LIB[x] || x; }).join(', ') + ') : indiquer le sens d\'écoulement d\'un tronçon', 'multi');
-        if (r.etat === 'ok' && r.sortiesLibres) c(id, 'manque', lib + ' : sortie ' + listeEt(r.sortiesLibres.map(libRes)) + ' laissée libre à côté de l\'exutoire dessiné (la passer « À supprimer », la prolonger, ou indiquer le sens du tracé d\'une arrivée)', 'sortielibre');
+        if (r.etat === 'ok' && r.sortiesLibres){ var pl = r.sortiesLibres.length > 1;
+          c(id, 'manque', lib + (pl ? ' : sorties ' : ' : sortie ') + listeEt(r.sortiesLibres.map(libRes)) + (pl ? ' laissées libres à côté de l\'exutoire dessiné (les passer « À supprimer », les prolonger, ou indiquer le sens du tracé d\'une arrivée)' : ' laissée libre à côté de l\'exutoire dessiné (la passer « À supprimer », la prolonger, ou indiquer le sens du tracé d\'une arrivée)'), 'sortielibre'); }
       }
       if (o.t === 'descente'){
         if (!o.p.visitable) c(id, 'manque', 'Descente EP : visitable ou non à indiquer', 'visit');
@@ -851,8 +852,9 @@ function controles(doc, an){
   });
   Object.keys(an.lignes).forEach(function(id){
     var l = an.lignes[id]; if (l.t !== 'tr' || l.v.length < 2) return;
-    /* sur l'avant-projet, un ouvrage « À supprimer » qui relie encore d'autres tuyaux (raccordement direct) n'en fait pas une extrémité libre */
-    var libres = [0, l.v.length - 1].filter(function(i){ var va = l.v[i].a; return !(va && (an.objs[va] || (an.mode === 'avp' && (an.adj['h:' + va] || []).length > 1))); });
+    /* un ouvrage absent de ce plan (« À supprimer », « Projet ») qui relie encore d'autres tuyaux (raccordement direct) n'en fait pas une
+       extrémité libre */
+    var libres = [0, l.v.length - 1].filter(function(i){ var va = l.v[i].a; return !(va && (an.objs[va] || (an.adj['h:' + va] || []).length > 1)); });
     if (libres.length) c(id, 'info', 'Tronçon : extrémité' + (libres.length > 1 ? 's' : '') + ' libre' + (libres.length > 1 ? 's' : '') + ', non reliée' + (libres.length > 1 ? 's' : '') + ' à un objet', 'libre');
   });
   var ordre = {manque: 0, info: 1};
@@ -1783,7 +1785,15 @@ function synchroSommets(doc){ var idx = indexDoc(doc); doc.el.forEach(function(e
 function supprimerElement(doc, id, gardes){
   var idx = indexDoc(doc), e = idx[id]; if (!e) return;
   doc.el = doc.el.filter(function(x){ return x.id !== id; });
-  if (e.k === 'pt') doc.el.forEach(function(l){ if (l.k === 'ln') l.v.forEach(function(v){ if (v.a === id){ v.a = null; v.x = e.x; v.y = e.y; } }); });
+  if (e.k === 'pt'){
+    /* ouvrage de passage (regard, boîte, fosse…) où se rejoignent plusieurs tuyaux : ils restent raccordés entre eux par un raccord posé
+       d'office à sa place (comme avant qu'il prenne celle d'un raccord) ; un raccord supprimé, lui, les sépare */
+    var tenus = [], nl = {};
+    doc.el.forEach(function(l){ if (l.k === 'ln') l.v.forEach(function(v){ if (v.a === id){ tenus.push(v); nl[l.id] = true; } }); });
+    var j = T[e.t] && T[e.t].role === 'passage' && e.t !== 'jonction' && Object.keys(nl).length > 1 ? {id: uid(), k: 'pt', t: 'jonction', x: e.x, y: e.y, p: defautsPt('jonction'), lab: {off: true}, auto: true} : null;
+    if (j) doc.el.push(j);
+    tenus.forEach(function(v){ v.a = j ? j.id : null; v.x = e.x; v.y = e.y; });
+  }
   doc.anomManu = (doc.anomManu || []).filter(function(m){ return m.objId !== id; });
   nettoyerJonctions(doc, null, gardes);
 }
@@ -2968,7 +2978,9 @@ function editeur(racine, opts){
     /* le symbole dessiné d'un ouvrage de passage couvre un raccord posé d'office du tuyau touché (tuyaux qui s'y rejoignent) : l'ouvrage prend
        sa place, tous ces tuyaux passent par lui (au lieu d'entrer dans un seul, selon le côté du doigt) ; un raccord qui porte une anomalie
        reste, l'ouvrage se pose alors comme avant */
-    if (passage && t !== 'jonction' && t !== 'zone' && (a.type === 'seg' || (a.type === 'som' && !a.a))){
+    /* … sauf sur le bout libre touché d'un tuyau : l'ouvrage le prend (le raccord voisin reste en amont, sur le même tuyau) */
+    var lt0 = a.ligne ? el(a.ligne) : null, boutTouche = a.type === 'som' && !!lt0 && (a.i === 0 || a.i === lt0.v.length - 1);
+    if (passage && t !== 'jonction' && t !== 'zone' && (a.type === 'seg' || (a.type === 'som' && !a.a && !boutTouche))){
       var RSo = rayonSymbole(t), rNo = RSo * Math.max(S.vue.s * E() / 1000, 8.5 / RSo), lt = el(a.ligne), gj = gardesJ(), aj = {}, pa = S.vue.ecran(a.x, a.y), rj = null, dj = Infinity;
       (S.doc.anomManu || []).forEach(function(m){ if (m.objId) aj[m.objId] = true; });
       /* un raccord posé sur un collecteur (arrivée d'un branchement) reste : l'ouvrage ne saute pas sur le collecteur */
@@ -2976,6 +2988,9 @@ function editeur(racine, opts){
       if (lt) lt.v.forEach(function(v){ var e = v.a && el(v.a); if (!e || e.k !== 'pt' || e.t !== 'jonction' || !jonctionAuto(e) || gj[e.id] || aj[e.id]) return;
         var q = S.vue.ecran(e.x, e.y), d = Math.hypot(q.x - pa.x, q.y - pa.y); if (d < rNo && d < dj){ dj = d; rj = e; } });
       if (rj){
+        /* orientation (clapet, caniveau, gargouille) : celle du tuyau touché, comme posé sur son trait */
+        var Pt = lignePts(lt, idx()), k0 = a.type === 'seg' ? a.i - 1 : a.i > 0 ? a.i - 1 : 0, k1 = a.type === 'seg' ? a.i : a.i > 0 ? a.i : 1;
+        if (Pt[k0] && Pt[k1] && Math.hypot(Pt[k1].x - Pt[k0].x, Pt[k1].y - Pt[k0].y) > 1e-6) angSeg = Math.atan2(Pt[k1].y - Pt[k0].y, Pt[k1].x - Pt[k0].x);
         o.x = rj.x; o.y = rj.y;
         S.doc.el.forEach(function(l2){ if (l2.k === 'ln') l2.v.forEach(function(v){ if (v.a === rj.id){ v.a = o.id; v.x = o.x; v.y = o.y; } }); });
         S.doc.el = S.doc.el.filter(function(e){ return e !== rj; });
@@ -4253,7 +4268,7 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL){
     var anA = analyser(doc, 'avp'), idxA = indexDoc(doc);
     var orphelins = Object.keys(anA.resObj).filter(function(id){ return anA.resObj[id].etat !== 'ok'; }).map(function(id){ var e = anA.resObj[id]; return {cells: ['Après travaux : ' + libEquipement(idxA[id]) + (e.etat === 'nonrelie' ? ' n\'est plus relié' : e.etat === 'multiple' ? ' est relié à plusieurs réseaux' : ' n\'a pas d\'exutoire dessiné') + ' : raccordement à compléter dans le projet']}; });
     /* ancienne sortie d'un autre réseau laissée libre à côté du raccordement du projet */
-    Object.keys(anA.resObj).forEach(function(id){ var e = anA.resObj[id]; if (e.etat === 'ok' && e.sortiesLibres) orphelins.push({cells: ['Après travaux : ' + libEquipement(idxA[id]) + ' garde une sortie ' + listeEt(e.sortiesLibres.map(libRes)) + ' laissée libre : la passer « À supprimer » ou la raccorder dans le projet']}); });
+    Object.keys(anA.resObj).forEach(function(id){ var e = anA.resObj[id]; if (e.etat === 'ok' && e.sortiesLibres) orphelins.push({cells: ['Après travaux : ' + libEquipement(idxA[id]) + (e.sortiesLibres.length > 1 ? ' garde des sorties ' + listeEt(e.sortiesLibres.map(libRes)) + ' laissées libres : les passer « À supprimer » ou les raccorder dans le projet' : ' garde une sortie ' + listeEt(e.sortiesLibres.map(libRes)) + ' laissée libre : la passer « À supprimer » ou la raccorder dans le projet')]}); });
     /* hors de l'éditeur : le dessin retient une anomalie que la liste du dossier n'a pas encore (croquis à rouvrir) */
     var nHors = edlL.filter(function(a){ return a.st === 'horsdossier'; }).length, aReprendre = nHors ? [{cells: [texteAReprendre(nHors)]}] : [];
     var lignesC = aReprendre.concat(apres.map(function(a){ return {cells: ['Reste après travaux : ' + a.obs]}; })).concat(orphelins);

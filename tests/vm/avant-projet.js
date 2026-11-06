@@ -6,6 +6,9 @@
 // EP non orientée (lue comme une sortie : signalée).
 // l1, l2 (m80d) : fosse « À supprimer » entre deux tuyaux (raccordement direct) : pas d'« extrémité libre » ; tuyau seul sur la fosse
 // supprimée : l'extrémité libre reste signalée.
+// s7 (m82) : deux anciennes sorties (EP et unitaire) : textes au pluriel, dans les Contrôles et sur le plan.
+// p1 (m82) : boîte « Projet » où se rejoignent des tuyaux existants (WC, douche, branchement) : sur l'état des lieux, ils restent raccordés
+// au collecteur et ne sont pas des extrémités libres.
 'use strict';
 const {charger, rapport} = require('./charger.js');
 const {V, ctx} = charger({pdf: true}), R = rapport('avant-projet');
@@ -27,6 +30,7 @@ function maison(variante){
   if (variante === 's4') ln(d, 'sor', 'tr', '', ['R1', [6, 4]]);
   if (variante === 's5') ln(d, 'sor', 'tr', 'EP', [[6, 4], 'R1'], null, 1);
   if (variante === 's6') ln(d, 'sor', 'tr', 'EP', [[6, 4], 'R1']);
+  if (variante === 's7'){ ln(d, 'sor', 'tr', 'EP', ['R1', [6, 4]]); ln(d, 'sor2', 'tr', 'UN', ['R1', [6, 8]]); }
   ln(d, 'pj', 'tr', '', ['R1', 'j'], 'projet');
   return d;
 }
@@ -50,6 +54,20 @@ const PDF_S = 'Après travaux : WC garde une sortie EP laissée libre : la passe
     const d = fosseSupprimee(seul), an = V.analyser(JSON.parse(JSON.stringify(d)), 'avp'), lib = an.controles.filter(c => /extrémités? libres?, non reliées? à un objet/.test(c.txt));
     const bon = seul ? lib.length === 1 : lib.length === 0;
     R.ok(bon, v + ' : ' + (seul ? 'tuyau seul sur la fosse supprimée' : 'fosse supprimée entre deux tuyaux') + ', wc=' + an.resObj.wc.etat + (an.resObj.wc.res ? ':' + an.resObj.wc.res : '') + ' | contrôles « libre » ' + JSON.stringify(lib.map(c => c.txt)));
+  }
+  {
+    const d = maison('s7'), an = V.analyser(JSON.parse(JSON.stringify(d)), 'avp'), mq = an.controles.filter(c => c.niveau === 'manque').map(c => c.txt);
+    const txt = await textesPdf(d, {mode: 'avp'}), i = txt.indexOf('Contrôle du projet'), ctrl = i < 0 ? [] : txt.slice(i + 1).filter(t => /Après travaux|Reste après travaux/.test(t));
+    const M = 'WC : sorties EP et unitaire laissées libres à côté de l\'exutoire dessiné (les passer « À supprimer », les prolonger, ou indiquer le sens du tracé d\'une arrivée)';
+    const Pd = 'Après travaux : WC garde des sorties EP et unitaire laissées libres : les passer « À supprimer » ou les raccorder dans le projet';
+    R.ok(mq.indexOf(M) >= 0 && ctrl.indexOf(Pd) >= 0, 's7 (deux sorties, pluriel) : manques ' + JSON.stringify(mq) + ' | plan ' + JSON.stringify(ctrl));
+  }
+  {
+    const d = nouveau(); pt(d, 'wc', 'wc', -3, 6); pt(d, 'do', 'douche', 0, 9); pt(d, 'B', 'boite', 0, 6, {res: 'EU'}, 'projet'); pt(d, 'jK', 'jonction', 4, 6, {});
+    ln(d, 'A', 'tr', '', ['wc', 'B']); ln(d, 'Bd', 'tr', '', ['do', 'B']); ln(d, 'C', 'tr', '', ['B', 'jK']); ln(d, 'K', 'col', 'EU', [[4, -2], 'jK', [4, 14]]);
+    const an = V.analyser(JSON.parse(JSON.stringify(d)), 'edl'), et = ['wc', 'do'].map(id => id + '=' + an.resObj[id].etat + ':' + (an.resObj[id].res || '')).join(' ');
+    const lib = an.controles.filter(c => /extrémités? libres?, non reliées? à un objet/.test(c.txt));
+    R.ok(et === 'wc=ok:EU do=ok:EU' && !lib.length, 'p1 (boîte « Projet » à la jonction, état des lieux) : ' + et + ' | contrôles « libre » ' + JSON.stringify(lib.map(c => c.txt)));
   }
   R.fin();
 })().catch(e => { console.log('ERREUR ' + (e && e.stack || e)); process.exitCode = 1; });

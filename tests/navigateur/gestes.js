@@ -4,6 +4,11 @@
 // m : une descente touchée près d'une façade, à côté d'un tuyau qui passe, se cale sur la façade ; témoin : posée sur l'extrémité libre
 //     d'un tuyau, elle la prend et reste au bout du tuyau ;
 // t : triple toucher quand la fiche fait glisser le plan : un seul objet posé.
+// p : une boîte qui a pris la place d'un raccord puis passe « Projet » : l'état des lieux garde ses tuyaux raccordés (« pas de boîte »
+//     reste au dossier) ;
+// s : un regard qui a pris la place d'un raccord, aussitôt supprimé : ses tuyaux restent raccordés (un raccord revient à sa place) ;
+// b : un regard touché sur le bout libre d'un tuyau prend ce bout, même avec un raccord du même tuyau sous son symbole ;
+// o : un clapet qui prend la place d'un raccord suit le tuyau touché (orientation automatique).
 // usage : node tests/navigateur/gestes.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -133,8 +138,86 @@ async function triple(){
   } finally { await A.fermer(); }
 }
 
+/* dessin commun de p, s : WC et autre appareil reliés à un raccord j1, branchement de j1 au raccord jK du collecteur EU (vue à 63 px/m) */
+async function branchement(p, app2){
+  const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy, o = (x, y) => [cx + x, cy + y];
+  const els = [C.P('w1', 'wc', ...o(-3, 0)), C.P('e1', app2, ...o(0, 3)), C.J('j1', ...o(0, 0)), C.J('jK', ...o(4, 0))], I = C.index(els);
+  els.push(C.L('K', 'col', [o(4, -8), 'jK', o(4, 8)], I, {res: 'EU'}), C.L('A', 'tr', ['w1', 'j1'], I), C.L('B', 'tr', ['e1', 'j1'], I), C.L('C', 'tr', ['j1', 'jK'], I));
+  await C.injecter(p, {el: els}); await C.regler(p, cx, cy, 63);
+  return {cx, cy, I};
+}
+const tient = (d, id) => lns(d).filter(l => l.v.some(w => w.a === id)).map(l => l.id).sort().join('');
+
+/* p : ouvrage passé « Projet » après avoir pris la place d'un raccord */
+async function projet(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const {I} = await branchement(p, 'douche');
+    await p.evaluate(() => { const S = window.__vcEd.etat; S.doc.decisions['sansboite:K:EU'] = {st: 'retenue'}; window.__vcEd.synchroniser(); }); await C.pause(p, 300);
+    const q = await C.aCote(p, I.j1, I.jK, I.e1, 3, 12);
+    await C.outil(p, {k: 'pt', t: 'boite', pal: 'reg'}); await C.toucherCv(p, q, 600);
+    const d1 = await C.docCroquis(p), bo = pts(d1).find(e => e.t === 'boite');
+    R.ok(!!bo && !pts(d1).some(e => e.id === 'j1') && tient(d1, bo.id) === 'ABC', 'p : la boîte prend la place du raccord (tuyaux A, B, C)');
+    for (const [k, v] of [['st', 'projet'], ['res', 'EU']]){ const b = await p.$('.vc button.vc-chip[data-a="prop"][data-k="' + k + '"][data-v="' + v + '"]'); if (b){ await b.click(); await C.pause(p, 300); } }
+    const st = (await C.docCroquis(p)).el.find(e => bo && e.id === bo.id);
+    const e = await C.analyseCroquis(p, 'edl'), dos = await C.dossierAnomalies(p);
+    R.ok(!!st && st.p.st === 'projet' && e.o.wc === 'ok EU' && e.o.douche === 'ok EU', 'p : boîte « Projet », l\'état des lieux garde WC et douche raccordés au collecteur EU (' + JSON.stringify(e.o) + ')');
+    R.ok(dos.some(a => a.cle === 'sansboite:K:EU'), 'p : « pas de boîte de branchement » reste au dossier');
+    R.ok(!A.erreurs.length, 'p : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
+/* s : regard supprimé après avoir pris la place d'un raccord */
+async function supprime(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const {I} = await branchement(p, 'evier');
+    const q = await C.aCote(p, I.j1, I.w1, I.e1, 3, 12);
+    await C.outil(p, {k: 'pt', t: 'regard', pal: 'reg'}); await C.toucherCv(p, q, 600);
+    const d1 = await C.docCroquis(p), rg = pts(d1).find(e => e.t === 'regard');
+    R.ok(!!rg && tient(d1, rg.id) === 'ABC', 's : le regard prend la place du raccord (tuyaux A, B, C)');
+    await p.click('.vc button[data-a="supprimer"]'); await C.pause(p, 500);
+    const d2 = await C.docCroquis(p), j = pts(d2).find(e => e.t === 'jonction' && e.id !== 'jK' && tient(d2, e.id) === 'ABC'), e = await C.analyseCroquis(p, 'edl');
+    R.ok(!pts(d2).some(e => e.t === 'regard') && !!j && e.o.wc === 'ok EU' && e.o.evier === 'ok EU', 's : regard supprimé, un raccord le remplace, WC et évier restent raccordés (' + JSON.stringify(e.o) + ')');
+    R.ok(!A.erreurs.length, 's : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
+/* b : bout libre touché, un raccord du même tuyau sous le symbole */
+async function bout(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy, o = (x, y) => [cx + x, cy + y];
+    const els = [C.P('w1', 'wc', ...o(-3, 0)), C.P('e1', 'evier', ...o(0, 3)), C.J('j1', ...o(0, 0))], I = C.index(els);
+    els.push(C.L('A', 'tr', ['w1', 'j1', o(0.3, 0)], I), C.L('B', 'tr', ['e1', 'j1'], I));
+    await C.injecter(p, {el: els}); await C.regler(p, cx, cy, 20);
+    const F = await C.ecranCv(p, cx + 0.3, cy);
+    await C.outil(p, {k: 'pt', t: 'regard', pal: 'reg'}); await C.toucherCv(p, {x: F.x + 3, y: F.y}, 600);
+    const d = await C.docCroquis(p), rg = pts(d).find(e => e.t === 'regard'), la = lns(d).find(l => l.id === 'A');
+    const dF = rg ? Math.hypot(rg.x - (cx + 0.3), rg.y - cy) : null;
+    R.ok(!!rg && dF < 0.01 && la.v[la.v.length - 1].a === rg.id && pts(d).some(e => e.id === 'j1'), 'b : le regard prend le bout libre touché (à ' + (dF == null ? '?' : dF.toFixed(2)) + ' m du bout), le raccord reste');
+    R.ok(!A.erreurs.length, 'b : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
+/* o : clapet à la place d'un raccord, sur un tuyau en diagonale */
+async function oriente(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy, o = (x, y) => [cx + x, cy + y];
+    const els = [C.P('w1', 'wc', ...o(-2.1, -2.1)), C.J('j1', ...o(0, 0)), C.P('r1', 'regard', ...o(2, 2), {tampon: 'fonte'})], I = C.index(els);
+    els.push(C.L('A', 'tr', ['w1', 'j1'], I), C.L('C', 'tr', ['j1', 'r1'], I));
+    await C.injecter(p, {el: els}); await C.regler(p, cx, cy, 63);
+    const q = await C.aCote(p, I.j1, I.w1, I.r1, 3, 12);
+    await C.outil(p, {k: 'pt', t: 'clapet', pal: 'equ'}); await C.toucherCv(p, q, 600);
+    const d = await C.docCroquis(p), cl = pts(d).find(e => e.t === 'clapet'), ang = cl ? (((cl.p.a || 0) % 180) + 180) % 180 : null;
+    R.ok(!!cl && !pts(d).some(e => e.id === 'j1') && Math.abs(ang - 45) < 1, 'o : le clapet prend la place du raccord et suit le tuyau à 45° (' + (cl ? cl.p.a : '?') + '°)');
+    R.ok(!A.erreurs.length, 'o : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [raccord, coude, mur, triple]){
+  for (const f of [raccord, coude, mur, triple, projet, supprime, bout, oriente]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception du test : ' + (e && e.stack || e)); }
   }
   R.fin();

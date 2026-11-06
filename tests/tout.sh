@@ -16,7 +16,7 @@ for t in analyse regles fosse-contournee copie avant-projet aleatoire; do
   node "tests/vm/$t.js" $opts || ec=1
 done
 if [ "$nav" = 1 ]; then
-  for t in fumee gestes; do
+  for t in fumee gestes dossier; do
     if [ ! -e "tests/navigateur/$t.js" ]; then echo "$t : fichier absent"; ec=1; continue; fi
     # shellcheck disable=SC2086
     node "tests/navigateur/$t.js" $opts || ec=1

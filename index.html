@@ -3204,8 +3204,9 @@ function vcAppliquer(v, ops){
     var idLibre = typeof c.id === 'string' && c.id && !S.anoms.some(function(x){ return x.id === c.id; }), dLibre = typeof c.createdAt === 'string' && !isNaN(Date.parse(c.createdAt));
     var a = {id: idLibre ? c.id : uid(), etudeId: v.etudeId, visiteId: v.id, reseau: c.reseau === 'EP' ? 'EP' : 'EU', observation: String(c.observation || ''), preconisation: String(c.preconisation || ''), localisation: String(c.localisation || ''), photos: [], photoNonRequise: !!c.photoNonRequise, brouillon: false,
       installation: typeof c.installation === 'string' ? c.installation : '', categorie: CATS.some(function(k){ return k[0] === c.categorie; }) ? c.categorie : 'autre', croquis: c.croquis || null, createdAt: idLibre && dLibre ? c.createdAt : tc, updatedAt: now};
-    /* nature : écrite seulement si elle diffère de la règle de l'application, qui suit alors le réseau et le texte */
-    if ((c.nc === true || c.nc === false) && c.nc !== anomNC(a)) a.nc = c.nc;
+    /* nature : écrite seulement si elle diffère de la règle de l'application, qui suit alors le réseau et le texte, ou si elle diffère de celle
+       du dessin (anomalie revenue avec la nature que le technicien avait choisie : elle reste la sienne quand le dessin change ensuite) */
+    if ((c.nc === true || c.nc === false) && (c.nc !== anomNC(a) || (c.croquis && c.croquis.auto && typeof c.croquis.auto.nc === 'boolean' && c.nc !== c.croquis.auto.nc))) a.nc = c.nc;
     if (a.createdAt !== tc) retri = true; else last = base;
     S.anoms.push(a); saveLater('anomalies', a); crees++; chg = true;
   });

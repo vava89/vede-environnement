@@ -115,6 +115,52 @@ async function fermerCroquis(p){
   await pause(p, 600);
 }
 
+/* Dessin fictif injecté dans l'éditeur (coordonnées du croquis), historique vidé, puis analyse et mise à jour du dossier comme après un geste.
+   spec : {el, anomManu, mode ('edl' | 'avp'), echelle}. Éléments : P (objet), J (raccord posé d'office), L (tracé ; sommets : id d'objet ou
+   [x, y]), index (objets par id, pour les positions des sommets). */
+async function injecter(p, spec){
+  await p.evaluate(spec => {
+    const ed = window.__vcEd, S = ed.etat;
+    S.doc.el = spec.el; S.doc.anomManu = spec.anomManu || []; S.doc.decisions = {}; S.doc.ordre = [];
+    if (spec.echelle != null) S.doc.echelle = spec.echelle;
+    S.undo = []; S.redo = []; S.sel = null; S.panneau = null; S.dernierePose = null; S.dernierTap = null; S.finAuto = null; S.gardeFiche = null;
+    if (spec.mode) S.mode = spec.mode;
+    ed.synchroniser();
+  }, spec);
+}
+const P = (id, t, x, y, p) => ({id, k: 'pt', t, x, y, p: Object.assign({st: 'existant', obs: ''}, /^(wc|evier|douche|lavabo|descente)$/.test(t) ? {meth: ['eau'], niv: ''} : {}, p || {}), lab: {off: true}});
+const J = (id, x, y) => ({id, k: 'pt', t: 'jonction', x, y, p: {st: 'existant', obs: ''}, lab: {off: true}, auto: true});
+function L(id, t, v, objs, p){
+  return {id, k: 'ln', t, v: v.map(q => typeof q === 'string' ? {x: objs[q].x, y: objs[q].y, a: q} : {x: q[0], y: q[1], a: null}),
+    p: Object.assign(t === 'col' ? {res: 'EU', gest: 'D', diam: '', st: 'existant'} : {res: '', st: 'existant', diam: '', mat: '', pose: '', long: '', sens: 0, obs: ''}, p || {}), lab: {off: true}};
+}
+const index = els => { const o = {}; els.forEach(e => { o[e.id] = e; }); return o; };
+/* Vue centrée sur (cx, cy), à s pixels par mètre. */
+async function regler(p, cx, cy, s){
+  await p.evaluate(([cx, cy, s]) => { const S = window.__vcEd.etat; S.vue.cx = cx; S.vue.cy = cy; if (s) S.vue.s = s; window.__vcEd.redessiner(); }, [cx, cy, s]);
+  await pause(p, 120);
+}
+/* Point du croquis vers le canevas (pixels) ; toucher à un point du canevas. */
+const ecranCv = (p, x, y) => p.evaluate(([x, y]) => window.__vcEd.etat.vue.ecran(x, y), [x, y]);
+async function toucherCv(p, q, ms){
+  const r = await p.evaluate(() => { const b = document.querySelector('.vc .vc-cv').getBoundingClientRect(); return {l: b.left, t: b.top}; });
+  await toucherPage(p, {x: r.l + q.x, y: r.t + q.y}, ms);
+}
+/* Point du canevas à d px du point A le long de B (u), décalé de e px sur le côté opposé à C (n) : « à côté de A, sur le tuyau AB ». */
+async function aCote(p, A, B, C, d, e){
+  const a = await ecranCv(p, A.x, A.y), b = await ecranCv(p, B.x, B.y), c = await ecranCv(p, C.x, C.y), Lg = Math.hypot(b.x - a.x, b.y - a.y), u = {x: (b.x - a.x) / Lg, y: (b.y - a.y) / Lg};
+  let n = {x: -u.y, y: u.x}; if (n.x * (c.x - a.x) + n.y * (c.y - a.y) > 0) n = {x: u.y, y: -u.x};
+  return {x: a.x + d * u.x + e * n.x, y: a.y + d * u.y + e * n.y};
+}
+/* Analyse d'un plan du croquis ouvert : état de chaque source (par type), contrôles « manque ». */
+const analyseCroquis = (p, mode) => p.evaluate(mode => {
+  const S = window.__vcEd.etat, an = window.VCroquis.analyser(JSON.parse(JSON.stringify(S.doc)), mode), o = {};
+  Object.keys(an.resObj).forEach(id => { const r = an.resObj[id], e = S.doc.el.find(x => x.id === id); o[e.t] = r.etat + (r.res ? ' ' + r.res : '') + (r.presume ? ' (présumé)' : ''); });
+  return {o, manque: an.controles.filter(c => c.niveau === 'manque' && !/méthode|tampon/.test(c.txt)).map(c => c.txt)};
+}, mode);
+/* Anomalies du dossier ouvert dans l'application. */
+const dossierAnomalies = p => p.evaluate(() => { const T = window.__VT, v = T.VC.ctx.v; return T.S.anoms.filter(a => a.visiteId === v.id).map(a => ({obs: a.observation, reseau: a.reseau, nc: a.nc, nature: T.anomNC(a) ? 'NC' : 'réserve', cle: a.croquis && a.croquis.cle})); });
+
 /* Compte des résultats ; code de sortie 1 en cas d'échec. */
 function rapport(nom){
   let nok = 0, nt = 0;
@@ -125,4 +171,5 @@ function rapport(nom){
   };
 }
 
-module.exports = {RACINE, dossierApp, serveur, ouvrir, pause, etudeEtDossier, ouvrirCroquis, versPage, toucher, toucherPage, outil, docCroquis, vue, rayonPx, zoomerJusqua, fermerCroquis, rapport};
+module.exports = {RACINE, dossierApp, serveur, ouvrir, pause, etudeEtDossier, ouvrirCroquis, versPage, toucher, toucherPage, outil, docCroquis, vue, rayonPx, zoomerJusqua, fermerCroquis, rapport,
+  injecter, P, J, L, index, regler, ecranCv, toucherCv, aCote, analyseCroquis, dossierAnomalies};
