@@ -28,9 +28,9 @@ Chaque fichier affiche son bilan (« analyse : 68/68 ») et sort en erreur au pr
 | --- | --- |
 | `vm/charger.js` | outils communs : chargement de `croquis/croquis.js` hors navigateur, croquis fictifs en abrégé, ordres du dessin |
 | `vm/analyse.js` | matrice d'analyse : exutoire, réseau (présumé ou non), messages « manque », conclusion proposée, même résultat dans quatre ordres du dessin |
-| `vm/regles.js` | règles du constat : siphon de garage en EU, siphon de sol en EP, rejets interdits, descente non visitable (NC), tampon béton (NC en EU, réserve en EP), fosse traversée ou en cul-de-sac, boîte sur le mauvais collecteur, conclusion |
+| `vm/regles.js` | règles du constat : siphon de garage en EU, siphon de sol en EP, rejets interdits, descente non visitable (NC), tampon béton (NC en EU, réserve en EP), fosse traversée, en cul-de-sac, hors fonction grâce à un by-pass ou vers un autre exutoire, deux fosses en parallèle, boîte sur le mauvais collecteur, conclusion |
 | `vm/copie.js` | fiche et dossier : une anomalie retirée puis revenue garde la retouche du technicien, ou reprend le texte du dessin |
-| `vm/avant-projet.js` | avant-projet : sortie laissée libre après travaux (Contrôles et plan PDF), ouvrage « À supprimer » entre deux tuyaux |
+| `vm/avant-projet.js` | avant-projet : sortie(s) laissée(s) libre(s) après travaux (Contrôles et plan PDF), ouvrage « À supprimer » entre deux tuyaux ; état des lieux : ouvrage « Projet » où se rejoignent, où finit ou que traverse un tuyau existant |
 | `vm/fosse-contournee.js` | fosse septique contournée par un by-pass : hors fonction, elle ne donne pas d'anomalie (règle du 6 novembre 2026) ; fosse en série, en cul-de-sac, en amont ; même résultat dans quatre ordres du dessin |
 | `vm/aleatoire.js` | croquis aléatoires (`vm/generateur.js`) : aucune exception, même résultat quel que soit l'ordre du dessin (fosse comprise), dossier stable |
 | `navigateur/commun.js` | outils communs : serveur local, application dans un profil neuf, étude et dossier fictifs, fond fictif, touchers au doigt sur le plan |
@@ -40,7 +40,7 @@ Chaque fichier affiche son bilan (« analyse : 68/68 ») et sort en erreur au pr
 
 Les tests du navigateur ne changent rien à l'application : ils gardent l'éditeur du croquis qu'elle crée (`window.__vcEd`) et les fichiers
 qu'elle enregistre (`window.__VT_SAVE`), dans un profil neuf de Chromium. Chaque scénario de `gestes.js` échoue sur la version d'avant
-sa correction (19cbe31 pour m80, 46cf8fe pour m82) et passe sur la version corrigée.
+sa correction (19cbe31 pour m80, 46cf8fe pour m82, c6b999a pour m83) et passe sur la version corrigée.
 
 ## À refaire
 

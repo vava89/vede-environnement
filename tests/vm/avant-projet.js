@@ -9,6 +9,9 @@
 // s7 (m82) : deux anciennes sorties (EP et unitaire) : textes au pluriel, dans les Contrôles et sur le plan.
 // p1 (m82) : boîte « Projet » où se rejoignent des tuyaux existants (WC, douche, branchement) : sur l'état des lieux, ils restent raccordés
 // au collecteur et ne sont pas des extrémités libres.
+// p2 (m83) : tuyau existant « Tronçon EP » d'un WC fini seul sur un regard « Projet » : sur l'état des lieux, une extrémité libre (EP présumé,
+// NC). p3 (m83) : regard « Projet » au milieu d'un tuyau existant : l'état des lieux est celui du même dessin sans lui (même boîte, même
+// « pas de boîte », le message « le dessin le relie à » une seule fois).
 'use strict';
 const {charger, rapport} = require('./charger.js');
 const {V, ctx} = charger({pdf: true}), R = rapport('avant-projet');
@@ -68,6 +71,20 @@ const PDF_S = 'Après travaux : WC garde une sortie EP laissée libre : la passe
     const an = V.analyser(JSON.parse(JSON.stringify(d)), 'edl'), et = ['wc', 'do'].map(id => id + '=' + an.resObj[id].etat + ':' + (an.resObj[id].res || '')).join(' ');
     const lib = an.controles.filter(c => /extrémités? libres?, non reliées? à un objet/.test(c.txt));
     R.ok(et === 'wc=ok:EU do=ok:EU' && !lib.length, 'p1 (boîte « Projet » à la jonction, état des lieux) : ' + et + ' | contrôles « libre » ' + JSON.stringify(lib.map(c => c.txt)));
+  }
+  {
+    const d = nouveau(); pt(d, 'wc', 'wc', 0, 8); pt(d, 'R', 'regard', 0, 2, {tampon: 'fonte'}, 'projet'); ln(d, 'A', 'tr', 'EP', ['wc', 'R']);
+    const an = V.analyser(JSON.parse(JSON.stringify(d)), 'edl'), L = V.anomaliesDoc(JSON.parse(JSON.stringify(d)), an), r = an.resObj.wc;
+    R.ok(r.etat === 'ok' && r.res === 'EP' && r.presume && L.some(a => a.cle === 'eu-ep:wc' && a.st === 'retenue'), 'p2 (tuyau existant fini seul sur un regard « Projet ») : wc=' + r.etat + ':' + r.res + (r.presume ? '(p)' : '') + ' | ' + L.map(a => a.cle).join(','));
+  }
+  {
+    const dessin = avec => { const d = nouveau(); pt(d, 'wc', 'wc', 0, 10); pt(d, 'R1', 'regard', 0, 7, {tampon: 'fonte'}); pt(d, 'B', 'boite', -3, 4, {res: ''}); pt(d, 'Rx', 'regard', 3, 4, {tampon: 'fonte'}); pt(d, 'R3', 'regard', 0, 1, {tampon: 'fonte'}); pt(d, 'j', 'jonction', 0, -2, {});
+      if (avec) pt(d, 'RP', 'regard', 1.5, 5.5, {tampon: 'fonte'}, 'projet');
+      ln(d, 'L1', 'tr', 'EU', ['wc', 'R1']); ln(d, 'a1', 'tr', '', ['R1', 'B']); ln(d, 'a2', 'tr', '', ['B', 'R3']); ln(d, 'b1', 'tr', 'EP', avec ? ['R1', 'RP', 'Rx'] : ['R1', [1.5, 5.5], 'Rx']); ln(d, 'b2', 'tr', '', ['Rx', 'R3']); ln(d, 'S', 'tr', '', ['R3', 'j']); ln(d, 'C', 'col', 'EU', [[-10, -2], 'j', [10, -2]]); return d; };
+    const sig = d => { const an = V.analyser(JSON.parse(JSON.stringify(d)), 'edl'), L = V.anomaliesDoc(JSON.parse(JSON.stringify(d)), an), r = an.resObj.wc;
+      return 'wc=' + r.etat + ':' + r.res + (r.boite ? ' boite=' + r.boite : '') + ' | ' + L.map(a => a.cle + '@' + a.objId).sort().join(',') + ' | ' + an.controles.filter(c => /le dessin le relie/.test(c.txt)).map(c => c.txt).join(' ; '); };
+    const avec = sig(dessin(true)), sans = sig(dessin(false));
+    R.ok(avec === sans && (avec.match(/le dessin le relie/g) || []).length === 1, 'p3 (regard « Projet » au milieu d\'un tuyau existant) : ' + avec + (avec === sans ? '' : ' | sans lui : ' + sans));
   }
   R.fin();
 })().catch(e => { console.log('ERREUR ' + (e && e.stack || e)); process.exitCode = 1; });
