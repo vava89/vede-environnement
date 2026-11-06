@@ -598,30 +598,46 @@ function analyser(doc, mode){
   /* fosse septique comptée pour la source id (règle du 6 novembre 2026 : une fosse hors fonction grâce à un by-pass ne donne pas d'anomalie) :
      une fosse compte quand l'eau ne peut l'éviter vers aucune des cibles (exutoires dessinés, ou extrémités libres qui portent le réseau
      présumé) : elle est sur tout chemin jusqu'à chacune ; sinon, quand l'eau ne peut éviter toutes les fosses à la fois (fosses en
-     parallèle), une fosse d'un plus court chemin compte. La plus éloignée de la source d'abord, à égalité dans un ordre fixe : le résultat
+     parallèle), une fosse d'un chemin qui en traverse le moins compte (fossesMoins). La plus éloignée de la source d'abord, à égalité dans un ordre fixe : le résultat
      ne dépend pas de l'ordre du dessin. Une fosse sur tout chemin est sur tout plus court chemin : seules celles-là sont vérifiées (nombres
      de plus courts chemins, modulo deux nombres premiers), une traversée chacune */
+  /* fosses d'un chemin de la source id vers l'une des cibles qui en traverse le moins (au moins une) : parcours 0-1 depuis la source (une
+     fosse atteinte coûte 1), puis depuis les cibles en remontant ; une fosse en est quand les deux coûts, elle comptée une fois, font le
+     minimum. Mêmes règles que parcours : un exutoire n'est pas traversé, un tronçon orienté ne se remonte pas */
+  function fossesMoins(id, cibles){
+    var estF = function(n){ var ob = objs[n]; return !!(ob && T[ob.t].fosse); };
+    function cout(depart, suivants){
+      var c = {}, file = []; depart.forEach(function(n){ if (c[n] === undefined){ c[n] = estF(n) ? 1 : 0; file.push(n); } });
+      while (file.length){ var n = file.shift();
+        suivants(n).forEach(function(u){ var k = c[n] + (estF(u) ? 1 : 0); if (c[u] === undefined || k < c[u]){ c[u] = k; if (estF(u)) file.push(u); else file.unshift(u); } }); }
+      return c;
+    }
+    var cf = cout([id], function(n){ if (n !== id && terminal(n)) return [];
+      return (adj[n] || []).filter(function(p){ return !(p.sens === 1 && p.b === n && p.a !== n) && !(p.sens === -1 && p.a === n && p.b !== n); }).map(function(p){ return p.a === n ? p.b : p.a; }); });
+    var kmin = Infinity; cibles.forEach(function(t){ if (cf[t] !== undefined && cf[t] < kmin) kmin = cf[t]; });
+    if (!(kmin >= 1 && kmin < Infinity)) return [];
+    var cb = cout(cibles.filter(function(t){ return cf[t] !== undefined; }), function(v){
+      return (adj[v] || []).filter(function(p){ var u = p.a === v ? p.b : p.a;
+        return u !== v && cf[u] !== undefined && !(u !== id && terminal(u)) && !(p.sens === 1 && p.a !== u) && !(p.sens === -1 && p.b !== u); })
+        .map(function(p){ return p.a === v ? p.b : p.a; }); });
+    return Object.keys(objs).filter(function(f){ return estF(f) && cf[f] !== undefined && cb[f] !== undefined && cf[f] + cb[f] - 1 === kmin; }).sort();
+  }
   function fosseDe(id, r, pr, cibles){
     var tf = Object.keys(objs).filter(function(n){ return T[objs[n].t].fosse && r.vus[n]; }).sort(); if (!tf.length || !cibles.length) return null;
     var M = [1000003, 999983], ordre = Object.keys(r.vus).sort(function(a, b){ return r.dist[a] - r.dist[b]; }), av = {};
     ordre.forEach(function(v){ var c = v === id ? [1, 1] : [0, 0]; (pr[v] || []).forEach(function(q){ var d = av[q.n]; if (d){ c[0] = (c[0] + d[0]) % M[0]; c[1] = (c[1] + d[1]) % M[1]; } }); av[v] = c; });
-    var surTous = {}, surUn = {}; tf.forEach(function(f){ surTous[f] = true; });
+    var surTous = {}; tf.forEach(function(f){ surTous[f] = true; });
     cibles.forEach(function(t){
       var bw = {}; bw[t] = [1, 1];
       for (var k = ordre.length - 1; k >= 0; k--){ var v = ordre[k], b = bw[v]; if (!b) continue; (pr[v] || []).forEach(function(q){ var c = bw[q.n] || (bw[q.n] = [0, 0]); c[0] = (c[0] + b[0]) % M[0]; c[1] = (c[1] + b[1]) % M[1]; }); }
       tf.forEach(function(f){ var a = av[f], b = bw[f], z = av[t];
-        if (a && b && (a[0] || a[1]) && (b[0] || b[1])) surUn[f] = true;
         if (!(a && b && z && (a[0] * b[0]) % M[0] === z[0] && (a[1] * b[1]) % M[1] === z[1])) surTous[f] = false; });
     });
     var ev = {}, evitee = function(f){ if (!ev[f]){ var sf = {}; sf[f] = true; ev[f] = parcours([id], {sauf: sf}).vus; } return ev[f]; };
     var ok = tf.filter(function(f){ return surTous[f] && cibles.every(function(n){ return !evitee(f)[n]; }); });
-    if (!ok.length){ var sf = {}; tf.forEach(function(f){ sf[f] = true; }); var vus = parcours([id], {sauf: sf}).vus;
-      /* fosses en parallèle : celles par lesquelles l'eau atteint une cible sans traverser d'autre fosse (une fosse en aval, contournée par
-         son by-pass, n'en est pas) ; à défaut, celles d'un plus court chemin */
-      if (cibles.every(function(n){ return !vus[n]; })){
-        var seule = tf.filter(function(f){ if (!surUn[f]) return false; var so = {}; tf.forEach(function(g){ if (g !== f) so[g] = true; }); var vf = parcours([id], {sauf: so}).vus; return cibles.some(function(n){ return vf[n]; }); });
-        ok = seule.length ? seule : tf.filter(function(f){ return surUn[f]; });
-      } }
+    /* fosses en parallèle : l'eau ne peut les éviter toutes à la fois ; une fosse en aval contournée par son by-pass, ou la seconde fosse
+       d'une branche quand une autre branche n'en traverse qu'une, n'en est pas */
+    if (!ok.length) ok = fossesMoins(id, cibles);
     ok.sort(function(a, b){ return (r.dist[b] - r.dist[a]) || (a < b ? -1 : a > b ? 1 : 0); });
     return ok[0] || null;
   }
