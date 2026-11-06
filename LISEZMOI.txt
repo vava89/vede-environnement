@@ -78,7 +78,10 @@ CROQUIS DE TERRAIN (facultatif)
   garder dans la liste du dossier, sans lien avec un plan.
 - Constat : « Reprendre du croquis » (section Installations privatives)
   remplit le nombre, le raccordement et les méthodes des installations
-  dessinées, sans remplacer ce qui a été saisi. Ensuite ces valeurs suivent
+  dessinées, sans remplacer ce qui a été saisi. Chaque objet dessiné compte
+  pour une installation : une salle de bain ou une cuisine se dessine d'un
+  seul objet (son lavabo, son évier, son lave-vaisselle y sont compris) ;
+  un lavabo seul compte comme un évier. Ensuite ces valeurs suivent
   le croquis tant qu'on n'y touche pas. Les écarts entre le croquis et le
   constat sont rappelés avant la signature. Un constat signé n'est jamais
   modifié.

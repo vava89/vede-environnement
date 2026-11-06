@@ -3,7 +3,7 @@
 // 1 : regard relié au collecteur EP (réserve), « Non-conformité » cochée, anomalie écartée, regard délié pendant le retrait, retenue de
 //     nouveau, puis regard relié de nouveau : la NC reste, constat proposé « Non conformes » ;
 // 2 : l'inverse : regard non relié (NC), réserve choisie, écartée, regard relié au collecteur EP, retenue, regard délié : la réserve reste.
-// 3 : « Reprendre du croquis » : un lavabo seul donne une ligne « Autres : Lavabo » au constat, la ligne « Salle de bain » reste vide.
+// 3 : « Reprendre du croquis » : un lavabo seul compte sur la ligne « Évier » (il se confond avec l'évier), sans ligne « Autres » ni salle de bain.
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -55,7 +55,7 @@ async function lavabo(){
     await C.fermerCroquis(p); await C.pause(p, 600);
     const r = await p.evaluate(async () => { const T = window.__VT, v = T.S.visites[0]; v.statut = 'visitee'; const n = T.constatDepuisCroquis(v, await T.vcResume(v), false);
       return {n, rows: (v.constat && v.constat.rows || []).filter(x => x.nb).map(x => x.label + ' ×' + x.nb + (x.std ? '' : ' (Autres)'))}; });
-    R.ok(r.rows.indexOf('Lavabo ×1 (Autres)') >= 0 && !r.rows.some(x => /^Salle de bain/.test(x)), '3 lavabo seul repris du croquis : ' + r.rows.join(' ; '));
+    R.ok(r.rows.indexOf('Évier ×1') >= 0 && !r.rows.some(x => /^Salle de bain|\(Autres\)$/.test(x)), '3 lavabo seul repris du croquis : ' + r.rows.join(' ; '));
     R.ok(!A.erreurs.length, '3 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
   } finally { await A.fermer(); }
 }

@@ -390,8 +390,8 @@ var T = {};
 function def(id, o){ o.id = id; T[id] = o; }
 /* fam : famille de la palette ; nat : eaux produites ; role : source, passage, exutoire ou note ; row : ligne du constat ; autre : libellé d'une ligne « Autres » */
 def('wc', {fam: 'eu', lib: 'WC', ab: 'WC', nat: 'EU', role: 'source', forme: 'app', row: 'wc'});
-/* lavabo : compté pour lui-même (ligne « Autres » du constat) ; celui d'une salle de bain ou d'une cuisine est compris dans l'objet de la pièce */
-def('lavabo', {fam: 'eu', lib: 'Lavabo', ab: 'La', nat: 'EU', role: 'source', forme: 'app', autre: 'Lavabo'});
+/* lavabo : se confond avec l'évier (ligne « Évier » du constat) ; celui d'une salle de bain ou d'une cuisine est compris dans l'objet de la pièce */
+def('lavabo', {fam: 'eu', lib: 'Lavabo', ab: 'La', nat: 'EU', role: 'source', forme: 'app', row: 'evier'});
 def('douche', {fam: 'eu', lib: 'Douche', ab: 'Do', g: 'f', nat: 'EU', role: 'source', forme: 'app', row: 'sdb'});
 def('baignoire', {fam: 'eu', lib: 'Baignoire', ab: 'Ba', g: 'f', nat: 'EU', role: 'source', forme: 'app', row: 'sdb'});
 def('sdb', {fam: 'eu', lib: 'Salle de bain', ab: 'SdB', g: 'f', nat: 'EU', role: 'source', forme: 'app', row: 'sdb'});
@@ -1186,30 +1186,6 @@ function raccInfo(r, groupe){
   }
   return {code: '', lib: '', ok: null};
 }
-/* Une salle de bain ou une cuisine compte une fois : ses appareils sont regroupés de proche en proche (4 m) et par niveau. Un appareil
-   sans niveau indiqué se rattache à chaque niveau voisin ; deux niveaux indiqués ne se mêlent jamais. Le compte ne dépend pas de l'ordre du dessin */
-function regroupes(objs){
-  var niv = objs.map(function(o){ return o.p.niv || ''; });
-  function proches(i, j){ return Math.hypot(objs[i].x - objs[j].x, objs[i].y - objs[j].y) <= 4; }
-  /* groupes de proche en proche des appareils retenus */
-  function groupes(garder){
-    var g = {}, ids = objs.map(function(_, i){ return i; }).filter(garder);
-    ids.forEach(function(i){ g[i] = i; });
-    function f(i){ while (g[i] !== i){ g[i] = g[g[i]]; i = g[i]; } return i; }
-    for (var a = 0; a < ids.length; a++) for (var b = a + 1; b < ids.length; b++) if (proches(ids[a], ids[b])) g[f(ids[a])] = f(ids[b]);
-    var m = {}; ids.forEach(function(i){ (m[f(i)] = m[f(i)] || []).push(i); }); return Object.keys(m).map(function(k){ return m[k]; });
-  }
-  var n = 0, niveaux = niv.filter(function(v, i){ return v && niv.indexOf(v) === i; });
-  /* chaque niveau indiqué : ses appareils et ceux sans niveau ; un groupe compte s'il a un appareil de ce niveau */
-  niveaux.forEach(function(L){
-    n += groupes(function(i){ return !niv[i] || niv[i] === L; }).filter(function(gr){ return gr.some(function(i){ return niv[i] === L; }); }).length;
-  });
-  /* appareils sans niveau loin de tout appareil de niveau indiqué */
-  n += groupes(function(i){ return !niv[i]; }).filter(function(gr){
-    return !gr.some(function(i){ return niv.some(function(v, j){ return v && proches(i, j); }); });
-  }).length;
-  return n;
-}
 function constatDeduit(doc, an){
   var rows = ROWS_STD.map(function(s){ return {id: s[0], groupe: s[1], label: s[2], std: true, nb: 0, codes: [], libs: [], oks: [], meth: [], objets: [], types: []}; }), autres = {}, recup = {}, sansCote = [];
   function ligne(o){
@@ -1231,8 +1207,8 @@ function constatDeduit(doc, an){
     (o.p.meth || []).forEach(function(m){ if (row.meth.indexOf(m) < 0) row.meth.push(m); });
   });
   rows.forEach(function(r){
-    var objs = r.objets.map(function(id){ return an.objs[id]; });
-    r.nb = (r.id === 'sdb' || r.id === 'cuisine') ? regroupes(objs) : objs.length;
+    /* chaque objet dessiné compte pour une installation : une salle de bain ou une cuisine se dessine d'un seul objet (règle du 6 novembre 2026) */
+    r.nb = r.objets.length;
     var c = r.codes.filter(Boolean), uniq = c.filter(function(x, i){ return c.indexOf(x) === i; });
     r.raccord = uniq.length > 1 ? 'plusieurs' : uniq.length === 1 && c.length === r.codes.length ? uniq[0] : '';
     r.conforme = !r.objets.length ? '' : r.oks.some(function(x){ return x === false; }) ? 'non' : r.oks.length && r.oks.every(function(x){ return x === true; }) ? 'oui' : '';

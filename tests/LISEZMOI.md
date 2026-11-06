@@ -31,13 +31,13 @@ Chaque fichier affiche son bilan (« analyse : 68/68 ») et sort en erreur au pr
 | `vm/regles.js` | règles du constat : siphon de garage en EU, siphon de sol en EP, rejets interdits, descente non visitable (NC), tampon béton (NC en EU, réserve en EP), fosse traversée, en cul-de-sac, hors fonction grâce à un by-pass ou vers un autre exutoire, deux fosses en parallèle, boîte sur le mauvais collecteur, conclusion |
 | `vm/copie.js` | fiche et dossier : une anomalie retirée puis revenue garde la retouche du technicien, ou reprend le texte du dessin |
 | `vm/avant-projet.js` | avant-projet : sortie(s) laissée(s) libre(s) après travaux (Contrôles et plan PDF), ouvrage « À supprimer » entre deux tuyaux ; état des lieux : ouvrage « Projet » où se rejoignent, où finit ou que traverse un tuyau existant |
-| `vm/constat.js` | lignes du constat déduites du croquis : un lavabo compté pour lui-même (ligne « Autres »), une salle de bain comptée une fois (regroupement de proche en proche et par niveau) |
+| `vm/constat.js` | lignes du constat déduites du croquis : chaque objet dessiné compte pour une installation, sans regroupement (deux objets voisins font deux salles de bain ou deux cuisines) ; un lavabo compte sur la ligne « Évier », jamais en « Autres » |
 | `vm/fosse-contournee.js` | fosse septique contournée par un by-pass : hors fonction, elle ne donne pas d'anomalie (règle du 6 novembre 2026) ; fosse en série, en cul-de-sac, en amont ; même résultat dans quatre ordres du dessin |
 | `vm/aleatoire.js` | croquis aléatoires (`vm/generateur.js`) : aucune exception, même résultat quel que soit l'ordre du dessin (fosse comprise), dossier stable |
 | `navigateur/commun.js` | outils communs : serveur local, application dans un profil neuf, étude et dossier fictifs, fond fictif, touchers au doigt sur le plan |
 | `navigateur/fumee.js` | parcours complet : étude et dossier créés à la main, croquis sur le fond fictif, anomalie reprise dans le dossier, plan PDF, réouverture hors connexion |
 | `navigateur/gestes.js` | gestes de l'éditeur corrigés en v1.6.2 : ouvrage posé sur un raccord (puis passé « Projet », supprimé, ou touché sur un bout libre ; clapet orienté), coude libre vu de près, descente près d'une façade, triple toucher quand la fiche fait glisser le plan |
-| `navigateur/dossier.js` | croquis et dossier : la nature (NC ou réserve) choisie à la main reste celle du technicien quand une anomalie écartée revient et que le dessin change ; « Reprendre du croquis » : un lavabo seul en ligne « Autres : Lavabo » |
+| `navigateur/dossier.js` | croquis et dossier : la nature (NC ou réserve) choisie à la main reste celle du technicien quand une anomalie écartée revient et que le dessin change ; « Reprendre du croquis » : un lavabo seul sur la ligne « Évier » |
 
 Les tests du navigateur ne changent rien à l'application : ils gardent l'éditeur du croquis qu'elle crée (`window.__vcEd`) et les fichiers
 qu'elle enregistre (`window.__VT_SAVE`), dans un profil neuf de Chromium. Chaque scénario de `gestes.js` échoue sur la version d'avant
