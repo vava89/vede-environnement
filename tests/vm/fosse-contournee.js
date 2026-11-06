@@ -1,7 +1,8 @@
-// Fosse septique contournée par un by-pass (sans navigateur ; croquis fictifs, 12 rue Fictive, Ville-Exemple). EN ATTENTE DE DÉCISION :
-// « toujours » (la fosse compte dès que l'eau peut la traverser) ou « jamais » (seulement si l'eau ne peut pas l'éviter) ; tant que la
-// règle n'est pas tranchée, ce fichier n'est pas lancé par tests/tout.sh (l'application actuelle suit le premier chemin trouvé).
-// usage : node tests/vm/fosse-contournee.js toujours|jamais [-v] [--app=<dossier>]
+// Fosse septique contournée par un by-pass (sans navigateur ; croquis fictifs, 12 rue Fictive, Ville-Exemple). Règle décidée le
+// 6 novembre 2026 : une fosse hors fonction grâce à un by-pass ne donne pas d'anomalie ; la fosse ne compte que si l'eau ne peut pas
+// l'éviter (elle est sur tout chemin jusqu'à l'exutoire). Variante « toujours » (la fosse compterait dès que l'eau peut la traverser) :
+// écartée, gardée ici pour comparer (node tests/vm/fosse-contournee.js toujours).
+// usage : node tests/vm/fosse-contournee.js [jamais|toujours] [-v] [--app=<dossier>]
 // Topologies : A by-pass par un regard (même longueur que le passage par la fosse), B by-pass direct (plus court), C by-pass plus long
 // (deux regards), D fosse en série sans by-pass (témoin), E fosse en cul-de-sac (témoin), G fosse en amont, son entrée laissée libre
 // (témoin) ; sources : WC « Tronçon EU », WC sans réseau, descente « Tronçon EP » ; exutoires : collecteur EU dessiné, extrémité libre
@@ -24,7 +25,7 @@ const topo = {
 };
 const sources = {wc: [['wc', 'wc', 0, 12]], d1: [['d1', 'descente', 0, 12]]};
 const tuy = {wc: [['L1', 'tr', 'EU', '', ['wc', 'R1']]], wc0: [['L1', 'tr', '', '', ['wc', 'R1']]], d1: [['L1', 'tr', 'EP', '', ['d1', 'R1']]]};
-const V = process.argv.slice(2).find(x => x === 'toujours' || x === 'jamais'); if (!V){ console.log('variante attendue : toujours ou jamais'); process.exit(2); }
+const V = process.argv.slice(2).find(x => x === 'toujours' || x === 'jamais') || 'jamais';
 /* fosse comptée : toujours = l'eau peut la traverser (A, B, C, D) ; jamais = elle ne peut pas l'éviter (D) ; E et G jamais */
 const compte = t => V === 'toujours' ? /[ABCD]/.test(t) : t === 'D';
 const VC = charger().V, R = rapport('fosse-contournee (' + V + ')'); let nt = 0, ordOk = 0;

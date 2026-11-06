@@ -1,7 +1,7 @@
 #!/bin/sh
 # Lance les tests de VÉDÉ Terrain : sans navigateur (tests/vm), puis, avec --navigateur, ceux du navigateur (tests/navigateur).
 # Options transmises à chaque test : -v (détail de chaque cas), --app=<dossier> (une autre version de l'application, pour comparer).
-# Code de sortie : 0 si tout passe, 1 sinon. La fosse septique contournée (tests/vm/fosse-contournee.js) attend une décision : non lancée.
+# Code de sortie : 0 si tout passe, 1 sinon.
 cd "$(dirname "$0")/.." || exit 2
 nav=0; opts=""
 for a in "$@"; do
@@ -11,7 +11,7 @@ for a in "$@"; do
   esac
 done
 ec=0
-for t in analyse regles copie avant-projet aleatoire; do
+for t in analyse regles fosse-contournee copie avant-projet aleatoire; do
   # shellcheck disable=SC2086
   node "tests/vm/$t.js" $opts || ec=1
 done

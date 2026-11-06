@@ -1,7 +1,7 @@
 // Règles du constat (sans navigateur), sur des croquis fictifs : nature des eaux de chaque équipement (siphon de garage en EU, siphon de sol
 // en EP), rejets interdits (EU vers l'EP, un puisard, la gargouille ou le milieu naturel ; EP vers l'EU), descente non visitable (NC),
-// tampon béton (NC en EU, réserve en EP), fosse septique traversée (NC) ou en cul-de-sac (rien), boîte sur le mauvais collecteur, et la
-// conclusion proposée qui en découle. La fosse contournée par un by-pass attend une décision : elle n'est pas ici (fosse-contournee.js).
+// tampon béton (NC en EU, réserve en EP), fosse septique traversée (NC), en cul-de-sac ou hors fonction grâce à un by-pass (rien), boîte
+// sur le mauvais collecteur, et la conclusion proposée qui en découle (by-pass sous toutes ses formes : fosse-contournee.js).
 // usage : node tests/vm/regles.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rapport} = require('./charger.js');
@@ -28,6 +28,8 @@ const cas = [
   {n: 'fosse septique traversée par les eaux usées', d: doc({o: [['s', 'wc', 0, 8], ['F', 'fosse', 0, 4], ['B', 'boite', 0, 0, {res: 'EU'}]], l: [['L1', 'tr', '', '', ['s', 'F']], ['L2', 'tr', '', '', ['F', 'B']]]}),
     et: 's=ok:EU', a: [['fosse:F', true, 'Fosse septique : eaux usées traversant la fosse']], c: 'non_conformes'},
   {n: 'fosse septique en cul-de-sac à côté du chemin de l\'eau', d: doc({o: [['s', 'wc', 0, 8], ['R', 'regard', 0, 4], ['F', 'fosse', 4, 4], ['B', 'boite', 0, 0, {res: 'EU'}]], l: [['L1', 'tr', '', '', ['s', 'R']], ['L2', 'tr', '', '', ['R', 'B']], ['L3', 'tr', '', '', ['R', 'F']]]}),
+    et: 's=ok:EU', a: [], c: 'conformes'},
+  {n: 'fosse septique hors fonction grâce à un by-pass', d: doc({o: [['s', 'wc', 0, 10], ['R1', 'regard', 0, 7], ['F', 'fosse', -3, 4], ['R3', 'regard', 0, 2], ['B', 'boite', 0, 0, {res: 'EU'}]], l: [['L1', 'tr', '', '', ['s', 'R1']], ['Lf1', 'tr', '', '', ['R1', 'F']], ['Lf2', 'tr', '', '', ['F', 'R3']], ['Lb', 'tr', '', '', ['R1', [2, 4.5], 'R3']], ['L2', 'tr', '', '', ['R3', 'B']]]}),
     et: 's=ok:EU', a: [], c: 'conformes'},
   {n: 'descente vers la fosse puis le réseau EU', d: doc({o: [['s', 'descente', 0, 8], ['F', 'fosse', 0, 4], ['B', 'boite', 0, 0, {res: 'EU'}]], l: [['L1', 'tr', '', '', ['s', 'F']], ['L2', 'tr', '', '', ['F', 'B']]]}),
     et: 's=ok:EU', a: [['ep-eu:s', true, 'Descente EP : rejet au réseau EU'], ['ep-fosse:s', true, 'Descente EP : rejet dans la fosse septique']], c: 'non_conformes'},

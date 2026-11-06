@@ -497,7 +497,8 @@ function analyser(doc, mode){
     if (ty.boite && /^(EU|EP|UN)$/.test(o.p.res || '')) return {res: o.p.res, via: 'boite', id: o.id, boite: true};
     return null;
   }
-  /* Parcours en largeur : les départs terminaux sont atteints sans être traversés, sauf o.traverserDepart ; o.terminal remplace la règle des exutoires.
+  /* Parcours en largeur : les départs terminaux sont atteints sans être traversés, sauf o.traverserDepart ; o.terminal remplace la règle des exutoires ;
+     o.sauf : nœuds à ne pas atteindre.
      Les parents gardés permettent de suivre le chemin de l'eau jusqu'à chaque exutoire atteint, sans les branches voisines. */
   function parcours(departs, o){
     o = o || {}; var estTerm = o.terminal || terminal;
@@ -514,7 +515,7 @@ function analyser(doc, mode){
         if (p.sens === 1 && p.b === n && p.a !== n) return;
         if (p.sens === -1 && p.a === n && p.b !== n) return;
         pcs[p.id] = p;
-        if (vus[autre]) return;
+        if (vus[autre] || (o.sauf && o.sauf[autre])) return;
         vus[autre] = true; parent[autre] = {n: n, p: p}; dist[autre] = dist[n] + 1;
         var t = estTerm(autre);
         if (t){ if (!tvus[autre]){ tvus[autre] = true; term.push(Object.assign({noeud: autre, dist: dist[autre]}, t)); } return; }
@@ -590,8 +591,19 @@ function analyser(doc, mode){
     versLibres.forEach(function(ch){ if (ch.nets.length < 2) return; var ns = ['EU', 'EP', 'UN'].filter(function(k){ return ch.nets.indexOf(k) >= 0; }); ch.res = exl0.length === 1 && ns.indexOf(exl0[0]) >= 0 ? exl0[0] : ns[0]; });
     return versLibres;
   }
-  /* Chemin d'un nœud atteint jusqu'au départ : nœuds (du nœud au départ) et pièces traversées */
-  function chemin(r, noeud){ var nodes = [], pcs = [], c = noeud; while (r.parent[c]){ nodes.push(c); pcs.push(r.parent[c].p); c = r.parent[c].n; } nodes.push(c); return {nodes: nodes, pieces: pcs}; }
+  /* fosse septique comptée pour la source id : parmi les fosses atteintes, celles par lesquelles l'eau de la source ne peut pas l'éviter (elle est sur tout chemin) jusqu'à l'une
+     des cibles (exutoires dessinés) ou jusqu'à chacune (toutes : extrémités libres qui portent le réseau présumé) ; d'abord une fosse sur tout
+     chemin, puis la plus éloignée de la source, à égalité dans un ordre fixe. Le résultat ne dépend pas de l'ordre du dessin */
+  function fosseDe(id, r, pr, cibles, toutes){
+    var cand = Object.keys(objs).filter(function(n){ return T[objs[n].t].fosse && r.vus[n]; }).sort(); if (!cand.length || !cibles.length) return null;
+    var c = {}, ev = {}; cibles.forEach(function(n){ c[n] = true; });
+    var evitee = function(f){ if (!ev[f]){ var sf = {}; sf[f] = true; ev[f] = parcours([id], {sauf: sf}).vus; } return ev[f]; };
+    var sur = function(f, n){ return !evitee(f)[n]; };
+    var ok = cand.filter(function(f){ return toutes ? cibles.every(function(n){ return sur(f, n); }) : cibles.some(function(n){ return sur(f, n); }); });
+    var dom = {}; ok.forEach(function(f){ dom[f] = cibles.every(function(n){ return !evitee(f)[n]; }) ? 1 : 0; });
+    ok.sort(function(a, b){ return (dom[b] - dom[a]) || (r.dist[b] - r.dist[a]) || (a < b ? -1 : a > b ? 1 : 0); });
+    return ok[0] || null;
+  }
   /* Gestionnaire et cohérence des boîtes au réseau indiqué : collecteurs atteints au-delà de la boîte */
   /* le collecteur le plus proche de la boîte, en traversant les autres boîtes (boîte intérieure puis boîte en limite) */
   function terminalCollecteur(n){ if (n.indexOf('C:') === 0) return terminal(n); var ob = objs[n], tt = ob && T[ob.t]; return tt && tt.exu ? terminal(n) : null; }
@@ -660,15 +672,15 @@ function analyser(doc, mode){
   Object.keys(objs).forEach(function(id){
     var o = objs[id], ty = T[o.t]; if (ty.role !== 'source') return;
     var r = parcours([id]), pr = predsDe(r, id), nets = [], gests = {}, fosse = null, boite = null, entree = {}, presume = false, cfl = null, amb = null, ambArr = false;
-    /* exutoires du plus proche au plus lointain (à égalité, dans un ordre fixe) ; fosse septique sur le chemin de l'eau ; boîte sur chaque
-       plus court chemin ; regard où le branchement arrive sur le collecteur (celui d'un plus court chemin sans boîte, s'il y en a) */
+    /* exutoires du plus proche au plus lointain (à égalité, dans un ordre fixe) ; boîte sur chaque plus court chemin ; regard où le
+       branchement arrive sur le collecteur (celui d'un plus court chemin sans boîte, s'il y en a) ; fosse septique (fosseDe) */
     r.term.sort(function(a, b){ return a.dist - b.dist || (a.noeud < b.noeud ? -1 : a.noeud > b.noeud ? 1 : 0); });
     r.term.forEach(function(t){
       if (nets.indexOf(t.res) < 0) nets.push(t.res); gests[t.res] = gestDe(t);
-      chemin(r, t.noeud).nodes.forEach(function(nd){ var ob = objs[nd], tt = ob && T[ob.t]; if (tt && tt.fosse && !fosse) fosse = nd; });
       if (!boite) boite = boiteSur(pr, id, t.noeud);
       if (t.col){ var ps = (pr[t.noeud] || []).map(function(q){ return q.n; }).sort(), sb = ps.filter(function(u){ return !boiteSur(pr, id, u); }); entree[t.id] = sb[0] || ps[0] || id; }
     });
+    if (r.term.length) fosse = fosseDe(id, r, pr, r.term.map(function(t){ return t.noeud; }), false);
     /* sans exutoire dessiné : réseau présumé d'après les tronçons indiqués sur le chemin vers une extrémité libre : pour chaque extrémité, le
        tronçon indiqué le plus proche d'elle (tuyau « Tronçon EU » du WC arrivé sur une branche « Tronçon EP » laissée libre : EP), s'il
        est aussi le plus proche de chaque autre extrémité au-delà de lui : le tronc qu'une extrémité partage avec d'autres (le tuyau de
@@ -692,12 +704,10 @@ function analyser(doc, mode){
       if (exl.length === 1 && Object.keys(conflit).length) cfl = ['EU', 'EP', 'UN'].filter(function(k){ return conflit[k]; });
       if (exl.length === 1 && !cfl){
         nets = exl; presume = true; gests[exl[0]] = (doc.gest && doc.gest[exl[0]]) || 'D';
-        /* fosse septique ou boîte sur le chemin de l'exutoire présumé : comme sur celui d'un exutoire dessiné, quand elle est sur chaque chemin
-           vers une extrémité libre qui porte ce réseau ; une autre extrémité libre peut être une arrivée (fosse en amont du regard, son entrée
-           venant de la maison, appareils non dessinés) */
-        var porte = versLibres.filter(function(ch){ return ch.res === exl[0]; }), portent = porte.map(function(ch){ return chemin(r, ch.nodes[0]); });
-        portent[0].nodes.forEach(function(nd){ var ob = objs[nd], tt = ob && T[ob.t]; if (!tt || !portent.every(function(ch){ return ch.nodes.indexOf(nd) >= 0; })) return;
-          if (tt.fosse && !fosse) fosse = nd; });
+        /* fosse septique ou boîte de l'exutoire présumé : comme pour un exutoire dessiné, vers chaque extrémité libre qui porte ce réseau ; une
+           autre extrémité libre peut être une arrivée (fosse en amont du regard, son entrée venant de la maison, appareils non dessinés) */
+        var porte = versLibres.filter(function(ch){ return ch.res === exl[0]; });
+        fosse = fosseDe(id, r, pr, porte.map(function(ch){ return ch.nodes[0]; }), true);
         boite = Object.keys(objs).filter(function(n){ return T[objs[n].t].boite && r.vus[n] && porte.every(function(ch){ return domineDag(pr, id, n, ch.nodes[0]); }); })
           .sort(function(a, b){ return (r.dist[b] - r.dist[a]) || (a < b ? -1 : a > b ? 1 : 0); })[0] || null;
       }
