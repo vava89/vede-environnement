@@ -32,7 +32,13 @@ Chaque fichier affiche son bilan (« analyse : 68/68 ») et sort en erreur au pr
 | `vm/avant-projet.js` | avant-projet : sortie laissée libre après travaux (Contrôles et plan PDF), ouvrage « À supprimer » entre deux tuyaux |
 | `vm/aleatoire.js` | croquis aléatoires (`vm/generateur.js`) : aucune exception, même résultat quel que soit l'ordre du dessin, dossier stable |
 | `vm/fosse-contournee.js` | fosse septique contournée par un by-pass : **en attente de décision** (« toujours » ou « jamais »), non lancé par `tout.sh` |
-| `navigateur/` | l'application dans Chromium : ouverture, étude fictive, croquis, gestes de l'éditeur |
+| `navigateur/commun.js` | outils communs : serveur local, application dans un profil neuf, étude et dossier fictifs, fond fictif, touchers au doigt sur le plan |
+| `navigateur/fumee.js` | parcours complet : étude et dossier créés à la main, croquis sur le fond fictif, anomalie reprise dans le dossier, plan PDF, réouverture hors connexion |
+| `navigateur/gestes.js` | gestes de l'éditeur corrigés en v1.6.2 : ouvrage posé sur un raccord, coude libre vu de près, descente près d'une façade, triple toucher quand la fiche fait glisser le plan |
+
+Les tests du navigateur ne changent rien à l'application : ils gardent l'éditeur du croquis qu'elle crée (`window.__vcEd`) et les fichiers
+qu'elle enregistre (`window.__VT_SAVE`), dans un profil neuf de Chromium. Chaque scénario de `gestes.js` échoue sur la version d'avant
+sa correction (19cbe31) et passe sur la version corrigée.
 
 ## À refaire
 
