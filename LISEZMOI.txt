@@ -64,6 +64,10 @@ CROQUIS DE TERRAIN (facultatif)
   sur le plan (« Placer sur le croquis »).
 - Fosse septique : elle ne donne une anomalie que si l'eau ne peut pas
   l'éviter ; une fosse hors fonction grâce à un by-pass n'en donne pas.
+  Si l'eau ne l'évite que vers une extrémité laissée libre qui peut être
+  une arrivée (entrée de la maison), l'anomalie est « à arbitrer » et
+  aucune conformité n'est proposée : indiquez le sens du tracé de
+  l'arrivée ou dessinez l'exutoire, sinon retenez-la ou écartez-la.
   Sur l'état des lieux, un ouvrage « Projet » posé là où se rejoignent
   des tuyaux existants les relie comme un raccord.
 - Tant qu'on n'y touche pas, une anomalie déduite suit le dessin (texte mis

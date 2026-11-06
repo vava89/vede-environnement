@@ -709,7 +709,7 @@ function analyser(doc, mode){
   var resObj = {};
   Object.keys(objs).forEach(function(id){
     var o = objs[id], ty = T[o.t]; if (ty.role !== 'source') return;
-    var r = parcours([id]), pr = predsDe(r, id), nets = [], gests = {}, fosse = null, boite = null, entree = {}, presume = false, cfl = null, amb = null, ambArr = false;
+    var r = parcours([id]), pr = predsDe(r, id), nets = [], gests = {}, fosse = null, fosseDouteuse = null, boite = null, entree = {}, presume = false, cfl = null, amb = null, ambArr = false;
     /* exutoires du plus proche au plus lointain (à égalité, dans un ordre fixe) ; boîte sur chaque plus court chemin ; regard où le
        branchement arrive sur le collecteur (celui d'un plus court chemin sans boîte, s'il y en a) ; fosse septique (fosseDe) */
     r.term.sort(function(a, b){ return a.dist - b.dist || (a.noeud < b.noeud ? -1 : a.noeud > b.noeud ? 1 : 0); });
@@ -746,6 +746,15 @@ function analyser(doc, mode){
            autre extrémité libre peut être une arrivée (fosse en amont du regard, son entrée venant de la maison, appareils non dessinés) */
         var porte = versLibres.filter(function(ch){ return ch.res === exl[0]; });
         fosse = fosseDe(id, r, pr, porte.map(function(ch){ return ch.nodes[0]; })); noterSens(pr, porte.map(function(ch){ return ch.nodes[0]; }));
+        /* fosse évitée seulement vers des extrémités libres qui peuvent être des arrivées (entrée de la maison laissée libre) : l'eau la traverse
+           si ce sont des arrivées. L'analyse ne le sait pas : la fosse est « à arbitrer » et aucune conformité n'est proposée tant que
+           l'opérateur ne l'a ni retenue ni écartée (ou n'a pas indiqué le sens du tracé, ou dessiné l'exutoire) */
+        if (!fosse && porte.length > 1){
+          var parBout = porte.map(function(ch){ return fosseDe(id, r, pr, [ch.nodes[0]]); });
+          if (parBout.some(Boolean) && porte.every(function(ch, i){ return parBout[i] || arriveePossible(ch); }))
+            fosseDouteuse = fosseDe(id, r, pr, porte.filter(function(ch, i){ return parBout[i]; }).map(function(ch){ return ch.nodes[0]; }))
+              || parBout.filter(Boolean).sort(function(a, b){ return (r.dist[b] - r.dist[a]) || (a < b ? -1 : a > b ? 1 : 0); })[0];
+        }
         boite = Object.keys(objs).filter(function(n){ return T[objs[n].t].boite && r.vus[n] && porte.every(function(ch){ return domineDag(pr, id, n, ch.nodes[0]); }); })
           .sort(function(a, b){ return (r.dist[b] - r.dist[a]) || (a < b ? -1 : a > b ? 1 : 0); })[0] || null;
       }
@@ -761,7 +770,7 @@ function analyser(doc, mode){
       sortiesLibres = ['EU', 'EP', 'UN'].filter(function(k){ return la[k]; }); if (!sortiesLibres.length) sortiesLibres = null;
     }
     var etat = !Object.keys(r.pieces).length ? 'nonrelie' : !nets.length ? 'sansexu' : nets.length > 1 ? 'multiple' : 'ok';
-    resObj[id] = {etat: etat, res: nets.length === 1 ? nets[0] : null, nets: nets, gest: nets.length === 1 ? gests[nets[0]] : null, presume: presume, conflit: cfl, ambigu: amb, ambiguArrivee: ambArr, fosse: fosse, boite: boite, term: r.term, entree: entree, sortiesLibres: sortiesLibres};
+    resObj[id] = {etat: etat, res: nets.length === 1 ? nets[0] : null, nets: nets, gest: nets.length === 1 ? gests[nets[0]] : null, presume: presume, conflit: cfl, ambigu: amb, ambiguArrivee: ambArr, fosse: fosse, fosseDouteuse: fosseDouteuse, boite: boite, term: r.term, entree: entree, sortiesLibres: sortiesLibres};
   });
   /* Réseau de chaque pièce (couleur), regards traversés, flèches d'écoulement */
   var resPiece = {}, resNoeud = {};
@@ -820,7 +829,8 @@ function listeEt(a){ return a.length > 1 ? a.slice(0, -1).join(', ') + ' et ' + 
 /* Anomalies déduites : clé stable = règle + objet ; texte « Objet : constat » ; préconisation et codes du constat de l'application */
 function reglesAnomalies(doc, an){
   var out = [], vu = {};
-  function ajoute(a){ if (vu[a.cle]) return; vu[a.cle] = true; a.auto = true; out.push(a); }
+  /* une clé une fois : la même fosse traversée sûrement par l'eau d'un appareil et à arbitrer pour un autre est retenue */
+  function ajoute(a){ var d = vu[a.cle]; if (d){ if (!a.arbitrer && d.arbitrer){ delete d.arbitrer; delete d.douteuse; } return; } vu[a.cle] = a; a.auto = true; out.push(a); }
   /* « pas de boîte » : une anomalie par collecteur et réseau ; quand plusieurs appareils y arrivent par des branchements différents, elle
      se place à l'entrée de celui qui a le plus petit identifiant (le premier posé), quel que soit l'ordre des objets dans le dessin */
   var sbSrc = {};
@@ -840,6 +850,9 @@ function reglesAnomalies(doc, an){
         ajoute({cle: 'ep-eu:' + id, objId: id, reseau: 'EP', obs: lib + ' : rejet au réseau EU' + (r.presume ? ' (présumé)' : ''), preco: 'Déconnexion des EP du réseau EU ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['decoEP', 'raccEPep'], cat: 'inversion'});
       }
       if (ty.nat === 'EU' && r.fosse && an.objs[r.fosse]) ajoute({cle: 'fosse:' + r.fosse, objId: r.fosse, reseau: 'EU', obs: 'Fosse septique : eaux usées traversant la fosse', preco: 'Suppression de la fosse septique et raccordement direct au branchement EU', nc: true, codes: ['suppFosse'], cat: 'autre'});
+      /* fosse évitée seulement vers une extrémité libre qui peut être une arrivée : à arbitrer (douteuse : pas de conformité proposée) */
+      if (ty.nat === 'EU' && !r.fosse && r.fosseDouteuse && an.objs[r.fosseDouteuse]) ajoute({cle: 'fosse:' + r.fosseDouteuse, objId: r.fosseDouteuse, reseau: 'EU', obs: 'Fosse septique : eaux usées traversant la fosse', preco: 'Suppression de la fosse septique et raccordement direct au branchement EU', nc: true, codes: ['suppFosse'], cat: 'autre', arbitrer: true, douteuse: true});
+      if (ty.nat === 'EP' && !r.fosse && r.fosseDouteuse && an.objs[r.fosseDouteuse]) ajoute({cle: 'ep-fosse:' + id, objId: id, reseau: 'EP', obs: lib + ' : rejet dans la fosse septique', preco: 'Déconnexion des EP de la fosse ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['decoEP', 'raccEPep'], cat: 'inversion', arbitrer: true, douteuse: true});
       if (ty.nat === 'EP' && r.fosse && an.objs[r.fosse]) ajoute({cle: 'ep-fosse:' + id, objId: id, reseau: 'EP', obs: lib + ' : rejet dans la fosse septique', preco: 'Déconnexion des EP de la fosse ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['decoEP', 'raccEPep'], cat: 'inversion'});
       if (r.term.some(function(t){ return t.col; }) && !r.boite){
         var t0 = r.term.filter(function(t){ return t.col; })[0], s0 = sbSrc['sansboite:' + t0.id + ':' + t0.res] || id, ent = an.resObj[s0].entree[t0.id] || s0;
@@ -867,6 +880,16 @@ function reglesAnomalies(doc, an){
   return out;
 }
 /* Contrôles de complétude : « manque » à compléter avant de rendre le plan, « info » à vérifier */
+/* fosse à arbitrer d'une source : '' sans doute ; sinon la décision de l'opérateur sur l'anomalie de la fosse (retenue : la fosse compte ;
+   ecartee : non), à défaut 'arbitrer' ; une fosse que l'eau d'un autre appareil traverse sûrement est retenue d'office */
+function fosseArbitrage(doc, an, id){
+  var r = an.resObj[id], o = an.objs[id]; if (!r || r.fosse || !r.fosseDouteuse || !o) return '';
+  var cle = T[o.t].nat === 'EP' ? 'ep-fosse:' + id : 'fosse:' + r.fosseDouteuse, a = (an.anomalies || []).filter(function(x){ return x.cle === cle; })[0];
+  if (!a) return '';
+  var st = ((doc.decisions || {})[cle] || {}).st;
+  return st === 'retenue' || st === 'ecartee' ? st : a.douteuse ? 'arbitrer' : 'retenue';
+}
+VC.fosseArbitrage = fosseArbitrage;
 function controles(doc, an){
   var out = [];
   function c(id, niv, txt, cle){ out.push({id: id, niveau: niv, txt: txt, cle: cle + ':' + id}); }
@@ -880,6 +903,7 @@ function controles(doc, an){
         else if (r.etat === 'multiple') c(id, 'manque', lib + ' : relié à plusieurs réseaux (' + r.nets.map(function(x){ return EXU_LIB[x] || x; }).join(', ') + ') : indiquer le sens d\'écoulement d\'un tronçon', 'multi');
         if (r.etat === 'ok' && r.sortiesLibres){ var pl = r.sortiesLibres.length > 1;
           c(id, 'manque', lib + (pl ? ' : sorties ' : ' : sortie ') + listeEt(r.sortiesLibres.map(libRes)) + (pl ? ' laissées libres à côté de l\'exutoire dessiné (les passer « À supprimer », les prolonger, ou indiquer le sens du tracé d\'une arrivée)' : ' laissée libre à côté de l\'exutoire dessiné (la passer « À supprimer », la prolonger, ou indiquer le sens du tracé d\'une arrivée)'), 'sortielibre'); }
+        if (r.etat === 'ok' && fosseArbitrage(doc, an, id) === 'arbitrer') c(id, 'manque', lib + ' : fosse septique évitée seulement vers une extrémité laissée libre qui peut être une arrivée (indiquer le sens du tracé de l\'arrivée ou dessiner l\'exutoire, sinon retenir ou écarter l\'anomalie de la fosse)', 'fossedouteuse');
       }
       if (o.t === 'descente'){
         if (!o.p.visitable) c(id, 'manque', 'Descente EP : visitable ou non à indiquer', 'visit');
@@ -937,6 +961,8 @@ function conclusion(liste, an){
   if (liste.some(function(a){ return a.st === 'horsdossier'; })) return 'croquis';
   /* pas de conformité proposée tant qu'un équipement n'a pas de rejet établi */
   if (Object.keys(an.resObj).some(function(id){ return an.resObj[id].etat !== 'ok'; })) return 'incomplet';
+  /* ni tant qu'une fosse septique peut-être traversée (évitée seulement vers une extrémité libre qui peut être une arrivée) est à arbitrer */
+  if (liste.some(function(a){ return a.douteuse && a.st === 'arbitrer'; })) return 'fosse';
   if (ret.length) return 'reserves';
   return Object.keys(an.resObj).length ? 'conformes' : '';
 }
@@ -1170,6 +1196,7 @@ function ecarterAnomalie(doc, cle){
 }
 VC.reconcilier = reconcilier; VC.ecarterAnomalie = ecarterAnomalie; VC.recIntact = recIntact;
 var CONCL = {conformes: 'Conformes', non_conformes: 'Non conformes', reserves: 'Conformes avec réserves', incomplet: 'À compléter : un équipement n\'a pas de rejet établi',
+  fosse: 'À compléter : fosse septique à arbitrer (une extrémité laissée libre peut être une arrivée)',
   croquis: 'À compléter : le croquis retient une anomalie absente de la liste du dossier (rouvrir le croquis)'};
 VC.CONCL = CONCL;
 
@@ -1178,9 +1205,11 @@ var ROWS_STD = [['wc', 'EU', 'WC'], ['lavelinge', 'EU', 'Lave-linge'], ['evier',
   ['gout_av', 'EP', 'Gouttière(s) avant'], ['gout_ar', 'EP', 'Gouttière(s) arrière'], ['grilles', 'EP', 'Grilles'], ['siphon_sol', 'EP', 'Siphon de sol']];
 var RACC_LIB = {EU_D: 'Réseau EU départemental', EU_T: 'Réseau EU territorial', EP_D: 'Réseau EP départemental', EP_T: 'Réseau EP territorial', UN_D: 'Réseau unitaire départemental', UN_T: 'Réseau unitaire territorial', FOSSE: 'Fosse septique', MILIEU: 'Milieu naturel', GARG: 'Gargouille', INF: 'Puisard (infiltration)'};
 /* Raccordement d'un équipement pour le constat : code de l'application (vide si le formulaire n'en a pas), libellé, conformité d'après le réseau atteint */
-function raccInfo(r, groupe){
+function raccInfo(r, groupe, arb){
   if (!r || r.etat !== 'ok') return {code: '', lib: '', ok: null};
-  if (r.fosse) return {code: 'FOSSE', lib: RACC_LIB.FOSSE, ok: false};
+  if (r.fosse || arb === 'retenue') return {code: 'FOSSE', lib: RACC_LIB.FOSSE, ok: false};
+  /* fosse à arbitrer (fosseArbitrage) : raccordement et conformité laissés à l'opérateur tant qu'il ne l'a ni retenue ni écartée */
+  if (arb === 'arbitrer') return {code: '', lib: 'Fosse septique à arbitrer (extrémité laissée libre à orienter)', ok: null};
   var res = r.res, ep = groupe !== 'EU';
   if (res === 'GARG' || res === 'MILIEU') return {code: res, lib: RACC_LIB[res], ok: ep};
   if (res === 'INF') return ep ? {code: '', lib: 'Puisard (infiltration à la parcelle)', ok: true, puisard: true} : {code: 'MILIEU', lib: 'Puisard : rejet au sol (milieu naturel)', ok: false};
@@ -1204,7 +1233,7 @@ function constatDeduit(doc, an){
     return autres[k];
   }
   Object.keys(an.resObj).forEach(function(id){
-    var o = an.objs[id], row = ligne(o), ri = raccInfo(an.resObj[id], row ? row.groupe : T[o.t].nat || 'EP');
+    var o = an.objs[id], row = ligne(o), ri = raccInfo(an.resObj[id], row ? row.groupe : T[o.t].nat || 'EP', fosseArbitrage(doc, an, id));
     if (ri.puisard) recup.puisard = true;
     if (!row){ sansCote.push(id); return; }
     row.objets.push(id); row.codes.push(ri.code); row.oks.push(ri.ok);
@@ -3375,6 +3404,7 @@ function editeur(racine, opts){
     if (r.etat === 'sansexu') return {cls: 'att', txt: r.conflit ? 'Exutoire non dessiné : tronçons ' + listeEt(r.conflit.map(libRes)) + ' réunis vers la même extrémité libre, indiquez le réseau du tronçon commun, ou le sens du tracé d\'une arrivée' : r.ambigu ? 'Exutoire non dessiné : extrémités libres de réseaux ' + listeEt(r.ambigu.map(libRes)) + (r.ambiguArrivee ? ', prolongez le tracé ou indiquez le sens du tracé d\'une arrivée' : ', prolongez le tracé jusqu\'à l\'exutoire') : 'Exutoire non dessiné : prolongez le tracé ou indiquez le réseau du tronçon'};
     if (r.etat === 'multiple') return {cls: 'ko', txt: 'Relié à plusieurs réseaux : indiquez le sens d\'écoulement'};
     var txt = 'Rejet : ' + (EXU_LIB[r.res] || r.res) + (/^(EU|EP|UN)$/.test(r.res) && r.gest ? ' ' + GEST_LIB[r.gest] : '') + (r.presume ? ' (d\'après le tronçon)' : '');
+    if (fosseArbitrage(S.doc, S.an, e.id) === 'arbitrer' && !a.length) return {cls: 'att', txt: txt + ' · fosse septique à arbitrer : une extrémité laissée libre peut être une arrivée'};
     return a.length ? {cls: 'ko', txt: txt + ' · anomalie' + (a.length > 1 ? 's' : '') + ' n° ' + a.map(function(x){ return x.num; }).join(', ')} : {cls: 'ok', txt: txt};
   }
   function ficheHtml(e){
