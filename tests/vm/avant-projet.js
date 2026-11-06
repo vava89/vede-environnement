@@ -11,7 +11,8 @@
 // au collecteur et ne sont pas des extrémités libres.
 // p2 (m83) : tuyau existant « Tronçon EP » d'un WC fini seul sur un regard « Projet » : sur l'état des lieux, une extrémité libre (EP présumé,
 // NC). p3 (m83) : regard « Projet » au milieu d'un tuyau existant : l'état des lieux est celui du même dessin sans lui (même boîte, même
-// « pas de boîte », le message « le dessin le relie à » une seule fois).
+// « pas de boîte », le message « le dessin le relie à » une seule fois). p4 (m84) : attente « Tronçon EU » vers un lavabo « Projet » : sur
+// l'état des lieux, une arrivée, pas une sortie : la fosse en série reste comptée.
 'use strict';
 const {charger, rapport} = require('./charger.js');
 const {V, ctx} = charger({pdf: true}), R = rapport('avant-projet');
@@ -85,6 +86,12 @@ const PDF_S = 'Après travaux : WC garde une sortie EP laissée libre : la passe
       return 'wc=' + r.etat + ':' + r.res + (r.boite ? ' boite=' + r.boite : '') + ' | ' + L.map(a => a.cle + '@' + a.objId).sort().join(',') + ' | ' + an.controles.filter(c => /le dessin le relie/.test(c.txt)).map(c => c.txt).join(' ; '); };
     const avec = sig(dessin(true)), sans = sig(dessin(false));
     R.ok(avec === sans && (avec.match(/le dessin le relie/g) || []).length === 1, 'p3 (regard « Projet » au milieu d\'un tuyau existant) : ' + avec + (avec === sans ? '' : ' | sans lui : ' + sans));
+  }
+  {
+    const d = nouveau(); pt(d, 'wc', 'wc', 0, 10); pt(d, 'R1', 'regard', 0, 7, {tampon: 'fonte'}); pt(d, 'F', 'fosse', 0, 4, {}); pt(d, 'la', 'lavabo', 4, 7, {}, 'projet');
+    ln(d, 'L1', 'tr', 'EU', ['wc', 'R1']); ln(d, 'A', 'tr', '', ['R1', 'F']); ln(d, 'S', 'tr', 'EU', ['F', [0, 0]]); ln(d, 'At', 'tr', 'EU', ['R1', 'la']);
+    const an = V.analyser(JSON.parse(JSON.stringify(d)), 'edl'), L = V.anomaliesDoc(JSON.parse(JSON.stringify(d)), an), r = an.resObj.wc;
+    R.ok(r.etat === 'ok' && r.fosse === 'F' && L.some(a => a.cle === 'fosse:F' && a.st === 'retenue'), 'p4 (attente vers un lavabo « Projet ») : wc=' + r.etat + ':' + r.res + (r.presume ? '(p)' : '') + (r.fosse ? ' fosse=' + r.fosse : '') + ' | ' + L.map(a => a.cle).join(','));
   }
   R.fin();
 })().catch(e => { console.log('ERREUR ' + (e && e.stack || e)); process.exitCode = 1; });

@@ -40,7 +40,7 @@ Chaque fichier affiche son bilan (« analyse : 68/68 ») et sort en erreur au pr
 
 Les tests du navigateur ne changent rien à l'application : ils gardent l'éditeur du croquis qu'elle crée (`window.__vcEd`) et les fichiers
 qu'elle enregistre (`window.__VT_SAVE`), dans un profil neuf de Chromium. Chaque scénario de `gestes.js` échoue sur la version d'avant
-sa correction (19cbe31 pour m80, 46cf8fe pour m82, c6b999a pour m83) et passe sur la version corrigée.
+sa correction (19cbe31 pour m80, 46cf8fe pour m82, c6b999a pour m83, 24ce104 pour m84) et passe sur la version corrigée.
 
 ## À refaire
 

@@ -227,8 +227,25 @@ async function oriente(){
   }
 }
 
+/* q : gargouille touchée au milieu de la queue d'un tuyau, au-delà du raccord (l'eau va du raccord vers le bout : 0°) */
+async function queue(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy, o = (x, y) => [cx + x, cy + y];
+    const els = [C.P('d1', 'descente', ...o(-2, 0)), C.P('d2', 'descente', ...o(0, -2)), C.J('j1', ...o(0, 0))], I = C.index(els);
+    els.push(C.L('A', 'tr', ['d1', 'j1', o(0.45, 0)], I, {res: 'EP'}), C.L('B', 'tr', ['d2', 'j1'], I, {res: 'EP'}));
+    /* croquis au 1:200 : à 100 px/m, le symbole de la gargouille (38 px) couvre le raccord et le bout */
+    await C.injecter(p, {el: els, echelle: 200}); await C.regler(p, cx, cy, 100);
+    const a = await C.ecranCv(p, cx, cy), f = await C.ecranCv(p, cx + 0.45, cy);
+    await C.outil(p, {k: 'pt', t: 'gargouille', pal: 'equ'}); await C.toucherCv(p, {x: (a.x + f.x) / 2, y: (a.y + f.y) / 2}, 600);
+    const d = await C.docCroquis(p), g = pts(d).find(e => e.t === 'gargouille'), ang = g ? (((g.p.a || 0) % 360) + 360) % 360 : null;
+    R.ok(!!g && (ang < 1 || ang > 359), 'q : gargouille sur la queue du tuyau, orientée vers la sortie de l\'eau, 0° (' + (g ? g.p.a : '?') + '°)');
+    R.ok(!A.erreurs.length, 'q : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [raccord, coude, mur, triple, projet, supprime, bout, oriente]){
+  for (const f of [raccord, coude, mur, triple, projet, supprime, bout, oriente, queue]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception du test : ' + (e && e.stack || e)); }
   }
   R.fin();

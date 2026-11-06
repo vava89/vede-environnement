@@ -614,7 +614,13 @@ function analyser(doc, mode){
     });
     var ev = {}, evitee = function(f){ if (!ev[f]){ var sf = {}; sf[f] = true; ev[f] = parcours([id], {sauf: sf}).vus; } return ev[f]; };
     var ok = tf.filter(function(f){ return surTous[f] && cibles.every(function(n){ return !evitee(f)[n]; }); });
-    if (!ok.length){ var sf = {}; tf.forEach(function(f){ sf[f] = true; }); var vus = parcours([id], {sauf: sf}).vus; if (cibles.every(function(n){ return !vus[n]; })) ok = tf.filter(function(f){ return surUn[f]; }); }
+    if (!ok.length){ var sf = {}; tf.forEach(function(f){ sf[f] = true; }); var vus = parcours([id], {sauf: sf}).vus;
+      /* fosses en parallèle : celles par lesquelles l'eau atteint une cible sans traverser d'autre fosse (une fosse en aval, contournée par
+         son by-pass, n'en est pas) ; à défaut, celles d'un plus court chemin */
+      if (cibles.every(function(n){ return !vus[n]; })){
+        var seule = tf.filter(function(f){ if (!surUn[f]) return false; var so = {}; tf.forEach(function(g){ if (g !== f) so[g] = true; }); var vf = parcours([id], {sauf: so}).vus; return cibles.some(function(n){ return vf[n]; }); });
+        ok = seule.length ? seule : tf.filter(function(f){ return surUn[f]; });
+      } }
     ok.sort(function(a, b){ return (r.dist[b] - r.dist[a]) || (a < b ? -1 : a > b ? 1 : 0); });
     return ok[0] || null;
   }
@@ -636,11 +642,20 @@ function analyser(doc, mode){
      main reste un nœud. De même un point de test ou une zone suspecte (croquis d'avant) au bout d'un seul tuyau : une annotation ne change
      pas l'analyse ; entre deux tuyaux, il les relie. Sur l'avant-projet, le tuyau à supprimer d'un raccord n'en fait pas une extrémité libre : la branche qui
      y reste n'a plus d'exutoire après travaux */
+  /* sens de l'eau de chaque pièce que l'eau d'une source parcourt jusqu'à ses cibles (plus courts chemins) : +1 dans le sens du tracé, -1 à
+     l'inverse, 0 si deux sources la parcourent en sens contraires ; une pièce qu'aucune source ne parcourt n'en a pas (queue au-delà d'un
+     raccord, trop-plein d'un puisard, tuyau après une boîte au réseau indiqué) */
+  var sensSource = {};
+  function noterSens(pr, cibles){
+    var vers = {}, file = []; cibles.forEach(function(n){ if (!vers[n]){ vers[n] = true; file.push(n); } });
+    while (file.length){ var v = file.shift(); (pr[v] || []).forEach(function(q){ var sg = q.p.a === q.n ? 1 : -1, o = sensSource[q.p.id]; sensSource[q.p.id] = o == null || o === sg ? sg : 0; if (!vers[q.n]){ vers[q.n] = true; file.push(q.n); } }); }
+  }
   var lieHorsPlan = {}, lignesDe = {};
   doc.el.forEach(function(e){ if (e.k === 'ln') e.v.forEach(function(v){ if (!v.a) return; if (e.t === 'tr' || e.t === 'col') (lignesDe[v.a] = lignesDe[v.a] || {})[e.id] = true; if (mode !== 'avp' && !actif(e, mode)) lieHorsPlan[v.a] = true; }); });
-  /* sur l'état des lieux, un tuyau existant qui finit seul sur un ouvrage « Projet » a une extrémité libre (l'ouvrage n'existe pas encore) ;
-     sur l'avant-projet, celui qui finit seul sur un ouvrage « À supprimer » n'a plus d'exutoire */
-  function boutLibre(nd){ if (nd.indexOf('x:') === 0) return true; if (nd.indexOf('h:') === 0) return mode !== 'avp' && (adj[nd] || []).length === 1; var ob = objs[nd]; return !!ob && (ob.t === 'jonction' && jonctionAuto(ob) || T[ob.t].role === 'note') && (adj[nd] || []).length === 1 && (!!lieHorsPlan[nd] || Object.keys(lignesDe[nd] || {}).length === 1); }
+  /* sur l'état des lieux, un tuyau existant qui finit seul sur un ouvrage « Projet » a une extrémité libre (l'ouvrage n'existe pas encore),
+     sauf sur un appareil « Projet » (son attente est une arrivée, pas une sortie) ; sur l'avant-projet, celui qui finit seul sur un ouvrage
+     « À supprimer » n'a plus d'exutoire */
+  function boutLibre(nd){ if (nd.indexOf('x:') === 0) return true; if (nd.indexOf('h:') === 0){ var oh = idx[nd.slice(2)]; return mode !== 'avp' && (adj[nd] || []).length === 1 && !(oh && T[oh.t] && T[oh.t].role === 'source'); } var ob = objs[nd]; return !!ob && (ob.t === 'jonction' && jonctionAuto(ob) || T[ob.t].role === 'note') && (adj[nd] || []).length === 1 && (!!lieHorsPlan[nd] || Object.keys(lignesDe[nd] || {}).length === 1); }
   /* une pièce amène l'eau d'un équipement quand il en est un au-delà d'elle (en remontant l'écoulement, sans la franchir ni passer un
      exutoire), ou quand un tracé orienté vers elle l'y amène (sens relevé : arrivée du voisin, appareils non dessinés) ; une branche de
      sortie qui ne mène qu'à des extrémités libres n'en amène pas */
@@ -696,7 +711,7 @@ function analyser(doc, mode){
       if (!boite) boite = boiteSur(pr, id, t.noeud);
       if (t.col){ var ps = (pr[t.noeud] || []).map(function(q){ return q.n; }).sort(), sb = ps.filter(function(u){ return !boiteSur(pr, id, u); }); entree[t.id] = sb[0] || ps[0] || id; }
     });
-    if (r.term.length) fosse = fosseDe(id, r, pr, r.term.map(function(t){ return t.noeud; }));
+    if (r.term.length){ fosse = fosseDe(id, r, pr, r.term.map(function(t){ return t.noeud; })); noterSens(pr, r.term.map(function(t){ return t.noeud; })); }
     /* sans exutoire dessiné : réseau présumé d'après les tronçons indiqués sur le chemin vers une extrémité libre : pour chaque extrémité, le
        tronçon indiqué le plus proche d'elle (tuyau « Tronçon EU » du WC arrivé sur une branche « Tronçon EP » laissée libre : EP), s'il
        est aussi le plus proche de chaque autre extrémité au-delà de lui : le tronc qu'une extrémité partage avec d'autres (le tuyau de
@@ -723,10 +738,12 @@ function analyser(doc, mode){
         /* fosse septique ou boîte de l'exutoire présumé : comme pour un exutoire dessiné, vers chaque extrémité libre qui porte ce réseau ; une
            autre extrémité libre peut être une arrivée (fosse en amont du regard, son entrée venant de la maison, appareils non dessinés) */
         var porte = versLibres.filter(function(ch){ return ch.res === exl[0]; });
-        fosse = fosseDe(id, r, pr, porte.map(function(ch){ return ch.nodes[0]; }));
+        fosse = fosseDe(id, r, pr, porte.map(function(ch){ return ch.nodes[0]; })); noterSens(pr, porte.map(function(ch){ return ch.nodes[0]; }));
         boite = Object.keys(objs).filter(function(n){ return T[objs[n].t].boite && r.vus[n] && porte.every(function(ch){ return domineDag(pr, id, n, ch.nodes[0]); }); })
           .sort(function(a, b){ return (r.dist[b] - r.dist[a]) || (a < b ? -1 : a > b ? 1 : 0); })[0] || null;
       }
+      /* sans réseau établi, une seule extrémité libre : l'eau y va (sens de ses pièces, pour un clapet posé dessus) */
+      if (!presume && versLibres.length === 1) noterSens(pr, [versLibres[0].nodes[0]]);
     }
     /* avant-projet, exutoire dessiné : une extrémité libre qui porte un autre réseau indiqué (ancienne sortie gardée à côté du raccordement,
        ou arrivée non orientée) laisse les réseaux mêlés après travaux : relevée pour les Contrôles et le contrôle de l'avant-projet */
@@ -763,6 +780,9 @@ function analyser(doc, mode){
   var sensPiece = {};
   pieces.forEach(function(p){
     if (p.sens) { sensPiece[p.id] = p.sens; return; }
+    /* sens que l'eau d'une source y suit jusqu'à son exutoire, sinon d'après la distance aux exutoires (un trop-plein qui part d'un puisard,
+       un tuyau qui part d'une boîte au réseau indiqué : vers l'aval) */
+    if (sensSource[p.id]) { sensPiece[p.id] = sensSource[p.id]; return; }
     var da = dist[p.a], db = dist[p.b];
     if (da != null && db != null && da !== db) sensPiece[p.id] = da > db ? 1 : -1;
   });
@@ -778,7 +798,7 @@ function analyser(doc, mode){
     resPt[id] = q.length === 1 ? q[0] : q.length > 1 ? 'MIX' : (ty.role === 'note' ? 'ANN' : 'INC');
   });
   Object.keys(lignes).forEach(function(id){ if (lignes[id].t === 'col') lignes[id].v.forEach(function(v){ if (v.a && objs[v.a] && (resPt[v.a] === 'INC' || objs[v.a].t === 'regard_pub' && !RES[objs[v.a].p.res])) resPt[v.a] = RES[lignes[id].p.res] ? lignes[id].p.res : 'EU'; }); });
-  var an = {mode: mode, objs: objs, lignes: lignes, pieces: pieces, adj: adj, resObj: resObj, resPiece: resPiece, sensPiece: sensPiece, resPt: resPt, boites: boites, dist: dist};
+  var an = {mode: mode, objs: objs, lignes: lignes, pieces: pieces, adj: adj, resObj: resObj, resPiece: resPiece, sensPiece: sensPiece, sensSource: sensSource, resPt: resPt, boites: boites, dist: dist};
   /* après l'avant-projet : l'état des lieux sert de référence (numéros d'anomalie, réseau des tracés à supprimer) */
   if (mode === 'avp') an.ref = analyser(doc, 'edl');
   an.anomalies = reglesAnomalies(doc, an);
@@ -2968,6 +2988,13 @@ function editeur(racine, opts){
     if (!lf || lf.k !== 'ln' || !lf.v.length){ S.finAuto = null; return; }
     var sf2 = S.vue.ecran(arr.x, arr.y); if (!fa.id) fa.id = lf.v[lf.v.length - 1].a || null; fa.gx = sf2.x - sf.x; fa.gy = sf2.y - sf.y;
   }
+  /* sens de l'eau sur le segment k0-k1 du tuyau l : celui indiqué sur le tuyau, sinon celui que l'eau d'une source y suit jusqu'à son
+     exutoire (analyse d'avant la pose) ; 0 s'il n'est pas connu */
+  function sensEau(l, k0, k1){
+    var sf = l.p && (l.p.sens === 1 || l.p.sens === -1) ? l.p.sens : 0;
+    if (!sf && S.an && S.an.sensSource) S.an.pieces.forEach(function(pc){ if (!sf && pc.l.id === l.id && pc.i0 <= k0 && pc.i1 >= k1 && S.an.sensSource[pc.id]) sf = S.an.sensSource[pc.id]; });
+    return sf;
+  }
   function poserObjet(t, x, y){
     instantane();
     var w = S.vue.monde(x, y), o = {id: uid(), k: 'pt', t: t, x: w.x, y: w.y, p: defautsPt(t), lab: null};
@@ -2993,7 +3020,11 @@ function editeur(racine, opts){
     if (!prend && !boutSous && T[t].mur && aideOn('bati')){ var af = accrocheLibre(x, y, {}), sa = af.aide ? S.vue.ecran(af.x, af.y) : null;
       if (sa && !S.zones.some(function(z){ return z.type === 'pt' && !z.zone && Math.hypot(sa.x - z.x, sa.y - z.y) < Math.max(4, z.r / 2); })){ o.x = af.x; o.y = af.y; montrerAide(af); } }
     S.doc.el.push(o);
-    if (boutSous){ var lb = el(boutSous.ligne); if (lb && (boutSous.i === 0 || boutSous.i === lb.v.length - 1)){ lb.v[boutSous.i].a = o.id; lb.v[boutSous.i].x = o.x; lb.v[boutSous.i].y = o.y; } }
+    if (boutSous){ var lb = el(boutSous.ligne); if (lb && (boutSous.i === 0 || boutSous.i === lb.v.length - 1)){ lb.v[boutSous.i].a = o.id; lb.v[boutSous.i].x = o.x; lb.v[boutSous.i].y = o.y;
+      /* orientation : le segment d'extrémité, comme sur un bout libre touché (une gargouille au premier sommet regarde vers la sortie) */
+      var Pb = lignePts(lb, idx()), b0 = boutSous.i > 0 ? boutSous.i - 1 : 0, b1 = boutSous.i > 0 ? boutSous.i : 1;
+      if (T[t].role === 'exutoire' && boutSous.i === 0){ b0 = 1; b1 = 0; }
+      if (Pb[b0] && Pb[b1] && Math.hypot(Pb[b1].x - Pb[b0].x, Pb[b1].y - Pb[b0].y) > 1e-6){ angSeg = Math.atan2(Pb[b1].y - Pb[b0].y, Pb[b1].x - Pb[b0].x); if (b0 < b1) segRef = {l: lb, k0: b0, k1: b1}; } } }
     /* le symbole dessiné d'un ouvrage de passage couvre un raccord posé d'office du tuyau touché (tuyaux qui s'y rejoignent) : l'ouvrage prend
        sa place, tous ces tuyaux passent par lui (au lieu d'entrer dans un seul, selon le côté du doigt) ; un raccord qui porte une anomalie
        reste, l'ouvrage se pose alors comme avant */
@@ -3006,6 +3037,11 @@ function editeur(racine, opts){
       S.doc.el.forEach(function(l2){ if (l2.k === 'ln' && l2.t === 'col') l2.v.forEach(function(v){ if (v.a) aj[v.a] = true; }); });
       if (lt) lt.v.forEach(function(v){ var e = v.a && el(v.a); if (!e || e.k !== 'pt' || e.t !== 'jonction' || !jonctionAuto(e) || gj[e.id] || aj[e.id]) return;
         var q = S.vue.ecran(e.x, e.y), d = Math.hypot(q.x - pa.x, q.y - pa.y); if (d < rNo && d < dj){ dj = d; rj = e; } });
+      /* … sauf si un bout libre du tuyau touché est sous le symbole, plus près du doigt que ce raccord : l'ouvrage prend ce bout (le doigt le
+         visait et l'a manqué de peu) */
+      if (rj && lt){ var Pq = lignePts(lt, idx()), qr = S.vue.ecran(rj.x, rj.y), dr = Math.hypot(qr.x - x, qr.y - y), kb = -1, db = Infinity;
+        [0, lt.v.length - 1].forEach(function(k){ if (lt.v[k].a || !Pq[k]) return; var qb = S.vue.ecran(Pq[k].x, Pq[k].y), d2 = Math.hypot(qb.x - x, qb.y - y); if (d2 < rNo && d2 < dr && d2 < db){ db = d2; kb = k; } });
+        if (kb >= 0){ rj = null; a = {type: 'som', ligne: lt.id, i: kb, x: Pq[kb].x, y: Pq[kb].y, a: null}; } }
       if (rj){
         /* orientation (clapet, caniveau, gargouille) : le segment du tuyau touché qui arrive au raccord ; une gargouille regarde vers le
            raccord (l'eau sort là), les autres suivent le tracé (le clapet ensuite le sens de l'eau) */
@@ -3014,8 +3050,10 @@ function editeur(racine, opts){
           var q0 = a.type === 'seg' ? (kr === a.i - 1 || kr === a.i ? a.i - 1 : kr < a.i - 1 ? kr : kr - 1) : (kr < a.i ? kr : kr - 1); q0 = Math.max(0, Math.min(q0, Pt.length - 2));
           var q1 = q0 + 1;
           if (Pt[q0] && Pt[q1] && Math.hypot(Pt[q1].x - Pt[q0].x, Pt[q1].y - Pt[q0].y) > 1e-6){
-            if (T[t].role === 'exutoire' && kr === q0) angSeg = Math.atan2(Pt[q0].y - Pt[q1].y, Pt[q0].x - Pt[q1].x);
-            else { angSeg = Math.atan2(Pt[q1].y - Pt[q0].y, Pt[q1].x - Pt[q0].x); segRef = {l: lt, k0: q0, k1: q1}; }
+            /* gargouille : dans le sens de l'eau sur ce segment s'il est connu (l'eau sort là), sinon vers le raccord */
+            var se = T[t].role === 'exutoire' ? sensEau(lt, q0, q1) : 0;
+            if (T[t].role === 'exutoire' && (se === -1 || (!se && kr === q0))) angSeg = Math.atan2(Pt[q0].y - Pt[q1].y, Pt[q0].x - Pt[q1].x);
+            else { angSeg = Math.atan2(Pt[q1].y - Pt[q0].y, Pt[q1].x - Pt[q0].x); if (T[t].role !== 'exutoire') segRef = {l: lt, k0: q0, k1: q1}; }
           }
         }
         o.x = rj.x; o.y = rj.y;
@@ -3037,12 +3075,9 @@ function editeur(racine, opts){
     else if (a.type === 'seg' && passage && t !== 'zone'){ insererDansLigne(S.doc, o, a); var ls = el(a.ligne), Ps = ls ? lignePts(ls, idx()) : []; if (Ps[a.i]){ angSeg = Math.atan2(Ps[a.i].y - Ps[a.i - 1].y, Ps[a.i].x - Ps[a.i - 1].x); segRef = {l: ls, k0: a.i - 1, k1: a.i}; } }
     if (T[t].oriente && aideOn('orienter')){
       var ang = angSeg, ar2 = ang == null ? areteProche(o, 3) : null;
-      /* un clapet suit le sens de l'eau : celui indiqué sur le tuyau, sinon celui que le dessin donne (analyse d'avant la pose) */
-      if (ang != null && t === 'clapet' && segRef){
-        var sf = segRef.l.p && (segRef.l.p.sens === 1 || segRef.l.p.sens === -1) ? segRef.l.p.sens : 0;
-        if (!sf && S.an) S.an.pieces.forEach(function(pc){ if (!sf && pc.l.id === segRef.l.id && pc.i0 <= segRef.k0 && pc.i1 >= segRef.k1 && S.an.sensPiece[pc.id]) sf = S.an.sensPiece[pc.id]; });
-        if (sf === -1) ang += Math.PI;
-      }
+      /* un clapet suit le sens de l'eau : celui indiqué sur le tuyau, sinon celui que l'eau d'une source y suit jusqu'à son exutoire (analyse
+         d'avant la pose), sinon le sens du tracé */
+      if (ang != null && t === 'clapet' && segRef && sensEau(segRef.l, segRef.k0, segRef.k1) === -1) ang += Math.PI;
       if (ar2){
         ang = ar2.ang;
         if (t === 'gargouille'){
