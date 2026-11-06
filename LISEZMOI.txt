@@ -62,6 +62,10 @@ CROQUIS DE TERRAIN (facultatif)
   « à arbitrer » ou « écartée » sur le croquis n'entre pas dans le
   dossier. Une anomalie saisie à la main dans le dossier peut être placée
   sur le plan (« Placer sur le croquis »).
+- Fosse septique : elle ne donne une anomalie que si l'eau ne peut pas
+  l'éviter ; une fosse hors fonction grâce à un by-pass n'en donne pas.
+  Sur l'état des lieux, un ouvrage « Projet » posé là où se rejoignent
+  des tuyaux existants les relie comme un raccord.
 - Tant qu'on n'y touche pas, une anomalie déduite suit le dessin (texte mis
   à jour, retirée si le dessin ne la produit plus). Dès qu'on la modifie
   (texte, photo, localisation), c'est elle qui fait foi : le dessin ne la
