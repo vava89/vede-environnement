@@ -719,6 +719,8 @@ function analyser(doc, mode){
     var dep = p.sens === 1 ? [p.b] : p.sens === -1 ? [p.a] : [p.a, p.b];
     var r = parcours(dep), nets = [];
     r.term.forEach(function(t){ var k = /^(EU|EP|UN)$/.test(t.res) ? t.res : (t.res === 'INF' || t.res === 'GARG' || t.res === 'MILIEU' ? 'EP' : t.res); if (nets.indexOf(k) < 0) nets.push(k); });
+    /* toujours dans le même ordre (EU, EP, unitaire) : le message « le dessin le relie à » ne dépend pas de l'ordre du dessin */
+    nets.sort(function(x, y){ var a = ['EU', 'EP', 'UN'].indexOf(x), b = ['EU', 'EP', 'UN'].indexOf(y); return (a < 0 ? 9 : a) - (b < 0 ? 9 : b); });
     var expl = RES[p.l.p.res] ? p.l.p.res : null, res = expl || (nets.length === 1 ? nets[0] : nets.length > 1 ? 'MIX' : 'INC');
     resPiece[p.id] = {res: res, deduit: !expl, nets: nets, contredit: !!(expl && nets.length && nets.indexOf(expl) < 0 && !(nets.length === 1 && nets[0] === 'UN'))};
     [p.a, p.b].forEach(function(n){ if (!objs[n]) return; var q = resNoeud[n] || (resNoeud[n] = {}); nets.forEach(function(x){ q[x] = true; }); if (expl) q[expl] = true; });
@@ -766,6 +768,13 @@ function listeEt(a){ return a.length > 1 ? a.slice(0, -1).join(', ') + ' et ' + 
 function reglesAnomalies(doc, an){
   var out = [], vu = {};
   function ajoute(a){ if (vu[a.cle]) return; vu[a.cle] = true; a.auto = true; out.push(a); }
+  /* « pas de boîte » : une anomalie par collecteur et réseau ; quand plusieurs appareils y arrivent par des branchements différents, elle
+     se place à l'entrée de celui qui a le plus petit identifiant (le premier posé), quel que soit l'ordre des objets dans le dessin */
+  var sbSrc = {};
+  Object.keys(an.resObj).forEach(function(id){
+    var r = an.resObj[id], t0 = r.etat === 'ok' && !r.boite && r.term.filter(function(t){ return t.col; })[0]; if (!t0) return;
+    var k = 'sansboite:' + t0.id + ':' + t0.res; if (!sbSrc[k] || id < sbSrc[k]) sbSrc[k] = id;
+  });
   Object.keys(an.resObj).forEach(function(id){
     var o = an.objs[id], ty = T[o.t], r = an.resObj[id], lib = libObj(o);
     if (r.etat === 'ok'){
@@ -780,8 +789,8 @@ function reglesAnomalies(doc, an){
       if (ty.nat === 'EU' && r.fosse && an.objs[r.fosse]) ajoute({cle: 'fosse:' + r.fosse, objId: r.fosse, reseau: 'EU', obs: 'Fosse septique : eaux usées traversant la fosse', preco: 'Suppression de la fosse septique et raccordement direct au branchement EU', nc: true, codes: ['suppFosse'], cat: 'autre'});
       if (ty.nat === 'EP' && r.fosse && an.objs[r.fosse]) ajoute({cle: 'ep-fosse:' + id, objId: id, reseau: 'EP', obs: lib + ' : rejet dans la fosse septique', preco: 'Déconnexion des EP de la fosse ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['decoEP', 'raccEPep'], cat: 'inversion'});
       if (r.term.some(function(t){ return t.col; }) && !r.boite){
-        var t0 = r.term.filter(function(t){ return t.col; })[0], ent = r.entree[t0.id] || id;
-        ajoute({cle: 'sansboite:' + t0.id + ':' + t0.res, objId: an.objs[ent] ? ent : id, reseau: t0.res === 'EP' ? 'EP' : 'EU', obs: 'Branchement ' + libRes(t0.res) + ' : pas de boîte de branchement en limite de propriété', preco: 'Création d\'une boîte de branchement ' + libRes(t0.res) + ' en limite de propriété, sur le branchement existant', nc: true, codes: ['boiteEx_' + (t0.res === 'UN' ? 'UN' : t0.res)], cat: 'regard', arbitrer: true});
+        var t0 = r.term.filter(function(t){ return t.col; })[0], s0 = sbSrc['sansboite:' + t0.id + ':' + t0.res] || id, ent = an.resObj[s0].entree[t0.id] || s0;
+        ajoute({cle: 'sansboite:' + t0.id + ':' + t0.res, objId: an.objs[ent] ? ent : s0, reseau: t0.res === 'EP' ? 'EP' : 'EU', obs: 'Branchement ' + libRes(t0.res) + ' : pas de boîte de branchement en limite de propriété', preco: 'Création d\'une boîte de branchement ' + libRes(t0.res) + ' en limite de propriété, sur le branchement existant', nc: true, codes: ['boiteEx_' + (t0.res === 'UN' ? 'UN' : t0.res)], cat: 'regard', arbitrer: true});
       }
     }
     if (o.t === 'descente' && o.p.visitable === 'non') ajoute({cle: 'dep-nv:' + id, objId: id, reseau: 'EP', obs: 'Descente EP' + (o.p.cote ? ' ' + (o.p.cote === 'arriere' ? 'arrière' : 'avant') : '') + ' : non visitable', preco: 'Pose d\'un té de visite en pied de descente', nc: true, codes: [], cat: 'descente'});
