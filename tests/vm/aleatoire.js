@@ -1,6 +1,6 @@
 // Croquis aléatoires fictifs (sans navigateur) : l'analyse (état des lieux et avant-projet), les anomalies, la conclusion et la mise à jour
-// du dossier ne lèvent aucune exception, et le résultat ne dépend pas de l'ordre du dessin (tracés dans cinq ordres, objets dans deux),
-// fosse septique comprise (contournée par un by-pass, elle ne compte pas : voir fosse-contournee.js).
+// du dossier ne lèvent aucune exception, et le résultat (flèches du plan comprises) ne dépend pas de l'ordre du dessin (tracés dans cinq
+// ordres, objets dans deux), fosse septique comprise (contournée par un by-pass, elle ne compte pas : voir fosse-contournee.js).
 // usage : node tests/vm/aleatoire.js [n=1500] [graine=1] [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, melange, copie, rapport} = require('./charger.js');
@@ -15,7 +15,8 @@ function signature(d, mode){
       + (r.conflit ? ' c=' + r.conflit.join(',') : '') + (r.ambigu ? ' a=' + r.ambigu.join(',') + (r.ambiguArrivee ? '+' : '') : '') + (r.sortiesLibres ? ' sl=' + r.sortiesLibres.length : ''); }).join(' ');
   const anos = L.map(a => a.cle + '@' + a.objId + ':' + a.st).sort().join(',');
   const ctrl = an.controles.map(x => x.niveau + ':' + x.txt).sort().join(' ; ');
-  return s + ' | ' + anos + ' | ' + c + ' | ' + ctrl;
+  const fl = an.pieces.map(p => p.id + (an.sensPiece[p.id] > 0 ? '>' : an.sensPiece[p.id] < 0 ? '<' : '=')).sort().join(' ; ');
+  return s + ' | ' + anos + ' | ' + c + ' | ' + ctrl + ' | ' + fl;
 }
 /* mise à jour du dossier : aucune exception, une seconde synchronisation ne change plus rien */
 function dossier(d){

@@ -643,13 +643,19 @@ function analyser(doc, mode){
      main reste un nœud. De même un point de test ou une zone suspecte (croquis d'avant) au bout d'un seul tuyau : une annotation ne change
      pas l'analyse ; entre deux tuyaux, il les relie. Sur l'avant-projet, le tuyau à supprimer d'un raccord n'en fait pas une extrémité libre : la branche qui
      y reste n'a plus d'exutoire après travaux */
-  /* sens de l'eau de chaque pièce que l'eau d'une source parcourt jusqu'à ses cibles (plus courts chemins) : +1 dans le sens du tracé, -1 à
-     l'inverse, 0 si deux sources la parcourent en sens contraires ; une pièce qu'aucune source ne parcourt n'en a pas (queue au-delà d'un
-     raccord, trop-plein d'un puisard, tuyau après une boîte au réseau indiqué) */
+  /* sens de l'eau de chaque pièce que l'eau d'une source parcourt sûrement : celles que ses plus courts chemins vers chacune de ses cibles
+     empruntent toutes ; +1 dans le sens du tracé, -1 à l'inverse, 0 si deux sources la parcourent en sens contraires. Une pièce qui ne mène
+     qu'à certaines cibles n'en a pas : l'eau peut aller ailleurs (bout libre qui peut être une arrivée, tuyau après une boîte au réseau
+     indiqué, queue au-delà d'un raccord, trop-plein d'un puisard) ; le sens y vient du tracé indiqué ou de la distance aux exutoires */
   var sensSource = {};
   function noterSens(pr, cibles){
-    var vers = {}, file = []; cibles.forEach(function(n){ if (!vers[n]){ vers[n] = true; file.push(n); } });
-    while (file.length){ var v = file.shift(); (pr[v] || []).forEach(function(q){ var sg = q.p.a === q.n ? 1 : -1, o = sensSource[q.p.id]; sensSource[q.p.id] = o == null || o === sg ? sg : 0; if (!vers[q.n]){ vers[q.n] = true; file.push(q.n); } }); }
+    var compte = {}, sg = {}, nc = 0;
+    cibles.forEach(function(n, i){
+      if (cibles.indexOf(n) !== i) return; nc++;
+      var vers = {}, vu = {}, file = [n]; vers[n] = true;
+      while (file.length){ var v = file.shift(); (pr[v] || []).forEach(function(q){ if (!vu[q.p.id]){ vu[q.p.id] = true; compte[q.p.id] = (compte[q.p.id] || 0) + 1; sg[q.p.id] = q.p.a === q.n ? 1 : -1; } if (!vers[q.n]){ vers[q.n] = true; file.push(q.n); } }); }
+    });
+    Object.keys(compte).forEach(function(id){ if (compte[id] !== nc) return; var o = sensSource[id]; sensSource[id] = o == null || o === sg[id] ? sg[id] : 0; });
   }
   var lieHorsPlan = {}, lignesDe = {};
   doc.el.forEach(function(e){ if (e.k === 'ln') e.v.forEach(function(v){ if (!v.a) return; if (e.t === 'tr' || e.t === 'col') (lignesDe[v.a] = lignesDe[v.a] || {})[e.id] = true; if (mode !== 'avp' && !actif(e, mode)) lieHorsPlan[v.a] = true; }); });
