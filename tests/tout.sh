@@ -11,7 +11,7 @@ for a in "$@"; do
   esac
 done
 ec=0
-for t in analyse copie avant-projet aleatoire; do
+for t in analyse regles copie avant-projet aleatoire; do
   # shellcheck disable=SC2086
   node "tests/vm/$t.js" $opts || ec=1
 done

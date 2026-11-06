@@ -28,6 +28,7 @@ Chaque fichier affiche son bilan (« analyse : 68/68 ») et sort en erreur au pr
 | --- | --- |
 | `vm/charger.js` | outils communs : chargement de `croquis/croquis.js` hors navigateur, croquis fictifs en abrégé, ordres du dessin |
 | `vm/analyse.js` | matrice d'analyse : exutoire, réseau (présumé ou non), messages « manque », conclusion proposée, même résultat dans quatre ordres du dessin |
+| `vm/regles.js` | règles du constat : siphon de garage en EU, siphon de sol en EP, rejets interdits, descente non visitable (NC), tampon béton (NC en EU, réserve en EP), fosse traversée ou en cul-de-sac, boîte sur le mauvais collecteur, conclusion |
 | `vm/copie.js` | fiche et dossier : une anomalie retirée puis revenue garde la retouche du technicien, ou reprend le texte du dessin |
 | `vm/avant-projet.js` | avant-projet : sortie laissée libre après travaux (Contrôles et plan PDF), ouvrage « À supprimer » entre deux tuyaux |
 | `vm/aleatoire.js` | croquis aléatoires (`vm/generateur.js`) : aucune exception, même résultat quel que soit l'ordre du dessin, dossier stable |
