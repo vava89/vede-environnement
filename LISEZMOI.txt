@@ -58,6 +58,17 @@ CROQUIS DE TERRAIN (facultatif)
   boîte de branchement, on indique sa position par rapport à la limite de
   propriété (côté intérieur ou extérieur, distance en mètres) ; l'étiquette
   du plan la reprend, par exemple « à 0,80 m de la limite, intérieur ».
+  Avec le fond de plan, la fiche mesure la boîte dans la parcelle de
+  l'installation : la parcelle fermée qui contient le plus d'objets
+  existants dessinés (sans elle, en cas d'égalité par exemple, rien
+  n'est mesuré). La fiche écrit « Sur le plan : ≈ 0,80 m intérieur »
+  et propose le côté en pointillé ; à moins de 0,30 m de la limite,
+  elle écrit « côté à confirmer » et ne propose rien. « Reprendre la
+  mesure » recopie cette mesure, arrondie à 5 cm, et le côté s'il est
+  sûr. « Placer sur le plan », actif une fois la distance et le côté
+  saisis, pose la boîte à cette distance et de ce côté. Près d'un coin,
+  si la boîte arrivait plus près d'un autre bord, elle ne bouge pas et
+  un message le dit.
   Le bouton « Cotes » pose un objet à une distance mesurée d'une façade ou
   d'une limite de parcelle, dans son prolongement ou le long d'elle.
 - Les anomalies déduites du dessin (EU vers EP, EP vers EU, fosse, descente

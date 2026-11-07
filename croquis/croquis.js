@@ -270,9 +270,39 @@ function normaleExt(ligne, i){
   var t = unite(a, b);
   return t ? (ligne.aire > 0 ? cw(t) : ccw(t)) : null;
 }
+/* Parcelle de l'installation (souhait 10, décision D5). lignes : lignes de référence (lignesRef) ; objets : les éléments du croquis (doc.el).
+   Parmi les lignes de nature 'limite', fermées et d'aire non nulle, rend celle qui contient le plus d'objets ponctuels existants (k 'pt',
+   ni « projet » ni « à supprimer ») ; un tracé, un escalier ou un texte ne compte pas ; un objet sur le bord n'est pas dedans.
+   Égalité au plus haut, aucun objet contenu, aucune limite fermée ou entrée invalide : null, sans exception. */
+function parcelleInstallation(lignes, objets){
+  if (!Array.isArray(lignes) || !Array.isArray(objets)) return null;
+  var pts = objets.filter(function(o){ var st = o && o.p && o.p.st; return !!o && typeof o === 'object' && o.k === 'pt' && estPt(o) && st !== 'projet' && st !== 'supprimer'; });
+  var best = null, nBest = 0, egal = false;
+  lignes.forEach(function(l){
+    if (!l || typeof l !== 'object' || l.nat !== 'limite' || !l.ferme || !Array.isArray(l.P) || l.P.length < 3 || !l.P.every(estPt)) return;
+    if (typeof l.aire !== 'number' || !isFinite(l.aire) || l.aire === 0) return;
+    /* boîte englobante d'abord : un fond cadastral compte des centaines de parcelles */
+    var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    l.P.forEach(function(q){ x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); });
+    var n = pts.filter(function(o){ return o.x > x0 && o.x < x1 && o.y > y0 && o.y < y1 && dansPolygone(o, l.P) === true; }).length;
+    if (n > nBest){ best = l; nBest = n; egal = false; }
+    else if (n && n === nBest) egal = true;
+  });
+  return best && !egal ? best : null;
+}
+/* Distance d'une boîte à la limite de sa parcelle (ligne fermée de lignesRef) : {d, cote, douteux, proj, seg}. cote : 'int' si la boîte est
+   dans la parcelle, 'ext' sinon (sur le bord : 'ext') ; douteux : à moins de LIM_DOUTE (0,30 m) du bord, le côté est à confirmer ; proj et
+   seg comme distPolygone (pied sur le côté le plus proche). Ligne ouverte ou sans sommets, point invalide : null. */
+var LIM_DOUTE = .3;
+function distanceLimite(p, ligne){
+  if (!estPt(p) || !ligne || typeof ligne !== 'object' || !ligne.ferme || !Array.isArray(ligne.P) || ligne.P.length < 3) return null;
+  var r = distPolygone(p, ligne.P), dans = r ? dansPolygone(p, ligne.P) : null;
+  if (!r || dans == null) return null;
+  return {d: r.d, cote: dans ? 'int' : 'ext', douteux: r.d < LIM_DOUTE, proj: r.proj, seg: r.seg};
+}
 VC.geo = {cw: cw, ccw: ccw, unite: unite, placer: placer, mesurer: mesurer, coinGauche: coinGauche, cotesAlignes: cotesAlignes,
   dansPolygone: dansPolygone, distPolygone: distPolygone, piedPerp: piedPerp, interDroites: interDroites, milieu: milieu,
-  lignesRef: lignesRef, normaleExt: normaleExt};
+  lignesRef: lignesRef, normaleExt: normaleExt, parcelleInstallation: parcelleInstallation, distanceLimite: distanceLimite};
 
 /* ---------- Couleurs AutoCAD (ACI), approchées : 1 à 9 exactes, 10 à 249 par teinte, 250 à 255 en gris ---------- */
 var ACI = (function(){
@@ -2933,6 +2963,18 @@ function editeur(racine, opts){
     }
     changement();
   }
+  /* objet ponctuel déplacé en (x, y) (« Placer sur le plan » de la boîte en limite, déplacement par cotes) : seuls o.x et o.y changent, les
+     bouts de tracé attachés suivent (synchroSommets, dans changement) ; un seul pas d'annulation ; ni accroche ni raccord, contrairement au
+     glissé. Rend false si rien ne bouge. */
+  function deplacerObjet(id, x, y){
+    var o = el(id);
+    if (!o || o.k !== 'pt' || typeof x !== 'number' || typeof y !== 'number' || !isFinite(x) || !isFinite(y)) return false;
+    if (Math.hypot(x - o.x, y - o.y) <= GEO_EPS) return false;
+    instantane();
+    o.x = x; o.y = y;
+    changement(); rendreVisible(o.id);
+    return true;
+  }
 
   /* --- toucher bref : selon l'outil --- */
   /* toucher sur le plan : comme le clic qu'il ne produit plus, il ramène le focus sur l'éditeur (champ de saisie quitté, saisie enregistrée,
@@ -3969,7 +4011,8 @@ function editeur(racine, opts){
     o = o || {}; var multi = Array.isArray(val);
     return '<div class="vc-chips" role="group"' + (o.label ? ' aria-label="' + esc(o.label) + '"' : '') + '>' + options.map(function(op){
       var on = multi ? val.indexOf(op[0]) >= 0 : String(val) === String(op[0]);
-      return '<button type="button" class="vc-chip' + (o.cls ? ' ' + o.cls : '') + '" data-a="' + (o.a || 'prop') + '" data-k="' + k + '" data-v="' + esc(op[0]) + '"' + (multi ? ' data-multi="1"' : '') + (o.garder ? ' data-garder="1"' : '') + ' aria-pressed="' + on + '">' + esc(op[1]) + '</button>';
+      /* o.propose : valeur proposée d'après le plan, puce en pointillé tant qu'elle n'est pas choisie (rien n'est écrit) */
+      return '<button type="button" class="vc-chip' + (o.cls ? ' ' + o.cls : '') + (!on && o.propose != null && String(o.propose) === String(op[0]) ? ' vc-propose' : '') + '" data-a="' + (o.a || 'prop') + '" data-k="' + k + '" data-v="' + esc(op[0]) + '"' + (multi ? ' data-multi="1"' : '') + (o.garder ? ' data-garder="1"' : '') + ' aria-pressed="' + on + '">' + esc(op[1]) + '</button>';
     }).join('') + '</div>';
   }
   function champ(lib, html, aide){ return '<div class="vc-champ"><div class="vc-lab">' + lib + (aide ? ' <small>' + aide + '</small>' : '') + '</div>' + html + '</div>'; }
@@ -3986,6 +4029,50 @@ function editeur(racine, opts){
     if (fosseArbitrage(S.doc, S.an, e.id) === 'arbitrer' && !a.length) return {cls: 'att', txt: txt + ' · fosse septique à arbitrer : une extrémité laissée libre peut être une arrivée'};
     return a.length ? {cls: 'ko', txt: txt + ' · anomalie' + (a.length > 1 ? 's' : '') + ' n° ' + a.map(function(x){ return x.num; }).join(', ')} : {cls: 'ok', txt: txt};
   }
+  /* boîte en limite de propriété (souhait 10, décision D5) : parcelle de l'installation (VCroquis.geo.parcelleInstallation), prise parmi les
+     limites du fond affiché, et distance de la boîte à son bord : {ligne, d, cote, douteux, proj, seg}. null pour un autre objet, sans fond
+     affiché (fond masqué, calque décoché) ou sans parcelle de l'installation. Rien n'est gardé : la mesure suit le plan */
+  function limitePlan(e){
+    if (!e || e.k !== 'pt' || !T[e.t] || !T[e.t].boite) return null;
+    var f = S.aff.fond ? S.fond : null; if (!f) return null;
+    var par = parcelleInstallation(lignesRef(null, f, offFond(f), ['limite']), S.doc.el), m = par ? distanceLimite(e, par) : null;
+    return m ? {ligne: par, d: m.d, cote: m.cote, douteux: m.douteux, proj: m.proj, seg: m.seg} : null;
+  }
+  /* « Reprendre la mesure » : distance du plan arrondie à 5 cm (deux décimales, virgule) et côté, en un seul pas d'annulation ; côté douteux
+     (moins de 0,30 m) : la distance seule, le côté reste celui du technicien. Rien ne change : aucun pas */
+  function reprendreLimite(e){
+    var m = limitePlan(e); if (!m) return;
+    var dist = frNum(Math.round(m.d * 20) / 20, 2);
+    if (e.p.limDist === dist && (m.douteux || e.p.limCote === m.cote)) return;
+    instantane(); e.p.limDist = dist; if (!m.douteux) e.p.limCote = m.cote;
+    apresProp(e);
+  }
+  /* « Placer sur le plan » : la boîte va sur la perpendiculaire au bord de limite le plus proche, à la distance saisie, du côté choisi
+     (intérieur : vers la parcelle, à l'opposé de la normale extérieure) ; les bouts de tuyau attachés suivent (deplacerObjet). Rien ne bouge,
+     avec un message, quand le bord est ambigu (pied de la perpendiculaire sur un sommet : boîte en face d'un coin) ou quand la boîte
+     arriverait plus près d'un autre bord (près d'un coin, parcelle étroite) : la mesure du plan contredirait alors la saisie */
+  function placerLimite(e){
+    var m = limitePlan(e); if (!m) return;
+    var dd = num(e.p.limDist), c = e.p.limCote;
+    if (dd == null || dd < 0 || (c !== 'int' && c !== 'ext')) return;
+    var P = m.ligne.P, A = P[m.seg], B = P[(m.seg + 1) % P.length], n = normaleExt(m.ligne, m.seg);
+    if (!n || Math.hypot(m.proj.x - A.x, m.proj.y - A.y) <= GEO_EPS || Math.hypot(m.proj.x - B.x, m.proj.y - B.y) <= GEO_EPS){
+      toast('La boîte est en face d\'un coin de la limite : rapprochez-la du bord voulu, puis touchez de nouveau « Placer sur le plan »'); return;
+    }
+    /* point d'arrivée remesuré sur toute la limite : à 5 mm près de la distance saisie, et du côté choisi ; à 5 mm ou moins, la boîte est
+       sur la limite et son côté n'est pas vérifié (un point du bord est dit extérieur) */
+    var s = c === 'ext' ? 1 : -1, cible = {x: m.proj.x + s * dd * n.x, y: m.proj.y + s * dd * n.y}, v = distanceLimite(cible, m.ligne);
+    if (!v || Math.abs(v.d - dd) > .005 || (dd > .005 && v.cote !== c)){
+      toast('À cette distance, la boîte serait plus près d\'un autre bord de la limite : rapprochez-la du bord voulu, puis touchez de nouveau « Placer sur le plan »'); return;
+    }
+    deplacerObjet(e.id, cible.x, cible.y);
+  }
+  /* « Placer sur le plan » grisé ou non d'après la distance v : le texte du champ pendant la frappe, sans attendre qu'il soit quitté (sinon
+     le toucher qui le quitte tombe sur un bouton encore grisé et il est perdu) ; « Reprendre la mesure » grisé : pas de parcelle */
+  function etatPlacer(e, v){
+    var bp = pcorps.querySelector('button[data-a="limPlacer"]'), bm = pcorps.querySelector('button[data-a="limMesure"]'), d = num(v);
+    if (bp && bm) bp.disabled = bm.disabled || d == null || d < 0 || (e.p.limCote !== 'int' && e.p.limCote !== 'ext');
+  }
   function ficheHtml(e){
     var h = '', ty, I = idx();
     if (e.k === 'pt' && !T[e.t]){
@@ -4000,9 +4087,17 @@ function editeur(racine, opts){
       if (e.t === 'descente'){ h += champ('Façade', chipsHtml('cote', [['avant', 'Avant'], ['arriere', 'Arrière']], e.p.cote)); h += champ('Visitable', chipsHtml('visitable', OUI_NON, e.p.visitable)); }
       if (ty.role === 'source') h += champ('Niveau', chipsHtml('niv', NIV, e.p.niv));
       if (ty.boite || e.t === 'regard_pub') h += champ('Réseau', chipsHtml('res', [['EU', 'EU'], ['EP', 'EP'], ['UN', 'Unitaire']], e.p.res), RES[e.p.res] ? '' : 'déduit du dessin tant qu\'il n\'est pas indiqué');
-      /* boîte en limite de propriété (souhait 10) : côté et distance, facultatifs, repris sur l'étiquette (texteLimite) */
-      if (ty.boite) h += champ('Limite de propriété', chipsHtml('limCote', [['int', 'Intérieur'], ['ext', 'Extérieur']], e.p.limCote || '', {label: 'Côté de la limite de propriété'})
-        + saisie('limDist', e.p.limDist, {num: true, ph: 'distance, ex. 0,80', lab: 'Distance à la limite de propriété en mètres'}), 'côté de la boîte, distance en mètres (0 : en limite)');
+      /* boîte en limite de propriété (souhait 10) : côté et distance, facultatifs, repris sur l'étiquette (texteLimite). Mesure lue sur le
+         plan (limitePlan) : ligne « Sur le plan », côté proposé en pointillé tant que le technicien n'en a choisi aucun (sûr seulement),
+         « Reprendre la mesure » et « Placer sur le plan » ; sans parcelle de l'installation, ni ligne ni proposition, boutons grisés */
+      if (ty.boite){
+        var limP = limitePlan(e), limD = num(e.p.limDist), limOk = !!limP && limD != null && limD >= 0 && (e.p.limCote === 'int' || e.p.limCote === 'ext');
+        h += champ('Limite de propriété', chipsHtml('limCote', [['int', 'Intérieur'], ['ext', 'Extérieur']], e.p.limCote || '', {label: 'Côté de la limite de propriété', propose: !e.p.limCote && limP && !limP.douteux ? limP.cote : null})
+          + saisie('limDist', e.p.limDist, {num: true, ph: 'distance, ex. 0,80', lab: 'Distance à la limite de propriété en mètres'})
+          + (limP ? '<p class="vc-fixe vc-limplan">Sur le plan : ≈ ' + frNum(limP.d, 2) + ' m ' + (limP.douteux ? 'côté à confirmer' : limP.cote === 'int' ? 'intérieur' : 'extérieur') + '</p>' : '')
+          + '<div class="vc-chips vc-limbt"><button type="button" class="vc-chip" data-a="limMesure"' + (limP ? '' : ' disabled') + '>Reprendre la mesure</button>'
+          + '<button type="button" class="vc-chip" data-a="limPlacer"' + (limOk ? '' : ' disabled') + '>Placer sur le plan</button></div>', 'côté de la boîte, distance en mètres (0 : en limite)');
+      }
       if (ty.regard && e.t !== 'regard_pub'){
         h += champ('Tampon', chipsHtml('tampon', TAMPON, e.p.tampon));
         h += champ('Cunette', chipsHtml('cunette', OUI_NON, e.p.cunette));
@@ -4269,6 +4364,9 @@ function editeur(racine, opts){
     }
     if (a === 'orienter' && e){ instantane(); e.p.a = (((e.p.a || 0) + parseFloat(b.dataset.v)) % 360 + 360) % 360; changement(); return; }
     if (a === 'rayon' && e){ var r0 = num(e.p.r) || 1.5, nr = clamp(r0 + parseFloat(b.dataset.v), .5, 30); if (nr === r0) return; instantane(); e.p.r = nr; changement(); return; }
+    /* boîte en limite : mesure reprise du plan, ou boîte placée d'après la distance et le côté saisis (limitePlan revérifie la boîte) */
+    if (a === 'limMesure' && e){ reprendreLimite(e); return; }
+    if (a === 'limPlacer' && e){ placerLimite(e); return; }
     if (a === 'tailleTexte' && e){ var tt = parseFloat(b.dataset.v) || 2.5; if ((num(e.taille) || 2.5) === tt) return; instantane(); e.taille = tt; changement(); return; }
     if (a === 'etiqOnOff' && e){ instantane(); if (e.lab && e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); else e.lab = {off: true}; changement(); return; }
     if (a === 'etiqReplacer' && e){ instantane(); e.lab = null; e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); changement(); return; }
@@ -4367,7 +4465,7 @@ function editeur(racine, opts){
     if (a === 'cotesNum'){ saisieCotes(b, true); return; }
     if (a === 'propTxt' && e){
       /* nombres ; la distance à la limite de propriété ne peut pas être négative (0 : en limite) */
-      var k = b.dataset.k; if (k === 'prof' || k === 'long' || k === 'diam' || k === 'limDist'){ v = String(v).trim(); if (v && (num(v) == null || k === 'limDist' && num(v) < 0)){ toast('Nombre attendu, par exemple 0,80'); b.value = e.p[k] || ''; return; } }
+      var k = b.dataset.k; if (k === 'prof' || k === 'long' || k === 'diam' || k === 'limDist'){ v = String(v).trim(); if (v && (num(v) == null || k === 'limDist' && num(v) < 0)){ toast('Nombre attendu, par exemple 0,80'); b.value = e.p[k] || ''; if (k === 'limDist') etatPlacer(e, b.value); return; } }
       if ((e.p[k] || '') === v) return; instantane(); e.p[k] = v; apresProp(e, {garderPanneau: true}); rafraichirFiche(e, k); majPanneauBientot(); return;
     }
     if (a === 'texteLibre' && e){ if (!String(v).trim()){ toast('Le texte est vide'); b.value = e.txt; return; } instantane(); e.txt = String(v).trim(); changement({garderPanneau: true}); majPanneauBientot(); return; }
@@ -4402,6 +4500,8 @@ function editeur(racine, opts){
   /* pose par cotes : aperçu en direct pendant la frappe */
   pcorps.addEventListener('input', function(ev){ var b = ev.target.closest('[data-a="cotesNum"]'); if (b) saisieCotes(b, false); });
   pcorps.addEventListener('input', function(ev){
+    /* distance à la limite en cours de frappe : « Placer sur le plan » la suit (etatPlacer) */
+    var li = ev.target.closest('input[data-k="limDist"]'); if (li){ var eL = pan.dataset.id ? el(pan.dataset.id) : null; if (eL) etatPlacer(eL, li.value); return; }
     var b = ev.target.closest('[data-a="chercher"]'); if (!b || !S.fond) return;
     var q = norm(b.value).trim(), out = pcorps.querySelector('.vc-res'), off = offFond(S.fond); if (!out) return;
     if (!q){ out.innerHTML = ''; return; }
@@ -4559,8 +4659,11 @@ var CSS = [
 '.vc-chip{min-height:40px;padding:0 12px;border:1px solid var(--line,#C7D1D8);border-radius:999px;background:var(--surface,#fff);color:inherit;font:inherit;font-size:14.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}',
 '.vc-chip small{font-weight:500;color:var(--muted,#5C6C78)}',
 '.vc-chip[aria-pressed="true"]{background:var(--brand,#0F5C63);border-color:var(--brand,#0F5C63);color:var(--on-brand,#fff)}',
+'.vc-chip.vc-propose{border:2px dashed var(--brand,#0F5C63);padding:0 11px}',
+'.vc-chip:disabled{opacity:.35;cursor:default}',
 '.vc-val{min-width:54px;text-align:center;font-weight:600}',
 '.vc-fixe{margin:2px 0 0;line-height:1.4}',
+'.vc-limplan,.vc-limbt{margin-top:6px}',
 '.vc-in{width:100%;min-height:42px;margin-top:6px;padding:8px 10px;border:1px solid var(--line,#C7D1D8);border-radius:10px;background:var(--surface,#fff);color:inherit;font:inherit;font-size:15px}',
 'textarea.vc-in{resize:vertical}',
 '.vc-sommet{margin:12px 0;padding:10px;border-radius:12px;background:var(--surface-2,#F3F6F8)}',

@@ -1,6 +1,7 @@
 // Boîte de branchement en limite de propriété (souhait 10 ; décision D4 de .claude/conception-outils-dessin.md), sans navigateur ; plan PDF
 // par la bibliothèque PDF de l'application ; croquis fictifs (12 rue Fictive, Ville-Exemple). m103 : champs p.limCote et p.limDist, ligne
-// de l'étiquette ; m104 et m105 compléteront ce fichier (côté et distance proposés depuis le plan, reprise au constat).
+// de l'étiquette ; m104 : parcelle de l'installation et distance de la boîte à sa limite (décision D5) ; m105 complétera ce fichier
+// (reprise au constat).
 // l1 à l19 (m103) : VCroquis.texteLimite : « à 0,80 m de la limite, intérieur » ou « …, extérieur » ; distance 0 : « en limite de
 //   propriété », avec ou sans côté ; distance sans côté : « à 0,80 m de la limite » ; côté sans distance : « côté intérieur » ou « côté
 //   extérieur » ; ni l'un ni l'autre : rien ; distance écrite avec deux décimales et la virgule (saisies « 0,8 », « 2 », « 0.5 », « 1,5 »
@@ -11,6 +12,17 @@
 // s1 à s3 (m103) : toutes les lignes de l'étiquette, celle de la limite comprise, sont dans le texte du plan PDF de l'état des lieux et de
 //   l'avant-projet (capture des textes comme vm/avant-projet.js) et dans des entités TEXT du DXF (calque VEDE-ETIQUETTES).
 // Tous échouent sur df95377 (VCroquis.texteLimite absente, aucune ligne), sauf les témoins.
+// p1 à p10 (m104) : VCroquis.geo.parcelleInstallation(lignes, objets) : sur le fond et le croquis de démonstration, la parcelle de 12 m sur
+//   34 m qui porte l'installation (p1) ; la boîte EU y est à 0,80 m, à l'intérieur (p2). Fond fictif construit dans le test (parcelles A, B,
+//   D fermées, C ouverte ou fermée, bâti dans B) : la limite fermée qui contient le plus d'objets existants l'emporte ; les objets « projet »
+//   et « à supprimer » ne comptent pas ; le bâti n'est pas une limite (p3 : 1 objet dans A, 2 dans B, tous deux dans le bâti : B) ;
+//   égalité au plus haut : null (p4) ; égalité plus bas : sans effet (p5) ; parcelle ouverte : null, témoin fermée (p6) ; aucun objet,
+//   objets dans la rue, objets « projet » seulement : null ; un raccord compte (p7) ; un escalier et un trait de complément fermé ne
+//   comptent pas (p8) ; entrées invalides : null sans exception (p9) ; fond masqué : null (p10).
+// m1 à m7 (m104) : VCroquis.geo.distanceLimite(p, ligne) sur la parcelle A : à 0,80 m à l'intérieur, d = 0,8 à 1e-9, côté 'int', pied sur
+//   le côté 0 (m1) ; à 0,20 m : douteux (m2) ; à 0,30 m : pas douteux, seuil strict (m3) ; à l'extérieur : 'ext' (m4) ; côté le plus proche
+//   (m5) ; sur la limite : 0, 'ext', douteux (m6) ; ligne ouverte, point ou ligne invalide : null sans exception (m7).
+// p et m échouent sur 5026c32 (VCroquis.geo.parcelleInstallation et distanceLimite absentes).
 // usage : node tests/vm/boite.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, rapport} = require('./charger.js');
@@ -121,9 +133,116 @@ async function sorties(){
     + (manque.length ? ' (absentes : ' + JSON.stringify(manque) + ' ; textes : ' + JSON.stringify(t.map(q => q.txt).slice(0, 12)) + ')' : ''));
 }
 
+/* m104 : parcelle de l'installation (VCroquis.geo.parcelleInstallation) et distance d'une boîte à sa limite (VCroquis.geo.distanceLimite) */
+const G = V.geo;
+/* fond fictif : DXF R12, polylignes aux points (x, y) en mètres comptés depuis l'origine fictive de la démonstration ; le croquis a cette
+   origine, ses coordonnées sont donc celles du fond (nombres exacts) */
+const ORIG = {x: 1700000, y: 8200000};
+function polyDxf(lay, pts, ferme){
+  const L = [], g = (c, v) => L.push(('   ' + c).slice(-3), String(v)), f = x => x.toFixed(3);
+  g(0, 'POLYLINE'); g(8, lay); g(66, 1); g(10, '0.0'); g(20, '0.0'); g(30, '0.0'); g(70, ferme ? 1 : 0);
+  pts.forEach(([x, y]) => { g(0, 'VERTEX'); g(8, lay); g(10, f(ORIG.x + x)); g(20, f(ORIG.y + y)); g(30, '0.0'); });
+  g(0, 'SEQEND'); g(8, lay);
+  return L.join('\r\n') + '\r\n';
+}
+const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+const fondFictif = polys => V.lireFondDxf(Buffer.from('  0\r\nSECTION\r\n  2\r\nENTITIES\r\n' + polys.join('') + '  0\r\nENDSEC\r\n  0\r\nEOF\r\n', 'utf8'), 'Plan fictif');
+/* parcelles A (0 à 20 m), B (20 à 40 m) et D (au nord de A), fermées ; C (40 à 60 m) ouverte, ou fermée (cFermee) ; un bâti fermé dans B ;
+   un trait du calque SECTION (écarté des limites) autour de tout */
+const parcellesFictives = cFermee => fondFictif([polyDxf('1PARCELLE', rect(0, 0, 20, 30), true), polyDxf('1PARCELLE', rect(20, 0, 40, 30), true),
+  polyDxf('1PARCELLE', rect(40, 0, 60, 30), !!cFermee), polyDxf('1PARCELLE', rect(0, 40, 20, 60), true), polyDxf('3BATIDUR', rect(24, 8, 36, 20), true),
+  polyDxf('1SECTION', rect(-10, -10, 70, 70), true)]);
+/* croquis fictif de même origine que le fond ; objets [id, type, x, y, statut] */
+function croquisLim(objs){
+  const d = nouveau(); d.origine = {x: ORIG.x, y: ORIG.y}; d.u = 1;
+  objs.forEach(([id, t, x, y, st]) => pt(d, id, t, x, y, st ? {st} : {}));
+  return d;
+}
+/* nom d'une parcelle fictive d'après ses sommets (A, B, C, D), ou ce que la fonction a rendu */
+function nomParcelle(l){
+  if (l === null || typeof l !== 'object') return typeof l === 'string' ? l : JSON.stringify(l);
+  if (!Array.isArray(l.P)) return 'objet sans sommets';
+  const xs = l.P.map(q => q.x), ys = l.P.map(q => q.y), x0 = Math.min(...xs), y0 = Math.min(...ys);
+  return (l.nat === 'limite' ? '' : l.nat + ' ') + (y0 === 40 ? 'D' : x0 === 0 ? 'A' : x0 === 20 ? 'B' : x0 === 40 ? 'C' : '?(' + x0 + ', ' + y0 + ')');
+}
+function parcelle(){
+  if (typeof G.parcelleInstallation !== 'function' || typeof G.distanceLimite !== 'function'){
+    R.ok(false, 'p, m : VCroquis.geo.parcelleInstallation ou VCroquis.geo.distanceLimite est absente (' + typeof G.parcelleInstallation + ', ' + typeof G.distanceLimite + ')');
+    return;
+  }
+  /* p1, p2 : démonstration (fond VCroquis.demoDxf(), croquis VCroquis.demoCroquis) : la parcelle de 12 m sur 34 m qui porte l'installation */
+  const fd = V.lireFondDxf(Buffer.from(V.demoDxf(), 'utf8'), 'Plan fictif'), dd = copie(V.demoCroquis(fd)), ld = G.lignesRef(dd, fd);
+  const pd = sur(() => G.parcelleInstallation(ld, dd.el)), bEU = dd.el.find(e => e.t === 'boite' && e.p.res === 'EU');
+  const okD = !!pd && typeof pd === 'object' && ld.indexOf(pd) >= 0 && pd.nat === 'limite' && pd.ferme && Math.abs(Math.abs(pd.aire) - 408) < .5 && G.dansPolygone(bEU, pd.P) === true;
+  R.ok(okD, 'p1 démonstration : la parcelle de l\'installation est la limite fermée de 12 m sur 34 m qui contient la boîte EU (obtenu '
+    + (pd && typeof pd === 'object' ? pd.nat + ', ' + (pd.ferme ? 'fermée' : 'ouverte') + ', aire ' + Math.abs(pd.aire).toFixed(2) + ' m², rang ' + ld.indexOf(pd) : JSON.stringify(pd)) + ')');
+  const md = okD ? sur(() => G.distanceLimite(bEU, pd)) : null;
+  R.ok(!!md && typeof md === 'object' && Math.abs(md.d - .8) < .001 && md.cote === 'int' && md.douteux === false && G.distPolygone(md.proj, pd.P).d < 1e-6,
+    'p2 démonstration : la boîte EU est à 0,80 m de cette limite, à l\'intérieur, côté sûr ; le pied est sur la limite (obtenu ' + JSON.stringify(md) + ')');
+
+  /* p3 à p10 : fond fictif (parcelles A, B, D fermées, C ouverte) */
+  const f1 = parcellesFictives(false), f2 = parcellesFictives(true);
+  const cas = (n, f, objs, att, plus) => {
+    const d = croquisLim(objs); if (plus) plus(d);
+    const lr = G.lignesRef(d, f), vu = sur(() => G.parcelleInstallation(lr, d.el)), nom = vu === null ? 'null' : nomParcelle(vu);
+    R.ok(nom === att && (vu === null || lr.indexOf(vu) >= 0), n + ' → ' + att + ' (obtenu ' + nom + ')');
+  };
+  cas('p3 parcelle A : 3 objets existants ; B : 2 existants, 2 « projet » et 1 « à supprimer », qui ne comptent pas', f1,
+    [['W', 'wc', 5, 20], ['B1', 'boite', 10, .8], ['R1', 'regard', 10, 5], ['W2', 'wc', 30, 15], ['D2', 'descente', 26, 10], ['L2', 'lavabo', 30, 12, 'projet'],
+      ['E2', 'evier', 32, 12, 'projet'], ['R2', 'regard', 35, 5, 'supprimer']], 'A');
+  /* le bâti fermé de B (24 ; 8 à 36 ; 20) contient W2 et D2 : compté comme une limite, il ferait égalité au plus haut avec B */
+  cas('p3 le bâti fermé n\'est pas une limite : 1 objet dans A ; 2 dans B, tous deux dans le bâti de B (compté, il ferait égalité avec B : null)', f1,
+    [['W', 'wc', 5, 20], ['W2', 'wc', 30, 15], ['D2', 'descente', 26, 10]], 'B');
+  cas('p4 égalité au plus haut : 2 objets dans A, 2 dans B', f1, [['W', 'wc', 5, 20], ['B1', 'boite', 10, .8], ['W2', 'wc', 30, 15], ['B2', 'boite', 30, .8]], 'null');
+  cas('p5 égalité plus bas, sans effet : 3 objets dans A, 1 dans B, 1 dans D', f1,
+    [['W', 'wc', 5, 20], ['B1', 'boite', 10, .8], ['R1', 'regard', 10, 5], ['W2', 'wc', 30, 15], ['P4', 'puisard', 10, 50]], 'A');
+  const dansC = [['W', 'wc', 45, 20], ['B1', 'boite', 50, .8], ['R1', 'regard', 50, 5]];
+  cas('p6 parcelle ouverte : 3 objets dans C, ouverte : aucune parcelle', f1, dansC, 'null');
+  cas('p6 témoin : les mêmes objets, C fermée', f2, dansC, 'C');
+  cas('p7 aucun objet', f1, [], 'null');
+  cas('p7 objets hors de toute parcelle (dans la rue)', f1, [['B1', 'boite', 10, -3], ['R1', 'regard', 30, -5]], 'null');
+  cas('p7 objets « projet » seulement', f1, [['B1', 'boite', 10, .8, 'projet'], ['R1', 'regard', 10, 5, 'projet']], 'null');
+  cas('p7 un raccord compte comme les autres objets ponctuels (A : 1 objet et 1 raccord ; B : 1 objet)', f1,
+    [['B1', 'boite', 10, .8], ['J1', 'jonction', 10, 10], ['W2', 'wc', 30, 15]], 'A');
+  /* p8 : un escalier (tracé t 'esc') dans B, et un trait « Complément du fond » fermé autour des objets de B, ne comptent pas */
+  cas('p8 escalier et trait de complément fermé dans B : ni objets ni limites (1 objet dans A, 1 dans B : égalité)', f1, [['W', 'wc', 5, 20], ['W2', 'wc', 30, 15]], 'null', d => {
+    d.el.push({id: 'E1', k: 'ln', t: 'esc', v: [{x: 25, y: 22, a: null}, {x: 35, y: 22, a: null}], p: {st: 'existant', larg: '1,00', n: '6', cote: 'g', monte: 'fin'}, lab: null});
+    d.el.push({id: 'K1', k: 'ln', t: 'lim', v: [[22, 2], [38, 2], [38, 28], [22, 28], [22, 2]].map(([x, y]) => ({x, y, a: null})), p: {st: 'existant'}, lab: null});
+  });
+  cas('p8 objets seulement dans un trait de complément fermé, hors des parcelles : aucune parcelle', f1, [['B1', 'boite', 10, -3]], 'null', d => {
+    d.el.push({id: 'K1', k: 'ln', t: 'lim', v: [[2, -8], [18, -8], [18, -1], [2, -1], [2, -8]].map(([x, y]) => ({x, y, a: null})), p: {st: 'existant'}, lab: null});
+  });
+  const d9 = croquisLim([['B1', 'boite', 10, .8]]), l9 = G.lignesRef(d9, f1);
+  const inv = [['lignes absentes', () => G.parcelleInstallation(null, d9.el)], ['objets absents', () => G.parcelleInstallation(l9, null)],
+    ['lignes en texte', () => G.parcelleInstallation('A', d9.el)], ['éléments qui ne sont pas des objets', () => G.parcelleInstallation(l9, [null, 3, 'texte', {k: 'pt'}, {k: 'pt', x: NaN, y: 1}])],
+    ['lignes qui ne sont pas des objets', () => G.parcelleInstallation([null, 7, {nat: 'limite', ferme: true}, {nat: 'limite', ferme: true, aire: 600, P: [null]}], d9.el)]];
+  inv.forEach(([n, f]) => { const vu = sur(f); R.ok(vu === null, 'p9 entrée invalide (' + n + ') : null, sans exception (obtenu ' + (vu && typeof vu === 'object' ? nomParcelle(vu) : JSON.stringify(vu)) + ')'); });
+  const v10 = sur(() => G.parcelleInstallation(G.lignesRef(d9, null), d9.el));
+  R.ok(v10 === null, 'p10 fond masqué (lignes du fond absentes) : aucune parcelle (obtenu ' + (v10 && typeof v10 === 'object' ? nomParcelle(v10) : JSON.stringify(v10)) + ')');
+
+  /* m : distance à la limite A (0 à 20 m sur 0 à 30 m), mesurée depuis le plan */
+  const A = G.lignesRef(d9, f1, null, ['limite']).find(l => nomParcelle(l) === 'A'), C = G.lignesRef(d9, f1, null, ['limite']).find(l => nomParcelle(l) === 'C');
+  const mes = (n, p, att) => {
+    const vu = sur(() => G.distanceLimite(p, A));
+    const ok = !!vu && typeof vu === 'object' && Math.abs(vu.d - att.d) <= 1e-9 && vu.cote === att.cote && vu.douteux === att.douteux && vu.seg === att.seg
+      && !!vu.proj && Math.abs(vu.proj.x - att.proj[0]) <= 1e-9 && Math.abs(vu.proj.y - att.proj[1]) <= 1e-9;
+    R.ok(ok, n + ' (obtenu ' + JSON.stringify(vu) + ')');
+  };
+  mes('m1 boîte à 0,80 m à l\'intérieur : d = 0,8 à 1e-9, côté intérieur, sûr, pied (10 ; 0) sur le côté 0', {x: 10, y: .8}, {d: .8, cote: 'int', douteux: false, seg: 0, proj: [10, 0]});
+  mes('m2 boîte à 0,20 m à l\'intérieur : douteux (moins de 0,30 m)', {x: 10, y: .2}, {d: .2, cote: 'int', douteux: true, seg: 0, proj: [10, 0]});
+  mes('m3 boîte à 0,30 m : pas douteux (seuil strict)', {x: 10, y: .3}, {d: .3, cote: 'int', douteux: false, seg: 0, proj: [10, 0]});
+  mes('m4 boîte à 1,50 m à l\'extérieur : côté extérieur', {x: 10, y: -1.5}, {d: 1.5, cote: 'ext', douteux: false, seg: 0, proj: [10, 0]});
+  mes('m5 côté le plus proche : à 1 m du côté est (côté 1)', {x: 19, y: 15}, {d: 1, cote: 'int', douteux: false, seg: 1, proj: [20, 15]});
+  mes('m6 boîte sur la limite : distance 0, extérieur, douteux', {x: 10, y: 0}, {d: 0, cote: 'ext', douteux: true, seg: 0, proj: [10, 0]});
+  const nuls = [['ligne ouverte', () => G.distanceLimite({x: 50, y: 5}, C)], ['point absent', () => G.distanceLimite(null, A)], ['point non fini', () => G.distanceLimite({x: NaN, y: 1}, A)],
+    ['ligne absente', () => G.distanceLimite({x: 10, y: .8}, null)], ['ligne sans sommets', () => G.distanceLimite({x: 10, y: .8}, {nat: 'limite', ferme: true})]];
+  nuls.forEach(([n, f]) => { const vu = sur(f); R.ok(vu === null, 'm7 ' + n + ' : null, sans exception (obtenu ' + JSON.stringify(vu) + ')'); });
+}
+
 (async () => {
   limite();
   etiquettes();
   await sorties();
+  parcelle();
   R.fin();
 })().catch(e => { console.log('ERREUR ' + (e && e.stack || e)); process.exitCode = 1; });
