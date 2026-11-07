@@ -2260,7 +2260,8 @@ var ICO = {
   fermer: '<path d="M6 6l12 12M18 6L6 18"/>', valider: '<path d="M4 12.5l5 5L20 6.5"/>', retour: '<path d="M15 5l-7 7 7 7"/>',
   chercher: '<circle cx="11" cy="11" r="6"/><path d="M15.5 15.5L20 20"/>',
   aimant: '<path d="M6 4v8a6 6 0 0 0 12 0V4"/><path d="M6 8h4M14 8h4"/>',
-  relier: '<circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="6" r="2.2"/><path d="M7 18h12V8.2"/>', lien: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'
+  relier: '<circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="6" r="2.2"/><path d="M7 18h12V8.2"/>', lien: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  cotes: '<path d="M4 7v10M20 7v10M4 12h16M7 9.5L4 12l3 2.5M17 9.5l3 2.5-3 2.5"/>'
 };
 function ico(n, s){ return '<svg viewBox="0 0 24 24" width="' + (s || 22) + '" height="' + (s || 22) + '" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICO[n] || '') + '</svg>'; }
 VC.ico = ico;
@@ -2344,7 +2345,9 @@ function editeur(racine, opts){
   function conclHote(){ if (typeof opts.conclusionConstat !== 'function') return ''; try { return String(opts.conclusionConstat() || ''); } catch(e){ return ''; } }
   var S = {doc: null, fond: null, reseau: null, an: null, liste: [], vue: new Vue(), dpr: 1, outil: {k: 'main'}, sel: null, brouillon: null, zones: [], ptr: {}, geste: null,
     undo: [], redo: [], panneau: null, mode: 'edl', aff: {fond: true, reseau: true, etiquettes: true, attenuer: false}, dessinDemande: false, dernierTap: null, accrocheVue: null, aligner: null, palette: null,
-    aides: Object.assign({}, AIDES_DEFAUT, opts.aides || {}), apercu: null, relier: null, survol: null};
+    aides: Object.assign({}, AIDES_DEFAUT, opts.aides || {}), apercu: null, relier: null, survol: null,
+    /* pose par cotes (m101) : null hors du mode ; dernierPointeur : genre du dernier appui ('mouse', 'touch', 'pen') */
+    cotes: null, dernierPointeur: null};
   racine.innerHTML = '<div class="vc" tabindex="-1">'
     + '<canvas class="vc-cv" aria-label="Plan du croquis"></canvas>'
     + '<header class="vc-barre">'
@@ -2441,12 +2444,13 @@ function editeur(racine, opts){
      du dessin ; une barrière dans l'historique empêche « Annuler » de défaire à sa place, sans le dire, le geste de dessin précédent */
   var BARRIERE = 'barriere';
   function barriere(){ if (S.undo[S.undo.length - 1] !== BARRIERE){ S.undo.push(BARRIERE); if (S.undo.length > 100) S.undo.shift(); } }
+  /* « Annuler » et « Rétablir » mettent fin aux saisies en cours, pose par cotes comprise (m101 : son trait de référence a pu disparaître) */
   function annuler(){
     if (!S.undo.length) return toast('Rien à annuler');
     if (S.undo[S.undo.length - 1] === BARRIERE){ S.undo.pop(); majBarre(); return toast('Le dernier changement porte sur une anomalie du dossier : « Annuler » ne le défait pas (pour un placement : « Retirer du plan »).' + (S.undo.length ? ' Touchez de nouveau « Annuler » pour revenir sur le dessin.' : ''), 6500); }
-    S.redo.push(etatCourant()); restaurer(S.undo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; changement(); majAide();
+    S.redo.push(etatCourant()); restaurer(S.undo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; S.cotes = null; changement(); majAide();
   }
-  function refaire(){ if (!S.redo.length) return toast('Rien à rétablir'); S.undo.push(etatCourant()); restaurer(S.redo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; changement(); majAide(); }
+  function refaire(){ if (!S.redo.length) return toast('Rien à rétablir'); S.undo.push(etatCourant()); restaurer(S.redo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; S.cotes = null; changement(); majAide(); }
 
   /* --- affichage --- */
   function redim(){
@@ -2507,6 +2511,7 @@ function editeur(racine, opts){
     }
     if (S.relier){ var rd = S.vue.ecran(S.relier.x, S.relier.y); ctx.beginPath(); ctx.arc(rd.x, rd.y, 16, 0, 2 * Math.PI); ctx.strokeStyle = ac; ctx.lineWidth = 3; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]); }
     if (S.aligner){ S.aligner.forEach(function(p){ var q = S.vue.ecran(p.x, p.y); ctx.beginPath(); ctx.arc(q.x, q.y, 9, 0, 2 * Math.PI); ctx.fillStyle = '#d4650a'; ctx.fill(); }); }
+    if (S.cotes && S.cotes.ref) dessinerCotes();
     ctx.restore();
   }
   /* Nord et barre d'échelle à l'écran */
@@ -2678,6 +2683,7 @@ function editeur(racine, opts){
   function pos(ev){ var r = cv.getBoundingClientRect(); return {x: ev.clientX - r.left, y: ev.clientY - r.top}; }
   cv.addEventListener('pointerdown', function(ev){
     if (!S.doc) return;
+    S.dernierPointeur = ev.pointerType || '';
     S.avaleRepete = null;
     try { cv.setPointerCapture(ev.pointerId); } catch(e){}
     /* premier doigt d'un nouveau geste : les pointeurs dont le relâchement n'est jamais arrivé (fenêtre fermée, doigt levé ailleurs) sont oubliés */
@@ -2960,6 +2966,8 @@ function editeur(racine, opts){
       var dpg = S.dernierePose; if (S.outil.k === 'pt' && dpg && el(dpg.id)) S.dernierePose = {t: Date.now(), x: x, y: y, id: dpg.id, vue: cleVue()};
       toast('Le plan vient de glisser pour montrer la fiche : touchez-le de nouveau.', 3500); return; }
     var o = S.outil;
+    /* pose par cotes (m101) : le toucher choisit la ligne de référence, puis l'endroit ; rien d'autre */
+    if (S.cotes){ tapCotes(x, y); return; }
     if (S.aligner){ var w = S.vue.monde(x, y); S.aligner.push(w); if (S.aligner.length === 2){ var a = S.aligner[0], b = S.aligner[1]; S.aligner = null; if (Math.hypot(b.x - a.x, b.y - a.y) > 1e-6){ instantane(); var ang = Math.atan2(b.y - a.y, b.x - a.x), r0 = S.doc.rot || 0; while (ang > Math.PI / 2) ang -= Math.PI; while (ang <= -Math.PI / 2) ang += Math.PI; S.doc.rot = ang; S.vue.rot = ang; replacerTraces(r0); changement(); toast('Plan orienté selon la voie'); } majAide(); } else { majAide(); redessiner(); } return; }
     if (S.placer){
       var zp = toucher(x, y), cible = zp ? (zp.type === 'bulle' ? zp.objId : zp.id) : null, ep = cible && el(cible);
@@ -3477,6 +3485,210 @@ function editeur(racine, opts){
     changement(); rendreVisible(o.id);
     vibrer();
   }
+  /* --- pose par cotes (m101 ; convention 11.1 de la conception du lot « Outils de dessin ») ---
+     S.cotes = {etape, pour: {t}, cands, k, w0, ref, c, essai, refus, t0} ; null hors du mode.
+     Étape 'cote' : le technicien touche la façade ou la limite de référence (cands : les lignes sous le doigt, k : celle retenue, w0 : le
+     point touché). Étape 'endroit' : il touche l'endroit de l'objet ; un nouveau toucher au même point du trait prend la ligne superposée
+     suivante. Étape 'saisie' : il règle les cotes dans le panneau « Cotes » (c = {mode, coin, d, e, cote}, comme VC.geo.placer), puis
+     « Poser ». ref = {A, B, n, nat, dedans} : le côté retenu (copie de ses points), sa normale (extérieure pour une ligne fermée, du côté
+     touché pour un trait ouvert), sa nature, et dedans : la ligne a un intérieur. Rien n'est gardé des cotes : seule la position compte. */
+  var NAT_COTES = {bati: 'Façade', limite: 'Limite de parcelle', complement: 'Complément'}, RANG_NAT = {bati: 0, limite: 1, complement: 2};
+  /* tolérance du toucher sur une ligne, en pixels : 10 à la souris, 24 au doigt ou au stylet */
+  function tolCotes(){ return S.dernierPointeur === 'mouse' ? 10 : 24; }
+  /* lignes de référence affichées : celles du fond s'il est visible (décalées comme à l'écran), puis les compléments du croquis */
+  function refsCotes(natures){ var f = S.aff.fond ? S.fond : null; return lignesRef(S.doc, f, offFond(f), natures) || []; }
+  function entrerCotes(){
+    var o = S.outil;
+    if (!S.doc || o.k !== 'pt' || !T[o.t]) return;
+    if (!refsCotes().length){ toast('Aucune ligne de référence affichée : ni façade, ni limite de parcelle, ni complément.', 4000); return; }
+    quitterSaisie();
+    S.aligner = null; S.relier = null; S.placer = null; S.apercu = null;
+    S.cotes = {etape: 'cote', pour: {t: o.t}, cands: null, k: 0, w0: null, ref: null, c: null, essai: null, refus: 0, t0: Date.now()};
+    if (S.sel || S.panneau){ S.sel = null; S.panneau = null; majPanneau(); }
+    fermerPalette(); majAide(); redessiner();
+  }
+  function quitterCotes(){
+    var p = S.panneau === 'cotes';
+    S.cotes = null;
+    if (p){ S.panneau = null; majPanneau(); }
+    majAide(); redessiner();
+  }
+  /* « Abandonner » (barre d'aide) : il prend la place de « Cotes » ; ignoré pendant 0,5 s après l'entrée dans le mode, le temps du second
+     toucher d'un double toucher sur « Cotes » */
+  function abandonnerCotes(){ if (S.cotes && Date.now() - S.cotes.t0 < 500) return; quitterCotes(); }
+  /* « Autre trait » : retour à l'étape 'cote' (le panneau se ferme, les cotes réglées sont oubliées) */
+  function autreCoteCotes(){
+    var C = S.cotes; if (!C) return;
+    C.etape = 'cote'; C.cands = null; C.k = 0; C.w0 = null; C.ref = null; C.c = null; C.essai = null;
+    if (S.panneau === 'cotes'){ S.panneau = null; majPanneau(); }
+    majAide(); redessiner();
+  }
+  /* Lignes de référence à tolM mètres au plus du point w : [{l, k, d, i}] ; k : rang du segment le plus proche de la ligne l (de P[k] à
+     P[k + 1], ou du dernier sommet au premier pour une ligne fermée qui ne le répète pas). D'abord les lignes au plus près (à 1 px), dans
+     l'ordre bâti, limite, complément (lignes superposées), puis les autres par distance. */
+  function candidatsCotes(w, tolM){
+    var out = [];
+    refsCotes().forEach(function(l, i){
+      var P = l.P, n = P.length, nb = l.ferme && n >= 3 && Math.hypot(P[n - 1].x - P[0].x, P[n - 1].y - P[0].y) > GEO_EPS ? n : n - 1, best = null;
+      for (var k = 0; k < nb; k++){
+        var a = P[k], b = P[(k + 1) % n]; if (!(Math.hypot(b.x - a.x, b.y - a.y) > GEO_EPS)) continue;
+        var q = projSeg(w, a, b); if (!best || q.d < best.d) best = {l: l, k: k, d: q.d, i: i};
+      }
+      if (best && best.d <= tolM) out.push(best);
+    });
+    if (!out.length) return out;
+    var dmin = Math.min.apply(null, out.map(function(c){ return c.d; })), eps = 1 / S.vue.s;
+    out.sort(function(a, b){
+      var pa = a.d <= dmin + eps, pb = b.d <= dmin + eps;
+      if (pa !== pb) return pa ? -1 : 1;
+      return (pa ? RANG_NAT[a.l.nat] - RANG_NAT[b.l.nat] : a.d - b.d) || a.i - b.i;
+    });
+    return out;
+  }
+  /* côté retenu : le côté fusionné de cotesAlignes qui contient le segment touché */
+  function choisirRefCotes(){
+    var C = S.cotes, c = C.cands[C.k], l = c.l, k = c.k, P = l.P;
+    var s = (cotesAlignes(P, l.ferme) || []).filter(function(x){ return x.i0 < x.i1 ? x.i0 <= k && k < x.i1 : x.i0 > x.i1 && (k >= x.i0 || k < x.i1); })[0];
+    var A = s ? s.A : P[k], B = s ? s.B : P[(k + 1) % P.length], n = normaleExt(l, k);
+    C.ref = {A: {x: A.x, y: A.y}, B: {x: B.x, y: B.y}, n: n, nat: l.nat, dedans: !!n};
+    C.c = null; C.essai = null;
+  }
+  function tapCotes(x, y){
+    var C = S.cotes, w = S.vue.monde(x, y), tol = tolCotes();
+    if (C.etape === 'saisie'){ toast('Réglez les cotes dans le panneau, puis « Poser » ; « Fermer » quitte la pose par cotes.', 3500); return; }
+    if (C.etape === 'cote'){
+      var L = candidatsCotes(w, tol / S.vue.s);
+      if (!L.length) return;
+      C.cands = L; C.k = 0; C.w0 = w; choisirRefCotes(); C.etape = 'endroit'; majAide(); redessiner(); return;
+    }
+    /* étape 'endroit' : nouveau toucher au même point du trait, la ligne superposée suivante */
+    var e0 = C.w0 && S.vue.ecran(C.w0.x, C.w0.y);
+    if (C.cands.length > 1 && e0 && Math.hypot(x - e0.x, y - e0.y) <= tol){ C.k = (C.k + 1) % C.cands.length; choisirRefCotes(); majAide(); redessiner(); return; }
+    endroitCotes(w);
+  }
+  /* endroit touché : mode, coin, distance, décalage et côté pré-remplis (VC.geo.mesurer, arrondis à 5 cm) ; trait ouvert : « Devant » est
+     le côté touché */
+  function endroitCotes(w){
+    var C = S.cotes, r = C.ref, t = unite(r.A, r.B); if (!t) return;
+    if (!r.n){ var g = cw(t); r.n = (w.x - r.A.x) * g.x + (w.y - r.A.y) * g.y >= 0 ? g : ccw(t); }
+    var m = mesurer(r, w); if (!m) return;
+    C.c = {mode: m.mode, coin: m.coin, d: Math.round(m.d * 20) / 20, e: Math.round(m.e * 20) / 20, cote: m.cote};
+    C.etape = 'saisie'; C.essai = null;
+    S.sel = null; S.panneau = 'cotes'; fermerPalette(); majPanneau(); majAide(); redessiner();
+  }
+  /* changement de mode : le côté choisi garde le même côté du plan (droite ou gauche du prolongement, devant ou derrière) */
+  function coteEquivalente(r, c, mode){
+    var t = unite(r.A, r.B), w = c.coin === 'A' ? {x: -t.x, y: -t.y} : t, kd = ccw(w), dn = kd.x * r.n.x + kd.y * r.n.y;
+    if (mode === 'long') return (c.cote === 'droite') === (dn > 0) ? 'devant' : 'derriere';
+    return (c.cote === 'devant') === (dn > 0) ? 'droite' : 'gauche';
+  }
+  function aideCotes(){
+    var C = S.cotes, r = C.ref, nb = C.cands ? C.cands.length : 0, h;
+    var nat = r ? '<strong>' + esc(NAT_COTES[r.nat] || '') + '</strong>' + (nb > 1 ? ' (' + (C.k + 1) + ' sur ' + nb + ')' : '') : '';
+    var autre = '<button type="button" class="vc-b vc-bt" data-a="cotesAutre">' + ico('retour', 18) + 'Autre trait</button>';
+    if (C.etape === 'cote') h = '<span><strong>Pose par cotes</strong> (' + esc((T[C.pour.t] || {}).lib || '') + '). Touchez la façade ou la limite de référence.</span>';
+    else if (C.etape === 'endroit') h = '<span>' + nat + '. Touchez l\'endroit de l\'objet' + (nb > 1 ? ' ; touchez de nouveau le même point du trait pour la ligne suivante' : '') + '.</span>' + autre;
+    else h = '<span>' + nat + ' : réglez les cotes dans le panneau, puis « Poser ».</span>' + autre;
+    return h + '<button type="button" class="vc-b vc-bt" data-a="cotesStop">' + ico('fermer', 18) + 'Abandonner</button>';
+  }
+  function cotesHtml(){
+    var C = S.cotes, r = C.ref, c = C.c, prol = c.mode === 'prol', g = coinGauche(r) || 'A';
+    var cotes = prol ? [['droite', 'Droite'], ['gauche', 'Gauche']] : r.nat === 'limite' && r.dedans ? [['derriere', 'Intérieur'], ['devant', 'Extérieur']] : [['devant', 'Devant'], ['derriere', 'Derrière']];
+    var ty = T[C.pour.t] || {};
+    return '<p class="vc-muet">' + esc(ty.lib || '') + (ty.g === 'f' ? ' posée' : ' posé') + ' depuis : <strong>' + esc(NAT_COTES[r.nat] || '') + '</strong> (côté de '
+        + frNum(Math.hypot(r.B.x - r.A.x, r.B.y - r.A.y), 2) + ' m).</p>'
+      + champ('Mode', chipsHtml('mode', [['prol', 'Prolongement'], ['long', 'Le long']], c.mode, {a: 'cotes', label: 'Mode'}))
+      + champ('Coin', chipsHtml('coin', [[g, 'Coin gauche'], [g === 'A' ? 'B' : 'A', 'Coin droit']], c.coin, {a: 'cotes', label: 'Coin'}), 'vus du dehors, face au trait')
+      + champ('Distance (m)', saisie('d', frNum(c.d, 2), {a: 'cotesNum', num: true, lab: 'Distance en mètres'}), prol ? 'au-delà du coin' : 'le long du trait, depuis le coin')
+      + champ('Décalage (m)', saisie('e', frNum(c.e, 2), {a: 'cotesNum', num: true, lab: 'Décalage en mètres'}), 'perpendiculaire au trait')
+      + champ('Côté', chipsHtml('cote', cotes, c.cote, {a: 'cotes', label: 'Côté'}))
+      + '<div class="vc-fact"><button type="button" class="vc-b vc-bt vc-prim" data-a="cotesPoser">' + ico('valider', 18) + 'Poser</button>'
+      + '<button type="button" class="vc-b vc-bt" data-a="cotesFermer">' + ico('fermer', 18) + 'Fermer</button></div>';
+  }
+  function actionCotes(a, b){
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c) return;
+    if (a === 'cotesFermer'){ quitterCotes(); return; }
+    if (a === 'cotesPoser'){ poserParCotes(); return; }
+    var k = b.dataset.k, v = b.dataset.v, c = C.c;
+    if (k === 'mode' && (v === 'prol' || v === 'long')){ if (v !== c.mode){ c.cote = coteEquivalente(C.ref, c, v); c.mode = v; } }
+    else if (k === 'coin' && (v === 'A' || v === 'B')) c.coin = v;
+    else if (k === 'cote' && /^(droite|gauche|devant|derriere)$/.test(v)) c.cote = v;
+    else return;
+    majPanneau(); redessiner();
+  }
+  /* distance ou décalage : nombre positif ou nul (virgule ou point) ; fin : saisie enregistrée (événement change), sinon aperçu seulement.
+     Valeur refusée : toast des valeurs refusées, la valeur précédente reste ; la valeur saisie est gardée telle quelle, affichée à 1 cm. */
+  function saisieCotes(b, fin){
+    var C = S.cotes, k = b.dataset.k; if (!C || C.etape !== 'saisie' || !C.c || (k !== 'd' && k !== 'e')) return;
+    var x = num(String(b.value).trim());
+    if (!fin){ C.essai = x != null && x >= 0 ? {k: k, v: x} : null; redessiner(); return; }
+    C.essai = null;
+    if (x == null || x < 0){ C.refus = Date.now(); toast('Nombre attendu, par exemple 0,80'); b.value = frNum(C.c[k], 2); redessiner(); return; }
+    C.c[k] = x; b.value = frNum(x, 2); redessiner();
+  }
+  /* angle d'un objet orientable posé par cotes, comme poserObjet : avec l'orientation automatique, celui du côté (une gargouille : celui
+     de la normale, vers le dehors de la ligne, ou vers le côté touché d'un trait ouvert) ; sans, celui de la rotation du plan */
+  function angleCotes(t, r){
+    if (!T[t] || !T[t].oriente) return null;
+    if (!aideOn('orienter')) return Math.round(((S.doc.rot || 0) * 180 / Math.PI) * 10) / 10;
+    var u = unite(r.A, r.B); if (!u) return null;
+    var a = u;
+    if (t === 'gargouille' && r.n){ var g = cw(u); a = r.n.x * g.x + r.n.y * g.y > 0 ? g : ccw(u); }
+    return Math.round(((Math.atan2(a.y, a.x) * 180 / Math.PI) % 360 + 360) % 360 * 10) / 10;
+  }
+  /* D1 : point dans un bâti fermé du fond affiché */
+  function dansBati(P){ return refsCotes(['bati']).some(function(l){ return l.ferme && l.aire !== 0 && dansPolygone(P, l.P) === true; }); }
+  /* « Poser » : l'objet exactement au point calculé (VC.geo.placer), sans accroche, ni raccord, ni insertion dans un tuyau, ni attache à
+     un mur ; valeurs par défaut de poserObjet ; une seule annulation ; puis sa fiche, et fin du mode */
+  function poserParCotes(){
+    quitterSaisie();
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c) return;
+    /* une valeur vient d'être refusée en quittant le champ (toucher sur « Poser ») : rien n'est posé, le toast l'explique */
+    if (C.refus && Date.now() - C.refus < 800) return;
+    var t = C.pour.t, P = placer(C.ref, C.c);
+    if (!T[t] || !P){ toast('Position incalculable : vérifiez les cotes.'); return; }
+    instantane();
+    var o = {id: uid(), k: 'pt', t: t, x: P.x, y: P.y, p: defautsPt(t), lab: null}, ang = angleCotes(t, C.ref);
+    if (ang != null) o.p.a = ang;
+    S.doc.el.push(o);
+    analyse();
+    if (!T[t].sansEtiquette) o.lab = placerEtiquette(S.doc, S.an, o, E(), idx()) || null;
+    var dedans = dansBati(P);
+    S.cotes = null; S.panneau = null;
+    changement({garderPanneau: true}); selectionner(o.id); majAide(); vibrer();
+    if (dedans) toast('Le point tombe dans le bâti : l\'objet est posé quand même. Vérifiez les cotes (« Annuler » le retire).', 5000);
+  }
+  /* repères temporaires (surcouche) : le côté retenu surligné et son prolongement en tirets ; à l'étape de saisie, l'objet fantôme au point
+     calculé et les deux cotes en tirets (d le long du côté ou du prolongement, e perpendiculaire) */
+  function dessinerCotes(){
+    var C = S.cotes, r = C.ref, A = S.vue.ecran(r.A.x, r.A.y), B = S.vue.ecran(r.B.x, r.B.y), L = Math.hypot(B.x - A.x, B.y - A.y);
+    if (!(L > 0)) return;
+    var ux = (B.x - A.x) / L, uy = (B.y - A.y) / L, loin = S.vue.w + S.vue.h, or = '#d4650a', ac = '#0F5C63';
+    ctx.save(); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.strokeStyle = 'rgba(212,101,10,.55)'; ctx.lineWidth = 9; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(A.x - ux * loin, A.y - uy * loin); ctx.moveTo(B.x, B.y); ctx.lineTo(B.x + ux * loin, B.y + uy * loin);
+    ctx.setLineDash([8, 5]); ctx.strokeStyle = or; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+    [A, B].forEach(function(q){ ctx.beginPath(); ctx.arc(q.x, q.y, 5, 0, 2 * Math.PI); ctx.fillStyle = or; ctx.fill(); });
+    var c = C.etape === 'saisie' && C.c ? Object.assign({}, C.c) : null;
+    if (c && C.essai) c[C.essai.k] = C.essai.v;
+    var P = c ? placer(r, c) : null;
+    if (P){
+      var t = unite(r.A, r.B), O = c.coin === 'A' ? r.A : r.B, w = (c.mode === 'prol') === (c.coin === 'A') ? {x: -t.x, y: -t.y} : t;
+      var eO = S.vue.ecran(O.x, O.y), eQ = S.vue.ecran(O.x + c.d * w.x, O.y + c.d * w.y), eP = S.vue.ecran(P.x, P.y);
+      ctx.beginPath(); ctx.moveTo(eO.x, eO.y); ctx.lineTo(eQ.x, eQ.y); ctx.lineTo(eP.x, eP.y); ctx.setLineDash([6, 4]); ctx.strokeStyle = ac; ctx.lineWidth = 2.5; ctx.stroke(); ctx.setLineDash([]);
+      ctx.font = '700 12px Barlow, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.fillStyle = ac;
+      [[eO, eQ, c.d], [eQ, eP, c.e]].forEach(function(s){
+        if (Math.hypot(s[1].x - s[0].x, s[1].y - s[0].y) < 4) return;
+        var lb = frNum(s[2], 2) + ' m', mx = (s[0].x + s[1].x) / 2, my = (s[0].y + s[1].y) / 2 - 6; ctx.strokeText(lb, mx, my); ctx.fillText(lb, mx, my);
+      });
+      var ty = C.pour.t, e = {k: 'pt', t: ty, p: defautsPt(ty)}, ang = angleCotes(ty, r);
+      ctx.globalAlpha = .55;
+      if (ty === 'zone'){ ctx.beginPath(); ctx.arc(eP.x, eP.y, Math.max(10, (num(e.p.r) || 1.5) * S.vue.s), 0, 2 * Math.PI); ctx.setLineDash([5, 4]); ctx.strokeStyle = rgbCss(RES.ANN.rgb); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); }
+      else dessinerPrims(ctx, primitives(e, couleurPt(e, null), ((ang || 0) * Math.PI / 180) - (S.doc.rot || 0)), eP.x, eP.y, Math.max(S.vue.s * E() / 1000, (ty === 'jonction' ? 4 : 8.5) / rayonSymbole(ty)));
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
   function poserTexte(x, y){
     demander('Texte sur le plan', '', function(txt){
       if (!String(txt || '').trim()) return;
@@ -3509,6 +3721,7 @@ function editeur(racine, opts){
     /* sur une barre, hors d'un bouton (texte de la barre d'aide) : rien à toucher de nouveau, il faut fermer la fiche pour atteindre le plan */
     var bouton = !fiche && !!(ev.target && ev.target.closest && ev.target.closest('button'));
     var fin = fa === S.finAuto, m = fin ? msgFinSous(fa, fiche, bouton)
+      : fa.cotes ? (fiche ? 'Le panneau « Cotes » vient de s\'ouvrir sous le doigt : touchez-le de nouveau pour vous en servir.' : bouton ? 'Ce bouton vient de se placer sous le doigt (panneau « Cotes » ouvert) : touchez-le de nouveau pour vous en servir.' : 'Cette barre vient de se placer sous le doigt (panneau « Cotes » ouvert).')
       : fiche ? 'La fiche vient de s\'ouvrir sous le doigt : touchez-la de nouveau pour la modifier.' : bouton ? 'Ce bouton vient de se placer sous le doigt (fiche ouverte) : touchez-le de nouveau pour vous en servir.' : 'Cette barre vient de se placer sous le doigt (fiche ouverte) : fermez la fiche pour toucher le plan dessous.';
     /* t : relâcher du toucher ignoré, noté par les écouteurs qui avalent son relâcher (à défaut, son appui) */
     S.finAuto = null; S.gardeFiche = null; S.avaleRepete = {t: t, x: x, y: y, m: m, w: fin ? 1000 : 600}; return m;
@@ -3617,6 +3830,8 @@ function editeur(racine, opts){
   function choisirOutil(o){
     if (S.brouillon && S.brouillon.pts.length >= 2) terminerTrace(); else S.brouillon = null;
     S.outil = o; S.aligner = null; S.relier = null; S.apercu = null; S.placer = null;
+    /* un autre outil met fin à la pose par cotes (m101), panneau « Cotes » compris */
+    if (S.cotes){ S.cotes = null; if (S.panneau === 'cotes'){ S.panneau = null; majPanneau(); } }
     R.querySelectorAll('.vc-o').forEach(function(b){ var on = o.k === 'main' ? b.dataset.outil === 'main' : b.dataset.pal === o.pal; b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
     fermerPalette(); majAide(); redessiner();
   }
@@ -3643,6 +3858,7 @@ function editeur(racine, opts){
     var o = S.outil, h = '';
     if (S.aligner) h = '<span>Touchez deux points le long de la voie : le plan tournera pour la mettre à l\'horizontale.</span><button type="button" class="vc-b vc-bt" data-a="alignerStop">Annuler</button>';
     else if (S.placer){ var rp = recDe(S.placer), ip = S.liste.filter(function(a){ return a.appId === S.placer; })[0]; h = '<span><strong>Placer l\'anomalie ' + esc(ip ? numLib(ip) : '') + '</strong>' + (rp ? ' (' + esc(coupe(rp.observation, 50)) + ')' : '') + ' : touchez l\'objet ou le tronçon concerné.</span><button type="button" class="vc-b vc-bt" data-a="placerStop">' + ico('fermer', 18) + 'Annuler</button>'; }
+    else if (S.cotes) h = aideCotes();
     else if (o.k === 'ln' && OUTILS_LN[o.id].relier){
       h = '<span><strong>Relier deux objets</strong> : ' + (S.relier ? 'touchez l\'objet d\'arrivée (regard, boîte, tracé…).' : 'touchez l\'objet de départ puis celui d\'arrivée, ou glissez de l\'un à l\'autre.') + (aideOn('coude') ? ' Le tronçon est tracé d\'équerre avec le bâti.' : '') + '</span>'
         + (S.relier ? '<button type="button" class="vc-b vc-bt" data-a="relierStop">' + ico('fermer', 18) + 'Abandonner</button>' : '');
@@ -3652,11 +3868,12 @@ function editeur(racine, opts){
       h = '<span><strong>' + esc(oo.lib) + '</strong> : ' + (n ? n + ' point' + (n > 1 ? 's' : '') + '. ' + (gl ? 'Glissez ou touchez' : 'Touchez') + ' le point suivant' + (oo.t === 'tr' && aideOn('finir') ? ' ; le tronçon se termine sur un objet' : '') + (n >= 2 ? ' ; touchez à nouveau le dernier point pour terminer.' : '.') : (gl ? 'glissez depuis le point de départ, ou touchez-le' : 'touchez le point de départ') + ' (un objet, un tracé ou un point libre)' + (gl ? ' ; deux doigts pour déplacer le plan' : '') + '.') + '</span>'
         + (n ? '<button type="button" class="vc-b vc-bt" data-a="retirerPoint">' + ico('annuler', 18) + 'Point</button><button type="button" class="vc-b vc-bt" data-a="annulerTrace">' + ico('fermer', 18) + 'Abandonner</button>' + (n >= 2 ? '<button type="button" class="vc-b vc-bt vc-prim" data-a="terminerTrace">' + ico('valider', 18) + 'Terminer</button>' : '') : '');
     }
-    else if (o.k === 'pt') h = '<span>Touchez le plan pour poser : <strong>' + esc(T[o.t].lib) + '</strong>' + (T[o.t].role === 'passage' ? ' (posé sur un tracé, il s\'y insère)' : '') + '.</span>';
+    else if (o.k === 'pt') h = '<span>Touchez le plan pour poser : <strong>' + esc(T[o.t].lib) + '</strong>' + (T[o.t].role === 'passage' ? ' (posé sur un tracé, il s\'y insère)' : '') + '.</span>'
+      + '<button type="button" class="vc-b vc-bt" data-a="cotes" title="Poser à une distance mesurée d\'une façade ou d\'une limite">' + ico('cotes', 18) + 'Cotes</button>';
     else if (o.k === 'tx') h = '<span>Touchez le plan à l\'endroit du texte.</span>';
     aide.innerHTML = h; aide.hidden = !h;
   }
-  aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') annulerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } else if (a === 'placerStop'){ S.placer = null; majAide(); } else if (a === 'relierStop'){ S.relier = null; majAide(); redessiner(); } });
+  aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') annulerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } else if (a === 'placerStop'){ S.placer = null; majAide(); } else if (a === 'relierStop'){ S.relier = null; majAide(); redessiner(); } else if (a === 'cotes') entrerCotes(); else if (a === 'cotesAutre') autreCoteCotes(); else if (a === 'cotesStop') abandonnerCotes(); });
   R.querySelector('.vc-outils').addEventListener('click', function(ev){
     var b = ev.target.closest('.vc-o'); if (!b) return;
     if (b.dataset.outil === 'main'){ choisirOutil({k: 'main'}); return; }
@@ -3977,7 +4194,7 @@ function editeur(racine, opts){
     if (opts.supprimer) h += '<div class="vc-fact"><button type="button" class="vc-b vc-bt vc-danger" data-a="docSuppr">' + ico('poubelle', 18) + 'Supprimer ce croquis</button></div>';
     return h;
   }
-  var TITRES = {fiche: '', controles: 'Contrôles', constat: 'Constat déduit', calques: 'Fond et réseaux', sorties: 'Sorties', reglages: 'Réglages du croquis'};
+  var TITRES = {fiche: '', controles: 'Contrôles', constat: 'Constat déduit', calques: 'Fond et réseaux', sorties: 'Sorties', reglages: 'Réglages du croquis', cotes: 'Cotes'};
   /* saisie en cours dans le panneau (clavier ouvert) : enregistrée par son événement « change », sur l'élément que décrit la fiche */
   function quitterSaisie(){ var ae = document.activeElement; if (ae && ae !== pcorps && pcorps.contains(ae) && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) ae.blur(); }
   /* après une saisie, la fiche n'est pas reconstruite pendant le toucher en cours sur le panneau (la puce, le champ ou le bouton touché
@@ -4013,16 +4230,20 @@ function editeur(racine, opts){
     quitterSaisie(); panMajAttente = false;
     var n = S.panneau;
     if (n === 'fiche' && !(S.sel && el(S.sel.id))) n = S.panneau = null;
+    /* panneau « Cotes » (m101) : seulement à l'étape de saisie ; un autre panneau, ou sa fermeture, met fin au mode */
+    if (n === 'cotes' && !(S.cotes && S.cotes.etape === 'saisie' && S.cotes.c)) n = S.panneau = null;
+    if (S.cotes && S.cotes.etape === 'saisie' && n !== 'cotes'){ S.cotes = null; majAide(); redessiner(); }
     R.querySelectorAll('.vc-barre [data-p]').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.p === n ? 'true' : 'false'); });
     if (!n){ pan.hidden = true; pan.dataset.id = ''; R.classList.remove('vc-avecpanneau'); return; }
     var top = pan.dataset.n === n + (S.sel ? S.sel.id : '') ? pcorps.scrollTop : 0;
     var e = n === 'fiche' ? el(S.sel.id) : null, tg = Date.now();
     /* fiche ouverte, ou d'un autre élément, par un toucher ou un clic qui vient de finir : elle a pu venir sous le doigt (second toucher d'un
-       double toucher) */
-    if (e && (pan.hidden || pan.dataset.n !== n + e.id) && S.appui && tg - S.appui.t < 700 && S.relache && tg - S.relache < 300 && !(S.finAuto && tg - S.finAuto.t < 100)) S.gardeFiche = {t: tg, tx: S.appui.x, ty: S.appui.y, r: 48};
+       double toucher) ; de même le panneau « Cotes », qu'ouvre le toucher de l'endroit (m101) */
+    var ouvre = e ? pan.hidden || pan.dataset.n !== n + e.id : n === 'cotes' && (pan.hidden || pan.dataset.n !== n);
+    if (ouvre && S.appui && tg - S.appui.t < 700 && S.relache && tg - S.relache < 300 && !(S.finAuto && tg - S.finAuto.t < 100)) S.gardeFiche = {t: tg, tx: S.appui.x, ty: S.appui.y, r: 48, cotes: !e};
     ptitre.textContent = n === 'fiche' ? (e.k === 'pt' ? 'Objet' : e.k === 'ln' ? (e.t === 'col' ? 'Collecteur' : e.t === 'esc' ? 'Escalier' : 'Tracé') : 'Texte') : TITRES[n];
     var enCours = {}; if (pan.dataset.n === n + (S.sel ? S.sel.id : '')) pcorps.querySelectorAll('input[id], textarea[id]').forEach(function(i){ if (!i.dataset.a && i.value) enCours[i.id] = i.value; });
-    pcorps.innerHTML = n === 'fiche' ? ficheHtml(e) : n === 'controles' ? controlesHtml() : n === 'constat' ? constatHtml() : n === 'calques' ? calquesHtml() : n === 'sorties' ? sortiesHtml() : reglagesHtml();
+    pcorps.innerHTML = n === 'fiche' ? ficheHtml(e) : n === 'controles' ? controlesHtml() : n === 'constat' ? constatHtml() : n === 'calques' ? calquesHtml() : n === 'sorties' ? sortiesHtml() : n === 'cotes' ? cotesHtml() : reglagesHtml();
     Object.keys(enCours).forEach(function(id){ var i = document.getElementById(id); if (i && pcorps.contains(i) && !i.value) i.value = enCours[id]; });
     pan.hidden = false; pan.dataset.n = n + (S.sel ? S.sel.id : ''); pan.dataset.id = e ? e.id : ''; pcorps.scrollTop = top; R.classList.add('vc-avecpanneau');
   }
@@ -4034,6 +4255,7 @@ function editeur(racine, opts){
   pcorps.addEventListener('click', function(ev){
     var b = ev.target.closest('[data-a]'); if (!b || b.tagName === 'INPUT' && b.type !== 'checkbox' || b.tagName === 'TEXTAREA' || b.tagName === 'SELECT') return;
     var a = b.dataset.a, e = S.sel && el(S.sel.id);
+    if (a === 'cotes' || a === 'cotesPoser' || a === 'cotesFermer'){ actionCotes(a, b); return; }
     if (a === 'prop' && e){
       var k = b.dataset.k, v = b.dataset.v;
       /* puce déjà choisie (réseau, statut, gestionnaire, sens) : rien ne change, pas de pas d'annulation */
@@ -4142,6 +4364,7 @@ function editeur(racine, opts){
     var b = ev.target.closest('[data-a]'); if (!b) return;
     /* l'élément que décrit la fiche affichée (le choix a pu changer : saisie enregistrée au moment où la fiche change) */
     var a = b.dataset.a, fid = pan.dataset.id, e = fid ? el(fid) : S.sel && el(S.sel.id), v = b.value;
+    if (a === 'cotesNum'){ saisieCotes(b, true); return; }
     if (a === 'propTxt' && e){
       /* nombres ; la distance à la limite de propriété ne peut pas être négative (0 : en limite) */
       var k = b.dataset.k; if (k === 'prof' || k === 'long' || k === 'diam' || k === 'limDist'){ v = String(v).trim(); if (v && (num(v) == null || k === 'limDist' && num(v) < 0)){ toast('Nombre attendu, par exemple 0,80'); b.value = e.p[k] || ''; return; } }
@@ -4176,6 +4399,8 @@ function editeur(racine, opts){
     if (a === 'calque' && S.fond){ S.fond.calques[+b.dataset.k].vis = b.checked; if (opts.fondModifie) opts.fondModifie(S.fond); redessiner(); return; }
     if ((a === 'fondFichier' || a === 'reseauFichier') && b.files && b.files[0]){ chargerFichier(b.files[0], a === 'fondFichier' ? 'cadastre' : 'reseau'); b.value = ''; return; }
   });
+  /* pose par cotes : aperçu en direct pendant la frappe */
+  pcorps.addEventListener('input', function(ev){ var b = ev.target.closest('[data-a="cotesNum"]'); if (b) saisieCotes(b, false); });
   pcorps.addEventListener('input', function(ev){
     var b = ev.target.closest('[data-a="chercher"]'); if (!b || !S.fond) return;
     var q = norm(b.value).trim(), out = pcorps.querySelector('.vc-res'), off = offFond(S.fond); if (!out) return;
@@ -4245,7 +4470,7 @@ function editeur(racine, opts){
     var m = R.querySelector('.vc-modal'); if (m){ m.remove(); return true; }
     if (S.palette){ fermerPalette(); return true; }
     if (S.sel || S.panneau){ fermerPanneau(); return true; }
-    if (S.relier || S.aligner || S.placer){ S.relier = null; S.aligner = null; S.placer = null; majAide(); redessiner(); return true; }
+    if (S.relier || S.aligner || S.placer || S.cotes){ S.relier = null; S.aligner = null; S.placer = null; S.cotes = null; majAide(); redessiner(); return true; }
     if (S.brouillon){ annulerTrace(); return true; }
     return false;
   }
@@ -4254,7 +4479,7 @@ function editeur(racine, opts){
   function ouvrir(doc, fond, reseau, o){
     o = o || {};
     if (o.aides) S.aides = Object.assign({}, AIDES_DEFAUT, o.aides);
-    S.placer = null; var m0 = R.querySelector('.vc-modal'); if (m0) m0.remove();
+    S.placer = null; S.cotes = null; var m0 = R.querySelector('.vc-modal'); if (m0) m0.remove();
     S.doc = doc; S.fond = fond || null; S.reseau = reseau || null; S.undo = []; S.redo = []; S.sel = null; S.brouillon = null; S.panneau = null; S.mode = 'edl'; S.ajoutAnom = null; S.aligner = null;
     S.ptr = {}; S.geste = null; S.apercu = null; S.accrocheVue = null; S.survol = null;
     clearTimeout(tToast); R.querySelector('.vc-toast').classList.remove('on');

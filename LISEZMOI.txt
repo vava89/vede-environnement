@@ -58,6 +58,8 @@ CROQUIS DE TERRAIN (facultatif)
   boîte de branchement, on indique sa position par rapport à la limite de
   propriété (côté intérieur ou extérieur, distance en mètres) ; l'étiquette
   du plan la reprend, par exemple « à 0,80 m de la limite, intérieur ».
+  Le bouton « Cotes » pose un objet à une distance mesurée d'une façade ou
+  d'une limite de parcelle, dans son prolongement ou le long d'elle.
 - Les anomalies déduites du dessin (EU vers EP, EP vers EU, fosse, descente
   non visitable, tampon béton…) rejoignent la liste du dossier, avec les
   mêmes numéros (A1, A2…) que les bulles du plan : la fiche Préco, le
