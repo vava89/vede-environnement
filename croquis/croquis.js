@@ -2179,7 +2179,7 @@ function editeur(racine, opts){
   function conclHote(){ if (typeof opts.conclusionConstat !== 'function') return ''; try { return String(opts.conclusionConstat() || ''); } catch(e){ return ''; } }
   var S = {doc: null, fond: null, reseau: null, an: null, liste: [], vue: new Vue(), dpr: 1, outil: {k: 'main'}, sel: null, brouillon: null, zones: [], ptr: {}, geste: null,
     undo: [], redo: [], panneau: null, mode: 'edl', aff: {fond: true, reseau: true, etiquettes: true, attenuer: false}, dessinDemande: false, dernierTap: null, accrocheVue: null, aligner: null, palette: null,
-    aides: Object.assign({}, AIDES_DEFAUT, opts.aides || {}), apercu: null, relier: null};
+    aides: Object.assign({}, AIDES_DEFAUT, opts.aides || {}), apercu: null, relier: null, survol: null};
   racine.innerHTML = '<div class="vc" tabindex="-1">'
     + '<canvas class="vc-cv" aria-label="Plan du croquis"></canvas>'
     + '<header class="vc-barre">'
@@ -2522,9 +2522,16 @@ function editeur(racine, opts){
       return;
     }
     if (ids.length > 2) return;
-    S.geste = {type: 'attente', x0: p.x, y0: p.y, t0: Date.now(), cible: cibleGlisser(p.x, p.y), souris: ev.pointerType === 'mouse', panForce: ev.pointerType === 'mouse' && ev.button > 0};
+    /* bouton droit ou du milieu de la souris (panForce) : le glissé déplace toujours la vue, jamais une poignée ni l'objet choisi */
+    var souris = ev.pointerType === 'mouse', panForce = souris && ev.button > 0;
+    S.geste = {type: 'attente', x0: p.x, y0: p.y, t0: Date.now(), cible: panForce ? null : cibleGlisser(p.x, p.y), souris: souris, panForce: panForce};
   });
   cv.addEventListener('pointermove', function(ev){
+    /* Survol à la souris seulement (ni doigt ni stylet), sans bouton appuyé. S.survol garde la position du pointeur en pixels du canevas,
+       le repère de pos() et de cibleGlisser : un sommet s'y vise à 18 px, une poignée du milieu à 14 px. Cette position reste juste quand
+       la vue change sous la souris immobile (molette). Elle ne suit pas un glissé ; au lever, elle prend le point de lever (fin). La sortie
+       du plan (pointerleave) et la réouverture du croquis (ouvrir) l'effacent. Rien n'est redessiné. */
+    if (ev.pointerType === 'mouse' && ev.buttons === 0) S.survol = pos(ev);
     if (!S.ptr[ev.pointerId]) return;
     var p = pos(ev); S.ptr[ev.pointerId] = {x: p.x, y: p.y};
     var g = S.geste; if (!g) return;
@@ -2548,6 +2555,8 @@ function editeur(racine, opts){
     if (!S.ptr[ev.pointerId]) return;
     delete S.ptr[ev.pointerId];
     var g = S.geste, p = pos(ev);
+    /* souris levée : elle survole le point de lever. Levée hors du plan : le pointerleave qui suit efface le survol. */
+    if (ev.pointerType === 'mouse' && ev.type === 'pointerup') S.survol = p;
     if (!g) return;
     if (g.type === 'pince'){
       var reste = Object.keys(S.ptr);
@@ -2555,13 +2564,18 @@ function editeur(racine, opts){
       enregistrerVue(); return;
     }
     if (ev.type === 'pointercancel'){ finirGeste(true); return; }
-    if (g.type === 'attente'){ S.geste = null; tap(p.x, p.y); return; }
+    /* clic droit ou du milieu de la souris : ni pose, ni choix, ni bulle */
+    if (g.type === 'attente'){ S.geste = null; if (!g.panForce) tap(p.x, p.y); return; }
     if (g.type === 'glisser'){ terminerGlisser(g, p); S.geste = null; return; }
     if (g.type === 'trace'){ S.geste = null; finTrace(g, p); return; }
     if (g.type === 'pan') enregistrerVue();
     S.geste = null;
   }
   cv.addEventListener('pointerup', fin); cv.addEventListener('pointercancel', fin);
+  /* pointeur sorti du plan (sur une barre, hors de la fenêtre) : plus de survol */
+  cv.addEventListener('pointerleave', function(){ S.survol = null; });
+  /* clic droit ou appui long, quel que soit le pointeur : aucun menu du navigateur sur le plan */
+  cv.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
   /* au doigt, un toucher commencé sur le plan ne produit ni clic ni événements souris de compatibilité : rien n'agit sur ce qui vient se
      placer sous le doigt (fiche, barre de navigation, dialogue) ; le plan ne lit que les événements de pointeur */
   cv.addEventListener('touchend', function(ev){ if (ev.cancelable) ev.preventDefault(); }, {passive: false});
@@ -4055,7 +4069,7 @@ function editeur(racine, opts){
     if (o.aides) S.aides = Object.assign({}, AIDES_DEFAUT, o.aides);
     S.placer = null; var m0 = R.querySelector('.vc-modal'); if (m0) m0.remove();
     S.doc = doc; S.fond = fond || null; S.reseau = reseau || null; S.undo = []; S.redo = []; S.sel = null; S.brouillon = null; S.panneau = null; S.mode = 'edl'; S.ajoutAnom = null; S.aligner = null;
-    S.ptr = {}; S.geste = null; S.apercu = null; S.accrocheVue = null;
+    S.ptr = {}; S.geste = null; S.apercu = null; S.accrocheVue = null; S.survol = null;
     clearTimeout(tToast); R.querySelector('.vc-toast').classList.remove('on');
     doc.el = doc.el || []; doc.decisions = doc.decisions || {}; doc.ordre = doc.ordre || []; doc.anomManu = doc.anomManu || []; doc.gest = doc.gest || {EU: 'D', EP: 'D', UN: 'D'};
     /* croquis d'avant la v1.6.1 : une zone suspecte ne tient aucun tuyau (raccord à sa place si elle en reliait plusieurs) */
