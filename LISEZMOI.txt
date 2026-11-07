@@ -86,10 +86,12 @@ CROQUIS DE TERRAIN (facultatif)
   pour une installation : une salle de bain ou une cuisine se dessine d'un
   seul objet (son lavabo, son évier, son lave-vaisselle y sont compris) ;
   un lavabo seul compte comme un évier. Ensuite ces valeurs suivent
-  le croquis tant qu'on n'y touche pas. Une anomalie posée sur un objet
-  du croquis rend non conforme la ligne de cet objet (un lavabo :
-  « Évier »). Les écarts entre le croquis et le constat sont rappelés
-  avant la signature. Un constat signé n'est jamais modifié.
+  le croquis tant qu'on n'y touche pas (à la fermeture du croquis et à
+  l'ouverture du constat). Une anomalie posée sur un objet du croquis
+  rend non conforme la ligne de cet objet (un lavabo : « Évier »). Les
+  écarts entre le croquis et le constat sont rappelés avant la
+  signature. Un constat signé n'est jamais modifié, et le croquis n'y
+  rappelle plus d'écart.
 - Aides au dessin (Réglages, ou bouton aimant dans le croquis) : traits
   parallèles au côté de bâti le plus proche, angles droits, accroche aux
   coins et façades, fin automatique d'un tronçon sur un objet, tracé en

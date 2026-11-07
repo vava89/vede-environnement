@@ -3540,6 +3540,10 @@ function vcResumeCalc(v, doc){
   var V = window.VCroquis, an = V.analyser(doc, 'edl'), cd = V.constatDeduit(doc, an);
   var r = {rev: doc.rev || 0, plan: typeof doc.id === 'string' ? doc.id : '', rows: cd.rows.filter(function(x){ return x.nb > 0; }).map(function(x){ return {id: x.id, groupe: x.groupe, label: x.label, std: !!x.std, nb: x.nb, raccord: x.raccord || '', conforme: x.conforme || '', meth: (x.meth || []).slice(), types: (x.types || []).slice()}; }),
     puisard: !!(cd.epRecup && cd.epRecup.puisard), sansCote: (cd.sansCote || []).length};
+  /* anomalies du dossier restées intactes que le dessin d'aujourd'hui met à jour (texte, réseau, nature, ligne du constat), par exemple un
+     dossier commencé avant une mise à jour qui range autrement un lavabo : l'éditeur les reporte à son ouverture */
+  try { var dc = JSON.parse(JSON.stringify(doc)), ops = V.reconcilier(dc, null, anomsOf(v.id), {});
+    r.aReporter = (ops.maj || []).filter(function(m){ return ['observation', 'preconisation', 'reseau', 'nc', 'installation'].some(function(k){ return m.champs && m.champs[k] !== undefined; }); }).length; } catch(e){ r.aReporter = 0; }
   try { var La = V.anomaliesDoc(doc, an, anomsOf(v.id), {telQuel: true}); r.arbitrer = La.filter(function(a){ return a.st === 'arbitrer'; }).length; r.horsdossier = La.filter(function(a){ return a.st === 'horsdossier'; }).length; } catch(e){ r.arbitrer = 0; r.horsdossier = 0; }
   VC_RESUMES.set(v.id, r);
   return r;
@@ -3623,6 +3627,8 @@ function constatDepuisCroquis(v, res, suivi){
 }
 /* écarts entre le croquis et le constat, ligne par ligne (affichage et « À vérifier avant de signer ») */
 function vcEcarts(v, c){
+  /* constat signé : il reste tel qu'il a été signé ; ce que le croquis compte autrement depuis (dessin changé, mise à jour) n'y est pas rappelé */
+  if (c && c.signeLe) return [];
   var res = VC_RESUMES.get(v.id); if (!res || !planDe(v.id) || !vcPret()) return [];
   var out = [], P = c.croqAuto && typeof c.croqAuto === 'object' ? c.croqAuto : {}, refus = P.refus && typeof P.refus === 'object' ? P.refus : {};
   res.rows.forEach(function(s){
@@ -3641,21 +3647,30 @@ function vcEcarts(v, c){
     : 'Le croquis de terrain propose une anomalie « à arbitrer », hors du dossier tant qu\'elle n\'est pas retenue : décidez dans le croquis (Contrôles).');
   if (res.horsdossier) out.push(res.horsdossier > 1 ? 'Le croquis de terrain retient ' + res.horsdossier + ' anomalies absentes de la liste du dossier : ouvrez puis refermez le croquis pour les y reprendre.'
     : 'Le croquis de terrain retient une anomalie absente de la liste du dossier : ouvrez puis refermez le croquis pour l\'y reprendre.');
+  if (res.aReporter) out.push(res.aReporter > 1 ? res.aReporter + ' anomalies du dossier ne suivent pas encore le croquis de terrain (texte, réseau, nature ou ligne du constat) : ouvrez puis refermez le croquis pour les mettre à jour.'
+    : 'Une anomalie du dossier ne suit pas encore le croquis de terrain (texte, réseau, nature ou ligne du constat) : ouvrez puis refermez le croquis pour la mettre à jour.');
   if (res.sansCote) out.push(res.sansCote > 1 ? res.sansCote + ' descentes EP sans façade sur le croquis de terrain : indiquez avant ou arrière pour les compter au constat.' : 'Descente EP sans façade sur le croquis de terrain : indiquez avant ou arrière pour la compter au constat.');
   return out;
 }
 function vcConstatBlocHtml(v, c, dis){
   if (!vcPret() || !planDe(v.id) || constatNonEffectue(v)) return '';
   var ec = vcEcarts(v, c);
-  return '<div class="croq-fill"><p><strong>Croquis de terrain.</strong> « Reprendre du croquis » remplit le nombre, le raccordement et les méthodes des installations dessinées, sans remplacer ce que vous avez saisi ; ensuite, ces valeurs suivent le croquis tant que vous n\'y touchez pas.</p>'
+  return '<div class="croq-fill"><p><strong>Croquis de terrain.</strong> ' + (c.signeLe ? 'Constat signé : il reste tel qu\'il a été signé, le croquis ne le modifie plus.' : '« Reprendre du croquis » remplit le nombre, le raccordement et les méthodes des installations dessinées, sans remplacer ce que vous avez saisi ; ensuite, ces valeurs suivent le croquis tant que vous n\'y touchez pas.') + '</p>'
     + '<div id="croq-ecarts">' + (ec.length ? '<ul class="croq-ec">' + ec.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div>'
     + '<div class="btnrow"><button type="button" class="btn sm" data-act="c-croq-fill"' + dis + '>' + svg(I.plan, 18) + 'Reprendre du croquis</button><button type="button" class="btn sm ghost" data-act="vc-ouvrir">Ouvrir le croquis</button></div></div>';
 }
-/* après l'affichage du constat : résumé calculé une fois, écarts posés sans tout réafficher */
+/* après l'affichage du constat : résumé calculé une fois, écarts posés sans tout réafficher. Les valeurs reprises du croquis le suivent ici
+   aussi, comme à la fermeture du croquis : un constat commencé avant une mise à jour qui compte autrement (un lavabo sur la ligne « Évier »)
+   ne garde pas une ligne que le croquis ne compte plus, ni après « Modifier » un constat signé */
 async function vcConstatApres(v){
-  if (!vcPret() || !planDe(v.id) || VC_RESUMES.has(v.id) || constatNonEffectue(v)) return;
-  await vcResume(v);
-  var box = $('#croq-ecarts'); if (!box || curVisit() !== v) return;
+  if (!vcPret() || !planDe(v.id) || constatNonEffectue(v)) return;
+  var res = VC_RESUMES.get(v.id), neuf = !res;
+  if (neuf) res = await vcResume(v);
+  if (!res || curVisit() !== v) return;
+  var nf = 0; try { nf = constatDepuisCroquis(v, res, true); } catch(e){ reportError(e, 'Croquis'); }
+  if (nf){ toast('Constat mis à jour depuis le croquis (' + plural(nf, 'valeur', 'valeurs') + ').', 3500); await flushSaves(); if (curVisit() === v && S.route && S.route.name === 'constat') render(); return; }
+  if (!neuf) return;
+  var box = $('#croq-ecarts'); if (!box) return;
   var ec = vcEcarts(v, v.constat || newConstat(v));
   if (ec.length && S.route && S.route.name === 'constat'){ render(); return; }
   box.innerHTML = ec.length ? '<ul class="croq-ec">' + ec.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '';
