@@ -3339,6 +3339,7 @@ function vcEditeur(){
   VC.ed = window.VCroquis.editeur(VC.hote, {
     anomalies: function(){ if (!vcCtxOk()) throw new Error('dossier fermé'); return anomsOf(VC.ctx.v.id); },
     anomaliesMaj: function(ops){ if (!vcCtxOk()) throw new Error('dossier fermé'); vcAppliquer(VC.ctx.v, ops); },
+    conclusionConstat: function(){ return vcCtxOk() ? vcConclConstat(VC.ctx.v) : ''; },
     ouvrirAnomalie: function(id){ var c = VC.ctx; if (!c || !c.close) return; c.apres = '#/e/' + c.v.etudeId + '/v/' + c.v.id + '/a/' + id; c.close('nav'); },
     enregistrer: function(doc){ vcEnregistrer(doc, true); },
     enregistrerVue: function(doc){ vcEnregistrer(doc, false); },
@@ -3473,6 +3474,12 @@ async function vcPreparer(v){
   return {doc: doc, fond: fond, reseau: reseau};
 }
 /* Plan de l'état des lieux en PDF, depuis la page du dossier */
+/* Conclusion que le technicien a choisie dans le constat (vide s'il suit la conclusion proposée ; visite non effectuée : aucune) : le plan PDF
+   l'imprime (« Conclusion du constat ») à la place de celle que le dessin propose (décision du 7 novembre 2026). Constat signé : celle qu'il atteste. */
+function vcConclConstat(v){
+  var c = v && v.constat; if (!c || !c.conclusion || constatNonEffectue(constatFige(v))) return '';
+  return String((c.signeLe && c.fige && c.fige.conclusion) || c.conclusion);
+}
 async function vcPdf(v){
   if (!vcModule()) return;
   if (!window.jspdf){ toast('La bibliothèque PDF n\'est pas chargée.'); return; }
@@ -3483,7 +3490,7 @@ async function vcPdf(v){
   try {
     var fond = await fondLire(doc.fondId), reseau = await fondLire(doc.reseauId);
     await vcLogoPret();
-    blob = await window.VCroquis.pdfPlan(doc, fond, {mode: 'edl', logo: VC.logo || null, reseau: reseau, anomalies: anomsOf(v.id), telQuel: true});
+    blob = await window.VCroquis.pdfPlan(doc, fond, {mode: 'edl', logo: VC.logo || null, reseau: reseau, anomalies: anomsOf(v.id), telQuel: true, conclusionConstat: vcConclConstat(v)});
   } catch(e){ bm.close(); reportError(e, 'Plan PDF'); return; }
   bm.close();
   var coupe = !!(window.VCroquis.depasseCadre && window.VCroquis.depasseCadre(doc, 'edl'));
@@ -4180,7 +4187,7 @@ async function vcPlansPdf(v, list){
   doc.numero = v.numero || ''; doc.adresse = v.adresse || ''; doc.commune = communeNom(v.commune) || v.commune || ''; doc.date = v.dateVisite || '';
   var fond = await fondLire(doc.fondId), reseau = await fondLire(doc.reseauId), out = [];
   await vcLogoPret();
-  var o = {logo: VC.logo || null, reseau: reseau, anomalies: list, telQuel: true};
+  var o = {logo: VC.logo || null, reseau: reseau, anomalies: list, telQuel: true, conclusionConstat: vcConclConstat(v)};
   var projet = (doc.el || []).some(function(e){ return e && e.p && (e.p.st === 'projet' || e.p.st === 'supprimer'); });
   out.push({nom: planFileName(v, false), ab: await blobToAB(await window.VCroquis.pdfPlan(doc, fond, Object.assign({mode: 'edl'}, o)))});
   if (projet) out.push({nom: planFileName(v, true), ab: await blobToAB(await window.VCroquis.pdfPlan(doc, fond, Object.assign({mode: 'avp'}, o)))});
@@ -4757,7 +4764,7 @@ async function init(){
   await render();
   outboxRepair().then(function(){ refreshEnvoiUI(); return processOutbox(true); }).catch(function(){});
 }
-window.__VT = {VC: VC, vcOuvrir: vcOuvrir, vcAppliquer: vcAppliquer, vcPdf: vcPdf, planDe: planDe, fondLire: fondLire, vcResume: vcResume, constatDepuisCroquis: constatDepuisCroquis, vcEcarts: vcEcarts, VC_RESUMES: VC_RESUMES, S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, croqPng: croqPng, croquisAJour: croquisAJour, croquisType: croquisType, croqPlaceLabel: croqPlaceLabel, mailModal: mailModal, processOutbox: processOutbox, outboxAll: outboxAll, mailCfg: mailCfg, pdfText: pdfText, mailsDe: mailsDe, telsDe: telsDe, qualiteTxt: qualiteTxt, signataireAuto: signataireAuto, imgData: imgData, croqPlaceLabel: croqPlaceLabel, croqTextBox: croqTextBox, croqSegHitsBox: croqSegHitsBox, CROQ_GAB: CROQ_GAB, ready: null};
+window.__VT = {VC: VC, vcOuvrir: vcOuvrir, vcAppliquer: vcAppliquer, vcPdf: vcPdf, vcPlansPdf: vcPlansPdf, planDe: planDe, fondLire: fondLire, vcResume: vcResume, constatDepuisCroquis: constatDepuisCroquis, vcEcarts: vcEcarts, VC_RESUMES: VC_RESUMES, S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, croqPng: croqPng, croquisAJour: croquisAJour, croquisType: croquisType, croqPlaceLabel: croqPlaceLabel, mailModal: mailModal, processOutbox: processOutbox, outboxAll: outboxAll, mailCfg: mailCfg, pdfText: pdfText, mailsDe: mailsDe, telsDe: telsDe, qualiteTxt: qualiteTxt, signataireAuto: signataireAuto, imgData: imgData, croqPlaceLabel: croqPlaceLabel, croqTextBox: croqTextBox, croqSegHitsBox: croqSegHitsBox, CROQ_GAB: CROQ_GAB, ready: null};
 window.__VT.ready = init();
 })();
 </script>

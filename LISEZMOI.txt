@@ -99,7 +99,9 @@ CROQUIS DE TERRAIN (facultatif)
   ensemble par « Aides activées ».
 - Sorties : plan de l'état des lieux et plan d'avant-projet en PDF, plan
   DXF pour la DAO (dans le croquis, « Sorties »), « Plan PDF » sur la page
-  du dossier. L'export de l'étude joint le plan PDF dans le dossier.
+  du dossier. L'export de l'étude joint le plan PDF dans le dossier. Le
+  plan de l'état des lieux imprime la conclusion choisie dans le constat
+  (« Conclusion du constat »), sinon celle que le dessin propose.
 
 SAUVEGARDE
 - Effacer les données du navigateur ou désinstaller l'application efface

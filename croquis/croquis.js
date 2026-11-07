@@ -2024,6 +2024,8 @@ function editeur(racine, opts){
   /* mode intégré : les anomalies du dossier de l'application (opts.anomalies) font référence */
   var INTEG = typeof opts.anomalies === 'function';
   function ext(){ if (!INTEG) return null; try { var r = opts.anomalies(); return Array.isArray(r) ? r : null; } catch(e){ return null; } }
+  /* conclusion choisie dans le constat du dossier (hôte), pour le plan PDF ; vide sinon */
+  function conclHote(){ if (typeof opts.conclusionConstat !== 'function') return ''; try { return String(opts.conclusionConstat() || ''); } catch(e){ return ''; } }
   var S = {doc: null, fond: null, reseau: null, an: null, liste: [], vue: new Vue(), dpr: 1, outil: {k: 'main'}, sel: null, brouillon: null, zones: [], ptr: {}, geste: null,
     undo: [], redo: [], panneau: null, mode: 'edl', aff: {fond: true, reseau: true, etiquettes: true, attenuer: false}, dessinDemande: false, dernierTap: null, accrocheVue: null, aligner: null, palette: null,
     aides: Object.assign({}, AIDES_DEFAUT, opts.aides || {}), apercu: null, relier: null};
@@ -3881,7 +3883,7 @@ function editeur(racine, opts){
       if (a === 'dxf'){ var an = analyser(S.doc, 'edl'); annoncer(telecharger(new Blob([ecrireDxf(S.doc, an, anomaliesDoc(S.doc, an, ext()))], {type: 'application/dxf'}), nomFichier('Croquis', 'dxf')), 'DXF enregistré'); return; }
       if (!global.jspdf){ toast('La bibliothèque PDF n\'est pas chargée'); return; }
       var mode = a === 'pdfAvp' ? 'avp' : 'edl';
-      Promise.resolve(pdfPlan(S.doc, S.fond, {mode: mode, logo: opts.logo, reseau: S.reseau, anomalies: ext()})).then(function(blob){ annoncer(telecharger(blob, nomFichier(mode === 'avp' ? 'Avant-projet' : opts.cartoucheHote ? 'Plan' : 'État des lieux', 'pdf')), 'PDF enregistré'); }).catch(function(err){ toast('PDF impossible : ' + (err && err.message || err), 6000); });
+      Promise.resolve(pdfPlan(S.doc, S.fond, {mode: mode, logo: opts.logo, reseau: S.reseau, anomalies: ext(), conclusionConstat: conclHote()})).then(function(blob){ annoncer(telecharger(blob, nomFichier(mode === 'avp' ? 'Avant-projet' : opts.cartoucheHote ? 'Plan' : 'État des lieux', 'pdf')), 'PDF enregistré'); }).catch(function(err){ toast('PDF impossible : ' + (err && err.message || err), 6000); });
     } catch(err){ toast('Sortie impossible : ' + (err && err.message || err), 6000); }
   }
 
@@ -4309,7 +4311,7 @@ function pdfPlan(doc, fond, o){
   pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.setTextColor(140, 140, 140); pdf.text(pdfTxt(VC.signature || ''), 290, 205, {align: 'right'});
   /* page 2 */
   pdf.addPage('a4', 'landscape');
-  pageTableaux(pdf, doc, an, liste, mode, ext, oL);
+  pageTableaux(pdf, doc, an, liste, mode, ext, oL, o.conclusionConstat);
   var nb = pdf.getNumberOfPages();
   for (var pg = 1; pg <= nb; pg++){ pdf.setPage(pg); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.setTextColor(140, 140, 140); pdf.text('Page ' + pg + ' / ' + nb, 7, 205); }
   return pdf.output('blob');
@@ -4365,7 +4367,7 @@ function libEquipement(e){
 }
 /* ligne des plans PDF hors de l'éditeur quand le dessin retient n anomalies que la liste du dossier n'a pas encore (croquis à rouvrir) */
 function texteAReprendre(n){ return 'À reprendre : le croquis retient ' + (n > 1 ? n + ' anomalies absentes' : 'une anomalie absente') + ' de la liste du dossier (rouvrir le croquis)'; }
-function pageTableaux(pdf, doc, an, liste, mode, ext, oL){
+function pageTableaux(pdf, doc, an, liste, mode, ext, oL, conclC){
   var y = 10, ret = liste.filter(function(a){ return a.st === 'retenue'; }), idx = indexDoc(doc);
   /* hors de l'éditeur : anomalies que le dessin retient et que la liste du dossier n'a pas encore (croquis à rouvrir), quelle que soit la
      conclusion (une NC déjà retenue n'en dispense pas) */
@@ -4400,10 +4402,12 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL){
       var nums = ret.filter(function(a){ return a.objId === e.id; }).map(function(a){ return a.num; }), hdObj = hors.some(function(a){ return a.objId === e.id; });
       return {cells: [libEquipement(e), NIV_LIB[e.p.niv] || '', rej + (nums.length ? ' · anomalie n° ' + nums.join(', ') : '') + (hdObj ? ' · anomalie à reprendre' : ''), methLib(e.p.meth) || 'non indiquée', e.p.obs || ''], coul: [null, null, nums.length || hdObj ? [180, 35, 24] : null]};
     }) : [{cells: ['Aucun équipement dessiné.', '', '', '', '']}], 'Équipements, rejets et méthodes de contrôle');
-  var c = conclusion(liste, an);
+  /* la conclusion que le technicien a choisie dans le constat du dossier (conclusionConstat de pdfPlan, donnée par l'hôte), sinon celle que le
+     dessin propose (décision du 7 novembre 2026) */
+  var c = conclusion(liste, an), cc = /^(conformes|non_conformes|reserves)$/.test(conclC || '') ? conclC : '';
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10.5); pdf.setTextColor(20, 20, 20);
   if (y > 190){ pdf.addPage('a4', 'landscape'); y = 14; }
-  pdf.text(pdfTxt('Conclusion proposée : ' + (CONCL[c] || 'sans objet')), 10, y);
+  pdf.text(pdfTxt(cc ? 'Conclusion du constat : ' + CONCL[cc] : 'Conclusion proposée : ' + (CONCL[c] || 'sans objet')), 10, y);
 }
 VC.pdfPlan = pdfPlan;
 

@@ -34,7 +34,8 @@ SORTIES
   - le plan, à l'échelle choisie automatiquement du 1/100 au 1/500 ;
   - le nord et la barre d'échelle ;
   - le cartouche et la légende des seuls objets utilisés ;
-  - en page 2, les anomalies et préconisations, puis chaque équipement avec son rejet et sa méthode de contrôle.
+  - en page 2, les anomalies et préconisations, puis chaque équipement avec son rejet et sa méthode de contrôle ;
+  - la conclusion : celle que le technicien a choisie dans le constat (« Conclusion du constat »), sinon celle que le dessin propose (« Conclusion proposée »).
 - Plan d'avant-projet en PDF.
 - Plan pour la DAO : DXF R12 en coordonnées du fond, calques VEDE-…, symboles en blocs à l'échelle du plan ; il se superpose au cadastre.
 - Sauvegarde du croquis (.json), sans le fond.

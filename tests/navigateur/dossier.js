@@ -13,6 +13,9 @@
 //     possible (échouent sur be1d749), comme « Lavabo » (témoin) ; « Chaudière (purge, condensat) » ne l'est pas (témoin).
 // 13 à 17 : anomalie saisie à la main, hors croquis, dont le texte contient « lavabo » : ligne « Évier », plus « Salle de bain » (décision du
 //     7 novembre 2026 ; échouent sur 22df7f2) ; une douche reste en salle de bain (témoin) ; sans ligne « Évier » comptée, aucune ligne.
+// 18 à 24 (m97, décision du 7 novembre 2026) : plan PDF de l'état des lieux : « Conclusion du constat : … » quand le technicien l'a choisie dans
+//     le constat (plan du dossier, plan de l'export, bouton PDF du croquis ; constat signé : celle qu'il a signée), sinon « Conclusion proposée : … »
+//     d'après le dessin, comme avant (témoins : aucune conclusion choisie, choix retiré, visite non effectuée) ; 19 à 21 et 24 échouent sur 0a317cc.
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -158,8 +161,57 @@ async function motLavabo(){
   } finally { await A.fermer(); }
 }
 
+/* Plan PDF de l'état des lieux : ligne de conclusion imprimée (texte capté à l'appel de la bibliothèque PDF ; enregistrement simulé) */
+async function conclusionPlan(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p); await C.ouvrirCroquis(p, {fond: false});
+    const v0 = await C.vue(p), els = [C.P('w', 'wc', v0.cx, v0.cy + 4), C.P('B', 'boite', v0.cx, v0.cy, {res: 'EU'})], I = C.index(els);
+    els.push(C.L('t', 'tr', ['w', 'B'], I, {res: 'EU'}));
+    await C.injecter(p, {el: els});
+    await p.evaluate(() => { const S = window.__vcEd.etat; S.doc.rev = (S.doc.rev || 0) + 1; window.__vcEd.enregistrer();
+      const J0 = window.jspdf.jsPDF; window.__txtPdf = []; window.__pdfFaits = 0;
+      const W = function(){ const d = new J0(...arguments), ot = d.text; d.text = function(t){ try { window.__txtPdf.push([].concat(t).join(' ')); } catch (e){} return ot.apply(d, arguments); }; return d; };
+      W.API = J0.API; window.jspdf.jsPDF = W; window.__VT_SAVE = async () => { window.__pdfFaits++; return true; }; });
+    await C.pause(p, 500);
+    const lu = () => p.evaluate(() => { const t = window.__txtPdf.filter(x => /^Conclusion/.test(x)).join(' | ') || 'aucune'; window.__txtPdf = []; return t; });
+    /* bouton PDF du croquis (état des lieux) */
+    const parBouton = async () => { const n = await p.evaluate(() => window.__pdfFaits); await p.evaluate(() => window.__vcEd.sortie('pdfEdl'));
+      await p.waitForFunction(n => window.__pdfFaits > n, n, {timeout: 15000}); return lu(); };
+    const parDossier = async () => { await p.evaluate(async () => { const T = window.__VT; await T.vcPdf(T.S.visites[0]); }); return lu(); };
+    const parExport = async () => { const ok = await p.evaluate(async () => { const T = window.__VT, v = T.S.visites[0]; if (!T.vcPlansPdf) return false;
+      await T.vcPlansPdf(v, T.S.anoms.filter(a => a.visiteId === v.id)); return true; }); return ok ? lu() : 'vcPlansPdf absent'; };
+    const verif = (nom, vu, re) => R.ok(re.test(vu), nom + ' : ' + vu);
+    verif('18 bouton PDF du croquis, aucune conclusion choisie (témoin)', await parBouton(), /^Conclusion proposée : Conformes$/);
+    await C.fermerCroquis(p); await C.pause(p, 400);
+    verif('18b plan du dossier, aucune conclusion choisie (témoin)', await parDossier(), /^Conclusion proposée : Conformes$/);
+    await p.evaluate(() => { const v = window.__VT.S.visites[0]; v.statut = 'visitee'; location.hash = '#/e/' + v.etudeId + '/v/' + v.id + '/constat'; });
+    await p.waitForSelector('[data-act="c-concl"][data-v="reserves"]'); await C.pause(p, 600);
+    await p.click('[data-act="c-concl"][data-v="reserves"]'); await C.pause(p, 300);
+    const choix = await p.evaluate(() => window.__VT.S.visites[0].constat.conclusion);
+    R.ok(choix === 'reserves', 'conclusion « Conformes avec réserves » choisie dans le constat : ' + JSON.stringify(choix));
+    verif('19 plan du dossier, conclusion choisie dans le constat', await parDossier(), /^Conclusion du constat : Conformes avec réserves$/);
+    verif('20 plan de l\'export, conclusion choisie dans le constat', await parExport(), /^Conclusion du constat : Conformes avec réserves$/);
+    await p.evaluate(() => { const v = window.__VT.S.visites[0]; location.hash = '#/e/' + v.etudeId + '/v/' + v.id; }); await p.waitForSelector('[data-act="vc-ouvrir"]');
+    await C.ouvrirCroquis(p, {dejaCommence: true}); await p.waitForSelector('#modal-root .vc'); await C.pause(p, 400);
+    verif('21 bouton PDF du croquis, conclusion choisie dans le constat', await parBouton(), /^Conclusion du constat : Conformes avec réserves$/);
+    await C.fermerCroquis(p); await C.pause(p, 400);
+    await p.evaluate(() => { window.__VT.S.visites[0].statut = 'absent'; });
+    verif('22 visite non effectuée (absent), conclusion restée choisie (témoin)', await parDossier(), /^Conclusion proposée : Conformes$/);
+    await p.evaluate(() => { const v = window.__VT.S.visites[0]; v.statut = 'visitee'; location.hash = '#/e/' + v.etudeId + '/v/' + v.id + '/constat'; });
+    await p.waitForSelector('[data-act="c-concl"][data-v="reserves"]'); await C.pause(p, 600);
+    await p.click('[data-act="c-concl"][data-v="reserves"]'); await C.pause(p, 300);
+    verif('23 choix retiré (second toucher), plan du dossier (témoin)', await parDossier(), /^Conclusion proposée : Conformes$/);
+    /* constat signé (état posé à la main) : la conclusion qu'il atteste */
+    await p.evaluate(() => { const c = window.__VT.S.visites[0].constat; c.conclusion = 'non_conformes'; c.signeLe = '2026-11-07';
+      c.fige = Object.assign({}, c.fige || {}, {conclusion: 'non_conformes', visite: {statut: 'visitee'}}); });
+    verif('24 constat signé, conclusion choisie avant la signature', await parDossier(), /^Conclusion du constat : Non conformes$/);
+  } finally { R.ok(!A.erreurs.length, 'conclusion du plan : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
 (async () => {
   try {
+    await conclusionPlan();
     await motLavabo();
     await cas('1 NC choisie en EP, dessin changé pendant le retrait puis rétabli', 'relier();', 'true', false, {nature: 'NC', constat: 'non_conformes'});
     await cas('2 réserve choisie en EU, dessin changé pendant le retrait puis rétabli', '', 'false', true, {nature: 'réserve', constat: 'reserves'});
