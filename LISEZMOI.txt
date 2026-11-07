@@ -54,7 +54,10 @@ CROQUIS DE TERRAIN (facultatif)
   tablette et sert à tous les dossiers de l'étude.
 - On pose les équipements (WC, évier, descentes…), les regards, la boîte
   de branchement et les collecteurs, puis on les relie par des tronçons.
-  L'application en déduit où chaque eau se rejette.
+  L'application en déduit où chaque eau se rejette. Dans la fiche de la
+  boîte de branchement, on indique sa position par rapport à la limite de
+  propriété (côté intérieur ou extérieur, distance en mètres) ; l'étiquette
+  du plan la reprend, par exemple « à 0,80 m de la limite, intérieur ».
 - Les anomalies déduites du dessin (EU vers EP, EP vers EU, fosse, descente
   non visitable, tampon béton…) rejoignent la liste du dossier, avec les
   mêmes numéros (A1, A2…) que les bulles du plan : la fiche Préco, le

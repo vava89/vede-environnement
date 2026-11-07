@@ -1447,6 +1447,18 @@ function resLigne(e, an){
   if (!k && an.ref) return resLigne(e, an.ref);
   return k || 'INC';
 }
+/* Boîte en limite de propriété (souhait 10, décision D4) : ligne de l'étiquette, d'après p.limCote ('int' | 'ext') et p.limDist (en mètres,
+   « 0 » : en limite). La distance s'écrit avec deux décimales ; une distance qui s'écrit 0,00 est « en limite ». Une distance négative ou
+   illisible (la fiche la refuse : croquis altéré) est ignorée. Rien si aucun des deux champs n'est donné. */
+function texteLimite(p){
+  p = p || {};
+  var cote = p.limCote === 'int' ? 'intérieur' : p.limCote === 'ext' ? 'extérieur' : '', d = num(p.limDist);
+  if (d != null && d >= 0){
+    var t = frNum(d, 2);
+    return t === '0,00' ? 'en limite de propriété' : 'à ' + t + ' m de la limite' + (cote ? ', ' + cote : '');
+  }
+  return cote ? 'côté ' + cote : '';
+}
 function texteEtiquette(e, an){
   if (e.p && e.p.etiq) return String(e.p.etiq);
   if (e.k === 'tx') return e.txt || '';
@@ -1463,9 +1475,10 @@ function texteEtiquette(e, an){
       return pre + s;
     }
     if (ty.regard){
-      var base = (ty.boite ? 'Boîte de branchement' : e.t === 'regard_pub' ? 'Regard public' : 'Regard') + lr;
+      var base = (ty.boite ? 'Boîte de branchement' : e.t === 'regard_pub' ? 'Regard public' : 'Regard') + lr, lim = ty.boite ? texteLimite(e.p) : '';
       if (e.p.dim) det.push(e.p.dim); if (num(e.p.prof) != null) det.push('P : ' + frNum(num(e.p.prof), 2) + ' m'); if (e.p.tampon) det.push('tampon ' + TAMPON_LIB[e.p.tampon]);
-      return pre + base + (det.length ? '\n' + det.join(', ') : '');
+      /* boîte : la position par rapport à la limite de propriété en dernière ligne */
+      return pre + base + (det.length ? '\n' + det.join(', ') : '') + (lim ? '\n' + lim : '');
     }
     if (e.t === 'test') return 'Test' + ((e.p.meth || []).length ? ' ' + methLib(e.p.meth) : '') + (e.p.resultat ? ' : ' + e.p.resultat : '');
     if (e.t === 'zone') return e.p.obs || 'Zone suspecte';
@@ -1485,7 +1498,7 @@ function texteEtiquette(e, an){
   }
   return '';
 }
-VC.texteEtiquette = texteEtiquette; VC.resLigne = resLigne;
+VC.texteEtiquette = texteEtiquette; VC.resLigne = resLigne; VC.texteLimite = texteLimite;
 
 /* ---------- Symboles : primitives en millimètres papier, y en haut, centrées sur l'objet ---------- */
 var BLANC = [255, 255, 255];
@@ -3610,6 +3623,9 @@ function editeur(racine, opts){
       if (e.t === 'descente'){ h += champ('Façade', chipsHtml('cote', [['avant', 'Avant'], ['arriere', 'Arrière']], e.p.cote)); h += champ('Visitable', chipsHtml('visitable', OUI_NON, e.p.visitable)); }
       if (ty.role === 'source') h += champ('Niveau', chipsHtml('niv', NIV, e.p.niv));
       if (ty.boite || e.t === 'regard_pub') h += champ('Réseau', chipsHtml('res', [['EU', 'EU'], ['EP', 'EP'], ['UN', 'Unitaire']], e.p.res), RES[e.p.res] ? '' : 'déduit du dessin tant qu\'il n\'est pas indiqué');
+      /* boîte en limite de propriété (souhait 10) : côté et distance, facultatifs, repris sur l'étiquette (texteLimite) */
+      if (ty.boite) h += champ('Limite de propriété', chipsHtml('limCote', [['int', 'Intérieur'], ['ext', 'Extérieur']], e.p.limCote || '', {label: 'Côté de la limite de propriété'})
+        + saisie('limDist', e.p.limDist, {num: true, ph: 'distance, ex. 0,80', lab: 'Distance à la limite de propriété en mètres'}), 'côté de la boîte, distance en mètres (0 : en limite)');
       if (ty.regard && e.t !== 'regard_pub'){
         h += champ('Tampon', chipsHtml('tampon', TAMPON, e.p.tampon));
         h += champ('Cunette', chipsHtml('cunette', OUI_NON, e.p.cunette));
@@ -3957,7 +3973,8 @@ function editeur(racine, opts){
     /* l'élément que décrit la fiche affichée (le choix a pu changer : saisie enregistrée au moment où la fiche change) */
     var a = b.dataset.a, fid = pan.dataset.id, e = fid ? el(fid) : S.sel && el(S.sel.id), v = b.value;
     if (a === 'propTxt' && e){
-      var k = b.dataset.k; if (k === 'prof' || k === 'long' || k === 'diam'){ v = String(v).trim(); if (v && num(v) == null){ toast('Nombre attendu, par exemple 0,80'); b.value = e.p[k] || ''; return; } }
+      /* nombres ; la distance à la limite de propriété ne peut pas être négative (0 : en limite) */
+      var k = b.dataset.k; if (k === 'prof' || k === 'long' || k === 'diam' || k === 'limDist'){ v = String(v).trim(); if (v && (num(v) == null || k === 'limDist' && num(v) < 0)){ toast('Nombre attendu, par exemple 0,80'); b.value = e.p[k] || ''; return; } }
       if ((e.p[k] || '') === v) return; instantane(); e.p[k] = v; apresProp(e, {garderPanneau: true}); rafraichirFiche(e, k); majPanneauBientot(); return;
     }
     if (a === 'texteLibre' && e){ if (!String(v).trim()){ toast('Le texte est vide'); b.value = e.txt; return; } instantane(); e.txt = String(v).trim(); changement({garderPanneau: true}); majPanneauBientot(); return; }
