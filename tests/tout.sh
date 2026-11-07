@@ -11,12 +11,12 @@ for a in "$@"; do
   esac
 done
 ec=0
-for t in analyse regles sens constat fosse-contournee fosse-oracle copie avant-projet aleatoire dessin compat boite; do
+for t in analyse regles sens constat fosse-contournee fosse-oracle copie avant-projet aleatoire dessin compat boite escalier; do
   # shellcheck disable=SC2086
   node "tests/vm/$t.js" $opts || ec=1
 done
 if [ "$nav" = 1 ]; then
-  for t in fumee gestes dossier souris dessin boite; do
+  for t in fumee gestes dossier souris dessin boite escalier; do
     if [ ! -e "tests/navigateur/$t.js" ]; then echo "$t : fichier absent"; ec=1; continue; fi
     # shellcheck disable=SC2086
     node "tests/navigateur/$t.js" $opts || ec=1

@@ -11,6 +11,8 @@ Le croquis est la saisie principale : on pose des objets typés sur le plan cada
 - Objets : appareils EU (WC, lavabo, douche, évier, lave-linge, chaudière, siphon de garage…), ouvrages EP (descente, grille, caniveau, siphon de sol, drain…), regards, boîtes de branchement, té de visite, poste de relevage, clapet, fosse, puisard, gargouille, collecteurs publics, points de test, zones suspectes, textes.
 - Boîte de branchement : sa fiche a un bloc « Limite de propriété », juste après le réseau : le côté (Intérieur ou Extérieur) et la distance à la limite en mètres (0 : en limite), tous deux facultatifs. Un second toucher sur la puce choisie l'efface ; une distance négative ou un texte sont refusés. L'étiquette du plan (écran, PDF, DXF) l'écrit en dernière ligne : « à 0,80 m de la limite, intérieur » (ou « extérieur »), « en limite de propriété » (distance 0), « à 0,80 m de la limite » (sans côté) ou « côté intérieur » (sans distance). Une étiquette personnalisée remplace tout le texte, cette ligne comprise. Changer le type de la boîte efface ces deux champs (« Annuler » les rétablit).
 - Tronçons : on touche les points successifs ; un point posé sur un objet s'y attache, sur un autre tracé il crée un raccord. Les traits sont redressés à 45° près. Un tronçon qui arrive sur un objet ou un autre tracé se termine seul (aide « Terminer sur un objet ») ; sinon on termine en touchant à nouveau le dernier point.
+- Escaliers : un escalier est un tracé à part, sans réseau : une ligne départ-fin (deux sommets, jamais attachés), une largeur d'un seul côté de cette ligne (à gauche ou à droite, vu du départ vers la fin), un nombre de marches et le sens de la montée (vers la fin ou vers le départ). Il est dessiné en gris, comme le complément du fond : le contour, les marches à pas égal et une flèche vers le haut sur la ligne du milieu. Les marches trop serrées sont omises (moins de 4 pixels à l'écran, moins de 1 mm sur le papier) ; le contour et la flèche restent. Pas d'étiquette d'office ; aucun tuyau ne s'y attache ; l'analyse l'ignore. Si ses valeurs sont illisibles, ou si son départ et sa fin sont confondus, rien n'est dessiné et la fiche le dit. Dans cette version, un escalier vient d'un croquis enregistré : l'outil pour le dessiner viendra ensuite.
+- Croquis d'une version plus récente : un objet ou un tracé d'un type que cette version ne connaît pas est gardé tel quel. Il est dessiné en neutre (symbole d'appareil, trait gris fin), sans étiquette d'office ni ligne de légende ; au DXF, c'est un bloc VEDE_OBJET ou un trait du calque 0. Sa fiche dit « Type inconnu de cette version : gardé tel quel » ; on peut le supprimer. L'analyse ne le compte pas.
 
 CE QUE L'APPLICATION DÉDUIT DU DESSIN
 - Le réseau de chaque tronçon et son sens d'écoulement, jusqu'à la boîte de branchement, au collecteur, au puisard ou à la gargouille.
@@ -34,11 +36,11 @@ SORTIES
 - Plan de l'état des lieux en PDF (A4 paysage) :
   - le plan, à l'échelle choisie automatiquement du 1/100 au 1/500 ;
   - le nord et la barre d'échelle ;
-  - le cartouche et la légende des seuls objets utilisés ;
+  - le cartouche et la légende des seuls objets utilisés (« Escalier » s'il y en a un) ;
   - en page 2, les anomalies et préconisations, puis chaque équipement avec son rejet et sa méthode de contrôle ;
   - la conclusion : celle que le technicien a choisie dans le constat (« Conclusion du constat »), sinon celle que le dessin propose (« Conclusion proposée »).
 - Plan d'avant-projet en PDF.
-- Plan pour la DAO : DXF R12 en coordonnées du fond, calques VEDE-…, symboles en blocs à l'échelle du plan ; il se superpose au cadastre.
+- Plan pour la DAO : DXF R12 en coordonnées du fond, calques VEDE-…, symboles en blocs à l'échelle du plan ; il se superpose au cadastre. Les escaliers sont sur le calque VEDE-ESCALIERS (gris), déclaré seulement s'il sert : contour en polyligne fermée, marches et flèche en lignes, toutes les marches.
 - Sauvegarde du croquis (.json), sans le fond.
 
 LIMITES DE CETTE VERSION

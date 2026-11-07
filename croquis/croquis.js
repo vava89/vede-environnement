@@ -163,6 +163,28 @@ function piedPerp(p, a, b){
   t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2;
   return {x: a.x + t * dx, y: a.y + t * dy, t: t};
 }
+/* Escalier vu de dessus (souhait 12, décision D7), dans le repère du croquis : départ D et fin F d'un même bord, largeur larg (m) d'un seul
+   côté de la ligne D-F (cote 'g' : à gauche en allant de D vers F ; 'd' : à droite), n marches, monte vers la fin ('fin') ou vers le départ
+   ('depart'). Rend {contour : [D, F, F + larg·nc, D + larg·nc], marches : n − 1 traits [a, b] d'un bord à l'autre, fleche : [début, tête] sur
+   la ligne du milieu (vers le haut de l'escalier), pointe : les deux bouts des traits de la pointe (menés de la tête), pas : longueur d'une
+   marche}. larg et n : nombres ou textes (« 1,00 ») ; n entier de 1 à 100. D et F confondus ou une valeur invalide : null, sans exception. */
+function escalier(D, F, larg, n, cote, monte){
+  var t = unite(D, F), w = num(larg), k = num(n), L, nc, i, a, P = [], M = [], Dm, Fm, haut, bas, u, s;
+  if (!t || w == null || !(w > 0) || k == null || k !== Math.round(k) || k < 1 || k > 100) return null;
+  if ((cote !== 'g' && cote !== 'd') || (monte !== 'fin' && monte !== 'depart')) return null;
+  L = Math.hypot(F.x - D.x, F.y - D.y); if (!(L > GEO_EPS)) return null;
+  nc = cote === 'g' ? ccw(t) : cw(t);
+  P = [{x: D.x, y: D.y}, {x: F.x, y: F.y}, {x: F.x + w * nc.x, y: F.y + w * nc.y}, {x: D.x + w * nc.x, y: D.y + w * nc.y}];
+  for (i = 1; i < k; i++){
+    a = {x: D.x + (F.x - D.x) * i / k, y: D.y + (F.y - D.y) * i / k};
+    M.push([a, {x: a.x + w * nc.x, y: a.y + w * nc.y}]);
+  }
+  Dm = {x: D.x + w / 2 * nc.x, y: D.y + w / 2 * nc.y}; Fm = {x: F.x + w / 2 * nc.x, y: F.y + w / 2 * nc.y};
+  haut = monte === 'fin' ? Fm : Dm; bas = monte === 'fin' ? Dm : Fm;
+  u = monte === 'fin' ? t : {x: -t.x, y: -t.y}; s = Math.min(w * .3, L * .25);
+  return {contour: P, marches: M, fleche: [{x: bas.x, y: bas.y}, {x: haut.x, y: haut.y}],
+    pointe: [{x: haut.x - s * u.x + .6 * s * nc.x, y: haut.y - s * u.y + .6 * s * nc.y}, {x: haut.x - s * u.x - .6 * s * nc.x, y: haut.y - s * u.y - .6 * s * nc.y}], pas: L / k};
+}
 /* Intersection des droites (a, b) et (c, d), non bornées : {x, y, t, u} (t sur a→b, u sur c→d : 0 au premier point, 1 au second) ;
    null si elles sont parallèles ou confondues (angle sous 1e-12 rad), ou si a = b ou c = d */
 function interDroites(a, b, c, d){
@@ -673,9 +695,40 @@ function defautsLn(t, o){
   o = o || {};
   if (t === 'col') return {res: o.res || 'EU', gest: o.gest || 'D', diam: '', st: 'existant'};
   if (t === 'lim') return {st: 'existant'};
+  if (t === 'esc') return {larg: '1,00', n: '4', cote: 'g', monte: 'fin', st: 'existant'};
   return {res: o.res || '', st: o.st || 'existant', diam: '', mat: '', pose: '', long: '', sens: 0, obs: ''};
 }
 VC.defautsPt = defautsPt; VC.defautsLn = defautsLn;
+VC.geo.escalier = escalier;
+/* Tracés : canalisation (tronçon, collecteur), complément du fond (trait, escalier) ; un tracé d'un autre type (croquis d'une version plus
+   récente) n'est ni l'un ni l'autre : il est dessiné comme un trait neutre et gardé tel quel. */
+function estCanalisation(t){ return t === 'tr' || t === 'col'; }
+function estComplement(t){ return t === 'lim' || t === 'esc'; }
+/* ordre du dessin des tracés : complément, escalier et tracé inconnu dessous, puis collecteur, puis tronçon */
+function rangTrace(t){ return t === 'col' ? 1 : t === 'tr' ? 2 : 0; }
+/* nom d'un tracé dans les messages de l'éditeur */
+function nomTrace(t){ return t === 'col' ? 'Collecteur' : t === 'lim' ? 'Trait' : t === 'esc' ? 'Escalier' : 'Tronçon'; }
+/* géométrie d'un escalier (deux sommets) : VC.geo.escalier, ou null (valeurs illisibles : rien n'est dessiné) */
+function geoEscalier(e, idx){
+  var P = lignePts(e, idx || {}), p = e.p || {};
+  return P.length === 2 ? escalier(P[0], P[1], p.larg, p.n, p.cote, p.monte) : null;
+}
+/* points qui comptent pour l'emprise d'un tracé : les quatre coins d'un escalier, sinon ses sommets */
+function coinsTrace(e, idx){
+  var G = e.t === 'esc' ? geoEscalier(e, idx) : null;
+  return G ? G.contour : lignePts(e, idx || {});
+}
+/* segments [a, b] d'un tracé tels qu'ils sont dessinés : contour, marches, flèche et pointe d'un escalier ; sinon ceux de la ligne */
+function segmentsTrace(e, idx){
+  var G = e.t === 'esc' ? geoEscalier(e, idx) : null, P, r = [], i;
+  if (G){
+    for (i = 0; i < 4; i++) r.push([G.contour[i], G.contour[(i + 1) % 4]]);
+    return r.concat(G.marches, [G.fleche, [G.fleche[1], G.pointe[0]], [G.fleche[1], G.pointe[1]]]);
+  }
+  P = lignePts(e, idx || {});
+  for (i = 1; i < P.length; i++) r.push([P[i - 1], P[i]]);
+  return r;
+}
 
 /* ---------- Document ---------- */
 function nouveauDoc(o){
@@ -1514,7 +1567,8 @@ var STATUT_LIB = {existant: 'existant', presume: 'présumé', projet: 'projet', 
 function methLib(m){ return (m || []).map(function(k){ for (var i = 0; i < METH.length; i++) if (METH[i][0] === k) return METH[i][1].toLowerCase(); return k; }).join(', '); }
 function resLigne(e, an){
   if (e.t === 'col') return RES[e.p.res] ? e.p.res : 'EU';
-  if (e.t === 'lim') return 'LIM';
+  /* complément du fond, escalier, tracé d'un type inconnu : gris du complément */
+  if (e.t !== 'tr') return 'LIM';
   if (e.p.st === 'projet') return 'PRJ';
   if (RES[e.p.res] && e.p.res !== 'PRJ') return e.p.res;
   if (!an) return 'INC';
@@ -1562,7 +1616,8 @@ function texteEtiquette(e, an){
     return pre + ty.lib;
   }
   if (e.k === 'ln'){
-    if (e.t === 'lim') return '';
+    /* complément du fond, escalier, tracé d'un type inconnu : pas d'étiquette d'office */
+    if (!estCanalisation(e.t)) return '';
     if (e.t === 'col') return 'Collecteur ' + libRes(RES[e.p.res] ? e.p.res : 'EU') + (e.p.diam ? ' Ø' + e.p.diam : '') + (e.p.gest ? ' ' + GEST_LIB[e.p.gest] : '');
     var r = resLigne(e, an);
     if (e.p.diam) det.push('Ø' + e.p.diam); if (e.p.mat) det.push(MAT_LIB[e.p.mat] || e.p.mat); if (num(e.p.long) != null) det.push('L ' + frNum(num(e.p.long)) + ' m');
@@ -1578,7 +1633,7 @@ VC.texteEtiquette = texteEtiquette; VC.resLigne = resLigne; VC.texteLimite = tex
 
 /* ---------- Symboles : primitives en millimètres papier, y en haut, centrées sur l'objet ---------- */
 var BLANC = [255, 255, 255];
-function rayonSymbole(t){ var f = (T[t] || {}).forme; return {app: 1.9, app2: 2.3, descente: 1.25, grille: 1.6, caniveau: 2.7, siphon: 1.5, regard: 1.7, boite: 1.9, te: 1.4, clapet: 1.3, fosse: 2.6, point: .7, puisard: 2.1, gargouille: 1.9, regpub: 1.7, test: 2, zone: 1}[f] || 1.6; }
+function rayonSymbole(t){ var f = (T[t] || {forme: 'app'}).forme; return {app: 1.9, app2: 2.3, descente: 1.25, grille: 1.6, caniveau: 2.7, siphon: 1.5, regard: 1.7, boite: 1.9, te: 1.4, clapet: 1.3, fosse: 2.6, point: .7, puisard: 2.1, gargouille: 1.9, regpub: 1.7, test: 2, zone: 1}[f] || 1.6; }
 function couleurPt(e, an){
   var ty = T[e.t] || {};
   if (e.p && e.p.st === 'projet') return RES.PRJ.rgb;
@@ -1804,7 +1859,7 @@ function obstaclesPlan(doc, an, E, idx, sauf){
   var m = E / 1000, rot = doc.rot || 0, boites = [], segs = [];
   doc.el.forEach(function(e){
     if (e.k === 'pt'){ var A = versPlan(e.x, e.y, rot), r = rayonSymbole(e.t) * m; boites.push([A.x - r, A.y - r, A.x + r, A.y + r]); }
-    if (e.k === 'ln'){ var P = lignePts(e, idx).map(function(p){ return versPlan(p.x, p.y, rot); }); for (var i = 1; i < P.length; i++) segs.push([P[i - 1].x, P[i - 1].y, P[i].x, P[i].y]); }
+    if (e.k === 'ln') segmentsTrace(e, idx).forEach(function(sg){ var a = versPlan(sg[0].x, sg[0].y, rot), b = versPlan(sg[1].x, sg[1].y, rot); segs.push([a.x, a.y, b.x, b.y]); });
     if (e.id !== sauf && e.lab && !e.lab.off){
       var txt = texteEtiquette(e, an); if (!txt) return;
       var b = boiteTexte(txt, TAILLE_ETIQ * m), a = ancre(e, idx), A2 = versPlan(a.x, a.y, rot);
@@ -1847,6 +1902,20 @@ function dessinerPrims(ctx, P, cx, cy, k){
   });
 }
 /* o : {E, mode, sel, anomalies, etiquettes, brouillon, accent} */
+/* Escalier à l'écran, en gris du complément : contour, marches (omises sous 4 px), flèche vers le haut et sa pointe. Rend sa zone de toucher :
+   le contour et la ligne du milieu (celle de la flèche) ; valeurs illisibles : rien n'est dessiné, la zone est la ligne départ-fin (W). */
+function escalierEcran(ctx, e, idx, vue, W, larg){
+  var G = geoEscalier(e, idx), ec = function(p){ return vue.ecran(p.x, p.y); };
+  if (!G) return {type: 'ln', id: e.id, pts: W, larg: larg};
+  var C = G.contour.map(ec), F = G.fleche.map(ec), P = G.pointe.map(ec);
+  ctx.strokeStyle = rgbCss(RES.LIM.rgb); ctx.lineWidth = larg; ctx.setLineDash([]);
+  trace(ctx, C); ctx.closePath(); ctx.stroke();
+  if (G.pas * vue.s >= 4 && G.marches.length){
+    ctx.beginPath(); G.marches.forEach(function(m){ var a = ec(m[0]), b = ec(m[1]); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(F[0].x, F[0].y); ctx.lineTo(F[1].x, F[1].y); ctx.moveTo(P[0].x, P[0].y); ctx.lineTo(F[1].x, F[1].y); ctx.lineTo(P[1].x, P[1].y); ctx.stroke();
+  return {type: 'ln', id: e.id, pts: [C[0], C[1], C[2], C[3], C[0], milieu(C[0], C[3]), milieu(C[1], C[2])], larg: larg};
+}
 function dessinerCroquis(ctx, doc, an, vue, dpr, o){
   o = o || {};
   var E = o.E || 200, k = vue.s * E / 1000, idx = indexDoc(doc), zones = [], mode = o.mode || 'edl', rot = doc.rot || 0;
@@ -1863,21 +1932,22 @@ function dessinerCroquis(ctx, doc, an, vue, dpr, o){
     zones.push({type: 'pt', id: e.id, x: c.x, y: c.y, r: r, zone: true});
   });
   ctx.globalAlpha = 1;
-  /* tracés */
-  var ordreL = {lim: 0, col: 1, tr: 2};
-  doc.el.filter(function(e){ return e.k === 'ln' && e.v.length >= 2; }).sort(function(a, b){ return ordreL[a.t] - ordreL[b.t]; }).forEach(function(e){
+  /* tracés : complément du fond, escalier et tracé d'un type inconnu dessous, puis collecteurs, puis tronçons */
+  doc.el.filter(function(e){ return e.k === 'ln' && e.v.length >= 2; }).sort(function(a, b){ return rangTrace(a.t) - rangTrace(b.t); }).forEach(function(e){
     var W = lignePts(e, idx).map(function(p){ return vue.ecran(p.x, p.y); }), st = e.p.st || 'existant';
     ctx.globalAlpha = attenue(e) ? .3 : 1;
+    if (e.t === 'esc'){ zones.push(escalierEcran(ctx, e, idx, vue, W, px(.3, 1.2, 5))); return; }
     var morceaux = (parLigne[e.id] || []).map(function(p){ return {pts: W.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
     if (!morceaux.length || e.t !== 'tr') morceaux = [{pts: W, res: resLigne(e, an)}];
-    var larg = e.t === 'col' ? px(.9, 3, 14) : e.t === 'lim' ? px(.3, 1.2, 5) : px(.5, 2, 9);
+    /* complément du fond et tracé d'un type inconnu : trait neutre, fin, gris, plein */
+    var neutre = !estCanalisation(e.t), larg = e.t === 'col' ? px(.9, 3, 14) : neutre ? px(.3, 1.2, 5) : px(.5, 2, 9);
     morceaux.forEach(function(m){
       if (m.pts.length < 2) return;
-      var res = st === 'projet' ? 'PRJ' : m.res, col = rgbCss((RES[res] || RES.INC).rgb);
+      var res = neutre ? 'LIM' : st === 'projet' ? 'PRJ' : m.res, col = rgbCss((RES[res] || RES.INC).rgb);
       ctx.strokeStyle = col; ctx.lineWidth = larg;
-      var dash = st === 'projet' ? [px(4, 10), px(2.5, 6)] : st === 'presume' || res === 'INC' ? [px(2.2, 6), px(1.8, 5)] : [];
+      var dash = neutre ? [] : st === 'projet' ? [px(4, 10), px(2.5, 6)] : st === 'presume' || res === 'INC' ? [px(2.2, 6), px(1.8, 5)] : [];
       ctx.setLineDash(dash); trace(ctx, m.pts); ctx.stroke(); ctx.setLineDash([]);
-      if (st === 'supprimer'){ ctx.beginPath(); hachures(ctx, m.pts, px(3, 12), px(2.2, 9)); ctx.lineWidth = Math.max(1.2, larg * .6); ctx.stroke(); }
+      if (st === 'supprimer' && !neutre){ ctx.beginPath(); hachures(ctx, m.pts, px(3, 12), px(2.2, 9)); ctx.lineWidth = Math.max(1.2, larg * .6); ctx.stroke(); }
       if (m.p && an.sensPiece[m.p.id] && o.fleches !== false){
         var c = milieuChemin(m.pts), sg = an.sensPiece[m.p.id];
         if (c && c.L > 36){ var ux = c.ux * sg, uy = c.uy * sg, a = px(1.6, 6, 13); ctx.beginPath(); ctx.moveTo(c.x - ux * a - uy * a * .6, c.y - uy * a + ux * a * .6); ctx.lineTo(c.x, c.y); ctx.lineTo(c.x - ux * a + uy * a * .6, c.y - uy * a - ux * a * .6); ctx.lineWidth = Math.max(1.5, larg * .7); ctx.stroke(); }
@@ -1904,7 +1974,7 @@ function dessinerCroquis(ctx, doc, an, vue, dpr, o){
     var h = libre ? Math.max(9, (num(e.taille) || 2.5) * k) : hpx; if (libre && h < 6.5 && o.sel !== e.id) h = 6.5;
     var a = ancre(e, idx), A = vue.ecran(a.x, a.y), lab = libre ? {dx: 0, dy: 0} : decalLab(e.lab || placerEtiquette(doc, an, e, E, idx) || {dx: 0, dy: 0}, E);
     var cx = A.x + lab.dx * vue.s, cy = A.y - lab.dy * vue.s, L = String(txt).split('\n');
-    var col = libre ? '#1f2328' : e.k === 'pt' ? (TXT_RES[(function(){ var r = an.resPt[e.id]; var ty = T[e.t]; if (e.p.st === 'projet') return 'PRJ'; if (ty.role === 'source') return ty.nat; if (ty.role === 'note') return 'ANN'; return r; })()] || TXT_RES.INC) : TXT_RES[resLigne(e, an)] || TXT_RES.INC;
+    var col = libre ? '#1f2328' : e.k === 'pt' ? (TXT_RES[(function(){ var r = an.resPt[e.id]; var ty = T[e.t] || {}; if (e.p.st === 'projet') return 'PRJ'; if (ty.role === 'source') return ty.nat; if (ty.role === 'note') return 'ANN'; return r; })()] || TXT_RES.INC) : TXT_RES[resLigne(e, an)] || TXT_RES.INC;
     ctx.globalAlpha = attenue(e) ? .4 : 1;
     ctx.font = (libre ? '500 ' : '600 ') + h.toFixed(1) + 'px Barlow, "Segoe UI", Roboto, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     var w = 0; L.forEach(function(l){ w = Math.max(w, ctx.measureText(l).width); }); var lh = h * 1.22, bh = lh * L.length;
@@ -1992,7 +2062,7 @@ function emprisePlan(doc, idx, mode){
     if (!surPlan(e, mode, rc)) return;
     if (e.k === 'ln' && e.t === 'col' && autres) return;
     if (e.k === 'pt' && e.t === 'zone'){ var rz = num(e.p.r) || 1.5; ajoute(e.x - rz, e.y - rz); ajoute(e.x + rz, e.y + rz); ajoute(e.x - rz, e.y + rz); ajoute(e.x + rz, e.y - rz); }
-    else if (e.k === 'pt' || e.k === 'tx') ajoute(e.x, e.y); else if (e.k === 'ln') lignePts(e, idx).forEach(function(p){ ajoute(p.x, p.y); });
+    else if (e.k === 'pt' || e.k === 'tx') ajoute(e.x, e.y); else if (e.k === 'ln') coinsTrace(e, idx).forEach(function(p){ ajoute(p.x, p.y); });
   });
   return x0 === Infinity ? null : [x0, y0, x1, y1];
 }
@@ -2006,7 +2076,7 @@ function pointsPlan(doc, mode, idx){
   doc.el.forEach(function(e){
     if (!surPlan(e, mode, rc) || e.k === 'tx' || (e.k === 'ln' && e.t === 'col')) return;
     if (e.k === 'pt'){ var p = versPlan(e.x, e.y, rot), z = e.t === 'zone'; l.push({x: p.x, y: p.y, r: z ? 0 : rayonSymbole(e.t) + .3, rm: z ? (num(e.p.r) || 1.5) : 0, masque: !z}); }
-    else if (e.k === 'ln') lignePts(e, idx).forEach(function(q){ var p2 = versPlan(q.x, q.y, rot); l.push({x: p2.x, y: p2.y, r: .4, rm: 0, masque: false}); });
+    else if (e.k === 'ln') coinsTrace(e, idx).forEach(function(q){ var p2 = versPlan(q.x, q.y, rot); l.push({x: p2.x, y: p2.y, r: .4, rm: 0, masque: false}); });
   });
   return {l: l, b: emprisePlan(doc, idx, mode)};
 }
@@ -2211,6 +2281,12 @@ function traitSvg(res, st, taille){
   var s = taille || 34, col = rgbCss((RES[res] || RES.INC).rgb), d = st === 'projet' ? ' stroke-dasharray="7 4"' : st === 'presume' || res === 'INC' ? ' stroke-dasharray="4 3"' : '';
   return '<svg viewBox="0 0 ' + s + ' ' + s + '" width="' + s + '" height="' + s + '" aria-hidden="true"><path d="M4 ' + (s - 8) + 'L' + (s - 4) + ' 8" stroke="' + col + '" stroke-width="' + (res === 'COL' ? 5 : 3) + '" stroke-linecap="round" fill="none"' + d + '/></svg>';
 }
+/* pictogramme d'un escalier vu de dessus : contour, marches, flèche vers le haut */
+function escalierSvg(taille){
+  var s = taille || 34, col = rgbCss(RES.LIM.rgb);
+  return '<svg viewBox="0 0 34 34" width="' + s + '" height="' + s + '" aria-hidden="true"><g fill="none" stroke="' + col + '" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    + '<rect x="5" y="10" width="24" height="14"/><path d="M11 10V24M17 10V24M23 10V24"/><path d="M5 17H29M25.5 14.5L29 17L25.5 19.5"/></g></svg>';
+}
 VC.symboleSvg = symboleSvg; VC.traitSvg = traitSvg;
 
 /* ---------- Éditeur tactile ---------- */
@@ -2400,9 +2476,11 @@ function editeur(racine, opts){
       if (e && e.k === 'tx'){ var zt = S.zones.filter(function(z){ return z.type === 'tx' && z.id === e.id; })[0]; if (zt){ ctx.strokeStyle = ac; ctx.lineWidth = 2; ctx.setLineDash([5, 3]); ctx.strokeRect(zt.b[0], zt.b[1], zt.b[2] - zt.b[0], zt.b[3] - zt.b[1]); ctx.setLineDash([]); } }
       if (e && e.k === 'ln'){
         var P = lignePts(e, idx()).map(function(p){ return S.vue.ecran(p.x, p.y); });
-        trace(ctx, P); ctx.strokeStyle = 'rgba(15,92,99,.28)'; ctx.lineWidth = 16; ctx.stroke();
+        /* escalier : le halo suit son contour ; ses deux sommets n'ont pas de poignée au milieu */
+        var Gs = e.t === 'esc' ? geoEscalier(e, idx()) : null, H = Gs ? Gs.contour.map(function(p){ return S.vue.ecran(p.x, p.y); }) : P;
+        trace(ctx, H); if (Gs) ctx.closePath(); ctx.strokeStyle = 'rgba(15,92,99,.28)'; ctx.lineWidth = 16; ctx.stroke();
         P.forEach(function(p, i){
-          if (i){ var m = {x: (p.x + P[i - 1].x) / 2, y: (p.y + P[i - 1].y) / 2}; if (Math.hypot(p.x - P[i - 1].x, p.y - P[i - 1].y) > 44){ ctx.beginPath(); ctx.arc(m.x, m.y, 7, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.fill(); ctx.strokeStyle = ac; ctx.lineWidth = 1.5; ctx.stroke(); ctx.beginPath(); ctx.moveTo(m.x - 3.5, m.y); ctx.lineTo(m.x + 3.5, m.y); ctx.moveTo(m.x, m.y - 3.5); ctx.lineTo(m.x, m.y + 3.5); ctx.stroke(); } }
+          if (i && e.t !== 'esc'){ var m = {x: (p.x + P[i - 1].x) / 2, y: (p.y + P[i - 1].y) / 2}; if (Math.hypot(p.x - P[i - 1].x, p.y - P[i - 1].y) > 44){ ctx.beginPath(); ctx.arc(m.x, m.y, 7, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.fill(); ctx.strokeStyle = ac; ctx.lineWidth = 1.5; ctx.stroke(); ctx.beginPath(); ctx.moveTo(m.x - 3.5, m.y); ctx.lineTo(m.x + 3.5, m.y); ctx.moveTo(m.x, m.y - 3.5); ctx.lineTo(m.x, m.y + 3.5); ctx.stroke(); } }
         });
         P.forEach(function(p, i){
           var att = e.v[i].a, choisi = S.sel.sommet === i;
@@ -2566,7 +2644,7 @@ function editeur(racine, opts){
        puis le plus proche, puis le plus ancien (au croisement d'un collecteur et d'un branchement dessiné après lui : le collecteur) */
     var plan = o.plan || planAccroche(), som = [], seg = [];
     S.doc.el.forEach(function(l){
-      if (l.k !== 'ln' || l.t === 'lim' || o.saufLigne === l.id || (o.col && l.t !== 'col')) return;
+      if (l.k !== 'ln' || !estCanalisation(l.t) || o.saufLigne === l.id || (o.col && l.t !== 'col')) return;
       var P = lignePts(l, I), Q = P.map(function(p){ return S.vue.ecran(p.x, p.y); });
       P.forEach(function(p, i){ if (surObj[l.v[i].a]) return; if (o.bouts && (l.v[i].a || (i && i !== P.length - 1) || l.v.some(function(w){ return w.a === o.bouts; }))) return;
         var d = Math.hypot(x - Q[i].x, y - Q[i].y); if (d <= (o.rayonSom || 16)) som.push({d: d, l: l, a: {type: 'som', ligne: l.id, i: i, x: p.x, y: p.y, a: l.v[i].a && !(I[l.v[i].a] && I[l.v[i].a].t === 'zone') ? l.v[i].a : null}}); });
@@ -2690,7 +2768,8 @@ function editeur(racine, opts){
     if (e.k === 'ln'){
       var P = lignePts(e, idx()).map(function(p){ return S.vue.ecran(p.x, p.y); });
       for (var i = 0; i < P.length; i++) if (Math.hypot(x - P[i].x, y - P[i].y) <= 18) return {k: 'sommet', id: e.id, i: i};
-      for (var j = 1; j < P.length; j++){ var m = {x: (P[j].x + P[j - 1].x) / 2, y: (P[j].y + P[j - 1].y) / 2}; if (Math.hypot(P[j].x - P[j - 1].x, P[j].y - P[j - 1].y) > 44 && Math.hypot(x - m.x, y - m.y) <= 14) return {k: 'milieu', id: e.id, i: j}; }
+      /* poignée du milieu d'un segment (ajout d'un sommet) : pas pour un escalier, qui a toujours deux sommets */
+      if (e.t !== 'esc') for (var j = 1; j < P.length; j++){ var m = {x: (P[j].x + P[j - 1].x) / 2, y: (P[j].y + P[j - 1].y) / 2}; if (Math.hypot(P[j].x - P[j - 1].x, P[j].y - P[j - 1].y) > 44 && Math.hypot(x - m.x, y - m.y) <= 14) return {k: 'milieu', id: e.id, i: j}; }
     }
     /* l'élément choisi d'abord : son corps, puis son étiquette, puis ses bulles */
     var zs = S.zones.filter(function(z){ return z.id === e.id || z.objId === e.id; }), i, z;
@@ -2733,7 +2812,7 @@ function editeur(racine, opts){
         var ks = []; l.v.forEach(function(u, kk){ if (kk !== c.i && u.a === w.a) ks.push(kk); });
         if (bout || ks.some(function(kk){ return Math.abs(kk - c.i) !== 1; }) || l.v.length - ks.length < 2) siens[w.a] = true;
       });
-      var a = l.t === 'lim' ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, saufObjs: siens, prec: prec, col: l.t === 'col', plan: l.p && l.p.st === 'projet' ? 'avp' : 'edl'});
+      var a = !estCanalisation(l.t) ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, saufObjs: siens, prec: prec, col: l.t === 'col', plan: l.p && l.p.st === 'projet' ? 'avp' : 'edl'});
       /* un tracé qui porte un objet du tracé (sortie d'une boîte, collecteur d'un regard ou d'un raccord) n'est pas une cible : s'y raccrocher
          refermerait le tracé sur cet objet. Le doigt dans la zone de l'objet d'un sommet voisin, le coude s'y fond (coude glissé sur la boîte
          voisine, le doigt sur sa sortie) ; sinon le sommet reste libre */
@@ -2826,7 +2905,7 @@ function editeur(racine, opts){
   function terminerGlisser(g){
     var c = g.cible; S.accrocheVue = null;
     if (!g.modifie){ S.undo.pop(); return; }
-    if (c.k === 'sommet' && attache(g.accroche) && el(c.id).t !== 'lim'){
+    if (c.k === 'sommet' && attache(g.accroche) && estCanalisation(el(c.id).t)){
       var l = el(c.id), a = g.accroche;
       if (a.type === 'obj'){ l.v[c.i].a = a.id; }
       else { var j = jonctionSur(S.doc, a); if (j && j.id !== l.id){ l.v[c.i].a = j.id; l.v[c.i].x = j.x; l.v[c.i].y = j.y; } }
@@ -3037,7 +3116,7 @@ function editeur(racine, opts){
   }
   /* src : point de l'écran qui a posé ce point (toucher, ou fin du glissé) */
   function ajouterPointTrace(a2, src){
-    var oo = OUTILS_LN[S.outil.id], b2 = S.brouillon, at = attache(a2) && oo.t !== 'lim';
+    var oo = OUTILS_LN[S.outil.id], b2 = S.brouillon, at = attache(a2) && !estComplement(oo.t);
     if (!b2){
       S.brouillon = b2 = {outil: S.outil.id, pts: []};
       /* prolongation : extrémité libre d'un tuyau du statut que dessine l'outil (existant, présumé, projet) et d'un réseau qu'il ne contredit
@@ -3067,15 +3146,15 @@ function editeur(racine, opts){
     }
   }
   function msgFin(fa){
-    var t = fa && fa.lt, quoi = t === 'col' ? 'Collecteur' : t === 'lim' ? 'Trait' : 'Tronçon';
+    var t = fa && fa.lt, quoi = nomTrace(t);
     if (fa && fa.id) return quoi + ' déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.';
-    return quoi + ' déjà terminé.' + (t === 'col' || t === 'lim' ? '' : ' Pour le prolonger, touchez de nouveau son extrémité.');
+    return quoi + ' déjà terminé.' + (t === 'col' || estComplement(t) ? '' : ' Pour le prolonger, touchez de nouveau son extrémité.');
   }
   /* même explication pour un toucher ignoré sur la fiche ou une barre qui vient de se placer sous le doigt après la fin : l'objet ou
      l'extrémité de fin est dessous, il faut fermer la fiche pour les toucher */
   function msgFinSous(fa, fiche, bouton){
-    var t = fa && fa.lt, quoi = t === 'col' ? 'Collecteur' : t === 'lim' ? 'Trait' : 'Tronçon', deb = quoi + ' déjà terminé' + (fa && fa.id ? ' sur cet objet' : '') + ' : ';
-    var suite = fa && fa.id ? ' ; pour partir de l\'objet, fermez la fiche puis touchez-le.' : t === 'col' || t === 'lim' ? '.' : ' ; pour le prolonger, fermez la fiche puis touchez son extrémité.';
+    var t = fa && fa.lt, quoi = nomTrace(t), deb = quoi + ' déjà terminé' + (fa && fa.id ? ' sur cet objet' : '') + ' : ';
+    var suite = fa && fa.id ? ' ; pour partir de l\'objet, fermez la fiche puis touchez-le.' : t === 'col' || estComplement(t) ? '.' : ' ; pour le prolonger, fermez la fiche puis touchez son extrémité.';
     if (!fiche) return deb + (bouton ? 'ce bouton vient de se placer sous le doigt (fiche ouverte), touchez-le de nouveau pour vous en servir.' : 'cette barre vient de se placer sous le doigt (fiche ouverte)' + suite);
     return deb + 'sa fiche vient de s\'ouvrir sous le doigt, touchez-la de nouveau pour la modifier' + suite;
   }
@@ -3477,7 +3556,7 @@ function editeur(racine, opts){
       var s = q.snap;
       if (s && s.type === 'som' && vises[k]){ var lv = el(s.ligne), ni = lv ? lv.v.indexOf(vises[k]) : -1; if (ni >= 0 && ni !== s.i) s = {type: 'som', ligne: s.ligne, i: ni, x: s.x, y: s.y, a: s.a}; }
       if (s && s.type === 'obj' && el(s.id)){ var ob = el(s.id); sommets.push({x: ob.x, y: ob.y, a: ob.id}); }
-      else if (s && (s.type === 'som' || s.type === 'seg') && oo.t !== 'lim'){
+      else if (s && (s.type === 'som' || s.type === 'seg') && !estComplement(oo.t)){
         if (b.prolonge && s.type === 'som' && s.ligne === b.prolonge.id){ var lp = el(s.ligne); sommets.push({x: q.x, y: q.y, a: lp && lp.v[s.i] ? lp.v[s.i].a : null, propre: true}); return; }
         var j = jonctionSur(S.doc, s); sommets.push(j ? {x: j.x, y: j.y, a: j.id} : {x: q.x, y: q.y, a: null});
       }
@@ -3500,7 +3579,7 @@ function editeur(racine, opts){
     S.sel = {id: l.id, sommet: null}; S.panneau = 'fiche';
     changement(); rendreVisible(l.id); majAide();
     var r = l.t === 'tr' ? resLigne(l, S.an) : null;
-    toast((l.t === 'col' ? 'Collecteur' : l.t === 'lim' ? 'Trait' : 'Tronçon') + ' ajouté' + (r ? (r === 'INC' ? ' : réseau à préciser' : r === 'MIX' ? ' : plusieurs réseaux atteints' : ' : réseau ' + libRes(r) + (RES[l.p.res] ? '' : ' déduit')) : '') + ' · ' + frNum(Math.round(longueur(lignePts(l, idx())) * 10) / 10) + ' m');
+    toast(nomTrace(l.t) + ' ajouté' + (r ? (r === 'INC' ? ' : réseau à préciser' : r === 'MIX' ? ' : plusieurs réseaux atteints' : ' : réseau ' + libRes(r) + (RES[l.p.res] ? '' : ' déduit')) : '') + ' · ' + frNum(Math.round(longueur(lignePts(l, idx())) * 10) / 10) + ' m');
   }
   function annulerTrace(){ S.brouillon = null; majAide(); redessiner(); }
   function retirerPoint(){ if (S.brouillon){ S.brouillon.pts.pop(); if (!S.brouillon.pts.length) S.brouillon = null; majAide(); redessiner(); } }
@@ -3692,7 +3771,10 @@ function editeur(racine, opts){
   }
   function ficheHtml(e){
     var h = '', ty, I = idx();
-    if (e.k === 'pt'){
+    if (e.k === 'pt' && !T[e.t]){
+      /* objet d'un type inconnu (croquis d'une version plus récente) : symbole neutre, aucun champ, gardé tel quel */
+      h += '<div class="vc-ftete">' + symboleSvg(e.t, 40) + '<div><strong>Objet</strong><span class="vc-etat att">Type inconnu de cette version : gardé tel quel</span></div></div>';
+    } else if (e.k === 'pt'){
       ty = T[e.t];
       var fam = FAMILLES.filter(function(f){ return f.types.indexOf(e.t) >= 0; })[0], et = ty.role === 'source' ? etatSource(e) : null, res = S.an.resPt[e.id];
       h += '<div class="vc-ftete">' + symboleSvg(e.t, 40) + '<div><strong>' + esc(ty.lib) + '</strong>' + (et ? '<span class="vc-etat ' + et.cls + '">' + esc(et.txt) + '</span>' : ty.regard || ty.role === 'passage' ? '<span class="vc-etat ' + (/^(EU|EP|UN)$/.test(res) ? 'ok' : 'att') + '">' + (/^(EU|EP|UN)$/.test(res) ? 'Réseau ' + libRes(res) + (ty.boite && RES[e.p.res] ? '' : ' déduit') : res === 'MIX' ? 'Plusieurs réseaux' : 'Réseau à préciser') + '</span>' : '') + '</div></div>';
@@ -3727,6 +3809,15 @@ function editeur(racine, opts){
         h += champ('Diamètre', chipsHtml('diam', [['200', 'Ø200'], ['250', 'Ø250'], ['300', 'Ø300'], ['400', 'Ø400'], ['500', 'Ø500']], e.p.diam) + saisie('diam', e.p.diam, {num: true, ph: 'autre diamètre (mm)', lab: 'Diamètre'}));
       } else if (e.t === 'lim'){
         h += '<div class="vc-ftete">' + traitSvg('LIM', '', 40) + '<div><strong>Complément du fond</strong><span class="vc-etat att">Bâti, limite ou repère ajouté au plan</span></div></div>';
+      } else if (e.t === 'esc'){
+        /* escalier (souhait 12) : fiche minimale dans ce correctif ; ses champs viendront avec l'outil. Non dessiné : la fiche dit si le
+           départ et la fin sont confondus (un sommet glissé sur l'autre), sinon que les valeurs sont illisibles */
+        var gE = geoEscalier(e, I), nE = gE ? num(e.p.n) : 0, confE = !gE && e.v.length === 2 && isFinite(L) && !(L > GEO_EPS);
+        h += '<div class="vc-ftete">' + escalierSvg(40) + '<div><strong>Escalier</strong><span class="vc-etat ' + (gE ? 'ok' : 'att') + '">' + esc(gE ? 'largeur ' + frNum(num(e.p.larg), 2) + ' m · '
+          + nE + (nE > 1 ? ' marches' : ' marche') + ' · ' + frNum(Math.round(L * 10) / 10) + ' m sur le plan' : confE ? 'départ et fin confondus : non dessiné' : 'valeurs illisibles : non dessiné') + '</span></div></div>';
+      } else if (e.t !== 'tr'){
+        /* tracé d'un type inconnu (croquis d'une version plus récente) : trait neutre, aucun champ, gardé tel quel */
+        h += '<div class="vc-ftete">' + traitSvg('LIM', '', 40) + '<div><strong>Tracé</strong><span class="vc-etat att">Type inconnu de cette version : gardé tel quel</span></div></div>';
       } else {
         var dd = RES[e.p.res] ? '' : ' déduit', cls = rl === 'INC' || rl === 'MIX' ? 'att' : 'ok';
         h += '<div class="vc-ftete">' + traitSvg(e.p.st === 'projet' ? 'PRJ' : rl, e.p.st, 40) + '<div><strong>Tronçon</strong><span class="vc-etat ' + cls + '">' + esc(rl === 'INC' ? 'Réseau à préciser' : rl === 'MIX' ? 'Plusieurs réseaux atteints' : rl === 'PRJ' ? 'Projet' : 'Réseau ' + libRes(rl) + dd) + ' · ' + frNum(Math.round(L * 10) / 10) + ' m sur le plan</span></div></div>';
@@ -3750,12 +3841,13 @@ function editeur(racine, opts){
       h += champ('Texte', zone('txt', e.txt, {a: 'texteLibre', lab: 'Texte'}));
       h += champ('Taille', chipsHtml('taille', [['2', 'Petit'], ['2.5', 'Moyen'], ['3.5', 'Grand']], String(e.taille || 2.5), {a: 'tailleTexte', garder: true}));
     }
-    if (e.k !== 'tx' && !(e.k === 'pt' && T[e.t].sansEtiquette) && e.t !== 'lim'){
+    /* pas d'étiquette à saisir : texte libre, objet sans étiquette ou d'un type inconnu, complément du fond, escalier, tracé d'un type inconnu */
+    if (e.k !== 'tx' && !(e.k === 'pt' && (!T[e.t] || T[e.t].sansEtiquette)) && !(e.k === 'ln' && !estCanalisation(e.t))){
       var auto = texteEtiquette(Object.assign({}, e, {p: Object.assign({}, e.p, {etiq: ''})}), S.an), off = e.lab && e.lab.off;
       h += champ('Étiquette', saisie('etiq', e.p.etiq || '', {ph: auto || 'pas d\'étiquette automatique', lab: 'Texte de l\'étiquette'})
         + '<div class="vc-chips"><button type="button" class="vc-chip" data-a="etiqOnOff" aria-pressed="' + !off + '">' + (off ? 'Masquée' : 'Affichée') + '</button>' + (!off ? '<button type="button" class="vc-chip" data-a="etiqReplacer">Replacer</button>' : '') + '</div>', 'glissez-la sur le plan pour la déplacer');
     }
-    if (e.k === 'pt' || (e.k === 'ln' && e.t === 'tr')) h += anomsObjet(e);
+    if ((e.k === 'pt' && T[e.t]) || (e.k === 'ln' && e.t === 'tr')) h += anomsObjet(e);
     h += '<div class="vc-fact"><button type="button" class="vc-b vc-bt vc-danger" data-a="supprimer">' + ico('poubelle', 18) + 'Supprimer</button></div>';
     return h;
   }
@@ -3928,7 +4020,7 @@ function editeur(racine, opts){
     /* fiche ouverte, ou d'un autre élément, par un toucher ou un clic qui vient de finir : elle a pu venir sous le doigt (second toucher d'un
        double toucher) */
     if (e && (pan.hidden || pan.dataset.n !== n + e.id) && S.appui && tg - S.appui.t < 700 && S.relache && tg - S.relache < 300 && !(S.finAuto && tg - S.finAuto.t < 100)) S.gardeFiche = {t: tg, tx: S.appui.x, ty: S.appui.y, r: 48};
-    ptitre.textContent = n === 'fiche' ? (e.k === 'pt' ? 'Objet' : e.k === 'ln' ? (e.t === 'col' ? 'Collecteur' : 'Tracé') : 'Texte') : TITRES[n];
+    ptitre.textContent = n === 'fiche' ? (e.k === 'pt' ? 'Objet' : e.k === 'ln' ? (e.t === 'col' ? 'Collecteur' : e.t === 'esc' ? 'Escalier' : 'Tracé') : 'Texte') : TITRES[n];
     var enCours = {}; if (pan.dataset.n === n + (S.sel ? S.sel.id : '')) pcorps.querySelectorAll('input[id], textarea[id]').forEach(function(i){ if (!i.dataset.a && i.value) enCours[i.id] = i.value; });
     pcorps.innerHTML = n === 'fiche' ? ficheHtml(e) : n === 'controles' ? controlesHtml() : n === 'constat' ? constatHtml() : n === 'calques' ? calquesHtml() : n === 'sorties' ? sortiesHtml() : reglagesHtml();
     Object.keys(enCours).forEach(function(id){ var i = document.getElementById(id); if (i && pcorps.contains(i) && !i.value) i.value = enCours[id]; });
@@ -4357,6 +4449,16 @@ function couleurTexte(e, an){
   return (an && an.resPt[e.id]) || 'INC';
 }
 function hexRgb(h){ h = h.replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
+/* Escalier sur le papier (G : VCroquis.geo.escalier, ou null : rien), en gris du complément ; papier : point du croquis vers le papier (mm) ;
+   m : mètres par mm de papier. Marches omises sous 1 mm ; contour et flèche toujours. */
+function escalierPdf(pdf, G, papier, m){
+  if (!G) return;
+  var pp = function(q){ return papier(q.x, q.y); }, g = RES.LIM.rgb, F = G.fleche.map(pp), P = G.pointe.map(pp);
+  pdf.setDrawColor(g[0], g[1], g[2]); pdf.setLineWidth(.25); pdf.setLineDashPattern([], 0);
+  polyPdf(pdf, G.contour.map(pp), 'S', true);
+  if (G.pas / m >= 1) G.marches.forEach(function(s){ var a = pp(s[0]), b = pp(s[1]); pdf.line(a.x, a.y, b.x, b.y); });
+  pdf.line(F[0].x, F[0].y, F[1].x, F[1].y); polyPdf(pdf, [P[0], F[1], P[1]], 'S', false);
+}
 function pdfPlan(doc, fond, o){
   o = o || {};
   var mode = o.mode || 'edl', J = global.jspdf.jsPDF, pdf = new J({orientation: 'landscape', unit: 'mm', format: 'a4', compress: true});
@@ -4392,7 +4494,7 @@ function pdfPlan(doc, fond, o){
   var segsP = null, symbP = null, imprimees = [];
   function segsPapier(){
     if (segsP) return segsP; segsP = [];
-    doc.el.forEach(function(l){ if (l.k !== 'ln' || l.v.length < 2 || !montrer(l)) return; var W = lignePts(l, idx).map(function(q){ return papier(q.x, q.y); }); for (var i = 1; i < W.length; i++) segsP.push([W[i - 1].x, W[i - 1].y, W[i].x, W[i].y, l.id]); });
+    doc.el.forEach(function(l){ if (l.k !== 'ln' || l.v.length < 2 || !montrer(l)) return; segmentsTrace(l, idx).forEach(function(sg){ var a = papier(sg[0].x, sg[0].y), b = papier(sg[1].x, sg[1].y); segsP.push([a.x, a.y, b.x, b.y, l.id]); }); });
     return segsP;
   }
   function symbPapier(){
@@ -4451,19 +4553,21 @@ function pdfPlan(doc, fond, o){
     if (e.k !== 'pt' || e.t !== 'zone' || !montrer(e)) return;
     var c = papier(e.x, e.y), r = (num(e.p.r) || 1.5) / m; pdf.setDrawColor(212, 101, 10); pdf.setLineWidth(.25); pdf.setLineDashPattern([1.2, .9], 0); pdf.circle(c.x, c.y, r, 'S'); pdf.setLineDashPattern([], 0);
   });
-  var ordreL = {lim: 0, col: 1, tr: 2};
-  doc.el.filter(function(e){ return e.k === 'ln' && e.v.length >= 2 && montrer(e); }).sort(function(a, b2){ return ordreL[a.t] - ordreL[b2.t]; }).forEach(function(e){
+  /* complément du fond, escalier et tracé d'un type inconnu dessous, puis collecteurs, puis tronçons */
+  doc.el.filter(function(e){ return e.k === 'ln' && e.v.length >= 2 && montrer(e); }).sort(function(a, b2){ return rangTrace(a.t) - rangTrace(b2.t); }).forEach(function(e){
+    if (e.t === 'esc'){ escalierPdf(pdf, geoEscalier(e, idx), papier, m); return; }
     var W = lignePts(e, idx).map(function(p){ return papier(p.x, p.y); }), st = e.p.st || 'existant';
     var morceaux = (parLigne[e.id] || []).map(function(p){ return {pts: W.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
     if (!morceaux.length || e.t !== 'tr') morceaux = [{pts: W, res: resLigne(e, an)}];
-    var larg = e.t === 'col' ? .7 : e.t === 'lim' ? .25 : .45;
+    /* complément du fond et tracé d'un type inconnu : trait neutre, fin, gris, plein */
+    var neutre = !estCanalisation(e.t), larg = e.t === 'col' ? .7 : neutre ? .25 : .45;
     morceaux.forEach(function(mc){
       if (mc.pts.length < 2) return;
-      var res = st === 'projet' ? 'PRJ' : mc.res, c = (RES[res] || RES.INC).rgb;
+      var res = neutre ? 'LIM' : st === 'projet' ? 'PRJ' : mc.res, c = (RES[res] || RES.INC).rgb;
       pdf.setDrawColor(c[0], c[1], c[2]); pdf.setLineWidth(larg);
-      pdf.setLineDashPattern(st === 'projet' ? [3, 1.8] : st === 'presume' || res === 'INC' ? [1.6, 1.2] : [], 0);
+      pdf.setLineDashPattern(neutre ? [] : st === 'projet' ? [3, 1.8] : st === 'presume' || res === 'INC' ? [1.6, 1.2] : [], 0);
       polyPdf(pdf, mc.pts, 'S', false); pdf.setLineDashPattern([], 0);
-      if (st === 'supprimer' && mode === 'avp'){
+      if (st === 'supprimer' && mode === 'avp' && !neutre){
         pdf.setLineWidth(.3); var reste = 1.5;
         for (var i = 1; i < mc.pts.length; i++){ var A = mc.pts[i - 1], B = mc.pts[i], L = Math.hypot(B.x - A.x, B.y - A.y); if (!L || !isFinite(L) || L > 5000) continue; var ux = (B.x - A.x) / L, uy = (B.y - A.y) / L, d = reste; while (d <= L){ var x = A.x + ux * d, y = A.y + uy * d; pdf.line(x - (uy - ux * .6) * 1.1, y + (ux + uy * .6) * 1.1, x + (uy - ux * .6) * 1.1, y - (ux + uy * .6) * 1.1); d += 3; } reste = d - L; }
       }
@@ -4563,6 +4667,13 @@ function pdfPlan(doc, fond, o){
     else if (it.k === 'pt'){ primsPdf(pdf, primitives({k: 'pt', t: it.t, p: defautsPt(it.t)}, it.rgb, 0), X + 7, cy, Math.min(1, (hRow - .6) / (2 * rayonSymbole(it.t)))); }
     else if (it.k === 'bulle'){ pdf.setDrawColor(212, 101, 10); pdf.setFillColor(255, 255, 255); pdf.setLineWidth(.25); pdf.circle(X + 7, cy, 1.7, 'FD'); textePdf(pdf, '1', X + 7, cy, 1.8, 0, {gras: true, coul: [212, 101, 10]}); }
     else if (it.k === 'fleche'){ pdf.setFillColor(80, 80, 80); pdf.triangle(X + 9, cy, X + 6, cy - 1.2, X + 6, cy + 1.2, 'F'); }
+    else if (it.k === 'esc'){
+      /* échantillon : escalier de 8 × 2,4 mm, 4 marches, flèche vers la droite */
+      var g = RES.LIM.rgb; pdf.setDrawColor(g[0], g[1], g[2]); pdf.setLineWidth(.25); pdf.setLineDashPattern([], 0);
+      polyPdf(pdf, [{x: X + 3, y: cy - 1.2}, {x: X + 11, y: cy - 1.2}, {x: X + 11, y: cy + 1.2}, {x: X + 3, y: cy + 1.2}], 'S', true);
+      [5, 7, 9].forEach(function(dx){ pdf.line(X + dx, cy - 1.2, X + dx, cy + 1.2); });
+      pdf.line(X + 3, cy, X + 11, cy); polyPdf(pdf, [{x: X + 9.8, y: cy - .7}, {x: X + 11, y: cy}, {x: X + 9.8, y: cy + .7}], 'S', false);
+    }
     pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7.2); pdf.setTextColor(30, 30, 30); pdf.text(pdfTxt(it.lib), X + 13, cy + 1);
     y += hRow;
   });
@@ -4583,12 +4694,15 @@ function legende(doc, an, mode, ext, oL){
     if (e.k === 'ln'){
       if (e.t === 'col'){ var k = 'col' + e.p.res; if (!vus[k]){ vus[k] = 1; out.push({k: 'ln', res: e.p.res, col: true, lib: 'Collecteur ' + libRes(e.p.res), o: 0}); } return; }
       if (e.t === 'lim') { if (!vus.lim){ vus.lim = 1; out.push({k: 'ln', res: 'LIM', lib: 'Complément du fond', o: 9}); } return; }
+      /* escalier : une ligne s'il est dessiné ; tracé d'un type inconnu : aucune ligne */
+      if (e.t === 'esc'){ if (!vus.esc && geoEscalier(e, indexDoc(doc))){ vus.esc = 1; out.push({k: 'esc', lib: 'Escalier', o: 10}); } return; }
+      if (!estCanalisation(e.t)) return;
       var r = e.p.st === 'projet' ? 'PRJ' : resLigne(e, an);
       if (e.p.st === 'presume') st.presume = 1; if (e.p.st === 'supprimer' && mode === 'avp') st.supprimer = 1;
       if (/^(EU|EP|UN|INC|MIX|PRJ)$/.test(r) && !vus['l' + r]){ vus['l' + r] = 1; out.push({k: 'ln', res: r, lib: r === 'PRJ' ? 'Canalisation projetée' : r === 'INC' ? 'Réseau non déterminé' : r === 'MIX' ? 'Plusieurs réseaux atteints' : 'Canalisation ' + libRes(r) + (r === 'UN' ? '' : ' (' + RES[r].nom + ')'), o: 1}); }
       return;
     }
-    if (e.k === 'pt' && e.t !== 'jonction' && !vus[e.t]){ vus[e.t] = 1; out.push({k: 'pt', t: e.t, rgb: couleurPt(Object.assign({}, e, {p: Object.assign({}, e.p, {st: 'existant'})}), an), lib: T[e.t].lib + (T[e.t].ab && T[e.t].ab !== T[e.t].lib ? ' (' + T[e.t].ab + ')' : ''), o: 3}); }
+    if (e.k === 'pt' && e.t !== 'jonction' && T[e.t] && !vus[e.t]){ vus[e.t] = 1; out.push({k: 'pt', t: e.t, rgb: couleurPt(Object.assign({}, e, {p: Object.assign({}, e.p, {st: 'existant'})}), an), lib: T[e.t].lib + (T[e.t].ab && T[e.t].ab !== T[e.t].lib ? ' (' + T[e.t].ab + ')' : ''), o: 3}); }
   });
   if (st.presume) out.push({k: 'ln', res: 'INC', st: 'presume', lib: 'Tracé présumé (tirets)', o: 2});
   if (st.supprimer) out.push({k: 'ln', res: 'INC', st: 'supprimer', lib: 'Tracé barré : à supprimer', o: 2});
@@ -4696,9 +4810,11 @@ function ecrireDxf(doc, an, liste){
   function X(x){ return f(x / u + O.x); } function Y(y){ return f(y / u + O.y); }
   var mu = m / u;
   var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  doc.el.forEach(function(e){ var P = e.k === 'ln' ? lignePts(e, idx) : [{x: e.x, y: e.y}]; P.forEach(function(p){ x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }); });
+  doc.el.forEach(function(e){ var P = e.k === 'ln' ? coinsTrace(e, idx) : [{x: e.x, y: e.y}]; P.forEach(function(p){ x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }); });
   if (x0 === Infinity){ x0 = y0 = 0; x1 = y1 = 1; }
   var CAL = {'VEDE-EU': 1, 'VEDE-EP': 3, 'VEDE-UNITAIRE': 6, 'VEDE-RESEAU-A-PRECISER': 8, 'VEDE-PROJET': 5, 'VEDE-A-SUPPRIMER': 8, 'VEDE-COLLECTEURS': 7, 'VEDE-SYMBOLES': 7, 'VEDE-ETIQUETTES': 7, 'VEDE-ANOMALIES': 30, 'VEDE-ANNOTATIONS': 30, 'VEDE-COMPLEMENT-FOND': 7, 'VEDE-ECOULEMENT': 8};
+  /* calque des escaliers (gris 8), déclaré seulement s'il sert */
+  if (doc.el.some(function(e){ return e.k === 'ln' && e.t === 'esc' && !!geoEscalier(e, idx); })) CAL['VEDE-ESCALIERS'] = 8;
   function calRes(r){ return r === 'EU' ? 'VEDE-EU' : r === 'EP' ? 'VEDE-EP' : r === 'UN' ? 'VEDE-UNITAIRE' : r === 'PRJ' ? 'VEDE-PROJET' : 'VEDE-RESEAU-A-PRECISER'; }
   /* en-tête */
   g(0, 'SECTION'); g(2, 'HEADER');
@@ -4722,7 +4838,8 @@ function ecrireDxf(doc, an, liste){
   g(0, 'ENDTAB');
   g(0, 'ENDSEC');
   /* blocs : un par type de symbole utilisé, en millimètres papier, couleur « du bloc » */
-  var types = {}; doc.el.forEach(function(e){ if (e.k === 'pt' && e.t !== 'zone' && T[e.t]) types[e.t] = true; });
+  /* objet d'un type inconnu (croquis d'une version plus récente) : bloc neutre VEDE_OBJET (un cercle) */
+  var types = {}; doc.el.forEach(function(e){ if (e.k === 'pt' && e.t !== 'zone') types[T[e.t] ? e.t : 'objet'] = true; });
   g(0, 'SECTION'); g(2, 'BLOCKS');
   Object.keys(types).forEach(function(t){
     g(0, 'BLOCK'); g(8, '0'); g(2, 'VEDE_' + t.toUpperCase()); g(70, 0); g(10, '0.0'); g(20, '0.0'); g(30, '0.0'); g(3, 'VEDE_' + t.toUpperCase());
@@ -4754,6 +4871,7 @@ function ecrireDxf(doc, an, liste){
     P.forEach(function(p){ g(0, 'VERTEX'); g(8, cal); g(10, X(p.x)); g(20, Y(p.y)); g(30, '0.0'); });
     g(0, 'SEQEND'); g(8, cal);
   }
+  function ligne(a, b, cal){ g(0, 'LINE'); g(8, cal); g(10, X(a.x)); g(20, Y(a.y)); g(30, '0.0'); g(11, X(b.x)); g(21, Y(b.y)); g(31, '0.0'); }
   function texte(s, x, y, h, cal, col, ang){
     String(s).split('\n').forEach(function(l, i, A){
       var dy = ((A.length - 1) / 2 - i) * h * 1.6, p = depuisPlan(0, dy, rot), px = x + p.x, py = y + p.y;
@@ -4764,8 +4882,17 @@ function ecrireDxf(doc, an, liste){
   doc.el.forEach(function(e){
     if (e.k !== 'ln' || e.v.length < 2) return;
     var P = lignePts(e, idx), st = e.p.st || 'existant';
+    /* escalier : contour en polyligne fermée, marches et flèche en lignes, à l'échelle réelle (toutes les marches) ; valeurs illisibles : rien */
+    if (e.t === 'esc'){
+      var G = geoEscalier(e, idx); if (!G) return;
+      poly(G.contour, 'VEDE-ESCALIERS', {ferme: true});
+      G.marches.concat([G.fleche, [G.fleche[1], G.pointe[0]], [G.fleche[1], G.pointe[1]]]).forEach(function(sg){ ligne(sg[0], sg[1], 'VEDE-ESCALIERS'); });
+      return;
+    }
     if (e.t === 'lim'){ poly(P, 'VEDE-COMPLEMENT-FOND'); return; }
     if (e.t === 'col'){ poly(P, 'VEDE-COLLECTEURS', {col: (RES[e.p.res] || RES.EU).aci, larg: .6 * m}); return; }
+    /* tracé d'un type inconnu : trait neutre sur le calque 0 */
+    if (!estCanalisation(e.t)){ poly(P, '0'); return; }
     if (st === 'projet'){ poly(P, 'VEDE-PROJET', {lt: 'VEDE_PROJET'}); return; }
     var ms = (parLigne[e.id] || []).map(function(p){ return {pts: P.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
     if (!ms.length) ms = [{pts: P, res: resLigne(e, an)}];
@@ -4785,8 +4912,8 @@ function ecrireDxf(doc, an, liste){
     if (e.k !== 'pt') return;
     if (e.t === 'zone'){ g(0, 'CIRCLE'); g(8, 'VEDE-ANNOTATIONS'); g(10, X(e.x)); g(20, Y(e.y)); g(30, '0.0'); g(40, f((num(e.p.r) || 1.5) / u)); return; }
     var rgb = couleurPt(e, an), aci = 7; Object.keys(RES).forEach(function(k){ if (RES[k].rgb === rgb) aci = RES[k].aci; });
-    g(0, 'INSERT'); g(8, e.p.st === 'projet' ? 'VEDE-PROJET' : e.p.st === 'supprimer' ? 'VEDE-A-SUPPRIMER' : 'VEDE-SYMBOLES'); g(62, aci); g(2, 'VEDE_' + e.t.toUpperCase());
-    g(10, X(e.x)); g(20, Y(e.y)); g(30, '0.0'); g(41, f(mu)); g(42, f(mu)); g(43, f(mu)); g(50, f(T[e.t].oriente ? (e.p.a || 0) : rotDeg));
+    g(0, 'INSERT'); g(8, e.p.st === 'projet' ? 'VEDE-PROJET' : e.p.st === 'supprimer' ? 'VEDE-A-SUPPRIMER' : 'VEDE-SYMBOLES'); g(62, aci); g(2, 'VEDE_' + (T[e.t] ? e.t : 'objet').toUpperCase());
+    g(10, X(e.x)); g(20, Y(e.y)); g(30, '0.0'); g(41, f(mu)); g(42, f(mu)); g(43, f(mu)); g(50, f((T[e.t] || {}).oriente ? (e.p.a || 0) : rotDeg));
   });
   doc.el.forEach(function(e){
     var libre = e.k === 'tx', txt = libre ? e.txt : texteEtiquette(e, an);
