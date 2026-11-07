@@ -25,6 +25,157 @@ function projSeg(p, a, b){
 function norm(s){ return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
 VC.outils = {uid: uid, esc: esc, clamp: clamp, num: num, frNum: frNum, copie: copie, projSeg: projSeg, norm: norm};
 
+/* ---------- Géométrie du plan (VC.geo) : fonctions pures, en mètres du plan (y vers le nord), sans arrondi, sans DOM ----------
+   Le repère du plan ne dépend pas de la rotation de la vue. cw(v) est la droite de qui regarde selon v, ccw(v) sa gauche.
+   Côté ref = {A, B, n?} : t = (B − A)/|AB| ; n, facultative, est la normale extérieure ; seul son côté compte (le décalage est pris
+   perpendiculaire au côté). Une entrée invalide (point absent, nombre non fini, côté de longueur nulle) rend null, sans exception. */
+var GEO_EPS = 1e-9; /* m : deux sommets plus proches sont confondus ; un point plus près du bord est sur le bord */
+function estPt(p){ return !!p && typeof p.x === 'number' && typeof p.y === 'number' && isFinite(p.x) && isFinite(p.y); }
+function cw(v){ return estPt(v) ? {x: v.y, y: -v.x} : null; }
+function ccw(v){ return estPt(v) ? {x: -v.y, y: v.x} : null; }
+function unite(a, b){
+  if (!estPt(a) || !estPt(b)) return null;
+  var dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy);
+  return L > 0 && isFinite(L) ? {x: dx / L, y: dy / L} : null;
+}
+/* repère d'un côté : A, B, t, L = |AB| et n (normale unitaire du côté de ref.n, null sans ref.n) ; null si le côté ou ref.n est invalide */
+function repereCote(ref){
+  if (!ref || !estPt(ref.A) || !estPt(ref.B)) return null;
+  var t = unite(ref.A, ref.B), n = null, c;
+  if (!t) return null;
+  if (ref.n != null){
+    if (!estPt(ref.n)) return null;
+    c = ref.n.x * t.y - ref.n.y * t.x; /* n·cw(t) ; 0 : n parallèle au côté */
+    if (c === 0) return null;
+    n = c > 0 ? cw(t) : ccw(t);
+  }
+  return {A: ref.A, B: ref.B, t: t, L: Math.hypot(ref.B.x - ref.A.x, ref.B.y - ref.A.y), n: n};
+}
+/* Point posé par cotes depuis un côté (convention 11.1 : le technicien est dehors, face au bâtiment).
+   c = {mode: 'prol' | 'long', coin: 'A' | 'B', d, e, cote} ; d et e en mètres, positifs ou nuls.
+   Dans le prolongement, au-delà du coin O : w part de O et s'éloigne du côté (−t au-delà de A, +t au-delà de B) ;
+   P = O + d·w + e·(droite ? ccw(w) : cw(w)), cote 'droite' ou 'gauche' ; n ne sert pas.
+   Le long, depuis le coin O : w va de O vers l'autre coin ; P = O + d·w + e·(devant ? n : −n), cote 'devant' ou 'derriere' ; sans n, null. */
+function placer(ref, c){
+  var r = repereCote(ref); if (!r || !c) return null;
+  var d = c.d, e = c.e, O = c.coin === 'A' ? r.A : c.coin === 'B' ? r.B : null, w, k, x, y;
+  if (!O || typeof d !== 'number' || typeof e !== 'number' || !isFinite(d) || !isFinite(e) || d < 0 || e < 0) return null;
+  if (c.mode === 'prol'){
+    w = c.coin === 'A' ? {x: -r.t.x, y: -r.t.y} : r.t;
+    k = c.cote === 'droite' ? ccw(w) : c.cote === 'gauche' ? cw(w) : null;
+  } else if (c.mode === 'long' && r.n){
+    w = c.coin === 'A' ? r.t : {x: -r.t.x, y: -r.t.y};
+    k = c.cote === 'devant' ? r.n : c.cote === 'derriere' ? {x: -r.n.x, y: -r.n.y} : null;
+  }
+  if (!k) return null;
+  x = O.x + d * w.x + e * k.x; y = O.y + d * w.y + e * k.y;
+  return isFinite(x) && isFinite(y) ? {x: x, y: y} : null;
+}
+/* Mesure d'un point P depuis un côté : l'inverse de placer (aller-retour à 1e-9 près).
+   s = (P − A)·t ; h = (P − A)·n (null sans n). s < 0 : prolongement au-delà de A ; s > |AB| : au-delà de B ; sinon le long (null sans n),
+   depuis le coin o.coin s'il est donné, sinon depuis le plus proche (à égalité, le coin gauche vu du dehors).
+   Bruit de calcul : à GEO_EPS / 2 près, le point est sur le côté (e = 0), à un coin ou à mi-côté.
+   Si e = 0, le côté o.cote (celui qui est affiché) est gardé. À un coin, le mode o.mode est gardé s'il se calcule ; sinon le point est
+   mesuré le long (d = 0 ou |AB|), ou dans le prolongement (d = 0) sans n. Une saisie « prolongement, d 0 » mesurée sans o.mode
+   donne donc « le long » : c'est le même point. Rend {mode, coin, d, e, cote, s, h} ; s et h sont calculés sans tolérance. */
+function mesurer(ref, P, o){
+  var r = repereCote(ref); if (!r || !estPt(P)) return null;
+  o = o || {};
+  var tol = GEO_EPS / 2, ax = P.x - r.A.x, ay = P.y - r.A.y, s = ax * r.t.x + ay * r.t.y, h = r.n ? ax * r.n.x + ay * r.n.y : null;
+  var enA = Math.abs(s) <= tol, enB = !enA && Math.abs(s - r.L) <= tol, m, O, g, lam, coin, sc;
+  if (s < -tol || s > r.L + tol || (enA || enB) && (o.mode === 'prol' || !r.n)){
+    coin = enA || s < -tol ? 'A' : 'B'; O = coin === 'A' ? r.A : r.B;
+    g = coin === 'A' ? ccw({x: -r.t.x, y: -r.t.y}) : ccw(r.t); lam = (P.x - O.x) * g.x + (P.y - O.y) * g.y;
+    m = {mode: 'prol', coin: coin, d: enA || enB ? 0 : coin === 'A' ? -s : s - r.L, e: Math.abs(lam) <= tol ? 0 : Math.abs(lam),
+      cote: Math.abs(lam) <= tol ? (o.cote === 'gauche' ? 'gauche' : 'droite') : lam > 0 ? 'droite' : 'gauche'};
+  } else {
+    if (!r.n) return null;
+    coin = o.coin === 'A' || o.coin === 'B' ? o.coin : Math.abs(s - r.L / 2) <= tol ? coinGaucheR(r) : s < r.L - s ? 'A' : 'B';
+    sc = enA ? 0 : enB ? r.L : s;
+    m = {mode: 'long', coin: coin, d: coin === 'A' ? sc : r.L - sc, e: Math.abs(h) <= tol ? 0 : Math.abs(h),
+      cote: Math.abs(h) <= tol ? (o.cote === 'derriere' ? 'derriere' : 'devant') : h > 0 ? 'devant' : 'derriere'};
+  }
+  m.s = s; m.h = h;
+  return m;
+}
+/* Coin gauche d'un côté, vu du dehors face à la façade : A si t·cw(−n) > 0, sinon B ; null sans n */
+function coinGaucheR(r){ var g = cw({x: -r.n.x, y: -r.n.y}); return r.t.x * g.x + r.t.y * g.y > 0 ? 'A' : 'B'; }
+function coinGauche(ref){ var r = repereCote(ref); return r && r.n ? coinGaucheR(r) : null; }
+/* Côtés d'une polyligne P : un segment rejoint le côté en cours si sa direction reste à tolDeg degrés au plus (2 par défaut) de celle du
+   côté (de son premier sommet au dernier sommet atteint) ; pour deux segments, c'est l'écart entre leurs directions. Les sommets répétés
+   sont ignorés. ferme : la fusion traverse le sommet 0 (le côté qui le traverse a i0 > i1) ; un dernier sommet égal au premier est ignoré.
+   Rend [{A, B, i0, i1}] dans l'ordre des sommets, i0 et i1 : indices dans P des sommets de début et de fin du côté (fermée : le côté
+   qui traverse le sommet 0 vient en dernier). */
+function cotesAlignes(P, ferme, tolDeg){
+  var tol = tolDeg == null ? 2 : tolDeg, I = [], i, k, m, k0 = 0, out = [], deb, fin, a, aMax;
+  if (!P || typeof P.length !== 'number' || typeof tol !== 'number' || !isFinite(tol) || tol < 0) return null;
+  tol = tol * Math.PI / 180;
+  function S(j){ return P[I[j % I.length]]; }
+  function loin(a, b){ return Math.hypot(b.x - a.x, b.y - a.y) > GEO_EPS; }
+  /* écart entre les directions de a→b et de c→d, de 0 à π */
+  function ecart(a, b, c, d){ var ux = b.x - a.x, uy = b.y - a.y, vx = d.x - c.x, vy = d.y - c.y; return Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)); }
+  function cote(a, b){ return {A: {x: S(a).x, y: S(a).y}, B: {x: S(b).x, y: S(b).y}, i0: I[a % I.length], i1: I[b % I.length]}; }
+  for (i = 0; i < P.length; i++){ if (!estPt(P[i])) return null; if (!I.length || loin(P[I[I.length - 1]], P[i])) I.push(i); }
+  if (ferme && I.length > 1 && !loin(P[I[I.length - 1]], P[I[0]])) I.pop();
+  m = I.length; if (m < 2) return [];
+  /* polyligne fermée : départ sur le coin le plus marqué (le premier à égalité), s'il dépasse tol (sinon sur le sommet 0). Un côté peut
+     ainsi traverser le sommet 0. Le départ ne dépend pas du sommet 0, sauf à égalité : un faux coin ne sert pas de départ. */
+  if (ferme) for (k = 0, aMax = tol; k < m; k++){ a = ecart(S(k + m - 1), S(k), S(k), S(k + 1)); if (a > aMax){ aMax = a; k0 = k; } }
+  deb = k0; fin = k0 + 1;
+  for (k = k0 + 1; k < k0 + (ferme ? m : m - 1); k++){
+    if (ecart(S(deb), S(fin), S(k), S(k + 1)) <= tol) fin = k + 1;
+    else { out.push(cote(deb, fin)); deb = k; fin = k + 1; }
+  }
+  out.push(cote(deb, fin));
+  /* ordre des sommets, quel que soit le départ : d'abord le côté qui commence au plus petit indice */
+  for (k = 1, i = 0; k < out.length; k++) if (out[k].i0 < out[i].i0) i = k;
+  return out.slice(i).concat(out.slice(0, i));
+}
+/* Distance d'un point au bord d'un polygone (fermé) : {d, seg, proj} ; seg : indice du côté le plus proche (de P[seg] à P[seg + 1],
+   le dernier revient à P[0]) ; proj : le point de ce côté le plus proche ; à égalité, le premier côté l'emporte */
+function distPolygone(p, P){
+  if (!estPt(p) || !P || typeof P.length !== 'number' || P.length < 2) return null;
+  var best = null, i, q;
+  for (i = 0; i < P.length; i++){
+    if (!estPt(P[i]) || !estPt(P[(i + 1) % P.length])) return null;
+    q = projSeg(p, P[i], P[(i + 1) % P.length]);
+    if (!best || q.d < best.d) best = {d: q.d, seg: i, proj: {x: q.x, y: q.y}};
+  }
+  return best;
+}
+/* Point dans un polygone, règle pair-impair ; un point sur le bord (à GEO_EPS près) est dehors */
+function dansPolygone(p, P){
+  if (!estPt(p) || !P || typeof P.length !== 'number') return null;
+  var i, j, a, b, dedans = false;
+  for (i = 0; i < P.length; i++) if (!estPt(P[i])) return null;
+  if (P.length < 3 || distPolygone(p, P).d <= GEO_EPS) return false;
+  for (i = 0, j = P.length - 1; i < P.length; j = i++){
+    a = P[i]; b = P[j];
+    if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) dedans = !dedans;
+  }
+  return dedans;
+}
+/* Pied de la perpendiculaire menée de p sur la droite (a, b), non bornée (projSeg s'arrête aux bouts) : {x, y, t}, t = 0 en a, 1 en b */
+function piedPerp(p, a, b){
+  if (!estPt(p) || !estPt(a) || !estPt(b)) return null;
+  var dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy, t;
+  if (!(L2 > 0) || !isFinite(L2)) return null;
+  t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2;
+  return {x: a.x + t * dx, y: a.y + t * dy, t: t};
+}
+/* Intersection des droites (a, b) et (c, d), non bornées : {x, y, t, u} (t sur a→b, u sur c→d : 0 au premier point, 1 au second) ;
+   null si elles sont parallèles ou confondues (angle sous 1e-12 rad), ou si a = b ou c = d */
+function interDroites(a, b, c, d){
+  if (!estPt(a) || !estPt(b) || !estPt(c) || !estPt(d)) return null;
+  var rx = b.x - a.x, ry = b.y - a.y, sx = d.x - c.x, sy = d.y - c.y, den = rx * sy - ry * sx, Lr = Math.hypot(rx, ry), Ls = Math.hypot(sx, sy), t, u;
+  if (!(Lr > 0) || !(Ls > 0) || !isFinite(den) || !(Math.abs(den) > 1e-12 * Lr * Ls)) return null;
+  t = ((c.x - a.x) * sy - (c.y - a.y) * sx) / den; u = ((c.x - a.x) * ry - (c.y - a.y) * rx) / den;
+  return {x: a.x + t * rx, y: a.y + t * ry, t: t, u: u};
+}
+function milieu(a, b){ return estPt(a) && estPt(b) ? {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2} : null; }
+VC.geo = {cw: cw, ccw: ccw, unite: unite, placer: placer, mesurer: mesurer, coinGauche: coinGauche, cotesAlignes: cotesAlignes,
+  dansPolygone: dansPolygone, distPolygone: distPolygone, piedPerp: piedPerp, interDroites: interDroites, milieu: milieu};
+
 /* ---------- Couleurs AutoCAD (ACI), approchées : 1 à 9 exactes, 10 à 249 par teinte, 250 à 255 en gris ---------- */
 var ACI = (function(){
   var t = [[0, 0, 0], [255, 0, 0], [255, 255, 0], [0, 255, 0], [0, 255, 255], [0, 0, 255], [255, 0, 255], [255, 255, 255], [128, 128, 128], [192, 192, 192]];

@@ -43,7 +43,8 @@ function crochets(){
   }});
 }
 
-/* Application ouverte dans un profil neuf (tablette paysage, tactile). o.erreursTolerees : expressions des messages admis. */
+/* Application ouverte dans un profil neuf (tablette paysage, tactile). o.viewport : taille de la fenêtre (1280 × 800 par défaut) ;
+   o.sw : service worker permis. Les exceptions de la page et les erreurs de la console sont gardées dans « erreurs ». */
 async function ouvrir(o){
   o = o || {};
   const srv = await serveur(), nav = await chromium.launch(), ctx = await nav.newContext({viewport: o.viewport || {width: 1280, height: 800}, hasTouch: true, locale: 'fr-FR', serviceWorkers: o.sw ? 'allow' : 'block'});
