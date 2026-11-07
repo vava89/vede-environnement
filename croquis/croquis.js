@@ -483,9 +483,14 @@ function analyser(doc, mode){
   /* un objet absent de ce plan qui ne tient qu'un sommet intermédiaire d'un seul tuyau le laisse d'un seul tenant (pas de nœud en plus : les
      plus courts chemins ne changent pas) ; il fait un nœud là où finit un tuyau ou là où il tient plusieurs tuyaux */
   var tenuPar = {}; Object.keys(lignes).forEach(function(id){ lignes[id].v.forEach(function(v){ if (v.a) (tenuPar[v.a] = tenuPar[v.a] || {})[id] = true; }); });
+  /* de même, un raccord qui ne tient qu'un sommet intermédiaire d'un seul tuyau de ce plan (raccord posé par l'outil Projet au milieu d'un
+     tuyau existant, sur l'état des lieux ; branche « À supprimer » partie du milieu d'un tuyau, sur l'avant-projet ; raccord posé à la main) :
+     une pièce de plus sur ce chemin changerait les plus courts chemins (tuyaux parallèles, by-pass), donc le réseau présumé et la boîte */
+  var prises = {}; Object.keys(lignes).forEach(function(id){ lignes[id].v.forEach(function(v){ if (v.a) prises[v.a] = (prises[v.a] || 0) + 1; }); });
+  function raccordDePassage(l, i){ var o = objs[l.v[i].a]; return l.t === 'tr' && o.t === 'jonction' && i > 0 && i < l.v.length - 1 && prises[o.id] === 1; }
   Object.keys(lignes).forEach(function(id){
     var l = lignes[id], att = [];
-    l.v.forEach(function(v, i){ if (v.a && (objs[v.a] || (noeud(l, i).indexOf('h:') === 0 && (i === 0 || i === l.v.length - 1 || Object.keys(tenuPar[v.a]).length > 1)))) att.push(i); });
+    l.v.forEach(function(v, i){ if (v.a && ((objs[v.a] && !raccordDePassage(l, i)) || (noeud(l, i).indexOf('h:') === 0 && (i === 0 || i === l.v.length - 1 || Object.keys(tenuPar[v.a]).length > 1)))) att.push(i); });
     if (l.t === 'col'){ att.forEach(function(i){ var p = {id: id + ':c' + i, l: l, a: noeud(l, i), b: 'C:' + id, col: true, i0: i, i1: i, sens: 0}; lier(p.a, p); lier(p.b, p); }); return; }
     if (l.v.length < 2) return;
     var b = att.slice(); if (b[0] !== 0) b.unshift(0); if (b[b.length - 1] !== l.v.length - 1) b.push(l.v.length - 1);
