@@ -173,8 +173,84 @@ function interDroites(a, b, c, d){
   return {x: a.x + t * rx, y: a.y + t * ry, t: t, u: u};
 }
 function milieu(a, b){ return estPt(a) && estPt(b) ? {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2} : null; }
+/* Aire signée d'une polyligne fermée (formule du lacet, en éventail depuis le premier point) : positive dans le sens trigonométrique,
+   négative dans le sens des aiguilles d'une montre. Le point qui ferme la polyligne (répété) n'ajoute rien. */
+function aireSignee(P){
+  var s = 0;
+  for (var k = 1; k < P.length - 1; k++) s += (P[k].x - P[0].x) * (P[k + 1].y - P[0].y) - (P[k + 1].x - P[0].x) * (P[k].y - P[0].y);
+  return s / 2;
+}
+/* m : une polyligne fermée dont la largeur moyenne (2 × |aire| / périmètre) ne dépasse pas 1 cm, l'arrondi de l'affichage, n'a pas
+   d'intérieur. Ses sommets sont alignés, aux arrondis près (le DXF arrondit au millimètre ou au centimètre, le fond est gardé en simple
+   précision) : son aire n'est que du bruit de calcul, elle compte pour 0. */
+var GEO_MINCE = 0.01;
+/* Lignes de référence du plan : [{nat, P, ferme, src, aire}], celles du fond dans l'ordre de fond.L, puis celles du croquis dans l'ordre de doc.el.
+   - nat 'bati' : polylignes des calques visibles de style bati ou batileger (les côtés que suivent les aides au dessin) ;
+   - nat 'limite' : polylignes des calques visibles dont le nom contient PARCELLE, sans TEX, SECTION, SUBDFISC, SUBDSECT ni ZONCOMM.
+     PARCELLENFP en est, parce que son nom contient PARCELLE sans TEX (règle D3) [présomption]. styleCalque ne tranche pas : il lui donne
+     le style 'parcelle', comme à PARCELLE, mais aussi à SECTION, SUBDFISC, SUBDSECT et ZONCOMM, écartés ici. Un calque de bâti n'est
+     jamais une limite ;
+   - nat 'complement' : traits « Complément du fond » du croquis (t 'lim').
+   Ni l'escalier, ni les tronçons, ni les collecteurs ne sont des lignes de référence.
+   P : sommets en mètres du plan, le point répété qui ferme la polyligne compris (les rangs sont ceux du fond). Le fond est décalé de off,
+   par défaut de son décalage sur le croquis (decalageFond). ferme : drapeau du DXF, ou dernier point confondu avec le premier (à GEO_EPS
+   près, 3 points au moins). src : {L : indice du calque, i : rang de la polyligne dans fond.L} pour le fond, {id} pour le croquis.
+   aire : signée (positive dans le sens trigonométrique) ; 0 pour une polyligne ouverte, ou fermée sans intérieur (GEO_MINCE).
+   fond null : aucune ligne du fond (fond masqué) ; doc null : aucun trait du croquis ; natures : liste des natures voulues, null pour toutes.
+   Entrée invalide (fond sans L, xy ou calques ; doc sans el ; décalage non fini ; natures qui n'est pas une liste) : null.
+   Jamais d'exception : une polyligne du fond ou un élément du croquis qui n'est pas un objet est sauté, comme un trait dont un sommet
+   n'est pas un objet. */
+function lignesRef(doc, fond, off, natures){
+  if (natures != null && !Array.isArray(natures)) return null;
+  if (doc != null && !Array.isArray(doc.el)) return null;
+  if (fond != null && !(Array.isArray(fond.L) && fond.xy && typeof fond.xy.length === 'number' && Array.isArray(fond.calques))) return null;
+  if (off == null) off = decalageFond(fond, doc) || {x: 0, y: 0};
+  if (!estPt(off)) return null;
+  var out = [];
+  function veut(nat){ return !natures || natures.indexOf(nat) >= 0; }
+  function objet(o){ return !!o && typeof o === 'object'; }
+  function ajouter(nat, P, drapeau, src){
+    var n = P.length, ferme = !!drapeau || (n >= 3 && Math.hypot(P[n - 1].x - P[0].x, P[n - 1].y - P[0].y) <= GEO_EPS), a = ferme ? aireSignee(P) : 0;
+    /* aire incalculable, ou polyligne sans intérieur (GEO_MINCE) : 0. Le périmètre compte le retour au premier point s'il n'est pas répété. */
+    if (a !== 0 && !(isFinite(a) && 2 * Math.abs(a) > GEO_MINCE * (longueur(P) + Math.hypot(P[n - 1].x - P[0].x, P[n - 1].y - P[0].y)))) a = 0;
+    out.push({nat: nat, P: P, ferme: ferme, src: src, aire: a});
+  }
+  if (fond && (veut('bati') || veut('limite'))) fond.L.forEach(function(l, i){
+    if (!objet(l)) return;
+    var cq = fond.calques[l.c]; if (!cq || !cq.vis || !(l.n >= 2)) return;
+    var nom = String(cq.nom).toUpperCase(), nat = cq.style === 'bati' || cq.style === 'batileger' ? 'bati'
+      : /PARCELLE/.test(nom) && !/TEX|SECTION|SUBDFISC|SUBDSECT|ZONCOMM/.test(nom) ? 'limite' : null;
+    if (!nat || !veut(nat)) return;
+    /* mêmes valeurs, au bit près, que les côtés des aides au dessin (aretesFond) */
+    var P = [];
+    for (var k = 0; k < l.n; k++){ var j = 2 * (l.d + k); P.push({x: fond.xy[j] + off.x, y: fond.xy[j + 1] + off.y}); }
+    ajouter(nat, P, l.f, {L: l.c, i: i});
+  });
+  if (doc && veut('complement')){
+    /* index des objets, comme indexDoc, sans les éléments qui ne sont pas des objets */
+    var I = {};
+    doc.el.forEach(function(e){ if (objet(e)) I[e.id] = e; });
+    doc.el.forEach(function(e){
+      if (objet(e) && e.k === 'ln' && e.t === 'lim' && Array.isArray(e.v) && e.v.length >= 2 && e.v.every(objet)) ajouter('complement', lignePts(e, I), false, {id: e.id});
+    });
+  }
+  return out;
+}
+/* Normale extérieure unitaire du côté i (de P[i] vers P[i + 1], le dernier vers le premier) d'une ligne fermée de lignesRef : cw(t) si
+   l'aire est positive (sens trigonométrique), ccw(t) sinon. null pour une ligne ouverte ou d'aire nulle (sans intérieur : GEO_MINCE),
+   un rang qui n'est pas un sommet, ou un côté de longueur nulle (le point répété qui ferme la polyligne n'ouvre aucun côté). */
+function normaleExt(ligne, i){
+  if (!ligne || !ligne.ferme || !Array.isArray(ligne.P) || typeof ligne.aire !== 'number' || !isFinite(ligne.aire) || ligne.aire === 0) return null;
+  var P = ligne.P, n = P.length;
+  if (typeof i !== 'number' || i !== Math.floor(i) || i < 0 || i >= n) return null;
+  var a = P[i], b = P[(i + 1) % n];
+  if (!estPt(a) || !estPt(b) || !(Math.hypot(b.x - a.x, b.y - a.y) > GEO_EPS)) return null;
+  var t = unite(a, b);
+  return t ? (ligne.aire > 0 ? cw(t) : ccw(t)) : null;
+}
 VC.geo = {cw: cw, ccw: ccw, unite: unite, placer: placer, mesurer: mesurer, coinGauche: coinGauche, cotesAlignes: cotesAlignes,
-  dansPolygone: dansPolygone, distPolygone: distPolygone, piedPerp: piedPerp, interDroites: interDroites, milieu: milieu};
+  dansPolygone: dansPolygone, distPolygone: distPolygone, piedPerp: piedPerp, interDroites: interDroites, milieu: milieu,
+  lignesRef: lignesRef, normaleExt: normaleExt};
 
 /* ---------- Couleurs AutoCAD (ACI), approchées : 1 à 9 exactes, 10 à 249 par teinte, 250 à 255 en gris ---------- */
 var ACI = (function(){
@@ -2402,13 +2478,14 @@ function editeur(racine, opts){
   function aideOn(k){ if (k === 'glisser') return S.aides.glisser !== false; return S.aides.actives !== false && S.aides[k] !== false; }
   function normAng(a){ return normAngle(a); }
   function aretesFond(){
-    /* fond masqué ou calque décoché : ses côtés ne guident plus le dessin */
+    /* fond masqué ou calque décoché : ses côtés ne guident plus le dessin. Côtés des lignes de référence 'bati' (lignesRef), chacun
+       [x0, y0, x1, y1, polyligne du fond, son rang dans fond.L, rang de son premier sommet] */
     var f = S.aff.fond ? S.fond : null, off = offFond(f), cle = f ? f.id + ':' + off.x + ':' + off.y + ':' + f.calques.map(function(k){ return k.vis ? 1 : 0; }).join('') : '-', c = S.aretes;
     if (c && c.cle === cle) return c;
     var segs = [], TU = 8, g = {};
-    if (f) f.L.forEach(function(l){
-      var cq = f.calques[l.c], st = cq.style; if ((st !== 'bati' && st !== 'batileger') || !cq.vis) return;
-      for (var k = 1; k < l.n; k++){ var i0 = 2 * (l.d + k - 1), i1 = 2 * (l.d + k); segs.push([f.xy[i0] + off.x, f.xy[i0 + 1] + off.y, f.xy[i1] + off.x, f.xy[i1 + 1] + off.y, l]); }
+    if (f) (lignesRef(null, f, off, ['bati']) || []).forEach(function(r){
+      var l = f.L[r.src.i], P = r.P;
+      for (var k = 1; k < P.length; k++) segs.push([P[k - 1].x, P[k - 1].y, P[k].x, P[k].y, l, r.src.i, k - 1]);
     });
     /* un trait aberrant (valeur infinie, kilomètres de long) n'est pas une façade : écarté */
     segs = segs.filter(function(sg){ return isFinite(sg[0]) && isFinite(sg[1]) && isFinite(sg[2]) && isFinite(sg[3]) && Math.abs(sg[2] - sg[0]) + Math.abs(sg[3] - sg[1]) < 2000; });
@@ -2428,8 +2505,9 @@ function editeur(racine, opts){
     R = Math.min(R, 120);
     var A = aretesFond(), out = [], vu = {}, x0 = Math.floor((p.x - R) / A.TU), x1 = Math.floor((p.x + R) / A.TU), y0 = Math.floor((p.y - R) / A.TU), y1 = Math.floor((p.y + R) / A.TU);
     for (var a = x0; a <= x1; a++) for (var b = y0; b <= y1; b++) (A.g[a + ',' + b] || []).forEach(function(i){ if (!vu[i]){ vu[i] = 1; out.push(A.segs[i]); } });
-    var I = idx();
-    S.doc.el.forEach(function(l){ if (l.k !== 'ln' || l.t !== 'lim' || l.id === sauf) return; var P = lignePts(l, I); for (var k = 1; k < P.length; k++) out.push([P[k - 1].x, P[k - 1].y, P[k].x, P[k].y, null]); });
+    /* traits « Complément du fond » du croquis (lignes de référence 'complement'), sauf le trait sauf : hors du cache, ils changent à
+       chaque dessin ; chacun [x0, y0, x1, y1, null] */
+    (lignesRef(S.doc, null, null, ['complement']) || []).forEach(function(r){ if (r.src.id === sauf) return; var P = r.P; for (var k = 1; k < P.length; k++) out.push([P[k - 1].x, P[k - 1].y, P[k].x, P[k].y, null]); });
     return out;
   }
   function areteProche(p, R, sauf){

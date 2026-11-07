@@ -2,11 +2,17 @@
 // .claude/conception-outils-dessin.md : le technicien est dehors, face au bâtiment), bornes comprises (coin, mi-côté, point sur le côté,
 // côtés obliques), côtés alignés d'une polyligne (un bâti donne les mêmes côtés quel que soit son sommet 0), point dans un polygone,
 // distance au bord, pied de perpendiculaire, intersection de droites, milieu. Coordonnées du plan en mètres, y vers le nord. Aucune donnée réelle.
+// Lignes de référence du plan (VCroquis.geo.lignesRef et normaleExt, m99 ; échoue sur df95377) : natures sur le fond fictif de
+// VCroquis.demoDxf(), complété de polylignes fictives (bâti trouvé ; parcelle trouvée ; SECTION, SUBDFISC, SUBDSECT, ZONCOMM et TEX écartés ;
+// PARCELLENFP gardé), calques masqués, décalage du fond, mêmes côtés que l'aide au dessin de df95377 (aretesFond), aire et normale
+// extérieure d'un carré parcouru dans les deux sens et des bâtis de la démonstration, trait de complément ajouté au croquis de
+// démonstration, aucune ligne pour un tronçon, un collecteur ou un escalier ; polyligne fermée sans intérieur (sommets alignés aux arrondis
+// près, ruban de 5 mm : aire 0, aucune normale ; ruban de 2 cm gardé) ; éléments qui ne sont pas des objets sautés, sans exception.
 // usage : node tests/vm/dessin.js [-v] [--app=<dossier>]
 'use strict';
-const {charger, rapport} = require('./charger.js');
+const {charger, copie, rapport} = require('./charger.js');
 const {mkRnd} = require('./generateur.js');
-const {V} = charger(), R = rapport('dessin');
+const {V, ctx} = charger(), R = rapport('dessin');
 const G = V.geo;
 
 const P = (x, y) => ({x, y});
@@ -217,6 +223,150 @@ function essais(){
   R.ok(G.dansPolygone(P(1, 1), [P(0, 0), P(5, 5)]) === false, 'polygone de deux sommets : rien n\'est dedans');
   R.ok(proche(G.placer(sud, {mode: 'prol', coin: 'A', d: 0, e: 0, cote: 'droite'}), P(0, 0)), 'd et e nuls permis : le point est le coin');
 }
+
+/* ---------- Lignes de référence (m99) ---------- */
+/* repère de la démonstration (DEMO dans croquis.js) : u le long de la rue, v vers les maisons du nord ; le plan est tourné de 12° */
+const DEMO = {x: 1700000, y: 8200000, th: 12 * Math.PI / 180};
+const demoAbs = (u, v) => P(DEMO.x + u * Math.cos(DEMO.th) - v * Math.sin(DEMO.th), DEMO.y + u * Math.sin(DEMO.th) + v * Math.cos(DEMO.th));
+/* point du plan d'un croquis d'origine o (u = 1) vers le repère de la démonstration */
+const versDemo = (p, o) => { const x = p.x + o.x - DEMO.x, y = p.y + o.y - DEMO.y; return P(x * Math.cos(DEMO.th) + y * Math.sin(DEMO.th), -x * Math.sin(DEMO.th) + y * Math.cos(DEMO.th)); };
+/* polyligne DXF R12 (comme demoDxf) aux points (u, v) de la démonstration ; ferme : drapeau 70 */
+function polyDxf(lay, uv, ferme){
+  const L = [], g = (c, v) => L.push(('   ' + c).slice(-3), String(v)), f = x => x.toFixed(3);
+  g(0, 'POLYLINE'); g(8, lay); g(66, 1); g(10, '0.0'); g(20, '0.0'); g(30, '0.0'); g(70, ferme ? 1 : 0);
+  uv.forEach(([u, v]) => { const p = demoAbs(u, v); g(0, 'VERTEX'); g(8, lay); g(10, f(p.x)); g(20, f(p.y)); g(30, '0.0'); });
+  g(0, 'SEQEND'); g(8, lay);
+  return L.join('\r\n') + '\r\n';
+}
+/* trait « Complément du fond » d'un croquis ; un sommet [x, y, id] est posé sur l'objet id */
+const trait = (id, t, pts) => ({id, k: 'ln', t, v: pts.map(q => ({x: q[0], y: q[1], a: q[2] || null})), p: t === 'lim' ? {st: 'existant'} : {res: 'EU', st: 'existant'}, lab: null});
+
+function lignes(){
+  ctx.TextDecoder = TextDecoder; /* lecture du DXF dans le bac à sable */
+  /* fond de démonstration, complété de calques fictifs du cadastre que la démonstration n'a pas (avant la fin de la section ENTITIES) */
+  const fin = '  0\r\nENDSEC\r\n  0\r\nEOF\r\n', dxf0 = V.demoDxf();
+  const ajout = polyDxf('1SECTION', [[-25, -50], [150, -50], [150, 50], [-25, 50]], true) + polyDxf('1SUBDFISC', [[64, 0], [76, 0], [76, 17], [64, 17]], true)
+    + polyDxf('1SUBDSECT', [[0, -45], [120, -45], [120, 40], [0, 40]], true) + polyDxf('3PARCELLETEX', [[66, 20], [68, 22]], false)
+    + polyDxf('1PARCELLENFP', [[40, 34], [52, 34], [52, 40]], false) + polyDxf('1PARCELLENFP', [[80, 40], [90, 40], [90, 48], [80, 48], [80, 40]], false);
+  R.ok(dxf0.endsWith(fin), 'DXF de démonstration : il finit par la section ENTITIES (polylignes fictives ajoutées avant sa fin)');
+  const fond = V.lireFondDxf(Buffer.from(dxf0.slice(0, -fin.length) + ajout + fin, 'utf8'), 'Plan fictif');
+  const doc = copie(V.demoCroquis(fond)), o = fond.origine, cal = r => fond.calques[r.src.L] ? fond.calques[r.src.L].nom : '?';
+  const lr = G.lignesRef(doc, fond), parNat = n => (lr || []).filter(r => r.nat === n);
+  if (!R.ok(Array.isArray(lr), 'lignes de référence du fond de démonstration et du croquis de démonstration : une liste (obtenu ' + typeof lr + ')')) return;
+  const bati = parNat('bati'), lim = parNat('limite'), compl = parNat('complement');
+  const noms = a => Array.from(new Set(a.map(cal))).sort().join(', ');
+  R.ok(bati.length === 23 && noms(bati) === '3BATIDUR, 3BATILEGER', 'bâti : 23 polylignes, calques 3BATIDUR et 3BATILEGER (obtenu ' + bati.length + ' : ' + noms(bati) + ')');
+  R.ok(lim.length === 20 && noms(lim) === '1PARCELLE, 1PARCELLENFP', 'limites : les 18 parcelles et les 2 polylignes de 1PARCELLENFP (obtenu ' + lim.length + ' : ' + noms(lim) + ')');
+  R.ok(compl.length === 0 && lr.length === bati.length + lim.length, 'croquis de démonstration sans trait de complément : aucune ligne de complément, aucune autre nature');
+  const ecartes = ['1SECTION', '1SUBDFISC', '1SUBDSECT', '1ZONCOMM', '3PARCELLETEX', '3MURMI'];
+  R.ok(ecartes.every(n => fond.calques.some(c => c.nom === n && c.nL > 0)) && !lr.some(r => ecartes.indexOf(cal(r)) >= 0),
+    'calques écartés, bien présents dans le fond avec des polylignes : ' + ecartes.join(', '));
+  /* chaque ligne du fond : sommets du fond (plus le décalage, nul ici), calque et rang de la polyligne */
+  const malFond = lr.filter(r => { const l = fond.L[r.src.i]; return !l || l.c !== r.src.L || r.P.length !== l.n
+    || r.P.some((q, k) => q.x !== fond.xy[2 * (l.d + k)] || q.y !== fond.xy[2 * (l.d + k) + 1]) || r.ferme !== (l.f === 1 || r.src.L === fond.calques.findIndex(c => c.nom === '1PARCELLENFP') && r.P.length === 5); });
+  R.ok(!malFond.length, 'lignes du fond : sommets du fond dans l\'ordre, src = {L : calque, i : rang dans fond.L}, fermée si le DXF le dit ou si le dernier point répète le premier'
+    + (malFond.length ? ' ; faux : ' + malFond.length + ', ex. ' + JSON.stringify(malFond[0]).slice(0, 200) : ''));
+  /* bâti du croquis de démonstration (u 65,5 à 74,5, v 4 à 14), parcouru dans le sens trigonométrique ; bâti du sud parcouru dans l'autre sens */
+  const centre = r => versDemo(P(r.P.slice(0, -1).reduce((s, q) => s + q.x, 0) / (r.P.length - 1), r.P.slice(0, -1).reduce((s, q) => s + q.y, 0) / (r.P.length - 1)), o);
+  const pres = (r, u, v) => { const c = centre(r); return Math.abs(c.x - u) < 0.01 && Math.abs(c.y - v) < 0.01; };
+  const b5 = bati.find(r => pres(r, 70, 9)), bs = bati.find(r => pres(r, 7, -19.5)), p5 = lim.find(r => pres(r, 70, 17));
+  const rue = P(Math.sin(DEMO.th), -Math.cos(DEMO.th)), nord = P(-rue.x, -rue.y), est = P(Math.cos(DEMO.th), Math.sin(DEMO.th));
+  /* le DXF arrondit les sommets au millimètre : directions à 1e-3 près, aires à 0,1 m² près */
+  const vers = (n, d) => !!n && Math.abs(n.x - d.x) < 1e-3 && Math.abs(n.y - d.y) < 1e-3;
+  R.ok(!!b5 && b5.ferme && Math.abs(b5.aire - 90) < 0.1 && vers(G.normaleExt(b5, 0), rue) && vers(G.normaleExt(b5, 1), est) && vers(G.normaleExt(b5, 2), nord),
+    'bâti de démonstration (9 × 10 m, sens trigonométrique) : aire +90, normales extérieures vers la rue, l\'est et le nord'
+    + (b5 ? ' (aire ' + b5.aire.toFixed(3) + ')' : ' (introuvable)'));
+  R.ok(!!bs && bs.ferme && Math.abs(bs.aire + 121) < 0.1 && vers(G.normaleExt(bs, 0), nord) && vers(G.normaleExt(bs, 1), est),
+    'bâti au sud de la rue (11 × 11 m, sens des aiguilles) : aire -121, façade sur rue vers le nord, côté suivant vers l\'est'
+    + (bs ? ' (aire ' + bs.aire.toFixed(3) + ')' : ' (introuvable)'));
+  R.ok(!!p5 && p5.ferme && Math.abs(p5.aire - 408) < 0.1 && vers(G.normaleExt(p5, 0), rue), 'parcelle de la démonstration (12 × 34 m) : aire +408, limite sur rue, dehors vers la rue');
+  const nfp = lim.filter(r => cal(r) === '1PARCELLENFP'), nfpO = nfp.find(r => r.P.length === 3), nfpF = nfp.find(r => r.P.length === 5);
+  R.ok(!!nfpO && !nfpO.ferme && nfpO.aire === 0 && G.normaleExt(nfpO, 0) === null && !!nfpF && nfpF.ferme && Math.abs(nfpF.aire - 80) < 0.1 && vers(G.normaleExt(nfpF, 3), P(-est.x, -est.y)),
+    'polyligne ouverte : aire 0, pas de normale ; polyligne close par son dernier point (sans drapeau) : fermée, aire +80, normale extérieure');
+
+  /* mêmes côtés que l'aide au dessin de df95377 (aretesFond : bâti et bâti léger des calques visibles, sommets du fond plus le décalage) */
+  const off = {x: 3.25, y: -1.5}, ancien = [], neuf = [];
+  fond.L.forEach(l => { const cq = fond.calques[l.c]; if ((cq.style !== 'bati' && cq.style !== 'batileger') || !cq.vis) return;
+    for (let k = 1; k < l.n; k++){ const i0 = 2 * (l.d + k - 1), i1 = 2 * (l.d + k); ancien.push([fond.xy[i0] + off.x, fond.xy[i0 + 1] + off.y, fond.xy[i1] + off.x, fond.xy[i1 + 1] + off.y]); } });
+  (G.lignesRef(doc, fond, off, ['bati']) || []).forEach(r => { for (let k = 1; k < r.P.length; k++) neuf.push([r.P[k - 1].x, r.P[k - 1].y, r.P[k].x, r.P[k].y]); });
+  R.ok(ancien.length === 92 && JSON.stringify(neuf) === JSON.stringify(ancien), 'bâti : les mêmes ' + ancien.length + ' côtés, dans le même ordre et aux mêmes valeurs, que l\'aide au dessin de df95377 (obtenu ' + neuf.length + ')');
+  /* décalage : celui du croquis par défaut (decalageFond), sinon celui donné */
+  const doc2 = Object.assign({}, doc, {origine: {x: o.x + 10, y: o.y - 5}}), l2 = G.lignesRef(doc2, fond, null, ['bati']) || [], l3 = G.lignesRef(doc, fond, {x: -10, y: 5}, ['bati']) || [];
+  R.ok(l2.length === 23 && JSON.stringify(l2) === JSON.stringify(l3) && proche(l2[0].P[0], P(bati[0].P[0].x - 10, bati[0].P[0].y + 5), 1e-9),
+    'croquis d\'une autre origine : sommets décalés de (-10 ; 5), comme avec le décalage donné');
+  /* calques masqués : écartés ; fond masqué (null) : les traits du croquis seulement */
+  const iLeg = fond.calques.findIndex(c => c.nom === '3BATILEGER'), iPar = fond.calques.findIndex(c => c.nom === '1PARCELLE');
+  fond.calques[iLeg].vis = false; fond.calques[iPar].vis = false;
+  const lm = G.lignesRef(doc, fond) || [];
+  fond.calques[iLeg].vis = true; fond.calques[iPar].vis = true;
+  R.ok(lm.filter(r => r.nat === 'bati').length === 18 && lm.filter(r => r.nat === 'limite').length === 2, 'calques 3BATILEGER et 1PARCELLE masqués : 18 bâtis et les 2 lignes de 1PARCELLENFP');
+  R.ok(JSON.stringify(G.lignesRef(doc, null)) === '[]', 'fond masqué (null) et croquis sans complément : aucune ligne');
+  const nb = nats => { const l = G.lignesRef(doc, fond, null, nats); return l ? l.length + ':' + Array.from(new Set(l.map(r => r.nat))).join('+') : String(l); };
+  R.ok(nb(['bati']) === '23:bati' && nb(['limite']) === '20:limite' && nb([]) === '0:', 'natures demandées : bâti seul, limites seules, aucune (obtenu ' + [nb(['bati']), nb(['limite']), nb([])].join(' ; ') + ')');
+
+  /* trait de complément ajouté au croquis de démonstration (clôture au fond du jardin) ; tronçons, collecteurs : aucune ligne */
+  const q = (u, v) => { const a = demoAbs(u, v); return [a.x - doc.origine.x, a.y - doc.origine.y]; };
+  const docC = copie(doc), tr0 = docC.el.filter(e => e.k === 'ln').length;
+  docC.el.push(trait('clo', 'lim', [q(64, 30), q(70, 31), q(76, 30)]));
+  const lc = (G.lignesRef(docC, fond) || []).filter(r => r.nat === 'complement');
+  R.ok(tr0 === 14 && lc.length === 1 && lc[0].src.id === 'clo' && Object.keys(lc[0].src).join() === 'id' && !lc[0].ferme && lc[0].aire === 0 && G.normaleExt(lc[0], 0) === null
+    && lc[0].P.length === 3 && proche(lc[0].P[1], P(q(70, 31)[0], q(70, 31)[1]), 1e-9),
+    'croquis de démonstration (' + tr0 + ' tronçons et collecteurs) et un trait de complément : une seule ligne de complément, src = {id}, ouverte, sommets du trait');
+  /* carré de complément parcouru dans les deux sens (dernier point répété) ; un sommet posé sur un objet prend la place de l'objet */
+  const docQ = {el: [{id: 'o1', k: 'pt', t: 'regard', x: 4, y: 4, p: {}, lab: null},
+    trait('ccw', 'lim', [[0, 0], [4, 0], [4, 4, 'o1'], [0, 4], [0, 0]]), trait('cw', 'lim', [[0, 0], [0, 4], [9, 9, 'o1'], [4, 0], [0, 0]]),
+    trait('ouv', 'lim', [[0, 0], [4, 0], [4, 4], [0, 4]]), trait('t1', 'tr', [[0, 0], [4, 0], [4, 4], [0, 0]]), trait('c1', 'col', [[-5, -1], [9, -1]]),
+    trait('e1', 'esc', [[1, 1], [3, 1]])]};
+  const lq = G.lignesRef(docQ, null) || [], cq = id => lq.find(r => r.src.id === id);
+  const norm = (r, i) => { const n = G.normaleExt(r, i); return n ? Math.round(n.x) + ',' + Math.round(n.y) : String(n); };
+  const tous = r => r ? [0, 1, 2, 3, 4].map(i => norm(r, i)).join(' ') : '';
+  R.ok(lq.length === 3 && lq.every(r => r.nat === 'complement'), 'tronçon fermé, collecteur et escalier : aucune ligne ; les trois traits de complément seulement (obtenu ' + lq.map(r => r.src.id).join(', ') + ')');
+  R.ok(!!cq('ccw') && cq('ccw').ferme && cq('ccw').aire === 16 && tous(cq('ccw')) === '0,-1 1,0 0,1 -1,0 null',
+    'carré dans le sens trigonométrique : fermé, aire +16, normales extérieures sud, est, nord, ouest (obtenu ' + tous(cq('ccw')) + ')');
+  R.ok(!!cq('cw') && cq('cw').ferme && cq('cw').aire === -16 && tous(cq('cw')) === '-1,0 0,1 1,0 0,-1 null' && proche(cq('cw').P[2], P(4, 4)),
+    'carré dans l\'autre sens : aire -16, normales ouest, nord, est, sud ; sommet posé sur l\'objet en (4 ; 4) (obtenu ' + tous(cq('cw')) + ')');
+  R.ok(!!cq('ouv') && !cq('ouv').ferme && cq('ouv').aire === 0 && tous(cq('ouv')) === 'null null null null null', 'carré ouvert (sans retour au départ) : aire 0, aucune normale');
+  const sansErr = f => { try { return f(); } catch (e){ return 'exception : ' + e.message; } };
+  const inv = [['fond sans polylignes', () => G.lignesRef(doc, {})], ['décalage non fini', () => G.lignesRef(doc, fond, {x: NaN, y: 0})],
+    ['natures en texte', () => G.lignesRef(doc, fond, null, 'bati')], ['croquis sans éléments', () => G.lignesRef({}, null)],
+    ['normale d\'une ligne absente', () => G.normaleExt(null, 0)], ['normale d\'un segment hors de la ligne', () => G.normaleExt(cq('ccw'), 5)],
+    ['normale d\'un indice négatif', () => G.normaleExt(cq('ccw'), -1)], ['normale d\'un indice non entier', () => G.normaleExt(cq('ccw'), 0.5)]];
+  const malI = inv.filter(([, f]) => sansErr(f) !== null).map(([n, f]) => n + ' → ' + JSON.stringify(sansErr(f)));
+  R.ok(!malI.length, 'entrées invalides : null sans exception (' + inv.length + ' cas)' + (malI.length ? ' ; faux : ' + malI.join(' | ') : ''));
+  R.ok(JSON.stringify(G.lignesRef(null, null)) === '[]', 'ni croquis ni fond : aucune ligne');
+  /* éléments qui ne sont pas des objets : sautés, sans exception (polylignes du fond, éléments du croquis, trait dont un sommet est null) */
+  const fondN = Object.assign({}, fond, {L: fond.L.concat([null, 7, 'x'])});
+  const docN = {el: [null, 5].concat(copie(docQ.el), [trait('nul', 'lim', [[0, 0], [2, 0], [2, 2]])])};
+  docN.el[docN.el.length - 1].v[1] = null;
+  const lF = sansErr(() => G.lignesRef(null, fondN)), lN = sansErr(() => G.lignesRef(docN, null));
+  R.ok(JSON.stringify(lF) === JSON.stringify(G.lignesRef(null, fond)), 'polylignes du fond qui ne sont pas des objets (null, nombre, texte) : sautées, sans exception, les autres lignes inchangées'
+    + (Array.isArray(lF) ? '' : ' (obtenu ' + JSON.stringify(lF).slice(0, 80) + ')'));
+  R.ok(JSON.stringify(lN) === JSON.stringify(lq), 'éléments du croquis qui ne sont pas des objets (null, nombre), trait dont un sommet est null : sautés, sans exception, les autres lignes inchangées'
+    + (Array.isArray(lN) ? ' (traits gardés : ' + lN.map(r => r.src.id).join(', ') + ')' : ' (obtenu ' + JSON.stringify(lN).slice(0, 80) + ')'));
+
+  /* polyligne fermée sans intérieur (GEO_MINCE : largeur moyenne de 1 cm au plus) : aire 0, aucune normale ; une polyligne mince
+     de 2 cm garde son aire et ses normales */
+  const brute = Q => { let s = 0; for (let k = 1; k < Q.length - 1; k++) s += (Q[k].x - Q[0].x) * (Q[k + 1].y - Q[0].y) - (Q[k + 1].x - Q[0].x) * (Q[k].y - Q[0].y); return s / 2; };
+  const mm = x => Math.round(x * 1000) / 1000, sur12 = s => [mm(s * Math.cos(DEMO.th)), mm(s * Math.sin(DEMO.th))];
+  const docM = {el: [trait('aligne', 'lim', [sur12(0), sur12(7.3), sur12(18.1), sur12(0)]),
+    trait('ruban', 'lim', [[0, 0], [10, 0], [10, 0.005], [0, 0.005], [0, 0]]), trait('mince', 'lim', [[0, 0], [10, 0], [10, 0.02], [0, 0.02], [0, 0]])]};
+  const lM = G.lignesRef(docM, null) || [], m = id => lM.find(r => r.src.id === id) || {P: []};
+  const sansN = r => r.P.every((q, k) => G.normaleExt(r, k) === null);
+  R.ok(m('aligne').ferme && m('aligne').aire === 0 && brute(m('aligne').P) !== 0 && sansN(m('aligne')),
+    'trait de complément fermé aux sommets alignés (direction 12°, arrondis au millimètre) : fermé, aire 0 (bruit de calcul '
+    + brute(m('aligne').P).toExponential(1) + ' m²), aucune normale');
+  R.ok(m('ruban').ferme && m('ruban').aire === 0 && sansN(m('ruban')), 'ruban fermé de 10 m sur 5 mm : sans intérieur, aire 0, aucune normale');
+  R.ok(m('mince').ferme && Math.abs(m('mince').aire - 0.2) < 1e-12 && norm(m('mince'), 0) === '0,-1' && norm(m('mince'), 1) === '1,0',
+    'ruban fermé de 10 m sur 2 cm : aire +0,2 m², normales extérieures sud et est (obtenu ' + m('mince').aire + ')');
+  /* même cas sur le fond : polyligne fermée par le drapeau du DXF, sommets alignés dans le repère tourné de la démonstration, arrondis au
+     millimètre par le DXF, gardés en simple précision par le fond */
+  const fond2 = V.lireFondDxf(Buffer.from(dxf0.slice(0, -fin.length) + polyDxf('1PARCELLE', [[30, 34], [36.4, 34], [47.9, 34]], true) + fin, 'utf8'), 'Plan fictif');
+  const la = (G.lignesRef(null, fond2, null, ['limite']) || []).find(r => r.src.i === fond2.L.length - 1) || {P: []};
+  R.ok(la.P.length === 4 && la.ferme && la.aire === 0 && brute(la.P) !== 0 && sansN(la),
+    'polyligne du fond fermée par le drapeau, aux sommets alignés : fermée, aire 0 (bruit de calcul ' + brute(la.P).toExponential(1) + ' m²), aucune normale');
+}
 if (!G || typeof G.placer !== 'function') R.ok(false, 'VCroquis.geo absent (fonctions de géométrie du plan)');
 else { try { essais(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); } }
+if (!G || typeof G.lignesRef !== 'function' || typeof G.normaleExt !== 'function') R.ok(false, 'VCroquis.geo.lignesRef ou normaleExt absente (lignes de référence du plan)');
+else { try { lignes(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); } }
 R.fin();
