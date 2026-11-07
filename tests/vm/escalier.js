@@ -1,10 +1,15 @@
 // Escaliers (souhait 12, première partie : le type et son rendu, sans outil ; décision D7 de .claude/conception-outils-dessin.md) et
 // objet ou tracé d'un type inconnu (défaut D11), sans navigateur ; dessin de l'écran sur un canevas factice, plan PDF par la bibliothèque
-// PDF de l'application ; croquis fictifs (12 rue Fictive, Ville-Exemple) et croquis de démonstration. m106 ; m107 ajoutera l'outil.
+// PDF de l'application ; croquis fictifs (12 rue Fictive, Ville-Exemple) et croquis de démonstration. m106 ; valeurs d'un escalier neuf : m107.
 // g1 à g12 : VCroquis.geo.escalier(D, F, larg, n, cote, monte), escalier de 3 × 1 m à 4 marches : contour (0,0) (3,0) (3,1) (0,1) à
 //   gauche, y = −1 à droite ; marches en x = 0,75 ; 1,5 ; 2,25 d'un bord à l'autre ; flèche de (0 ; 0,5) à (3 ; 0,5) si l'escalier monte
 //   vers la fin, inversée sinon, avec sa pointe ; textes « 1,00 » et « 4 » ; escalier vers le nord ; une marche ; valeurs invalides : null.
 // m1 à m3 : valeurs par défaut d'un escalier ; aucune étiquette (sauf p.etiq) ; gris du complément (resLigne 'LIM').
+// d1 à d9 (m107) : VCroquis.geo.escalierDefauts(D, F, lignes, aideDepart, aideFin), valeurs d'un escalier tracé avec l'outil : marches
+//   arrondi(L / 0,28) de 1 à 60 en texte (3 m → « 11 », 0,10 m → « 1 », 30 m → « 60 ») ; largeur « 1,00 », statut existant ; côté dont le
+//   contour n'entre pas dans le bâti fictif (à gauche, puis à droite ; deux côtés dehors ou dedans : « g ») ; seules les lignes de bâti
+//   fermées comptent (lignesRef comprise) ; montée vers le bout posé au coin ou sur une façade (départ seul : « depart », sinon « fin ») ;
+//   entrées invalides : null ; fonction pure.
 // a1, a2 : analyse identique avec et sans escalier, objet ou tracé d'un type inconnu (croquis de démonstration).
 // e1 à e5 : écran : contour, marches et flèche en gris ; marches omises sous 4 px, contour et flèche gardés ; ordre des tracés (escalier
 //   et complément d'abord, jamais NaN) ; emprise du plan avec les quatre coins ; étiquette voisine écartée du bord de l'escalier.
@@ -16,6 +21,7 @@
 //   neutres, sans légende ni étiquette automatique, gardés tels quels à l'export.
 // Échouent sur 689e83b : g, m1, m3, e1 à e5, p1, p2, p4 à p8, x1, x3 à x7, i1 à i3, i5 à i7 ; témoins : m2, a1, a2,
 // p3, x2, x8, i4, i8, i9.
+// Échoue sur 6e365ec : d (VCroquis.geo.escalierDefauts absente).
 // usage : node tests/vm/escalier.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, rapport} = require('./charger.js');
@@ -117,6 +123,74 @@ function modele(){
     + [t1, t2, t3].map(x => JSON.stringify(x)).join(', ') + ')');
   const r = sur(() => V.resLigne(e, V.analyser(copie(d), 'edl')));
   R.ok(r === 'LIM', 'm3 gris du complément du fond : resLigne rend \'LIM\' (obtenu ' + JSON.stringify(r) + ')');
+}
+
+/* d : valeurs d'un escalier neuf, VCroquis.geo.escalierDefauts(D, F, lignes, aideDepart, aideFin) (m107). Bâti fictif de 10 × 6 m,
+   (0,0) (10,0) (10,6) (0,6), fermé par son premier point répété comme les lignes de lignesRef ; la façade sud est en y = 0. */
+const PT = q => ({x: q[0], y: q[1]});
+const BATI = [{nat: 'bati', P: [[0, 0], [10, 0], [10, 6], [0, 6], [0, 0]].map(PT), ferme: true, src: {L: 0, i: 0}, aire: 60}];
+function defauts(){
+  const f = V.geo && V.geo.escalierDefauts;
+  if (typeof f !== 'function'){ R.ok(false, 'd : VCroquis.geo.escalierDefauts est absente'); return; }
+  const val = (D, F, L, a, b) => sur(() => f(PT(D), PT(F), L, a, b));
+  const champ = (r, k) => r && typeof r === 'object' ? r[k] : String(r);
+  /* d1 : marches, devant la façade sud (y = −1) */
+  const n3 = val([0, -1], [3, -1], BATI), n01 = val([0, -1], [0.1, -1], BATI), n30 = val([0, -1], [30, -1], BATI), n14 = val([2, -1], [2, -2.4], BATI);
+  R.ok(champ(n3, 'n') === '11' && champ(n01, 'n') === '1' && champ(n30, 'n') === '60' && champ(n14, 'n') === '5',
+    'd1 marches : arrondi(L / 0,28), de 1 à 60, en texte : 3,00 m → « 11 » ; 0,10 m → « 1 » ; 30 m → « 60 » ; 1,40 m → « 5 » (obtenu '
+    + JSON.stringify([n3, n01, n30, n14].map(r => champ(r, 'n'))) + ')');
+  /* d2 : largeur et statut ; mêmes champs que le modèle de m106 */
+  const cles = Object.keys(V.defautsLn('esc')).sort().join(', ');
+  R.ok(!!n3 && typeof n3 === 'object' && n3.larg === '1,00' && n3.st === 'existant' && Object.keys(n3).sort().join(', ') === cles,
+    'd2 largeur « 1,00 », statut existant, mêmes champs que defautsLn(\'esc\') (' + cles + ') ; obtenu ' + JSON.stringify(n3));
+  /* d3 : côté du contour qui n'entre pas dans le bâti ; même résultat avec le bâti décrit dans l'autre sens */
+  const CW = [{nat: 'bati', P: BATI[0].P.slice().reverse(), ferme: true, src: {L: 0, i: 0}, aire: -60}];
+  const cas3 = [[[5, 0], [2, 0], 'g', 'façade sud vers l\'ouest'], [[2, 0], [5, 0], 'd', 'façade sud vers l\'est'],
+    [[0, 1], [0, 4], 'g', 'façade ouest vers le nord'], [[0, 4], [0, 1], 'd', 'façade ouest vers le sud']];
+  const ko3 = [];
+  cas3.forEach(c => [BATI, CW].forEach((L, i) => { const r = champ(val(c[0], c[1], L), 'cote'); if (r !== c[2]) ko3.push(c[3] + (i ? ' (bâti dans l\'autre sens)' : '') + ' : ' + r); }));
+  R.ok(!ko3.length, 'd3 côté hors du bâti : le long de la façade sud vers l\'ouest, à gauche (« g ») ; vers l\'est, à droite (« d ») ; le long de la façade ouest vers le nord, '
+    + 'à gauche ; vers le sud, à droite ; idem avec le bâti décrit dans l\'autre sens' + (ko3.length ? ' (écarts : ' + ko3.join(' ; ') + ')' : ''));
+  /* d4 : deux côtés hors du bâti, ou deux côtés dedans : « g » */
+  const h4 = champ(val([2, 0], [2, -3], BATI), 'cote'), c4 = champ(val([10, 6], [13, 9], BATI), 'cote'), i4 = champ(val([2, 2], [5, 2], BATI), 'cote');
+  R.ok(h4 === 'g' && c4 === 'g' && i4 === 'g', 'd4 deux côtés hors du bâti (départ sur la façade, d\'équerre, ou au coin, en biais) ou deux côtés dedans : « g » (obtenu '
+    + JSON.stringify([h4, c4, i4]) + ')');
+  /* d5 : seules comptent les lignes de bâti fermées */
+  const LIM = {nat: 'limite', P: [[-5, -5], [15, -5], [15, 10], [-5, 10], [-5, -5]].map(PT), ferme: true, src: {L: 1, i: 1}, aire: 300};
+  const OUV = {nat: 'bati', P: [[0, 0], [10, 0], [10, 6], [0, 6]].map(PT), ferme: false, src: {L: 0, i: 2}, aire: 0};
+  const CPL = {nat: 'complement', P: [[0, 0], [10, 0], [10, 6], [0, 6], [0, 0]].map(PT), ferme: false, src: {id: 'L1'}, aire: 0};
+  const cas5 = [['limite seule', [LIM], 'g'], ['bâti et limite', [LIM].concat(BATI), 'd'], ['bâti ouvert', [OUV], 'g'], ['complément', [CPL], 'g'],
+    ['aucune ligne', [], 'g'], ['lignes null', null, 'g'], ['lignes en texte', 'bati', 'g'], ['élément null et bâti', [null, {nat: 'bati'}].concat(BATI), 'd'],
+    ['sommet invalide', [{nat: 'bati', P: [{x: NaN, y: 0}, {x: 10, y: 0}, {x: 10, y: 6}], ferme: true, aire: 1}], 'g']];
+  const ko5 = cas5.filter(c => champ(val([2, 0], [5, 0], c[1]), 'cote') !== c[2]).map(c => c[0] + ' : ' + champ(val([2, 0], [5, 0], c[1]), 'cote'));
+  R.ok(!ko5.length, 'd5 seules les lignes de bâti fermées comptent : limite, bâti ouvert et complément sans effet ; liste absente, vide ou invalide : « g », sans exception'
+    + (ko5.length ? ' (écarts : ' + ko5.join(' ; ') + ')' : ''));
+  /* d6 : montée vers le bout posé avec une aide coin ou façade */
+  const cas6 = [['coin', null, 'depart'], ['facade', null, 'depart'], ['facade', 'parallele', 'depart'], ['coin', 'angle', 'depart'], [null, 'facade', 'fin'],
+    [null, 'coin', 'fin'], ['coin', 'facade', 'fin'], ['facade', 'coin', 'fin'], [null, null, 'fin'], [undefined, undefined, 'fin'], ['parallele', 'angle', 'fin']];
+  const ko6 = cas6.filter(c => champ(val([0, -1], [3, -1], BATI, c[0], c[1]), 'monte') !== c[2]).map(c => c[0] + '/' + c[1] + ' : ' + champ(val([0, -1], [3, -1], BATI, c[0], c[1]), 'monte'));
+  R.ok(!ko6.length, 'd6 montée : départ seul posé au coin ou sur une façade → « depart » ; fin seule, les deux ou aucun (aides parallèle et angle : aucune) → « fin »'
+    + (ko6.length ? ' (écarts : ' + ko6.join(' ; ') + ')' : ''));
+  /* d7 : lignes de VCroquis.geo.lignesRef sur un fond fictif fait ici : bâti fermé par le drapeau du DXF (premier point non répété), limite autour */
+  const fond = {id: 'fictif', L: [{c: 0, d: 0, n: 4, f: true}, {c: 1, d: 4, n: 4, f: true}], xy: [0, 0, 10, 0, 10, 6, 0, 6, -5, -5, 15, -5, 15, 10, -5, 10],
+    calques: [{nom: 'BATI-FICTIF', vis: true, style: 'bati'}, {nom: 'PARCELLE-FICTIVE', vis: true, style: 'parcelle'}]};
+  const lr = sur(() => V.geo.lignesRef(null, fond, {x: 0, y: 0})), lb = sur(() => V.geo.lignesRef(null, fond, {x: 0, y: 0}, ['bati']));
+  const r7 = [lr, lb].map(L => champ(val([2, 0], [5, 0], L), 'cote').concat('/', champ(val([5, 0], [2, 0], L), 'cote')));
+  R.ok(Array.isArray(lr) && lr.length === 2 && r7.join(' ') === 'd/g d/g', 'd7 lignes de lignesRef (bâti fermé par le drapeau du DXF, limite autour) : même côté qu\'avec '
+    + 'le bâti donné à la main (obtenu ' + r7.join(' ; ') + ')');
+  /* d8 : entrées invalides */
+  const mauvais = [['départ et fin confondus', [1, -1], [1, -1]], ['longueur sous 1e-9 m', [1, -1], [1 + 1e-12, -1]]].map(c => [c[0], () => f(PT(c[1]), PT(c[2]), BATI)])
+    .concat([['départ absent', () => f(null, {x: 1, y: 1}, BATI)], ['fin invalide', () => f({x: 0, y: 0}, {x: NaN, y: 1}, BATI)], ['sans argument', () => f()]]);
+  const ko8 = mauvais.map(c => [c[0], sur(c[1])]).filter(c => c[1] !== null).map(c => c[0] + ' : ' + JSON.stringify(c[1]));
+  R.ok(!ko8.length, 'd8 entrées invalides (' + mauvais.length + ' cas : départ et fin confondus, longueur nulle, point absent ou invalide) : null, sans exception'
+    + (ko8.length ? ' (écarts : ' + ko8.join(' ; ') + ')' : ''));
+  /* d9 : fonction pure, valeurs lisibles par VCroquis.geo.escalier : contour hors du bâti */
+  const D = {x: 2, y: 0}, F = {x: 5, y: 0}, Lc = copie(BATI), avant = JSON.stringify([D, F, Lc]), r9 = sur(() => f(D, F, Lc, 'coin', null));
+  const g9 = r9 && typeof r9 === 'object' ? sur(() => V.geo.escalier(D, F, r9.larg, r9.n, r9.cote, r9.monte)) : null;
+  const m9 = g9 && g9.contour ? PT([g9.contour.reduce((s, q) => s + q.x, 0) / 4, g9.contour.reduce((s, q) => s + q.y, 0) / 4]) : null;
+  R.ok(JSON.stringify([D, F, Lc]) === avant && !!m9 && m9.y < 0 && r9.monte === 'depart' && r9.n === '11',
+    'd9 fonction pure (départ, fin et lignes inchangés) ; ses valeurs dessinent l\'escalier par VCroquis.geo.escalier, contour hors du bâti (centre '
+    + txtPt(m9) + ', montée ' + champ(r9, 'monte') + ')');
 }
 
 /* a : analyse */
@@ -367,6 +441,7 @@ async function typesInconnus(){
 (async () => {
   geometrie();
   modele();
+  defauts();
   analyse();
   ecran();
   await plans();

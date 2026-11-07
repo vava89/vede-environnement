@@ -200,13 +200,15 @@ async function survolerStyletCv(p, q){
   finally { await s.detach(); }
   await pause(p, 80);
 }
-/* Glissé au doigt (pointerType 'touch'), de q0 à q1 en huit pas, par les événements tactiles de Chromium ; puis une pause. */
-async function glisserDoigtCv(p, q0, q1, ms){
+/* Glissé au doigt (pointerType 'touch'), de q0 à q1 en huit pas, par les événements tactiles de Chromium ; o.avantLever : fonction appelée
+   avant de lever le doigt ; puis une pause. */
+async function glisserDoigtCv(p, q0, q1, ms, o){
   const a = await pageCv(p, q0), b = await pageCv(p, q1); await surLePlan(p, a, 'le glissé'); await surLePlan(p, b, 'le glissé');
   const s = await p.context().newCDPSession(p), t = (type, q) => s.send('Input.dispatchTouchEvent', {type, touchPoints: q ? [{x: q.x, y: q.y, id: 1}] : []});
   try {
     await t('touchStart', a);
     for (let k = 1; k <= 8; k++) await t('touchMove', {x: a.x + (b.x - a.x) * k / 8, y: a.y + (b.y - a.y) * k / 8});
+    if (o && o.avantLever) await o.avantLever();
     await t('touchEnd', null);
   } finally { await s.detach(); }
   await pause(p, ms == null ? 450 : ms);
