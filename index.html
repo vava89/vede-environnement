@@ -1973,7 +1973,8 @@ function rowSides(obs, loc){
 }
 var ROW_KW = [['gout_av', function(o, s){ return !!s.avant; }], ['gout_ar', function(o, s){ return !!s.arriere; }],
   ['grilles', /\bgrilles?\b|\bcaniveau/], ['siphon', /\bsiphons? (de |du )?garage\b/], ['siphon_sol', /\bsiphons? de sol\b/], ['wc', /\bwc\b|\btoilettes?\b/], ['lavelinge', /\blave linge\b|\bmachine a laver\b/],
-  ['evier', /\beviers?\b/], ['sdb', /\bdouches?\b|\bbaignoires?\b|\blavabos?\b|\bsalle de bain/], ['cuisine', /\bcuisine\b|\blave vaisselle\b/]];
+  /* un lavabo se confond avec l'évier, comme sur le croquis (décision du 7 novembre 2026 ; avant, il rangeait l'anomalie en salle de bain) */
+  ['evier', /\beviers?\b|\blavabos?\b/], ['sdb', /\bdouches?\b|\bbaignoires?\b|\bsalle de bain/], ['cuisine', /\bcuisine\b|\blave vaisselle\b/]];
 function rowFits(r, a){ return !!r && r.groupe === a.reseau; }
 /* Une ligne « Autres » correspond si tous les mots principaux de son libellé figurent dans le texte (mots entre parenthèses facultatifs) ; « Regard EP » exige « regard ep » */
 function autresMatch(r, o){

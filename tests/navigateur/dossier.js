@@ -11,6 +11,8 @@
 //     « non conforme sur le croquis de terrain, conforme au constat » est rappelé (échoue sur b0ef508) ; 8 : témoin, deux éviers conformes, aucun écart.
 // 9 à 12 : ligne « Autres » saisie à la main et lavabo dessiné : « Lavabos » et « Lavabo de la salle d'eau » sont rappelés comme un double compte
 //     possible (échouent sur be1d749), comme « Lavabo » (témoin) ; « Chaudière (purge, condensat) » ne l'est pas (témoin).
+// 13 à 17 : anomalie saisie à la main, hors croquis, dont le texte contient « lavabo » : ligne « Évier », plus « Salle de bain » (décision du
+//     7 novembre 2026 ; échouent sur 22df7f2) ; une douche reste en salle de bain (témoin) ; sans ligne « Évier » comptée, aucune ligne.
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -137,8 +139,28 @@ async function autresDouble(){
   }
 }
 
+/* anomalie saisie à la main, hors croquis (aucune ligne choisie) : lignes du constat que ses mots désignent. Décision du 7 novembre 2026 : le
+   lavabo se confond avec l'évier, comme sur le croquis (ligne « Évier ») ; avant, le mot « lavabo » rangeait l'anomalie en salle de bain. Sans
+   ligne « Évier » comptée, aucune ligne : en cas de doute, l'application n'en choisit pas, le technicien la choisit dans l'anomalie */
+async function motLavabo(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    const cas = [['13 « Lavabo : non siphonné »', 'Lavabo : non siphonné', '1', 'evier'],
+      ['14 anomalie type « Rejet évier, lave-linge (sous-sol) et lavabo (étage) sur le réseau EP »', 'Rejet évier, lave-linge (sous-sol) et lavabo (étage) sur le réseau EP', '1', 'lavelinge+evier'],
+      ['15 anomalie type « Rejet du lavabo, de la buanderie et du siphon (sous escalier) vers le réseau EP »', 'Rejet du lavabo, de la buanderie et du siphon (sous escalier) vers le réseau EP', '1', 'evier'],
+      ['16 « Douche non raccordée » (témoin)', 'Douche non raccordée', '1', 'sdb'],
+      ['17 « Lavabo : non siphonné », aucun évier compté', 'Lavabo : non siphonné', '0', 'aucune']];
+    const vu = await p.evaluate(cas => { const T = window.__VT;
+      const rows = ev => [['wc', 'WC', '1'], ['lavelinge', 'Lave-linge', '1'], ['evier', 'Évier', ev], ['sdb', 'Salle de bain (douche ou baignoire et lavabo)', '1']]
+        .map(([id, label, nb]) => ({id, groupe: 'EU', label, std: true, nb, raccord: '', conforme: '', methodes: []}));
+      return cas.map(k => T.anomRows({rows: rows(k[2])}, {reseau: 'EU', observation: k[1], localisation: '', installation: ''}).map(r => r.id).join('+') || 'aucune'); }, cas);
+    cas.forEach((k, i) => R.ok(vu[i] === k[3], k[0] + ' : ' + vu[i] + (vu[i] === k[3] ? '' : ' (attendu ' + k[3] + ')')));
+  } finally { await A.fermer(); }
+}
+
 (async () => {
   try {
+    await motLavabo();
     await cas('1 NC choisie en EP, dessin changé pendant le retrait puis rétabli', 'relier();', 'true', false, {nature: 'NC', constat: 'non_conformes'});
     await cas('2 réserve choisie en EU, dessin changé pendant le retrait puis rétabli', '', 'false', true, {nature: 'réserve', constat: 'reserves'});
     await lavabo();
