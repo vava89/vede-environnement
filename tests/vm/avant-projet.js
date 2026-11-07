@@ -13,6 +13,8 @@
 // NC). p3 (m83) : regard « Projet » au milieu d'un tuyau existant : l'état des lieux est celui du même dessin sans lui (même boîte, même
 // « pas de boîte », le message « le dessin le relie à » une seule fois). p4 (m84) : attente « Tronçon EU » vers un lavabo « Projet » : sur
 // l'état des lieux, une arrivée, pas une sortie : la fosse en série reste comptée.
+// p5, p6 (m95) : raccord au milieu d'un tuyau existant, d'où part un tuyau « Projet » (état des lieux) ou une branche « À supprimer »
+// (avant-projet) : même analyse que sans le raccord (échouent sur ba2d32a).
 'use strict';
 const {charger, rapport} = require('./charger.js');
 const {V, ctx} = charger({pdf: true}), R = rapport('avant-projet');
@@ -86,6 +88,25 @@ const PDF_S = 'Après travaux : WC garde une sortie EP laissée libre : la passe
       return 'wc=' + r.etat + ':' + r.res + (r.boite ? ' boite=' + r.boite : '') + ' | ' + L.map(a => a.cle + '@' + a.objId).sort().join(',') + ' | ' + an.controles.filter(c => /le dessin le relie/.test(c.txt)).map(c => c.txt).join(' ; '); };
     const avec = sig(dessin(true)), sans = sig(dessin(false));
     R.ok(avec === sans && (avec.match(/le dessin le relie/g) || []).length === 1, 'p3 (regard « Projet » au milieu d\'un tuyau existant) : ' + avec + (avec === sans ? '' : ' | sans lui : ' + sans));
+  }
+  {
+    /* p5, p6 (m95) : raccord au milieu d'un tuyau existant (le même dessin que p3, sans le regard « Projet ») ; p5 : l'outil Projet part du
+       milieu du tuyau (raccord posé d'office, tuyau « Projet » vers un regard « Projet ») : l'état des lieux est celui du dessin sans eux ;
+       p6 : sur l'avant-projet, une branche « À supprimer » part du milieu du tuyau (raccord posé à la main) : l'avant-projet est celui du dessin
+       sans elle. Avant, le raccord coupait le tuyau en deux pièces : la boîte B devenait le seul plus court chemin et le réseau présumé changeait */
+    const base = () => { const d = nouveau(); pt(d, 'wc', 'wc', 0, 10); pt(d, 'R1', 'regard', 0, 7, {tampon: 'fonte'}); pt(d, 'B', 'boite', -3, 4, {res: ''}); pt(d, 'Rx', 'regard', 3, 4, {tampon: 'fonte'}); pt(d, 'R3', 'regard', 0, 1, {tampon: 'fonte'}); pt(d, 'j', 'jonction', 0, -2, {});
+      ln(d, 'L1', 'tr', 'EU', ['wc', 'R1']); ln(d, 'a1', 'tr', '', ['R1', 'B']); ln(d, 'a2', 'tr', '', ['B', 'R3']); ln(d, 'b2', 'tr', '', ['Rx', 'R3']); ln(d, 'S', 'tr', '', ['R3', 'j']); ln(d, 'C', 'col', 'EU', [[-10, -2], 'j', [10, -2]]); return d; };
+    const avecRaccord = (auto, branche) => { const d = base(); pt(d, 'J', 'jonction', 1.5, 5.5, {}).auto = auto; ln(d, 'b1', 'tr', 'EP', ['R1', 'J', 'Rx']); branche(d); return d; };
+    const sansRaccord = () => { const d = base(); ln(d, 'b1', 'tr', 'EP', ['R1', [1.5, 5.5], 'Rx']); return d; };
+    const sigM = (d, mode) => { const an = V.analyser(JSON.parse(JSON.stringify(d)), mode), L = V.anomaliesDoc(JSON.parse(JSON.stringify(d)), an), r = an.resObj.wc;
+      return 'wc=' + r.etat + ':' + r.res + (r.presume ? '(p)' : '') + (r.boite ? ' boite=' + r.boite : '') + ' | ' + L.map(a => a.cle + '@' + a.objId + ':' + a.st).sort().join(',') + ' | ' + V.conclusion(L, an)
+        + ' | ' + an.controles.map(c => c.niveau + ':' + c.txt).sort().join(' ; '); };
+    const p5 = avecRaccord(true, d => { pt(d, 'RQ', 'regard', 5, 7, {tampon: 'fonte'}, 'projet'); ln(d, 'pj', 'tr', '', ['J', 'RQ'], 'projet'); });
+    const p6 = avecRaccord(false, d => { pt(d, 'Rz', 'regard', 5, 7, {tampon: 'fonte'}, 'supprimer'); ln(d, 'bz', 'tr', 'EP', ['J', 'Rz'], 'supprimer'); });
+    for (const [n, d, mode, txt] of [['p5', p5, 'edl', 'outil Projet parti du milieu d\'un tuyau existant, état des lieux'], ['p6', p6, 'avp', 'branche « À supprimer » partie du milieu d\'un tuyau, avant-projet']]){
+      const vu = sigM(d, mode), att = sigM(sansRaccord(), mode);
+      R.ok(vu === att, n + ' (' + txt + ') : ' + vu + (vu === att ? '' : ' | sans le raccord : ' + att));
+    }
   }
   {
     const d = nouveau(); pt(d, 'wc', 'wc', 0, 10); pt(d, 'R1', 'regard', 0, 7, {tampon: 'fonte'}); pt(d, 'F', 'fosse', 0, 4, {}); pt(d, 'la', 'lavabo', 4, 7, {}, 'projet');

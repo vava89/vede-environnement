@@ -9,7 +9,8 @@
 // s : un regard qui a pris la place d'un raccord, aussitôt supprimé : ses tuyaux restent raccordés (un raccord revient à sa place) ;
 // b : un regard touché sur le bout libre d'un tuyau prend ce bout, même avec un raccord du même tuyau sous son symbole ;
 // o : un clapet qui prend la place d'un raccord suit le tuyau touché (orientation automatique), dans le sens de l'eau (tuyau tracé à
-//     l'envers et indiqué « Sens inverse ») ; une gargouille regarde vers la sortie de l'eau, même quand le raccord est le premier sommet ;
+//     l'envers et indiqué « Sens inverse » ; branchement d'une boîte tracé depuis le collecteur ; trop-plein d'un puisard tracé depuis le
+//     puisard) ; une gargouille regarde vers la sortie de l'eau, même quand le raccord est le premier sommet ;
 // s : aussi pour un exutoire (puisard) supprimé.
 // usage : node tests/navigateur/gestes.js [-v] [--app=<dossier>]
 'use strict';
@@ -210,13 +211,20 @@ async function oriente(){
     {n: 'clapet, tuyau tracé du WC au raccord', t: 'clapet', A: ['w1', 'j1'], q: {}},
     {n: 'clapet, tuyau tracé du raccord au WC, « Sens inverse »', t: 'clapet', A: ['j1', 'w1'], q: {sens: -1}},
     {n: 'gargouille, tuyau tracé du rejet vers la descente (raccord au premier sommet)', t: 'gargouille', A: ['j1', 'w1'], q: {res: 'EP'}, source: 'descente'},
+    /* aucune source ne parcourt le branchement (l'eau du WC s'arrête à la boîte) : le clapet suit la distance au collecteur, pas le tracé */
+    {n: 'clapet, branchement de la boîte EU au collecteur tracé depuis le collecteur', t: 'clapet', A: ['j1', 'w1'], q: {}, source: 'boite', p1: {res: 'EU'}, collecteur: true},
+    /* trop-plein : l'eau part du puisard, la distance aux exutoires ne le dit pas ; le clapet suit le tracé */
+    {n: 'clapet, trop-plein d\'un puisard tracé du puisard vers le regard', t: 'clapet', A: ['w1', 'j1'], q: {}, source: 'puisard'},
   ];
   for (const k of cas){
     const A = await croquisNeuf(), p = A.p;
     try {
       const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy, o = (x, y) => [cx + x, cy + y];
-      const els = [C.P('w1', k.source || 'wc', ...o(-2.1, -2.1)), C.J('j1', ...o(0, 0)), k.t === 'gargouille' ? C.P('w2', 'descente', ...o(2, -2)) : C.P('r1', 'regard', ...o(2, 2), {tampon: 'fonte'})], I = C.index(els);
-      els.push(C.L('A', 'tr', k.A, I, k.q), k.t === 'gargouille' ? C.L('B', 'tr', ['w2', 'j1'], I, {res: 'EP'}) : C.L('C', 'tr', ['j1', 'r1'], I));
+      const els = [C.P('w1', k.source || 'wc', ...o(-2.1, -2.1), k.p1), C.J('j1', ...o(0, 0)), k.t === 'gargouille' ? C.P('w2', 'descente', ...o(2, -2)) : k.collecteur ? C.J('r1', ...o(2, 2)) : C.P('r1', 'regard', ...o(2, 2), {tampon: 'fonte'})];
+      if (k.collecteur) els.push(C.P('w0', 'wc', ...o(-4.2, -4.2)));
+      const I = C.index(els);
+      els.push(C.L('A', 'tr', k.A, I, k.q), k.t === 'gargouille' ? C.L('B', 'tr', ['w2', 'j1'], I, {res: 'EP'}) : C.L('C', 'tr', k.collecteur ? ['r1', 'j1'] : ['j1', 'r1'], I));
+      if (k.collecteur) els.push(C.L('L0', 'tr', ['w0', 'w1'], I), C.L('K', 'col', [o(0, 4), 'r1', o(4, 0)], I, {res: 'EU'}));
       await C.injecter(p, {el: els}); await C.regler(p, cx, cy, 63);
       const q = await C.aCote(p, I.j1, I.w1, k.t === 'gargouille' ? I.w2 : I.r1, 3, 12);
       await C.outil(p, {k: 'pt', t: k.t, pal: 'equ'}); await C.toucherCv(p, q, 600);

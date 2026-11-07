@@ -1,7 +1,8 @@
 // Règles du constat (sans navigateur), sur des croquis fictifs : nature des eaux de chaque équipement (siphon de garage en EU, siphon de sol
 // en EP), rejets interdits (EU vers l'EP, un puisard, la gargouille ou le milieu naturel ; EP vers l'EU), descente non visitable (NC),
-// tampon béton (NC en EU, réserve en EP), fosse septique traversée (NC), en cul-de-sac ou hors fonction grâce à un by-pass (rien), boîte
-// sur le mauvais collecteur, et la conclusion proposée qui en découle (by-pass sous toutes ses formes : fosse-contournee.js).
+// tampon béton (NC en EU, réserve en EP), fosse septique traversée (NC), en cul-de-sac ou hors fonction grâce à un by-pass (rien), fosses
+// en parallèle (une fosse d'un chemin qui en traverse le moins), boîte sur le mauvais collecteur, et la conclusion proposée qui en découle
+// (by-pass sous toutes ses formes : fosse-contournee.js ; fosse désignée comparée à un oracle : fosse-oracle.js).
 // usage : node tests/vm/regles.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rapport} = require('./charger.js');
@@ -35,6 +36,12 @@ const cas = [
     et: 's=ok:EU', a: [['fosse:F1', true, 'Fosse septique : eaux usées traversant la fosse']], c: 'non_conformes'},
   {n: 'deux fosses en parallèle puis une fosse contournée en aval : la NC va à une fosse que l\'eau ne peut pas éviter', d: doc({o: [['s', 'wc', 0, 12], ['R1', 'regard', 0, 10], ['F1', 'fosse', -3, 8], ['F2', 'fosse', 3, 8], ['R2', 'regard', 0, 6], ['F3', 'fosse', -3, 4], ['Rb', 'regard', 3, 4], ['R3', 'regard', 0, 2], ['B', 'boite', 0, 0, {res: 'EU'}]], l: [['L1', 'tr', '', '', ['s', 'R1']], ['a1', 'tr', '', '', ['R1', 'F1']], ['a2', 'tr', '', '', ['F1', 'R2']], ['b1', 'tr', '', '', ['R1', 'F2']], ['b2', 'tr', '', '', ['F2', 'R2']], ['c1', 'tr', '', '', ['R2', 'F3']], ['c2', 'tr', '', '', ['F3', 'R3']], ['d1', 'tr', '', '', ['R2', 'Rb']], ['d2', 'tr', '', '', ['Rb', 'R3']], ['L2', 'tr', '', '', ['R3', 'B']]]}),
     et: 's=ok:EU', a: [['fosse:F1', true, 'Fosse septique : eaux usées traversant la fosse']], c: 'non_conformes'},
+  {n: 'deux fosses en série sur chacune de deux branches parallèles, puis une fosse contournée en aval : la NC va à une fosse d\'un chemin qui en traverse le moins, jamais à la fosse contournée',
+    d: doc({o: [['s', 'wc', 0, 14], ['R1', 'regard', 0, 12], ['F1', 'fosse', -3, 10], ['F2', 'fosse', -3, 8], ['F3', 'fosse', 3, 10], ['F4', 'fosse', 3, 8], ['R2', 'regard', 0, 6],
+      ['F5', 'fosse', -3, 4], ['Rb', 'regard', 3, 4], ['R3', 'regard', 0, 2], ['B', 'boite', 0, 0, {res: 'EU'}]],
+      l: [['L1', 'tr', '', '', ['s', 'R1']], ['a1', 'tr', '', '', ['R1', 'F1']], ['a2', 'tr', '', '', ['F1', 'F2']], ['a3', 'tr', '', '', ['F2', 'R2']], ['b1', 'tr', '', '', ['R1', 'F3']], ['b2', 'tr', '', '', ['F3', 'F4']],
+        ['b3', 'tr', '', '', ['F4', 'R2']], ['c1', 'tr', '', '', ['R2', 'F5']], ['c2', 'tr', '', '', ['F5', 'R3']], ['d1', 'tr', '', '', ['R2', 'Rb']], ['d2', 'tr', '', '', ['Rb', 'R3']], ['L2', 'tr', '', '', ['R3', 'B']]]}),
+    et: 's=ok:EU', a: [['fosse:F2', true, 'Fosse septique : eaux usées traversant la fosse']], c: 'non_conformes'},
   {n: 'by-pass de la fosse vers un autre exutoire dessiné du même réseau', d: doc({o: [['s', 'wc', 0, 10], ['R1', 'regard', 0, 7], ['F', 'fosse', -3, 4], ['Ba', 'boite', -3, 0, {res: 'EU'}], ['Bb', 'boite', 3, 0, {res: 'EU'}]], l: [['L1', 'tr', '', '', ['s', 'R1']], ['a1', 'tr', '', '', ['R1', 'F']], ['a2', 'tr', '', '', ['F', 'Ba']], ['b1', 'tr', '', '', ['R1', 'Bb']]]}),
     et: 's=ok:EU', a: [], c: 'conformes'},
   {n: 'descente vers la fosse puis le réseau EU', d: doc({o: [['s', 'descente', 0, 8], ['F', 'fosse', 0, 4], ['B', 'boite', 0, 0, {res: 'EU'}]], l: [['L1', 'tr', '', '', ['s', 'F']], ['L2', 'tr', '', '', ['F', 'B']]]}),

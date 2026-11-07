@@ -1,4 +1,4 @@
-VÉDÉ Terrain, version installable hors connexion (v1.6.2)
+VÉDÉ Terrain, version installable hors connexion (v1.6.3)
 =====================================================
 
 Ce dossier contient l'application complète. Une fois installée sur la
@@ -64,6 +64,10 @@ CROQUIS DE TERRAIN (facultatif)
   sur le plan (« Placer sur le croquis »).
 - Fosse septique : elle ne donne une anomalie que si l'eau ne peut pas
   l'éviter ; une fosse hors fonction grâce à un by-pass n'en donne pas.
+  Si l'eau ne l'évite que vers une extrémité laissée libre qui peut être
+  une arrivée (entrée de la maison), l'anomalie est « à arbitrer » et
+  aucune conformité n'est proposée : indiquez le sens du tracé de
+  l'arrivée ou dessinez l'exutoire, sinon retenez-la ou écartez-la.
   Sur l'état des lieux, un ouvrage « Projet » posé là où se rejoignent
   des tuyaux existants les relie comme un raccord.
 - Tant qu'on n'y touche pas, une anomalie déduite suit le dessin (texte mis
@@ -78,10 +82,16 @@ CROQUIS DE TERRAIN (facultatif)
   garder dans la liste du dossier, sans lien avec un plan.
 - Constat : « Reprendre du croquis » (section Installations privatives)
   remplit le nombre, le raccordement et les méthodes des installations
-  dessinées, sans remplacer ce qui a été saisi. Ensuite ces valeurs suivent
-  le croquis tant qu'on n'y touche pas. Les écarts entre le croquis et le
-  constat sont rappelés avant la signature. Un constat signé n'est jamais
-  modifié.
+  dessinées, sans remplacer ce qui a été saisi. Chaque objet dessiné compte
+  pour une installation : une salle de bain ou une cuisine se dessine d'un
+  seul objet (son lavabo, son évier, son lave-vaisselle y sont compris) ;
+  un lavabo seul compte comme un évier. Ensuite ces valeurs suivent
+  le croquis tant qu'on n'y touche pas (à la fermeture du croquis et à
+  l'ouverture du constat). Une anomalie posée sur un objet du croquis
+  rend non conforme la ligne de cet objet (un lavabo : « Évier »). Les
+  écarts entre le croquis et le constat sont rappelés avant la
+  signature. Un constat signé n'est jamais modifié, et le croquis n'y
+  rappelle plus d'écart.
 - Aides au dessin (Réglages, ou bouton aimant dans le croquis) : traits
   parallèles au côté de bâti le plus proche, angles droits, accroche aux
   coins et façades, fin automatique d'un tronçon sur un objet, tracé en

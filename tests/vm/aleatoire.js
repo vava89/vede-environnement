@@ -1,6 +1,8 @@
 // Croquis aléatoires fictifs (sans navigateur) : l'analyse (état des lieux et avant-projet), les anomalies, la conclusion et la mise à jour
-// du dossier ne lèvent aucune exception, et le résultat ne dépend pas de l'ordre du dessin (tracés dans cinq ordres, objets dans deux),
-// fosse septique comprise (contournée par un by-pass, elle ne compte pas : voir fosse-contournee.js).
+// du dossier ne lèvent aucune exception, et le résultat (flèches du plan comprises) ne dépend pas de l'ordre du dessin (tracés dans cinq
+// ordres, objets dans deux), fosse septique comprise (contournée par un by-pass, elle ne compte pas : voir fosse-contournee.js).
+// Un raccord posé au milieu d'un tuyau, d'où part un tuyau « Projet » (outil Projet, état des lieux) ou une branche « À supprimer »
+// (avant-projet), ne change pas l'analyse de ce plan (m95 ; échoue sur ba2d32a).
 // usage : node tests/vm/aleatoire.js [n=1500] [graine=1] [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, melange, copie, rapport} = require('./charger.js');
@@ -8,14 +10,17 @@ const G = require('./generateur.js');
 const {V} = charger(), R = rapport('aleatoire');
 const args = process.argv.slice(2).filter(x => !/^-/.test(x)), N = +(args[0] || 1500), S0 = +(args[1] || 1);
 
-function signature(d, mode){
+function signature(d, mode, parSommets){
   const an = V.analyser(copie(d), mode), L = V.anomaliesDoc(copie(d), an), c = V.conclusion(L, an);
   const s = Object.keys(an.resObj).sort().map(id => { const r = an.resObj[id];
     return id + '=' + r.etat + ':' + (r.nets || []).join(',') + (r.presume ? '(p)' : '') + (r.fosse ? ' F=' + r.fosse : '') + (r.boite ? ' B=' + r.boite : '')
       + (r.conflit ? ' c=' + r.conflit.join(',') : '') + (r.ambigu ? ' a=' + r.ambigu.join(',') + (r.ambiguArrivee ? '+' : '') : '') + (r.sortiesLibres ? ' sl=' + r.sortiesLibres.length : ''); }).join(' ');
   const anos = L.map(a => a.cle + '@' + a.objId + ':' + a.st).sort().join(',');
   const ctrl = an.controles.map(x => x.niveau + ':' + x.txt).sort().join(' ; ');
-  return s + ' | ' + anos + ' | ' + c + ' | ' + ctrl;
+  /* parSommets : une pièce désignée par son tuyau et les points de ses deux bouts (un sommet ajouté décale les numéros des sommets) */
+  const cle = p => parSommets ? p.l.id + (p.col ? ':c' : ':') + [p.i0, p.i1].map(i => p.l.v[i].x + ',' + p.l.v[i].y).join('>') : p.id;
+  const fl = an.pieces.map(p => cle(p) + (an.sensPiece[p.id] > 0 ? '>' : an.sensPiece[p.id] < 0 ? '<' : '=')).sort().join(' ; ');
+  return s + ' | ' + anos + ' | ' + c + ' | ' + ctrl + ' | ' + fl;
 }
 /* mise à jour du dossier : aucune exception, une seconde synchronisation ne change plus rien */
 function dossier(d){
@@ -28,7 +33,20 @@ function dossier(d){
   return o2.creer.length + o2.maj.length + o2.retirer.length;
 }
 
-const st = {croquis: 0, analyses: 0, exceptions: 0, ordreTraces: 0, ordreObjets: 0, avecFosse: 0, dossierInstable: 0};
+/* raccord posé au milieu d'un segment d'un tuyau de ce plan, d'où part un tuyau absent de ce plan (« Projet » sur l'état des lieux, raccord posé
+   d'office par l'outil Projet ; « À supprimer » sur l'avant-projet, raccord posé à la main) */
+function raccordAuMilieu(d0, mode, k){
+  const d = copie(d0), pos = {}; d.el.forEach(e => { if (e.k === 'pt') pos[e.id] = e; });
+  const trs = d.el.filter(e => e.k === 'ln' && e.t === 'tr' && e.v.length >= 2 && (mode === 'avp' ? e.p.st !== 'supprimer' : e.p.st !== 'projet'));
+  if (!trs.length) return null;
+  const l = trs[k % trs.length], seg = 1 + (k % (l.v.length - 1)), a = l.v[seg - 1].a ? pos[l.v[seg - 1].a] : l.v[seg - 1], b = l.v[seg].a ? pos[l.v[seg].a] : l.v[seg];
+  const m = {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2};
+  d.el.push({id: 'Jm', k: 'pt', t: 'jonction', x: m.x, y: m.y, p: V.defautsPt('jonction'), lab: {off: true}, auto: mode !== 'avp'});
+  l.v.splice(seg, 0, {x: m.x, y: m.y, a: 'Jm'});
+  d.el.push({id: 'Lm', k: 'ln', t: 'tr', v: [{x: m.x, y: m.y, a: 'Jm'}, {x: m.x + 0.8, y: m.y + 0.6, a: null}], p: Object.assign(V.defautsLn('tr', {res: ''}), {res: '', st: mode === 'avp' ? 'supprimer' : 'projet'}), lab: null});
+  return d;
+}
+const st = {croquis: 0, analyses: 0, exceptions: 0, ordreTraces: 0, ordreObjets: 0, avecFosse: 0, dossierInstable: 0, raccordsAuMilieu: 0, raccordChange: 0, raccordChangeAnalyse: 0};
 const ex = {};
 /* ce qui diffère entre deux résultats (parties séparées par « | » et « ; ») */
 function ecart(a, b){
@@ -53,6 +71,10 @@ for (let it = 0; it < N; it++){
     }
     try { const so = signature(Object.assign({}, d, {el: melange(pts, graine + 5).concat(lns)}), mode); if (so !== sigs[0]){ st.ordreObjets++; note('ordre des objets', 'graine ' + graine + ' ' + mode + ' ' + G.fmt(spec) + '\n      ' + ecart(sigs[0], so)); } }
     catch (e){ st.exceptions++; note('exception', 'graine ' + graine + ' ' + mode + ' (objets permutés) : ' + e.message); }
+    try { const dj = raccordAuMilieu(d, mode, graine); if (dj){ st.raccordsAuMilieu++; const a = signature(d, mode, true), b = signature(dj, mode, true);
+      if (a !== b){ const ana = a.slice(0, a.lastIndexOf(' | ')) !== b.slice(0, b.lastIndexOf(' | ')); st.raccordChange++; if (ana) st.raccordChangeAnalyse++;
+        note('raccord au milieu d\'un tuyau' + (ana ? '' : ' (pièces et flèches seules)'), 'graine ' + graine + ' ' + mode + ' ' + G.fmt(spec) + '\n      ' + ecart(a, b)); } } }
+    catch (e){ st.exceptions++; note('exception', 'graine ' + graine + ' ' + mode + ' (raccord au milieu) : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
   });
   try { if (dossier(d)) { st.dossierInstable++; note('dossier', 'graine ' + graine + ' ' + G.fmt(spec)); } }
   catch (e){ st.exceptions++; note('exception', 'graine ' + graine + ' dossier : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
@@ -62,5 +84,7 @@ Object.keys(ex).forEach(k => ex[k].forEach(t => console.log('[' + k + '] ' + t))
 R.ok(st.exceptions === 0, 'aucune exception (' + st.analyses + ' analyses de ' + st.croquis + ' croquis)');
 R.ok(st.ordreTraces === 0, 'même résultat dans cinq ordres des tracés (' + st.avecFosse + ' croquis avec fosse)');
 R.ok(st.ordreObjets === 0, 'même résultat dans un autre ordre des objets');
+R.ok(st.raccordChange === 0, 'un raccord au milieu d\'un tuyau, d\'où part un tuyau absent de ce plan, ne change rien (' + st.raccordsAuMilieu + ' plans'
+  + (st.raccordChange ? ' ; ' + st.raccordChange + ' changés, dont ' + st.raccordChangeAnalyse + ' hors pièces et flèches' : '') + ')');
 R.ok(st.dossierInstable === 0, 'une seconde mise à jour du dossier ne change plus rien');
 R.fin();
