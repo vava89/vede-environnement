@@ -3541,8 +3541,9 @@ var VC_ACTIONS = {
 
 /* ---------- Croquis de terrain et constat ----------
    Résumé du croquis (installations dessinées, raccordement, méthodes), gardé en mémoire par dossier : jamais recalculé à chaque affichage.
-   Le constat ne reprend que nombre, raccordement et méthodes des lignes, plus le puisard, et seulement là où le technicien n'a rien saisi
-   (ou a gardé la dernière valeur venue du croquis : c.croqAuto) ; jamais la conformité, la conclusion ni les préconisations, jamais un constat signé. */
+   Le constat ne reprend que nombre, raccordement et méthodes des lignes, le puisard, la distance à la limite et la profondeur de la boîte de
+   branchement (seule boîte existante du réseau), et seulement là où le technicien n'a rien saisi (ou a gardé la dernière valeur venue du
+   croquis : c.croqAuto) ; jamais la conformité, la conclusion ni les préconisations, jamais un constat signé, rien quand le croquis est désactivé. */
 var VC_RESUMES = new Map();
 function vcResumeCalc(v, doc){
   var V = window.VCroquis, an = V.analyser(doc, 'edl'), cd = V.constatDeduit(doc, an);
@@ -3553,6 +3554,8 @@ function vcResumeCalc(v, doc){
   try { var dc = JSON.parse(JSON.stringify(doc)), ops = V.reconcilier(dc, null, anomsOf(v.id), {});
     r.aReporter = (ops.maj || []).filter(function(m){ return ['observation', 'preconisation', 'reseau', 'nc', 'installation'].some(function(k){ return m.champs && m.champs[k] !== undefined; }); }).length; } catch(e){ r.aReporter = 0; }
   try { var La = V.anomaliesDoc(doc, an, anomsOf(v.id), {telQuel: true}); r.arbitrer = La.filter(function(a){ return a.st === 'arbitrer'; }).length; r.horsdossier = La.filter(function(a){ return a.st === 'horsdossier'; }).length; } catch(e){ r.arbitrer = 0; r.horsdossier = 0; }
+  /* boîte de branchement par réseau : nombre de boîtes existantes, distance à la limite et profondeur s'il n'y en a qu'une (VCroquis.boitesConstat) */
+  try { r.boite = V.boitesConstat(doc, an); } catch(e){ r.boite = null; }
   VC_RESUMES.set(v.id, r);
   return r;
 }
@@ -3588,15 +3591,22 @@ function vcAutresDouble(c, s){
 function vcProvenance(c){
   if (!c.croqAuto || typeof c.croqAuto !== 'object' || Array.isArray(c.croqAuto)) c.croqAuto = {};
   var P = c.croqAuto; ['rows', 'refus', 'crees'].forEach(function(k){ if (!P[k] || typeof P[k] !== 'object' || Array.isArray(P[k])) P[k] = {}; });
+  /* boîte de branchement (P.boite : dernière valeur posée par champ, en texte) ; jamais créée ici, seulement par « Reprendre du croquis » */
+  if (P.boite !== undefined){
+    if (!P.boite || typeof P.boite !== 'object' || Array.isArray(P.boite)) delete P.boite;
+    else Object.keys(P.boite).forEach(function(k){ if (VC_BOITE_CHAMPS.indexOf(k) < 0 || typeof P.boite[k] !== 'string') delete P.boite[k]; });
+  }
   return P;
 }
-/* suivi : seulement les champs déjà posés par le croquis, sans ajouter de ligne */
+var VC_BOITE_CHAMPS = ['distEU', 'distEP', 'profEU', 'profEP'];
+/* suivi (fermeture du croquis, ouverture du constat) : seulement les champs déjà posés par le croquis, sans ajouter de ligne ; la boîte de
+   branchement seulement si « Reprendre du croquis » l'a déjà reprise (P.boite). Constat signé, visite non effectuée, croquis désactivé : rien. */
 function constatDepuisCroquis(v, res, suivi){
-  if (!res || (v.constat && v.constat.signeLe) || constatNonEffectue(v)) return 0;
+  if (!res || !vcPret() || (v.constat && v.constat.signeLe) || constatNonEffectue(v)) return 0;
   if (suivi && !(v.constat && v.constat.croqAuto)) return 0;
-  var c = constatOf(v), P = vcProvenance(c), n = 0, vus = {};
+  var neuf = !v.constat, c = constatOf(v), P = vcProvenance(c), n = 0, vus = {}, boiteNeuve = false;
   /* valeurs reprises d'un autre croquis (supprimé puis recommencé) : elles restent, comme saisies par le technicien */
-  if (res.plan && P.plan !== res.plan){ P.rows = {}; P.crees = {}; delete P.puisard; }
+  if (res.plan && P.plan !== res.plan){ P.rows = {}; P.crees = {}; delete P.puisard; if (P.boite) P.boite = {}; }
   if (res.plan) P.plan = res.plan;
   function poser(r, vals){
     var a = P.rows[r.id]; if (!a || typeof a !== 'object') a = {};
@@ -3633,8 +3643,44 @@ function constatDepuisCroquis(v, res, suivi){
   if (!c.epRecup || typeof c.epRecup !== 'object') c.epRecup = {};
   if (res.puisard){ if (c.epRecup.puisard === undefined){ c.epRecup.puisard = true; P.puisard = true; n++; } }
   else if (P.puisard){ if (c.epRecup.puisard === true){ delete c.epRecup.puisard; n++; } delete P.puisard; }
+  /* boîte de branchement (réponse 10.4) : distance à la limite et profondeur, par réseau, d'après la seule boîte existante du réseau ; comme
+     pour les lignes, une valeur retouchée, ou saisie sans avoir été posée par le croquis, reste ; une valeur posée que le croquis ne donne plus
+     (aucune ou plusieurs boîtes) est vidée si personne n'y a touché */
+  if (res.boite && typeof res.boite === 'object' && (P.boite || !suivi)){
+    if (!P.boite){ P.boite = {}; boiteNeuve = true; }
+    if (!c.boite || typeof c.boite !== 'object' || Array.isArray(c.boite)) c.boite = {};
+    ['EU', 'EP'].forEach(function(g){
+      var x = res.boite[g];
+      ['dist', 'prof'].forEach(function(k){
+        var f = k + g, a = P.boite[f], cur = String(c.boite[f] == null ? '' : c.boite[f]).trim(), val = x && x.n === 1 && typeof x[k] === 'string' ? x[k] : '';
+        if (a !== undefined ? cur !== a : cur !== '') return;          /* retouché par le technicien : on n'y touche pas */
+        if (a === undefined && val === '') return;                     /* rien à proposer */
+        if (cur !== val){ c.boite[f] = val; n++; }
+        P.boite[f] = val;
+      });
+    });
+  }
   if (n) constatTouch(v);
+  /* « Reprendre du croquis » sans rien à reprendre : la provenance de la boîte, créée ici, est enregistrée quand même (sans changer la date
+     du dossier), sinon le suivi l'ignorerait après un rechargement ; un constat créé par cet appel n'est pas enregistré pour autant */
+  else if (boiteNeuve && !neuf) saveLater('visites', v);
   return n;
+}
+/* boîte de branchement : forme comparable d'une distance à la limite ou d'une profondeur, pour les écarts seulement (le texte saisi ne change
+   pas) : minuscules, sans accents, espaces réduits ; nombre à deux décimales (virgule ou point, « m » ou « cm » facultatif) ; côté « int » ou
+   « intérieur », « ext » ou « extérieur » ; « en limite », « en limite de propriété » et une distance nulle donnent « en limite », comme
+   VCroquis.boitesConstat. Un texte non reconnu est comparé tel quel. */
+function vcBoiteCle(t){
+  var s = norm(t).replace(/’/g, '\'').replace(/\s+/g, ' ').trim(), m, d;
+  var cote = function(x){ return x.charAt(0) === 'i' ? 'interieur' : 'exterieur'; };
+  if (/^en limite( de (la )?(propriete|parcelle))?(,? (cote )?(int|interieur|ext|exterieur)\.?)?$/.test(s)) return 'en limite';
+  m = /^(?:(?:cote|a l') ?)?(int|interieur|ext|exterieur)\.?$/.exec(s);
+  if (m) return cote(m[1]);
+  m = /^(?:a )?(-?\d+(?:[.,]\d+)?) ?(cm|m|metres?)?(?: de la limite)?(?:,? (?:(?:cote|a l') ?)?(int|interieur|ext|exterieur)\.?)?$/.exec(s);
+  if (!m) return s;
+  d = (parseFloat(m[1].replace(',', '.')) / (m[2] === 'cm' ? 100 : 1)).toFixed(2).replace('.', ',');
+  if (/^-?0,00$/.test(d)) return 'en limite';
+  return d + ' m' + (m[3] ? ' ' + cote(m[3]) : '');
 }
 /* écarts entre le croquis et le constat, ligne par ligne (affichage et « À vérifier avant de signer ») */
 function vcEcarts(v, c){
@@ -3660,6 +3706,24 @@ function vcEcarts(v, c){
       + ', conforme au constat : vérifiez le raccordement de chaque appareil de la ligne.');
   });
   if (res.puisard && !(c.epRecup || {}).puisard) out.push('Puisard : sur le croquis de terrain, non coché au constat (ouvrages de récupération des EP).');
+  /* boîte de branchement : distance à la limite et profondeur de la seule boîte du réseau sur le croquis, autres ou absentes au constat
+     (comparées par vcBoiteCle : « 0,8 » vaut « 0,80 m ») ; plusieurs boîtes sur le réseau : rien n'est repris, et un champ vide du constat
+     est rappelé si l'une d'elles porte cette valeur */
+  var Bc = c.boite && typeof c.boite === 'object' ? c.boite : {};
+  ['EU', 'EP'].forEach(function(g){
+    var x = res.boite && res.boite[g]; if (!x || !(x.n >= 1)) return;
+    var champ = function(k){ return String(Bc[k + g] == null ? '' : Bc[k + g]).trim(); };
+    if (x.n > 1){
+      var manque = [['dist', x.nDist, 'distance à la limite'], ['prof', x.nProf, 'profondeur']].filter(function(k){ return k[1] > 0 && !champ(k[0]); }).map(function(k){ return k[2]; });
+      if (manque.length) out.push('Boîte de branchement ' + g + ' : ' + x.n + ' boîtes existantes (' + g + ' ou unitaires) sur le croquis de terrain ; ' + manque.join(' et ')
+        + (manque.length > 1 ? ' non reprises' : ' non reprise') + ', à saisir au constat.');
+      return;
+    }
+    [['dist', 'distance à la limite'], ['prof', 'profondeur']].forEach(function(k){
+      var val = typeof x[k[0]] === 'string' ? x[k[0]] : '', cur = champ(k[0]);
+      if (val && vcBoiteCle(cur) !== vcBoiteCle(val)) out.push('Boîte de branchement ' + g + ' : ' + k[1] + ' « ' + val + ' » sur le croquis de terrain, ' + (cur ? '« ' + cur + ' »' : 'non renseignée') + ' au constat.');
+    });
+  });
   if (res.arbitrer) out.push(res.arbitrer > 1 ? 'Le croquis de terrain propose ' + res.arbitrer + ' anomalies « à arbitrer », hors du dossier tant qu\'elles ne sont pas retenues : décidez dans le croquis (Contrôles).'
     : 'Le croquis de terrain propose une anomalie « à arbitrer », hors du dossier tant qu\'elle n\'est pas retenue : décidez dans le croquis (Contrôles).');
   if (res.horsdossier) out.push(res.horsdossier > 1 ? 'Le croquis de terrain retient ' + res.horsdossier + ' anomalies absentes de la liste du dossier : ouvrez puis refermez le croquis pour les y reprendre.'
@@ -3672,7 +3736,7 @@ function vcEcarts(v, c){
 function vcConstatBlocHtml(v, c, dis){
   if (!vcPret() || !planDe(v.id) || constatNonEffectue(v)) return '';
   var ec = vcEcarts(v, c);
-  return '<div class="croq-fill"><p><strong>Croquis de terrain.</strong> ' + (c.signeLe ? 'Constat signé : il reste tel qu\'il a été signé, le croquis ne le modifie plus.' : '« Reprendre du croquis » remplit le nombre, le raccordement et les méthodes des installations dessinées, sans remplacer ce que vous avez saisi ; ensuite, ces valeurs suivent le croquis tant que vous n\'y touchez pas.') + '</p>'
+  return '<div class="croq-fill"><p><strong>Croquis de terrain.</strong> ' + (c.signeLe ? 'Constat signé : il reste tel qu\'il a été signé, le croquis ne le modifie plus.' : '« Reprendre du croquis » remplit le nombre, le raccordement et les méthodes des installations dessinées, ainsi que la distance à la limite et la profondeur de la boîte de branchement (s\'il n\'y en a qu\'une par réseau ; une boîte unitaire compte pour les deux), sans remplacer ce que vous avez saisi ; ensuite, ces valeurs suivent le croquis tant que vous n\'y touchez pas.') + '</p>'
     + '<div id="croq-ecarts">' + (ec.length ? '<ul class="croq-ec">' + ec.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div>'
     + '<div class="btnrow"><button type="button" class="btn sm" data-act="c-croq-fill"' + dis + '>' + svg(I.plan, 18) + 'Reprendre du croquis</button><button type="button" class="btn sm ghost" data-act="vc-ouvrir">Ouvrir le croquis</button></div></div>';
 }
@@ -4452,7 +4516,9 @@ async function restoreZip(file){
     (data.anomalies || []).forEach(function(a){ a.photos = (a.photos || []).filter(function(id){ return restored.has(id); }); });
     /* images du constat : seules des images intégrées sont reprises (une sauvegarde peut venir d'un autre appareil ou d'un tiers) */
     (data.visites || []).forEach(function(v){ if (v && v.constat != null && (typeof v.constat !== 'object' || Array.isArray(v.constat))) delete v.constat; var c0 = v && v.constat; if (!c0) return; var nc0 = newConstat(v); if (!Array.isArray(c0.rows)) c0.rows = nc0.rows; c0.rows = c0.rows.filter(function(r){ return r && typeof r === 'object' && typeof r.id === 'string'; }); ['methodes', 'epRecup', 'precos', 'boite'].forEach(function(k){ if (!c0[k] || typeof c0[k] !== 'object' || Array.isArray(c0[k])) c0[k] = nc0[k]; }); if (c0.croqAuto != null && (typeof c0.croqAuto !== 'object' || Array.isArray(c0.croqAuto))) delete c0.croqAuto;
-      if (c0.croqAuto){ var P0 = vcProvenance(c0); Object.keys(P0.rows).forEach(function(k){ var x = P0.rows[k]; if (!x || typeof x !== 'object' || Array.isArray(x)) delete P0.rows[k]; }); if (P0.plan != null && typeof P0.plan !== 'string') delete P0.plan; if (P0.puisard !== true) delete P0.puisard; }
+      if (c0.croqAuto){ var P0 = vcProvenance(c0); Object.keys(P0.rows).forEach(function(k){ var x = P0.rows[k]; if (!x || typeof x !== 'object' || Array.isArray(x)) delete P0.rows[k]; }); if (P0.plan != null && typeof P0.plan !== 'string') delete P0.plan; if (P0.puisard !== true) delete P0.puisard;
+        /* clés inconnues de la provenance retirées, clés connues gardées (la boîte est vérifiée par vcProvenance) */
+        Object.keys(P0).forEach(function(k){ if (['rows', 'refus', 'crees', 'plan', 'puisard', 'boite'].indexOf(k) < 0) delete P0[k]; }); }
       c0.rows.forEach(function(r){ ['nb', 'raccord', 'conforme', 'label', 'groupe'].forEach(function(f){ if (r[f] != null && typeof r[f] !== 'string') r[f] = String(r[f]); }); r.methodes = Array.isArray(r.methodes) ? r.methodes.filter(function(m){ return typeof m === 'string'; }) : []; if (r.croq != null && typeof r.croq !== 'string') delete r.croq; }); });
     (data.visites || []).forEach(function(v){ var c = v && v.constat; if (!c || typeof c !== 'object') return; ['croquis', 'sigTech', 'sigProp'].forEach(function(k){ if (c[k]) c[k] = imgData(c[k]); }); if (c.croquisV && c.croquisV.fond) c.croquisV.fond = imgData(c.croquisV.fond); });
     (data.visites || []).forEach(function(v){ if (v && v.id) VIS_SUPPR.delete(v.id); });
@@ -4764,7 +4830,7 @@ async function init(){
   await render();
   outboxRepair().then(function(){ refreshEnvoiUI(); return processOutbox(true); }).catch(function(){});
 }
-window.__VT = {VC: VC, vcOuvrir: vcOuvrir, vcAppliquer: vcAppliquer, vcPdf: vcPdf, vcPlansPdf: vcPlansPdf, planDe: planDe, fondLire: fondLire, vcResume: vcResume, constatDepuisCroquis: constatDepuisCroquis, vcEcarts: vcEcarts, VC_RESUMES: VC_RESUMES, S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, croqPng: croqPng, croquisAJour: croquisAJour, croquisType: croquisType, croqPlaceLabel: croqPlaceLabel, mailModal: mailModal, processOutbox: processOutbox, outboxAll: outboxAll, mailCfg: mailCfg, pdfText: pdfText, mailsDe: mailsDe, telsDe: telsDe, qualiteTxt: qualiteTxt, signataireAuto: signataireAuto, imgData: imgData, croqPlaceLabel: croqPlaceLabel, croqTextBox: croqTextBox, croqSegHitsBox: croqSegHitsBox, CROQ_GAB: CROQ_GAB, ready: null};
+window.__VT = {VC: VC, vcOuvrir: vcOuvrir, vcAppliquer: vcAppliquer, vcPdf: vcPdf, vcPlansPdf: vcPlansPdf, planDe: planDe, fondLire: fondLire, vcResume: vcResume, constatDepuisCroquis: constatDepuisCroquis, vcEcarts: vcEcarts, vcBoiteCle: vcBoiteCle, VC_RESUMES: VC_RESUMES, S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, croqPng: croqPng, croquisAJour: croquisAJour, croquisType: croquisType, croqPlaceLabel: croqPlaceLabel, mailModal: mailModal, processOutbox: processOutbox, outboxAll: outboxAll, mailCfg: mailCfg, pdfText: pdfText, mailsDe: mailsDe, telsDe: telsDe, qualiteTxt: qualiteTxt, signataireAuto: signataireAuto, imgData: imgData, croqPlaceLabel: croqPlaceLabel, croqTextBox: croqTextBox, croqSegHitsBox: croqSegHitsBox, CROQ_GAB: CROQ_GAB, ready: null};
 window.__VT.ready = init();
 })();
 </script>

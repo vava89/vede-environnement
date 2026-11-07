@@ -1,7 +1,7 @@
 // Boîte de branchement en limite de propriété (souhait 10 ; décision D4 de .claude/conception-outils-dessin.md), sans navigateur ; plan PDF
 // par la bibliothèque PDF de l'application ; croquis fictifs (12 rue Fictive, Ville-Exemple). m103 : champs p.limCote et p.limDist, ligne
-// de l'étiquette ; m104 : parcelle de l'installation et distance de la boîte à sa limite (décision D5) ; m105 complétera ce fichier
-// (reprise au constat).
+// de l'étiquette ; m104 : parcelle de l'installation et distance de la boîte à sa limite (décision D5) ; m105 : boîte reprise au constat
+// (décision D6, réponse 10.4).
 // l1 à l19 (m103) : VCroquis.texteLimite : « à 0,80 m de la limite, intérieur » ou « …, extérieur » ; distance 0 : « en limite de
 //   propriété », avec ou sans côté ; distance sans côté : « à 0,80 m de la limite » ; côté sans distance : « côté intérieur » ou « côté
 //   extérieur » ; ni l'un ni l'autre : rien ; distance écrite avec deux décimales et la virgule (saisies « 0,8 », « 2 », « 0.5 », « 1,5 »
@@ -23,6 +23,17 @@
 //   le côté 0 (m1) ; à 0,20 m : douteux (m2) ; à 0,30 m : pas douteux, seuil strict (m3) ; à l'extérieur : 'ext' (m4) ; côté le plus proche
 //   (m5) ; sur la limite : 0, 'ext', douteux (m6) ; ligne ouverte, point ou ligne invalide : null sans exception (m7).
 // p et m échouent sur 5026c32 (VCroquis.geo.parcelleInstallation et distanceLimite absentes).
+// c1 à c18 (m105) : VCroquis.boitesConstat(doc, an) : {EU: {n, dist, prof, nDist, nProf}, EP: {…}} d'après les boîtes existantes ; aucune
+//   boîte (c1) ; une boîte EU : « 0,80 m intérieur » et « 0,80 m » (c2) ; deux boîtes EU : rien de repris en EU (c3) ; une boîte par réseau
+//   (c4) ; boîte unitaire comptée en EU et en EP (c5), avec une boîte EP en plus : rien en EP (c6) ; réseau déduit du dessin, en EU et en EP
+//   (c7) ; boîte sans réseau, ni indiqué ni déduit : comptée nulle part (c8) ; boîtes « projet » et « à supprimer » ignorées (c9) ; boîte
+//   « présumée » comptée (c10) ; regard et regard public ignorés (c11) ; distance : « 1,25 m extérieur », « en limite » (avec ou sans côté),
+//   « 0,80 m » (sans côté), « intérieur » (sans distance), rien, deux décimales et la virgule, distance négative ou illisible ignorée (c12) ;
+//   profondeur : « 0,80 m », deux décimales, rien si elle manque ou est illisible (c13) ; ni le croquis ni l'analyse ne changent (c14) ;
+//   sans analyse, le réseau indiqué seul (c15) ; entrées invalides sans exception (c16) ; nDist et nProf, nombre de boîtes du réseau qui
+//   portent une distance ou une profondeur (c17) ; zone unitaire : deux boîtes sans réseau indiqué sont unitaires, rien n'est repris ; le
+//   réseau indiqué dans leur fiche les sépare, sans anomalie de collecteur (c18). Échouent sur ddb0b74 (VCroquis.boitesConstat absente), sauf
+//   les témoins de c18 (étiquettes, anomalie).
 // usage : node tests/vm/boite.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, rapport} = require('./charger.js');
@@ -239,10 +250,145 @@ function parcelle(){
   nuls.forEach(([n, f]) => { const vu = sur(f); R.ok(vu === null, 'm7 ' + n + ' : null, sans exception (obtenu ' + JSON.stringify(vu) + ')'); });
 }
 
+/* m105 : boîte reprise au constat (VCroquis.boitesConstat), par réseau : n boîtes existantes, distance (côté compris) et profondeur si n = 1 */
+function constat(){
+  if (typeof V.boitesConstat !== 'function'){ R.ok(false, 'c : VCroquis.boitesConstat est absente (' + typeof V.boitesConstat + ')'); return; }
+  /* résultat de boitesConstat après l'analyse de l'état des lieux, comme l'hôte (vcResumeCalc) */
+  const bc = d => { const dd = copie(d); return sur(() => V.boitesConstat(dd, V.analyser(dd, 'edl'))); };
+  const vu = x => typeof x === 'string' ? x : JSON.stringify(x);
+  const attendu = (eu, ep) => ({EU: {n: eu[0], dist: eu[1], prof: eu[2]}, EP: {n: ep[0], dist: ep[1], prof: ep[2]}});
+  const pareil = (x, a) => !!x && typeof x === 'object' && Object.keys(x).sort().join() === 'EP,EU'
+    && ['EU', 'EP'].every(r => !!x[r] && x[r].n === a[r].n && x[r].dist === a[r].dist && x[r].prof === a[r].prof);
+  const cas = (n, d, eu, ep) => { const x = bc(d), a = attendu(eu, ep); R.ok(pareil(x, a), n + ' → ' + vu(a) + ' (obtenu ' + vu(x) + ')'); };
+  const RIEN = [0, '', ''], EU80 = [1, '0,80 m intérieur', '0,80 m'];
+  /* boîte EP en limite, reliée à une descente (EP) */
+  const boiteEP = (d, id, p) => { pt(d, 'D' + id, 'descente', 6, 10); pt(d, id, 'boite', 6, 4, Object.assign({res: 'EP', prof: '1,10', limCote: 'ext', limDist: '0'}, p || {})); ln(d, 't' + id, 'tr', '', ['D' + id, id]); };
+
+  /* c1 à c6 : nombre de boîtes par réseau */
+  const d1 = nouveau(); pt(d1, 'W', 'wc', 0, 10); pt(d1, 'Rp', 'regard_pub', 0, 0, {res: 'EU'}); ln(d1, 'tW', 'tr', 'EU', ['W', 'Rp']); ln(d1, 'C', 'col', 'EU', [[-10, 0], 'Rp', [10, 0]]);
+  cas('c1 aucune boîte : rien, en EU comme en EP', d1, RIEN, RIEN);
+  cas('c2 une boîte EU, intérieur, 0,80, profondeur 0,80 : « 0,80 m intérieur » et « 0,80 m »', maison(LIMITE), EU80, RIEN);
+  const d3 = maison(LIMITE); pt(d3, 'B2', 'boite', 3, 4, {res: 'EU', prof: '0,60', limCote: 'ext', limDist: '1,00'}); ln(d3, 'tB2', 'tr', '', ['B2', 'Rp']);
+  cas('c3 deux boîtes EU : rien de repris en EU', d3, [2, '', ''], RIEN);
+  const d4 = maison(LIMITE); boiteEP(d4, 'B3');
+  cas('c4 une boîte EU et une boîte EP : chacune son réseau (EP : « en limite », « 1,10 m »)', d4, EU80, [1, 'en limite', '1,10 m']);
+  cas('c5 une boîte unitaire : comptée en EU et en EP', maison(Object.assign({res: 'UN'}, LIMITE)), EU80, EU80);
+  const d6 = maison(Object.assign({res: 'UN'}, LIMITE)); boiteEP(d6, 'B3');
+  cas('c6 une boîte unitaire et une boîte EP : EU d\'après l\'unitaire, EP : deux boîtes, rien', d6, EU80, [2, '', '']);
+
+  /* c7, c8 : réseau déduit du dessin (étiquette « Boîte de branchement EU »), ou inconnu */
+  const d7 = nouveau();
+  pt(d7, 'W', 'wc', 0, 10); pt(d7, 'B1', 'boite', 0, 4, Object.assign({prof: '0,80'}, LIMITE)); pt(d7, 'Rp', 'regard_pub', 0, 0, {res: 'EU'});
+  ln(d7, 'tW', 'tr', '', ['W', 'B1']); ln(d7, 'tB', 'tr', '', ['B1', 'Rp']); ln(d7, 'C', 'col', 'EU', [[-10, 0], 'Rp', [10, 0]]);
+  pt(d7, 'D', 'descente', 20, 10); pt(d7, 'B2', 'boite', 20, 4, {prof: '1,10', limCote: 'ext', limDist: '0'}); pt(d7, 'Rq', 'regard_pub', 20, 0, {res: 'EP'});
+  ln(d7, 'tD', 'tr', '', ['D', 'B2']); ln(d7, 'tB2', 'tr', '', ['B2', 'Rq']); ln(d7, 'K', 'col', 'EP', [[10, 0], 'Rq', [30, 0]]);
+  const e7 = etiquette(d7, 'B1').split('\n')[0], e7b = etiquette(d7, 'B2').split('\n')[0];
+  R.ok(e7 === 'Boîte de branchement EU' && e7b === 'Boîte de branchement EP', 'c7 témoin : étiquettes des boîtes sans réseau indiqué (' + e7 + ' ; ' + e7b + ')');
+  cas('c7 réseau déduit du dessin : boîte sans réseau entre le WC et le regard public EU, une autre entre la descente et le regard public EP', d7, EU80, [1, 'en limite', '1,10 m']);
+  const d8 = maison(LIMITE); pt(d8, 'B9', 'boite', 30, 30, {prof: '0,50', limCote: 'int', limDist: '0,30'});
+  cas('c8 boîte sans réseau, ni indiqué ni déduit du dessin (isolée) : comptée nulle part', d8, EU80, RIEN);
+
+  /* c9 à c11 : seules comptent les boîtes existantes */
+  const d9 = maison(LIMITE);
+  pt(d9, 'B2', 'boite', 3, 4, {res: 'EU', st: 'projet', prof: '0,60', limCote: 'ext', limDist: '1,00'});
+  pt(d9, 'B3', 'boite', -3, 4, {res: 'EU', st: 'supprimer', prof: '0,70', limCote: 'int', limDist: '2,00'}); ln(d9, 'tB3', 'tr', '', ['B3', 'Rp']);
+  cas('c9 une boîte EU existante, une « projet » et une « à supprimer » : seule l\'existante compte', d9, EU80, RIEN);
+  const d9b = maison(Object.assign({st: 'supprimer'}, LIMITE)); pt(d9b, 'B2', 'boite', 3, 4, {res: 'EU', st: 'projet', prof: '0,60', limDist: '1,00'});
+  cas('c9 boîtes « projet » et « à supprimer » seulement : aucune boîte', d9b, RIEN, RIEN);
+  cas('c10 boîte « présumée » : comptée, seules « projet » et « à supprimer » sont écartées', maison(Object.assign({st: 'presume'}, LIMITE)), EU80, RIEN);
+  const d11 = maison(); pt(d11, 'R1', 'regard', 0, 7, Object.assign({dim: '40×40', prof: '0,90'}, LIMITE)); ln(d11, 'tR', 'tr', '', ['R1', 'B1']);
+  Object.assign(elDe(d11, 'Rp').p, LIMITE, {prof: '1,50'});
+  cas('c11 regard et regard public avec ces champs : pas des boîtes (la boîte sans limite : profondeur seule)', d11, [1, '', '0,80 m'], RIEN);
+
+  /* c12 : distance à la limite, côté compris (une boîte EU) */
+  [['intérieur, 0,80', {limCote: 'int', limDist: '0,80'}, '0,80 m intérieur'],
+    ['extérieur, 1,25', {limCote: 'ext', limDist: '1,25'}, '1,25 m extérieur'],
+    ['intérieur, 0', {limCote: 'int', limDist: '0'}, 'en limite'],
+    ['extérieur, « 0,00 »', {limCote: 'ext', limDist: '0,00'}, 'en limite'],
+    ['0 sans côté', {limDist: '0'}, 'en limite'],
+    ['distance sans côté', {limCote: '', limDist: '0,80'}, '0,80 m'],
+    ['côté intérieur sans distance', {limCote: 'int'}, 'intérieur'],
+    ['côté extérieur, distance vide', {limCote: 'ext', limDist: ''}, 'extérieur'],
+    ['aucun champ', {}, ''],
+    ['champs vides', {limCote: '', limDist: ''}, ''],
+    ['« 0,8 »', {limCote: 'int', limDist: '0,8'}, '0,80 m intérieur'],
+    ['« 2 »', {limDist: '2'}, '2,00 m'],
+    ['« 0.5 », extérieur', {limCote: 'ext', limDist: '0.5'}, '0,50 m extérieur'],
+    ['« 1,5 » entouré d\'espaces', {limCote: 'int', limDist: ' 1,5 '}, '1,50 m intérieur'],
+    ['« -1 » (croquis altéré) : distance ignorée', {limCote: 'int', limDist: '-1'}, 'intérieur'],
+    ['texte non numérique (croquis altéré) : distance ignorée', {limDist: 'loin'}, ''],
+    ['côté inconnu (croquis altéré) : ignoré', {limCote: 'nord', limDist: '0,80'}, '0,80 m']].forEach(([n, p, att]) => {
+    const x = bc(maison(p)), d = x && x.EU ? x.EU.dist : x;
+    R.ok(d === att && !!x && !!x.EU && x.EU.n === 1, 'c12 distance, ' + n + ' → ' + JSON.stringify(att) + ' (obtenu ' + vu(d) + ')');
+  });
+  /* c13 : profondeur (une boîte EU) */
+  [['« 0,80 »', '0,80', '0,80 m'], ['« 0,8 »', '0,8', '0,80 m'], ['« 1.2 »', '1.2', '1,20 m'], ['« 2 »', '2', '2,00 m'], ['vide', '', ''], ['texte', 'profonde', '']].forEach(([n, prof, att]) => {
+    const x = bc(maison({prof})), q = x && x.EU ? x.EU.prof : x;
+    R.ok(q === att, 'c13 profondeur ' + n + ' → ' + JSON.stringify(att) + ' (obtenu ' + vu(q) + ')');
+  });
+
+  /* c14 : fonction pure ; c15 : sans analyse ; c16 : entrées invalides */
+  const d14 = copie(d7), an14 = V.analyser(d14, 'edl'), avant = JSON.stringify(d14), avantAn = JSON.stringify(an14.resPt);
+  sur(() => V.boitesConstat(d14, an14));
+  R.ok(JSON.stringify(d14) === avant && JSON.stringify(an14.resPt) === avantAn, 'c14 ni le croquis ni l\'analyse ne changent');
+  const s1 = sur(() => V.boitesConstat(copie(d7), null)), s2 = sur(() => V.boitesConstat(maison(LIMITE)));
+  R.ok(pareil(s1, attendu(RIEN, RIEN)) && pareil(s2, attendu(EU80, RIEN)), 'c15 sans analyse : seul le réseau indiqué compte (boîtes au réseau déduit : '
+    + vu(s1) + ' ; boîte EU indiquée : ' + vu(s2) + ')');
+  const d16 = maison(LIMITE); d16.el.push(null, 7, {k: 'pt', t: 'boite'}, {id: 'X', k: 'pt', t: 'inconnu', x: 0, y: 0, p: {}});
+  [['croquis absent', () => V.boitesConstat(null, null)], ['croquis sans éléments', () => V.boitesConstat({}, null)],
+    ['éléments invalides, boîte sans propriétés, type inconnu', () => V.boitesConstat(d16, null)]].forEach(([n, f], i) => {
+    const x = sur(f); R.ok(pareil(x, i < 2 ? attendu(RIEN, RIEN) : attendu(EU80, RIEN)), 'c16 ' + n + ' : sans exception (obtenu ' + vu(x) + ')');
+  });
+
+  /* c17 : nDist et nProf, nombre de boîtes du réseau qui portent une distance (ou un côté) et une profondeur (rappel au constat quand il y a
+     plusieurs boîtes sur le réseau) */
+  const mesures = (n, d, eu, ep) => {
+    const x = bc(d), ok = !!x && !!x.EU && !!x.EP && x.EU.nDist === eu[0] && x.EU.nProf === eu[1] && x.EP.nDist === ep[0] && x.EP.nProf === ep[1];
+    R.ok(ok, n + ' → EU ' + eu.join(' et ') + ', EP ' + ep.join(' et ') + ' (obtenu ' + (x && x.EU && x.EP ? 'EU ' + x.EU.nDist + ' et ' + x.EU.nProf + ', EP ' + x.EP.nDist + ' et ' + x.EP.nProf : vu(x)) + ')');
+  };
+  mesures('c17 aucune boîte', d1, [0, 0], [0, 0]);
+  mesures('c17 une boîte EU, distance et profondeur', maison(LIMITE), [1, 1], [0, 0]);
+  mesures('c17 deux boîtes EU, chacune avec distance et profondeur', d3, [2, 2], [0, 0]);
+  const d17 = maison(LIMITE); pt(d17, 'B2', 'boite', 3, 4, {res: 'EU', limCote: 'ext'}); ln(d17, 'tB2', 'tr', '', ['B2', 'Rp']);
+  mesures('c17 deux boîtes EU, la seconde avec un côté seul', d17, [2, 1], [0, 0]);
+  const d17b = maison({prof: ''}); pt(d17b, 'B2', 'boite', 3, 4, {res: 'EU'}); ln(d17b, 'tB2', 'tr', '', ['B2', 'Rp']);
+  mesures('c17 deux boîtes EU sans distance ni profondeur', d17b, [0, 0], [0, 0]);
+  mesures('c17 une boîte unitaire et une boîte EP : comptées en EP toutes les deux', d6, [1, 1], [2, 2]);
+  mesures('c17 une boîte existante, une « projet » et une « à supprimer » : seule l\'existante compte', d9, [1, 1], [0, 0]);
+
+  /* c18 : zone unitaire : deux boîtes sans réseau indiqué, sur le collecteur unitaire, sont toutes deux unitaires (comme leur étiquette,
+     témoin de temoinsUnitaire) : deux boîtes en EU et en EP, rien de repris ; le réseau indiqué dans leur fiche (EU, EP) les sépare */
+  cas('c18 zone unitaire, deux boîtes sans réseau indiqué : deux boîtes en EU et en EP, rien de repris', unitaire('', ''), [2, '', ''], [2, '', '']);
+  cas('c18 zone unitaire, réseau indiqué dans chaque fiche (EU, EP) : chacune son réseau', unitaire('EU', 'EP'), EU80, [1, 'en limite', '1,10 m']);
+}
+
+/* c18, zone unitaire : WC vers la boîte B1, descente vers la boîte B2, chacune vers un regard public du collecteur (unitaire, sinon col) ;
+   r1, r2 : réseau indiqué dans la fiche de chaque boîte */
+function unitaire(r1, r2, col){
+  const d = nouveau();
+  pt(d, 'W', 'wc', 0, 10); pt(d, 'B1', 'boite', 0, 4, Object.assign({res: r1, prof: '0,80'}, LIMITE)); pt(d, 'Rp', 'regard_pub', 0, 0, {res: col || 'UN'});
+  pt(d, 'D', 'descente', 6, 10, {cote: 'avant'}); pt(d, 'B2', 'boite', 6, 4, {res: r2, prof: '1,10', limCote: 'ext', limDist: '0'}); pt(d, 'Rq', 'regard_pub', 6, 0, {res: col || 'UN'});
+  ln(d, 'tW', 'tr', '', ['W', 'B1']); ln(d, 'tB', 'tr', '', ['B1', 'Rp']); ln(d, 'tD', 'tr', '', ['D', 'B2']); ln(d, 'tB2', 'tr', '', ['B2', 'Rq']);
+  ln(d, 'C', 'col', col || 'UN', [[-10, 0], 'Rp', 'Rq', [10, 0]]);
+  return d;
+}
+/* témoins de c18, sans VCroquis.boitesConstat (lancés aussi sur ddb0b74) : les deux boîtes sans réseau indiqué sont unitaires d'après le
+   dessin ; le réseau indiqué dans leur fiche (EU, EP) ne donne aucune anomalie de collecteur sur le collecteur unitaire */
+function temoinsUnitaire(){
+  const u1 = unitaire('', ''), eu1 = etiquette(u1, 'B1').split('\n')[0], eu2 = etiquette(u1, 'B2').split('\n')[0];
+  R.ok(eu1 === 'Boîte de branchement unitaire' && eu2 === 'Boîte de branchement unitaire', 'c18 témoin : étiquettes des deux boîtes sans réseau indiqué (' + eu1 + ' ; ' + eu2 + ')');
+  const obs = d => { const L = sur(() => V.anomaliesDoc(copie(d), V.analyser(copie(d), 'edl'), [], {telQuel: true})); return Array.isArray(L) ? L.map(a => a.obs) : [JSON.stringify(L)]; };
+  const o2 = obs(unitaire('EU', 'EP')), oEP = obs(unitaire('EU', 'EP', 'EP'));
+  R.ok(!o2.some(t => /rejet au collecteur/.test(t)) && oEP.some(t => t === 'Boîte de branchement EU : rejet au collecteur EP'),
+    'c18 témoin, réseau indiqué sur le collecteur unitaire : aucune anomalie de collecteur (' + (o2.join(' | ') || 'aucune') + ') ; collecteur EP : ' + (oEP.join(' | ') || 'aucune'));
+}
+
 (async () => {
   limite();
   etiquettes();
   await sorties();
   parcelle();
+  temoinsUnitaire();
+  constat();
   R.fin();
 })().catch(e => { console.log('ERREUR ' + (e && e.stack || e)); process.exitCode = 1; });

@@ -108,13 +108,23 @@ CROQUIS DE TERRAIN (facultatif)
   dessinées, sans remplacer ce qui a été saisi. Chaque objet dessiné compte
   pour une installation : une salle de bain ou une cuisine se dessine d'un
   seul objet (son lavabo, son évier, son lave-vaisselle y sont compris) ;
-  un lavabo seul compte comme un évier. Ensuite ces valeurs suivent
-  le croquis tant qu'on n'y touche pas (à la fermeture du croquis et à
-  l'ouverture du constat). Une anomalie posée sur un objet du croquis
-  rend non conforme la ligne de cet objet (un lavabo : « Évier », comme
-  une anomalie saisie à la main qui nomme un lavabo). Les écarts entre
-  le croquis et le constat sont rappelés avant la signature. Un constat
-  signé n'est jamais modifié, et le croquis n'y rappelle plus d'écart.
+  un lavabo seul compte comme un évier. Il remplit aussi la section Boîte
+  de branchement, réseau par réseau, quand le croquis porte une seule
+  boîte existante (ni « projet » ni « à supprimer ») sur ce réseau :
+  distance à la limite et côté (« 0,80 m intérieur », « en limite »),
+  profondeur (« 0,80 m »). Une boîte unitaire compte pour les deux
+  réseaux ; une boîte sans réseau (ni indiqué dans sa fiche, ni déduit du
+  dessin) n'est pas reprise. En zone unitaire, avec une boîte pour les EU
+  et une pour les EP, on indique le réseau dans la fiche de chaque boîte.
+  Avec deux boîtes ou plus sur un réseau, rien n'y est repris (une valeur
+  reprise avant, et non modifiée, est vidée) ; le constat rappelle de les
+  saisir avant la signature. Ensuite ces valeurs suivent le croquis tant
+  qu'on n'y touche pas (à la fermeture du croquis et à l'ouverture du
+  constat). Une anomalie posée sur un objet du croquis rend non conforme
+  la ligne de cet objet (un lavabo : « Évier », comme une anomalie saisie
+  à la main qui nomme un lavabo). Les écarts entre le croquis et le
+  constat sont rappelés avant la signature. Un constat signé n'est jamais
+  modifié, et le croquis n'y rappelle plus d'écart.
 - Aides au dessin (Réglages, ou bouton aimant dans le croquis) : traits
   parallèles au côté de bâti le plus proche, angles droits, accroche aux
   coins et façades, fin automatique d'un tronçon sur un objet, tracé en

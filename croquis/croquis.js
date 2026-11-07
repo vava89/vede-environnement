@@ -1610,6 +1610,38 @@ function constatDeduit(doc, an){
   return {rows: rows, methodes: meth, epRecup: recup, sansCote: sansCote};
 }
 VC.constatDeduit = constatDeduit; VC.RACC_LIB = RACC_LIB;
+/* Boîte de branchement reprise au constat (souhait 10, décision D6, réponse 10.4) : par réseau, le nombre de boîtes existantes (ni « projet »
+   ni « à supprimer ») et, s'il y en a exactement une, sa distance à la limite de propriété et sa profondeur, écrites comme dans les champs du
+   constat (« 0,80 m intérieur », « en limite », « 0,80 m »). Réseau : p.res, sinon celui que l'analyse déduit du dessin (celui de l'étiquette) ;
+   une boîte unitaire compte en EU et en EP ; une boîte de réseau inconnu ou mêlé ne compte nulle part. p.limCote, p.limDist et p.prof sont lus
+   tels qu'ils sont enregistrés, sans recalcul d'après le plan. Distance : deux décimales, 0,00 = « en limite » ; une distance négative ou
+   illisible est ignorée, comme sur l'étiquette. Zéro ou plusieurs boîtes sur un réseau : dist et prof vides. nDist et nProf : nombre de
+   boîtes du réseau qui portent une distance (ou un côté) et une profondeur ; avec plusieurs boîtes, le constat rappelle ce qui n'est pas
+   repris. Ne modifie ni doc ni an. */
+function boitesConstat(doc, an){
+  var out = {EU: {n: 0, dist: '', prof: '', nDist: 0, nProf: 0}, EP: {n: 0, dist: '', prof: '', nDist: 0, nProf: 0}};
+  /* distance (côté compris) et profondeur d'une boîte, écrites comme dans les champs du constat */
+  function mesures(p){
+    var cote = p.limCote === 'int' ? 'intérieur' : p.limCote === 'ext' ? 'extérieur' : '', d = num(p.limDist), pr = num(p.prof), t, dist = cote;
+    if (d != null && d >= 0){ t = frNum(d, 2); dist = t === '0,00' ? 'en limite' : t + ' m' + (cote ? ' ' + cote : ''); }
+    return {dist: dist, prof: pr != null ? frNum(pr, 2) + ' m' : ''};
+  }
+  (doc && Array.isArray(doc.el) ? doc.el : []).forEach(function(e){
+    if (!e || e.k !== 'pt' || !T[e.t] || !T[e.t].boite) return;
+    var p = e.p && typeof e.p === 'object' ? e.p : {};
+    if (p.st === 'projet' || p.st === 'supprimer') return;
+    var res = /^(EU|EP|UN)$/.test(p.res) ? p.res : an && an.resPt ? an.resPt[e.id] || (an.ref && an.ref.resPt && an.ref.resPt[e.id]) : '', m = mesures(p);
+    (res === 'UN' ? ['EU', 'EP'] : res === 'EU' || res === 'EP' ? [res] : []).forEach(function(g){
+      var o = out[g]; o.n++;
+      if (m.dist) o.nDist++;
+      if (m.prof) o.nProf++;
+      /* les valeurs de la seule boîte du réseau ; dès la deuxième, rien */
+      o.dist = o.n === 1 ? m.dist : ''; o.prof = o.n === 1 ? m.prof : '';
+    });
+  });
+  return out;
+}
+VC.boitesConstat = boitesConstat;
 
 /* ---------- Étiquettes : texte tiré du catalogue, centre décalé dans le repère du plan (mètres, x à droite, y en haut) ---------- */
 var NIV_LIB = {ss: 'sous-sol', rdc: 'RDC', etage: 'étage'}, TAMPON_LIB = {beton: 'béton', fonte: 'fonte', hydrau: 'hydraulique', absent: 'absent'};
