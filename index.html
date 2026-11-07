@@ -3565,12 +3565,15 @@ function vcValeurs(s){
   return {nb: s ? String(s.nb) : '', raccord: s && rk.indexOf(s.raccord) >= 0 ? s.raccord : '', methodes: s ? s.meth.filter(function(m){ return mk.indexOf(m) >= 0; }) : []};
 }
 function vcMethKey(m){ var mk = METH.map(function(x){ return x[0]; }); return JSON.stringify((m || []).slice().sort(function(a, b){ return mk.indexOf(a) - mk.indexOf(b); })); }
-/* ligne « Autres » active où le technicien compte déjà un appareil que le croquis range dans cette ligne du formulaire (lave-vaisselle, descente EP, lavabo…) */
+/* ligne « Autres » active où le technicien compte déjà un appareil que le croquis range dans cette ligne du formulaire (lave-vaisselle, descente EP,
+   lavabo…) : son libellé dans le nom de l'appareil, ou le nom de l'appareil dans son libellé (« Lavabos », « Lavabo de la salle d'eau »), comme
+   vcLigneConstat */
 function vcAutresDouble(c, s){
   if (!s.std || !(s.types || []).length) return null;
   return c.rows.filter(function(r){
     if (r.std || r.groupe !== s.groupe || !rowActive(r)) return false;
-    return s.types.some(function(t){ return autresMatch(r, norm(t).replace(/[-']/g, ' ')); });
+    var lab = norm(r.label).replace(/[-']/g, ' ');
+    return s.types.some(function(t){ return autresMatch(r, norm(t).replace(/[-']/g, ' ')) || autresMatch({label: t}, lab); });
   })[0] || null;
 }
 /* provenance des valeurs reprises du croquis (forme vérifiée : sauvegarde d'un tiers) */
