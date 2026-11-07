@@ -3538,7 +3538,7 @@ var VC_ACTIONS = {
 var VC_RESUMES = new Map();
 function vcResumeCalc(v, doc){
   var V = window.VCroquis, an = V.analyser(doc, 'edl'), cd = V.constatDeduit(doc, an);
-  var r = {rev: doc.rev || 0, plan: typeof doc.id === 'string' ? doc.id : '', rows: cd.rows.filter(function(x){ return x.nb > 0; }).map(function(x){ return {id: x.id, groupe: x.groupe, label: x.label, std: !!x.std, nb: x.nb, raccord: x.raccord || '', conforme: x.conforme || '', meth: (x.meth || []).slice(), types: (x.types || []).slice()}; }),
+  var r = {rev: doc.rev || 0, plan: typeof doc.id === 'string' ? doc.id : '', rows: cd.rows.filter(function(x){ return x.nb > 0; }).map(function(x){ return {id: x.id, groupe: x.groupe, label: x.label, std: !!x.std, nb: x.nb, raccord: x.raccord || '', conforme: x.conforme || '', non: (x.non || []).slice(), meth: (x.meth || []).slice(), types: (x.types || []).slice()}; }),
     puisard: !!(cd.epRecup && cd.epRecup.puisard), sansCote: (cd.sansCote || []).length};
   /* anomalies du dossier restées intactes que le dessin d'aujourd'hui met à jour (texte, réseau, nature, ligne du constat), par exemple un
      dossier commencé avant une mise à jour qui range autrement un lavabo : l'éditeur les reporte à son ouverture */
@@ -3631,6 +3631,8 @@ function vcEcarts(v, c){
   if (c && c.signeLe) return [];
   var res = VC_RESUMES.get(v.id); if (!res || !planDe(v.id) || !vcPret()) return [];
   var out = [], P = c.croqAuto && typeof c.croqAuto === 'object' ? c.croqAuto : {}, refus = P.refus && typeof P.refus === 'object' ? P.refus : {};
+  /* conformité de chaque ligne telle que le constat l'imprimera (choisie, ou déduite du raccordement et des anomalies) */
+  var conf = {}; try { constatEval(v, anomsOf(v.id)).rows.forEach(function(x){ conf[x.r.id] = x.conf; }); } catch(e){}
   res.rows.forEach(function(s){
     /* ligne « Autres » que le technicien a retirée du constat : son choix */
     if (!s.std && refus[s.id]) return;
@@ -3641,6 +3643,10 @@ function vcEcarts(v, c){
     if (String(r.nb).trim() !== vals.nb) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + String(r.nb).trim() + ' au constat' + aussi + '.');
     else if (dbl) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain' + aussi + '.');
     if (vals.raccord && r.raccord && r.raccord !== vals.raccord) out.push(lab + ' : raccordement « ' + raccLabel(vals.raccord) + ' » sur le croquis de terrain, « ' + raccLabel(r.raccord) + ' » au constat.');
+    /* le croquis juge la ligne non conforme (un appareil au moins) et le constat la dit conforme : un évier relié directement et un lavabo
+       d'une autre pièce qui traverse une fosse se comptent sur la même ligne, dont le constat ne porte qu'un raccordement */
+    else if (s.conforme === 'non' && conf[r.id] === 'oui') out.push(lab + ' : non conforme sur le croquis de terrain' + ((s.non || []).length ? ' (' + s.non.join(', ') + ')' : '')
+      + ', conforme au constat : vérifiez le raccordement de chaque appareil de la ligne.');
   });
   if (res.puisard && !(c.epRecup || {}).puisard) out.push('Puisard : sur le croquis de terrain, non coché au constat (ouvrages de récupération des EP).');
   if (res.arbitrer) out.push(res.arbitrer > 1 ? 'Le croquis de terrain propose ' + res.arbitrer + ' anomalies « à arbitrer », hors du dossier tant qu\'elles ne sont pas retenues : décidez dans le croquis (Contrôles).'

@@ -1240,14 +1240,14 @@ function raccInfo(r, groupe, arb){
   return {code: '', lib: '', ok: null};
 }
 function constatDeduit(doc, an){
-  var rows = ROWS_STD.map(function(s){ return {id: s[0], groupe: s[1], label: s[2], std: true, nb: 0, codes: [], libs: [], oks: [], meth: [], objets: [], types: []}; }), autres = {}, recup = {}, sansCote = [];
+  var rows = ROWS_STD.map(function(s){ return {id: s[0], groupe: s[1], label: s[2], std: true, nb: 0, codes: [], libs: [], non: [], oks: [], meth: [], objets: [], types: []}; }), autres = {}, recup = {}, sansCote = [];
   function ligne(o){
     var ty = T[o.t];
     /* descente sans façade indiquée : ni avant ni arrière (le contrôle la demande) */
     if (ty.row === 'gout') return o.p.cote === 'arriere' ? rows[7] : o.p.cote === 'avant' ? rows[6] : null;
     if (ty.row){ for (var i = 0; i < rows.length; i++) if (rows[i].id === ty.row) return rows[i]; }
     var lab = ty.autre || ty.lib, k = 'autre:' + lab;
-    if (!autres[k]){ autres[k] = {id: k, groupe: ty.nat, label: lab, std: false, nb: 0, codes: [], libs: [], oks: [], meth: [], objets: [], types: []}; rows.push(autres[k]); }
+    if (!autres[k]){ autres[k] = {id: k, groupe: ty.nat, label: lab, std: false, nb: 0, codes: [], libs: [], non: [], oks: [], meth: [], objets: [], types: []}; rows.push(autres[k]); }
     return autres[k];
   }
   Object.keys(an.resObj).forEach(function(id){
@@ -1256,6 +1256,8 @@ function constatDeduit(doc, an){
     if (!row){ sansCote.push(id); return; }
     row.objets.push(id); row.codes.push(ri.code); row.oks.push(ri.ok);
     if (ri.lib && row.libs.indexOf(ri.lib) < 0) row.libs.push(ri.lib);
+    /* raccordements non conformes de la ligne (fosse septique, mauvais réseau…) : rappelés si le constat la dit conforme */
+    if (ri.ok === false && ri.lib && row.non.indexOf(ri.lib) < 0) row.non.push(ri.lib);
     if (row.types.indexOf(T[o.t].lib) < 0) row.types.push(T[o.t].lib);
     (o.p.meth || []).forEach(function(m){ if (row.meth.indexOf(m) < 0) row.meth.push(m); });
   });
