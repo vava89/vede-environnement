@@ -3586,25 +3586,33 @@ function editeur(racine, opts){
      point touché). Étape 'endroit' : il touche l'endroit de l'objet ; un nouveau toucher au même point du trait prend la ligne superposée
      suivante. Étape 'saisie' : il règle les cotes dans le panneau « Cotes » (c = {mode, coin, d, e, cote}, comme VC.geo.placer), puis
      « Poser ». ref = {A, B, n, nat, dedans} : le côté retenu (copie de ses points), sa normale (extérieure pour une ligne fermée, du côté
-     touché pour un trait ouvert), sa nature, et dedans : la ligne a un intérieur. Rien n'est gardé des cotes : seule la position compte. */
+     touché pour un trait ouvert), sa nature, et dedans : la ligne a un intérieur. Rien n'est gardé des cotes : seule la position compte.
+     Objet existant (m102, boutons de sa fiche) : pour = {id, t, mesure}. « Déplacer par cotes » suit les mêmes étapes ; « Mesurer depuis
+     une façade » (mesure) passe de l'étape 'cote' au panneau, rempli par la mesure de la position de l'objet. Dans le panneau, « Déplacer »
+     remplace « Poser ». Pendant le mode, rien n'est choisi (S.sel null). « Fermer », « Abandonner » et « Déplacer » rouvrent la fiche de
+     l'objet ; Échap, la croix du panneau, un autre outil, « Annuler » et « Rétablir » finissent le mode sans la rouvrir ; un autre choix,
+     ou l'objet supprimé, aussi (majPanneau, tapCotes). */
   var NAT_COTES = {bati: 'Façade', limite: 'Limite de parcelle', complement: 'Complément'}, RANG_NAT = {bati: 0, limite: 1, complement: 2};
   /* tolérance du toucher sur une ligne, en pixels : 10 à la souris, 24 au doigt ou au stylet */
   function tolCotes(){ return S.dernierPointeur === 'mouse' ? 10 : 24; }
   /* lignes de référence affichées : celles du fond s'il est visible (décalées comme à l'écran), puis les compléments du croquis */
   function refsCotes(natures){ var f = S.aff.fond ? S.fond : null; return lignesRef(S.doc, f, offFond(f), natures) || []; }
-  function entrerCotes(){
-    var o = S.outil;
-    if (!S.doc || o.k !== 'pt' || !T[o.t]) return;
+  /* sans id : pose avec l'outil d'objet (bouton « Cotes ») ; avec id (m102) : objet existant, déplacé, ou mesuré si mesure est vrai */
+  function entrerCotes(id, mesure){
+    var o = id ? el(id) : S.outil;
+    if (!S.doc || !o || o.k !== 'pt' || !T[o.t]) return;
     if (!refsCotes().length){ toast('Aucune ligne de référence affichée : ni façade, ni limite de parcelle, ni complément.', 4000); return; }
     quitterSaisie();
     S.aligner = null; S.relier = null; S.placer = null; S.apercu = null;
-    S.cotes = {etape: 'cote', pour: {t: o.t}, cands: null, k: 0, w0: null, ref: null, c: null, essai: null, refus: 0, t0: Date.now()};
+    S.cotes = {etape: 'cote', pour: id ? {id: id, t: o.t, mesure: !!mesure} : {t: o.t}, cands: null, k: 0, w0: null, ref: null, c: null, essai: null, refus: 0, t0: Date.now()};
     if (S.sel || S.panneau){ S.sel = null; S.panneau = null; majPanneau(); }
     fermerPalette(); majAide(); redessiner();
   }
+  /* fin du mode ; objet existant (m102) encore là : retour à sa fiche */
   function quitterCotes(){
-    var p = S.panneau === 'cotes';
+    var p = S.panneau === 'cotes', id = S.cotes && S.cotes.pour.id;
     S.cotes = null;
+    if (id && el(id)){ selectionner(id); majAide(); return; }
     if (p){ S.panneau = null; majPanneau(); }
     majAide(); redessiner();
   }
@@ -3650,24 +3658,39 @@ function editeur(racine, opts){
   }
   function tapCotes(x, y){
     var C = S.cotes, w = S.vue.monde(x, y), tol = tolCotes();
-    if (C.etape === 'saisie'){ toast('Réglez les cotes dans le panneau, puis « Poser » ; « Fermer » quitte la pose par cotes.', 3500); return; }
+    /* objet existant (m102) supprimé entre-temps : fin du mode, rien n'est changé */
+    if (C.pour.id && !el(C.pour.id)){ quitterCotes(); return; }
+    /* nouveau toucher au même point du trait : la ligne superposée suivante (étape 'endroit' ; panneau d'une mesure ouvert : elle est mesurée) */
+    var e0 = C.etape !== 'cote' && C.cands && C.cands.length > 1 && C.w0 && S.vue.ecran(C.w0.x, C.w0.y), suivante = !!e0 && Math.hypot(x - e0.x, y - e0.y) <= tol;
+    if (C.etape === 'saisie'){
+      if (C.pour.mesure && suivante){ C.k = (C.k + 1) % C.cands.length; choisirRefCotes(); mesurerCotes(); return; }
+      toast(C.pour.id ? 'Réglez les cotes dans le panneau, puis « Déplacer » ; « Autre trait » change de ligne de référence, « Fermer » revient à la fiche.'
+        : 'Réglez les cotes dans le panneau, puis « Poser » ; « Fermer » quitte la pose par cotes.', 3500); return;
+    }
     if (C.etape === 'cote'){
       var L = candidatsCotes(w, tol / S.vue.s);
       if (!L.length) return;
-      C.cands = L; C.k = 0; C.w0 = w; choisirRefCotes(); C.etape = 'endroit'; majAide(); redessiner(); return;
+      C.cands = L; C.k = 0; C.w0 = w; choisirRefCotes();
+      /* « Mesurer depuis une façade » : pas d'endroit à toucher, la position de l'objet est mesurée */
+      if (C.pour.mesure){ mesurerCotes(); return; }
+      C.etape = 'endroit'; majAide(); redessiner(); return;
     }
-    /* étape 'endroit' : nouveau toucher au même point du trait, la ligne superposée suivante */
-    var e0 = C.w0 && S.vue.ecran(C.w0.x, C.w0.y);
-    if (C.cands.length > 1 && e0 && Math.hypot(x - e0.x, y - e0.y) <= tol){ C.k = (C.k + 1) % C.cands.length; choisirRefCotes(); majAide(); redessiner(); return; }
+    if (suivante){ C.k = (C.k + 1) % C.cands.length; choisirRefCotes(); majAide(); redessiner(); return; }
     endroitCotes(w);
   }
+  /* « Mesurer depuis une façade » (m102) : le panneau rempli par la mesure exacte de la position de l'objet (affichée au centimètre) */
+  function mesurerCotes(){
+    var o = el(S.cotes.pour.id); if (!o){ quitterCotes(); return; }
+    endroitCotes({x: o.x, y: o.y}, true);
+  }
   /* endroit touché : mode, coin, distance, décalage et côté pré-remplis (VC.geo.mesurer, arrondis à 5 cm) ; trait ouvert : « Devant » est
-     le côté touché */
-  function endroitCotes(w){
+     le côté touché. exact (mesure d'un objet existant) : valeurs sans arrondi, VC.geo.placer redonne le point ; décalage nul : côté par défaut */
+  function endroitCotes(w, exact){
     var C = S.cotes, r = C.ref, t = unite(r.A, r.B); if (!t) return;
     if (!r.n){ var g = cw(t); r.n = (w.x - r.A.x) * g.x + (w.y - r.A.y) * g.y >= 0 ? g : ccw(t); }
     var m = mesurer(r, w); if (!m) return;
-    C.c = {mode: m.mode, coin: m.coin, d: Math.round(m.d * 20) / 20, e: Math.round(m.e * 20) / 20, cote: m.cote};
+    C.c = exact ? {mode: m.mode, coin: m.coin, d: m.d, e: m.e, cote: m.cote}
+      : {mode: m.mode, coin: m.coin, d: Math.round(m.d * 20) / 20, e: Math.round(m.e * 20) / 20, cote: m.cote};
     C.etape = 'saisie'; C.essai = null;
     S.sel = null; S.panneau = 'cotes'; fermerPalette(); majPanneau(); majAide(); redessiner();
   }
@@ -3678,32 +3701,38 @@ function editeur(racine, opts){
     return (c.cote === 'devant') === (dn > 0) ? 'droite' : 'gauche';
   }
   function aideCotes(){
-    var C = S.cotes, r = C.ref, nb = C.cands ? C.cands.length : 0, h;
+    var C = S.cotes, r = C.ref, nb = C.cands ? C.cands.length : 0, h, id = C.pour.id, mes = id && C.pour.mesure;
     var nat = r ? '<strong>' + esc(NAT_COTES[r.nat] || '') + '</strong>' + (nb > 1 ? ' (' + (C.k + 1) + ' sur ' + nb + ')' : '') : '';
     var autre = '<button type="button" class="vc-b vc-bt" data-a="cotesAutre">' + ico('retour', 18) + 'Autre trait</button>';
-    if (C.etape === 'cote') h = '<span><strong>Pose par cotes</strong> (' + esc((T[C.pour.t] || {}).lib || '') + '). Touchez la façade ou la limite de référence.</span>';
-    else if (C.etape === 'endroit') h = '<span>' + nat + '. Touchez l\'endroit de l\'objet' + (nb > 1 ? ' ; touchez de nouveau le même point du trait pour la ligne suivante' : '') + '.</span>' + autre;
-    else h = '<span>' + nat + ' : réglez les cotes dans le panneau, puis « Poser ».</span>' + autre;
+    var titre = mes ? 'Mesurer depuis une façade' : id ? 'Déplacer par cotes' : 'Pose par cotes';
+    if (C.etape === 'cote') h = '<span><strong>' + titre + '</strong> (' + esc((T[C.pour.t] || {}).lib || '') + '). Touchez la façade ou la limite de référence.</span>';
+    else if (C.etape === 'endroit') h = '<span>' + nat + '. Touchez ' + (id ? 'le nouvel endroit' : 'l\'endroit') + ' de l\'objet' + (nb > 1 ? ' ; touchez de nouveau le même point du trait pour la ligne suivante' : '') + '.</span>' + autre;
+    else h = '<span>' + nat + ' : réglez les cotes dans le panneau, puis « ' + (id ? 'Déplacer' : 'Poser') + ' »'
+      + (mes && nb > 1 ? ' ; touchez de nouveau le même point du trait pour mesurer depuis la ligne suivante' : '') + '.</span>' + autre;
     return h + '<button type="button" class="vc-b vc-bt" data-a="cotesStop">' + ico('fermer', 18) + 'Abandonner</button>';
   }
   function cotesHtml(){
     var C = S.cotes, r = C.ref, c = C.c, prol = c.mode === 'prol', g = coinGauche(r) || 'A';
     var cotes = prol ? [['droite', 'Droite'], ['gauche', 'Gauche']] : r.nat === 'limite' && r.dedans ? [['derriere', 'Intérieur'], ['devant', 'Extérieur']] : [['devant', 'Devant'], ['derriere', 'Derrière']];
-    var ty = T[C.pour.t] || {};
-    return '<p class="vc-muet">' + esc(ty.lib || '') + (ty.g === 'f' ? ' posée' : ' posé') + ' depuis : <strong>' + esc(NAT_COTES[r.nat] || '') + '</strong> (côté de '
+    /* objet existant (m102) : « mesuré » ou « déplacé », et « Déplacer » à la place de « Poser » */
+    var ty = T[C.pour.t] || {}, id = C.pour.id, verbe = id ? (C.pour.mesure ? ' mesuré' : ' déplacé') : ' posé';
+    var ok = id ? '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesDeplacer">' + ico('valider', 18) + 'Déplacer</button>'
+      : '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesPoser">' + ico('valider', 18) + 'Poser</button>';
+    return '<p class="vc-muet">' + esc(ty.lib || '') + verbe + (ty.g === 'f' ? 'e' : '') + ' depuis : <strong>' + esc(NAT_COTES[r.nat] || '') + '</strong> (côté de '
         + frNum(Math.hypot(r.B.x - r.A.x, r.B.y - r.A.y), 2) + ' m).</p>'
       + champ('Mode', chipsHtml('mode', [['prol', 'Prolongement'], ['long', 'Le long']], c.mode, {a: 'cotes', label: 'Mode'}))
       + champ('Coin', chipsHtml('coin', [[g, 'Coin gauche'], [g === 'A' ? 'B' : 'A', 'Coin droit']], c.coin, {a: 'cotes', label: 'Coin'}), 'vus du dehors, face au trait')
       + champ('Distance (m)', saisie('d', frNum(c.d, 2), {a: 'cotesNum', num: true, lab: 'Distance en mètres'}), prol ? 'au-delà du coin' : 'le long du trait, depuis le coin')
       + champ('Décalage (m)', saisie('e', frNum(c.e, 2), {a: 'cotesNum', num: true, lab: 'Décalage en mètres'}), 'perpendiculaire au trait')
       + champ('Côté', chipsHtml('cote', cotes, c.cote, {a: 'cotes', label: 'Côté'}))
-      + '<div class="vc-fact"><button type="button" class="vc-b vc-bt vc-prim" data-a="cotesPoser">' + ico('valider', 18) + 'Poser</button>'
+      + '<div class="vc-fact">' + ok
       + '<button type="button" class="vc-b vc-bt" data-a="cotesFermer">' + ico('fermer', 18) + 'Fermer</button></div>';
   }
   function actionCotes(a, b){
     var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c) return;
     if (a === 'cotesFermer'){ quitterCotes(); return; }
-    if (a === 'cotesPoser'){ poserParCotes(); return; }
+    if (a === 'cotesPoser'){ if (!C.pour.id) poserParCotes(); return; }
+    if (a === 'cotesDeplacer'){ if (C.pour.id) deplacerParCotes(); return; }
     var k = b.dataset.k, v = b.dataset.v, c = C.c;
     if (k === 'mode' && (v === 'prol' || v === 'long')){ if (v !== c.mode){ c.cote = coteEquivalente(C.ref, c, v); c.mode = v; } }
     else if (k === 'coin' && (v === 'A' || v === 'B')) c.coin = v;
@@ -3753,6 +3782,24 @@ function editeur(racine, opts){
     changement({garderPanneau: true}); selectionner(o.id); majAide(); vibrer();
     if (dedans) toast('Le point tombe dans le bâti : l\'objet est posé quand même. Vérifiez les cotes (« Annuler » le retire).', 5000);
   }
+  /* « Déplacer » (m102) : l'objet existant exactement au point calculé, par deplacerObjet (m104) : seuls o.x et o.y changent, les bouts de
+     tracé attachés suivent, ni accroche, ni raccord, ni insertion ; un seul pas d'annulation, aucun si rien ne bouge. Puis fin du mode :
+     l'objet reste choisi et sa fiche se rouvre. Même garde-fou que « Poser » après une valeur refusée. */
+  function deplacerParCotes(){
+    quitterSaisie();
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c || !C.pour.id) return;
+    if (C.refus && Date.now() - C.refus < 800) return;
+    var id = C.pour.id; if (!el(id)){ quitterCotes(); return; }
+    var P = placer(C.ref, C.c); if (!P){ toast('Position incalculable : vérifiez les cotes.'); return; }
+    var dedans = dansBati(P);
+    S.cotes = null; S.sel = {id: id, sommet: null}; S.panneau = 'fiche';
+    var bouge = deplacerObjet(id, P.x, P.y);
+    if (!bouge) selectionner(id);
+    majAide();
+    if (!bouge) return;
+    vibrer();
+    if (dedans) toast('Le point tombe dans le bâti : l\'objet est déplacé quand même. Vérifiez les cotes (« Annuler » le ramène).', 5000);
+  }
   /* repères temporaires (surcouche) : le côté retenu surligné et son prolongement en tirets ; à l'étape de saisie, l'objet fantôme au point
      calculé et les deux cotes en tirets (d le long du côté ou du prolongement, e perpendiculaire) */
   function dessinerCotes(){
@@ -3776,10 +3823,11 @@ function editeur(racine, opts){
         if (Math.hypot(s[1].x - s[0].x, s[1].y - s[0].y) < 4) return;
         var lb = frNum(s[2], 2) + ' m', mx = (s[0].x + s[1].x) / 2, my = (s[0].y + s[1].y) / 2 - 6; ctx.strokeText(lb, mx, my); ctx.fillText(lb, mx, my);
       });
-      var ty = C.pour.t, e = {k: 'pt', t: ty, p: defautsPt(ty)}, ang = angleCotes(ty, r);
+      /* objet existant (m102) : son symbole, avec son angle et sa couleur ; sinon celui de l'outil, avec les valeurs de la pose */
+      var o = C.pour.id ? el(C.pour.id) : null, ty = o ? o.t : C.pour.t, e = o || {k: 'pt', t: ty, p: defautsPt(ty)}, ang = o ? (o.p && o.p.a) || 0 : angleCotes(ty, r);
       ctx.globalAlpha = .55;
       if (ty === 'zone'){ ctx.beginPath(); ctx.arc(eP.x, eP.y, Math.max(10, (num(e.p.r) || 1.5) * S.vue.s), 0, 2 * Math.PI); ctx.setLineDash([5, 4]); ctx.strokeStyle = rgbCss(RES.ANN.rgb); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); }
-      else dessinerPrims(ctx, primitives(e, couleurPt(e, null), ((ang || 0) * Math.PI / 180) - (S.doc.rot || 0)), eP.x, eP.y, Math.max(S.vue.s * E() / 1000, (ty === 'jonction' ? 4 : 8.5) / rayonSymbole(ty)));
+      else dessinerPrims(ctx, primitives(e, couleurPt(e, o ? S.an : null), ((ang || 0) * Math.PI / 180) - (S.doc.rot || 0)), eP.x, eP.y, Math.max(S.vue.s * E() / 1000, (ty === 'jonction' ? 4 : 8.5) / rayonSymbole(ty)));
       ctx.globalAlpha = 1;
     }
     ctx.restore();
@@ -4171,6 +4219,9 @@ function editeur(racine, opts){
       if (ty.oriente) h += champ('Orientation', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="orienter" data-v="15">' + ico('rotg', 18) + ' 15°</button><button type="button" class="vc-chip" data-a="orienter" data-v="-15">' + ico('rotd', 18) + ' 15°</button><button type="button" class="vc-chip" data-a="orienter" data-v="90">90°</button></div>');
       if (e.t === 'test') h += champ('Résultat', saisie('resultat', e.p.resultat, {ph: 'ex. colorant ressorti en boîte EP'}));
       if (e.t === 'zone') h += champ('Rayon', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="rayon" data-v="-.5">−</button><span class="vc-val">' + frNum(num(e.p.r) || 1.5) + ' m</span><button type="button" class="vc-chip" data-a="rayon" data-v=".5">+</button></div>');
+      /* position par cotes (m102) : déplacer l'objet, ou relire sa position, depuis une façade, une limite ou un trait de complément */
+      h += champ('Position', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="cotesObjet" data-v="deplacer">Déplacer par cotes</button>'
+        + '<button type="button" class="vc-chip" data-a="cotesObjet" data-v="mesurer">Mesurer depuis une façade</button></div>', 'depuis une façade, une limite de parcelle ou un trait de complément');
       if (e.t !== 'jonction' && ty.role !== 'note') h += champ('Statut', chipsHtml('st', [['existant', 'Existant'], ['projet', 'Projet'], ['supprimer', 'À supprimer']], e.p.st || 'existant', {garder: true}));
       h += champ('Observation', zone('obs', e.p.obs, {ph: 'note libre, reprise dans le rapport'}));
     } else if (e.k === 'ln'){
@@ -4395,6 +4446,8 @@ function editeur(racine, opts){
     quitterSaisie(); panMajAttente = false;
     var n = S.panneau;
     if (n === 'fiche' && !(S.sel && el(S.sel.id))) n = S.panneau = null;
+    /* objet existant (m102) supprimé, ou un choix fait pendant le mode (S.sel reste vide jusqu'à la fin) : fin du mode, rien n'est changé */
+    if (S.cotes && S.cotes.pour.id && (S.sel || !el(S.cotes.pour.id))){ S.cotes = null; majAide(); redessiner(); }
     /* panneau « Cotes » (m101) : seulement à l'étape de saisie ; un autre panneau, ou sa fermeture, met fin au mode */
     if (n === 'cotes' && !(S.cotes && S.cotes.etape === 'saisie' && S.cotes.c)) n = S.panneau = null;
     if (S.cotes && S.cotes.etape === 'saisie' && n !== 'cotes'){ S.cotes = null; majAide(); redessiner(); }
@@ -4420,7 +4473,9 @@ function editeur(racine, opts){
   pcorps.addEventListener('click', function(ev){
     var b = ev.target.closest('[data-a]'); if (!b || b.tagName === 'INPUT' && b.type !== 'checkbox' || b.tagName === 'TEXTAREA' || b.tagName === 'SELECT') return;
     var a = b.dataset.a, e = S.sel && el(S.sel.id);
-    if (a === 'cotes' || a === 'cotesPoser' || a === 'cotesFermer'){ actionCotes(a, b); return; }
+    if (a === 'cotes' || a === 'cotesPoser' || a === 'cotesDeplacer' || a === 'cotesFermer'){ actionCotes(a, b); return; }
+    /* fiche d'un objet ponctuel (m102) : « Déplacer par cotes » ou « Mesurer depuis une façade » */
+    if (a === 'cotesObjet' && e){ entrerCotes(e.id, b.dataset.v === 'mesurer'); return; }
     if (a === 'prop' && e){
       var k = b.dataset.k, v = b.dataset.v;
       /* puce déjà choisie (réseau, statut, gestionnaire, sens) : rien ne change, pas de pas d'annulation */

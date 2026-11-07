@@ -1,6 +1,8 @@
 // Pose d'un objet par cotes dans l'éditeur du croquis, dans Chromium (données fictives : fond de VCroquis.demoDxf(), croquis de
-// démonstration, et un fond fictif construit ici) : correctif m101 (souhait 11 ; convention 11.1 et décisions D1, D2, D3 de
-// .claude/conception-outils-dessin.md). m102 et m108 compléteront ce fichier.
+// démonstration, et un fond fictif construit ici) : correctifs m101 (pose) et m102 (« Déplacer par cotes » et « Mesurer depuis une
+// façade ») ; souhait 11, réponses 11.1 et 11.3, convention 11.1 et décisions D1, D2, D3 de .claude/conception-outils-dessin.md.
+// m108 complétera ce fichier.
+// m101 :
 // b : avec un outil d'objet, la barre d'aide a un bouton « Cotes » ; son toucher demande « Touchez la façade ou la limite de référence » ;
 //     témoins : un outil de tracé et le texte libre n'en ont pas ;
 // p : outil Regard, « Cotes », la façade sud du bâti, puis un endroit au-delà du coin ouest : le panneau « Cotes » s'ouvre en
@@ -32,6 +34,31 @@
 //     côté puis de l'autre (« Devant » est le côté touché, le coin gauche change avec lui), trait de complément fermé : point du calcul de la
 //     convention 11.1 fait ici à la main (à 1e-6 près).
 // Tout échoue sur fbbe363 (pas de bouton « Cotes »), sauf les témoins.
+// m102 (depuis la fiche d'un objet ponctuel ; rien n'est gardé des cotes, seule la position compte) :
+// m : un regard posé par cotes à 2 / 0,5 / Droite au-delà du coin ouest : sa fiche a les boutons « Déplacer par cotes » et « Mesurer
+//     depuis une façade » ; « Mesurer », puis la façade : le panneau « Cotes » s'ouvre aussitôt, rempli par la mesure (Prolongement,
+//     Coin gauche, 2,00 / 0,50 / Droite), « Déplacer » à la place de « Poser » ; cotes gardées exactes (placer redonne la position à
+//     1e-9 près) ; « Déplacer » sans rien changer : rien ne bouge, aucun pas d'annulation, fiche rouverte ; un tronçon attaché au regard,
+//     distance passée de 2 à 3, « Déplacer » : point de placer à 1e-6 près, (62,5 ; 3,5), JSON identique hors x et y, le bout de tuyau
+//     suit, un seul pas d'annulation, regard choisi et fiche rouverte ; « Annuler » rend le croquis exact ; regard posé le long (coin
+//     gauche, 3 / 1 / Devant) : la mesure redonne Le long, Coin gauche, 3,00 / 1,00 / Devant ; Derrière puis « Déplacer » : le point
+//     tombe dans le bâti, toast, déplacement fait (68,5 ; 5) ;
+// r : « Déplacer par cotes » du regard R1 de la démonstration (six tuyaux attachés) : la façade (étape « endroit »), puis un endroit
+//     approximatif : pré-remplissage multiple de 0,05, « Regard déplacé depuis : Façade » ; « Déplacer » : au point exact de placer, les
+//     six bouts de tuyau suivent, rien d'autre ne change, un pas d'annulation ;
+// n : décalage nul : la mesure montre le côté par défaut (Droite dans le prolongement, Devant le long) ; « -1 » refusé ; « -1 » tapé
+//     puis « Déplacer » aussitôt : rien ne bouge ; « Fermer » : croquis inchangé (JSON), fiche de l'objet rouverte ; Échap et la croix du
+//     panneau : mode fini sans rien changer, fiche non rouverte ; « Autre trait » puis la façade ouest : mesure depuis elle
+//     (VCroquis.geo.mesurer calculé ici) ; objet supprimé pendant le mode (panneau ouvert, ou étape « cote ») : le mode se ferme ; autre
+//     choix pendant le mode : le mode se ferme sans rien changer ;
+// a : un caniveau posé par cotes, tourné de 15° dans sa fiche, puis déplacé par cotes : son angle ne change pas ;
+// c : les deux boutons sur la fiche de chaque type d'objet ponctuel de la démonstration ; témoins : ni sur un tronçon, ni sur un
+//     collecteur, ni sur un texte libre, ni sur un objet de type inconnu ;
+// u : le regard posé depuis la limite (cas s) mesuré : la façade d'abord (Prolongement, Coin gauche, 3,00 / 1,50 / Gauche), puis, au
+//     même point du trait, la limite qui la longe (Le long, Coin gauche, 2,00 / 1,50 / Intérieur), puis de nouveau la façade ; décalage
+//     passé à 0 depuis la limite, puis « Déplacer » : le regard sur la limite, en (2 ; 0) ; mesuré, il montre le côté par défaut,
+//     « Droite » depuis la façade (3,00 / 0,00), « Extérieur » depuis la limite (2,00 / 0,00).
+// Sur efe2bf3, trois contrôles échouent (u, m, n : boutons absents) ; les suivants, témoins compris, ne sont pas lancés.
 // usage : node tests/navigateur/cotes.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -134,6 +161,53 @@ const placerPage = (p, ref, c) => p.evaluate(([ref, c]) => window.VCroquis.geo.p
 /* coin du côté le plus proche du point q ('A' ou 'B') */
 const coinPres = (ref, q) => ecart(ref.A, q) <= ecart(ref.B, q) ? 'A' : 'B';
 const angleDeg = ang => Math.round(((ang * 180 / Math.PI) % 360 + 360) % 360 * 10) / 10;
+
+/* m102 : boutons de la fiche d'un objet ponctuel, cherchés par leur texte (absents avant m102) */
+const DEPLACER = 'Déplacer par cotes', MESURER = 'Mesurer depuis une façade';
+const textesBoutons = p => p.evaluate(() => { const c = document.querySelector('.vc .vc-panneau:not([hidden]) .vc-pcorps'); return c ? Array.from(c.querySelectorAll('button')).map(b => b.textContent.replace(/\s+/g, ' ').trim()) : []; });
+async function boutonTexte(p, lib){
+  for (const b of await p.$$(PANNEAU + 'button')) if ((await b.textContent()).replace(/\s+/g, ' ').trim() === lib){ await b.click(); await C.pause(p, 350); return true; }
+  return false;
+}
+/* croquis de démonstration : fiche de l'objet id (rien d'autre d'ouvert, vue de départ), son bouton lib, puis, si q est donné, le toucher
+   du trait de référence en q */
+async function depuisFiche(A, id, lib, q){
+  const p = A.p;
+  await toutFermer(p); await vueDemo(A);
+  await p.evaluate(id => window.__vcEd.selectionner(id), id); await C.pause(p, 250);
+  if (!await boutonTexte(p, lib)) return false;
+  if (q) await toucherPlan(p, q);
+  return true;
+}
+/* élément choisi, panneau ouvert et étape du mode ('absent' : version sans le mode) */
+const choix = p => p.evaluate(() => { const S = window.__vcEd.etat; return {sel: S.sel ? S.sel.id : null, pan: S.panneau, cotes: S.cotes === undefined ? 'absent' : S.cotes ? S.cotes.etape : null}; });
+const objet = (p, id) => p.evaluate(id => { const e = window.__vcEd.doc().el.find(x => x.id === id); return e ? JSON.parse(JSON.stringify(e)) : null; }, id);
+/* JSON d'un objet sans sa position ; croquis sans la position de l'objet id ni celle des sommets qui lui sont attachés */
+const sansXY = o => o ? JSON.stringify(Object.assign({}, o, {x: 0, y: 0})) : '';
+const horsPosition = (els, id) => JSON.stringify(els.map(e => e.id === id ? Object.assign({}, e, {x: 0, y: 0})
+  : e.k === 'ln' ? Object.assign({}, e, {v: e.v.map(v => v.a === id ? Object.assign({}, v, {x: 0, y: 0}) : v)}) : e));
+/* sommets de tracé attachés à l'objet id : leur nombre, et s'ils sont tous à sa position (à 1e-9 près) */
+const attaches = (els, id) => {
+  const o = els.find(e => e.id === id), V = [];
+  els.forEach(e => { if (e.k === 'ln') e.v.forEach(v => { if (v.a === id) V.push(v); }); });
+  return {n: V.length, ok: !!o && V.every(v => Math.hypot(v.x - o.x, v.y - o.y) <= 1e-9)};
+};
+/* côté retenu, cotes exactes (sans l'arrondi de l'affichage) et objet du mode */
+const cotesExactes = p => p.evaluate(() => { const C = window.__vcEd.etat.cotes; return C && C.ref && C.c ? {ref: {A: C.ref.A, B: C.ref.B, n: C.ref.n}, c: Object.assign({}, C.c), nat: C.ref.nat, pour: Object.assign({}, C.pour)} : null; });
+/* m101 : un objet de type t posé par cotes depuis la façade sud de la démonstration : endroit ou ([u, v]), réglages reg ([clé, valeur] :
+   saisie pour d et e, puce sinon) ; puis l'outil Choisir. Rend l'objet posé (choisi, fiche ouverte) ou null */
+async function poserObjetParCotes(A, t, pal, ou, reg){
+  const p = A.p;
+  await toutFermer(p); await vueDemo(A);
+  await C.outil(p, {k: 'pt', t, pal}); await C.pause(p, 150);
+  if (!await entrer(p)) return null;
+  await toucherPlan(p, A.plan(70, 4)); await toucherPlan(p, A.plan(ou[0], ou[1]));
+  for (const x of reg) if (x[0] === 'd' || x[0] === 'e') await saisir(p, x[0], x[1]); else await puce(p, x[0], x[1]);
+  const els0 = await elements(p);
+  await bouton(p, 'cotesPoser');
+  await C.outil(p, {k: 'main'}); await C.pause(p, 150);
+  return nouveaux(els0, await elements(p))[0] || null;
+}
 
 /* b, p, l : bouton, prolongement, le long */
 async function prolongement(){
@@ -502,7 +576,41 @@ async function superposees(){
     const msg = await toastVu(p), oS = nouveaux(els0, await elements(p))[0], att = rl && await placerPage(p, rl.ref, {mode: 'long', coin: rl.gauche, d: 2, e: 1.5, cote: 'derriere'});
     R.ok(!!oS && ecart(oS, att) <= 1e-6 && ecart(att, plan(2, 1.5)) <= 3e-3 && ecart(oS, plan(7, 1.5)) > 1 && !/bâti/.test(msg),
       's : 2 / 1,5 / Intérieur : regard mesuré depuis la limite (2 ; 1,5), pas depuis la façade (7 ; 1,5) ; pas d\'avertissement de bâti (posé ' + pt(oS) + ', attendu ' + pt(att) + ', toast ' + JSON.stringify(msg) + ')');
-    erreurs(A, 's');
+
+    /* u (m102) : « Mesurer depuis une façade » sur ce regard ; touchers répétés au même point du trait : la façade, la limite, la façade */
+    if (!oS) return;
+    await C.outil(p, {k: 'main'}); await C.pause(p, 150);
+    await p.evaluate(id => window.__vcEd.selectionner(id), oS.id); await C.pause(p, 250);
+    if (!await boutonTexte(p, MESURER)){ R.ok(false, 'u : fiche du regard sans bouton « Mesurer depuis une façade » (' + JSON.stringify((await textesBoutons(p)).filter(x => /cotes|façade/i.test(x))) + ')'); return; }
+    const vus2 = [];
+    for (let i = 0; i < 3; i++){
+      await toucherPlan(p, q);
+      const g = await panneau(p), a = await texteAide(p), nat = !g ? 'pas de panneau' : /depuis : Limite de parcelle/.test(g.texte) ? 'limite' : /depuis : Façade/.test(g.texte) ? 'façade' : '?';
+      vus2.push(nat + ' ' + resume(g) + (/(Limite de parcelle|Façade) \(\d sur 2\)/.test(a) ? '' : ' aide ' + JSON.stringify(a)));
+    }
+    const FAC = 'façade {"titre":"Cotes","mode":"Prolongement","coin":"Coin gauche","cote":"Gauche","d":"3,00","e":"1,50"}';
+    const LIM = 'limite {"titre":"Cotes","mode":"Le long","coin":"Coin gauche","cote":"Intérieur","d":"2,00","e":"1,50"}';
+    R.ok(vus2.join(' ; ') === [FAC, LIM, FAC].join(' ; '),
+      'u : mesure du regard posé depuis la limite : la façade d\'abord (Prolongement, Coin gauche, 3,00 / 1,50 / Gauche), puis, au même point du trait, la limite qui la longe (Le long, Coin gauche, 2,00 / 1,50 / Intérieur), puis de nouveau la façade ('
+      + vus2.join(' ; ') + ')');
+    await bouton(p, 'cotesFermer');
+    /* décalage passé à 0 dans la mesure depuis la limite, puis « Déplacer » : le regard sur la limite, en (2 ; 0) ; mesuré de nouveau, il
+       montre le côté par défaut : « Droite » depuis la façade (prolongement), « Extérieur » depuis la limite (le long) */
+    const vus3 = []; let o0 = null;
+    if (await boutonTexte(p, MESURER)){
+      await toucherPlan(p, q); await panneau(p); await toucherPlan(p, q);
+      const g = await panneau(p);
+      if (g && /depuis : Limite de parcelle/.test(g.texte)){ await saisir(p, 'e', '0'); await bouton(p, 'cotesDeplacer'); o0 = await objet(p, oS.id); }
+      if (o0 && await boutonTexte(p, MESURER)) for (let i = 0; i < 2; i++){ await toucherPlan(p, q); vus3.push(resume(await panneau(p))); }
+      await bouton(p, 'cotesFermer');
+    }
+    const P0 = rl && await placerPage(p, rl.ref, {mode: 'long', coin: rl.gauche, d: 2, e: 0, cote: 'devant'});
+    const FAC0 = '{"titre":"Cotes","mode":"Prolongement","coin":"Coin gauche","cote":"Droite","d":"3,00","e":"0,00"}';
+    const LIM0 = '{"titre":"Cotes","mode":"Le long","coin":"Coin gauche","cote":"Extérieur","d":"2,00","e":"0,00"}';
+    R.ok(!!o0 && ecart(o0, P0) <= 1e-6 && ecart(P0, plan(2, 0)) <= 3e-3 && vus3.join(' ; ') === [FAC0, LIM0].join(' ; '),
+      'u : décalage passé à 0 dans la mesure depuis la limite, puis « Déplacer » : regard sur la limite, en (2 ; 0) ; mesuré, il montre le côté par défaut, '
+      + 'Droite depuis la façade (3,00 / 0,00), Extérieur depuis la limite (2,00 / 0,00) (' + pt(o0) + ' pour ' + pt(P0) + ' ; ' + vus3.join(' ; ') + ')');
+    erreurs(A, 's, u');
   } finally { await A.fermer(); }
 }
 
@@ -553,8 +661,250 @@ async function geometrie(){
   } finally { await A.fermer(); }
 }
 
+/* m, r (m102) : « Mesurer depuis une façade » puis « Déplacer », sur un regard posé par cotes ; « Déplacer par cotes » du regard R1 */
+async function mesureEtDeplacement(){
+  const A = await croquisDemo(), p = A.p;
+  try {
+    const r = await coteRef(p, A.plan(70, 4), 'bati');
+    if (!r){ R.ok(false, 'm : façade sud introuvable dans lignesRef'); return; }
+    const ouest = coinPres(r.ref, A.plan(65.5, 4));
+    /* un regard posé par cotes à 2 / 0,5 / Droite au-delà du coin ouest : (63,5 ; 3,5) */
+    const o = await poserObjetParCotes(A, 'regard', 'reg', [63.2, 3.3], [['d', '2'], ['e', '0,5'], ['cote', 'Droite']]);
+    const P0 = await placerPage(p, r.ref, {mode: 'prol', coin: ouest, d: 2, e: 0.5, cote: 'droite'});
+    if (!o || ecart(o, P0) > 1e-6){ R.ok(false, 'm : regard posé par cotes introuvable (' + pt(o) + ' pour ' + pt(P0) + ')'); return; }
+    const bt = await textesBoutons(p), ch0 = await choix(p);
+    R.ok(ch0.sel === o.id && ch0.pan === 'fiche' && bt.includes(DEPLACER) && bt.includes(MESURER),
+      'm : fiche du regard posé : boutons « Déplacer par cotes » et « Mesurer depuis une façade » (' + JSON.stringify(bt.filter(x => /cotes|façade/i.test(x))) + ', ' + JSON.stringify(ch0) + ')');
+    if (!bt.includes(MESURER)) return;
+    const avant = await etatDoc(p), u0 = await nUndo(p);
+    await boutonTexte(p, MESURER);
+    const ch1 = await choix(p), a1 = await texteAide(p);
+    R.ok(ch1.cotes === 'cote' && ch1.sel === null && ch1.pan === null && /^Mesurer depuis une façade \(Regard\)\. Touchez la façade ou la limite de référence/.test(a1),
+      'm : « Mesurer depuis une façade » : étape « cote », fiche fermée, aide « Mesurer depuis une façade (Regard). Touchez la façade ou la limite de référence » ('
+      + JSON.stringify(ch1) + ', ' + JSON.stringify(a1) + ')');
+    await toucherPlan(p, A.plan(70, 4));
+    const f1 = await panneau(p), x1 = await cotesExactes(p), dep1 = !!await p.$(PANNEAU + 'button[data-a="cotesDeplacer"]');
+    R.ok(!!f1 && f1.titre === 'Cotes' && pressee(f1.mode) === 'Prolongement' && pressee(f1.coin) === 'Coin gauche' && !!f1.d && f1.d.val === '2,00' && f1.e.val === '0,50'
+      && pressee(f1.cote) === 'Droite' && dep1 && !f1.poser && f1.fermer && f1.texte.indexOf('Regard mesuré depuis : Façade') >= 0,
+      'm : façade touchée : le panneau « Cotes » s\'ouvre aussitôt, rempli par la mesure : Prolongement, Coin gauche, 2,00 / 0,50 / Droite ; « Déplacer » à la place de « Poser » ; '
+      + '« Regard mesuré depuis : Façade » (' + resume(f1) + ', ' + JSON.stringify(f1 && f1.texte.trim().slice(0, 40)) + ')');
+    const Pm = x1 && await placerPage(p, x1.ref, x1.c);
+    R.ok(!!x1 && x1.c.mode === 'prol' && x1.c.coin === ouest && Math.abs(x1.c.d - 2) <= 1e-9 && Math.abs(x1.c.e - 0.5) <= 1e-9 && ecart(Pm, o) <= 1e-9,
+      'm : cotes gardées exactes, sans arrondi : placer redonne la position du regard à 1e-9 près (d ' + (x1 && x1.c.d) + ', e ' + (x1 && x1.c.e) + ', écart '
+      + (Pm ? ecart(Pm, o).toExponential(1) : '—') + ' m)');
+    await bouton(p, 'cotesDeplacer');
+    const ch2 = await choix(p), o2 = await objet(p, o.id);
+    R.ok(await etatDoc(p) === avant && await nUndo(p) === u0 && !!o2 && o2.x === o.x && o2.y === o.y && ch2.cotes === null && ch2.sel === o.id && ch2.pan === 'fiche',
+      'm : « Déplacer » sans rien changer : le regard ne bouge pas (croquis identique), aucun pas d\'annulation ; mode fini, regard choisi, fiche rouverte (' + JSON.stringify(ch2) + ')');
+
+    /* un tronçon dont le premier bout est attaché au regard ; distance passée de 2 à 3, puis « Déplacer » */
+    await p.evaluate(id => {
+      const ed = window.__vcEd, S = ed.etat, e = S.doc.el.find(x => x.id === id);
+      S.doc.el.push({id: 'tz', k: 'ln', t: 'tr', v: [{x: e.x, y: e.y, a: id}, {x: e.x - 1.5, y: e.y - 2, a: null}], p: window.VCroquis.defautsLn('tr'), lab: null});
+      ed.synchroniser();
+    }, o.id);
+    const avant2 = await etatDoc(p), u1 = await nUndo(p), els2 = await elements(p), tz0 = els2.find(e => e.id === 'tz');
+    await depuisFiche(A, o.id, MESURER, A.plan(70, 4));
+    await saisir(p, 'd', '3');
+    const f3 = await panneau(p);
+    await bouton(p, 'cotesDeplacer');
+    const els3 = await elements(p), o3 = els3.find(e => e.id === o.id), tz3 = els3.find(e => e.id === 'tz'), ch3 = await choix(p);
+    const att3 = await placerPage(p, r.ref, {mode: 'prol', coin: ouest, d: 3, e: 0.5, cote: 'droite'});
+    R.ok(!!f3 && !!f3.d && f3.d.val === '3,00' && !!o3 && ecart(o3, att3) <= 1e-6 && ecart(att3, A.plan(62.5, 3.5)) <= 3e-3,
+      'm : distance passée de 2 à 3, puis « Déplacer » : le regard au point de VCroquis.geo.placer à 1e-6 près, (62,5 ; 3,5) de la démonstration (' + pt(o3) + ' pour ' + pt(att3)
+      + ', ' + resume(f3) + ')');
+    R.ok(!!o3 && sansXY(o3) === sansXY(els2.find(e => e.id === o.id)) && horsPosition(els3, o.id) === horsPosition(els2, o.id),
+      'm : seuls x et y du regard changent (JSON identique hors x et y : étiquette, statut, réseau, p) ; rien d\'autre ne change, hors du bout attaché');
+    R.ok(!!tz0 && !!tz3 && tz3.v[0].a === o.id && !!o3 && Math.hypot(tz3.v[0].x - o3.x, tz3.v[0].y - o3.y) <= 1e-9 && tz3.v[1].x === tz0.v[1].x && tz3.v[1].y === tz0.v[1].y,
+      'm : le bout de tuyau attaché suit le regard (sommet à la nouvelle position, toujours attaché ; l\'autre bout ne bouge pas) (' + pt(tz3 && tz3.v[0]) + ')');
+    R.ok(await nUndo(p) === u1 + 1 && ch3.cotes === null && ch3.sel === o.id && ch3.pan === 'fiche',
+      'm : un seul pas d\'annulation ; le regard reste choisi, sa fiche rouverte, mode fini (' + JSON.stringify(ch3) + ')');
+    await annuler(p);
+    R.ok(await etatDoc(p) === avant2, 'm : « Annuler » remet le regard et le bout de tuyau (croquis exact)');
+
+    /* regard posé le long (coin gauche, 3 / 1 / Devant) : la mesure redonne 3,00 / 1,00 / Devant ; Derrière : le point tombe dans le bâti */
+    const o4 = await poserObjetParCotes(A, 'regard', 'reg', [72, 2.6], [['coin', 'Coin gauche'], ['d', '3'], ['e', '1'], ['cote', 'Devant']]);
+    if (o4 && await boutonTexte(p, MESURER)){
+      await toucherPlan(p, A.plan(70, 4));
+      const f4 = await panneau(p), x4 = await cotesExactes(p);
+      R.ok(!!f4 && pressee(f4.mode) === 'Le long' && pressee(f4.coin) === 'Coin gauche' && !!f4.d && f4.d.val === '3,00' && f4.e.val === '1,00' && pressee(f4.cote) === 'Devant'
+        && !!x4 && x4.c.coin === r.gauche, 'm : regard posé le long (coin gauche, 3 / 1 / Devant) : la mesure redonne Le long, Coin gauche, 3,00 / 1,00 / Devant (' + resume(f4) + ')');
+      await puce(p, 'cote', 'Derrière'); await effacerToast(p);
+      const u4 = await nUndo(p);
+      await bouton(p, 'cotesDeplacer');
+      const msg = await toastVu(p), o5 = await objet(p, o4.id), P5 = await placerPage(p, r.ref, {mode: 'long', coin: r.gauche, d: 3, e: 1, cote: 'derriere'});
+      R.ok(/^Le point tombe dans le bâti/.test(msg) && !!o5 && ecart(o5, P5) <= 1e-6 && ecart(P5, A.plan(68.5, 5)) <= 3e-3 && await nUndo(p) === u4 + 1,
+        'm : Derrière, puis « Déplacer » : le point tombe dans le bâti, avertissement, regard déplacé quand même, en (68,5 ; 5) (' + JSON.stringify(msg) + ', ' + pt(o5) + ' pour ' + pt(P5) + ')');
+      await annuler(p);
+    } else R.ok(false, 'm : regard posé le long : pas de bouton « Mesurer depuis une façade » (' + pt(o4) + ')');
+
+    /* r : « Déplacer par cotes » du regard R1 de la démonstration (d9, six tuyaux attachés) */
+    const id = 'd9', R1 = await objet(p, id), elsD = await elements(p), avantD = await etatDoc(p), uD = await nUndo(p), nAtt = attaches(elsD, id).n;
+    if (!R1 || R1.t !== 'regard'){ R.ok(false, 'r : regard R1 (d9) introuvable'); return; }
+    if (!await depuisFiche(A, id, DEPLACER)){ R.ok(false, 'r : fiche de R1 sans bouton « Déplacer par cotes »'); return; }
+    const aD = await texteAide(p), chD = await choix(p);
+    await toucherPlan(p, A.plan(70, 4));
+    const aD2 = await texteAide(p), chD2 = await choix(p);
+    R.ok(chD.cotes === 'cote' && /^Déplacer par cotes \(Regard\)\. Touchez la façade ou la limite de référence/.test(aD) && chD2.cotes === 'endroit' && /Touchez le nouvel endroit de l'objet/.test(aD2),
+      'r : « Déplacer par cotes » : étape « cote » (« Déplacer par cotes (Regard) »), puis la façade : étape « endroit », « Touchez le nouvel endroit de l\'objet » ('
+      + JSON.stringify(aD) + ', ' + JSON.stringify(aD2) + ')');
+    await toucherPlan(p, A.plan(69.13, 2.07));
+    const fD = await panneau(p), xD = await cotesExactes(p), depD = !!await p.$(PANNEAU + 'button[data-a="cotesDeplacer"]');
+    R.ok(!!fD && pressee(fD.mode) === 'Le long' && !!fD.d && mult5(nombre(fD.d.val)) && mult5(nombre(fD.e.val)) && !!xD && mult5(xD.c.d) && mult5(xD.c.e) && !fD.poser && depD
+      && fD.texte.indexOf('Regard déplacé depuis : Façade') >= 0,
+      'r : endroit approximatif : panneau « Cotes » pré-rempli à 5 cm près (multiples de 0,05), « Regard déplacé depuis : Façade », « Déplacer » (' + resume(fD) + ')');
+    await bouton(p, 'cotesDeplacer');
+    const els5 = await elements(p), o6 = els5.find(e => e.id === id), PD = xD && await placerPage(p, xD.ref, xD.c), sv = attaches(els5, id);
+    R.ok(!!o6 && ecart(o6, PD) <= 1e-6 && ecart(o6, R1) > 1 && sansXY(o6) === sansXY(R1) && nAtt >= 6 && sv.n === nAtt && sv.ok && horsPosition(els5, id) === horsPosition(elsD, id),
+      'r : « Déplacer » : R1 au point exact de placer, ses ' + nAtt + ' bouts de tuyau suivent, rien d\'autre ne change (' + pt(o6) + ' pour ' + pt(PD) + ', ' + sv.n + ' sommets attachés'
+      + (sv.ok ? '' : ', pas tous suivis') + ')');
+    R.ok(await nUndo(p) === uD + 1, 'r : un seul pas d\'annulation');
+    await annuler(p);
+    R.ok(await etatDoc(p) === avantD, 'r : « Annuler » remet R1 et ses tuyaux (croquis exact)');
+    erreurs(A, 'm, r');
+  } finally { await A.fermer(); }
+}
+
+/* n, a, c (m102) : décalage nul, valeurs refusées, « Fermer », « Autre trait », objet supprimé, autre choix ; angle gardé ; boutons de la
+   fiche de chaque type d'objet ponctuel, et témoins */
+async function casLimites(){
+  const A = await croquisDemo(), p = A.p;
+  try {
+    const r = await coteRef(p, A.plan(70, 4), 'bati');
+    if (!r){ R.ok(false, 'n : façade sud introuvable dans lignesRef'); return; }
+    /* décalage nul : 2 / 0 / Gauche dans le prolongement */
+    const z1 = await poserObjetParCotes(A, 'regard', 'reg', [63.2, 3.3], [['d', '2'], ['e', '0'], ['cote', 'Gauche']]);
+    if (!z1 || !await boutonTexte(p, MESURER)){ R.ok(false, 'n : regard posé par cotes sans bouton « Mesurer depuis une façade » (' + pt(z1) + ')'); return; }
+    await toucherPlan(p, A.plan(70, 4));
+    const fz = await panneau(p);
+    R.ok(!!fz && pressee(fz.mode) === 'Prolongement' && pressee(fz.coin) === 'Coin gauche' && !!fz.d && fz.d.val === '2,00' && fz.e.val === '0,00' && pressee(fz.cote) === 'Droite',
+      'n : regard posé à 2 / 0 / Gauche dans le prolongement : la mesure montre 2,00 / 0,00 et le côté par défaut, Droite (' + resume(fz) + ')');
+    /* « -1 » refusé ; « -1 » tapé puis « Déplacer » aussitôt ; « Fermer » */
+    const avant = await etatDoc(p), u0 = await nUndo(p);
+    await effacerToast(p); await saisir(p, 'd', '-1');
+    const m1 = await toastVu(p), f1 = await panneau(p), x1 = await cotesExactes(p);
+    R.ok(m1 === 'Nombre attendu, par exemple 0,80' && !!f1 && f1.d.val === '2,00' && !!x1 && Math.abs(x1.c.d - 2) <= 1e-9,
+      'n : distance « -1 » refusée : toast des valeurs refusées, 2,00 gardé (' + JSON.stringify(m1) + ', ' + resume(f1) + ')');
+    await C.pause(p, 600);
+    await effacerToast(p); await taper(p, 'd', '-1'); await bouton(p, 'cotesDeplacer');
+    const m2 = await toastVu(p), ch2 = await choix(p);
+    R.ok(m2 === 'Nombre attendu, par exemple 0,80' && await etatDoc(p) === avant && await nUndo(p) === u0 && ch2.cotes === 'saisie',
+      'n : « -1 » tapé puis « Déplacer » aussitôt : valeur refusée, rien ne bouge, le panneau reste (' + JSON.stringify(m2) + ', ' + JSON.stringify(ch2) + ')');
+    await bouton(p, 'cotesFermer');
+    const ch3 = await choix(p);
+    R.ok(await etatDoc(p) === avant && await nUndo(p) === u0 && ch3.cotes === null && ch3.sel === z1.id && ch3.pan === 'fiche',
+      'n : « Fermer » : croquis inchangé (JSON), aucun pas d\'annulation, mode fini, fiche du regard rouverte (' + JSON.stringify(ch3) + ')');
+    /* Échap, puis la croix du panneau, panneau de mesure ouvert : fin du mode sans rien changer, et sans rouvrir la fiche */
+    const sorties = [];
+    for (const k of ['Échap', 'croix']){
+      if (!await depuisFiche(A, z1.id, MESURER, A.plan(70, 4))){ sorties.push(k + ' : pas de bouton « Mesurer depuis une façade »'); continue; }
+      const e = await etat(p);
+      if (k === 'Échap') await p.keyboard.press('Escape');
+      else { const x = await p.$('.vc .vc-panneau:not([hidden]) .vc-ptete button[data-a="fermerPanneau"]'); if (x) await x.click(); }
+      await C.pause(p, 250);
+      const ch = await choix(p);
+      if (!e || e.etape !== 'saisie' || ch.cotes !== null || ch.sel !== null || ch.pan !== null || await etatDoc(p) !== avant || await nUndo(p) !== u0)
+        sorties.push(k + ' : ' + JSON.stringify(e && e.etape) + ' puis ' + JSON.stringify(ch));
+    }
+    R.ok(!sorties.length, 'n : Échap, puis la croix du panneau, panneau de mesure ouvert : mode fini, croquis inchangé, aucun pas d\'annulation, fiche non rouverte'
+      + (sorties.length ? ' (' + sorties.join(' ; ') + ')' : ''));
+    /* décalage nul le long : 3 / 0 / Derrière (sur la façade) */
+    const z2 = await poserObjetParCotes(A, 'regard', 'reg', [69, 2.5], [['coin', 'Coin gauche'], ['d', '3'], ['e', '0'], ['cote', 'Derrière']]);
+    if (z2 && await boutonTexte(p, MESURER)){
+      await toucherPlan(p, A.plan(70, 4));
+      const fz2 = await panneau(p);
+      R.ok(!!fz2 && pressee(fz2.mode) === 'Le long' && pressee(fz2.coin) === 'Coin gauche' && !!fz2.d && fz2.d.val === '3,00' && fz2.e.val === '0,00' && pressee(fz2.cote) === 'Devant',
+        'n : regard posé le long à 3 / 0 / Derrière (sur la façade) : la mesure montre 3,00 / 0,00 et le côté par défaut, Devant (' + resume(fz2) + ')');
+      await bouton(p, 'cotesFermer');
+    } else R.ok(false, 'n : regard posé le long : pas de bouton « Mesurer depuis une façade » (' + pt(z2) + ')');
+
+    /* « Autre trait », puis la façade ouest : la mesure de R1 se refait depuis elle (VCroquis.geo.mesurer calculé ici) */
+    const R1 = await objet(p, 'd9');
+    if (R1 && await depuisFiche(A, 'd9', MESURER, A.plan(70, 4))){
+      const e0 = await etat(p);
+      await boutonAide(p, 'cotesAutre');
+      const chA = await choix(p), fA0 = await panneau(p);
+      await toucherPlan(p, A.plan(65.5, 9));
+      const fA = await panneau(p), xA = await cotesExactes(p), rw = await coteRef(p, A.plan(65.5, 9), 'bati');
+      const mA = rw && await p.evaluate(([ref, q]) => window.VCroquis.geo.mesurer(ref, q), [rw.ref, {x: R1.x, y: R1.y}]);
+      const LIB = {prol: 'Prolongement', long: 'Le long', droite: 'Droite', gauche: 'Gauche', devant: 'Devant', derriere: 'Derrière'};
+      const proche = (s, x) => Math.abs(nombre(s) - x) <= 0.005 + 1e-9;
+      R.ok(!!e0 && e0.etape === 'saisie' && chA.cotes === 'cote' && fA0 === null && !!fA && !!fA.d && !!mA && !!xA && xA.nat === 'bati' && pressee(fA.mode) === LIB[mA.mode]
+        && pressee(fA.coin) === (mA.coin === rw.gauche ? 'Coin gauche' : 'Coin droit') && pressee(fA.cote) === LIB[mA.cote] && proche(fA.d.val, mA.d) && proche(fA.e.val, mA.e)
+        && Math.abs(xA.c.d - mA.d) <= 1e-9 && Math.abs(xA.c.e - mA.e) <= 1e-9 && ecart(xA.ref.A, rw.ref.A) + ecart(xA.ref.B, rw.ref.B) <= 1e-9,
+        'n : « Autre trait » (étape « cote », panneau fermé), puis la façade ouest : la mesure de R1 se refait depuis elle (' + resume(fA) + ' ; attendu '
+        + JSON.stringify(mA && {mode: mA.mode, coin: mA.coin === (rw && rw.gauche) ? 'gauche' : 'droit', d: +mA.d.toFixed(4), e: +mA.e.toFixed(4), cote: mA.cote}) + ')');
+      await bouton(p, 'cotesFermer');
+    } else R.ok(false, 'n : fiche de R1 sans bouton « Mesurer depuis une façade »');
+
+    /* objet supprimé pendant le mode, panneau « Cotes » ouvert, puis à l'étape « cote » : le mode se ferme */
+    const supprimer = id => p.evaluate(id => { const ed = window.__vcEd, S = ed.etat; S.doc.el = S.doc.el.filter(e => e.id !== id); ed.synchroniser(); }, id);
+    if (z2 && await depuisFiche(A, z2.id, MESURER, A.plan(70, 4))){
+      const e1 = await etat(p);
+      await supprimer(z2.id); await C.pause(p, 200);
+      const ch = await choix(p), f = await panneau(p);
+      R.ok(!!e1 && e1.etape === 'saisie' && ch.cotes === null && ch.sel === null && f === null,
+        'n : objet supprimé pendant le mode, panneau « Cotes » ouvert : le mode se ferme, le panneau aussi (' + JSON.stringify(e1) + ' puis ' + JSON.stringify(ch) + ')');
+    } else R.ok(false, 'n : objet supprimé, panneau ouvert : pas de bouton « Mesurer depuis une façade »');
+    if (await depuisFiche(A, z1.id, DEPLACER)){
+      const e2 = await etat(p);
+      await supprimer(z1.id); await C.pause(p, 200);
+      const ch = await choix(p);
+      await toucherPlan(p, A.plan(70, 4));
+      const f = await panneau(p);
+      R.ok(!!e2 && e2.etape === 'cote' && ch.cotes === null && await etat(p) === null && (!f || f.titre !== 'Cotes'),
+        'n : objet supprimé à l\'étape « cote » : le mode se ferme ; un toucher sur la façade ne l\'ouvre plus (' + JSON.stringify(e2) + ' puis ' + JSON.stringify(ch) + ')');
+    } else R.ok(false, 'n : objet supprimé, étape « cote » : pas de bouton « Déplacer par cotes »');
+
+    /* autre choix pendant le mode : le mode se ferme sans rien changer */
+    const avC = await etatDoc(p), uC = await nUndo(p);
+    if (await depuisFiche(A, 'd9', MESURER, A.plan(70, 4))){
+      const e3 = await etat(p);
+      await p.evaluate(() => window.__vcEd.selectionner('d5')); await C.pause(p, 250);
+      const ch = await choix(p), f = await panneau(p);
+      R.ok(!!e3 && e3.etape === 'saisie' && ch.cotes === null && ch.sel === 'd5' && !!f && f.titre === 'Objet' && await etatDoc(p) === avC && await nUndo(p) === uC,
+        'n : autre choix pendant le mode (la boîte d5) : le mode se ferme sans rien changer, fiche de la boîte (' + JSON.stringify(e3) + ' puis ' + JSON.stringify(ch) + ')');
+    } else R.ok(false, 'n : autre choix : pas de bouton « Mesurer depuis une façade »');
+
+    /* a : un caniveau posé par cotes (angle du côté), tourné de 15° dans sa fiche, puis mesuré et déplacé : son angle ne change pas */
+    const ca = await poserObjetParCotes(A, 'caniveau', 'ep', [69, 2.5], [['coin', 'Coin gauche'], ['d', '4'], ['e', '1,5'], ['cote', 'Devant']]);
+    const b15 = ca && await p.$(PANNEAU + 'button[data-a="orienter"][data-v="15"]');
+    if (b15){ await b15.click(); await C.pause(p, 250); }
+    const ca1 = ca && await objet(p, ca.id);
+    if (ca1 && await boutonTexte(p, MESURER)){
+      await toucherPlan(p, A.plan(70, 4)); await saisir(p, 'd', '5');
+      await bouton(p, 'cotesDeplacer');
+      const ca2 = await objet(p, ca.id), Pc = await placerPage(p, r.ref, {mode: 'long', coin: r.gauche, d: 5, e: 1.5, cote: 'devant'});
+      R.ok(!!b15 && ca1.p.a !== ca.p.a && !!ca2 && ca2.p.a === ca1.p.a && ecart(ca2, Pc) <= 1e-6 && sansXY(ca2) === sansXY(ca1),
+        'a : caniveau posé par cotes (angle ' + ca.p.a + '), tourné de 15° dans sa fiche (' + ca1.p.a + '), puis mesuré et déplacé à 5 / 1,5 / Devant : angle inchangé ('
+        + (ca2 && ca2.p.a) + '), au point de placer (' + pt(ca2) + ' pour ' + pt(Pc) + ')');
+    } else R.ok(false, 'a : fiche du caniveau sans « Mesurer depuis une façade » (' + pt(ca) + ')');
+
+    /* c : les deux boutons sur la fiche de chaque type d'objet ponctuel du croquis ; témoins sans : un tronçon, un collecteur, un texte
+       libre, un objet d'un type inconnu (gardé tel quel) */
+    await toutFermer(p); await vueDemo(A);
+    await p.evaluate(() => { const ed = window.__vcEd, S = ed.etat, d = S.doc.el.find(e => e.id === 'd9'); S.doc.el.push({id: 'inconnu1', k: 'pt', t: 'type-futur', x: d.x + 3, y: d.y + 3, p: {}, lab: null}); ed.synchroniser(); });
+    const types = await p.evaluate(() => { const vus = {}; window.__vcEd.doc().el.forEach(e => { if (e.k === 'pt' && e.t !== 'type-futur' && !vus[e.t]) vus[e.t] = e.id; }); return vus; });
+    const sans = [];
+    for (const t of Object.keys(types)){
+      await p.evaluate(id => window.__vcEd.selectionner(id), types[t]); await C.pause(p, 120);
+      const bt = await textesBoutons(p); if (!bt.includes(DEPLACER) || !bt.includes(MESURER)) sans.push(t);
+    }
+    R.ok(Object.keys(types).length >= 10 && !sans.length, 'c : les deux boutons sur la fiche de chaque type d\'objet ponctuel du croquis (' + Object.keys(types).join(', ')
+      + (sans.length ? ' ; sans : ' + sans.join(', ') : '') + ')');
+    const avec = [];
+    for (const id of ['d7', 'd3', 'd29', 'inconnu1']){
+      await p.evaluate(id => window.__vcEd.selectionner(id), id); await C.pause(p, 120);
+      const bt = await textesBoutons(p), f = await panneau(p);
+      if (!f || bt.some(x => /cotes|façade/i.test(x))) avec.push(id + (f ? '' : ' (pas de fiche)'));
+    }
+    R.ok(!avec.length, 'c : témoins : ni un tronçon, ni un collecteur, ni un texte libre, ni un objet de type inconnu n\'ont ces boutons' + (avec.length ? ' (' + avec.join(', ') + ')' : ''));
+    erreurs(A, 'n, a, c');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [prolongement, poses, valeursEtSorties, superposees, geometrie]){
+  for (const f of [prolongement, poses, valeursEtSorties, superposees, geometrie, mesureEtDeplacement, casLimites]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();

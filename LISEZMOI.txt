@@ -71,6 +71,10 @@ CROQUIS DE TERRAIN (facultatif)
   un message le dit.
   Le bouton « Cotes » pose un objet à une distance mesurée d'une façade ou
   d'une limite de parcelle, dans son prolongement ou le long d'elle.
+  Dans la fiche d'un objet, « Mesurer depuis une façade » redonne ses
+  cotes (au centimètre) et « Déplacer par cotes » le place de la même
+  façon. On peut changer les cotes, puis « Déplacer » : seule la
+  position change, les tuyaux attachés suivent, une annulation suffit.
   L'outil « Escalier » des Tracés dessine un escalier en deux touchers (le
   départ, puis la fin) ; sa fiche règle la largeur, les marches, la
   longueur, le côté et le sens de la montée.
