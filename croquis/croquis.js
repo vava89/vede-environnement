@@ -847,10 +847,10 @@ VC.geo.escalier = escalier;
    posé sur un coin ou une façade, sinon vers la fin. Rend p, en textes comme la fiche ; null si D et F sont invalides ou confondus.
    Départ posé par cotes (m108) : cotes = {O, w, facade}, facultatif. O est le coin d'origine (gardé pour mémoire, le calcul ne s'en sert
    pas) ; w, la direction de la convention 11.1 (le long : de O vers l'autre coin ; prolongement : de O vers le dehors du côté) ; facade :
-   départ posé le long d'une façade, entre ses deux coins, sans décalage. Côté : celui dont la largeur part à l'opposé du coin (nc·w > 0,
-   nc : ccw(t) pour « g », cw(t) pour « d ») ; règle ci-dessus si l'escalier est presque parallèle à w (|nc·w| < 0,1) ou si ce côté entre
-   dans le bâti. Montée : facade tient lieu d'aide du départ (« facade » ou rien), puis même règle. Sans cotes, ou si w est absent, nul ou
-   non fini : comme avant.
+   départ posé le long d'une façade ou d'un trait de complément (m115), entre ses deux coins, sans décalage. Côté : celui dont la largeur
+   part à l'opposé du coin (nc·w > 0, nc : ccw(t) pour « g », cw(t) pour « d ») ; règle ci-dessus si l'escalier est presque parallèle à w
+   (|nc·w| < 0,1) ou si ce côté entre dans le bâti. Montée : facade tient lieu d'aide du départ (« facade » ou rien), puis même règle. Sans
+   cotes, ou si w est absent, nul ou non fini : comme avant.
    Fonction pure : une ligne invalide est sautée, sans exception. */
 function escalierDefauts(D, F, lignes, aideDepart, aideFin, cotes){
   var t = unite(D, F), L, n, bati, dedans = {}, cote, w, k;
@@ -3159,9 +3159,10 @@ function editeur(racine, opts){
   function memePoignee(a, b){ return !!a && !!b && a.k === b.k && a.id === b.id && a.i === b.i; }
   function annulerPause(){ if (pauseMenu){ clearTimeout(pauseMenu.t); pauseMenu = null; } }
   /* survol de la souris au point q (null : bouton appuyé) : 0,4 s sur la même poignée ouvrent le menu ; un mouvement de plus de 3 px relance
-     l'attente, la sortie de la poignée l'arrête ; pas d'attente pendant un geste ni quand le menu est ouvert */
+     l'attente, la sortie de la poignée l'arrête ; pas d'attente pendant un geste, quand le menu est ouvert ni quand la palette d'accrochage
+     l'est (m115 : jamais deux niveaux ouverts ensemble ; l'appui suivant sur le plan ferme la palette, rien d'autre) */
   function suivrePause(q){
-    var c = q && !S.geste && !S.menu ? poigneeMenu(q.x, q.y) : null;
+    var c = q && !S.geste && !S.menu && !S.accroches ? poigneeMenu(q.x, q.y) : null;
     if (!c){ annulerPause(); return; }
     if (pauseMenu && memePoignee(pauseMenu.c, c) && Math.hypot(q.x - pauseMenu.x, q.y - pauseMenu.y) <= 3) return;
     annulerPause();
@@ -3169,7 +3170,7 @@ function editeur(racine, opts){
     d.t = setTimeout(function(){
       if (pauseMenu !== d) return; pauseMenu = null;
       /* la souris survole toujours la même poignée (la vue a pu changer entre-temps) */
-      var s = S.survol, c2 = s && !S.survolPerime && !S.geste && !S.menu ? poigneeMenu(s.x, s.y) : null;
+      var s = S.survol, c2 = s && !S.survolPerime && !S.geste && !S.menu && !S.accroches ? poigneeMenu(s.x, s.y) : null;
       if (memePoignee(c2, d.c)) ouvrirMenu(c2, s.x, s.y);
     }, 400);
     pauseMenu = d;
@@ -3181,7 +3182,11 @@ function editeur(racine, opts){
   /* menu de la poignée c, près du point (x, y) du canevas (les pixels de l'éditeur), gardé dans l'éditeur ; le point n'est pas choisi */
   function ouvrirMenu(c, x, y){
     annulerPause();
+    /* m115 : palette d'accrochage ouverte, aucun menu (un seul niveau ouvert à la fois) */
+    if (S.accroches) return;
     var e = el(c.id); if (!e || e.k !== 'ln' || e.t === 'esc' || !S.sel || S.sel.id !== e.id || S.outil.k !== 'main' || !e.v[c.i]) return;
+    /* m115 : le menu ferme la bulle « + point » ouverte au doigt (le dernier geste l'emporte : jamais les deux ensemble) */
+    fermerBullePoint();
     var h;
     if (c.k === 'sommet'){
       var motif = e.v.length <= 2 ? 'Un tracé garde au moins deux points.' : pointPorteur(S.doc, e, c.i) ? 'Un autre tracé est raccordé à ce point : « Détacher » l\'en sépare.' : '';
@@ -3203,11 +3208,12 @@ function editeur(racine, opts){
     }
     menuEl.style.left = Math.round(pl[0]) + 'px'; menuEl.style.top = Math.round(pl[1]) + 'px';
   }
-  /* ferme le menu et arrête l'attente de la pause ; ferme aussi la bulle « + point » (m110) ; vrai si le menu ou la bulle était ouvert.
-     Menu fermé : le plan est redessiné, pour que le « + » et son curseur reviennent aussitôt sous la souris immobile (m110) */
-  function fermerMenu(){
+  /* ferme le menu et arrête l'attente de la pause ; ferme aussi la bulle « + point » (m110), sauf garderBulle (m115 : appui sur la bulle
+     elle-même) ; vrai si le menu ou la bulle était ouvert. Menu fermé : le plan est redessiné, pour que le « + » et son curseur reviennent
+     aussitôt sous la souris immobile (m110) */
+  function fermerMenu(garderBulle){
     annulerPause();
-    var bulle = fermerBullePoint();
+    var bulle = !garderBulle && fermerBullePoint();
     if (!S.menu) return bulle;
     S.menu = null; menuEl.hidden = true; menuEl.innerHTML = '';
     redessiner();
@@ -3229,8 +3235,12 @@ function editeur(racine, opts){
     else if (b.dataset.m === 'detacher' && e.v[m.i].a){ S.sel.sommet = m.i; detacherSommet(e); }
     else if (b.dataset.m === 'ajouter') ajouterSommet(e, m.k === 'milieu' ? m.i : m.i < e.v.length - 1 ? m.i + 1 : m.i);
   });
-  /* un appui hors du menu et hors du plan (barres, fiche, boutons) ferme le menu ; un appui sur le plan est traité par le plan (pointerdown) */
-  document.addEventListener('pointerdown', function(ev){ if (S.menu && ev.target !== cv && !menuEl.contains(ev.target)) fermerMenu(); }, true);
+  /* un appui hors du menu et hors du plan (barres, fiche, boutons) ferme le menu ; un appui sur le plan est traité par le plan (pointerdown) ;
+     un appui sur la bulle « + point » ne ferme que le menu : la bulle reste pour son clic (m115) */
+  document.addEventListener('pointerdown', function(ev){
+    if (!S.menu || ev.target === cv || menuEl.contains(ev.target)) return;
+    fermerMenu(bulleEl.contains(ev.target));
+  }, true);
   /* « Ajouter un point » : sommet libre au milieu du segment j - 1 → j, comme au glissé de la poignée du milieu ; il est choisi. w : sa place
      en mètres du plan (m110 : le pied du « + » de la souris ou de la bulle « + point »), sinon le milieu */
   function ajouterSommet(e, j, w){
@@ -3242,7 +3252,8 @@ function editeur(racine, opts){
 
   /* --- bulle « + point » du doigt et du stylet (m110) : outil Choisir, tracé choisi touché hors de ses poignées ; la toucher ajoute un sommet
      au pied du point touché. Tout autre appui, Échap, la molette, un autre outil, un autre choix, un changement du croquis ou de la vue la
-     ferment, et 4 s après son ouverture (jamais sous le doigt : un appui sur elle suspend ce délai). */
+     ferment, l'ouverture du menu de poignée aussi (m115), et 4 s après son ouverture (jamais sous le doigt : un appui sur elle suspend ce
+     délai). */
   var bulleEl = document.createElement('button'), tBulle = null, bulleAppui = false;
   bulleEl.type = 'button'; bulleEl.className = 'vc-bulle-point'; bulleEl.hidden = true;
   bulleEl.setAttribute('aria-label', 'Ajouter un point ici');
@@ -4272,11 +4283,12 @@ function editeur(racine, opts){
     return (c.mode === 'prol') === (c.coin === 'A') ? {x: -t.x, y: -t.y} : t;
   }
   /* données d'un départ d'escalier posé par cotes (m108), pour VC.geo.escalierDefauts : coin d'origine O, direction w ; facade : départ
-     posé le long d'une façade (ligne de bâti), sans décalage (moins de 5 mm) et entre ses deux coins. Le long, une distance plus grande
-     que le côté met le point au-delà de l'autre coin, hors de la façade : il ne compte pas comme posé sur elle (5 mm de tolérance) */
+     posé le long d'une façade (ligne de bâti ou trait de complément ; m115 : comme le départ touché sur ce trait, posé sur le bâti), sans
+     décalage (moins de 5 mm) et entre ses deux coins ; une limite de parcelle n'en est pas une. Le long, une distance plus grande que le côté
+     met le point au-delà de l'autre coin, hors de la façade : il ne compte pas comme posé sur elle (5 mm de tolérance) */
   function cotesDepart(r, c){
     var w = directionCotes(r, c), O = c.coin === 'A' ? r.A : r.B, L = Math.hypot(r.B.x - r.A.x, r.B.y - r.A.y);
-    return w ? {O: {x: O.x, y: O.y}, w: w, facade: c.mode === 'long' && r.nat === 'bati' && c.e < 0.005 && c.d <= L + 0.005} : null;
+    return w ? {O: {x: O.x, y: O.y}, w: w, facade: c.mode === 'long' && (r.nat === 'bati' || r.nat === 'complement') && c.e < 0.005 && c.d <= L + 0.005} : null;
   }
   function aideCotes(){
     var C = S.cotes, r = C.ref, nb = C.cands ? C.cands.length : 0, h, id = C.pour.id, mes = id && C.pour.mesure, dep = !!C.pour.esc;
@@ -5924,8 +5936,8 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL, conclC){
       var nums = ret.filter(function(a){ return a.objId === e.id; }).map(function(a){ return a.num; }), hdObj = hors.some(function(a){ return a.objId === e.id; });
       return {cells: [libEquipement(e), NIV_LIB[e.p.niv] || '', rej + (nums.length ? ' · anomalie n° ' + nums.join(', ') : '') + (hdObj ? ' · anomalie à reprendre' : ''), methLib(e.p.meth) || 'non indiquée', e.p.obs || ''], coul: [null, null, nums.length || hdObj ? [180, 35, 24] : null]};
     }) : [{cells: ['Aucun équipement dessiné.', '', '', '', '']}], 'Équipements, rejets et méthodes de contrôle');
-  /* la conclusion que le technicien a choisie dans le constat du dossier (conclusionConstat de pdfPlan, donnée par l'hôte), sinon celle que le
-     dessin propose (décision du 7 novembre 2026) */
+  /* la conclusion que le technicien a choisie dans le constat du dossier, ou celle qu'atteste le constat signé (conclusionConstat de pdfPlan,
+     donnée par l'hôte), sinon celle que le dessin propose (décision du 7 novembre 2026) */
   var c = conclusion(liste, an), cc = /^(conformes|non_conformes|reserves)$/.test(conclC || '') ? conclC : '';
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10.5); pdf.setTextColor(20, 20, 20);
   if (y > 190){ pdf.addPage('a4', 'landscape'); y = 14; }

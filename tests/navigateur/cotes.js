@@ -84,6 +84,9 @@
 //     montée vers la fin ; témoin : à 9 m, sur le coin droit, aide « facade » et montée vers le départ.
 // Sur b08e6cd, e1 échoue (pas de bouton « Cotes » avec l'outil Escalier) ; les suivants ne sont pas lancés. Sans b.cotes dans le contour
 // fantôme, e21 échoue ; sans la garde de 0,5 s de « Cotes », e22 ; sans la borne de la distance (départ au-delà du coin), e23.
+// e24 (m115) : trait « Complément du fond » de (66 ; 22) à (74 ; 22) : départ posé par cotes le long du trait (décalage 0, à 1 m du coin),
+//     fin à 2,5 m : aide « facade », montée vers le départ, comme le départ touché au même point (règle de m112) ; témoin : la même pose le
+//     long de la limite nord de la parcelle, montée vers la fin. Échoue sur 52f0b00 (par cotes : aucune aide, montée vers la fin).
 // usage : node tests/navigateur/cotes.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -1171,6 +1174,32 @@ async function departEscalier(){
     R.ok(JSON.stringify(m23) === JSON.stringify([[9, true, 'facade', 'depart'], [10, true, null, 'fin']]), 'e23 : le long, coin gauche, 10 m pour un côté de 9 m : départ au point '
       + 'calculé, au-delà du coin droit, sans aide, montée vers la fin ; témoin : à 9 m (sur le coin droit), aide « facade » et montée vers le départ (obtenu '
       + JSON.stringify(m23) + ')');
+
+    /* e24 (m115) : trait « Complément du fond » dessiné au croquis (mur d'une annexe absente du cadastre), de (66 ; 22) à (74 ; 22), dans
+       le jardin : départ posé par cotes le long du trait, décalage 0, à 1 m de son coin, fin à 2,5 m du trait : il compte comme posé sur le
+       bâti, comme le départ touché au même point (aide « facade », montée vers le départ ; règle de m112) ; témoin : la même pose le long de
+       la limite nord de la parcelle (aide nulle, montée vers la fin) */
+    const K0 = A.plan(66, 22), K1 = A.plan(74, 22), m24 = [];
+    for (const [cas, ref, ou, fin, vue] of [['toucher', null, [67, 22], [67, 19.5], [70, 20]], ['cotes', [70, 22], [67, 21.5], [67, 19.5], [70, 20]],
+      ['limite', [70, 34], [67, 33.5], [67, 31.5], [70, 31]]]){
+      await toutFermer(p);
+      await C.injecter(p, {el: [C.L('K', 'lim', [[K0.x, K0.y], [K1.x, K1.y]], {})]});
+      const c = A.plan(vue[0], vue[1]); await C.regler(p, c.x, c.y, 40);
+      await C.outil(p, ESC); await C.pause(p, 150);
+      let nat = null;
+      if (cas === 'toucher') await toucherPlan(p, A.plan(ou[0], ou[1]), 600);
+      else if (await entrer(p)){
+        await toucherPlan(p, A.plan(ref[0], ref[1])); await toucherPlan(p, A.plan(ou[0], ou[1]));
+        const e = await etat(p); nat = e && e.nat;
+        await puce(p, 'mode', 'Le long'); await saisir(p, 'e', '0'); await bouton(p, 'cotesPoser');
+      }
+      const b = await brouillon(p), q = b && b.pts.length === 1 ? b.pts[0] : null, E = await toucherFin(A, fin);
+      m24.push([cas, nat, q ? q.aide : 'pas de départ', E.length === 1 ? E[0].p.monte : E.length + ' escalier']);
+      if (E.length) await annuler(p);
+    }
+    const att24 = [['toucher', null, 'facade', 'depart'], ['cotes', 'complement', 'facade', 'depart'], ['limite', 'limite', null, 'fin']];
+    R.ok(JSON.stringify(m24) === JSON.stringify(att24), 'e24 : trait « Complément du fond », départ posé par cotes le long du trait, décalage 0 : aide « facade », montée vers le '
+      + 'départ, comme le départ touché au même point ; témoin : la même pose le long d\'une limite de parcelle, montée vers la fin (obtenu ' + JSON.stringify(m24) + ')');
     erreurs(A, 'e (m108)');
   } finally { await A.fermer(); }
 }

@@ -42,6 +42,10 @@
 //     Tronçon, sur un escalier choisi, sur des tracés superposés.
 // u échoue sur 6067bd5, sauf le survol d'une poignée (aucun « + »), les témoins et l'absence d'erreur dans la console. Le contrôle de la
 // palette ouverte échoue sur 9a7c735 (le « + » restait au survol) ; celui du clic qui la ferme passe sur les deux versions.
+// k (m115, J1) : palette d'accrochage ouverte, une pause de 0,7 s de la souris sur un sommet du tracé choisi n'ouvre pas le menu de
+//     poignée (jamais deux niveaux ouverts ensemble) ; un clic gauche sur le plan ferme la palette et rien d'autre (croquis inchangé) ;
+//     témoin : palette fermée, la même pause ouvre le menu. Les deux premiers contrôles échouent sur 52f0b00 (menu ouvert par-dessus la
+//     palette ; le premier clic ne fermait que le menu).
 // usage : node tests/navigateur/souris.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -807,8 +811,38 @@ async function plus(){
   } finally { await A.fermer(); }
 }
 
+/* k (m115, J1) : palette d'accrochage ouverte, une pause de la souris sur une poignée du tracé choisi n'ouvre pas le menu de poignée (jamais
+   deux niveaux ouverts ensemble ; règle de m111 : palette ouverte, un appui sur le plan la ferme sans rien faire d'autre) ; témoin : palette
+   fermée, la même pause ouvre le menu */
+async function menuPalette(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy;
+    await dessinChoisi(p, traceA(cx, cy), 'A', cx + 1.5, cy);
+    const j0 = await jsonEl(p), q1 = await sommetCv(p, 'A', 1), loin = decale(q1, 0, -120);
+    const pal = () => p.evaluate(() => { const a = document.querySelector('.vc .vc-accroches'); return !!window.__vcEd.etat.accroches && !!a && !a.hidden; });
+    const ouvert = () => p.evaluate(() => !!window.__vcEd.etat.menu);
+    await p.evaluate(() => document.querySelector('.vc .vc-nav .vc-accr').click()); await C.pause(p, 200);
+    await C.survolerCv(p, loin); await C.pause(p, 100); await C.survolerCv(p, q1); await C.pause(p, 700);
+    const p1 = await pal(), s1 = await ouvert(), m1 = await menu(p);
+    R.ok(p1 && !s1 && !m1, 'k : palette d\'accrochage ouverte, pause de 0,7 s de la souris sur un sommet du tracé choisi : aucun menu de poignée ('
+      + (p1 ? 'palette ouverte' : 'palette fermée') + ', ' + (s1 || m1 ? 'menu ouvert : ' + libs(m1) : 'aucun menu') + ')');
+    await C.cliquerCv(p, loin, 'left'); await C.pause(p, 250);
+    const p2 = await pal(), m2 = await menu(p), j2 = await jsonEl(p);
+    R.ok(!p2 && !m2 && j2 === j0, 'k : un clic gauche sur le plan ferme la palette et rien d\'autre (' + (p2 ? 'palette ouverte' : 'palette fermée') + ', '
+      + (m2 ? 'menu ouvert' : 'aucun menu') + ', ' + (j2 === j0 ? 'croquis inchangé' : 'croquis changé') + ')');
+    /* témoin : palette fermée, la même pause ouvre le menu */
+    await p.evaluate(() => window.__vcEd.selectionner('A')); await C.pause(p, 250);
+    await C.survolerCv(p, loin); await C.pause(p, 100); await C.survolerCv(p, q1); await C.pause(p, 700);
+    const m3 = await menu(p);
+    R.ok(!!m3 && libs(m3) === 'Retirer le point, Ajouter un point', 'k : témoin, palette fermée : la même pause ouvre le menu (' + libs(m3) + ')');
+    await echap(p);
+    erreurs(A, 'k');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [clics, glisses, survol, doigt, menuPause, menuClicDroit, menuActions, menuTemoins, plus]){
+  for (const f of [clics, glisses, survol, doigt, menuPause, menuClicDroit, menuActions, menuTemoins, plus, menuPalette]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception du test : ' + (e && e.stack || e)); }
   }
   R.fin();

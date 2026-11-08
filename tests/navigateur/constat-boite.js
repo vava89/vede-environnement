@@ -25,6 +25,13 @@
 // gardées à la restauration), sauf les témoins : 1 avant la reprise et sans écart après, 3 suivi sans provenance de la boîte, 9 sauvegarde
 // restaurée, lignes, plan et puisard gardés, provenance sans la boîte, 10 aucun écart pour des valeurs équivalentes (aucun écart de la boîte
 // avant m105), 11 aucun constat enregistré, aucune erreur dans la console.
+// 10, suite (m115, L4) : écritures courantes : « 1m20 », « 1 m 20 », « 0m80 », « 1m5 » (1,50 m), « 0m00 » (en limite), le côté entre
+//     parenthèses (« 0,80 m (intérieur) ») ou écrit avant la distance (« intérieur, 0,80 m », « int. 0,80 m ») valent la forme du croquis ;
+//     échoue sur 52f0b00 ; témoins : « 1m30 » face à « 1,20 m » et « extérieur, 0,80 m » face à « 0,80 m intérieur » restent des écarts ;
+//     « 80 cm intérieur », « 0,80m », « 1,20 mètre » restent pareils.
+// 12 (m115, L3) : PDF du constat, page 2, Boîte de branchement : « 0,80 m intérieur » et « 12,50 m extérieur », trop larges en 9,5 pt
+//     pour la case (56 pt), sur une ligne, à la plus grande taille de 9,5 à 7 pt qui tient, sur la ligne de leur libellé (y 52,5) ; échoue
+//     sur 52f0b00 (y 48,9, 7 pt) ; témoins : « en limite » en 9,5 pt ; un texte plus large que 56 pt à 7 pt, sur deux lignes de 7 pt.
 // usage : node tests/navigateur/constat-boite.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -169,6 +176,19 @@ async function parcours(){
       return P.filter(([a, b, eq]) => (f(a) === f(b)) !== eq).map(([a, b, eq]) => '« ' + a + ' » ' + (eq ? 'différent de' : 'égal à') + ' « ' + b + ' »');
     }, PAIRES);
     R.ok(!faux.length, '10 forme comparable de la boîte, ' + PAIRES.length + ' paires : ' + (faux.join(', ') || 'toutes justes'));
+    /* m115 (L4) : écritures courantes : les mètres suivis des centimètres (« 1m20 », « 1 m 20 », « 0m80 » ; « 1m5 » : un seul chiffre
+       compte des dizaines de centimètres), le côté entre parenthèses, le côté écrit avant la distance ; témoins : une autre valeur reste un
+       écart, les écritures déjà reconnues le restent */
+    const PAIRES_L4 = [['1m20', '1,20 m', true], ['1 m 20', '1,20 m', true], ['0m80', '0,80 m', true], ['1m5', '1,50 m', true], ['1m20 ext', '1,20 m extérieur', true],
+      ['0,80 m (intérieur)', '0,80 m intérieur', true], ['intérieur, 0,80 m', '0,80 m intérieur', true], ['int. 0,80 m', '0,80 m intérieur', true], ['0m00', 'en limite', true],
+      ['1m30', '1,20 m', false], ['extérieur, 0,80 m', '0,80 m intérieur', false], ['0,80 m intérieur', '0,80 m extérieur', false],
+      ['80 cm intérieur', '0,80 m intérieur', true], ['0,80m', '0,80 m', true], ['1,20 mètre', '1,20 m', true]];
+    const faux4 = await p.evaluate(P => {
+      const f = window.__VT.vcBoiteCle; if (typeof f !== 'function') return ['vcBoiteCle absente'];
+      return P.filter(([a, b, eq]) => (f(a) === f(b)) !== eq).map(([a, b, eq]) => '« ' + a + ' » ' + (eq ? 'différent de' : 'égal à') + ' « ' + b + ' »');
+    }, PAIRES_L4);
+    R.ok(!faux4.length, '10 (m115) écritures courantes de la boîte (mètres et centimètres, côté entre parenthèses ou avant la distance), ' + PAIRES_L4.length + ' paires : '
+      + (faux4.join(', ') || 'toutes justes'));
     for (const [k, t] of [['distEU', '1,5 m int'], ['profEU', '0,7'], ['distEP', 'en limite de propriété'], ['profEP', '110 cm']]){ await p.fill('[data-cf="boite.' + k + '"]', t); await C.pause(p, 200); }
     await p.evaluate(async () => { await window.__VT.flushSaves(); });
     e = await constat(p);
@@ -271,9 +291,45 @@ async function enregistrement(){
   finally { R.ok(!A.erreurs.length, 'enregistrement : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
+/* 12 (m115, L3) : PDF du constat, page 2, section Boîte de branchement (case de 56 pt) : une valeur trop large en 9,5 pt (« 0,80 m
+   intérieur », « 12,50 m extérieur ») s'imprime sur une ligne, à la plus grande taille de 9,5 à 7 pt qui tient, sur la ligne de base de son
+   libellé (52,5 pour la distance) ; témoins : « en limite » en 9,5 pt ; un texte plus large que 56 pt à 7 pt, sur deux lignes de 7 pt (48,9
+   et 56,3). Texte, position, taille et page relevés aux appels de la bibliothèque PDF */
+async function pdfBoite(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p);
+    const LONG = 'à 1,20 m, sous la haie';
+    const imprime = B => p.evaluate(async B => {
+      const T = window.__VT, v = T.S.visites[0], J0 = window.jspdf.jsPDF, rec = [];
+      v.statut = 'visitee'; v.constat = T.constatEval(v, []).c; v.constat.boite = Object.assign({}, B);
+      const W = function(){ const d = new J0(...arguments), ot = d.text;
+        d.text = function(t, x, y){ let pg = 0; try { pg = d.internal.getCurrentPageInfo().pageNumber; } catch (e){}
+          rec.push({t: [].concat(t).join(' '), x, y, sz: d.getFontSize(), pg}); return ot.apply(d, arguments); };
+        return d; };
+      W.API = J0.API; window.jspdf.jsPDF = W;
+      try { await T.constatPdfBlob(v); } finally { window.jspdf.jsPDF = J0; }
+      return rec.filter(r => r.pg === 2 && r.y > 40 && r.y < 95 && r.x > 330 && r.x < 450);
+    }, B);
+    const de = (r, t) => r.filter(x => x.t === t), ou = a => a ? 'y ' + a.y.toFixed(1) + ', ' + a.sz + ' pt' : 'non imprimée';
+    const r1 = await imprime({distEU: '0,80 m intérieur', distEP: '12,50 m extérieur', profEU: '0,80 m', profEP: '1,10 m'});
+    for (const [t, cx] of [['0,80 m intérieur', 356.8], ['12,50 m extérieur', 416.5]]){
+      const L = de(r1, t), a = L[0];
+      R.ok(L.length === 1 && Math.abs(a.y - 52.5) < 0.01 && Math.abs(a.x - cx) < 0.01 && a.sz >= 7 && a.sz <= 9.5, '12 PDF du constat, distance à la limite « ' + t
+        + ' » : une ligne, sur celle de son libellé (y 52,5), de 7 à 9,5 pt (' + L.length + ' ligne(s), ' + ou(a) + ')');
+    }
+    const r2 = await imprime({distEU: 'en limite', distEP: LONG}), a2 = de(r2, 'en limite')[0], L2 = r2.filter(x => Math.abs(x.x - 416.5) < 0.01);
+    R.ok(!!a2 && Math.abs(a2.y - 52.5) < 0.01 && a2.sz === 9.5, '12 témoin, « en limite » : 9,5 pt sur la ligne de son libellé (' + ou(a2) + ')');
+    R.ok(L2.length === 2 && L2.every(x => x.sz === 7) && Math.abs(L2[0].y - 48.9) < 0.01 && Math.abs(L2[1].y - 56.3) < 0.01 && L2.map(x => x.t).join(' ') === LONG,
+      '12 témoin, « ' + LONG + ' » (plus de 56 pt à 7 pt) : deux lignes de 7 pt, y 48,9 et 56,3 (' + (L2.map(x => JSON.stringify(x.t) + ' ' + ou(x)).join(', ') || 'non imprimé') + ')');
+  } catch (err){ R.ok(false, 'exception du test : ' + (err && err.stack || err)); }
+  finally { R.ok(!A.erreurs.length, 'PDF de la boîte : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
 (async () => {
   await parcours();
   await restauration();
   await enregistrement();
+  await pdfBoite();
   R.fin();
 })();

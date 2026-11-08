@@ -13,6 +13,10 @@
 //     inchangé (décision D8 : bulle au doigt et au stylet seulement) ; aucune erreur dans la console.
 // b et f échouent sur 6067bd5, sauf « le toucher ne change pas le croquis » et l'absence d'erreur dans la console ;
 // t passe sur les deux versions.
+// j (m115, J2) : écran tactile avec une souris : bulle « + point » ouverte au doigt, puis pause de la souris sur un sommet du même tracé :
+//     le menu de poignée s'ouvre et ferme la bulle (jamais les deux ensemble) ; menu ouvert (état posé à la main) et bulle montrée : toucher
+//     la bulle ajoute un sommet et ferme le menu ; témoin : bulle seule, la toucher ajoute un sommet. Les deux contrôles de la bulle avec le
+//     menu échouent sur 52f0b00 (menu et bulle montrés ensemble ; le toucher de la bulle n'ajoutait rien) ; le témoin passe.
 // usage : node tests/navigateur/bulle-point.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -283,8 +287,43 @@ async function temoins(){
   } finally { await A.fermer(); }
 }
 
+/* j (m115, J2) : écran tactile avec une souris : bulle « + point » ouverte au doigt, puis pause de la souris sur un sommet du même tracé :
+   le menu de poignée s'ouvre et ferme la bulle (le dernier geste l'emporte : jamais les deux ensemble) ; témoin : bulle seule, la toucher
+   ajoute un sommet ; menu ouvert (état posé à la main) et bulle montrée : la toucher ajoute toujours un sommet, et ferme le menu */
+async function bulleMenu(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy, V = sommetsA(cx, cy);
+    await dessinChoisi(p, [C.L('A', 'tr', V, {})], 'A', cx + 1.5, cy);
+    const j0 = await jsonEl(p), w1 = surSeg(V, 1, .25), q1 = await C.ecranCv(p, w1.x, w1.y), s2 = await C.ecranCv(p, V[2][0], V[2][1]);
+    const menuVu = () => p.evaluate(() => { const m = document.querySelector('.vc .vc-menu'); return !!window.__vcEd.etat.menu && !!m && !m.hidden; });
+    /* bulle au doigt, puis pause de 0,7 s de la souris sur le dernier sommet */
+    await C.toucherCv(p, q1); const b0 = await bulle(p);
+    await C.survolerCv(p, decale(s2, 0, -60)); await C.survolerCv(p, s2); await C.pause(p, 700);
+    const b1 = await bulle(p), m1 = await menuVu();
+    R.ok(!!b0 && m1 && !b1, 'j : bulle « + point » ouverte au doigt, puis pause de la souris sur un sommet du tronçon : le menu de poignée s\'ouvre, la bulle se ferme ('
+      + (b0 ? 'bulle montrée au toucher' : 'aucune bulle au toucher') + ', ' + (m1 ? 'menu ouvert' : 'aucun menu') + ', ' + (b1 ? 'bulle encore montrée' : 'bulle fermée') + ')');
+    await p.keyboard.press('Escape'); await C.pause(p, 300); await choisir(p, 'A');
+    /* témoin : bulle seule, la toucher ajoute un sommet */
+    await C.sortirDuPlan(p); await C.toucherCv(p, q1);
+    const ok2 = await toucherBulle(p), e2 = await elDoc(p, 'A');
+    R.ok(ok2 && e2.v.length === 4, 'j : témoin, bulle seule : la toucher ajoute un sommet (' + (ok2 ? e2.v.length + ' sommets' : 'aucune bulle') + ')');
+    await annuler(p); await choisir(p, 'A');
+    /* menu ouvert (état posé à la main, comme s'il l'était resté) et bulle montrée : la toucher ajoute un sommet, le menu se ferme */
+    await C.toucherCv(p, q1); const b3 = await bulle(p);
+    await p.evaluate(() => { const S = window.__vcEd.etat, m = document.querySelector('.vc .vc-menu'); S.menu = {k: 'sommet', id: 'A', i: 2}; m.hidden = false; });
+    const m3 = await menuVu(), ok3 = await toucherBulle(p), e3 = await elDoc(p, 'A'), m3b = await menuVu();
+    R.ok(!!b3 && m3 && ok3 && e3.v.length === 4 && !m3b, 'j : menu ouvert et bulle montrée : toucher la bulle ajoute un sommet et ferme le menu ('
+      + (b3 && m3 ? '' : 'état non posé, ') + (ok3 ? e3.v.length + ' sommets' : 'aucune bulle') + (m3b ? ', menu resté ouvert' : '') + ')');
+    if (e3.v.length === 4) await annuler(p);
+    const jF = await jsonEl(p);
+    R.ok(jF === j0, 'j : une annulation rend le croquis de départ (' + (jF === j0 ? 'rendu' : 'différent') + ')');
+    erreurs(A, 'j');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [ouverture, fermeture, temoins]){
+  for (const f of [ouverture, fermeture, temoins, bulleMenu]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception du test : ' + (e && e.stack || e)); }
   }
   R.fin();

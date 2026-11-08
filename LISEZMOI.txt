@@ -133,9 +133,13 @@ CROQUIS DE TERRAIN (facultatif)
   qu'on n'y touche pas (à la fermeture du croquis et à l'ouverture du
   constat). Une anomalie posée sur un objet du croquis rend non conforme
   la ligne de cet objet (un lavabo : « Évier », comme une anomalie saisie
-  à la main qui nomme un lavabo). Les écarts entre le croquis et le
-  constat sont rappelés avant la signature. Un constat signé n'est jamais
-  modifié, et le croquis n'y rappelle plus d'écart.
+  à la main qui nomme un lavabo). La pièce nommée avec le lavabo, dans le
+  texte ou la localisation (« Lavabo de la salle de bain », « Cuisine »),
+  le situe seulement : la ligne reste « Évier ». Une douche, une baignoire
+  ou un lave-vaisselle nommés avec lui ont aussi leur ligne. Les écarts
+  entre le croquis et le constat sont rappelés avant la signature. Un
+  constat signé n'est jamais modifié, et le croquis n'y rappelle plus
+  d'écart.
 - Aides au dessin (Réglages, ou bouton aimant et palette d'accrochage
   dans le croquis) : traits parallèles au côté de bâti le plus proche,
   angles droits, accroche aux coins et façades, fin automatique d'un
@@ -162,7 +166,10 @@ CROQUIS DE TERRAIN (facultatif)
   DXF pour la DAO (dans le croquis, « Sorties »), « Plan PDF » sur la page
   du dossier. L'export de l'étude joint le plan PDF dans le dossier. Le
   plan de l'état des lieux imprime la conclusion choisie dans le constat
-  (« Conclusion du constat »), sinon celle que le dessin propose.
+  (« Conclusion du constat »). Pour un constat signé, c'est celle qu'il
+  atteste, choisie ou proposée au moment de la signature, même si le
+  dessin change ensuite. Sinon, le plan imprime celle que le dessin
+  propose.
 
 SAUVEGARDE
 - Effacer les données du navigateur ou désinstaller l'application efface

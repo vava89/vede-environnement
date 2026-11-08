@@ -1974,7 +1974,11 @@ function rowSides(obs, loc){
 var ROW_KW = [['gout_av', function(o, s){ return !!s.avant; }], ['gout_ar', function(o, s){ return !!s.arriere; }],
   ['grilles', /\bgrilles?\b|\bcaniveau/], ['siphon', /\bsiphons? (de |du )?garage\b/], ['siphon_sol', /\bsiphons? de sol\b/], ['wc', /\bwc\b|\btoilettes?\b/], ['lavelinge', /\blave linge\b|\bmachine a laver\b/],
   /* un lavabo se confond avec l'évier, comme sur le croquis (décision du 7 novembre 2026 ; avant, il rangeait l'anomalie en salle de bain) */
-  ['evier', /\beviers?\b|\blavabos?\b/], ['sdb', /\bdouches?\b|\bbaignoires?\b|\bsalle de bain/], ['cuisine', /\bcuisine\b|\blave vaisselle\b/]];
+  ['evier', /\beviers?\b|\blavabos?\b/],
+  /* m115 : la pièce nommée avec un lavabo le situe, elle ne lie pas sa ligne (« Lavabo de la salle de bain », localisation « Cuisine » :
+     ligne « Évier » seule) ; une douche, une baignoire ou un lave-vaisselle nommés avec lui lient toujours la leur ; sans lavabo, rien ne change */
+  ['sdb', function(o){ return /\bdouches?\b|\bbaignoires?\b/.test(o) || (/\bsalle de bain/.test(o) && !/\blavabos?\b/.test(o)); }],
+  ['cuisine', function(o){ return /\blave vaisselle\b/.test(o) || (/\bcuisine\b/.test(o) && !/\blavabos?\b/.test(o)); }]];
 function rowFits(r, a){ return !!r && r.groupe === a.reseau; }
 /* Une ligne « Autres » correspond si tous les mots principaux de son libellé figurent dans le texte (mots entre parenthèses facultatifs) ; « Regard EP » exige « regard ep » */
 function autresMatch(r, o){
@@ -3027,7 +3031,10 @@ function drawConstatP2(doc, v, E){
       var val = E.nonEffectue ? '' : String(B[k[0] + n] || '').trim(), cx = j ? 416.5 : 356.8; if (!val) return;
       doc.setFont(doc.__font, 'normal'); doc.setFontSize(9.5);
       if (doc.getTextWidth(pdfText(val)) <= 56){ cTxt(doc, val, cx, k[2], {sz: 9.5, col: P.val, al: 'center'}); return; }
-      doc.setFontSize(7); var ls = doc.splitTextToSize(pdfText(val), 56);
+      doc.setFontSize(7);
+      /* m115 : une ligne si elle tient à 7 pt, à la plus grande taille de 9,5 à 7 pt qui tient, sur la ligne du libellé ; sinon deux lignes de 7 pt */
+      if (doc.getTextWidth(pdfText(val)) <= 56){ var f1 = cFit(doc, val, 56, 9.5, {}, 7); cTxt(doc, f1.s, cx, k[2], {sz: f1.sz, col: P.val, al: 'center'}); return; }
+      var ls = doc.splitTextToSize(pdfText(val), 56);
       if (ls.length <= 2){ ls.forEach(function(t, q){ cTxt(doc, t, cx, k[2] - 3.6 + q * 7.4, {sz: 7, col: P.val, al: 'center'}); }); return; }
       var f = cFit(doc, val, 56, 7, {}, 5.5); cTxt(doc, f.s, cx, k[2], {sz: f.sz, col: P.val, al: 'center'});
     });
@@ -3475,10 +3482,14 @@ async function vcPreparer(v){
 }
 /* Plan de l'état des lieux en PDF, depuis la page du dossier */
 /* Conclusion que le technicien a choisie dans le constat (vide s'il suit la conclusion proposée ; visite non effectuée : aucune) : le plan PDF
-   l'imprime (« Conclusion du constat ») à la place de celle que le dessin propose (décision du 7 novembre 2026). Constat signé : celle qu'il atteste. */
+   l'imprime (« Conclusion du constat ») à la place de celle que le dessin propose (décision du 7 novembre 2026). Constat signé : celle qu'il atteste,
+   choisie ou proposée au moment de la signature (m115 : même si le technicien n'a pas touché la conclusion, le dessin changé ensuite ne la remplace
+   pas) ; une conclusion figée qui n'en est pas une est ignorée, comme avant. */
 function vcConclConstat(v){
-  var c = v && v.constat; if (!c || !c.conclusion || constatNonEffectue(constatFige(v))) return '';
-  return String((c.signeLe && c.fige && c.fige.conclusion) || c.conclusion);
+  var c = v && v.constat; if (!c || constatNonEffectue(constatFige(v))) return '';
+  var f = c.signeLe && c.fige ? c.fige.conclusion : '';
+  if (/^(conformes|non_conformes|reserves)$/.test(f || '')) return f;
+  return c.conclusion ? String(f || c.conclusion) : '';
 }
 async function vcPdf(v){
   if (!vcModule()) return;
@@ -3671,14 +3682,20 @@ function constatDepuisCroquis(v, res, suivi){
 /* boîte de branchement : forme comparable d'une distance à la limite ou d'une profondeur, pour les écarts seulement (le texte saisi ne change
    pas) : minuscules, sans accents, espaces réduits ; nombre à deux décimales (virgule ou point, « m » ou « cm » facultatif) ; côté « int » ou
    « intérieur », « ext » ou « extérieur » ; « en limite », « en limite de propriété » et une distance nulle donnent « en limite », comme
-   VCroquis.boitesConstat. Un texte non reconnu est comparé tel quel. */
+   VCroquis.boitesConstat. Un texte non reconnu est comparé tel quel. m115 : écritures courantes reconnues aussi : le côté entre parenthèses
+   (« 0,80 m (intérieur) »), le côté écrit avant la distance (« intérieur, 0,80 m », « int. 0,80 m »), les mètres suivis des centimètres
+   (« 1m20 », « 1 m 20 », « 0m80 » ; « 1m5 » : un seul chiffre après le « m » compte des dizaines de centimètres, 1,50 m). */
 function vcBoiteCle(t){
-  var s = norm(t).replace(/’/g, '\'').replace(/\s+/g, ' ').trim(), m, d;
+  var s = norm(t).replace(/’/g, '\'').replace(/\s+/g, ' ').trim(), m, d, u;
   var cote = function(x){ return x.charAt(0) === 'i' ? 'interieur' : 'exterieur'; };
-  if (/^en limite( de (la )?(propriete|parcelle))?(,? (cote )?(int|interieur|ext|exterieur)\.?)?$/.test(s)) return 'en limite';
-  m = /^(?:(?:cote|a l') ?)?(int|interieur|ext|exterieur)\.?$/.exec(s);
+  u = s.replace(/\(((?:(?:cote|a l') ?)?(?:int|interieur|ext|exterieur)\.?)\)/g, ' $1 ').replace(/\s+/g, ' ').trim();
+  m = /^((?:(?:cote|a l') ?)?(?:int|interieur|ext|exterieur)\.?),? ((?:a )?\d.*)$/.exec(u);
+  if (m) u = m[2] + ' ' + m[1];
+  u = u.replace(/^(a )?(\d+) ?m ?(\d{1,2})\b/, function(x, a0, a, b){ return (a0 || '') + a + ',' + (b.length === 1 ? b + '0' : b) + ' m'; });
+  if (/^en limite( de (la )?(propriete|parcelle))?(,? (cote )?(int|interieur|ext|exterieur)\.?)?$/.test(u)) return 'en limite';
+  m = /^(?:(?:cote|a l') ?)?(int|interieur|ext|exterieur)\.?$/.exec(u);
   if (m) return cote(m[1]);
-  m = /^(?:a )?(-?\d+(?:[.,]\d+)?) ?(cm|m|metres?)?(?: de la limite)?(?:,? (?:(?:cote|a l') ?)?(int|interieur|ext|exterieur)\.?)?$/.exec(s);
+  m = /^(?:a )?(-?\d+(?:[.,]\d+)?) ?(cm|m|metres?)?(?: de la limite)?(?:,? (?:(?:cote|a l') ?)?(int|interieur|ext|exterieur)\.?)?$/.exec(u);
   if (!m) return s;
   d = (parseFloat(m[1].replace(',', '.')) / (m[2] === 'cm' ? 100 : 1)).toFixed(2).replace('.', ',');
   if (/^-?0,00$/.test(d)) return 'en limite';
