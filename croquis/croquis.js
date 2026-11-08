@@ -2615,7 +2615,44 @@ function editeur(racine, opts){
     /* menu de poignée (m109) : placé pour l'ancienne taille, il pourrait sortir de l'éditeur sans se voir et prendre le clic suivant ; fermé */
     if (w !== S.vue.w || h !== S.vue.h) fermerMenu();
     if (cv.width !== Math.round(w * d) || cv.height !== Math.round(h * d)){ cv.width = Math.round(w * d); cv.height = Math.round(h * d); cv.style.width = w + 'px'; cv.style.height = h + 'px'; }
-    S.dpr = d; S.vue.w = w; S.vue.h = h; redessiner();
+    S.dpr = d; S.vue.w = w; S.vue.h = h; redessiner(); placerBarres();
+  }
+  /* barres de navigation et d'aide, palette d'accrochage (m114) : placées d'après la place réelle de l'éditeur, au redimensionnement, à
+     l'ouverture et à la fermeture du panneau, à chaque changement de la barre d'aide et à l'ouverture de la palette. Le CSS suffit quand la
+     barre de navigation tient sur une colonne sous la barre du haut (6 px plus bas) : rien n'est changé. Sinon (portrait ou écran étroit,
+     panneau ouvert, moins de 1008 px de haut), elle passe sur plusieurs colonnes de même hauteur, lues de haut en bas, la première à gauche
+     (4 + 4 en général) ; l'ordre des boutons ne change pas, l'aimant reste en bas à droite, le bouton de la palette juste au-dessus ; la
+     barre d'aide et la palette se décalent de la largeur ajoutée. La palette ouverte reste à gauche de la barre de navigation, au-dessus
+     de la barre d'aide (quel que soit son nombre de lignes), à droite des outils et sous la barre du haut (8 px plus bas) ; elle défile
+     si la place manque */
+  function placerBarres(){
+    var nav = R.querySelector('.vc-nav'), r0 = R.getBoundingClientRect(), dx = 0, st = acc.scrollTop;
+    nav.classList.remove('vc-colonnes'); nav.style.width = nav.style.height = '';
+    aide.style.right = ''; acc.style.right = acc.style.bottom = acc.style.width = acc.style.maxHeight = '';
+    if (!r0.width || !r0.height) return;
+    var haut = R.querySelector('.vc-barre').getBoundingClientRect().bottom, rn = nav.getBoundingClientRect();
+    var bs = [].filter.call(nav.children, function(b){ return b.offsetWidth > 0; });
+    if (bs.length > 1 && rn.top < haut + 6){
+      /* pas d'un bouton au suivant (44 + 6 px) ; rangs qui tiennent entre la barre du haut et le bas de la barre, puis colonnes égales */
+      var b0 = bs[0].getBoundingClientRect(), bw = Math.round(b0.width), pas = Math.round(bs[1].getBoundingClientRect().top - b0.top);
+      var ecart = pas - Math.round(b0.height);
+      var rangs = Math.max(1, Math.floor((rn.bottom - haut - 6 + ecart) / pas)), cols = Math.ceil(bs.length / rangs);
+      rangs = Math.ceil(bs.length / cols); dx = (cols - 1) * (bw + ecart);
+      nav.classList.add('vc-colonnes'); nav.style.height = (rangs * pas - ecart) + 'px'; nav.style.width = (cols * (bw + ecart) - ecart) + 'px';
+      if (!aide.hidden) aide.style.right = (r0.right - aide.getBoundingClientRect().right + dx) + 'px';
+    }
+    if (!S.accroches || acc.hidden) return;
+    var ra = acc.getBoundingClientRect(), ro = R.querySelector('.vc-outils').getBoundingClientRect(), droite = r0.right - ra.right + dx;
+    /* outils en colonne à gauche (paysage) : la palette reste à leur droite */
+    var gauche = (ro.height > ro.width ? ro.right - r0.left : 0) + 8, w = Math.min(ra.width, r0.width - droite - gauche);
+    if (dx) acc.style.right = droite + 'px';
+    if (w < ra.width - .5) acc.style.width = Math.max(0, w) + 'px';
+    ra = acc.getBoundingClientRect();
+    var bas = r0.bottom - ra.bottom, rh = aide.hidden ? null : aide.getBoundingClientRect();
+    if (rh && rh.left < ra.right && rh.right > ra.left && ra.bottom > rh.top - 6){ bas = r0.bottom - rh.top + 6; acc.style.bottom = bas + 'px'; }
+    /* vider les styles de la palette puis la mesurer ramène sa position de défilement dans la boîte du CSS : on la remet (sinon chaque
+       toucher d'une puce, qui passe par majAide, la ferait sauter) */
+    acc.style.maxHeight = Math.max(0, r0.bottom - bas - haut - 8) + 'px'; acc.scrollTop = st;
   }
   function redessiner(){ if (S.dessinDemande) return; S.dessinDemande = true; (global.requestAnimationFrame || setTimeout)(function(){ S.dessinDemande = false; dessiner(); }); }
   function dessiner(){
@@ -3204,9 +3241,10 @@ function editeur(racine, opts){
   }
   /* « + » de la souris (m110) sur le tracé choisi e (points P en pixels) : pied du segment le plus proche du point (x, y), à 10 px au plus.
      Seulement là où un clic choisirait ce tracé : ni sur un objet, une étiquette ou une bulle, ni sur des tracés superposés où un clic
-     passerait au suivant ; ni sur un escalier, ni pendant les cotes, l'alignement ou le placement, ni avec le menu de poignée ouvert */
+     passerait au suivant ; ni sur un escalier, ni pendant les cotes, l'alignement ou le placement, ni avec le menu de poignée ou la palette
+     d'accrochage ouverts (m114 : un clic sur le plan ne ferait que la fermer) */
   function plusSous(e, P, x, y){
-    if (e.t === 'esc' || S.menu || S.cotes || S.aligner || S.placer) return null;
+    if (e.t === 'esc' || S.menu || S.accroches || S.cotes || S.aligner || S.placer) return null;
     var s = segmentProche(P, x, y); if (!s || s.q.d > 10 || s.q.t <= 0 || s.q.t >= 1) return null;
     var z = toucher(x, y); if (!z || z.type !== 'ln' || z.id !== e.id) return null;
     if (S.panneau === 'fiche' && tracesSous(x, y).length > 1) return null;
@@ -4499,7 +4537,7 @@ function editeur(racine, opts){
     else if (o.k === 'pt') h = '<span>Touchez le plan pour poser : <strong>' + esc(T[o.t].lib) + '</strong>' + (T[o.t].role === 'passage' ? ' (posé sur un tracé, il s\'y insère)' : '') + '.</span>'
       + '<button type="button" class="vc-b vc-bt" data-a="cotes" title="Poser à une distance mesurée d\'une façade ou d\'une limite">' + ico('cotes', 18) + 'Cotes</button>';
     else if (o.k === 'tx') h = '<span>Touchez le plan à l\'endroit du texte.</span>';
-    aide.innerHTML = h; aide.hidden = !h;
+    aide.innerHTML = h; aide.hidden = !h; placerBarres();
   }
   aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') abandonnerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } else if (a === 'placerStop'){ S.placer = null; majAide(); } else if (a === 'relierStop'){ S.relier = null; majAide(); redessiner(); } else if (a === 'cotes') boutonCotes(); else if (a === 'cotesAutre') autreCoteCotes(); else if (a === 'cotesStop') abandonnerCotes(); });
   R.querySelector('.vc-outils').addEventListener('click', function(ev){
@@ -4535,7 +4573,7 @@ function editeur(racine, opts){
     }).join('') + '</div>' + (coupe ? '<p class="vc-muet">Aides coupées : touchez l\'aimant pour les rétablir</p>' : '');
     if (kf) acc.querySelectorAll('[data-accr]').forEach(function(b){ if (b.getAttribute('data-accr') === kf && !b.disabled) try { b.focus({preventScroll: true}); } catch(e){} });
   }
-  function ouvrirAccroches(){ S.accroches = true; acc.hidden = false; majAccroches(); var b = R.querySelector('.vc-accr'); if (b) b.setAttribute('aria-expanded', 'true'); }
+  function ouvrirAccroches(){ S.accroches = true; acc.hidden = false; majAccroches(); placerBarres(); var b = R.querySelector('.vc-accr'); if (b) b.setAttribute('aria-expanded', 'true'); }
   function fermerAccroches(){ S.accroches = false; acc.hidden = true; var b = R.querySelector('.vc-accr'); if (b) b.setAttribute('aria-expanded', 'false'); }
   acc.addEventListener('click', function(ev){
     var b = ev.target.closest('[data-accr]'); if (!b || b.disabled) return;
@@ -4951,7 +4989,7 @@ function editeur(racine, opts){
     if (n === 'cotes' && !(S.cotes && S.cotes.etape === 'saisie' && S.cotes.c)) n = S.panneau = null;
     if (S.cotes && S.cotes.etape === 'saisie' && n !== 'cotes'){ S.cotes = null; majAide(); redessiner(); }
     R.querySelectorAll('.vc-barre [data-p]').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.p === n ? 'true' : 'false'); });
-    if (!n){ pan.hidden = true; pan.dataset.id = ''; R.classList.remove('vc-avecpanneau'); return; }
+    if (!n){ pan.hidden = true; pan.dataset.id = ''; R.classList.remove('vc-avecpanneau'); placerBarres(); return; }
     /* panneau qui s'ouvre, autre panneau ou fiche d'un autre élément : la palette d'accrochage se ferme (m111) */
     if (S.accroches && (pan.hidden || pan.dataset.n !== n + (S.sel ? S.sel.id : ''))) fermerAccroches();
     var top = pan.dataset.n === n + (S.sel ? S.sel.id : '') ? pcorps.scrollTop : 0;
@@ -4964,7 +5002,7 @@ function editeur(racine, opts){
     var enCours = {}; if (pan.dataset.n === n + (S.sel ? S.sel.id : '')) pcorps.querySelectorAll('input[id], textarea[id]').forEach(function(i){ if (!i.dataset.a && i.value) enCours[i.id] = i.value; });
     pcorps.innerHTML = n === 'fiche' ? ficheHtml(e) : n === 'controles' ? controlesHtml() : n === 'constat' ? constatHtml() : n === 'calques' ? calquesHtml() : n === 'sorties' ? sortiesHtml() : n === 'cotes' ? cotesHtml() : reglagesHtml();
     Object.keys(enCours).forEach(function(id){ var i = document.getElementById(id); if (i && pcorps.contains(i) && !i.value) i.value = enCours[id]; });
-    pan.hidden = false; pan.dataset.n = n + (S.sel ? S.sel.id : ''); pan.dataset.id = e ? e.id : ''; pcorps.scrollTop = top; R.classList.add('vc-avecpanneau');
+    pan.hidden = false; pan.dataset.n = n + (S.sel ? S.sel.id : ''); pan.dataset.id = e ? e.id : ''; pcorps.scrollTop = top; R.classList.add('vc-avecpanneau'); placerBarres();
   }
   function centrerSur(id){
     var e = el(id); if (!e) return;
@@ -5293,9 +5331,13 @@ var CSS = [
 '.vc-pitem[aria-pressed="true"]{border-color:var(--brand,#0F5C63);background:var(--brand-soft,#D9ECEB)}',
 '.vc-pitem svg,.vc-ptx{flex:none;background:#fff;border-radius:8px;color:#222;display:inline-flex}',
 '.vc-nav{position:absolute;right:10px;bottom:12px;display:flex;flex-direction:column;gap:6px;z-index:4}',
+/* barre de navigation trop haute pour la place (m114, placerBarres) : plusieurs colonnes de même hauteur, lues de haut en bas, la première
+   à gauche ; chaque colonne est calée en bas : l'aimant reste en bas à droite, le bouton de la palette juste au-dessus */
+'.vc-nav.vc-colonnes{flex-wrap:wrap;justify-content:flex-end;align-content:flex-end}',
 '.vc-nav .vc-b{background:var(--surface,#fff);border:1px solid var(--line,#C7D1D8);box-shadow:0 2px 8px rgba(0,0,0,.12)}',
-/* palette d'accrochage (m111) : à gauche de la barre de navigation, à hauteur de son bouton ; au-dessus du plan et des barres, sous le
-   panneau, la palette des outils et le toast */
+/* palette d'accrochage (m111) : à gauche de la barre de navigation, à hauteur de son bouton, ou juste au-dessus de la barre d'aide
+   qu'elle recouperait, et décalée avec les colonnes de la barre de navigation (placerBarres, m114) ; au-dessus du plan et des barres, sous
+   le panneau, la palette des outils et le toast */
 '.vc-accroches{position:absolute;right:64px;bottom:62px;width:min(300px,calc(100% - 160px));max-height:calc(100% - 140px);overflow:auto;background:var(--surface,#fff);border:1px solid var(--line,#C7D1D8);border-radius:14px;box-shadow:var(--shadow,0 18px 50px -22px rgba(9,18,24,.55));padding:10px;z-index:5;touch-action:pan-y}',
 '.vc-accroches[hidden]{display:none}',
 '.vc-accroches h3{margin:2px 4px 8px;font-size:15px}',
@@ -5390,7 +5432,8 @@ var CSS = [
 '.vc-bulle-point i{position:absolute;top:100%;left:50%;width:0;height:0;margin-left:-8px;border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid var(--brand,#0F5C63)}',
 '.vc-bulle-point.vc-dessous i{top:auto;bottom:100%;border-top:0;border-bottom:8px solid var(--brand,#0F5C63)}',
 '.vc-avecpanneau .vc-nav{right:420px}',
-'.vc-avecpanneau .vc-aide{right:420px}',
+/* paysage, panneau ouvert : la barre d'aide s'arrête à gauche de la barre de navigation, avec le même écart qu'hors panneau (m114) */
+'.vc-avecpanneau .vc-aide{right:482px}',
 '.vc-avecpanneau .vc-accroches{right:474px;width:min(300px,calc(100% - 560px))}',
 '@media (max-width:760px),(orientation:portrait){',
 '  .vc-outils{top:auto;left:0;right:0;bottom:0;width:auto;height:70px;flex-direction:row;border-right:0;border-top:1px solid var(--line,#C7D1D8);overflow-x:auto;overflow-y:hidden}',

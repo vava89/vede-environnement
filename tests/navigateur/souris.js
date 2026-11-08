@@ -35,10 +35,13 @@
 //     double clic sur le « + » : un seul sommet ; aucun redessin la souris immobile ou déplacée à travers le trait (même pied), un redessin
 //     le long du trait (compteur des dessins) ; double clic sur « Ajouter un point » du menu posé sur un segment : le second clic, sur le
 //     « + », est ignoré (un seul point) ; menu de poignée fermé (Échap, ou clic gauche qui ne fait que le fermer), la souris immobile sur
-//     un segment : le « + » revient aussitôt (curseur « copy »), le clic suivant ajoute le sommet à son pied ; témoins : double clic sur le
+//     un segment : le « + » revient aussitôt (curseur « copy »), le clic suivant ajoute le sommet à son pied ; palette d'accrochage ouverte
+//     (m114), la souris restée sur le segment : aucun « + » dès le mouvement suivant (2 px), curseur ordinaire ; un clic sur le plan la
+//     ferme sans rien changer au croquis, le « + » revient au mouvement d'après ; témoins : double clic sur le
 //     tronçon pas encore choisi (aucun sommet), glissé au bouton droit (la vue bouge), aucun « + » sur un tracé non choisi, avec l'outil
 //     Tronçon, sur un escalier choisi, sur des tracés superposés.
-// u échoue sur 6067bd5, sauf le survol d'une poignée (aucun « + »), les témoins et l'absence d'erreur dans la console.
+// u échoue sur 6067bd5, sauf le survol d'une poignée (aucun « + »), les témoins et l'absence d'erreur dans la console. Le contrôle de la
+// palette ouverte échoue sur 9a7c735 (le « + » restait au survol) ; celui du clic qui la ferme passe sur les deux versions.
 // usage : node tests/navigateur/souris.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -647,6 +650,18 @@ async function plus(){
     await echap(p); await C.survolerCv(p, decale(q1, 3, 0)); await C.pause(p, 60); const eMf = await plusEtat(p);
     R.ok(mOuv && !eMn.plus && !!eMf.plus, 'u : menu de poignée ouvert : aucun « + » sur le segment ; menu fermé, il revient (' + (mOuv ? 'menu ouvert' : 'aucun menu')
       + ', ' + plusTxt(eMn) + ' ; ' + plusTxt(eMf) + ')');
+    /* palette d'accrochage ouverte (m114), la souris restée sur le segment : un clic sur le plan ne ferait que la fermer, donc aucun « + » dès
+       le mouvement suivant (2 px) ; le clic la ferme sans rien changer au croquis, et le « + » revient au mouvement d'après */
+    await p.evaluate(() => document.querySelector('.vc .vc-nav .vc-accr').click()); await C.pause(p, 150);
+    const pOuv = await p.evaluate(() => !!window.__vcEd.etat.accroches), jP0 = await jsonEl(p);
+    await C.survolerCv(p, decale(q1, 5, 0)); await C.pause(p, 60); const ePo = await plusEtat(p);
+    R.ok(pOuv && !ePo.plus && !ePo.curseur, 'u : palette d\'accrochage ouverte, la souris bougée de 2 px sur le segment : aucun « + », curseur ordinaire ('
+      + (pOuv ? 'palette ouverte' : 'palette fermée') + ', ' + plusTxt(ePo) + ', curseur « ' + (ePo.curseur || 'ordinaire') + ' »)');
+    await C.cliquerCv(p, decale(q1, 5, 0), 'left');
+    const pFer = await p.evaluate(() => !window.__vcEd.etat.accroches), jP1 = await jsonEl(p);
+    await C.survolerCv(p, decale(q1, 8, 0)); await C.pause(p, 60); const ePf = await plusEtat(p);
+    R.ok(pFer && jP1 === jP0 && !!ePf.plus && ePf.curseur === 'copy', 'u : clic sur le plan, la palette ouverte : elle se ferme, croquis inchangé ; le « + » revient au'
+      + ' mouvement suivant (' + (pFer ? 'palette fermée' : 'palette encore ouverte') + (jP1 === jP0 ? '' : ', croquis changé') + ', ' + plusTxt(ePf) + ')');
 
     /* glissé de 50 px depuis le « + » : un sommet de plus, à l'endroit lâché (ou à l'accroche montrée), choisi ; un pas d'annulation */
     const u0 = await nbUndo(p); let av = null;
