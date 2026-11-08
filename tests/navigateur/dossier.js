@@ -19,9 +19,10 @@
 // 25 et 26 (m111, décision D11) : Réglages de l'application, « Aides au dessin » : la case « Aides activées » dit ce qu'elle coupe (tracé libre,
 //     sans redressement ni accroche au bâti) et que les tuyaux se raccordent toujours aux objets et aux autres tuyaux ; la note nomme le bouton
 //     aimant et la palette d'accrochage du croquis ; échouent sur e6618ef.
-// 27 à 29 (m112) : nouveaux accrochages (« Milieu d'un côté », « Perpendiculaire », « Limites de parcelle ») dans les mêmes Réglages : cases
-//     décochées avec d'anciens réglages (sans leurs clés), cochées seulement si la clé vaut true (null : décochée) ; un clic garde les clés
-//     connues ; échouent sur e9e8b5d.
+// 27 à 29 (m112, puis m113) : nouveaux accrochages (« Milieu d'un côté », « Perpendiculaire », « Limites de parcelle », puis « Prolongement
+//     d'un côté » et « Intersection ») dans les mêmes Réglages : cases décochées avec d'anciens réglages (sans leurs clés), cochées seulement
+//     si la clé vaut true (null : décochée) ; un clic garde les clés connues ; échouent sur e9e8b5d ; 27 et 28 échouent aussi sur 4691c1a
+//     (cases « Prolongement d'un côté » et « Intersection » absentes).
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -234,11 +235,12 @@ async function reglagesAides(){
   } finally { R.ok(!A.erreurs.length, 'réglages des aides : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
-/* Réglages de l'application, nouveaux accrochages (m112) : avec d'anciens réglages (sans leurs clés), cases présentes et décochées ; cochées
-   seulement si la clé vaut true ; l'enregistrement garde les clés connues */
+/* Réglages de l'application, nouveaux accrochages (m112, puis m113) : avec d'anciens réglages (sans leurs clés), cases présentes et
+   décochées ; cochées seulement si la clé vaut true ; l'enregistrement garde les clés connues */
 async function reglagesAccroches(){
   const A = await C.ouvrir(), p = A.p;
-  const NOUV = [['accMilieu', 'Milieu d\'un côté'], ['accPerp', 'Perpendiculaire'], ['accParcelle', 'Limites de parcelle']];
+  const NOUV = [['accMilieu', 'Milieu d\'un côté'], ['accPerp', 'Perpendiculaire'], ['accParcelle', 'Limites de parcelle'], ['accProl', 'Prolongement d\'un côté'],
+    ['accInter', 'Intersection']];
   const ANC = {actives: true, glisser: true, finir: true, parallele: true, bati: true, angles: true, orienter: true, coude: true};
   try {
     await C.etudeEtDossier(p);
@@ -252,16 +254,17 @@ async function reglagesAccroches(){
     R.ok(NOUV.every(([k, lib]) => f(c1, k) && !f(c1, k).on && f(c1, k).lib === lib) && anc, '27 Réglages de l\'application, anciens réglages : '
       + NOUV.map(([k]) => dit(c1, k)).join(', ') + ' ; anciennes aides ' + (anc ? 'cochées' : 'pas toutes cochées'));
     /* une clé à true : cochée ; à null : décochée (lecture stricte) */
-    await p.evaluate(a => { window.__VT.S.croq.aides = a; window.__VT.render(); }, Object.assign({}, ANC, {accPerp: true, accMilieu: null}));
+    await p.evaluate(a => { window.__VT.S.croq.aides = a; window.__VT.render(); }, Object.assign({}, ANC, {accPerp: true, accMilieu: null, accInter: true, accProl: null}));
     await C.pause(p, 300);
-    const c2 = await cases();
-    R.ok(!!f(c2, 'accPerp') && f(c2, 'accPerp').on && !!f(c2, 'accMilieu') && !f(c2, 'accMilieu').on && !!f(c2, 'accParcelle') && !f(c2, 'accParcelle').on,
-      '28 clé accPerp à true, accMilieu à null, accParcelle absente : ' + NOUV.map(([k]) => dit(c2, k)).join(', ') + ' (attendu : seule « Perpendiculaire » cochée)');
+    const c2 = await cases(), oui = k => !!f(c2, k) && f(c2, k).on, non = k => !!f(c2, k) && !f(c2, k).on;
+    R.ok(oui('accPerp') && non('accMilieu') && non('accParcelle') && oui('accInter') && non('accProl'), '28 clés accPerp et accInter à true, accMilieu et accProl à null, '
+      + 'accParcelle absente : ' + NOUV.map(([k]) => dit(c2, k)).join(', ') + ' (attendu : seules « Perpendiculaire » et « Intersection » cochées)');
     /* un clic coche « Milieu d'un côté » : l'enregistrement garde les clés connues */
     let a3 = null;
     if (f(c2, 'accMilieu')){ await p.click('input[data-act="vc-aide"][data-k="accMilieu"]'); await C.pause(p, 400); a3 = await p.evaluate(() => Object.assign({}, window.__VT.S.croq.aides)); }
-    const garde = !!a3 && a3.accMilieu === true && a3.accPerp === true && Object.keys(ANC).every(k => a3[k] === true);
-    R.ok(garde, '29 clic sur « Milieu d\'un côté » : aides enregistrées ' + (a3 ? JSON.stringify(a3) : 'aucune (case absente)') + ' (attendu : accMilieu et accPerp à true, anciennes clés gardées)');
+    const garde = !!a3 && a3.accMilieu === true && a3.accPerp === true && a3.accInter === true && Object.keys(ANC).every(k => a3[k] === true);
+    R.ok(garde, '29 clic sur « Milieu d\'un côté » : aides enregistrées ' + (a3 ? JSON.stringify(a3) : 'aucune (case absente)') + ' (attendu : accMilieu, accPerp et accInter à true, '
+      + 'anciennes clés gardées)');
   } finally { R.ok(!A.erreurs.length, 'réglages des accrochages : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 

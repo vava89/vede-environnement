@@ -11,6 +11,13 @@
 // Nouveaux accrochages (m112 ; échoue sur e9e8b5d) : clés accMilieu, accPerp et accParcelle à false dans AIDES_DEFAUT, libellés, puces de la
 // palette ; milieu d'un côté et pied de la perpendiculaire (VCroquis.geo.milieuSegs et piedSegs) : seuils, côtés de 20 cm au plus écartés,
 // égalités, pied hors du côté, point précédent sur la droite du côté, entrées invalides.
+// Nouveaux accrochages, second lot (m113 ; échoue sur 4691c1a) : clés accProl et accInter à false dans AIDES_DEFAUT, libellés (puce courte
+// « Prolongement »), huit puces ; prolongement d'un côté et intersection (VCroquis.geo.prolSegs et interSegs) : bornes de 30 m (et longueur
+// donnée), seuils, entre les bouts c'est le côté (côté aligné compris), un côté qui croise la droite n'empêche pas le prolongement (un côté
+// proche aligné à 5° près l'empêche), angle de plus de 5° (dans les deux sens), coin existant (bouts qui se touchent, T, prolongement qui
+// arrive au bout de l'autre, à 1 cm près ; témoins à 2 cm et à 0,5 m), côtés qui se croisent, égalités (même point par plusieurs côtés : le
+// plus court prolongement, puis le premier), au plus 64 côtés pour l'intersection (ceux dont la droite passe le plus près, où qu'ils soient
+// dans la liste), côtés de 20 cm au plus écartés, entrées invalides (côté démesuré compris).
 // usage : node tests/vm/dessin.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, copie, rapport} = require('./charger.js');
@@ -411,9 +418,135 @@ function accrochages(){
   const res = bad.map(f => sur(f));
   R.ok(res.every(r => r === null), 'entrées invalides : null sans exception (' + res.map(r => r === null ? 'null' : String(r && r.x != null ? ecrit(r) : r)).join(', ') + ')');
 }
+/* Nouveaux accrochages, second lot (m113 ; échoue sur 4691c1a) : clés accProl et accInter à false dans AIDES_DEFAUT, libellés, huit puces
+   (les deux nouvelles à la fin) ; prolongement d'un côté et intersection (VCroquis.geo.prolSegs et interSegs) sur des côtés [x0, y0, x1, y1]
+   en mètres. Chaque borne a son témoin, qui ne diffère que par elle : 29,9 m contre 30,1 m, 4,9° contre 5,1°, seuil ± 1 cm, côté de 20 cm
+   contre 30 cm, coin existant contre bouts écartés, 63 copies contre 64 */
+function accrochages113(){
+  const D = V.AIDES_DEFAUT || {}, L = V.AIDES_LIB || [], A = V.ACCROCHES || [];
+  /* [clé, libellé, libellé court de la puce (4e élément, facultatif)] */
+  [['accProl', 'Prolongement d\'un côté', 'Prolongement'], ['accInter', 'Intersection', undefined]].forEach(([k, lib, court]) => {
+    const l = L.find(x => x[0] === k);
+    R.ok(D[k] === false && !!l && l[1] === lib && typeof l[2] === 'string' && l[2].length > 10 && l[3] === court, 'clé ' + k + ' : ' + D[k]
+      + ' dans AIDES_DEFAUT (attendu false), libellé ' + JSON.stringify(l ? l[1] : null) + ' et explication dans AIDES_LIB, puce ' + JSON.stringify(l ? l[3] || l[1] : null));
+  });
+  const ORDRE = ['bati', 'parallele', 'angles', 'accMilieu', 'accPerp', 'accParcelle', 'accProl', 'accInter'];
+  R.ok(JSON.stringify(A) === JSON.stringify(ORDRE), 'palette : huit puces, les deux nouvelles à la fin (' + A.join(', ') + ')');
+  if (!G || typeof G.prolSegs !== 'function' || typeof G.interSegs !== 'function'){ R.ok(false, 'VCroquis.geo.prolSegs ou interSegs absente (prolongement d\'un côté, intersection)'); return; }
+  const sud = [0, 0, 10, 0], ex = r => r == null ? '?' : fr(r);
+  const dit = r => r && r.x != null ? ecrit(r) + (r.s2 !== undefined ? ', bouts ' + ecrit(r.bout) + ' et ' + ecrit(r.bout2) + ', prolongements ' + ex(r.ext) + ' et ' + ex(r.ext2) + ' m'
+    : ', bout ' + ecrit(r.bout) + ', prolongement ' + ex(r.ext) + ' m') : String(r);
+  const q = (f, att, n) => { const r = sur(f); R.ok(att ? proche(r, att) : r === null, n + ' → ' + (att ? ecrit(att) : 'aucun') + ' (obtenu ' + (r && r.x != null ? ecrit(r) : String(r)) + ')'); return r; };
+  const vaut = (a, b) => typeof a === 'number' && Math.abs(a - b) < 1e-12;
+  /* prolongement : au-delà des bouts seulement, jusqu'à 30 m, à 0,25 m au plus de la droite (seuil donné) */
+  const p1 = q(() => G.prolSegs(P(13, 0.2), [sud], 0.25), P(13, 0), 'prolongement au-delà de B : point à 0,2 m de la droite, 3 m après le bout, seuil 0,25 m');
+  R.ok(!!p1 && p1.s === sud && proche(p1.bout, P(10, 0)) && vaut(p1.ext, 3) && vaut(p1.d, 0.2), 'prolongement : côté, bout (10 ; 0), longueur 3 m et distance 0,2 m rendus (' + dit(p1) + ')');
+  const p2 = q(() => G.prolSegs(P(-3, -0.2), [sud], 0.25), P(-3, 0), 'prolongement au-delà de A');
+  R.ok(!!p2 && proche(p2.bout, P(0, 0)) && vaut(p2.ext, 3), 'prolongement au-delà de A : bout (0 ; 0), 3 m (' + dit(p2) + ')');
+  q(() => G.prolSegs(P(5, 0.2), [sud], 0.25), null, 'prolongement : point entre les bouts, à 0,2 m du côté (c\'est le côté)');
+  q(() => G.prolSegs(P(10.15, 0.1), [sud], 0.25), null, 'prolongement : point 0,15 m après le bout, à 0,18 m de lui (c\'est encore le côté)');
+  q(() => G.prolSegs(P(39.9, 0.1), [sud], 0.25), P(39.9, 0), 'prolongement : 29,9 m après le bout');
+  q(() => G.prolSegs(P(40.1, 0.1), [sud], 0.25), null, 'prolongement : 30,1 m après le bout (au-delà de 30 m)');
+  q(() => G.prolSegs(P(13, 0.24), [sud], 0.25), P(13, 0), 'prolongement : point à 0,24 m de la droite, seuil 0,25 m');
+  q(() => G.prolSegs(P(13, 0.26), [sud], 0.25), null, 'prolongement : point à 0,26 m de la droite, au-delà du seuil');
+  q(() => G.prolSegs(P(13, 0.1), [sud], 0.25, 2), null, 'prolongement : longueur maximale donnée de 2 m, point 3 m après le bout');
+  q(() => G.prolSegs(P(13, 0.1), [sud], 0.25, 5), P(13, 0), 'prolongement : longueur maximale donnée de 5 m, point 3 m après le bout');
+  /* côtés alignés : entre les bouts de l'un, c'est ce côté, même sur le prolongement d'un autre ; un même point par plusieurs prolongements :
+     le plus court (1 mm près), puis le premier */
+  const al = [20, 0, 30, 0], loin = [-20, 0, -10, 0];
+  q(() => G.prolSegs(P(25, 0.1), [sud, al], 0.25), null, 'prolongement : point entre les bouts d\'un côté aligné (15 m après le bout du premier) : c\'est ce côté');
+  /* un côté qui croise la droite, à 0,15 m du point, n'empêche pas le prolongement : sur la droite, dans les deux ordres de la liste ;
+     témoin, sans lui : le même point. Un côté proche aligné (à 5° près) l'empêche : c'est ce côté. Côté passant par (13,2 ; 0) : à 5,1°, sur
+     la droite ; à 4,9°, rien ; de même parcouru en sens contraire */
+  const tr = [13.15, -3, 13.15, 3];
+  const ob = a => { const r = a * Math.PI / 180; return [13.2 - 3 * Math.cos(r), -3 * Math.sin(r), 13.2 + 3 * Math.cos(r), 3 * Math.sin(r)]; };
+  q(() => G.prolSegs(P(13, 0.1), [sud], 0.25), P(13, 0), 'prolongement : témoin, côté seul');
+  q(() => G.prolSegs(P(13, 0.1), [sud, tr], 0.25), P(13, 0), 'prolongement : un côté croise la droite 0,15 m plus loin, à 0,15 m du point : sur la droite');
+  q(() => G.prolSegs(P(13, 0.1), [tr, sud], 0.25), P(13, 0), 'prolongement : de même, le côté qui croise en tête de liste');
+  q(() => G.prolSegs(P(13, 0.1), [sud, ob(5.1)], 0.25), P(13, 0), 'prolongement : un côté à 5,1° de la droite passe à 0,12 m du point : sur la droite');
+  q(() => G.prolSegs(P(13, 0.1), [sud, ob(4.9)], 0.25), null, 'prolongement : un côté à 4,9° de la droite (aligné) passe à 0,12 m du point : c\'est ce côté');
+  q(() => G.prolSegs(P(13, 0.1), [sud, ob(174.9)], 0.25), P(13, 0), 'prolongement : côté à 5,1°, parcouru en sens contraire : sur la droite');
+  q(() => G.prolSegs(P(13, 0.1), [sud, ob(175.1)], 0.25), null, 'prolongement : côté à 4,9°, parcouru en sens contraire : c\'est ce côté');
+  const p3 = sur(() => G.prolSegs(P(13, 0.1), [loin, al, sud], 0.25));
+  R.ok(!!p3 && p3.s === sud && proche(p3, P(13, 0)) && vaut(p3.ext, 3), 'prolongement : trois côtés alignés, même point (prolongements de 23, 7 et 3 m) : le plus court, '
+    + 'celui du dernier côté de la liste (' + dit(p3) + ')');
+  const p4 = sur(() => G.prolSegs(P(15, 0.1), [sud, al], 0.25)), p5 = sur(() => G.prolSegs(P(15, 0.1), [al, sud], 0.25));
+  R.ok(!!p4 && p4.s === sud && !!p5 && p5.s === al, 'prolongement : deux prolongements de 5 m à égalité : le premier côté de la liste (' + dit(p4) + ', puis ' + dit(p5) + ')');
+  const ve = [13.1, 1, 13.1, 5], p6 = sur(() => G.prolSegs(P(13, 0.15), [sud, ve], 0.25));
+  R.ok(!!p6 && p6.s === ve && proche(p6, P(13.1, 0.15)) && proche(p6.bout, P(13.1, 1)), 'prolongement : le plus proche de deux (0,1 m contre 0,15 m ; ' + dit(p6) + ')');
+  q(() => G.prolSegs(P(3, 0.1), [[0, 0, 0.2, 0]], 0.25), null, 'prolongement : côté de 20 cm écarté');
+  q(() => G.prolSegs(P(3, 0.1), [[0, 0, 0.3, 0]], 0.25), P(3, 0), 'prolongement : côté de 30 cm gardé');
+  /* intersection : deux côtés, ou leurs prolongements (30 m au plus chacun), à plus de 5° l'un de l'autre, à 0,35 m au plus du point */
+  const ve2 = [13, 2, 13, 10];
+  const i1 = q(() => G.interSegs(P(13.1, 0.1), [sud, ve2], 0.35), P(13, 0), 'intersection de deux prolongements (3 m après (10 ; 0), 2 m avant (13 ; 2)), point à 0,14 m, seuil 0,35 m');
+  R.ok(!!i1 && i1.s === sud && i1.s2 === ve2 && proche(i1.bout, P(10, 0)) && proche(i1.bout2, P(13, 2)) && vaut(i1.ext, 3) && vaut(i1.ext2, 2) && vaut(i1.d, Math.hypot(0.1, 0.1)),
+    'intersection : côtés, bouts, prolongements et distance rendus (' + dit(i1) + ')');
+  q(() => G.interSegs(P(5, 0.5), [sud, [0, 1, 10, 1]], 0.35), null, 'intersection : côtés parallèles, à 1 m l\'un de l\'autre');
+  q(() => G.interSegs(P(15, 0.1), [sud, [20, 0.2, 30, 0.2]], 0.35), null, 'intersection : prolongements parallèles, à 0,2 m l\'un de l\'autre');
+  const oblique = a => { const c = Math.cos(a * Math.PI / 180), s = Math.sin(a * Math.PI / 180); return [13 + 2 * c, 2 * s, 13 + 10 * c, 10 * s]; };
+  q(() => G.interSegs(P(13, 0.01), [sud, oblique(5.1)], 0.35), P(13, 0), 'intersection : droites à 5,1°');
+  q(() => G.interSegs(P(13, 0.01), [sud, oblique(4.9)], 0.35), null, 'intersection : droites à 4,9° (5° au plus : presque parallèles)');
+  q(() => G.interSegs(P(13, 0.01), [sud, oblique(174.9)], 0.35), P(13, 0), 'intersection : droites à 5,1°, le second côté en sens contraire');
+  q(() => G.interSegs(P(13, 0.01), [sud, oblique(175.1)], 0.35), null, 'intersection : droites à 4,9°, le second côté en sens contraire');
+  q(() => G.interSegs(P(39.9, 0.01), [sud, [39.9, 2, 39.9, 10]], 0.35), P(39.9, 0), 'intersection : prolongement de 29,9 m du premier côté');
+  q(() => G.interSegs(P(40.1, 0.01), [sud, [40.1, 2, 40.1, 10]], 0.35), null, 'intersection : prolongement de 30,1 m du premier côté');
+  q(() => G.interSegs(P(13, 0.01), [sud, [13, 29.9, 13, 40]], 0.35), P(13, 0), 'intersection : prolongement de 29,9 m du second côté');
+  q(() => G.interSegs(P(13, 0.01), [sud, [13, 30.1, 13, 40]], 0.35), null, 'intersection : prolongement de 30,1 m du second côté');
+  q(() => G.interSegs(P(13.1, 0.1), [sud, ve2], 0.35, 2.5), null, 'intersection : longueur maximale donnée de 2,5 m (prolongement de 3 m)');
+  q(() => G.interSegs(P(13, 0.34), [sud, ve2], 0.35), P(13, 0), 'intersection : point à 0,34 m, seuil 0,35 m');
+  q(() => G.interSegs(P(13, 0.36), [sud, ve2], 0.35), null, 'intersection : point à 0,36 m, au-delà du seuil');
+  /* coin existant (deux côtés qui se touchent déjà, à 1 cm près) : écarté, le coin s'en charge ; témoins : bouts écartés */
+  q(() => G.interSegs(P(10.1, 0.1), [sud, [10, 0, 10, 6]], 0.35), null, 'intersection : coin existant (les deux côtés se touchent en (10 ; 0))');
+  q(() => G.interSegs(P(5.1, 0.1), [sud, [5, 0, 5, 6]], 0.35), null, 'intersection : en T, le bout d\'un côté posé sur l\'autre : coin existant');
+  q(() => G.interSegs(P(13.1, 0.1), [sud, [13, 0, 13, 6]], 0.35), null, 'intersection : le prolongement d\'un côté arrive au bout de l\'autre : coin existant');
+  q(() => G.interSegs(P(10.1, 0.1), [sud, [10.008, -3, 10.008, 3]], 0.35), null, 'intersection : un côté croise le prolongement de l\'autre 8 mm après son bout : coin existant');
+  q(() => G.interSegs(P(10.1, 0.1), [sud, [10.02, -3, 10.02, 3]], 0.35), P(10.02, 0), 'intersection : témoin, 2 cm après le bout');
+  const t1 = q(() => G.interSegs(P(5.1, 0.1), [sud, [5, 0.5, 5, 6]], 0.35), P(5, 0), 'intersection : témoin du T, côté arrêté à 0,5 m de l\'autre');
+  R.ok(!!t1 && t1.ext === 0 && t1.bout === null && proche(t1.bout2, P(5, 0.5)) && vaut(t1.ext2, 0.5), 'intersection sur le premier côté (aucun prolongement, bout null), '
+    + 'prolongement du second depuis (5 ; 0,5) (' + dit(t1) + ')');
+  const x1 = q(() => G.interSegs(P(5.1, 0.1), [sud, [5, -3, 5, 3]], 0.35), P(5, 0), 'intersection : deux côtés qui se croisent');
+  R.ok(!!x1 && x1.ext === 0 && x1.ext2 === 0 && x1.bout === null && x1.bout2 === null, 'intersection de deux côtés qui se croisent : aucun prolongement (' + dit(x1) + ')');
+  /* égalité : un même point par deux paires : le plus court prolongement ; deux points : le plus proche */
+  const ve3 = [13, 20, 13, 25], e1 = sur(() => G.interSegs(P(13.1, 0.1), [sud, ve3, ve2], 0.35));
+  R.ok(!!e1 && e1.s === sud && e1.s2 === ve2 && vaut(e1.ext2, 2), 'intersection : même point par deux paires (prolongements de 3 + 20 m et de 3 + 2 m) : le plus court ('
+    + dit(e1) + ')');
+  const ve4 = [13.2, 2, 13.2, 10], e2 = sur(() => G.interSegs(P(13.15, 0.05), [sud, ve2, ve4], 0.35));
+  R.ok(!!e2 && proche(e2, P(13.2, 0)) && e2.s2 === ve4, 'intersection : la plus proche de deux (0,07 m contre 0,16 m ; ' + dit(e2) + ')');
+  /* coût : au plus 64 côtés comptent, ceux dont la droite passe le plus près du point. Un côté vertical, dont la droite passe à 0,15 m du
+     point, croise en (13,25 ; 0) la droite de copies d'un côté horizontal, qui passe à 0,1 m : 63 copies (64 côtés), à la rencontre ;
+     64 copies (65 côtés), il n'est plus gardé : rien. La rencontre la plus proche reste trouvée quand ses deux droites sont les plus
+     proches : 300 côtés de plus, dont les droites passent à 0,2 m au moins du point, ne la changent pas */
+  const cp = n => Array.from({length: n}, () => [-20, 0, -10, 0]), vx = [13.25, 2, 13.25, 10];
+  q(() => G.interSegs(P(13.1, 0.1), cp(63).concat([vx]), 0.35), P(13.25, 0), 'intersection : 64 côtés, tous gardés : à la rencontre');
+  q(() => G.interSegs(P(13.1, 0.1), cp(64).concat([vx]), 0.35), null, 'intersection : 65 côtés, les 64 plus proches gardés (des copies parallèles) : rien');
+  const plus = Array.from({length: 300}, (z, n) => {
+    const a = n * Math.PI / 300, h = 0.2 + 0.1 * n / 300, c = P(13.1 - h * Math.sin(a), 0.1 + h * Math.cos(a));
+    return [c.x - 5 * Math.cos(a), c.y - 5 * Math.sin(a), c.x + 5 * Math.cos(a), c.y + 5 * Math.sin(a)];
+  });
+  const i9 = sur(() => G.interSegs(P(13.1, 0.1), [sud, ve2].concat(plus), 0.35));
+  R.ok(!!i9 && i9.s === sud && i9.s2 === ve2 && proche(i9, P(13, 0)), 'intersection : 300 côtés de plus, dont les droites passent plus loin : même rencontre ('
+    + dit(i9) + ')');
+  /* les mêmes 300 côtés en tête de liste : ce sont les plus proches qui sont gardés, pas les premiers */
+  const i10 = sur(() => G.interSegs(P(13.1, 0.1), plus.concat([sud, ve2]), 0.35));
+  R.ok(!!i10 && i10.s === sud && i10.s2 === ve2 && proche(i10, P(13, 0)), 'intersection : les 300 côtés en tête de liste : même rencontre (' + dit(i10) + ')');
+  q(() => G.interSegs(P(13.1, 0.1), [sud, [13, 1, 13, 1.2]], 0.35), null, 'intersection : côté de 20 cm écarté');
+  q(() => G.interSegs(P(13.1, 0.1), [sud, [13, 1, 13, 1.3]], 0.35), P(13, 0), 'intersection : côté de 30 cm gardé');
+  /* entrées invalides : null, sans exception */
+  const bad = [() => G.prolSegs(null, [sud], 1), () => G.prolSegs(P(13, 0), null, 1), () => G.prolSegs(P(13, 0), [sud], NaN), () => G.prolSegs(P(NaN, 0), [sud], 1),
+    () => G.prolSegs(P(13, 0.1), [null, [1, 2], 'x', [0, 0, NaN, 0], {x: 1}, [0, 0, Infinity, 0]], 1), () => G.prolSegs(P(13, 0.1), [sud], 1, NaN), () => G.prolSegs(P(13, 0.1), [sud], 1, -1),
+    () => G.prolSegs(P(13, 0.1), 'côtés', 1), () => G.prolSegs(P(13, 0.1), [sud], -1), () => G.prolSegs({x: '13', y: 0}, [sud], 1),
+    () => G.interSegs(null, [sud, ve2], 1), () => G.interSegs(P(13, 0), null, 1), () => G.interSegs(P(13, 0), [sud, ve2], NaN), () => G.interSegs(P(13, NaN), [sud, ve2], 1),
+    () => G.interSegs(P(13, 0.1), [sud, null, [1, 2], 'x', [13, 2, NaN, 10], {x: 1}], 1), () => G.interSegs(P(13, 0.1), [sud, ve2], 1, NaN), () => G.interSegs(P(13, 0.1), [sud, ve2], 1, -1),
+    () => G.interSegs(P(13, 0.1), 'côtés', 1), () => G.interSegs(P(13, 0.1), [sud, ve2], -1), () => G.interSegs(P(13, 0.1), [sud], 1),
+    /* côté démesuré (un dossier abîmé) : le carré de sa longueur n'est plus un nombre fini, son pied n'existe pas */
+    () => G.prolSegs(P(13, 0.1), [[0, 0, 1e155, 0]], 1), () => G.interSegs(P(13, 0.1), [[0, 0, 1e155, 0], ve2], 1)];
+  const res = bad.map(f => sur(f));
+  R.ok(res.every(r => r === null), 'prolongement et intersection, entrées invalides : null sans exception (' + res.map(r => r === null ? 'null' : String(r && r.x != null ? ecrit(r) : r)).join(', ') + ')');
+}
 if (!G || typeof G.placer !== 'function') R.ok(false, 'VCroquis.geo absent (fonctions de géométrie du plan)');
 else { try { essais(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); } }
 if (!G || typeof G.lignesRef !== 'function' || typeof G.normaleExt !== 'function') R.ok(false, 'VCroquis.geo.lignesRef ou normaleExt absente (lignes de référence du plan)');
 else { try { lignes(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); } }
 try { accrochages(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
+try { accrochages113(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
 R.fin();

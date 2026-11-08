@@ -1,11 +1,12 @@
 // Palette d'accrochage de l'éditeur du croquis, dans Chromium (données fictives : fond de VCroquis.demoDxf(), croquis vide) : correctif
 // m111 (souhait 17, première partie ; réponses 17.1, 17.3 et 17.4, décisions D9 et D11 de .claude/conception-outils-dessin.md), puis
-// nouveaux accrochages de m112 (cas d, mi, pp, ai, li, es, tr, em et po, plus bas).
+// nouveaux accrochages de m112 (cas d, mi, pp, ai, li, es, tr, em et po, plus bas), puis de m113 (cas pl, ix, pi, mo et rm, tout en bas).
 // b : bouton « Palette d'accrochage » (.vc-accr) dans la barre de navigation, juste au-dessus de l'aimant, de la même taille, avec sa
 //     propre icône ; un toucher ouvre la palette (.vc-accroches), à gauche de la barre, au-dessus du plan, sous le panneau et le toast :
-//     six puces dans l'ordre de VCroquis.ACCROCHES (trois depuis m111, trois de plus depuis m112), avec les libellés d'AIDES_LIB et l'état
-//     de S.aides (les nouveaux accrochages ne sont cochés que s'ils valent true), aucune pour l'accroche au
-//     réseau ; au clavier, Espace bascule une puce, qui garde le focus ; un second toucher la ferme ; aria-expanded suit ;
+//     huit puces dans l'ordre de VCroquis.ACCROCHES (trois depuis m111, trois de plus depuis m112, deux depuis m113), avec les libellés
+//     d'AIDES_LIB (le court s'il y en a un : « Prolongement », m113) et l'état de S.aides (les nouveaux accrochages ne sont cochés que
+//     s'ils valent true), aucune pour l'accroche au réseau ; au clavier, Espace bascule une puce, qui garde le focus ; un second toucher
+//     la ferme ; aria-expanded suit ;
 // p : tablette en portrait (600 × 960), un panneau ouvert en bas (Réglages, Contrôles, fiche d'un regard), puis la palette : elle garde
 //     la largeur du portrait (au moins 280 px), rien n'y est coupé, chaque puce y est entière et se touche en son centre ; elle est à
 //     gauche de la barre de navigation, à côté du bouton, au-dessus du panneau et sous la barre du haut ;
@@ -62,6 +63,41 @@
 // d'un côté), em et po sur leurs contrôles du milieu et du pied, et b, p, r et m sur le nombre de puces (trois) ; les 20 touchers de d y
 // passent (FIGES vient de là). Sur la première version de m112, em échouait sur la montée (milieu et pied n'y comptaient pas comme le
 // bâti) et po sur la descente près d'une limite (posée sur la limite).
+// Nouveaux accrochages, second lot (m113 : souhait 17 ; décisions D3, D9 et D10), décochés d'origine et lus strictement (seul true les
+// coche) : « Prolongement d'un côté » (accProl : droite d'un côté au-delà de ses bouts, jusqu'à 30 m [p], seuil de la façade, 10 px) et
+// « Intersection » (accInter : rencontre de deux côtés ou de leurs prolongements, 30 m au plus, angle de plus de 5°, seuil du coin,
+// 14 px). Cibles de m112. Ordre : coin > intersection > milieu > perpendiculaire > prolongement > redressement > côté ; le réseau passe
+// toujours avant. Repères du fond (façade ouest du bâti, de Ks à Kn ; bâti léger ; façade nord du voisin) : bloc m113, plus bas.
+// d (étendu) : accProl et accInter valent false (AIDES_DEFAUT, S.aides), leurs cases des Réglages sont décochées ; accProl à null et
+//     accInter à true : seule « Intersection » est cochée, un toucher coche l'autre ; 20 touchers de plus (TOUCHERS113, près des
+//     prolongements et des rencontres) donnent les mêmes points que sur 4691c1a (FIGES113), clés fausses, retirées ou à null ;
+// pl : puce cochée : un trait fini à 6 px de la droite de la façade ouest, 3 m au-delà de Ks, y va (1e-9), tirets de Ks au point,
+//     « Prolongement » (témoin, clé décochée : sous le doigt) ; à 29,9 m du bout : sur la droite, à 30,1 m et 40 m : sous le doigt ;
+//     à 9 px : sur la droite, à 11 px : sous le doigt ; entre les bouts, c'est le côté (« façade », comme clé décochée ; « Accroche au
+//     bâti » décochée : sous le doigt) ; un côté qui croise la droite à 6 px du point (façade nord du voisin) ne l'empêche pas : trait,
+//     avec ou sans « Accroche au bâti », et tronçon vont sur la droite, tirets depuis (59 ; 24) (témoins, clé décochée : la façade ou sous
+//     le doigt) ; une limite avec « Limites de parcelle » seulement ; jamais un escalier (témoin : un trait à sa place) ; aimant coupé :
+//     ni prolongement ni rencontre (témoin : aimant rétabli) ;
+// ix : puce cochée : premier point touché près de la rencontre (65,5 ; 24) de deux prolongements → à la rencontre, tirets depuis les deux
+//     bouts, « Intersection » (témoin : sous le doigt) ; rencontre (59 ; 14) d'un prolongement et d'une façade → à la rencontre, un seul
+//     tiret (témoin : au pied, sur la façade) ; angle de 5,1° → à la rencontre, 4,9° et parallèles → sous le doigt ; rencontre à 29,9 m
+//     du bout d'une façade → à la rencontre, à 30,1 m → sous le doigt ; à 13 px → à la rencontre, à 15 px → sous le doigt ; près du coin
+//     Ks : « coin du bâti », pas « Intersection » (« Accroche au bâti » décochée : sous le doigt) ;
+// pi : coin avant intersection, intersection avant milieu, intersection avant prolongement, prolongement avant redressement, chacun avec
+//     un témoin (l'aide qui passe avant décochée) ; sommet d'un trait glissé près d'une rencontre → à la rencontre (témoin : ailleurs) ;
+// mo : escalier dont le départ est calé (décision D7) : à la rencontre d'un prolongement et d'une façade → montée vers le départ (il est
+//     sur le bâti) ; à la rencontre de deux prolongements, ou sur un prolongement → vers la fin ; témoin : départ sur la façade → vers le
+//     départ ; « Limites de parcelle » cochée, à la rencontre d'un prolongement et d'une limite → vers la fin (témoin : un trait posé sur
+//     la limite, vers le départ) ;
+// rm : une descente (objet de mur) touchée près de la rencontre (59 ; 14) va sur la façade, pas à la rencontre ; près d'un prolongement,
+//     elle reste sous le doigt (un trait y va : témoin ici pour la rencontre, cas pl pour le prolongement) ; tronçon : premier point
+//     près d'un prolongement → sur la droite (témoin, clés décochées : sous le doigt), près de Ks → sous le doigt, près de la rencontre
+//     (65,5 ; 24) → à la rencontre ; fin près d'un regard posé à côté de la rencontre → au regard (le réseau passe avant ; témoin,
+//     sans le regard : à la rencontre) ; sommet glissé près de la rencontre → à la rencontre.
+// Sur 4691c1a, pl, ix, pi, mo et rm échouent dès leur premier contrôle (pas de clé accProl ni accInter dans AIDES_DEFAUT), d sur ces clés,
+// leurs libellés, leurs cases et les anciens réglages, b, p, r et m sur le nombre de puces (six) ; les 20 touchers de TOUCHERS113 y
+// passent (FIGES113 vient de là). Le cas p échoue aussi avec le libellé long « Prolongement d'un côté » sur la puce (une rangée de plus
+// en portrait : la palette coupe la dernière puce).
 // usage : node tests/navigateur/accroches.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -71,8 +107,8 @@ const DEMO = {x: 1700000, y: 8200000, th: 12 * Math.PI / 180};
 const demoAbs = (u, v) => ({x: DEMO.x + u * Math.cos(DEMO.th) - v * Math.sin(DEMO.th), y: DEMO.y + u * Math.sin(DEMO.th) + v * Math.cos(DEMO.th)});
 const erreurs = (A, k) => R.ok(!A.erreurs.length, k + ' : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
 const m = d => d == null ? 'aucune' : d.toFixed(3) + ' m';
-/* puces de la palette : trois aides cochées d'origine (m111), puis les nouveaux accrochages, décochés d'origine (m112) */
-const NOUVEAUX = ['accMilieu', 'accPerp', 'accParcelle'];
+/* puces de la palette : trois aides cochées d'origine (m111), puis les nouveaux accrochages, décochés d'origine (m112, puis m113) */
+const NOUVEAUX = ['accMilieu', 'accPerp', 'accParcelle', 'accProl', 'accInter'];
 const ORDRE = ['bati', 'parallele', 'angles'].concat(NOUVEAUX);
 /* état attendu d'une puce : une aide cochée d'origine l'est tant qu'elle ne vaut pas false, un nouvel accrochage seulement s'il vaut true */
 const cochee = (a, k) => NOUVEAUX.indexOf(k) >= 0 ? a[k] === true : a[k] !== false;
@@ -167,10 +203,10 @@ async function boutonEtPalette(){
     R.ok(ic.b.length > 20 && ic.b !== ic.a, 'b : icône propre, différente de celle de l\'aimant');
     R.ok(e0.label === 'Palette d\'accrochage' && e0.expanded === 'false' && !e0.ouverte, 'b : aria-label « Palette d\'accrochage », palette fermée à l\'ouverture (aria-expanded ' + e0.expanded + ')');
     await toucherEl(p, BOUTON);
-    const e1 = await etat(p), a1 = await aides(p), lib = await p.evaluate(() => { const o = {}; window.VCroquis.AIDES_LIB.forEach(a => { o[a[0]] = a[1]; }); return o; });
+    const e1 = await etat(p), a1 = await aides(p), lib = await p.evaluate(() => { const o = {}; window.VCroquis.AIDES_LIB.forEach(a => { o[a[0]] = a[3] || a[1]; }); return o; });
     R.ok(e1.ouverte && e1.expanded === 'true', 'b : un toucher sur le bouton ouvre la palette (aria-expanded ' + e1.expanded + ')');
-    R.ok(JSON.stringify(e1.puces.map(c => c.k)) === JSON.stringify(ORDRE) && e1.puces.every(c => c.lib === lib[c.k]),
-      'b : six puces, aux libellés d\'AIDES_LIB, et aucune pour l\'accroche au réseau : ' + e1.puces.map(c => c.lib).join(', '));
+    R.ok(JSON.stringify(e1.puces.map(c => c.k)) === JSON.stringify(ORDRE) && e1.puces.every(c => c.lib === lib[c.k]) && lib.accProl === 'Prolongement',
+      'b : huit puces, aux libellés d\'AIDES_LIB (le court s\'il y en a un : « Prolongement », m113), et aucune pour l\'accroche au réseau : ' + e1.puces.map(c => c.lib).join(', '));
     R.ok(e1.puces.length === ORDRE.length && e1.puces.every(c => c.on === String(cochee(a1.ed, c.k)) && !c.off) && !e1.ligne
       && NOUVEAUX.every(k => puce(e1, k).on === 'false'),
       'b : puces à l\'état de S.aides (nouveaux accrochages décochés), actives, sans ligne « Aides coupées » (' + e1.puces.map(c => c.k + ' ' + c.on).join(', ') + ')');
@@ -313,7 +349,7 @@ async function aimantEtReseau(){
     await toucherEl(p, BOUTON); await toucherEl(p, '.vc .vc-nav .vc-aimant');
     const a1 = await aides(p), e1 = await etat(p);
     R.ok(a1.ed.actives === false && a1.hote.actives === false && e1.ouverte && e1.puces.length === ORDRE.length && e1.puces.every(c => c.off),
-      'r : aimant coupé, palette ouverte : les six puces sont grisées (' + e1.puces.map(c => c.k + (c.off ? ' grisée' : ' active')).join(', ') + ')');
+      'r : aimant coupé, palette ouverte : les huit puces sont grisées (' + e1.puces.map(c => c.k + (c.off ? ' grisée' : ' active')).join(', ') + ')');
     R.ok(e1.ligne === 'Aides coupées : touchez l\'aimant pour les rétablir', 'r : la palette dit : ' + JSON.stringify(e1.ligne));
     R.ok(e1.puces.every(c => c.on === String(NOUVEAUX.indexOf(c.k) < 0)), 'r : les puces grisées gardent leur état (aides d\'origine cochées, nouveaux accrochages décochés : '
       + e1.puces.map(c => c.k + ' ' + c.on).join(', ') + ')');
@@ -497,13 +533,14 @@ async function table(){
     await toucherEl(p, BOUTON);
     const e2 = await etat(p);
     await toucherEl(p, BOUTON);
-    R.ok(e2.puces.length === ORDRE.length, 'm : clé retirée : six puces de nouveau (' + e2.puces.length + ')');
+    R.ok(e2.puces.length === ORDRE.length, 'm : clé retirée : huit puces de nouveau (' + e2.puces.length + ')');
     erreurs(A, 'm');
   } finally { await A.fermer(); }
 }
 
 /* ---------- m112 : nouveaux accrochages (Milieu d'un côté, Perpendiculaire, Limites de parcelle) ---------- */
-const LIB112 = {accMilieu: 'Milieu d\'un côté', accPerp: 'Perpendiculaire', accParcelle: 'Limites de parcelle'};
+/* libellés d'AIDES_LIB des nouveaux accrochages (m112, puis m113) */
+const LIB112 = {accMilieu: 'Milieu d\'un côté', accPerp: 'Perpendiculaire', accParcelle: 'Limites de parcelle', accProl: 'Prolongement d\'un côté', accInter: 'Intersection'};
 /* anciens réglages de l'application (avant m112) : sans les nouvelles clés */
 const ANCIENS = {actives: true, glisser: true, finir: true, parallele: true, bati: true, angles: true, orienter: true, coude: true};
 const LIM = {k: 'ln', id: 'lim', pal: 'tr'}, TRONCON = {k: 'ln', id: 'tr', pal: 'tr'}, ESC = {k: 'ln', id: 'esc', pal: 'tr'}, DESC = {k: 'pt', t: 'descente', pal: 'ep'};
@@ -535,10 +572,12 @@ const milieuDe = c => ({x: (c.a.x + c.b.x) / 2, y: (c.a.y + c.b.y) / 2});
 /* pied de la perpendiculaire menée de q sur la droite du côté c (calcul de VCroquis.geo.piedPerp) ; distance de q à cette droite */
 const piedSur = (q, c) => { const dx = c.b.x - c.a.x, dy = c.b.y - c.a.y, t = ((q.x - c.a.x) * dx + (q.y - c.a.y) * dy) / (dx * dx + dy * dy); return {x: c.a.x + t * dx, y: c.a.y + t * dy}; };
 const horsDroite = (q, c) => q ? Math.abs((c.b.x - c.a.x) * (q.y - c.a.y) - (c.b.y - c.a.y) * (q.x - c.a.x)) / dist(c.a, c.b) : Infinity;
-/* dernier point du tracé en cours {x, y, aide}, nombre de points, repère affiché (S.accrocheVue : type, de) */
+/* dernier point du tracé en cours {x, y, aide, doigt (point touché), surBati}, nombre de points, repère affiché (S.accrocheVue : type, de ;
+   bouts d'où partent les tirets d'un prolongement, m113) */
 const dernier = p => p.evaluate(() => {
   const S = window.__vcEd.etat, b = S.brouillon, q = b && b.pts.length ? b.pts[b.pts.length - 1] : null, av = S.accrocheVue;
-  return {q: q ? {x: q.x, y: q.y, aide: q.aide} : null, n: b ? b.pts.length : 0, vue: av ? {type: av.type || null, de: av.de || null} : null};
+  return {q: q ? {x: q.x, y: q.y, aide: q.aide, doigt: q.doigt || null, surBati: q.surBati} : null, n: b ? b.pts.length : 0,
+    vue: av ? {type: av.type || null, de: av.de || null, bouts: av.bouts || null} : null};
 });
 const genre = r => r && r.q ? 'aide ' + (r.q.aide || 'aucune') : 'aucun point';
 /* toucher (doigt) au point q du croquis ; rend le point touché, en pixels du canevas */
@@ -584,35 +623,73 @@ const FIGES = [
   'b1 -29.009932925;24.341587107 facade', 'b1 -32.183405818;18.350873373 libre', 'b2 -35.650170042;14.700319195 libre', 'b1 -33.693874841;15.116142577 libre',
   'b2 -34.286382435;17.903873399 parallele', 'descente -32.165708311;18.508114033', 'descente -37.635765411;13.460395395', 'regard -32.242708783;18.389385169'
 ];
-/* les touchers de TOUCHERS par l'API de l'éditeur, comme la grille de dessin.js : chaque toucher seul (ni double toucher, ni fin
-   automatique récente) ; chacun rend le point posé et son genre */
-async function toucher20(A){
-  const liste = TOUCHERS.map(([o, ...uv]) => [o, uv.map(q => A.plan(q[0], q[1]))]);
+/* d (m113) : 20 touchers près des prolongements des côtés et de leurs rencontres : {o: outil, c: centre de la vue, q: points}, chaque suite
+   sur un plan vide, la vue centrée sur c (repère de la démonstration). Façade ouest du bâti : u = 65,5, de Ks (65,5 ; 4) à Kn (65,5 ; 14) ;
+   côtés sud (v = 24) et ouest (u = 59) du bâti léger (59 ; 24)-(62,5 ; 28) ; façade nord du voisin à l'ouest : v = 14, u 51 à 62,5.
+   FIGES113 : les points posés sur 4691c1a (avant m113), au même format que FIGES (un escalier : ses deux sommets et le sens de la montée) */
+const TOUCHERS113 = [
+  {o: 'lim', c: [68, 2], q: [[66.7, -1.8], [65.65, 1]]},   // fin à 6 px du prolongement de la façade ouest, 3 m au-delà de Ks
+  {o: 'lim', c: [68, 2], q: [[65.65, 1]]},                 // premier point au même endroit
+  {o: 'lim', c: [66, 44], q: [[65.65, 43.9]]},             // premier point 29,9 m au-delà de Kn
+  {o: 'lim', c: [66, 20], q: [[65.6, 24.05]]},             // près de la rencontre de deux prolongements (65,5 ; 24)
+  {o: 'lim', c: [60, 16], q: [[59.1, 14.05]]},             // près de la rencontre (59 ; 14) d'un prolongement et de la façade nord du voisin
+  {o: 'lim', c: [68, 2], q: [[65.4, 3.9]]},                // près du coin Ks (coin existant)
+  {o: 'lim', c: [68, 2], q: [[67.5, 4.15]]},               // entre les bouts de la façade sud
+  {o: 'lim', c: [66, -2], q: [[64.1, -3]]},                // près du prolongement du côté ouest de la parcelle (u = 64), 3 m au-delà de (64 ; 0)
+  {o: 'lim', c: [68, 2], q: [[68, -2], [65.6, 1]]},        // fin redressée à 135°, près du prolongement de la façade ouest
+  {o: 'tr', c: [68, 2], q: [[65.65, 1], [68, 1]]},         // tronçon : départ près du prolongement
+  {o: 'tr', c: [64, 22], q: [[68, 22], [65.6, 24.05]]},    // tronçon : fin près de la rencontre de deux prolongements
+  {o: 'descente', c: [60, 16], q: [[59.15, 14.05]]},       // descente (objet de mur) près de la rencontre (59 ; 14), sur la façade
+  {o: 'descente', c: [68, 2], q: [[65.65, 1]]},            // descente près du prolongement de la façade ouest
+  {o: 'regard', c: [68, 2], q: [[65.65, 1]]},              // regard au même endroit
+  {o: 'esc', c: [64, 22], q: [[65.6, 24.05], [65.5, 21]]}  // escalier : départ près de la rencontre de deux prolongements
+];
+const FIGES113 = [
+  'b1 -34.383313987;12.107044096 libre', 'b2 -35.992521703;14.627550103 libre', 'b1 -35.992521703;14.627550103 libre',
+  'b1 -44.911933239;56.590082174 libre', 'b1 -40.833793556;37.163456715 libre', 'b1 -45.102341938;25.982128006 facade',
+  'b1 -36.763000488;17.531000137 coin', 'b1 -34.806720134;17.946790269 facade', 'b1 -36.677003720;10.392696579 libre',
+  'b1 -33.070139769;12.181699774 libre', 'b2 -36.272474483;14.261387266 parallele', 'b1 -35.992521703;14.627550103 libre',
+  'b2 -33.693867650;15.116108743 parallele', 'b1 -38.060020348;35.657242192 libre', 'b2 -40.698658217;37.371465352 parallele',
+  'descente -45.053434702;25.992524266', 'descente -35.992521703;14.627550103', 'regard -35.992521703;14.627550103',
+  'b1 -40.833793556;37.163456715 libre', 'esc -40.833793556;37.163456715 -40.200193305;34.179975588 fin'
+];
+/* suites de touchers par l'API de l'éditeur, comme la grille de dessin.js : chaque toucher seul (ni double toucher, ni fin automatique
+   récente) ; suites : [{o: outil, c: centre de la vue (sans c : la vue d'avant), q: points}], dans le repère de la démonstration ; chacun
+   rend le point posé et son genre */
+async function toucherSuites(A, suites){
+  const liste = suites.map(s => ({o: s.o, c: s.c ? A.plan(s.c[0], s.c[1]) : null, pts: s.q.map(q => A.plan(q[0], q[1]))}));
   return A.p.evaluate(async liste => {
     const ed = window.__vcEd, S = ed.etat, out = [], base = JSON.stringify(S.doc.el), vue = {cx: S.vue.cx, cy: S.vue.cy, s: S.vue.s};
     const image = () => new Promise(f => requestAnimationFrame(() => requestAnimationFrame(f)));
     const pt = q => q.x.toFixed(9) + ';' + q.y.toFixed(9);
-    const OUT = {lim: {k: 'ln', id: 'lim', pal: 'tr'}, tr: {k: 'ln', id: 'tr', pal: 'tr'}, descente: {k: 'pt', t: 'descente', pal: 'ep'}, regard: {k: 'pt', t: 'regard', pal: 'reg'}};
-    for (const [o, pts] of liste){
+    const OUT = {lim: {k: 'ln', id: 'lim', pal: 'tr'}, tr: {k: 'ln', id: 'tr', pal: 'tr'}, esc: {k: 'ln', id: 'esc', pal: 'tr'}, descente: {k: 'pt', t: 'descente', pal: 'ep'},
+      regard: {k: 'pt', t: 'regard', pal: 'reg'}};
+    for (const {o, c, pts} of liste){
       S.brouillon = null; S.sel = null; S.panneau = null; S.accrocheVue = null;
       ed.choisirOutil(OUT[o]);
-      S.vue.cx = vue.cx; S.vue.cy = vue.cy; S.vue.s = vue.s; ed.redessiner(); await image();
+      S.vue.cx = c ? c.x : vue.cx; S.vue.cy = c ? c.y : vue.cy; S.vue.s = vue.s; ed.redessiner(); await image();
       for (const q of pts){
         S.dernierTap = null; S.finAuto = null; S.dernierePose = null; S.clicHors = null; S.gardeFiche = null;
         const n0 = S.doc.el.length, e = S.vue.ecran(q.x, q.y); ed.tap(e.x, e.y);
         const b = S.brouillon, w = b && b.pts.length ? b.pts[b.pts.length - 1] : null, nv = S.doc.el.length > n0 ? S.doc.el[S.doc.el.length - 1] : null;
-        out.push(w ? 'b' + b.pts.length + ' ' + pt(w) + ' ' + (w.aide || (w.snap ? w.snap.type : 'libre')) : nv ? nv.t + ' ' + (nv.k === 'pt' ? pt(nv) : nv.v.map(pt).join(' ')) : 'rien');
+        out.push(w ? 'b' + b.pts.length + ' ' + pt(w) + ' ' + (w.aide || (w.snap ? w.snap.type : 'libre'))
+          : nv ? nv.t + ' ' + (nv.k === 'pt' ? pt(nv) : nv.v.map(pt).join(' ')) + (nv.t === 'esc' && nv.p ? ' ' + nv.p.monte : '') : 'rien');
         await image();
       }
       S.brouillon = null; S.doc.el = JSON.parse(base); S.undo = []; S.redo = []; S.sel = null; S.panneau = null; ed.synchroniser();
     }
+    S.vue.cx = vue.cx; S.vue.cy = vue.cy; S.vue.s = vue.s; ed.redessiner();
     return out;
   }, liste);
 }
-function memesPoints(res, quoi){
-  const diff = res.map((r, i) => r === FIGES[i] ? -1 : i).filter(i => i >= 0);
-  R.ok(res.length === 20 && FIGES.length === 20 && !diff.length, 'd : ' + quoi + ' : ' + res.length + ' touchers, mêmes points que sur e9e8b5d'
-    + (diff.length ? ' ; différents : ' + diff.map(i => '#' + (i + 1) + ' ' + JSON.stringify(res[i]) + ' (attendu ' + JSON.stringify(FIGES[i]) + ')').join(' | ') : ''));
+/* les 20 touchers de TOUCHERS (m112), dans la vue d'avant */
+const toucher20 = A => toucherSuites(A, TOUCHERS.map(([o, ...q]) => ({o, q})));
+/* mêmes points que les points figés fig, posés sur la version ref */
+function memesPoints(res, quoi, fig, ref){
+  fig = fig || FIGES; ref = ref || 'e9e8b5d';
+  const diff = res.map((r, i) => r === fig[i] ? -1 : i).filter(i => i >= 0);
+  R.ok(res.length === 20 && fig.length === 20 && !diff.length, 'd : ' + quoi + ' : ' + res.length + ' touchers, mêmes points que sur ' + ref
+    + (diff.length ? ' ; différents : ' + diff.map(i => '#' + (i + 1) + ' ' + JSON.stringify(res[i]) + ' (attendu ' + JSON.stringify(fig[i]) + ')').join(' | ') : ''));
 }
 
 /* d : nouveaux accrochages décochés d'origine ; Réglages de l'éditeur ; anciens réglages de l'application ; 20 touchers inchangés */
@@ -643,6 +720,15 @@ async function defauts(){
         + c2[1] + ', S.aides ' + a2.ed.accPerp + ', application ' + a2.hote.accPerp + ')');
       R.ok(c3.every(x => x === 'false') && a4.ed.accMilieu === true && c4[0] === 'true', 'd : clés à null : cases décochées (' + c3.join(', ')
         + '), un toucher coche « Milieu d\'un côté » (S.aides ' + a4.ed.accMilieu + ', case ' + c4[0] + ')');
+      /* m113 : accProl à null, accInter à true : seule « Intersection » est cochée ; un toucher coche « Prolongement d'un côté » */
+      await reglerAides(p, {accProl: null, accInter: true});
+      await p.keyboard.press('Escape'); await C.pause(p, 250); await toucherEl(p, '.vc [data-p="reglages"]');
+      const c5 = await cases();
+      await toucherEl(p, CASE('accProl'));
+      const a6 = await aides(p), c6 = await cases();
+      R.ok(c5[3] === 'false' && c5[4] === 'true' && a6.ed.accProl === true && a6.hote.accProl === true && c6[3] === 'true', 'd : accProl à null, accInter à true : '
+        + '« Prolongement d\'un côté » ' + c5[3] + ', « Intersection » ' + c5[4] + ' ; un toucher coche « Prolongement d\'un côté » (S.aides ' + a6.ed.accProl
+        + ', application ' + a6.hote.accProl + ', case ' + c6[3] + ')');
     }
     await p.keyboard.press('Escape'); await C.pause(p, 250);
     /* anciens réglages de l'application (sans les nouvelles clés) : l'éditeur rouvert les a fausses, les puces sont décochées */
@@ -653,12 +739,15 @@ async function defauts(){
     await toucherEl(p, BOUTON);
     R.ok(NOUVEAUX.every(k => a5.ed[k] === false && puce(e5, k).on === 'false'), 'd : anciens réglages de l\'application : l\'éditeur rouvert a '
       + NOUVEAUX.map(k => k + ' ' + a5.ed[k] + ' (puce ' + (puce(e5, k).on || 'absente') + ')').join(', '));
-    /* 20 touchers : clés fausses (éditeur rouvert), retirées, puis à null */
+    /* 20 touchers de m112 et 20 de m113 : clés fausses (éditeur rouvert), retirées, puis à null */
     memesPoints(await toucher20(A), 'clés fausses');
+    memesPoints(await toucherSuites(A, TOUCHERS113), 'clés fausses, près des prolongements et des rencontres', FIGES113, '4691c1a');
     await reglerAides(p, {}, NOUVEAUX);
     memesPoints(await toucher20(A), 'clés retirées (anciens réglages)');
-    await reglerAides(p, {accMilieu: null, accPerp: null, accParcelle: null});
+    memesPoints(await toucherSuites(A, TOUCHERS113), 'clés retirées, près des prolongements et des rencontres', FIGES113, '4691c1a');
+    await reglerAides(p, {accMilieu: null, accPerp: null, accParcelle: null, accProl: null, accInter: null});
     memesPoints(await toucher20(A), 'clés à null');
+    memesPoints(await toucherSuites(A, TOUCHERS113), 'clés à null, près des prolongements et des rencontres', FIGES113, '4691c1a');
     erreurs(A, 'd');
   } finally { await A.fermer(); }
 }
@@ -965,8 +1054,402 @@ async function priorites(){
   } finally { await A.fermer(); }
 }
 
+/* ---------- m113 : nouveaux accrochages, second lot (Prolongement d'un côté, Intersection) ---------- */
+/* Repères du fond (repère de la démonstration) : façade ouest du bâti, u = 65,5, de Ks (65,5 ; 4) à Kn (65,5 ; 14) ; façade sud, v = 4 ;
+   bâti léger (59 ; 24)-(62,5 ; 28), son côté sud (v = 24) et son côté ouest (u = 59) ; façade nord du bâti voisin à l'ouest, v = 14, u 51
+   à 62,5 ; côté ouest de la parcelle du bâti, u = 64, v 0 à 34. Au nord de v = 34, le fond est vide. Vue à 40 px par mètre : 10 px font
+   0,25 m, 14 px 0,35 m. */
+/* point de rencontre des droites des côtés c et e ({a, b}, mètres du croquis) ; null s'ils sont parallèles */
+const interDe = (c, e) => {
+  const r = {x: c.b.x - c.a.x, y: c.b.y - c.a.y}, s = {x: e.b.x - e.a.x, y: e.b.y - e.a.y}, k = r.x * s.y - r.y * s.x;
+  if (!k) return null;
+  const t = ((e.a.x - c.a.x) * s.y - (e.a.y - c.a.y) * s.x) / k;
+  return {x: c.a.x + t * r.x, y: c.a.y + t * r.y};
+};
+/* trait de complément du point a au point b (mètres du croquis), à injecter ; son côté {a, b} */
+const traitDe = (id, a, b) => ({id, k: 'ln', t: 'lim', v: [{x: a.x, y: a.y, a: null}, {x: b.x, y: b.y, a: null}], p: {st: 'existant'}, lab: null});
+const segDe = t => ({a: t.v[0], b: t.v[1]});
+/* bout du côté c qui est à 1 cm au plus du point (u, v) du repère de la démonstration */
+const boutDe = (A, c, u, v) => [c.a, c.b].find(q => dist(q, A.plan(u, v)) < .01) || null;
+/* trait en tirets de deux points, entre s et t (pixels du canevas, à 1 px près, dans un sens ou dans l'autre) */
+const presDe = (q, s) => Math.hypot(q[0] - s.x, q[1] - s.y) < 1;
+const tiretsDe = (E, s, t) => E.traits.some(r => r.tirets && r.pts.length === 2 && ((presDe(r.pts[0], s) && presDe(r.pts[1], t)) || (presDe(r.pts[0], t) && presDe(r.pts[1], s))));
+/* point du brouillon resté sous le doigt (aucune aide) ; point au pied, sur la droite du côté c, de la perpendiculaire menée du doigt */
+const libre = r => !!r && !!r.q && !r.q.aide && !!r.q.doigt && proche(r.q, r.q.doigt);
+const surDroite = (r, c) => !!r && !!r.q && !!r.q.doigt && proche(r.q, piedSur(r.q.doigt, c));
+const enPx = d => (d * 40).toFixed(1) + ' px';
+/* plan vide (ou les éléments o.els), outil o.outil (trait de complément d'origine), vue centrée sur o.vue ; un premier point touché en
+   (u, v) ; rend dernier(), le point touché en pixels du canevas (s) et ce que l'espion a vu (E) */
+async function premier113(A, u, v, o){
+  o = o || {}; await plan112(A, o.outil || LIM, o.els); if (o.vue) await vueSur(A, o.vue[0], o.vue[1]);
+  await lireEspion(A.p);
+  const s = await toucherPt(A.p, A.plan(u, v), 250), r = await dernier(A.p);
+  r.s = s; r.E = await lireEspion(A.p); return r;
+}
+/* de même, un trait commencé en d et fini en f */
+async function fin113(A, d, f, o){
+  o = o || {}; await plan112(A, o.outil || LIM, o.els); if (o.vue) await vueSur(A, o.vue[0], o.vue[1]);
+  await toucherPt(A.p, A.plan(d[0], d[1]), 600); await lireEspion(A.p);
+  const s = await toucherPt(A.p, A.plan(f[0], f[1]), 250), r = await dernier(A.p);
+  r.s = s; r.E = await lireEspion(A.p); return r;
+}
+/* puce k de la palette touchée (palette ouverte puis fermée) ; rend les aides et l'état de la palette ouverte */
+async function basculer(p, k){ await toucherEl(p, BOUTON); await toucherEl(p, PUCE(k)); const a = await aides(p), e = await etat(p); await toucherEl(p, BOUTON); return {a, e}; }
+/* aimant touché, palette ouverte puis fermée */
+async function aimant(p){ await toucherEl(p, BOUTON); await toucherEl(p, '.vc .vc-nav .vc-aimant'); await toucherEl(p, BOUTON); }
+/* plan avec le seul tracé l (id 'T'), outil Choisir, l choisi, vue centrée sur c ; son second sommet glissé au doigt jusqu'au point (u, v) ;
+   rend ce sommet */
+async function glisserSommet(A, l, u, v, c){
+  const p = A.p;
+  await plan112(A, null, [l]); await vueSur(A, c[0], c[1]);
+  const d = await p.evaluate(() => { const ed = window.__vcEd, S = ed.etat; ed.choisirOutil({k: 'main'}); S.sel = {id: 'T'}; ed.synchroniser();
+    const w = S.doc.el.find(e => e.id === 'T').v[1], e = S.vue.ecran(w.x, w.y); return {x: Math.round(e.x), y: Math.round(e.y)}; });
+  await C.pause(p, 200);
+  const q = A.plan(u, v), f = await C.ecranCv(p, q.x, q.y);
+  await C.glisserDoigtCv(p, d, {x: Math.round(f.x), y: Math.round(f.y)}, 400);
+  const l2 = (await C.docCroquis(p)).el.find(e => e.id === 'T');
+  return l2 && l2.v[1];
+}
+
+/* pl : « Prolongement d'un côté » (accProl) : droite d'un côté au-delà de ses bouts, jusqu'à 30 m, seuil de la façade (10 px) ; entre les
+   bouts, c'est le côté ; une limite avec « Limites de parcelle » seulement ; jamais un escalier ; aimant coupé : rien */
+async function prolongement(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    if (!await boutonLa(p, 'pl')) return;
+    const v0 = await p.evaluate(() => window.VCroquis.AIDES_DEFAUT.accProl);
+    if (!R.ok(v0 === false, 'pl : clé accProl dans AIDES_DEFAUT, à false (' + v0 + ')')) return;
+    const B = await cotesRef(p, 'bati'), L = await cotesRef(p, 'limite'), ouest = cote(A, B, [65.5, 4], [65.5, 14]), sud = cote(A, B, [65.5, 4], [74.5, 4]);
+    const lw = cote(A, L, [64, 0], [64, 34]);
+    if (!R.ok(!!ouest && !!sud && !!lw, 'pl : témoin : façades ouest et sud du bâti, côté ouest de sa parcelle trouvés')) return;
+    const Ks = boutDe(A, ouest, 65.5, 4), Kn = boutDe(A, ouest, 65.5, 14), K0 = boutDe(A, lw, 64, 0);
+    await espionner(p);
+    /* trait commencé en (66,9 ; -1,6), loin de toute droite ; fin touchée à 6 px de la droite de la façade ouest, 3 m au-delà de Ks. Témoin,
+       clé décochée (d'origine) : sous le doigt (ni redressée, ni accrochée) */
+    const D0 = [66.9, -1.6], F0 = [65.65, 1];
+    const r0 = await fin113(A, D0, F0);
+    const b1 = await basculer(p, 'accProl');
+    R.ok(b1.a.ed.accProl === true && b1.a.hote.accProl === true && puce(b1.e, 'accProl').on === 'true', 'pl : puce « Prolongement d\'un côté » cochée : S.aides.accProl '
+      + b1.a.ed.accProl + ', application ' + b1.a.hote.accProl + ', puce ' + puce(b1.e, 'accProl').on);
+    const r1 = await fin113(A, D0, F0), F1 = r1.q && r1.q.doigt ? piedSur(r1.q.doigt, ouest) : null;
+    const sF = F1 ? await C.ecranCv(p, F1.x, F1.y) : {x: NaN, y: NaN}, sK = await C.ecranCv(p, Ks.x, Ks.y);
+    R.ok(r1.n === 2 && !!F1 && proche(r1.q, F1) && r1.q.aide === 'prol' && horsDroite(r1.q, ouest) < 1e-9 && Math.abs(dist(F1, Ks) - 3) < 0.05,
+      'pl : fin touchée à ' + enPx(horsDroite(r1.q && r1.q.doigt, ouest)) + ' de la droite de la façade ouest, ' + (F1 ? dist(F1, Ks).toFixed(2) : '?')
+      + ' m au-delà du coin : sur la droite (écart ' + ecart(r1.q, F1) + ', ' + genre(r1) + ')');
+    const t1 = tiretsDe(r1.E, sK, sF), l1 = ecrit(r1.E, 'Prolongement', sF);
+    R.ok(!!r1.vue && r1.vue.type === 'prol' && !!r1.vue.bouts && r1.vue.bouts.length === 1 && proche(r1.vue.bouts[0], Ks) && t1 && l1, 'pl : repère : tirets du coin au point ('
+      + (t1 ? 'oui' : 'non') + '), « Prolongement » (' + (l1 ? 'oui' : 'non') + ' ; repère ' + (r1.vue ? r1.vue.type : 'aucun') + ')');
+    R.ok(r0.n === 2 && libre(r0) && horsDroite(r0.q, ouest) > 0.1, 'pl : témoin, clé décochée : la même fin reste sous le doigt (' + genre(r0) + ', '
+      + (r0.q ? horsDroite(r0.q, ouest).toFixed(3) : '?') + ' m de la droite)');
+    /* jusqu'à 30 m du bout : premier point touché à 6 px de la droite, 29,9 m au-delà de Kn → sur la droite ; témoins : 30,1 m et 40 m → sous
+       le doigt */
+    const loin = async v => { const r = await premier113(A, 65.65, v, {vue: [66, v]}); r.ext = r.q && r.q.doigt ? dist(piedSur(r.q.doigt, ouest), Kn) : null; return r; };
+    const e1 = await loin(43.9), e2 = await loin(44.1), e3 = await loin(54);
+    R.ok(e1.n === 1 && !!e1.q && e1.q.aide === 'prol' && surDroite(e1, ouest) && e1.ext < 30 && libre(e2) && e2.ext > 30 && libre(e3) && e3.ext > 39,
+      'pl : jusqu\'à 30 m du coin : à ' + m(e1.ext) + ', sur la droite (' + genre(e1) + ') ; à ' + m(e2.ext) + ' (' + genre(e2) + ') et à ' + m(e3.ext) + ' (' + genre(e3) + '), sous le doigt');
+    /* seuil de la façade (10 px) : premier point touché à 9 px de la droite, 3 m au-delà de Ks → sur la droite ; à 11 px → sous le doigt */
+    const s9 = await premier113(A, 65.725, 1), s11 = await premier113(A, 65.775, 1);
+    const dp = r => r.q && r.q.doigt ? horsDroite(r.q.doigt, ouest) * 40 : NaN;
+    R.ok(s9.n === 1 && !!s9.q && s9.q.aide === 'prol' && surDroite(s9, ouest) && dp(s9) < 10 && libre(s11) && dp(s11) > 10, 'pl : seuil de la façade : à ' + dp(s9).toFixed(1)
+      + ' px de la droite, sur la droite (' + genre(s9) + ') ; à ' + dp(s11).toFixed(1) + ' px, sous le doigt (' + genre(s11) + ')');
+    /* entre les bouts, c'est le côté : premier point touché dans le bâti, à 6 px de la façade sud : « façade », comme clé décochée ;
+       « Accroche au bâti » décochée : sous le doigt (le prolongement de la façade sud du voisin, alignée sur elle, ne le prend pas) */
+    const c1 = await premier113(A, 67.5, 4.15);
+    await reglerAides(p, {bati: false}); const c2 = await premier113(A, 67.5, 4.15);
+    await reglerAides(p, {bati: true, accProl: false}); const c0 = await premier113(A, 67.5, 4.15); await reglerAides(p, {accProl: true});
+    R.ok(c1.n === 1 && !!c1.q && c1.q.aide === 'facade' && !!c0.q && c0.q.aide === 'facade' && proche(c1.q, c0.q) && horsDroite(c1.q, sud) < 1e-9 && libre(c2),
+      'pl : entre les bouts, c\'est le côté : ' + genre(c1) + ' (clé décochée : ' + genre(c0) + ') ; « Accroche au bâti » décochée : sous le doigt (' + genre(c2) + ')');
+    /* un côté qui croise la droite n'empêche pas le prolongement : premier point touché en (59,1 ; 14,15), à 4 px du prolongement du côté
+       ouest du bâti léger (9,85 m au-delà de son coin (59 ; 24)) et à 6 px de la façade nord du voisin, qui croise cette droite en (59 ; 14) ;
+       « Intersection » décochée. Sur la droite, tirets depuis (59 ; 24) : trait, « Accroche au bâti » cochée (le prolongement passe avant
+       la façade) ou décochée, et tronçon. Témoins, clé décochée : la façade pour le trait (bâti coché), sous le doigt sinon */
+    const o7 = cote(A, B, [59, 24], [59, 28]), H7 = o7 ? boutDe(A, o7, 59, 24) : null;
+    if (!R.ok(!!o7 && !!H7, 'pl : témoin : côté ouest du bâti léger et son coin (59 ; 24) trouvés')) return;
+    const croise = async (o, outil) => {
+      await reglerAides(p, o); const r = await premier113(A, 59.1, 14.15, {outil, vue: [60, 16]});
+      r.sF = r.q ? await C.ecranCv(p, r.q.x, r.q.y) : {x: NaN, y: NaN}; r.sH = await C.ecranCv(p, H7.x, H7.y); return r;
+    };
+    const vaSur = r => r.n === 1 && !!r.q && r.q.aide === 'prol' && surDroite(r, o7) && horsDroite(r.q, o7) < 1e-9 && !!r.vue && r.vue.type === 'prol' && !!r.vue.bouts
+      && r.vue.bouts.length === 1 && proche(r.vue.bouts[0], H7) && tiretsDe(r.E, r.sH, r.sF);
+    const k1 = await croise({accProl: true, accInter: false, bati: true}), k2 = await croise({bati: false}), k3 = await croise({bati: true}, TRONCON);
+    const k0 = await croise({accProl: false, bati: true}), k4 = await croise({bati: false}), k5 = await croise({bati: true}, TRONCON);
+    await reglerAides(p, {accProl: true, bati: true});
+    R.ok(vaSur(k1) && ecrit(k1.E, 'Prolongement', k1.sF) && vaSur(k2) && vaSur(k3), 'pl : un côté croise la droite à 6 px du point : sur la droite, tirets depuis le coin '
+      + '(59 ; 24) : trait (' + genre(k1) + ', ' + (k1.q ? horsDroite(k1.q, o7).toExponential(1) : '?') + ' m de la droite), « Accroche au bâti » décochée (' + genre(k2)
+      + ') et tronçon (' + genre(k3) + ')');
+    R.ok(!!k0.q && k0.q.aide === 'facade' && libre(k4) && libre(k5), 'pl : témoins, clé décochée : la façade pour le trait (' + genre(k0) + '), sous le doigt « Accroche au bâti » '
+      + 'décochée (' + genre(k4) + ') et pour le tronçon (' + genre(k5) + ')');
+    /* limite : premier point touché à 4 px du prolongement du côté ouest de la parcelle (u = 64), 3 m au-delà de son coin (64 ; 0) : sous
+       le doigt sans « Limites de parcelle » ; avec elle, sur la droite, tirets depuis le coin de limite */
+    const l0 = await premier113(A, 64.1, -3, {vue: [66, -2]});
+    await reglerAides(p, {accParcelle: true}); const lp = await premier113(A, 64.1, -3, {vue: [66, -2]}); await reglerAides(p, {accParcelle: false});
+    R.ok(libre(l0) && lp.n === 1 && !!lp.q && lp.q.aide === 'prol' && surDroite(lp, lw) && !!lp.vue && !!lp.vue.bouts && proche(lp.vue.bouts[0], K0),
+      'pl : prolongement d\'un côté de limite : seulement avec « Limites de parcelle » (sans : ' + genre(l0) + ' ; avec : ' + genre(lp) + ', '
+      + (lp.q ? horsDroite(lp.q, lw).toExponential(1) : '?') + ' m de la droite)');
+    /* un escalier n'est jamais cible : escalier de (60 ; 1) à (63 ; 1) ; premier point touché 1,5 m au-delà de sa fin, à 4 px de sa droite :
+       sous le doigt ; témoin : un trait de complément à sa place, le point va sur son prolongement */
+    const D = A.plan(60, 1), Fe = A.plan(63, 1);
+    const esc = {id: 'E', k: 'ln', t: 'esc', v: [{x: D.x, y: D.y, a: null}, {x: Fe.x, y: Fe.y, a: null}], p: {larg: '1,00', n: '4', cote: 'g', monte: 'fin', st: 'existant'}, lab: null};
+    const x1 = await premier113(A, 64.5, 1.1, {els: [esc], vue: [64, 2]}), x2 = await premier113(A, 64.5, 1.1, {els: [traitDe('T', D, Fe)], vue: [64, 2]});
+    R.ok(libre(x1) && x2.n === 1 && !!x2.q && x2.q.aide === 'prol' && surDroite(x2, {a: D, b: Fe}), 'pl : un escalier n\'est pas cible : sous le doigt (' + genre(x1)
+      + ') ; témoin, un trait de complément à sa place : sur son prolongement (' + genre(x2) + ')');
+    /* aimant coupé, « Prolongement d'un côté » et « Intersection » cochées : ni prolongement, ni rencontre (65,5 ; 24) de deux prolongements ;
+       témoin : aimant rétabli, l'un et l'autre attirent de nouveau */
+    await reglerAides(p, {accInter: true});
+    await aimant(p); const a9 = await aides(p);
+    const i1 = await fin113(A, D0, F0), i2 = await premier113(A, 65.6, 24.1, {vue: [64, 22]});
+    await aimant(p);
+    const i3 = await fin113(A, D0, F0), i4 = await premier113(A, 65.6, 24.1, {vue: [64, 22]});
+    R.ok(a9.ed.actives === false && libre(i1) && libre(i2), 'pl : aimant coupé (' + a9.ed.actives + '), les deux clés cochées : ni prolongement (' + genre(i1) + '), ni rencontre ('
+      + genre(i2) + ')');
+    R.ok(!!i3.q && i3.q.aide === 'prol' && !!i4.q && i4.q.aide === 'inter', 'pl : témoin : aimant rétabli, le prolongement (' + genre(i3) + ') et la rencontre (' + genre(i4)
+      + ') attirent de nouveau');
+    erreurs(A, 'pl');
+  } finally { await A.fermer(); }
+}
+
+/* ix : « Intersection » (accInter) : rencontre de deux côtés ou de leurs prolongements (30 m au plus), qui font plus de 5° ; seuil du coin
+   (14 px) ; un coin existant reste un coin */
+async function intersection(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    if (!await boutonLa(p, 'ix')) return;
+    const v0 = await p.evaluate(() => window.VCroquis.AIDES_DEFAUT.accInter);
+    if (!R.ok(v0 === false, 'ix : clé accInter dans AIDES_DEFAUT, à false (' + v0 + ')')) return;
+    const B = await cotesRef(p, 'bati'), ouest = cote(A, B, [65.5, 4], [65.5, 14]), s7 = cote(A, B, [59, 24], [62.5, 24]), o7 = cote(A, B, [59, 24], [59, 28]);
+    const nv = cote(A, B, [51, 14], [62.5, 14]);
+    if (!R.ok(!!ouest && !!s7 && !!o7 && !!nv, 'ix : témoin : façade ouest du bâti, côtés sud et ouest du bâti léger, façade nord du voisin trouvés')) return;
+    const X = interDe(ouest, s7), Kn = boutDe(A, ouest, 65.5, 14), B7 = boutDe(A, s7, 62.5, 24), Y = interDe(nv, o7), H7 = boutDe(A, o7, 59, 24), Ks = boutDe(A, ouest, 65.5, 4);
+    await espionner(p);
+    /* deux façades de bâtiments distincts, dont les prolongements se rencontrent dehors en (65,5 ; 24), 10 m au-delà de Kn et 3 m au-delà du
+       coin (62,5 ; 24) du bâti léger : premier point touché à 6 px de la rencontre ; témoin, clé décochée : sous le doigt */
+    const r0 = await premier113(A, 65.6, 24.1, {vue: [64, 22]});
+    const b1 = await basculer(p, 'accInter');
+    R.ok(b1.a.ed.accInter === true && b1.a.hote.accInter === true && puce(b1.e, 'accInter').on === 'true', 'ix : puce « Intersection » cochée : S.aides.accInter '
+      + b1.a.ed.accInter + ', application ' + b1.a.hote.accInter + ', puce ' + puce(b1.e, 'accInter').on);
+    const r1 = await premier113(A, 65.6, 24.1, {vue: [64, 22]}), sX = await C.ecranCv(p, X.x, X.y), sKn = await C.ecranCv(p, Kn.x, Kn.y), sB7 = await C.ecranCv(p, B7.x, B7.y);
+    R.ok(r1.n === 1 && proche(r1.q, X) && r1.q.aide === 'inter', 'ix : premier point touché à ' + (r1.q && r1.q.doigt ? enPx(dist(r1.q.doigt, X)) : '?')
+      + ' de la rencontre des prolongements de deux façades : à la rencontre (écart ' + ecart(r1.q, X) + ', ' + genre(r1) + ')');
+    const bo = r1.vue && r1.vue.bouts || [], t1 = tiretsDe(r1.E, sKn, sX), t2 = tiretsDe(r1.E, sB7, sX), l1 = ecrit(r1.E, 'Intersection', sX);
+    R.ok(!!r1.vue && r1.vue.type === 'inter' && bo.length === 2 && bo.some(q => proche(q, Kn)) && bo.some(q => proche(q, B7)) && t1 && t2 && l1, 'ix : repère : tirets depuis le coin '
+      + 'de la façade (' + (t1 ? 'oui' : 'non') + ') et depuis celui du bâti léger (' + (t2 ? 'oui' : 'non') + '), « Intersection » (' + (l1 ? 'oui' : 'non') + ' ; repère '
+      + (r1.vue ? r1.vue.type : 'aucun') + ')');
+    R.ok(libre(r0), 'ix : témoin, clé décochée : le même point reste sous le doigt (' + genre(r0) + ')');
+    /* sur une façade : premier point touché à 6 px de la rencontre (59 ; 14) du prolongement du côté ouest du bâti léger (10 m au-delà de son
+       coin (59 ; 24)) et de la façade nord du voisin, à 4 px de celle-ci : à la rencontre, tirets depuis ce seul coin ; témoin, clé décochée :
+       au pied, sur la façade */
+    const f1 = await premier113(A, 59.1, 14.1, {vue: [60, 16]});
+    await reglerAides(p, {accInter: false}); const f0 = await premier113(A, 59.1, 14.1, {vue: [60, 16]}); await reglerAides(p, {accInter: true});
+    const sY = await C.ecranCv(p, Y.x, Y.y), sH = await C.ecranCv(p, H7.x, H7.y);
+    R.ok(f1.n === 1 && proche(f1.q, Y) && f1.q.aide === 'inter' && !!f1.vue && !!f1.vue.bouts && f1.vue.bouts.length === 1 && proche(f1.vue.bouts[0], H7) && tiretsDe(f1.E, sH, sY)
+      && !!f0.q && f0.q.aide === 'facade' && dist(f0.q, Y) > 0.05, 'ix : rencontre d\'un prolongement et d\'une façade : à la rencontre (écart ' + ecart(f1.q, Y) + ', ' + genre(f1)
+      + ', ' + (f1.vue && f1.vue.bouts ? f1.vue.bouts.length : 0) + ' prolongement) ; témoin, clé décochée : ' + genre(f0) + ', ' + (f0.q ? dist(f0.q, Y).toFixed(3) : '?') + ' m de la rencontre');
+    /* angle : trait T1 de (64 ; 40) à (69 ; 40), trait T2 de 1 m à 6 m de X0 = (70 ; 40) dans la direction α ; premier point touché à 2 px de
+       X0 : α = 5,1° → à la rencontre ; α = 4,9° → sous le doigt ; T2 parallèle à T1, 0,1 m plus haut → sous le doigt */
+    const X0 = A.plan(70, 40), T1 = traitDe('T1', A.plan(64, 40), A.plan(69, 40));
+    const T2 = a => { const r = DEMO.th + a * Math.PI / 180, w = {x: Math.cos(r), y: Math.sin(r)}; return traitDe('T2', {x: X0.x + w.x, y: X0.y + w.y}, {x: X0.x + 6 * w.x, y: X0.y + 6 * w.y}); };
+    const vers = els => premier113(A, 70, 40.05, {els, vue: [68, 40]});
+    const g51 = await vers([T1, T2(5.1)]), g49 = await vers([T1, T2(4.9)]), gp = await vers([T1, traitDe('T2', A.plan(71, 40.1), A.plan(76, 40.1))]);
+    const XA = interDe(segDe(T1), segDe(T2(5.1)));
+    R.ok(g51.n === 1 && proche(g51.q, XA) && g51.q.aide === 'inter' && libre(g49) && libre(gp), 'ix : angle de plus de 5° : à 5,1°, à la rencontre (écart ' + ecart(g51.q, XA) + ', '
+      + genre(g51) + ') ; à 4,9° (' + genre(g49) + ') et parallèles (' + genre(gp) + '), sous le doigt');
+    /* jusqu'à 30 m des bouts : trait de (66 ; v) à (70 ; v), qui rencontre le prolongement de la façade ouest en (65,5 ; v), 0,5 m au-delà de
+       son propre bout ; premier point touché à 5 px de la rencontre : v = 43,9 (29,9 m au-delà de Kn) → à la rencontre ; v = 44,1 (30,1 m)
+       → sous le doigt */
+    const haut = async v => { const t = traitDe('T', A.plan(66, v), A.plan(70, v)), r = await premier113(A, 65.6, v + 0.05, {els: [t], vue: [66, v]});
+      r.X = interDe(ouest, segDe(t)); r.ext = dist(r.X, Kn); return r; };
+    const h299 = await haut(43.9), h301 = await haut(44.1);
+    R.ok(h299.n === 1 && proche(h299.q, h299.X) && h299.q.aide === 'inter' && h299.ext < 30 && libre(h301) && h301.ext > 30, 'ix : jusqu\'à 30 m des bouts : rencontre à '
+      + m(h299.ext) + ' du coin, à la rencontre (' + genre(h299) + ', écart ' + ecart(h299.q, h299.X) + ') ; à ' + m(h301.ext) + ', sous le doigt (' + genre(h301) + ')');
+    /* seuil du coin (14 px) : T2 vertical, de (70 ; 41) à (70 ; 46) ; premier point touché sur la diagonale, à 13 px de X0 → à X0 ; à 15 px →
+       sous le doigt */
+    const V2 = traitDe('T2', A.plan(70, 41), A.plan(70, 46)), XV = interDe(segDe(T1), segDe(V2)), d13 = 13 / 40 / Math.SQRT2, d15 = 15 / 40 / Math.SQRT2;
+    const h13 = await premier113(A, 70 - d13, 40 - d13, {els: [T1, V2], vue: [68, 40]}), h15 = await premier113(A, 70 - d15, 40 - d15, {els: [T1, V2], vue: [68, 40]});
+    const dx = r => r.q && r.q.doigt ? dist(r.q.doigt, XV) * 40 : NaN;
+    R.ok(h13.n === 1 && proche(h13.q, XV) && h13.q.aide === 'inter' && dx(h13) < 14 && libre(h15) && dx(h15) > 14, 'ix : seuil du coin : à ' + dx(h13).toFixed(1)
+      + ' px, à la rencontre (' + genre(h13) + ') ; à ' + dx(h15).toFixed(1) + ' px, sous le doigt (' + genre(h15) + ')');
+    /* coin existant : premier point touché dehors à 6 px du coin Ks, où la façade ouest et la façade sud se touchent : repère « coin du
+       bâti », pas « Intersection » ; « Accroche au bâti » décochée : sous le doigt (une rencontre sur un coin n'est pas une intersection) */
+    const k1 = await premier113(A, 65.4, 3.9), sKs = await C.ecranCv(p, Ks.x, Ks.y);
+    await reglerAides(p, {bati: false}); const k2 = await premier113(A, 65.4, 3.9); await reglerAides(p, {bati: true});
+    const ki = ecrit(k1.E, 'Intersection', sKs);
+    R.ok(k1.n === 1 && proche(k1.q, Ks) && k1.q.aide === 'coin' && !!k1.vue && k1.vue.type === 'coin' && ecrit(k1.E, 'coin du bâti', sKs) && !ki && libre(k2),
+      'ix : coin existant : repère « coin du bâti » (' + genre(k1) + ', repère ' + (k1.vue ? k1.vue.type : 'aucun') + ', « Intersection » ' + (ki ? 'écrit' : 'absent')
+      + ') ; « Accroche au bâti » décochée : sous le doigt (' + genre(k2) + ')');
+    erreurs(A, 'ix');
+  } finally { await A.fermer(); }
+}
+
+/* pi : ordre complet (coin > intersection > milieu > perpendiculaire > prolongement > redressement > côté) ; sommet d'un trait glissé */
+async function priorites113(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    if (!await boutonLa(p, 'pi')) return;
+    const v0 = await p.evaluate(() => window.VCroquis.AIDES_DEFAUT.accInter);
+    if (!R.ok(v0 === false, 'pi : clé accInter dans AIDES_DEFAUT, à false (' + v0 + ')')) return;
+    const B = await cotesRef(p, 'bati'), ouest = cote(A, B, [65.5, 4], [65.5, 14]), s7 = cote(A, B, [59, 24], [62.5, 24]);
+    if (!R.ok(!!ouest && !!s7, 'pi : témoin : façade ouest du bâti et côté sud du bâti léger trouvés')) return;
+    const X = interDe(ouest, s7);
+    /* coin avant intersection : traits K1 de (60 ; 40) à (63 ; 40) et K2 de (63,4 ; 41) à (63,4 ; 43), dont les droites se rencontrent en
+       (63,4 ; 40) ; premier point touché en (63,2 ; 40), à 8 px du bout (63 ; 40) et de la rencontre : au bout ; témoin, « Accroche au
+       bâti » décochée : à la rencontre */
+    await reglerAides(p, {accInter: true});
+    const K1 = traitDe('K1', A.plan(60, 40), A.plan(63, 40)), K2 = traitDe('K2', A.plan(63.4, 41), A.plan(63.4, 43)), XK = interDe(segDe(K1), segDe(K2));
+    const c1 = await premier113(A, 63.2, 40, {els: [K1, K2], vue: [62, 41]});
+    await reglerAides(p, {bati: false}); const c2 = await premier113(A, 63.2, 40, {els: [K1, K2], vue: [62, 41]}); await reglerAides(p, {bati: true});
+    R.ok(c1.n === 1 && proche(c1.q, K1.v[1]) && c1.q.aide === 'coin' && c2.n === 1 && proche(c2.q, XK) && c2.q.aide === 'inter', 'pi : coin avant intersection : touché à '
+      + (c1.q && c1.q.doigt ? enPx(dist(c1.q.doigt, K1.v[1])) + ' du bout et à ' + enPx(dist(c1.q.doigt, XK)) + ' de la rencontre' : '?') + ', au bout (' + genre(c1)
+      + ') ; témoin, « Accroche au bâti » décochée : à la rencontre (' + genre(c2) + ', écart ' + ecart(c2.q, XK) + ')');
+    /* intersection avant milieu : traits M1 de (60 ; 40) à (61,5 ; 40) et M2 de (61,05 ; 41) à (61,05 ; 43), dont le prolongement rencontre
+       M1 en (61,05 ; 40) ; premier point touché en (60,9 ; 40), à 6 px de la rencontre et du milieu (60,75 ; 40) de M1 : à la rencontre ;
+       témoin, « Intersection » décochée : au milieu */
+    await reglerAides(p, {accMilieu: true});
+    const M1 = traitDe('M1', A.plan(60, 40), A.plan(61.5, 40)), M2 = traitDe('M2', A.plan(61.05, 41), A.plan(61.05, 43)), XM = interDe(segDe(M1), segDe(M2)), MM = milieuDe(segDe(M1));
+    const m1 = await premier113(A, 60.9, 40, {els: [M1, M2], vue: [62, 41]});
+    await reglerAides(p, {accInter: false}); const m2 = await premier113(A, 60.9, 40, {els: [M1, M2], vue: [62, 41]}); await reglerAides(p, {accInter: true, accMilieu: false});
+    R.ok(m1.n === 1 && proche(m1.q, XM) && m1.q.aide === 'inter' && m2.n === 1 && proche(m2.q, MM) && m2.q.aide === 'milieu', 'pi : intersection avant milieu : à la rencontre ('
+      + genre(m1) + ', écart ' + ecart(m1.q, XM) + ') ; témoin, « Intersection » décochée : au milieu (' + genre(m2) + ', écart ' + ecart(m2.q, MM) + ')');
+    /* intersection avant prolongement : premier point touché à 9 px de la rencontre (65,5 ; 24) de deux prolongements, à 4 px de celui de la
+       façade ouest ; « Prolongement d'un côté » cochée aussi : à la rencontre ; témoin, « Intersection » décochée : sur le prolongement */
+    await reglerAides(p, {accProl: true});
+    const j1 = await premier113(A, 65.6, 24.2, {vue: [64, 22]});
+    await reglerAides(p, {accInter: false}); const j2 = await premier113(A, 65.6, 24.2, {vue: [64, 22]}); await reglerAides(p, {accInter: true});
+    R.ok(j1.n === 1 && proche(j1.q, X) && j1.q.aide === 'inter' && j2.n === 1 && !!j2.q && j2.q.aide === 'prol' && surDroite(j2, ouest) && dist(j2.q, X) > 0.05,
+      'pi : intersection avant prolongement : à la rencontre (' + genre(j1) + ', écart ' + ecart(j1.q, X) + ') ; témoin, « Intersection » décochée : sur le prolongement ('
+      + genre(j2) + ')');
+    /* prolongement avant redressement : trait commencé en (68 ; -2), fin touchée en (65,6 ; 1), à 4 px du prolongement de la façade ouest ;
+       témoin, clé décochée : redressée à 135° ; cochée : sur le prolongement */
+    await reglerAides(p, {accInter: false, accProl: false}); const q0 = await fin113(A, [68, -2], [65.6, 1]);
+    await reglerAides(p, {accProl: true}); const q1 = await fin113(A, [68, -2], [65.6, 1]);
+    R.ok(q0.n === 2 && !!q0.q && (q0.q.aide === 'parallele' || q0.q.aide === 'angle') && horsDroite(q0.q, ouest) > 0.05 && q1.n === 2 && !!q1.q && q1.q.aide === 'prol' && surDroite(q1, ouest),
+      'pi : prolongement avant redressement : clé décochée, redressée (' + genre(q0) + ') ; cochée, sur le prolongement (' + genre(q1) + ')');
+    /* sommet d'un trait de complément (62 ; 22) → (64 ; 21), choisi, glissé jusqu'à 6 px de la rencontre (65,5 ; 24) : à la rencontre ;
+       témoin, « Intersection » et « Prolongement d'un côté » décochées : ailleurs */
+    await reglerAides(p, {accInter: true, accProl: false});
+    const tg = traitDe('T', A.plan(62, 22), A.plan(64, 21)), g1 = await glisserSommet(A, tg, 65.6, 24.1, [64, 22]);
+    await reglerAides(p, {accInter: false}); const g2 = await glisserSommet(A, tg, 65.6, 24.1, [64, 22]);
+    R.ok(!!g1 && proche(g1, X) && !!g2 && dist(g2, X) > 0.1, 'pi : sommet d\'un trait de complément glissé à 6 px de la rencontre : à la rencontre (écart ' + ecart(g1, X)
+      + ') ; témoin, clés décochées : ailleurs (' + (g2 ? dist(g2, X).toFixed(3) : '?') + ' m de la rencontre)');
+    erreurs(A, 'pi');
+  } finally { await A.fermer(); }
+}
+
+/* mo : sens de la montée d'un escalier (décision D7 : vers le bout posé sur le bâti) dont le départ est calé par un nouvel accrochage ; une
+   intersection n'est sur le bâti que si elle tombe sur l'un des deux côtés, un point au prolongement d'un côté ne l'est pas */
+async function montee113(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    if (!await boutonLa(p, 'mo')) return;
+    const v0 = await p.evaluate(() => window.VCroquis.AIDES_DEFAUT.accInter);
+    if (!R.ok(v0 === false, 'mo : clé accInter dans AIDES_DEFAUT, à false (' + v0 + ')')) return;
+    /* escalier touché au doigt du départ d à la fin f (repère de la démonstration), sur un plan vide ou avec les éléments els, vue centrée
+       sur c, clés o cochées (les autres nouvelles décochées) : départ du brouillon, puis escalier créé (sens de la montée) */
+    const esc = async (o, d, f, c, els) => {
+      await reglerAides(p, Object.assign({accMilieu: false, accPerp: false, accParcelle: false, accProl: false, accInter: false}, o));
+      await plan112(A, ESC, els); await vueSur(A, c[0], c[1]);
+      await toucherPt(p, A.plan(d[0], d[1]), 600);
+      const dep = (await dernier(p)).q;
+      await toucherPt(p, A.plan(f[0], f[1]), 600);
+      const e = (await C.docCroquis(p)).el.filter(x => x.k === 'ln' && x.t === 'esc');
+      return {dep, n: e.length, monte: e.length === 1 && e[0].p ? e[0].p.monte : null};
+    };
+    const dit = r => 'départ ' + (r.dep ? r.dep.aide || 'libre' : 'absent') + (r.dep && r.dep.surBati ? ' sur le bâti' : '') + ', montée ' + r.monte + ', ' + r.n + ' escalier';
+    /* départ calé à la rencontre (59 ; 14) du prolongement d'un côté et de la façade nord du voisin, fin au jardin : le départ est sur le
+       bâti, montée vers lui */
+    const a1 = await esc({accInter: true}, [59.1, 14.1], [59, 17], [60, 16]);
+    R.ok(a1.n === 1 && !!a1.dep && a1.dep.aide === 'inter' && a1.dep.surBati === true && a1.monte === 'depart', 'mo : départ à la rencontre d\'un prolongement et d\'une façade : '
+      + 'montée vers le départ (' + dit(a1) + ')');
+    /* départ à la rencontre (65,5 ; 24) de deux prolongements : pas sur le bâti, montée vers la fin */
+    const a2 = await esc({accInter: true}, [65.6, 24.1], [65.6, 21], [64, 22]);
+    R.ok(a2.n === 1 && !!a2.dep && a2.dep.aide === 'inter' && a2.dep.surBati === false && a2.monte === 'fin', 'mo : départ à la rencontre de deux prolongements : montée vers la fin ('
+      + dit(a2) + ')');
+    /* départ sur le prolongement de la façade ouest, 2 m au-delà de Ks : pas sur le bâti, montée vers la fin ; témoin : départ sur la façade
+       même, 2 m en deçà de Ks : montée vers le départ */
+    const a3 = await esc({accProl: true}, [65.4, 2], [63.5, 2], [65, 4]), a4 = await esc({accProl: true}, [65.4, 6], [63.5, 6], [65, 4]);
+    R.ok(a3.n === 1 && !!a3.dep && a3.dep.aide === 'prol' && a3.dep.surBati === false && a3.monte === 'fin' && a4.n === 1 && !!a4.dep && a4.dep.aide === 'facade' && a4.monte === 'depart',
+      'mo : départ sur le prolongement d\'une façade : montée vers la fin (' + dit(a3) + ') ; témoin, départ sur la façade : vers le départ (' + dit(a4) + ')');
+    /* « Limites de parcelle » cochée : départ calé à la rencontre (64 ; 14) du prolongement de la façade nord du voisin et du côté ouest de
+       la parcelle. Une limite n'est pas le bâti : montée vers la fin. Témoin : un trait de complément posé sur ce côté, de (64 ; 10) à
+       (64 ; 18), passe avant la limite (le bâti et les traits viennent avant les limites) : le départ est sur lui (à sa rencontre ZT avec la
+       façade, à moins d'un millimètre de Z), montée vers le départ */
+    const B = await cotesRef(p, 'bati'), L = await cotesRef(p, 'limite'), nv = cote(A, B, [51, 14], [62.5, 14]), lw = cote(A, L, [64, 0], [64, 34]);
+    const tT = traitDe('T', A.plan(64, 10), A.plan(64, 18)), Z = nv && lw ? interDe(nv, lw) : null, ZT = nv ? interDe(nv, segDe(tT)) : null;
+    if (!R.ok(!!Z && !!ZT, 'mo : témoin : façade nord du voisin et côté ouest de la parcelle trouvés')) return;
+    const a5 = await esc({accInter: true, accParcelle: true}, [64.1, 14.1], [66.5, 18], [64, 16]);
+    const a6 = await esc({accInter: true, accParcelle: true}, [64.1, 14.1], [66.5, 18], [64, 16], [tT]);
+    R.ok(a5.n === 1 && !!a5.dep && a5.dep.aide === 'inter' && proche(a5.dep, Z, 1e-6) && a5.dep.surBati === false && a5.monte === 'fin' && a6.n === 1 && !!a6.dep
+      && a6.dep.aide === 'inter' && proche(a6.dep, ZT, 1e-6) && a6.dep.surBati === true && a6.monte === 'depart', 'mo : départ à la rencontre d\'un prolongement et d\'une '
+      + 'limite de parcelle : montée vers la fin (' + dit(a5) + ', écart ' + ecart(a5.dep, Z) + ') ; témoin, un trait sur la limite : vers le départ (' + dit(a6) + ', écart ' + ecart(a6.dep, ZT) + ')');
+    erreurs(A, 'mo');
+  } finally { await A.fermer(); }
+}
+
+/* rm : objets de mur et points du réseau, « Prolongement d'un côté » et « Intersection » cochées */
+async function reseauMur113(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    if (!await boutonLa(p, 'rm')) return;
+    const v0 = await p.evaluate(() => window.VCroquis.AIDES_DEFAUT.accProl);
+    if (!R.ok(v0 === false, 'rm : clé accProl dans AIDES_DEFAUT, à false (' + v0 + ')')) return;
+    const B = await cotesRef(p, 'bati'), ouest = cote(A, B, [65.5, 4], [65.5, 14]), s7 = cote(A, B, [59, 24], [62.5, 24]), o7 = cote(A, B, [59, 24], [59, 28]);
+    const nv = cote(A, B, [51, 14], [62.5, 14]);
+    if (!R.ok(!!ouest && !!s7 && !!o7 && !!nv, 'rm : témoin : façade ouest du bâti, côtés du bâti léger et façade nord du voisin trouvés')) return;
+    const X = interDe(ouest, s7), Y = interDe(nv, o7), Ks = boutDe(A, ouest, 65.5, 4);
+    await reglerAides(p, {accProl: true, accInter: true});
+    /* descente (objet de mur) touchée à 6 px de la rencontre (59 ; 14), à 2 px de la façade nord du voisin : sur la façade, pas à la
+       rencontre ; témoin : le premier point d'un trait de complément touché au même endroit va à la rencontre */
+    const descente = async (u, v, c) => {
+      const q = A.plan(u, v); await plan112(A, DESC); await vueSur(A, c[0], c[1]); await toucherPt(p, q, 700);
+      const de = (await C.docCroquis(p)).el.filter(e => e.t === 'descente');
+      return {q, o: de.length === 1 ? de[0] : null};
+    };
+    const o1 = await descente(59.15, 14.05, [60, 16]), w1 = await premier113(A, 59.15, 14.05, {vue: [60, 16]});
+    R.ok(!!o1.o && horsDroite(o1.o, nv) < 1e-9 && dist(o1.o, Y) > 0.1 && w1.n === 1 && proche(w1.q, Y) && w1.q.aide === 'inter', 'rm : descente touchée près d\'une rencontre : sur la '
+      + 'façade (' + (o1.o ? horsDroite(o1.o, nv).toExponential(1) + ' m de la façade, ' + dist(o1.o, Y).toFixed(3) + ' m de la rencontre' : 'absente') + ') ; témoin, trait de complément : '
+      + 'à la rencontre (' + genre(w1) + ')');
+    /* descente touchée à 6 px du prolongement de la façade ouest, 3 m au-delà de Ks : sous le doigt (un trait y va : cas pl) */
+    const o2 = await descente(65.65, 1, [68, 2]);
+    R.ok(!!o2.o && dist(o2.o, o2.q) < 0.03 && horsDroite(o2.o, ouest) > 0.1, 'rm : descente touchée près du prolongement d\'une façade : sous le doigt ('
+      + (o2.o ? dist(o2.o, o2.q).toFixed(3) + ' m du point touché, ' + horsDroite(o2.o, ouest).toFixed(3) + ' m de la droite' : 'absente') + ')');
+    /* tronçon : premier point touché à 6 px du prolongement de la façade ouest → sur la droite ; témoin, clés décochées : sous le doigt */
+    const t1 = await premier113(A, 65.65, 1, {outil: TRONCON});
+    await reglerAides(p, {accProl: false, accInter: false}); const t0 = await premier113(A, 65.65, 1, {outil: TRONCON}); await reglerAides(p, {accProl: true, accInter: true});
+    R.ok(t1.n === 1 && !!t1.q && t1.q.aide === 'prol' && surDroite(t1, ouest) && libre(t0), 'rm : premier point d\'un tronçon près du prolongement d\'une façade : sur la droite ('
+      + genre(t1) + ') ; témoin, clés décochées : sous le doigt (' + genre(t0) + ')');
+    /* tronçon : premier point près du coin Ks → sous le doigt (ni coin, ni intersection) ; près de la rencontre (65,5 ; 24) de deux
+       prolongements → à la rencontre */
+    const t2 = await premier113(A, 65.4, 3.9, {outil: TRONCON}), t3 = await premier113(A, 65.6, 24.1, {outil: TRONCON, vue: [64, 22]});
+    R.ok(libre(t2) && t3.n === 1 && proche(t3.q, X) && t3.q.aide === 'inter', 'rm : premier point d\'un tronçon : près d\'un coin du bâti, sous le doigt (' + genre(t2) + ', '
+      + (t2.q ? dist(t2.q, Ks).toFixed(3) : '?') + ' m du coin) ; près de la rencontre de deux prolongements, à la rencontre (' + genre(t3) + ', écart ' + ecart(t3.q, X) + ')');
+    /* regard posé en (65,5 ; 24,25) ; tronçon commencé en (68 ; 22), fin touchée en (65,5 ; 24,1), à 4 px de la rencontre et à 6 px du
+       regard : raccordée au regard (le réseau passe avant) */
+    const rg = A.plan(65.5, 24.25);
+    await plan112(A, TRONCON, [C.P('R', 'regard', rg.x, rg.y)]); await vueSur(A, 64, 22);
+    await toucherPt(p, A.plan(68, 22), 600); await toucherPt(p, A.plan(65.5, 24.1), 600);
+    if ((await dernier(p)).n){ await p.evaluate(() => window.__vcEd.terminerTrace()); await C.pause(p, 300); }
+    const tr = (await C.docCroquis(p)).el.find(e => e.k === 'ln' && e.t === 'tr');
+    /* témoin : le même tronçon sans le regard : la fin va à la rencontre */
+    await plan112(A, TRONCON); await vueSur(A, 64, 22);
+    await toucherPt(p, A.plan(68, 22), 600); await toucherPt(p, A.plan(65.5, 24.1), 600);
+    const fx = await dernier(p);
+    if (fx.n){ await p.evaluate(() => window.__vcEd.terminerTrace()); await C.pause(p, 300); }
+    R.ok(!!tr && tr.v.length === 2 && tr.v[1].a === 'R' && proche(tr.v[1], rg, 1e-6) && fx.n === 2 && !!fx.q && fx.q.aide === 'inter' && proche(fx.q, X), 'rm : fin d\'un tronçon '
+      + 'touchée près d\'une rencontre et d\'un regard : raccordée au regard (' + (tr ? tr.v.map(w => w.a || 'libre').join(' → ') : 'aucun tronçon') + ') ; témoin, sans le '
+      + 'regard : à la rencontre (' + genre(fx) + ', écart ' + ecart(fx.q, X) + ')');
+    /* sommet d'un tronçon (62 ; 22) → (64 ; 21), choisi, glissé jusqu'à 6 px de la rencontre : à la rencontre ; témoin, clés décochées :
+       sous le doigt */
+    const a = A.plan(62, 22), b = A.plan(64, 21), lt = C.L('T', 'tr', [[a.x, a.y], [b.x, b.y]], {}, {});
+    const g1 = await glisserSommet(A, lt, 65.6, 24.1, [64, 22]);
+    await reglerAides(p, {accProl: false, accInter: false}); const g2 = await glisserSommet(A, lt, 65.6, 24.1, [64, 22]);
+    R.ok(!!g1 && proche(g1, X) && !!g2 && dist(g2, X) > 0.1, 'rm : sommet d\'un tronçon glissé à 6 px de la rencontre : à la rencontre (écart ' + ecart(g1, X)
+      + ') ; témoin, clés décochées : ailleurs (' + (g2 ? dist(g2, X).toFixed(3) : '?') + ' m de la rencontre)');
+    erreurs(A, 'rm');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [boutonEtPalette, portrait, reglagesEtEchap, accrocheBati, aimantEtReseau, toucherPlan, fermetures, table, defauts, milieuPerp, limites, troncon, escalierMontee, priorites]){
+  for (const f of [boutonEtPalette, portrait, reglagesEtEchap, accrocheBati, aimantEtReseau, toucherPlan, fermetures, table, defauts, milieuPerp, limites, troncon, escalierMontee, priorites,
+    prolongement, intersection, priorites113, montee113, reseauMur113]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception du test : ' + (e && e.stack || e)); }
   }
   R.fin();

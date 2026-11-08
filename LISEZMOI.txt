@@ -151,10 +151,13 @@ CROQUIS DE TERRAIN (facultatif)
   au bâti, les angles droits et 45° et les nouveaux accrochages ; aimant
   coupé, ses puces sont grisées. Un toucher sur le plan la ferme sans
   rien faire d'autre. Les nouveaux accrochages, décochés d'origine,
-  « Milieu d'un côté », « Perpendiculaire » (depuis le point précédent)
-  et « Limites de parcelle », calent les points d'un tracé (tronçon
-  compris) et les objets posés sur un mur, après l'accroche au réseau,
-  qui passe toujours avant.
+  « Milieu d'un côté », « Perpendiculaire » (depuis le point précédent),
+  « Limites de parcelle », « Prolongement d'un côté » (jusqu'à 30 m
+  au-delà d'un bout) et « Intersection » (rencontre de deux côtés ou de
+  leurs prolongements ; un coin reste un coin), calent les points d'un
+  tracé (tronçon compris) et les objets posés sur un mur (sur le bâti
+  seulement : ni prolongement ni intersection), après l'accroche au
+  réseau, qui passe toujours avant.
 - Sorties : plan de l'état des lieux et plan d'avant-projet en PDF, plan
   DXF pour la DAO (dans le croquis, « Sorties »), « Plan PDF » sur la page
   du dossier. L'export de l'étude joint le plan PDF dans le dossier. Le

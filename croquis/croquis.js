@@ -333,10 +333,84 @@ function piedSegs(p, prec, segs, R){
   });
   return best;
 }
+/* Nouveaux accrochages, second lot (m113), sur les mêmes côtés que milieuSegs et piedSegs, avec le même contrat. Le prolongement d'un côté
+   [A, B] est la droite AB au-delà de ses bouts, jusqu'à Lmax (30 m si Lmax n'est pas donné [p]) du bout ; ext est la longueur du
+   prolongement utilisé (0 sur le côté même).
+   - prolSegs : pied de la perpendiculaire menée de p sur le prolongement d'un côté, à R au plus de p. Rien depuis un côté si p est à R au
+     plus de lui ou d'un côté qui lui est aligné (à 5° près) : c'est ce côté (la façade). Un côté qui croise la droite ne l'empêche pas.
+     Rend {x, y, d, s, bout, ext}, bout étant le bout du côté d'où part le prolongement.
+   - interSegs : point où deux côtés, ou leurs prolongements, se rencontrent, à R au plus de p. Les deux droites font plus de 5° entre elles.
+     Un point à 1 cm au plus d'un bout de l'un des deux côtés est un coin existant (côtés qui se touchent déjà) : écarté, le coin s'en
+     charge. Au plus INTER_MAX côtés comptent : ceux dont la droite passe le plus près de p [p]. Rend {x, y, d, s, s2, ext, ext2, bout,
+     bout2} ; bout (ou bout2) vaut null quand le point est sur le côté même.
+   Le plus proche de p ; à 1 mm près (le même point pour le technicien : des côtés alignés donnent la même droite, au bruit du fond près),
+   le plus court prolongement ; puis le premier. Sinon, ou pour une entrée invalide, null */
+var PROL_MAX = 30, INTER_SIN = Math.sin(5 * Math.PI / 180), ACC_COIN = .01, ACC_EGAL = .001, INTER_MAX = 64;
+/* longueur du prolongement au paramètre t d'un côté de longueur L (0 entre les bouts) */
+function depasse(t, L){ return t < 0 ? -t * L : t > 1 ? (t - 1) * L : 0; }
+/* côtés s et t ([x0, y0, x1, y1], de longueurs Ls et Lt) presque parallèles : 5° au plus entre leurs droites. Ils ne se rencontrent pas
+   (interSegs) ; près de l'un, l'autre n'a pas de prolongement (prolSegs) */
+function presqueParalleles(s, Ls, t, Lt){ return !(Math.abs((s[2] - s[0]) * (t[3] - t[1]) - (s[3] - s[1]) * (t[2] - t[0])) > INTER_SIN * Ls * Lt); }
+/* parmi les candidats c ({d, …}), le plus proche ; à ACC_EGAL près, celui dont la valeur v(q) est la plus petite ; puis le premier */
+function plusProche(c, v){
+  var dmin = Infinity, best = null, i;
+  for (i = 0; i < c.length; i++) if (c[i].d < dmin) dmin = c[i].d;
+  for (i = 0; i < c.length; i++) if (c[i].d <= dmin + ACC_EGAL && (!best || v(c[i]) < v(best) - ACC_EGAL)) best = c[i];
+  return best;
+}
+function prolSegs(p, segs, R, Lmax){
+  if (Lmax === undefined) Lmax = PROL_MAX;
+  if (!estPt(p) || !Array.isArray(segs) || !(R >= 0) || typeof Lmax !== 'number' || !(Lmax >= 0)) return null;
+  var c = [], pres = [], i, s, a, b, f, e, d, L;
+  /* côtés à R au plus de p (entre leurs bouts ou près d'eux) */
+  for (i = 0; i < segs.length; i++){
+    s = segs[i]; if (!coteValable(s)) continue;
+    if (projSeg(p, {x: s[0], y: s[1]}, {x: s[2], y: s[3]}).d <= R) pres.push({s: s, L: Math.hypot(s[2] - s[0], s[3] - s[1])});
+  }
+  for (i = 0; i < segs.length; i++){
+    s = segs[i]; if (!coteValable(s)) continue;
+    a = {x: s[0], y: s[1]}; b = {x: s[2], y: s[3]}; L = Math.hypot(b.x - a.x, b.y - a.y);
+    f = piedPerp(p, a, b); if (!f) continue;
+    e = depasse(f.t, L); d = Math.hypot(f.x - p.x, f.y - p.y);
+    if (!(e > 0 && e <= Lmax && d <= R)) continue;
+    /* l'un des côtés proches est ce côté ou lui est aligné (à 5° près) : c'est ce côté, pas son prolongement ; un côté qui croise la droite
+       n'y fait rien. Ce contrôle vient en dernier : il ne coûte que pour les vrais candidats */
+    if (pres.some(function(t){ return presqueParalleles(s, L, t.s, t.L); })) continue;
+    c.push({x: f.x, y: f.y, d: d, s: s, bout: f.t < 0 ? a : b, ext: e});
+  }
+  return plusProche(c, function(q){ return q.ext; });
+}
+function interSegs(p, segs, R, Lmax){
+  if (Lmax === undefined) Lmax = PROL_MAX;
+  if (!estPt(p) || !Array.isArray(segs) || !(R >= 0) || typeof Lmax !== 'number' || !(Lmax >= 0)) return null;
+  var k = [], c = [], i, j, s, a, b, f, L, u, w, X, e1, e2, d;
+  /* coût : seuls comptent les côtés dont la droite passe à R au plus de p, à Lmax + R au plus de leurs bouts (un point de rencontre à R au
+     plus de p est alors à Lmax au plus de leurs bouts) */
+  for (i = 0; i < segs.length; i++){
+    s = segs[i]; if (!coteValable(s)) continue;
+    a = {x: s[0], y: s[1]}; b = {x: s[2], y: s[3]}; f = piedPerp(p, a, b); if (!f) continue;
+    L = Math.hypot(b.x - a.x, b.y - a.y); d = Math.hypot(f.x - p.x, f.y - p.y);
+    if (d <= R && depasse(f.t, L) <= Lmax + R) k.push({s: s, a: a, b: b, L: L, dl: d, n: k.length});
+  }
+  /* au fort dézoom, le seuil fait des dizaines de mètres et chaque paire coûte : au plus INTER_MAX côtés, ceux dont la droite passe le plus
+     près de p, dans l'ordre de la liste. Une rencontre plus proche de p que la droite du dernier gardé est toujours trouvée : ses deux
+     droites passent plus près encore */
+  if (k.length > INTER_MAX) k = k.sort(function(x, y){ return x.dl - y.dl || x.n - y.n; }).slice(0, INTER_MAX).sort(function(x, y){ return x.n - y.n; });
+  for (i = 0; i < k.length; i++) for (j = i + 1; j < k.length; j++){
+    u = k[i]; w = k[j];
+    if (presqueParalleles(u.s, u.L, w.s, w.L)) continue;
+    X = interDroites(u.a, u.b, w.a, w.b); if (!X) continue;
+    d = Math.hypot(X.x - p.x, X.y - p.y); e1 = depasse(X.t, u.L); e2 = depasse(X.u, w.L);
+    if (d > R || e1 > Lmax || e2 > Lmax) continue;
+    if ([u.a, u.b, w.a, w.b].some(function(q){ return Math.hypot(q.x - X.x, q.y - X.y) <= ACC_COIN; })) continue;
+    c.push({x: X.x, y: X.y, d: d, s: u.s, s2: w.s, ext: e1, ext2: e2, bout: e1 > 0 ? (X.t < 0 ? u.a : u.b) : null, bout2: e2 > 0 ? (X.u < 0 ? w.a : w.b) : null});
+  }
+  return plusProche(c, function(q){ return q.ext + q.ext2; });
+}
 VC.geo = {cw: cw, ccw: ccw, unite: unite, placer: placer, mesurer: mesurer, coinGauche: coinGauche, cotesAlignes: cotesAlignes,
   dansPolygone: dansPolygone, distPolygone: distPolygone, piedPerp: piedPerp, interDroites: interDroites, milieu: milieu,
   lignesRef: lignesRef, normaleExt: normaleExt, parcelleInstallation: parcelleInstallation, distanceLimite: distanceLimite,
-  milieuSegs: milieuSegs, piedSegs: piedSegs};
+  milieuSegs: milieuSegs, piedSegs: piedSegs, prolSegs: prolSegs, interSegs: interSegs};
 
 /* ---------- Couleurs AutoCAD (ACI), approchées : 1 à 9 exactes, 10 à 249 par teinte, 250 à 255 en gris ---------- */
 var ACI = (function(){
@@ -767,7 +841,8 @@ VC.geo.escalier = escalier;
 /* Valeurs d'un escalier neuf (outil « Escalier », m107 ; décision D7) : départ D et fin F posés à l'outil, lignes de référence du plan
    (VC.geo.lignesRef : seules comptent les lignes de bâti fermées), aides des deux points (« coin », « facade », autre ou rien). Un point
    calé au milieu d'un côté ou au pied d'une perpendiculaire (m112) sur une façade ou un trait de complément est posé sur le bâti :
-   l'éditeur passe alors « facade » ; sur une limite de parcelle, il ne l'est pas. Largeur 1,00 m ; marches de 0,28 m environ : arrondi de L / 0,28, de 1 à 60 ; côté : celui dont le contour n'entre pas dans le bâti (centre
+   l'éditeur passe alors « facade » ; de même pour une intersection (m113) qui tombe sur l'un d'eux ; sur une limite de parcelle, sur le
+   prolongement d'un côté ou à la rencontre de deux prolongements, il ne l'est pas. Largeur 1,00 m ; marches de 0,28 m environ : arrondi de L / 0,28, de 1 à 60 ; côté : celui dont le contour n'entre pas dans le bâti (centre
    du contour dans une ligne de bâti), « g » si les deux côtés y entrent ou si aucun n'y entre ; montée vers le départ s'il est le seul bout
    posé sur un coin ou une façade, sinon vers la fin. Rend p, en textes comme la fiche ; null si D et F sont invalides ou confondus.
    Départ posé par cotes (m108) : cotes = {O, w, facade}, facultatif. O est le coin d'origine (gardé pour mémoire, le calcul ne s'en sert
@@ -2438,9 +2513,10 @@ var OUTILS_LN = {
   esc: {k: 'ln', t: 'esc', p: {}, lib: 'Escalier', sous: 'départ, fin, largeur', res: 'LIM'},
   relier: {k: 'ln', t: 'tr', p: {}, lib: 'Relier deux objets', sous: 'tronçon tracé d\'équerre', res: 'INC', relier: true}
 };
-/* Aides au dessin : chacune se désactive ; « actives » les coupe toutes. Nouveaux accrochages (m112, décision D9) : décochés d'origine et lus
-   strictement (accrocheOn : seulement s'ils valent true) ; m113 ajoutera accProl et accInter de la même façon */
-var AIDES_DEFAUT = {actives: true, glisser: true, finir: true, parallele: true, bati: true, angles: true, orienter: true, coude: true, accMilieu: false, accPerp: false, accParcelle: false};
+/* Aides au dessin : chacune se désactive ; « actives » les coupe toutes. Nouveaux accrochages (m112 puis m113, décision D9) : décochés
+   d'origine et lus strictement (accrocheOn : seulement s'ils valent true) */
+var AIDES_DEFAUT = {actives: true, glisser: true, finir: true, parallele: true, bati: true, angles: true, orienter: true, coude: true, accMilieu: false, accPerp: false, accParcelle: false,
+  accProl: false, accInter: false};
 var AIDES_LIB = [
   ['glisser', 'Tracer en glissant le doigt', 'un segment par glissé ; deux doigts pour déplacer le plan'],
   ['finir', 'Terminer sur un objet', 'le tronçon s\'arrête dès qu\'il touche un objet ou un autre tracé'],
@@ -2451,15 +2527,20 @@ var AIDES_LIB = [
   ['coude', 'Relier en L', 'l\'outil Relier trace un coude d\'équerre avec le bâti'],
   ['accMilieu', 'Milieu d\'un côté', 'le point se cale au milieu du côté le plus proche (bâti, trait de complément)'],
   ['accPerp', 'Perpendiculaire', 'le point se cale au pied de la perpendiculaire menée du point précédent à un côté'],
-  ['accParcelle', 'Limites de parcelle', 'coins et côtés des limites de parcelle attirent aussi les points']
+  ['accParcelle', 'Limites de parcelle', 'coins et côtés des limites de parcelle attirent aussi les points'],
+  /* 4e élément, facultatif : libellé court de la puce de la palette (m113 : les huit puces restent entières en portrait) */
+  ['accProl', 'Prolongement d\'un côté', 'le point se cale sur le prolongement d\'un côté, au-delà de l\'un de ses bouts, jusqu\'à 30 m', 'Prolongement'],
+  ['accInter', 'Intersection', 'le point se cale où deux côtés, ou leurs prolongements, se croisent']
 ];
 VC.AIDES_DEFAUT = AIDES_DEFAUT; VC.AIDES_LIB = AIDES_LIB;
-/* libellé du repère d'une aide au dessin, près du point (surcouche) ; milieu, perpendiculaire, coin ou côté d'une limite : m112 */
-var LIB_ACCROCHE = {parallele: '∥ bâti', angle: 'équerre', coin: 'coin du bâti', facade: 'façade', milieu: 'Milieu', perp: 'Perpendiculaire', parcelle: 'Limite'};
-/* Palette d'accrochage (m111) : une puce par clé, dans cet ordre, avec le libellé d'AIDES_LIB, puis les nouveaux accrochages de m112 ;
-   m113 y ajoutera les siens. L'accroche au réseau (bout de tuyau posé sur un objet ou sur un autre tuyau) n'a pas de puce : elle reste
-   toujours active et passe avant tous les accrochages. */
-var ACCROCHES = ['bati', 'parallele', 'angles', 'accMilieu', 'accPerp', 'accParcelle'];
+/* libellé du repère d'une aide au dessin, près du point (surcouche) ; milieu, perpendiculaire, coin ou côté d'une limite : m112 ;
+   prolongement et intersection : m113 */
+var LIB_ACCROCHE = {parallele: '∥ bâti', angle: 'équerre', coin: 'coin du bâti', facade: 'façade', milieu: 'Milieu', perp: 'Perpendiculaire', parcelle: 'Limite',
+  prol: 'Prolongement', inter: 'Intersection'};
+/* Palette d'accrochage (m111) : une puce par clé, dans cet ordre, avec le libellé d'AIDES_LIB (le court s'il y en a un, m113), puis les
+   nouveaux accrochages de m112 et de m113. L'accroche au réseau (bout de tuyau posé sur un objet ou sur un autre tuyau) n'a pas de puce :
+   elle reste toujours active et passe avant tous les accrochages. */
+var ACCROCHES = ['bati', 'parallele', 'angles', 'accMilieu', 'accPerp', 'accParcelle', 'accProl', 'accInter'];
 VC.ACCROCHES = ACCROCHES;
 var PALETTES = {
   tr: {lib: 'Tracés', court: 'Tracé', ico: 'tr', items: ['ln:tr', 'ln:relier', 'ln:trEU', 'ln:trEP', 'ln:trUN', 'ln:trPres', 'ln:trPrj', 'ln:lim', 'ln:esc']},
@@ -2716,8 +2797,13 @@ function editeur(racine, opts){
     }
     if (S.accrocheVue){
       var av = S.accrocheVue, a = S.vue.ecran(av.x, av.y);
-      if (av.arete){ var e1 = S.vue.ecran(av.arete[0], av.arete[1]), e2 = S.vue.ecran(av.arete[2], av.arete[3]); ctx.beginPath(); ctx.moveTo(e1.x, e1.y); ctx.lineTo(e2.x, e2.y); ctx.strokeStyle = 'rgba(212,101,10,.85)'; ctx.lineWidth = 4; ctx.setLineDash([8, 5]); ctx.stroke(); ctx.setLineDash([]); }
+      /* côté qui attire le point ; second côté d'une intersection (m113) */
+      [av.arete, av.arete2].forEach(function(ar){ if (!ar) return; var e1 = S.vue.ecran(ar[0], ar[1]), e2 = S.vue.ecran(ar[2], ar[3]); ctx.beginPath(); ctx.moveTo(e1.x, e1.y); ctx.lineTo(e2.x, e2.y); ctx.strokeStyle = 'rgba(212,101,10,.85)'; ctx.lineWidth = 4; ctx.setLineDash([8, 5]); ctx.stroke(); ctx.setLineDash([]); });
       ctx.beginPath(); ctx.arc(a.x, a.y, 14, 0, 2 * Math.PI); ctx.strokeStyle = '#d4650a'; ctx.lineWidth = 2.5; ctx.stroke();
+      /* prolongement et intersection (m113) : tirets du bout du côté au point, pour chaque prolongement utilisé */
+      if ((av.type === 'prol' || av.type === 'inter') && av.bouts) av.bouts.forEach(function(b){
+        var eb = S.vue.ecran(b.x, b.y); ctx.beginPath(); ctx.moveTo(eb.x, eb.y); ctx.lineTo(a.x, a.y); ctx.strokeStyle = '#d4650a'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+      });
       /* perpendiculaire (m112) : tirets du point précédent au pied, et petit carré d'angle droit au pied, du côté du point précédent */
       if (av.type === 'perp' && av.de && av.arete){
         var dp = S.vue.ecran(av.de.x, av.de.y), u0 = S.vue.ecran(av.arete[0], av.arete[1]), u1 = S.vue.ecran(av.arete[2], av.arete[3]), lu = Math.hypot(u1.x - u0.x, u1.y - u0.y), lv = Math.hypot(dp.x - a.x, dp.y - a.y);
@@ -2776,7 +2862,7 @@ function editeur(racine, opts){
   }
   /* --- aides au dessin : côtés du bâti (fond cadastral et traits de complément), en mètres locaux --- */
   /* le tracé au glissé est un geste, pas un automatisme : l'aimant ne le coupe pas. Lecture d'accrocheOn : une aide cochée d'origine l'est
-     tant qu'elle ne vaut pas false ; un nouvel accrochage (m112), absent d'anciens réglages, seulement s'il vaut true */
+     tant qu'elle ne vaut pas false ; un nouvel accrochage (m112, m113), absent d'anciens réglages, seulement s'il vaut true */
   function aideOn(k){ if (k === 'glisser') return S.aides.glisser !== false; return S.aides.actives !== false && accrocheOn(k); }
   function normAng(a){ return normAngle(a); }
   function aretesFond(){
@@ -2831,7 +2917,7 @@ function editeur(racine, opts){
     (lignesRef(S.doc, null, null, ['complement']) || []).forEach(function(r){ if (r.src.id === sauf) return; var P = r.P; for (var k = 1; k < P.length; k++) out.push([P[k - 1].x, P[k - 1].y, P[k].x, P[k].y, null]); });
     return out;
   }
-  /* cibles des nouveaux accrochages (m112) : côtés du bâti et traits de complément (segsPres), plus ceux des limites de parcelle si
+  /* cibles des nouveaux accrochages (m112, m113) : côtés du bâti et traits de complément (segsPres), plus ceux des limites de parcelle si
      « Limites de parcelle » est cochée et que sansLim est faux ; jamais un tronçon ni un escalier (lignesRef ne les prend pas) */
   function segsCibles(p, R, sauf, sansLim){ var out = segsPres(p, R, sauf); if (!sansLim && aideOn('accParcelle')) dansGrille(aretesLimites(), p, Math.min(R, 120), out); return out; }
   /* cibles du coin et de la façade : bâti et traits de complément si « Accroche au bâti » est cochée, limites de parcelle si « Limites de
@@ -2864,20 +2950,26 @@ function editeur(racine, opts){
     var Lp = L * Math.cos(best.d), a = best.c.a;
     return {x: pp.x + Lp * Math.cos(a), y: pp.y + Lp * Math.sin(a), type: best.c.ref ? 'parallele' : 'angle', arete: best.c.ref ? best.c.ref.s : null, aide: true};
   }
-  /* Nouveaux accrochages (m112) cochés, aimant actif, sur les cibles de segsCibles : milieu d'un côté (seuil du coin, 14 px), puis pied de
-     la perpendiculaire menée du point précédent prec (seuil de la façade, 10 px) ; m113 garde ses deux places. sansLim : sans les limites
-     de parcelle. Rien : null */
-  function accrochesNouvelles(m, prec, sauf, sansLim){
-    var R, r;
-    /* [m113 : intersection] */
-    if (aideOn('accMilieu')){ R = 14 / S.vue.s; r = milieuSegs(m, segsCibles(m, R, sauf, sansLim), R); if (r) return {x: r.x, y: r.y, type: 'milieu', arete: r.s, aide: true}; }
-    if (prec && aideOn('accPerp')){ R = 10 / S.vue.s; r = piedSegs(m, prec, segsCibles(m, R, sauf, sansLim), R); if (r) return {x: r.x, y: r.y, type: 'perp', arete: r.s, de: {x: prec.x, y: prec.y}, aide: true}; }
-    /* [m113 : prolongement] */
+  /* Nouveaux accrochages cochés (m112, m113), aimant actif, sur les cibles de segsCibles, dans cet ordre : intersection de deux côtés ou de
+     leurs prolongements (seuil du coin, 14 px), milieu d'un côté (14 px), pied de la perpendiculaire menée du point précédent prec (seuil
+     de la façade, 10 px), prolongement d'un côté (10 px). Intersection et prolongement prennent les côtés à PROL_MAX (30 m) plus le seuil
+     du point, une seule fois pour les deux. mur : objet posé sur un mur (descente, trop-plein, té, gargouille), qui ne va que sur le bâti :
+     ni limite de parcelle, ni prolongement, ni intersection. Rien : null. Repère : 'inter' et 'prol' gardent dans bouts les bouts d'où
+     partent leurs prolongements ; sur : côtés sur lesquels tombe une intersection (pour surLeBati) */
+  function accrochesNouvelles(m, prec, sauf, mur){
+    var R, r, loin = null;
+    function cibles(){ return loin || (loin = segsCibles(m, PROL_MAX + 14 / S.vue.s, sauf, mur)); }
+    if (!mur && aideOn('accInter')){ R = 14 / S.vue.s; r = interSegs(m, cibles(), R);
+      if (r) return {x: r.x, y: r.y, type: 'inter', arete: r.s, arete2: r.s2, bouts: [r.bout, r.bout2].filter(Boolean), sur: [r.ext ? null : r.s, r.ext2 ? null : r.s2].filter(Boolean), aide: true}; }
+    if (aideOn('accMilieu')){ R = 14 / S.vue.s; r = milieuSegs(m, segsCibles(m, R, sauf, mur), R); if (r) return {x: r.x, y: r.y, type: 'milieu', arete: r.s, aide: true}; }
+    if (prec && aideOn('accPerp')){ R = 10 / S.vue.s; r = piedSegs(m, prec, segsCibles(m, R, sauf, mur), R); if (r) return {x: r.x, y: r.y, type: 'perp', arete: r.s, de: {x: prec.x, y: prec.y}, aide: true}; }
+    if (!mur && aideOn('accProl')){ R = 10 / S.vue.s; r = prolSegs(m, cibles(), R); if (r) return {x: r.x, y: r.y, type: 'prol', arete: r.s, bouts: [r.bout], aide: true}; }
     return null;
   }
   /* Point libre (traits de complément, escalier, objets de façade) : coin (du bâti ; d'une limite de parcelle si elle est cochée), nouveaux
      accrochages, redressement, façade (ou côté d'une limite). o.mur : objet posé sur un mur (descente, trop-plein, té, gargouille), qui ne
-     va que sur le bâti : aucune limite de parcelle n'est alors cible (ni coin, ni côté, ni milieu) */
+     va que sur le bâti : aucune limite de parcelle n'est alors cible (ni coin, ni côté, ni milieu), et ni le prolongement d'un côté ni
+     une intersection ne l'attirent (ce ne sont pas des murs, m113) */
   function accrocheLibre(x, y, o){
     o = o || {}; var m = S.vue.monde(x, y), sl = !!o.mur, cc = aideOn('bati') || (!sl && aideOn('accParcelle')), R;
     if (cc){ R = 14 / S.vue.s; var cn = coinProche(m, R, o.saufLigne, segsCoinCote(m, R, o.saufLigne, sl)); if (cn) return {x: cn.x, y: cn.y, type: cn.s[7] === 'limite' ? 'parcelle' : 'coin', arete: cn.s, aide: true}; }
@@ -2894,7 +2986,7 @@ function editeur(racine, opts){
      vu de loin, la zone d'un raccord ou d'un regard déborde sur le collecteur voisin. Le sommet d'un tracé posé sur un objet est cet objet : il
      ne compte pas comme sommet. sansObj : tracés seulement ; sansSeg : sommets seulement ; rayonSom : rayon des sommets (16 px) ; rayonSeg : celui des segments (13 px) ; bouts : id
      d'un objet, seules comptent les extrémités libres des tracés qui ne le portent pas (objet lâché) ; saisie : point saisi d'un tracé du
-     réseau (point de tronçon, sommet glissé), dont le repli reçoit les nouveaux accrochages cochés (m112) */
+     réseau (point de tronçon, sommet glissé), dont le repli reçoit les nouveaux accrochages cochés (m112, m113) */
   function accroche(x, y, o){
     o = o || {}; var I = idx(), best = null, bd = Infinity, ob = null, dob = Infinity, de = Infinity, surObj = {};
     for (var i = 0; i < S.zones.length; i++){
@@ -2929,8 +3021,8 @@ function editeur(racine, opts){
     if (ob && !(best && bd + 6 < de)) return ob;
     if (best) return best;
     var m = S.vue.monde(x, y);
-    /* le réseau passe avant ; puis, pour un point saisi, les nouveaux accrochages cochés, avant le redressement (ni coin ni façade : ils restent
-       hors des tronçons) */
+    /* le réseau passe avant ; puis, pour un point saisi, les nouveaux accrochages cochés (m112, m113 : intersection, milieu, perpendiculaire,
+       prolongement), avant le redressement (ni coin ni façade : ils restent hors des tronçons) */
     if (o.saisie){ var nv = accrochesNouvelles(m, o.prec, o.saufLigne); if (nv) return nv; }
     if (o.prec){ var rd = redresser(o.prec, m); if (rd) return rd; }
     return {x: m.x, y: m.y};
@@ -3645,16 +3737,20 @@ function editeur(racine, opts){
   /* Point de tracé selon l'outil : les traits de complément suivent le bâti, les tronçons s'accrochent au réseau */
   function pointTrace(x, y){
     var oo = OUTILS_LN[S.outil.id], b = S.brouillon, prec = b && b.pts.length ? b.pts[b.pts.length - 1] : null;
-    /* complément du fond et escalier : accroche au coin et à la façade, nouveaux accrochages cochés (m112), redressement depuis le point
+    /* complément du fond et escalier : accroche au coin et à la façade, nouveaux accrochages cochés (m112, m113), redressement depuis le point
        précédent ; jamais d'attache. Tronçon : le réseau d'abord, puis les seuls nouveaux accrochages cochés (saisie), puis le redressement */
     return estComplement(oo.t) ? accrocheLibre(x, y, {prec: prec}) : accroche(x, y, {prec: prec, col: oo.t === 'col', saisie: true});
   }
   /* escalier en cours : son départ est posé, sa fin est attendue */
   function attendFinEscalier(){ var b = S.brouillon, oo = b && OUTILS_LN[b.outil]; return !!oo && oo.t === 'esc' && b.pts.length === 1; }
   /* point a (rendu par une accroche) posé sur le bâti, pour le sens de la montée d'un escalier (décision D7) : coin ou façade, du bâti ou
-     d'un trait de complément ; ou point calé au milieu d'un côté ou au pied d'une perpendiculaire (m112) sur l'un d'eux. Un point posé sur
-     une limite de parcelle ne l'est pas */
-  function surLeBati(a){ return !!a && !!a.aide && (a.type === 'coin' || a.type === 'facade' || ((a.type === 'milieu' || a.type === 'perp') && !!a.arete && a.arete[7] !== 'limite')); }
+     d'un trait de complément ; ou point calé au milieu d'un côté ou au pied d'une perpendiculaire (m112) sur l'un d'eux ; ou intersection
+     (m113) qui tombe sur l'un d'eux (a.sur : côtés sur lesquels elle tombe), pas celle de deux prolongements. Un point posé sur une limite
+     de parcelle ne l'est pas, ni un point sur le prolongement d'un côté */
+  function surLeBati(a){
+    return !!a && !!a.aide && (a.type === 'coin' || a.type === 'facade' || ((a.type === 'milieu' || a.type === 'perp') && !!a.arete && a.arete[7] !== 'limite')
+      || (a.type === 'inter' && Array.isArray(a.sur) && a.sur.some(function(s){ return !!s && s[7] !== 'limite'; })));
+  }
   /* aide d'un point du brouillon pour VC.geo.escalierDefauts : « facade » s'il est posé sur le bâti (q.surBati), sinon son aide */
   function aideEscalier(q){ return q.surBati ? 'facade' : q.aide; }
   /* contour fantôme de l'escalier en cours : du départ au point visé par le glissé en cours (S.apercu), sinon par la souris qui survole le
@@ -3959,7 +4055,8 @@ function editeur(racine, opts){
     /* une descente, une gargouille ou un té se pose sur le coin ou la façade du bâti le plus proche, sauf si un objet est déjà posé sur ce
        point (descente au même coin : son centre à moins de la moitié de son rayon, 4 px au moins) ; l'objet reste alors sous le doigt,
        visible et touchable. Un symbole voisin qui n'est pas sur le point (regard au pied de la descente) ne l'en empêche pas. Nouveaux
-       accrochages cochés (m112) : le milieu d'une façade ou d'un trait de complément, jamais une limite de parcelle (mur : true) */
+       accrochages cochés (m112) : le milieu d'une façade ou d'un trait de complément, jamais une limite de parcelle, ni le prolongement
+       d'un côté, ni une intersection (mur : true, m113) */
     /* … sauf si l'objet prend l'accroche (extrémité libre d'un tuyau ; tuyau ou coude où un ouvrage de passage s'insère) : un tuyau qui passe
        ou un coude voisin qu'il ne prend pas ne l'en empêche pas */
     var lpr = a.type === 'som' && !a.a ? el(a.ligne) : null, prend = (!!lpr && (a.i === 0 || a.i === lpr.v.length - 1 || passage)) || (a.type === 'seg' && passage);
@@ -4560,7 +4657,7 @@ function editeur(racine, opts){
   }
   /* --- palette d'accrochage (m111) : puces des clés d'ACCROCHES ; aimant coupé, elles sont grisées et gardent leur état --- */
   /* puce cochée : une aide cochée d'origine l'est tant qu'elle ne vaut pas false (comme aideOn) ; une clé décochée d'origine ou absente
-     d'AIDES_DEFAUT (nouveaux accrochages de m112, décision D9), seulement si elle vaut true */
+     d'AIDES_DEFAUT (nouveaux accrochages de m112 et de m113, décision D9), seulement si elle vaut true */
   function accrocheOn(k){ return AIDES_DEFAUT[k] === true ? S.aides[k] !== false : S.aides[k] === true; }
   function majAccroches(){
     if (!S.accroches) return;
@@ -4569,7 +4666,7 @@ function editeur(racine, opts){
     acc.innerHTML = '<h3>Accrochage</h3><div class="vc-chips">' + ACCROCHES.map(function(k){
       var l = AIDES_LIB.filter(function(x){ return x[0] === k; })[0];
       return '<button type="button" class="vc-chip" data-accr="' + esc(k) + '" aria-pressed="' + accrocheOn(k) + '"' + (l && l[2] ? ' title="' + esc(l[2]) + '"' : '')
-        + (coupe ? ' disabled' : '') + '>' + esc(l ? l[1] : k) + '</button>';
+        + (coupe ? ' disabled' : '') + '>' + esc(l ? l[3] || l[1] : k) + '</button>';
     }).join('') + '</div>' + (coupe ? '<p class="vc-muet">Aides coupées : touchez l\'aimant pour les rétablir</p>' : '');
     if (kf) acc.querySelectorAll('[data-accr]').forEach(function(b){ if (b.getAttribute('data-accr') === kf && !b.disabled) try { b.focus({preventScroll: true}); } catch(e){} });
   }
