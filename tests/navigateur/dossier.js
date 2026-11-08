@@ -19,6 +19,9 @@
 // 25 et 26 (m111, décision D11) : Réglages de l'application, « Aides au dessin » : la case « Aides activées » dit ce qu'elle coupe (tracé libre,
 //     sans redressement ni accroche au bâti) et que les tuyaux se raccordent toujours aux objets et aux autres tuyaux ; la note nomme le bouton
 //     aimant et la palette d'accrochage du croquis ; échouent sur e6618ef.
+// 27 à 29 (m112) : nouveaux accrochages (« Milieu d'un côté », « Perpendiculaire », « Limites de parcelle ») dans les mêmes Réglages : cases
+//     décochées avec d'anciens réglages (sans leurs clés), cochées seulement si la clé vaut true (null : décochée) ; un clic garde les clés
+//     connues ; échouent sur e9e8b5d.
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -231,9 +234,41 @@ async function reglagesAides(){
   } finally { R.ok(!A.erreurs.length, 'réglages des aides : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
+/* Réglages de l'application, nouveaux accrochages (m112) : avec d'anciens réglages (sans leurs clés), cases présentes et décochées ; cochées
+   seulement si la clé vaut true ; l'enregistrement garde les clés connues */
+async function reglagesAccroches(){
+  const A = await C.ouvrir(), p = A.p;
+  const NOUV = [['accMilieu', 'Milieu d\'un côté'], ['accPerp', 'Perpendiculaire'], ['accParcelle', 'Limites de parcelle']];
+  const ANC = {actives: true, glisser: true, finir: true, parallele: true, bati: true, angles: true, orienter: true, coude: true};
+  try {
+    await C.etudeEtDossier(p);
+    await p.evaluate(a => { window.__VT.S.croq.aides = a; location.hash = '#/reglages'; }, ANC);
+    await p.waitForSelector('input[data-act="vc-aide"][data-k="actives"]', {state: 'attached', timeout: 10000});
+    const cases = () => p.evaluate(() => Array.from(document.querySelectorAll('input[data-act="vc-aide"]')).map(c => {
+      const s = c.closest('label') && c.closest('label').querySelector('span'); return {k: c.dataset.k, on: c.checked, lib: s && s.firstChild ? s.firstChild.textContent.trim() : ''}; }));
+    const f = (cs, k) => cs.find(c => c.k === k), dit = (cs, k) => f(cs, k) ? JSON.stringify(f(cs, k).lib) + (f(cs, k).on ? ' cochée' : ' décochée') : k + ' absente';
+    await p.evaluate(() => window.__VT.render()); await C.pause(p, 300);
+    const c1 = await cases(), anc = Object.keys(ANC).every(k => f(c1, k) && f(c1, k).on);
+    R.ok(NOUV.every(([k, lib]) => f(c1, k) && !f(c1, k).on && f(c1, k).lib === lib) && anc, '27 Réglages de l\'application, anciens réglages : '
+      + NOUV.map(([k]) => dit(c1, k)).join(', ') + ' ; anciennes aides ' + (anc ? 'cochées' : 'pas toutes cochées'));
+    /* une clé à true : cochée ; à null : décochée (lecture stricte) */
+    await p.evaluate(a => { window.__VT.S.croq.aides = a; window.__VT.render(); }, Object.assign({}, ANC, {accPerp: true, accMilieu: null}));
+    await C.pause(p, 300);
+    const c2 = await cases();
+    R.ok(!!f(c2, 'accPerp') && f(c2, 'accPerp').on && !!f(c2, 'accMilieu') && !f(c2, 'accMilieu').on && !!f(c2, 'accParcelle') && !f(c2, 'accParcelle').on,
+      '28 clé accPerp à true, accMilieu à null, accParcelle absente : ' + NOUV.map(([k]) => dit(c2, k)).join(', ') + ' (attendu : seule « Perpendiculaire » cochée)');
+    /* un clic coche « Milieu d'un côté » : l'enregistrement garde les clés connues */
+    let a3 = null;
+    if (f(c2, 'accMilieu')){ await p.click('input[data-act="vc-aide"][data-k="accMilieu"]'); await C.pause(p, 400); a3 = await p.evaluate(() => Object.assign({}, window.__VT.S.croq.aides)); }
+    const garde = !!a3 && a3.accMilieu === true && a3.accPerp === true && Object.keys(ANC).every(k => a3[k] === true);
+    R.ok(garde, '29 clic sur « Milieu d\'un côté » : aides enregistrées ' + (a3 ? JSON.stringify(a3) : 'aucune (case absente)') + ' (attendu : accMilieu et accPerp à true, anciennes clés gardées)');
+  } finally { R.ok(!A.erreurs.length, 'réglages des accrochages : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
 (async () => {
   try {
     await reglagesAides();
+    await reglagesAccroches();
     await conclusionPlan();
     await motLavabo();
     await cas('1 NC choisie en EP, dessin changé pendant le retrait puis rétabli', 'relier();', 'true', false, {nature: 'NC', constat: 'non_conformes'});

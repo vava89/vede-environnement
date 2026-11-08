@@ -8,6 +8,9 @@
 // extérieure d'un carré parcouru dans les deux sens et des bâtis de la démonstration, trait de complément ajouté au croquis de
 // démonstration, aucune ligne pour un tronçon, un collecteur ou un escalier ; polyligne fermée sans intérieur (sommets alignés aux arrondis
 // près, ruban de 5 mm : aire 0, aucune normale ; ruban de 2 cm gardé) ; éléments qui ne sont pas des objets sautés, sans exception.
+// Nouveaux accrochages (m112 ; échoue sur e9e8b5d) : clés accMilieu, accPerp et accParcelle à false dans AIDES_DEFAUT, libellés, puces de la
+// palette ; milieu d'un côté et pied de la perpendiculaire (VCroquis.geo.milieuSegs et piedSegs) : seuils, côtés de 20 cm au plus écartés,
+// égalités, pied hors du côté, point précédent sur la droite du côté, entrées invalides.
 // usage : node tests/vm/dessin.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, copie, rapport} = require('./charger.js');
@@ -365,8 +368,52 @@ function lignes(){
   R.ok(la.P.length === 4 && la.ferme && la.aire === 0 && brute(la.P) !== 0 && sansN(la),
     'polyligne du fond fermée par le drapeau, aux sommets alignés : fermée, aire 0 (bruit de calcul ' + brute(la.P).toExponential(1) + ' m²), aucune normale');
 }
+/* Nouveaux accrochages (m112 ; échoue sur e9e8b5d) : clés décochées d'origine, libellés, puces de la palette ; milieu d'un côté et pied de
+   la perpendiculaire (VCroquis.geo.milieuSegs et piedSegs) sur des côtés [x0, y0, x1, y1] en mètres : seuil, côté de 20 cm au plus écarté,
+   le plus proche puis le premier à égalité, pied hors du côté, point précédent sur la droite du côté ou tout près, entrées invalides */
+function accrochages(){
+  const D = V.AIDES_DEFAUT || {}, L = V.AIDES_LIB || [], A = V.ACCROCHES || [];
+  [['accMilieu', 'Milieu d\'un côté'], ['accPerp', 'Perpendiculaire'], ['accParcelle', 'Limites de parcelle']].forEach(([k, lib]) => {
+    const l = L.find(x => x[0] === k);
+    R.ok(D[k] === false && !!l && l[1] === lib && typeof l[2] === 'string' && l[2].length > 10 && A.indexOf(k) >= 0, 'clé ' + k + ' : ' + D[k]
+      + ' dans AIDES_DEFAUT (attendu false), libellé ' + JSON.stringify(l ? l[1] : null) + ' et explication dans AIDES_LIB, puce de la palette : ' + (A.indexOf(k) >= 0 ? 'oui' : 'non'));
+  });
+  R.ok(['bati', 'parallele', 'angles'].every((k, i) => A[i] === k), 'palette : les puces de m111 restent en tête (' + A.join(', ') + ')');
+  if (!G || typeof G.milieuSegs !== 'function' || typeof G.piedSegs !== 'function'){ R.ok(false, 'VCroquis.geo.milieuSegs ou piedSegs absente'); return; }
+  const sud = [0, 0, 10, 0], est = [10, 0, 10, 6], nord = [0, 0.4, 10, 0.4], q = (f, att, n) => { const r = sur(f); R.ok(att ? proche(r, att) : r === null, n + ' → ' + (att ? ecrit(att) : 'aucun') + ' (obtenu ' + (r && r.x != null ? ecrit(r) : String(r)) + ')'); return r; };
+  /* milieu */
+  const m1 = q(() => G.milieuSegs(P(5.1, 0.2), [est, sud], 0.35), P(5, 0), 'milieu : point à 0,22 m du milieu de la façade sud, seuil 0,35 m');
+  R.ok(!!m1 && m1.s === sud && Math.abs(m1.d - Math.hypot(0.1, 0.2)) < 1e-12, 'milieu : côté rendu (la façade sud) et distance (' + (m1 ? m1.d : '?') + ')');
+  q(() => G.milieuSegs(P(5, 0.5), [sud, est], 0.35), null, 'milieu : point à 0,5 m, au-delà du seuil');
+  q(() => G.milieuSegs(P(20.05, 0.05), [[20, 0, 20.2, 0]], 0.35), null, 'milieu : côté de 20 cm écarté');
+  q(() => G.milieuSegs(P(20.15, 0.05), [[20, 0, 20.3, 0]], 0.35), P(20.15, 0), 'milieu : côté de 30 cm gardé');
+  const m2 = sur(() => G.milieuSegs(P(5, 0.2), [sud, nord], 0.35)), m3 = sur(() => G.milieuSegs(P(5, 0.2), [nord, sud], 0.35));
+  R.ok(!!m2 && m2.s === sud && !!m3 && m3.s === nord, 'milieu : deux milieux à égalité : le premier côté de la liste (' + ecrit(m2) + ', puis ' + ecrit(m3) + ')');
+  q(() => G.milieuSegs(P(5, 0.15), [nord, sud], 0.35), P(5, 0), 'milieu : le plus proche des deux');
+  /* perpendiculaire */
+  const f1 = q(() => G.piedSegs(P(5, 0.2), P(5, 3), [est, sud], 0.25), P(5, 0), 'pied : depuis (5 ; 3), point à 0,2 m du pied sur la façade sud, seuil 0,25 m');
+  R.ok(!!f1 && f1.s === sud, 'pied : côté rendu (la façade sud)');
+  q(() => G.piedSegs(P(4.9, 0.15), P(5, 3), [sud], 0.25), P(5, 0), 'pied : point en biais, à 0,18 m du pied');
+  q(() => G.piedSegs(P(5, 0.3), P(5, 3), [sud], 0.25), null, 'pied : point à 0,3 m, au-delà du seuil');
+  q(() => G.piedSegs(P(12, 0.1), P(12, 3), [sud], 0.25), null, 'pied hors du côté (sur son prolongement)');
+  q(() => G.piedSegs(P(10, 0.1), P(10, 3), [sud], 0.25), P(10, 0), 'pied au bout du côté (compris)');
+  q(() => G.piedSegs(P(3.1, 0.1), P(3, 0), [sud], 0.25), null, 'pied : point précédent sur la droite du côté');
+  q(() => G.piedSegs(P(5, 0.05), P(5, 0.15), [sud], 0.25), null, 'pied : point précédent à 15 cm du côté');
+  q(() => G.piedSegs(P(5, 0.1), null, [sud], 0.25), null, 'pied : sans point précédent');
+  /* le pied tombe dans le côté de 20 cm (en son milieu), à 0,1 m du point : seule la longueur l'écarte ; le côté de longueur nulle n'a pas
+     de pied ; témoin : même cas, côté de 30 cm gardé */
+  q(() => G.piedSegs(P(0.1, 0.1), P(0.1, 3), [[0, 0, 0.2, 0], [3, 0, 3, 0]], 0.25), null, 'pied : côtés de 20 cm au plus écartés (pied dans le côté de 20 cm, à 0,1 m du point)');
+  q(() => G.piedSegs(P(0.1, 0.1), P(0.1, 3), [[0, 0, 0.3, 0]], 0.25), P(0.1, 0), 'pied : même cas, côté de 30 cm gardé');
+  /* entrées invalides : null, sans exception */
+  const bad = [() => G.milieuSegs(null, [sud], 1), () => G.milieuSegs(P(1, 1), null, 1), () => G.milieuSegs(P(1, 1), [sud], NaN), () => G.milieuSegs(P(NaN, 1), [sud], 1),
+    () => G.milieuSegs(P(5, 0), [null, [1, 2], 'x', [0, 0, NaN, 0], {x: 1}], 1), () => G.piedSegs(P(5, 0), P(5, 3), [null, [0, 0, Infinity, 0]], 1), () => G.piedSegs(P(5, 0), {x: '5', y: 3}, [sud], 1),
+    () => G.piedSegs(undefined, P(5, 3), [sud], 1), () => G.piedSegs(P(5, 0), P(5, 3), 'côtés', 1)];
+  const res = bad.map(f => sur(f));
+  R.ok(res.every(r => r === null), 'entrées invalides : null sans exception (' + res.map(r => r === null ? 'null' : String(r && r.x != null ? ecrit(r) : r)).join(', ') + ')');
+}
 if (!G || typeof G.placer !== 'function') R.ok(false, 'VCroquis.geo absent (fonctions de géométrie du plan)');
 else { try { essais(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); } }
 if (!G || typeof G.lignesRef !== 'function' || typeof G.normaleExt !== 'function') R.ok(false, 'VCroquis.geo.lignesRef ou normaleExt absente (lignes de référence du plan)');
 else { try { lignes(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); } }
+try { accrochages(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
 R.fin();
