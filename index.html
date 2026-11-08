@@ -3516,9 +3516,9 @@ function croqReglagesHtml(){
   h += '<label class="check big"><input type="checkbox" data-act="vc-actif"' + (c.actif && mod ? ' checked' : '') + (mod ? '' : ' disabled') + '><span>Utiliser le croquis de terrain</span></label>'
     + '<p class="muted small">Plan à l\'échelle sur le cadastre, dans chaque dossier : les anomalies déduites du dessin rejoignent la liste du dossier et le constat peut reprendre les installations. Décoché, l\'application fonctionne comme avant ; les croquis déjà dessinés sont gardés.</p>';
   if (mod && c.actif){
-    h += '<h3 class="h3">Aides au dessin</h3><label class="check"><input type="checkbox" data-act="vc-aide" data-k="actives"' + (ai.actives !== false ? ' checked' : '') + '><span>Aides activées <span class="opt">décoché : tracé libre, sans redressement ni accroche</span></span></label>'
+    h += '<h3 class="h3">Aides au dessin</h3><label class="check"><input type="checkbox" data-act="vc-aide" data-k="actives"' + (ai.actives !== false ? ' checked' : '') + '><span>Aides activées <span class="opt">décoché : tracé libre, sans redressement ni accroche au bâti ; les tuyaux se raccordent toujours aux objets et aux autres tuyaux</span></span></label>'
       + V.AIDES_LIB.map(function(x){ var off = ai.actives === false && x[0] !== 'glisser'; return '<label class="check' + (off ? ' off' : '') + '"><input type="checkbox" data-act="vc-aide" data-k="' + esc(x[0]) + '"' + (ai[x[0]] !== false ? ' checked' : '') + (off ? ' disabled' : '') + '><span>' + esc(x[1]) + ' <span class="opt">' + esc(x[2]) + '</span></span></label>'; }).join('')
-      + '<p class="muted small">Ces réglages valent aussi dans le croquis (bouton aimant, à droite du plan).</p>';
+      + '<p class="muted small">Ces réglages valent aussi dans le croquis (bouton aimant et palette d\'accrochage, à droite du plan).</p>';
   }
   return h + '</section>';
 }

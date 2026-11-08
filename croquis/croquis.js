@@ -2357,6 +2357,7 @@ var ICO = {
   fermer: '<path d="M6 6l12 12M18 6L6 18"/>', valider: '<path d="M4 12.5l5 5L20 6.5"/>', retour: '<path d="M15 5l-7 7 7 7"/>',
   chercher: '<circle cx="11" cy="11" r="6"/><path d="M15.5 15.5L20 20"/>',
   aimant: '<path d="M6 4v8a6 6 0 0 0 12 0V4"/><path d="M6 8h4M14 8h4"/>',
+  cible: '<circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="1.2"/>',
   relier: '<circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="6" r="2.2"/><path d="M7 18h12V8.2"/>', lien: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   cotes: '<path d="M4 7v10M20 7v10M4 12h16M7 9.5L4 12l3 2.5M17 9.5l3 2.5-3 2.5"/>'
 };
@@ -2414,6 +2415,10 @@ var AIDES_LIB = [
   ['coude', 'Relier en L', 'l\'outil Relier trace un coude d\'équerre avec le bâti']
 ];
 VC.AIDES_DEFAUT = AIDES_DEFAUT; VC.AIDES_LIB = AIDES_LIB;
+/* Palette d'accrochage (m111) : une puce par clé, dans cet ordre, avec le libellé d'AIDES_LIB ; m112 y ajoutera ses clés. L'accroche au
+   réseau (bout de tuyau posé sur un objet ou sur un autre tuyau) n'a pas de puce : elle reste toujours active. */
+var ACCROCHES = ['bati', 'parallele', 'angles'];
+VC.ACCROCHES = ACCROCHES;
 var PALETTES = {
   tr: {lib: 'Tracés', court: 'Tracé', ico: 'tr', items: ['ln:tr', 'ln:relier', 'ln:trEU', 'ln:trEP', 'ln:trUN', 'ln:trPres', 'ln:trPrj', 'ln:lim', 'ln:esc']},
   eu: {lib: 'Appareils EU', court: 'EU', ico: 'eu', items: FAMILLES[0].types.map(function(t){ return 'pt:' + t; })},
@@ -2447,7 +2452,9 @@ function editeur(racine, opts){
     /* pose par cotes (m101) : null hors du mode ; dernierPointeur : genre du dernier appui ('mouse', 'touch', 'pen') */
     cotes: null, dernierPointeur: null,
     /* menu de poignée ouvert à la souris (m109) : null, ou sa poignée {k: 'sommet' ou 'milieu', id, i} */
-    menu: null};
+    menu: null,
+    /* palette d'accrochage ouverte (m111) */
+    accroches: false};
   racine.innerHTML = '<div class="vc" tabindex="-1">'
     + '<canvas class="vc-cv" aria-label="Plan du croquis"></canvas>'
     + '<header class="vc-barre">'
@@ -2474,14 +2481,17 @@ function editeur(racine, opts){
     + '<button type="button" class="vc-b" data-a="rotg" aria-label="Tourner le plan à gauche">' + ico('rotg') + '</button>'
     + '<button type="button" class="vc-b" data-a="rotd" aria-label="Tourner le plan à droite">' + ico('rotd') + '</button>'
     + '<button type="button" class="vc-b vc-nord" data-a="nord" aria-label="Nord en haut">' + ico('nord') + '</button>'
+    + '<button type="button" class="vc-b vc-accr" data-a="accroches" aria-label="Palette d\'accrochage" aria-expanded="false">' + ico('cible') + '</button>'
     + '<button type="button" class="vc-b vc-aimant" data-a="aides" aria-label="Aides au dessin" aria-pressed="true">' + ico('aimant') + '</button>'
     + '</div>'
+    + '<div class="vc-accroches" hidden></div>'
     + '<div class="vc-aide" role="status"></div>'
     + '<aside class="vc-panneau" hidden><div class="vc-ptete"><h2></h2><button type="button" class="vc-b" data-a="fermerPanneau" aria-label="Fermer">' + ico('fermer') + '</button></div><div class="vc-pcorps"></div></aside>'
     + '<div class="vc-menu" role="menu" aria-label="Point du tracé" hidden></div>'
     + '<div class="vc-toast" role="status" aria-live="polite"></div>'
     + '</div>';
   var R = racine.firstChild, cv = R.querySelector('.vc-cv'), ctx = cv.getContext('2d'), pal = R.querySelector('.vc-palette'), aide = R.querySelector('.vc-aide');
+  var acc = R.querySelector('.vc-accroches');
   var pan = R.querySelector('.vc-panneau'), pcorps = pan.querySelector('.vc-pcorps'), ptitre = pan.querySelector('h2');
 
   /* --- état et document --- */
@@ -2790,6 +2800,8 @@ function editeur(racine, opts){
 
   /* --- gestes --- */
   function pos(ev){ var r = cv.getBoundingClientRect(); return {x: ev.clientX - r.left, y: ev.clientY - r.top}; }
+  /* pointeurs avalés (m111) : l'appui sur le plan qui a fermé la palette d'accrochage, et les autres doigts posés avant son lever */
+  var ptrAvales = {};
   cv.addEventListener('pointerdown', function(ev){
     if (!S.doc) return;
     S.dernierPointeur = ev.pointerType || '';
@@ -2800,6 +2812,10 @@ function editeur(racine, opts){
        d'autre effet */
     if (fermerMenu() && ev.pointerType === 'mouse' && ev.button === 0) return;
     try { cv.setPointerCapture(ev.pointerId); } catch(e){}
+    /* palette d'accrochage ouverte (m111) : l'appui sur le plan la ferme et ne fait rien d'autre (ni pose, ni choix, ni tracé, ni
+       déplacement de la vue) ; les autres doigts du même geste ne font rien non plus, jusqu'au lever du dernier */
+    if (ev.isPrimary) ptrAvales = {};
+    if (S.accroches || Object.keys(ptrAvales).length){ if (S.accroches) fermerAccroches(); ptrAvales[ev.pointerId] = true; return; }
     /* premier doigt d'un nouveau geste : les pointeurs dont le relâchement n'est jamais arrivé (fenêtre fermée, doigt levé ailleurs) sont oubliés */
     if (ev.isPrimary && Object.keys(S.ptr).length){ S.ptr = {}; finirGeste(true); }
     var p = pos(ev); S.ptr[ev.pointerId] = {x: p.x, y: p.y};
@@ -2847,6 +2863,7 @@ function editeur(racine, opts){
     if (g.type === 'glisser'){ glisser(g, p); g.modifie = true; }
   });
   function fin(ev){
+    if (ptrAvales[ev.pointerId]){ delete ptrAvales[ev.pointerId]; if (ev.pointerType === 'mouse' && ev.type === 'pointerup'){ S.survol = pos(ev); S.survolPerime = false; } return; }
     if (!S.ptr[ev.pointerId]) return;
     delete S.ptr[ev.pointerId];
     var g = S.geste, p = pos(ev);
@@ -3771,7 +3788,7 @@ function editeur(racine, opts){
     S.aligner = null; S.relier = null; S.placer = null; S.apercu = null;
     S.cotes = {etape: 'cote', pour: depEsc ? {esc: true} : id ? {id: id, t: o.t, mesure: !!mesure} : {t: o.t}, cands: null, k: 0, w0: null, ref: null, c: null, essai: null, refus: 0, t0: Date.now()};
     if (S.sel || S.panneau){ S.sel = null; S.panneau = null; majPanneau(); }
-    fermerPalette(); majAide(); redessiner();
+    fermerPalette(); fermerAccroches(); majAide(); redessiner();
   }
   /* fin du mode ; objet existant (m102) encore là : retour à sa fiche */
   function quitterCotes(){
@@ -4187,7 +4204,7 @@ function editeur(racine, opts){
     /* un autre outil met fin à la pose par cotes (m101), panneau « Cotes » compris */
     if (S.cotes){ S.cotes = null; if (S.panneau === 'cotes'){ S.panneau = null; majPanneau(); } }
     R.querySelectorAll('.vc-o').forEach(function(b){ var on = o.k === 'main' ? b.dataset.outil === 'main' : b.dataset.pal === o.pal; b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-    fermerPalette(); majAide(); redessiner();
+    fermerPalette(); fermerAccroches(); majAide(); redessiner();
   }
   function ouvrirPalette(k){
     if (S.palette === k){ fermerPalette(); return; }
@@ -4246,13 +4263,35 @@ function editeur(racine, opts){
     if (a === 'zoomp' || a === 'zoomm'){ S.vue.s = clamp(S.vue.s * (a === 'zoomp' ? 1.5 : 1 / 1.5), .02, 2000); redessiner(); enregistrerVue(); }
     else if (a === 'ajuster') ajusterVue();
     else if (a === 'rotg' || a === 'rotd' || a === 'nord'){ if (a === 'nord' && Math.abs(S.doc.rot || 0) < 1e-9) return; instantane(); var r0 = S.doc.rot || 0, r1 = a === 'nord' ? 0 : r0 + (a === 'rotg' ? 1 : -1) * Math.PI / 12; S.doc.rot = Math.abs(r1) < 1e-9 ? 0 : r1; S.vue.rot = S.doc.rot; replacerTraces(r0); changement({garderPanneau: S.panneau !== 'reglages'}); }
+    else if (a === 'accroches'){ if (S.accroches) fermerAccroches(); else ouvrirAccroches(); }
     else if (a === 'aides'){ S.aides.actives = S.aides.actives === false; majAides(); toast(S.aides.actives ? 'Aides au dessin activées' : 'Aides au dessin désactivées : tracé libre'); }
   });
   function majAides(sansEnregistrer){
     var b = R.querySelector('.vc-aimant'); if (b) b.setAttribute('aria-pressed', S.aides.actives !== false ? 'true' : 'false');
     if (opts.enregistrerAides && !sansEnregistrer) try { opts.enregistrerAides(Object.assign({}, S.aides)); } catch(e){}
-    majAide(); if (S.panneau === 'reglages') majPanneau();
+    majAide(); majAccroches(); if (S.panneau === 'reglages') majPanneau();
   }
+  /* --- palette d'accrochage (m111) : puces des clés d'ACCROCHES ; aimant coupé, elles sont grisées et gardent leur état --- */
+  /* puce cochée : une aide cochée d'origine l'est tant qu'elle ne vaut pas false (comme aideOn) ; une clé décochée d'origine ou absente
+     d'AIDES_DEFAUT (nouveaux accrochages de m112, décision D9), seulement si elle vaut true */
+  function accrocheOn(k){ return AIDES_DEFAUT[k] === true ? S.aides[k] !== false : S.aides[k] === true; }
+  function majAccroches(){
+    if (!S.accroches) return;
+    /* puce qui a le focus (au clavier) : la palette est reconstruite, la nouvelle puce de même clé le reprend */
+    var coupe = S.aides.actives === false, ae = document.activeElement, kf = ae && ae !== acc && acc.contains(ae) ? ae.getAttribute('data-accr') : null;
+    acc.innerHTML = '<h3>Accrochage</h3><div class="vc-chips">' + ACCROCHES.map(function(k){
+      var l = AIDES_LIB.filter(function(x){ return x[0] === k; })[0];
+      return '<button type="button" class="vc-chip" data-accr="' + esc(k) + '" aria-pressed="' + accrocheOn(k) + '"' + (l && l[2] ? ' title="' + esc(l[2]) + '"' : '')
+        + (coupe ? ' disabled' : '') + '>' + esc(l ? l[1] : k) + '</button>';
+    }).join('') + '</div>' + (coupe ? '<p class="vc-muet">Aides coupées : touchez l\'aimant pour les rétablir</p>' : '');
+    if (kf) acc.querySelectorAll('[data-accr]').forEach(function(b){ if (b.getAttribute('data-accr') === kf && !b.disabled) try { b.focus({preventScroll: true}); } catch(e){} });
+  }
+  function ouvrirAccroches(){ S.accroches = true; acc.hidden = false; majAccroches(); var b = R.querySelector('.vc-accr'); if (b) b.setAttribute('aria-expanded', 'true'); }
+  function fermerAccroches(){ S.accroches = false; acc.hidden = true; var b = R.querySelector('.vc-accr'); if (b) b.setAttribute('aria-expanded', 'false'); }
+  acc.addEventListener('click', function(ev){
+    var b = ev.target.closest('[data-accr]'); if (!b || b.disabled) return;
+    var k = b.dataset.accr; S.aides[k] = !accrocheOn(k); majAides();
+  });
   function ajusterVue(){
     var b = emprisePlan(S.doc);
     if (b){ var c = depuisPlan((b[0] + b[2]) / 2, (b[1] + b[3]) / 2, S.doc.rot || 0), hw = Math.max(8, (b[2] - b[0]) / 2 + 4), hh = Math.max(8, (b[3] - b[1]) / 2 + 4);
@@ -4301,7 +4340,7 @@ function editeur(racine, opts){
     if (a === 'annuler') annuler(); else if (a === 'refaire') refaire();
     else if (a === 'retour'){ if (S.brouillon && S.brouillon.pts.length >= 2) terminerTrace('discret'); else S.brouillon = null; enregistrer(); if (opts.retour) opts.retour(); }
   });
-  function ouvrirPanneau(n){ S.panneau = n; fermerPalette(); majPanneau(); }
+  function ouvrirPanneau(n){ S.panneau = n; fermerPalette(); fermerAccroches(); majPanneau(); }
   function fermerPanneau(){ S.panneau = null; if (S.sel){ S.sel = null; redessiner(); } majPanneau(); }
   pan.querySelector('[data-a="fermerPanneau"]').addEventListener('click', fermerPanneau);
   document.addEventListener('keydown', function(ev){
@@ -4617,7 +4656,7 @@ function editeur(racine, opts){
     function chAide(a){ return '<button type="button" class="vc-aidech" data-a="aide" data-k="' + a[0] + '" aria-pressed="' + (S.aides[a[0]] !== false) + '"><strong>' + esc(a[1]) + '</strong><small>' + esc(a[2]) + '</small></button>'; }
     h += champ('Geste de tracé', '<div class="vc-aides">' + AIDES_LIB.filter(function(a){ return a[0] === 'glisser'; }).map(chAide).join('') + '</div>');
     h += champ('Aides au dessin', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="aide" data-k="actives" aria-pressed="' + (S.aides.actives !== false) + '">' + (S.aides.actives !== false ? 'Activées' : 'Désactivées : tracé libre') + '</button></div>'
-      + '<div class="vc-aides"' + (S.aides.actives === false ? ' hidden' : '') + '>' + AIDES_LIB.filter(function(a){ return a[0] !== 'glisser'; }).map(chAide).join('') + '</div>', 'aussi par le bouton aimant, à droite du plan');
+      + '<div class="vc-aides"' + (S.aides.actives === false ? ' hidden' : '') + '>' + AIDES_LIB.filter(function(a){ return a[0] !== 'glisser'; }).map(chAide).join('') + '</div>', 'aussi par le bouton aimant et la palette d\'accrochage, à droite du plan');
     if (opts.supprimer) h += '<div class="vc-fact"><button type="button" class="vc-b vc-bt vc-danger" data-a="docSuppr">' + ico('poubelle', 18) + 'Supprimer ce croquis</button></div>';
     return h;
   }
@@ -4664,6 +4703,8 @@ function editeur(racine, opts){
     if (S.cotes && S.cotes.etape === 'saisie' && n !== 'cotes'){ S.cotes = null; majAide(); redessiner(); }
     R.querySelectorAll('.vc-barre [data-p]').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.p === n ? 'true' : 'false'); });
     if (!n){ pan.hidden = true; pan.dataset.id = ''; R.classList.remove('vc-avecpanneau'); return; }
+    /* panneau qui s'ouvre, autre panneau ou fiche d'un autre élément : la palette d'accrochage se ferme (m111) */
+    if (S.accroches && (pan.hidden || pan.dataset.n !== n + (S.sel ? S.sel.id : ''))) fermerAccroches();
     var top = pan.dataset.n === n + (S.sel ? S.sel.id : '') ? pcorps.scrollTop : 0;
     var e = n === 'fiche' ? el(S.sel.id) : null, tg = Date.now();
     /* fiche ouverte, ou d'un autre élément, par un toucher ou un clic qui vient de finir : elle a pu venir sous le doigt (second toucher d'un
@@ -4938,6 +4979,7 @@ function editeur(racine, opts){
     if (fermerMenu()) return true;
     var m = R.querySelector('.vc-modal'); if (m){ m.remove(); return true; }
     if (S.palette){ fermerPalette(); return true; }
+    if (S.accroches){ fermerAccroches(); return true; }
     if (S.sel || S.panneau){ fermerPanneau(); return true; }
     if (S.relier || S.aligner || S.placer || S.cotes){ S.relier = null; S.aligner = null; S.placer = null; S.cotes = null; majAide(); redessiner(); return true; }
     if (S.brouillon){ annulerTrace(); return true; }
@@ -4951,6 +4993,8 @@ function editeur(racine, opts){
     S.placer = null; S.cotes = null; var m0 = R.querySelector('.vc-modal'); if (m0) m0.remove();
     S.doc = doc; S.fond = fond || null; S.reseau = reseau || null; S.undo = []; S.redo = []; S.sel = null; S.brouillon = null; S.panneau = null; S.mode = 'edl'; S.ajoutAnom = null; S.aligner = null;
     S.ptr = {}; S.geste = null; S.apercu = null; S.accrocheVue = null; S.survol = null;
+    /* palette d'accrochage fermée, appuis avalés oubliés (m111) */
+    ptrAvales = {}; fermerAccroches();
     clearTimeout(tToast); R.querySelector('.vc-toast').classList.remove('on');
     doc.el = doc.el || []; doc.decisions = doc.decisions || {}; doc.ordre = doc.ordre || []; doc.anomManu = doc.anomManu || []; doc.gest = doc.gest || {EU: 'D', EP: 'D', UN: 'D'};
     /* croquis d'avant la v1.6.1 : une zone suspecte ne tient aucun tuyau (raccord à sa place si elle en reliait plusieurs) */
@@ -5001,6 +5045,12 @@ var CSS = [
 '.vc-pitem svg,.vc-ptx{flex:none;background:#fff;border-radius:8px;color:#222;display:inline-flex}',
 '.vc-nav{position:absolute;right:10px;bottom:12px;display:flex;flex-direction:column;gap:6px;z-index:4}',
 '.vc-nav .vc-b{background:var(--surface,#fff);border:1px solid var(--line,#C7D1D8);box-shadow:0 2px 8px rgba(0,0,0,.12)}',
+/* palette d'accrochage (m111) : à gauche de la barre de navigation, à hauteur de son bouton ; au-dessus du plan et des barres, sous le
+   panneau, la palette des outils et le toast */
+'.vc-accroches{position:absolute;right:64px;bottom:62px;width:min(300px,calc(100% - 160px));max-height:calc(100% - 140px);overflow:auto;background:var(--surface,#fff);border:1px solid var(--line,#C7D1D8);border-radius:14px;box-shadow:var(--shadow,0 18px 50px -22px rgba(9,18,24,.55));padding:10px;z-index:5;touch-action:pan-y}',
+'.vc-accroches[hidden]{display:none}',
+'.vc-accroches h3{margin:2px 4px 8px;font-size:15px}',
+'.vc-accroches p{margin:8px 4px 2px}',
 '.vc-nord svg{transition:transform .2s}',
 '.vc-aide{position:absolute;left:90px;right:72px;bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;background:var(--surface,#fff);border:1px solid var(--line,#C7D1D8);border-radius:12px;box-shadow:0 6px 18px -10px rgba(0,0,0,.35);z-index:4;font-size:15px;line-height:1.3}',
 '.vc-aide>span{flex:1 1 220px}',
@@ -5088,6 +5138,7 @@ var CSS = [
 '.vc-mact{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:14px}',
 '.vc-avecpanneau .vc-nav{right:420px}',
 '.vc-avecpanneau .vc-aide{right:420px}',
+'.vc-avecpanneau .vc-accroches{right:474px;width:min(300px,calc(100% - 560px))}',
 '@media (max-width:760px),(orientation:portrait){',
 '  .vc-outils{top:auto;left:0;right:0;bottom:0;width:auto;height:70px;flex-direction:row;border-right:0;border-top:1px solid var(--line,#C7D1D8);overflow-x:auto;overflow-y:hidden}',
 '  .vc-o{min-width:64px;min-height:56px}',
@@ -5097,6 +5148,9 @@ var CSS = [
 '  .vc-panneau{top:auto;left:0;right:0;width:auto;height:min(56%,540px);bottom:0;border-left:0;border-top:1px solid var(--line,#C7D1D8);border-radius:16px 16px 0 0;box-shadow:0 -10px 28px -18px rgba(0,0,0,.45)}',
 '  .vc-avecpanneau .vc-nav{right:10px;bottom:calc(min(56%,540px) + 10px)}',
 '  .vc-avecpanneau .vc-aide{right:64px;bottom:calc(min(56%,540px) + 10px)}',
+'  .vc-accroches{bottom:132px;width:min(300px,calc(100% - 72px))}',
+/* panneau ouvert (en bas) : la largeur du portrait, pas celle du paysage, et jamais sous la barre du haut */
+'  .vc-avecpanneau .vc-accroches{right:64px;bottom:calc(min(56%,540px) + 60px);width:min(300px,calc(100% - 72px));max-height:calc(100% - min(56%,540px) - 126px)}',
 '  .vc-bl span{display:none}',
 '  .vc-sep{display:none}',
 '}',

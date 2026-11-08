@@ -127,9 +127,10 @@ async function triple(){
   const A = await croquisNeuf(), p = A.p;
   try {
     /* un regard touché aux deux tiers de la largeur : la fiche (à droite) le couvrirait, le plan glisse pour le montrer ; le doigt reste sur le
-       plan, et les deux touchers suivants, au même endroit de l'écran, ne posent pas de second regard */
+       plan, et les deux touchers suivants, au même endroit de l'écran, ne posent pas de second regard. Touché à 40 % de la hauteur : fiche
+       ouverte, la barre de navigation longe la fiche et, depuis son huitième bouton (palette d'accrochage, m111), monte jusqu'à la mi-hauteur */
     const r = await p.evaluate(() => { const b = document.querySelector('.vc .vc-cv').getBoundingClientRect(); return {l: b.left, t: b.top, w: b.width, h: b.height}; });
-    const q = {x: r.l + 0.65 * r.w, y: r.t + 0.5 * r.h}, v0 = await C.vue(p);
+    const q = {x: r.l + 0.65 * r.w, y: r.t + 0.4 * r.h}, v0 = await C.vue(p);
     await C.outil(p, {k: 'pt', t: 'regard', pal: 'reg'});
     await C.toucherPage(p, q, 420);
     const v1 = await C.vue(p), glisse = Math.hypot(v1.cx - v0.cx, v1.cy - v0.cy) * v1.s;

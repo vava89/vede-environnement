@@ -16,6 +16,9 @@
 // 18 à 24 (m97, décision du 7 novembre 2026) : plan PDF de l'état des lieux : « Conclusion du constat : … » quand le technicien l'a choisie dans
 //     le constat (plan du dossier, plan de l'export, bouton PDF du croquis ; constat signé : celle qu'il a signée), sinon « Conclusion proposée : … »
 //     d'après le dessin, comme avant (témoins : aucune conclusion choisie, choix retiré, visite non effectuée) ; 19 à 21 et 24 échouent sur 0a317cc.
+// 25 et 26 (m111, décision D11) : Réglages de l'application, « Aides au dessin » : la case « Aides activées » dit ce qu'elle coupe (tracé libre,
+//     sans redressement ni accroche au bâti) et que les tuyaux se raccordent toujours aux objets et aux autres tuyaux ; la note nomme le bouton
+//     aimant et la palette d'accrochage du croquis ; échouent sur e6618ef.
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -209,8 +212,28 @@ async function conclusionPlan(){
   } finally { R.ok(!A.erreurs.length, 'conclusion du plan : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
+/* Réglages de l'application, bloc « Aides au dessin » (m111) : texte de la case « Aides activées » et note sur le croquis */
+async function reglagesAides(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p);
+    await p.evaluate(() => { location.hash = '#/reglages'; });
+    await p.waitForSelector('input[data-act="vc-aide"][data-k="actives"]', {state: 'attached', timeout: 10000});
+    const t = await p.evaluate(() => {
+      const c = document.querySelector('input[data-act="vc-aide"][data-k="actives"]'), o = c && c.closest('label') && c.closest('label').querySelector('.opt');
+      const n = Array.from(document.querySelectorAll('p')).filter(x => /valent aussi dans le croquis/.test(x.textContent));
+      return {opt: o ? o.textContent : '', note: n.map(x => x.textContent).join(' | ')};
+    });
+    const OPT = 'décoché : tracé libre, sans redressement ni accroche au bâti ; les tuyaux se raccordent toujours aux objets et aux autres tuyaux';
+    const NOTE = 'Ces réglages valent aussi dans le croquis (bouton aimant et palette d\'accrochage, à droite du plan).';
+    R.ok(t.opt === OPT, '25 Réglages de l\'application, « Aides activées » : ' + JSON.stringify(t.opt) + (t.opt === OPT ? '' : ' (attendu ' + JSON.stringify(OPT) + ')'));
+    R.ok(t.note === NOTE, '26 Réglages de l\'application, note sur le croquis : ' + JSON.stringify(t.note) + (t.note === NOTE ? '' : ' (attendu ' + JSON.stringify(NOTE) + ')'));
+  } finally { R.ok(!A.erreurs.length, 'réglages des aides : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
 (async () => {
   try {
+    await reglagesAides();
     await conclusionPlan();
     await motLavabo();
     await cas('1 NC choisie en EP, dessin changé pendant le retrait puis rétabli', 'relier();', 'true', false, {nature: 'NC', constat: 'non_conformes'});

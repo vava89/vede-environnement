@@ -133,11 +133,18 @@ CROQUIS DE TERRAIN (facultatif)
   à la main qui nomme un lavabo). Les écarts entre le croquis et le
   constat sont rappelés avant la signature. Un constat signé n'est jamais
   modifié, et le croquis n'y rappelle plus d'écart.
-- Aides au dessin (Réglages, ou bouton aimant dans le croquis) : traits
-  parallèles au côté de bâti le plus proche, angles droits, accroche aux
-  coins et façades, fin automatique d'un tronçon sur un objet, tracé en
-  glissant le doigt, outil Relier en L. Chacune se désactive, et toutes
-  ensemble par « Aides activées ».
+- Aides au dessin (Réglages, ou bouton aimant et palette d'accrochage
+  dans le croquis) : traits parallèles au côté de bâti le plus proche,
+  angles droits, accroche aux coins et façades, fin automatique d'un
+  tronçon sur un objet, tracé en glissant le doigt, outil Relier en L.
+  Chacune se désactive, et toutes ensemble (sauf le tracé en glissant)
+  par « Aides activées » ou par l'aimant : tracé libre, sans redressement
+  ni accroche au bâti. Les tuyaux se raccordent toujours aux objets et
+  aux autres tuyaux : cette accroche au réseau ne se coupe pas.
+  La palette d'accrochage (bouton juste au-dessus de l'aimant, à droite
+  du plan) coche ou décoche d'un toucher l'accroche au bâti, le parallèle
+  au bâti et les angles droits et 45° ; aimant coupé, ses puces sont
+  grisées. Un toucher sur le plan la ferme sans rien faire d'autre.
 - Sorties : plan de l'état des lieux et plan d'avant-projet en PDF, plan
   DXF pour la DAO (dans le croquis, « Sorties »), « Plan PDF » sur la page
   du dossier. L'export de l'étude joint le plan PDF dans le dossier. Le
