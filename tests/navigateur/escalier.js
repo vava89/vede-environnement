@@ -11,7 +11,8 @@
 // m : dans un second croquis, sans type inconnu ni tuyau : l'escalier choisi n'a pas de poignée au milieu (aucune n'est dessinée ; témoin :
 //     un trait du complément choisi en a une), et un glissé depuis le milieu de sa ligne départ-fin n'ajoute aucun sommet.
 // m107, outil « Escalier » de la palette « Tracés », sur un croquis neuf du fond de démonstration :
-// o : la palette « Tracés » a « Escalier », juste après « Complément du fond », avec son pictogramme ; barre d'aide du départ, sans bouton ;
+// o : la palette « Tracés » a « Escalier », juste après « Complément du fond », avec son pictogramme ; barre d'aide du départ, avec le seul
+//     bouton « Cotes » (m108 ; avant : aucun bouton, et ce contrôle échoue sur b08e6cd) ;
 // t : deux touchers, le départ sur le coin sud-ouest du bâti, la fin vers la rue à 3,8° de l'équerre : départ au coin (1e-6 m) ; barre
 //     d'aide « touchez la fin », avec « Point » et « Abandonner », sans « Terminer » ; un escalier de deux sommets, fin redressée d'équerre à
 //     la façade (1e-6 rad), fiche ouverte ; largeur « 1,00 », marches arrondi(L / 0,28), à gauche, contour hors du bâti, montée vers le
@@ -256,8 +257,8 @@ async function outilEscalier(){
     if (iE < 0){ erreurs(A, 'o'); return; }
     await p.click('.vc .vc-pitem[data-item="ln:esc"]'); await C.pause(p, 250);
     const ou = await p.evaluate(() => window.__vcEd.etat.outil), aide0 = await texteAide(p), bt0 = await boutonsAide(p);
-    R.ok(ou.k === 'ln' && ou.id === 'esc' && aide0.indexOf('Escalier : touchez le départ (un coin de l\'escalier), puis la fin') === 0 && bt0 === '',
-      'o : outil choisi ; barre d\'aide « Escalier : touchez le départ (un coin de l\'escalier), puis la fin », sans bouton (pas de « Cotes ») (obtenu '
+    R.ok(ou.k === 'ln' && ou.id === 'esc' && aide0.indexOf('Escalier : touchez le départ (un coin de l\'escalier), puis la fin') === 0 && bt0 === 'cotes',
+      'o : outil choisi ; barre d\'aide « Escalier : touchez le départ (un coin de l\'escalier), puis la fin », avec le seul bouton « Cotes » (m108) (obtenu '
       + JSON.stringify([ou, aide0, bt0]) + ')');
     /* t : deux touchers, le départ sur le coin sud-ouest, la fin vers la rue, à 3,8° de l'équerre */
     await C.toucherCv(p, await C.ecranCv(p, B.so.x, B.so.y));

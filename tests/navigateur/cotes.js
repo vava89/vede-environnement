@@ -1,10 +1,10 @@
 // Pose d'un objet par cotes dans l'éditeur du croquis, dans Chromium (données fictives : fond de VCroquis.demoDxf(), croquis de
-// démonstration, et un fond fictif construit ici) : correctifs m101 (pose) et m102 (« Déplacer par cotes » et « Mesurer depuis une
-// façade ») ; souhait 11, réponses 11.1 et 11.3, convention 11.1 et décisions D1, D2, D3 de .claude/conception-outils-dessin.md.
-// m108 complétera ce fichier.
+// démonstration, et un fond fictif construit ici) : correctifs m101 (pose), m102 (« Déplacer par cotes » et « Mesurer depuis une
+// façade ») et m108 (départ d'un escalier par cotes) ; souhaits 11 et 12, réponses 11.1 et 11.3, convention 11.1 et décisions D1, D2,
+// D3 et D7 de .claude/conception-outils-dessin.md.
 // m101 :
 // b : avec un outil d'objet, la barre d'aide a un bouton « Cotes » ; son toucher demande « Touchez la façade ou la limite de référence » ;
-//     témoins : un outil de tracé et le texte libre n'en ont pas ;
+//     témoins : l'outil Tronçon et le texte libre n'en ont pas (l'outil Escalier en a un : contrôles e, m108) ;
 // p : outil Regard, « Cotes », la façade sud du bâti, puis un endroit au-delà du coin ouest : le panneau « Cotes » s'ouvre en
 //     Prolongement, distance et décalage pré-remplis multiples de 0,05, sans bouton « Déplacer » ; rien n'est posé avant « Poser » ;
 //     2 / 0,5 / Droite puis « Poser » : le regard est au point de VCroquis.geo.placer calculé ici sur le même côté (à 1e-6 près), soit
@@ -59,6 +59,31 @@
 //     passé à 0 depuis la limite, puis « Déplacer » : le regard sur la limite, en (2 ; 0) ; mesuré, il montre le côté par défaut,
 //     « Droite » depuis la façade (3,00 / 0,00), « Extérieur » depuis la limite (2,00 / 0,00).
 // Sur efe2bf3, trois contrôles échouent (u, m, n : boutons absents) ; les suivants, témoins compris, ne sont pas lancés.
+// m108 (outil « Escalier », croquis vidé : seul le fond de démonstration reste ; départ dans le repère de la démonstration) :
+// e1 : outil choisi, aucun départ : la barre d'aide a le bouton « Cotes » ;
+// e2 : fond masqué : « Cotes » donne le toast « Aucune ligne de référence affichée », sans entrer dans le mode ;
+// e3 : « Cotes » : étape « cote », aide « Touchez la façade ou la limite de référence », S.cotes.pour = {esc: true}, sans identifiant ;
+// e4 : pendant le mode, un glissé déplace la vue et ne commence aucun tracé ;
+// e5 à e11 : le long de la façade sud, coin gauche, 3 / 0 / Devant : bouton « Poser le départ » (pas de « Déplacer ») ; départ au
+//     point des cotes (1e-9 près ; 1e-6 près d'un calcul fait ici ; (68,5 ; 4)) ; mode fermé, outil Escalier toujours actif, barre
+//     « touchez la fin » avec « Point » et « Abandonner » ; rien d'enregistré, aucun pas d'annulation ; la fin touchée : un escalier
+//     de deux sommets, d'équerre, largeur à l'opposé du coin (« g »), montée vers le départ, marches arrondi(L / 0,28) ; fiche
+//     ouverte, un seul pas d'annulation, « Annuler » rend le croquis exact (ici, les deux côtés sont hors du bâti ; le repli sur la règle
+//     de m107 quand le côté opposé au coin entrerait dans le bâti est vérifié par tests/vm/escalier.js, d13) ;
+// e12 : le même départ depuis le coin droit : largeur de l'autre côté ;
+// e13, e14 : dans le prolongement au-delà du coin ouest, 2 / 0,5 / Droite : départ en (63,5 ; 3,5), fin redressée d'équerre (à
+//     l'arrondi du plan près) ; montée vers la fin (départ hors façade), largeur à l'opposé du coin (« d ») ;
+// e15 : 3 / 1 / Derrière : le point tombe dans le bâti (68,5 ; 5) : toast, départ posé quand même ;
+// e16 à e20 : « Abandonner », « Point », un autre outil (avant ou après la pose), Échap et ouvrir() oublient le départ et ses cotes :
+//     l'escalier tracé ensuite au doigt reprend les valeurs de m107 (« g ») ; croquis inchangé ;
+// e21 : départ posé par cotes depuis le coin droit, puis la souris survole la fin : le contour fantôme a les quatre coins de l'escalier
+//     créé ensuite, du côté des cotes (« d » ; la règle de m107 donnerait « g ») ;
+// e22 : double toucher sur « Abandonner » après « Poser le départ » : le second tombe sur « Cotes », venu à sa place ; il est ignoré
+//     (0,5 s) et le mode ne s'ouvre pas ; « Cotes » touché ensuite l'ouvre ;
+// e23 : « Le long », coin gauche, 10 m pour un côté de 9 m : le départ tombe au-delà du coin droit, hors de la façade : point sans aide,
+//     montée vers la fin ; témoin : à 9 m, sur le coin droit, aide « facade » et montée vers le départ.
+// Sur b08e6cd, e1 échoue (pas de bouton « Cotes » avec l'outil Escalier) ; les suivants ne sont pas lancés. Sans b.cotes dans le contour
+// fantôme, e21 échoue ; sans la garde de 0,5 s de « Cotes », e22 ; sans la borne de la distance (départ au-delà du coin), e23.
 // usage : node tests/navigateur/cotes.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -500,7 +525,7 @@ async function valeursEtSorties(){
     R.ok(!!eE && eE.etape === 'saisie' && !!fE && fE.titre === 'Cotes' && await etat(p) === null && await panneau(p) === null && await etatDoc(p) === avantE,
       'f : Échap panneau « Cotes » ouvert : mode fini, panneau fermé, croquis inchangé (' + JSON.stringify(eE) + ')');
 
-    /* témoins : outils de tracé et texte libre, sans bouton « Cotes » */
+    /* témoins : l'outil Tronçon et le texte libre, sans bouton « Cotes » (l'outil Escalier en a un : contrôles e, m108) */
     await C.outil(p, {k: 'ln', id: 'tr', pal: 'tr'}); await C.pause(p, 150);
     const bt = await boutonCotes(p);
     await C.outil(p, {k: 'tx', pal: 'ann'}); await C.pause(p, 150);
@@ -903,8 +928,255 @@ async function casLimites(){
   } finally { await A.fermer(); }
 }
 
+/* m108 : départ d'un escalier posé par cotes (outil « Escalier », bouton « Cotes », « Poser le départ ») */
+const ESC = {k: 'ln', id: 'esc', pal: 'tr'};
+const boutonsAide = p => p.evaluate(() => Array.from(document.querySelectorAll('.vc .vc-aide:not([hidden]) button[data-a]')).map(b => b.dataset.a).join(' '));
+const libPoser = p => p.evaluate(s => { const b = document.querySelector(s + 'button[data-a="cotesPoser"]'); return b ? b.textContent.replace(/\s+/g, ' ').trim() : null; }, PANNEAU);
+/* brouillon du tracé en cours : outil et points (x, y, aide) ; null s'il n'y en a pas */
+const brouillon = p => p.evaluate(() => { const b = window.__vcEd.etat.brouillon; return b ? {outil: b.outil, pts: b.pts.map(q => ({x: q.x, y: q.y, aide: q.aide}))} : null; });
+/* escaliers du croquis : sommets, valeurs, clés de l'élément et de ses sommets, contour (VCroquis.geo.escalier) et son centre */
+const escaliers = p => p.evaluate(() => window.__vcEd.doc().el.filter(e => e.t === 'esc').map(e => {
+  const g = window.VCroquis.geo.escalier(e.v[0], e.v[1], e.p.larg, e.p.n, e.p.cote, e.p.monte), Q = g ? g.contour : null;
+  return {id: e.id, v: e.v.map(q => ({x: q.x, y: q.y})), p: Object.assign({}, e.p), cles: Object.keys(e).sort().join(','), cv: e.v.map(q => Object.keys(q).sort().join(',')).join(' '),
+    Q: Q ? Q.map(q => ({x: q.x, y: q.y})) : null, m: Q ? {x: Q.reduce((s, q) => s + q.x, 0) / 4, y: Q.reduce((s, q) => s + q.y, 0) / 4} : null};
+}));
+/* relevé des chemins tracés sur le canevas (lignes droites seulement, comme dans escalier.js) : points de l'écran, fermé ou non, en tirets
+   ou non */
+const releverDebut = p => p.evaluate(() => {
+  const A = CanvasRenderingContext2D.prototype, f = {}, chemins = []; let cur = null;
+  ['beginPath', 'moveTo', 'lineTo', 'closePath', 'stroke'].forEach(m => { f[m] = A[m]; });
+  A.beginPath = function(){ cur = {pts: [], ferme: false}; return f.beginPath.apply(this, arguments); };
+  A.moveTo = function(x, y){ if (cur) cur.pts.push({x, y}); return f.moveTo.apply(this, arguments); };
+  A.lineTo = function(x, y){ if (cur) cur.pts.push({x, y}); return f.lineTo.apply(this, arguments); };
+  A.closePath = function(){ if (cur) cur.ferme = true; return f.closePath.apply(this, arguments); };
+  A.stroke = function(){ if (cur) chemins.push({pts: cur.pts.slice(), ferme: cur.ferme, tirets: this.getLineDash().length > 0}); return f.stroke.apply(this, arguments); };
+  window.__cotesReleve = {f, chemins};
+});
+/* fin du relevé : les contours fantômes de l'escalier (chemin fermé en tirets de quatre points, le premier au départ dep, à 1,5 px près),
+   leurs points ramenés dans le repère du croquis par la vue du moment */
+const releverFantomes = (p, dep) => p.evaluate(dep => {
+  const r = window.__cotesReleve; if (!r) return [];
+  const A = CanvasRenderingContext2D.prototype, v = window.__vcEd.etat.vue;
+  Object.keys(r.f).forEach(m => { A[m] = r.f[m]; }); window.__cotesReleve = null;
+  return r.chemins.filter(c => c.ferme && c.tirets && c.pts.length === 4 && Math.hypot(c.pts[0].x - dep.x, c.pts[0].y - dep.y) < 1.5)
+    .map(c => c.pts.map(q => { const m = v.monde(q.x, q.y); return {x: m.x, y: m.y}; }));
+}, dep);
+/* centre d'un bouton de la barre d'aide (point de la page), null s'il n'y est pas ; bouton sous un point de la page (son data-a) */
+const centreAide = (p, a) => p.evaluate(a => { const b = document.querySelector('.vc .vc-aide:not([hidden]) button[data-a="' + a + '"]'); if (!b) return null;
+  const r = b.getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + r.height / 2}; }, a);
+const boutonSous = (p, q) => p.evaluate(q => { const b = document.elementFromPoint(q.x, q.y), c = b && b.closest('button'); return c ? c.dataset.a || '' : ''; }, q);
+const unit = (a, b) => { const L = ecart(a, b); return {x: (b.x - a.x) / L, y: (b.y - a.y) / L}; };
+/* direction w de la convention 11.1 : le long, du coin d'origine vers l'autre coin ; dans le prolongement, de l'autre coin vers le coin
+   d'origine (vers le dehors du côté) ; avance : projection sur w du centre du contour, depuis le départ */
+const dirW = (ref, c) => { const O = ref[c.coin], X = ref[c.coin === 'A' ? 'B' : 'A']; return c.mode === 'long' ? unit(O, X) : unit(X, O); };
+const avance = (e, w) => e && e.m ? (e.m.x - e.v[0].x) * w.x + (e.m.y - e.v[0].y) * w.y : NaN;
+const nb = x => isFinite(x) ? x.toExponential(1) : String(x);
+/* outil Escalier (rien d'autre d'ouvert, vue de départ), « Cotes », la façade sud, l'endroit ou ([u, v]), réglages reg (comme
+   poserObjetParCotes) ; rend le texte du bouton de pose du panneau (null sans panneau) */
+async function departParCotes(A, ou, reg){
+  const p = A.p;
+  await toutFermer(p); await vueDemo(A);
+  await C.outil(p, ESC); await C.pause(p, 150);
+  if (!await entrer(p)) return null;
+  await toucherPlan(p, A.plan(70, 4)); await toucherPlan(p, A.plan(ou[0], ou[1]));
+  for (const x of reg) if (x[0] === 'd' || x[0] === 'e') await saisir(p, x[0], x[1]); else await puce(p, x[0], x[1]);
+  return libPoser(p);
+}
+/* « Poser le départ » : cotes exactes du mode juste avant, point attendu (VCroquis.geo.placer sur ce même côté), brouillon, toast, état */
+async function poserDepart(p){
+  const x = await cotesExactes(p), P = x ? await placerPage(p, x.ref, x.c) : null;
+  await effacerToast(p);
+  if (!await bouton(p, 'cotesPoser')) return {x, P, b: null, toast: '', st: null};
+  const b = await brouillon(p), toast = await toastVu(p);
+  const st = await p.evaluate(() => { const S = window.__vcEd.etat; return {cotes: S.cotes, pan: S.panneau, sel: S.sel, outil: S.outil.k + ':' + S.outil.id}; });
+  return {x, P, b, toast, st};
+}
+/* fin touchée en q ([u, v]) après une pause (le panneau fermé libère le plan) ; rend les escaliers du croquis */
+async function toucherFin(A, q){ await C.pause(A.p, 250); await toucherPlan(A.p, A.plan(q[0], q[1])); await C.pause(A.p, 250); return escaliers(A.p); }
+
+async function departEscalier(){
+  const A = await croquisDemo(), p = A.p;
+  try {
+    /* croquis vidé : seul le fond de démonstration reste (aucun objet sous les touchers de la fin) */
+    await C.injecter(p, {el: []}); await vueDemo(A);
+    const avant = await etatDoc(p), u0 = await nUndo(p), r = await coteRef(p, A.plan(70, 4), 'bati');
+    if (!R.ok(!!r, 'e : façade sud de la démonstration lue par VCroquis.geo.lignesRef')) return;
+    const gauche = r.gauche, droit = gauche === 'A' ? 'B' : 'A', ouest = coinPres(r.ref, A.plan(65.5, 4)), tF = unit(r.ref.A, r.ref.B);
+    /* e1 à e4 : entrée dans le mode */
+    await C.outil(p, ESC); await C.pause(p, 150);
+    const a0 = await texteAide(p), b0 = await boutonsAide(p);
+    R.ok(/^Escalier : touchez le départ/.test(a0) && b0 === 'cotes', 'e1 : outil Escalier, sans départ : bouton « Cotes » dans la barre d\'aide (obtenu ' + JSON.stringify([a0, b0]) + ')');
+    if (b0 !== 'cotes'){ erreurs(A, 'e1'); return; }
+    await p.evaluate(() => { window.__vcEd.etat.aff.fond = false; window.__vcEd.redessiner(); });
+    await effacerToast(p); await entrer(p);
+    const t2 = await toastVu(p), e2 = await etat(p);
+    await p.evaluate(() => { window.__vcEd.etat.aff.fond = true; window.__vcEd.redessiner(); });
+    R.ok(/Aucune ligne de référence affichée/.test(t2) && e2 === null, 'e2 : fond masqué, croquis vide : toast de m101 (« Aucune ligne de référence affichée »), pas de mode (obtenu '
+      + JSON.stringify([t2, e2]) + ')');
+    await vueDemo(A); await entrer(p);
+    const e3 = await etat(p), a3 = await texteAide(p), pour = await p.evaluate(() => { const c = window.__vcEd.etat.cotes; return c ? JSON.stringify(c.pour) : null; });
+    R.ok(!!e3 && e3.etape === 'cote' && /Touchez la façade ou la limite de référence/.test(a3) && pour === '{"esc":true}', 'e3 : « Cotes » : étape « cote », aide « Touchez la façade ou '
+      + 'la limite de référence », S.cotes.pour = {esc: true}, sans id (obtenu ' + JSON.stringify([e3, a3, pour]) + ')');
+    const v0 = await C.vue(p), q0 = await C.ecranCv(p, A.plan(70, 9).x, A.plan(70, 9).y);
+    await C.glisserDoigtCv(p, q0, {x: q0.x + 120, y: q0.y + 30});
+    const v1 = await C.vue(p), e4 = await etat(p), b4 = await brouillon(p), dv = Math.hypot(v1.cx - v0.cx, v1.cy - v0.cy);
+    R.ok(dv > 1 && !!e4 && e4.etape === 'cote' && !b4 && await etatDoc(p) === avant, 'e4 : glissé du doigt pendant le mode (aide « Tracer en glissant le doigt » active) : la vue glisse, '
+      + 'aucun tracé ne commence, le mode reste à l\'étape « cote » (centre déplacé de ' + dv.toFixed(2) + ' m, brouillon ' + JSON.stringify(b4) + ', ' + JSON.stringify(e4) + ')');
+
+    /* e5 à e11 : le long, coin gauche, 3 / 0 / Devant ; fin à 2 m dehors, à 2,9° de l'équerre */
+    const lib5 = await departParCotes(A, [68.4, 3], [['coin', 'Coin gauche'], ['d', '3'], ['e', '0'], ['cote', 'Devant']]), f5 = await panneau(p);
+    R.ok(lib5 === 'Poser le départ' && !!f5 && pressee(f5.mode) === 'Le long' && pressee(f5.coin) === 'Coin gauche' && !f5.deplacer, 'e5 : la façade sud, puis un endroit devant elle : '
+      + 'panneau « Cotes » en « Le long », bouton « Poser le départ », pas de « Déplacer » (obtenu ' + JSON.stringify(lib5) + ', ' + resume(f5) + ')');
+    const c5 = {mode: 'long', coin: gauche, d: 3, e: 0, cote: 'devant'}, P5 = await placerPage(p, r.ref, c5), d5 = await poserDepart(p), q5 = d5.b && d5.b.pts[0];
+    R.ok(!!d5.b && d5.b.outil === 'esc' && d5.b.pts.length === 1 && ecart(q5, d5.P) <= 1e-9 && ecart(q5, P5) <= 1e-6 && ecart(P5, A.plan(68.5, 4)) <= 3e-3 && !!d5.x && d5.x.c.mode === 'long'
+      && d5.x.c.coin === gauche && d5.x.c.d === 3 && d5.x.c.e === 0, 'e6 : « Poser le départ » : le brouillon a un seul point, au point de VCroquis.geo.placer sur le même côté (1e-9), '
+      + 'soit (68,5 ; 4) de la démonstration (posé ' + pt(q5) + ', attendu ' + pt(d5.P) + ', écart ' + nb(ecart(q5, d5.P)) + ' m ; calcul du test ' + pt(P5) + ')');
+    const a5 = await texteAide(p), bt5 = await boutonsAide(p);
+    R.ok(!!d5.st && d5.st.cotes === null && d5.st.pan === null && d5.st.sel === null && d5.st.outil === 'ln:esc' && /^Escalier : touchez la fin/.test(a5) && bt5 === 'retirerPoint annulerTrace'
+      && !/bâti/.test(d5.toast), 'e7 : le mode et le panneau sont fermés ; l\'outil Escalier reste actif, aide « touchez la fin » avec « Point » et « Abandonner », sans « Cotes » ; '
+      + 'pas d\'avertissement de bâti (obtenu ' + JSON.stringify([d5.st, a5, bt5, d5.toast]) + ')');
+    R.ok(await etatDoc(p) === avant && await nUndo(p) === u0, 'e8 : rien n\'entre dans le croquis ni dans l\'historique avant la fin (aucun pas d\'annulation)');
+    const E5 = await toucherFin(A, [68.6, 2]), g5 = E5[0], s5 = g5 ? unit(g5.v[0], g5.v[1]) : null, eq5 = s5 ? Math.abs(s5.x * tF.x + s5.y * tF.y) : NaN;
+    const L5 = g5 ? ecart(g5.v[0], g5.v[1]) : 0, av5 = avance(g5, dirW(r.ref, c5)), n5 = String(Math.min(60, Math.max(1, Math.round(L5 / .28))));
+    R.ok(E5.length === 1 && ecart(g5.v[0], q5) <= 1e-9 && eq5 < 1e-6 && L5 > 1.5 && L5 < 2.5 && g5.cles === 'id,k,lab,p,t,v' && g5.cv === 'a,x,y a,x,y',
+      'e9 : fin touchée : un escalier, départ au point calculé (1e-9), fin redressée d\'équerre à la façade (1e-6), forme de m107 (obtenu ' + E5.length + ' escalier, écart '
+      + nb(g5 && ecart(g5.v[0], q5)) + ' m, équerre ' + nb(eq5) + ', ' + L5.toFixed(3) + ' m, clés ' + (g5 && g5.cles) + ')');
+    R.ok(!!g5 && g5.p.cote === 'g' && av5 > 0 && g5.p.monte === 'depart' && g5.p.larg === '1,00' && g5.p.n === n5 && g5.p.st === 'existant' && Object.keys(g5.p).sort().join(',') === 'cote,larg,monte,n,st',
+      'e10 : largeur partie à l\'opposé du coin d\'origine (centre du contour plus loin que le départ sur w), à gauche ; montée vers le départ, posé sur la façade sans décalage ; '
+      + 'p de m107 sans champ nouveau (obtenu ' + JSON.stringify(g5 && g5.p) + ', avance ' + (isFinite(av5) ? av5.toFixed(3) : av5) + ' m)');
+    const st5 = await p.evaluate(() => { const S = window.__vcEd.etat; return {sel: S.sel && S.sel.id, pan: S.panneau, br: !!S.brouillon}; }), u5 = await nUndo(p);
+    await annuler(p);
+    R.ok(!!g5 && st5.sel === g5.id && st5.pan === 'fiche' && !st5.br && u5 === u0 + 1 && await etatDoc(p) === avant, 'e11 : escalier choisi, fiche ouverte, un seul pas d\'annulation ; '
+      + 'une annulation remet le croquis d\'avant l\'escalier (JSON) (obtenu ' + JSON.stringify(st5) + ', pas ' + u0 + ' puis ' + u5 + ')');
+
+    /* e12 : même chose depuis le coin droit : la largeur part de l'autre côté */
+    const lib12 = await departParCotes(A, [71.6, 3], [['coin', 'Coin droit'], ['d', '3'], ['e', '0'], ['cote', 'Devant']]);
+    const c12 = {mode: 'long', coin: droit, d: 3, e: 0, cote: 'devant'}, P12 = await placerPage(p, r.ref, c12), d12 = await poserDepart(p), q12 = d12.b && d12.b.pts[0];
+    const E12 = await toucherFin(A, [71.4, 2]), g12 = E12[0], s12 = g12 ? unit(g12.v[0], g12.v[1]) : null, av12 = avance(g12, dirW(r.ref, c12));
+    R.ok(lib12 === 'Poser le départ' && !!q12 && ecart(q12, d12.P) <= 1e-9 && ecart(q12, P12) <= 1e-6 && ecart(P12, A.plan(71.5, 4)) <= 3e-3 && E12.length === 1 && ecart(g12.v[0], q12) <= 1e-9
+      && Math.abs(s12.x * tF.x + s12.y * tF.y) < 1e-6 && !!g5 && g12.p.cote === (g5.p.cote === 'g' ? 'd' : 'g') && av12 > 0 && g12.p.monte === 'depart',
+      'e12 : coin droit, 3 / 0 / Devant : départ au point calculé (1e-9), (71,5 ; 4) ; la largeur part de l\'autre côté (p.cote inverse du coin gauche), à l\'opposé du coin '
+      + 'd\'origine ; montée vers le départ (départ ' + pt(q12) + ', attendu ' + pt(d12.P) + ' ; obtenu ' + JSON.stringify(g12 && g12.p) + ', avance ' + (isFinite(av12) ? av12.toFixed(3) : av12) + ' m)');
+    await annuler(p);
+
+    /* e13 : prolongement au-delà du coin ouest, 2 / 0,5 / Droite : décalage non nul, montée vers la fin */
+    const lib13 = await departParCotes(A, [63.2, 3.3], [['coin', 'Coin gauche'], ['d', '2'], ['e', '0,5'], ['cote', 'Droite']]), f13 = await panneau(p);
+    const c13 = {mode: 'prol', coin: ouest, d: 2, e: 0.5, cote: 'droite'}, P13 = await placerPage(p, r.ref, c13), d13 = await poserDepart(p), q13 = d13.b && d13.b.pts[0];
+    const E13 = await toucherFin(A, [63.6, 1.5]), g13 = E13[0], s13 = g13 ? unit(g13.v[0], g13.v[1]) : null, av13 = avance(g13, dirW(r.ref, c13));
+    /* la fin est redressée sur la façade du bâti la plus proche : ici celle du voisin (son coin est à 1,1 m du départ), d'équerre à la
+       façade de référence à l'arrondi du plan près (coordonnées au millimètre) ; sans redressement, l'écart serait de 0,05 rad */
+    R.ok(lib13 === 'Poser le départ' && !!f13 && pressee(f13.mode) === 'Prolongement' && ouest === gauche && !!q13 && ecart(q13, d13.P) <= 1e-9 && ecart(q13, P13) <= 1e-6
+      && ecart(P13, A.plan(63.5, 3.5)) <= 3e-3 && E13.length === 1 && ecart(g13.v[0], q13) <= 1e-9 && Math.abs(s13.x * tF.x + s13.y * tF.y) < 1e-3,
+      'e13 : prolongement au-delà du coin ouest, 2 / 0,5 / Droite : départ exact (1e-9), (63,5 ; 3,5) ; fin redressée d\'équerre (1e-3 rad, arrondi du plan) (départ ' + pt(q13) + ', attendu ' + pt(d13.P) + ', écart ' + nb(s13 ? s13.x * tF.x + s13.y * tF.y : NaN) + ' rad, ' + resume(f13) + ')');
+    R.ok(!!g13 && g13.p.monte === 'fin' && g13.p.cote === 'd' && av13 > 0, 'e14 : décalage non nul : montée vers la fin ; largeur à l\'opposé du coin (« d », vers l\'ouest) (obtenu '
+      + JSON.stringify(g13 && g13.p) + ', avance ' + (isFinite(av13) ? av13.toFixed(3) : av13) + ' m)');
+    await annuler(p);
+
+    /* e15 : D1, départ derrière la façade (3 / 1 / Derrière) : toast, départ posé quand même ; « Abandonner » l'oublie */
+    await departParCotes(A, [68.4, 3], [['coin', 'Coin gauche'], ['d', '3'], ['e', '1'], ['cote', 'Derrière']]);
+    const d15 = await poserDepart(p), q15 = d15.b && d15.b.pts[0];
+    R.ok(/Le point tombe dans le bâti/.test(d15.toast) && !!q15 && d15.b.pts.length === 1 && ecart(q15, d15.P) <= 1e-9 && ecart(d15.P, A.plan(68.5, 5)) <= 3e-3 && !!d15.st && d15.st.cotes === null,
+      'e15 : départ dans le bâti (3 / 1 / Derrière) : toast « Le point tombe dans le bâti », départ posé quand même au point calculé, (68,5 ; 5), mode fermé (toast '
+      + JSON.stringify(d15.toast) + ', départ ' + pt(q15) + ')');
+    await boutonAide(p, 'annulerTrace');
+    const b16 = await brouillon(p), bt16 = await boutonsAide(p);
+    R.ok(!b16 && bt16 === 'cotes' && await etatDoc(p) === avant && await nUndo(p) === u0, 'e16 : « Abandonner » : départ oublié, bouton « Cotes » revenu ; croquis et historique inchangés (obtenu '
+      + JSON.stringify([b16, bt16]) + ')');
+    /* « Cotes » est ignoré 0,5 s après « Abandonner » (double toucher, e22) : le cas suivant attend */
+    await C.pause(p, 300);
+
+    /* e17 : « Point » après « Poser le départ » : brouillon vide ; un départ posé ensuite au doigt suit la règle de m107 (cotes oubliées) */
+    await departParCotes(A, [71.6, 3], [['coin', 'Coin droit'], ['d', '3'], ['e', '0'], ['cote', 'Devant']]);
+    const d17 = await poserDepart(p);
+    await boutonAide(p, 'retirerPoint');
+    const b17 = await brouillon(p), bt17 = await boutonsAide(p), a17 = await texteAide(p);
+    await toucherPlan(p, A.plan(71.5, 4));
+    const E17 = await toucherFin(A, [71.4, 2]);
+    R.ok(!!d17.b && d17.b.pts.length === 1 && !b17 && bt17 === 'cotes' && /^Escalier : touchez le départ/.test(a17) && E17.length === 1 && E17[0].p.cote === 'g',
+      'e17 : « Point » après « Poser le départ » : brouillon vide, bouton « Cotes » revenu ; puis un départ touché au même endroit et la fin : côté de m107 (« g », les deux côtés '
+      + 'hors du bâti), pas celui des cotes oubliées (obtenu ' + JSON.stringify([b17, bt17, E17.map(e => e.p.cote)]) + ')');
+    if (E17.length) await annuler(p);
+
+    /* e18, e19 : un autre outil oublie le mode (panneau ouvert) et le départ posé par cotes */
+    await departParCotes(A, [71.6, 3], [['coin', 'Coin droit'], ['d', '3'], ['e', '0']]);
+    const e18 = await etat(p);
+    await C.outil(p, {k: 'main'}); await C.pause(p, 150);
+    const s18 = await p.evaluate(() => { const S = window.__vcEd.etat; return {cotes: S.cotes, pan: S.panneau, br: S.brouillon}; });
+    R.ok(!!e18 && e18.etape === 'saisie' && s18.cotes === null && s18.pan === null && s18.br === null && await etatDoc(p) === avant, 'e18 : un autre outil, panneau « Cotes » ouvert : '
+      + 'fin du mode, panneau fermé, rien n\'est posé (obtenu ' + JSON.stringify([e18, s18]) + ')');
+    await departParCotes(A, [71.6, 3], [['coin', 'Coin droit'], ['d', '3'], ['e', '0']]);
+    const d19 = await poserDepart(p);
+    await C.outil(p, {k: 'pt', t: 'regard', pal: 'reg'}); await C.pause(p, 150);
+    const b19 = await brouillon(p);
+    await C.outil(p, ESC); await C.pause(p, 150);
+    const bt19 = await boutonsAide(p);
+    await toucherPlan(p, A.plan(71.5, 4));
+    const E19 = await toucherFin(A, [71.4, 2]);
+    R.ok(!!d19.b && d19.b.pts.length === 1 && !b19 && bt19 === 'cotes' && E19.length === 1 && E19[0].p.cote === 'g', 'e19 : un autre outil après « Poser le départ » : départ oublié ; '
+      + 'de retour à l\'outil Escalier, bouton « Cotes », et un escalier tracé au doigt suit la règle de m107 (obtenu ' + JSON.stringify([b19, bt19, E19.map(e => e.p.cote)]) + ')');
+    if (E19.length) await annuler(p);
+
+    /* e20 : Échap (fermerNiveau) et la réouverture du croquis (ouvrir) oublient aussi le départ */
+    await departParCotes(A, [68.4, 3], [['coin', 'Coin gauche'], ['d', '3'], ['e', '0']]);
+    const d20 = await poserDepart(p);
+    await p.evaluate(() => window.__vcEd.fermerNiveau()); await C.pause(p, 150);
+    const b20 = await brouillon(p);
+    await departParCotes(A, [68.4, 3], [['coin', 'Coin gauche'], ['d', '3'], ['e', '0']]);
+    const d20b = await poserDepart(p);
+    await p.evaluate(() => { const ed = window.__vcEd, S = ed.etat; ed.ouvrir(S.doc, S.fond, S.reseau); }); await C.pause(p, 250);
+    const b20b = await brouillon(p);
+    R.ok(!!d20.b && d20.b.pts.length === 1 && !b20 && !!d20b.b && d20b.b.pts.length === 1 && !b20b && await etatDoc(p) === avant, 'e20 : Échap (fermerNiveau) et ouvrir() oublient le départ '
+      + 'posé par cotes ; croquis inchangé (obtenu ' + JSON.stringify([b20, b20b]) + ')');
+
+    /* e21 : départ posé par cotes depuis le coin droit (comme e12), puis la souris survole l'endroit de la fin : le contour fantôme est
+       celui de l'escalier créé ensuite, du côté des cotes (« d » ; la règle de m107 donnerait « g ») */
+    await departParCotes(A, [71.6, 3], [['coin', 'Coin droit'], ['d', '3'], ['e', '0'], ['cote', 'Devant']]);
+    const d21 = await poserDepart(p), q21 = d21.b && d21.b.pts[0], f21 = A.plan(71.4, 2);
+    let F21 = [];
+    if (q21){
+      const sD = await C.ecranCv(p, q21.x, q21.y), sF = await C.ecranCv(p, f21.x, f21.y);
+      await C.pause(p, 250); await releverDebut(p); await C.survolerCv(p, sF); await C.pause(p, 150);
+      F21 = await releverFantomes(p, sD);
+    }
+    const E21 = await toucherFin(A, [71.4, 2]), g21 = E21[0], k21 = F21.length === 1 && !!g21 && !!g21.Q ? [0, 1, 2, 3].map(i => ecart(F21[0][i], g21.Q[i])) : [];
+    R.ok(F21.length === 1 && E21.length === 1 && g21.p.cote === 'd' && k21.length === 4 && k21.every(x => x < 0.05), 'e21 : départ posé par cotes (coin droit), survol de la fin à la '
+      + 'souris : le contour fantôme a les quatre coins de l\'escalier créé ensuite (à 5 cm près), du côté « d » des cotes (obtenu ' + F21.length + ' contour fantôme, '
+      + JSON.stringify(g21 && g21.p.cote) + ', écarts ' + k21.map(x => x.toFixed(3)).join(' ') + ' m)');
+    if (E21.length) await annuler(p);
+
+    /* e22 : double toucher sur « Abandonner » après « Poser le départ » : le second tombe sur « Cotes », venu à sa place ; il est ignoré,
+       le mode ne s'ouvre pas ; « Cotes » touché ensuite exprès (après 0,5 s) l'ouvre */
+    await departParCotes(A, [68.4, 3], [['coin', 'Coin gauche'], ['d', '3'], ['e', '0']]);
+    const d22 = await poserDepart(p), qa = await centreAide(p, 'annulerTrace');
+    if (qa){ await p.touchscreen.tap(qa.x, qa.y); await p.touchscreen.tap(qa.x, qa.y); await C.pause(p, 300); }
+    const sous22 = qa ? await boutonSous(p, qa) : '', s22 = await p.evaluate(() => { const S = window.__vcEd.etat; return {cotes: S.cotes, br: S.brouillon}; });
+    await C.pause(p, 300); await entrer(p);
+    const e22 = await etat(p);
+    await toutFermer(p);
+    R.ok(!!d22.b && d22.b.pts.length === 1 && !!qa && sous22 === 'cotes' && s22.cotes === null && s22.br === null && !!e22 && e22.etape === 'cote' && await etatDoc(p) === avant,
+      'e22 : double toucher sur « Abandonner » après « Poser le départ » : le second, tombé sur « Cotes » venu à sa place, n\'ouvre pas le mode ; « Cotes » touché ensuite '
+      + 'l\'ouvre (obtenu ' + JSON.stringify([sous22, s22, e22]) + ')');
+
+    /* e23 : « Le long » depuis le coin gauche, à 10 m pour un côté de 9 m : le départ tombe à 1 m au-delà du coin droit, hors de la façade ;
+       il ne compte pas comme posé sur elle (point sans aide, montée vers la fin, comme dans le prolongement ou au doigt) ; témoin : à 9 m,
+       sur le coin droit, il compte (aide « facade », montée vers le départ) */
+    const m23 = [];
+    for (const d of [9, 10]){
+      await departParCotes(A, [72, 3], [['coin', 'Coin gauche'], ['d', String(d)], ['e', '0'], ['cote', 'Devant']]);
+      const d23 = await poserDepart(p), q23 = d23.b && d23.b.pts.length === 1 ? d23.b.pts[0] : null;
+      const E23 = await toucherFin(A, [65.5 + d, 2]);
+      m23.push([d, !!q23 && ecart(q23, d23.P) <= 1e-9 && ecart(q23, A.plan(65.5 + d, 4)) <= 3e-3, q23 ? q23.aide : 'pas de départ', E23.length === 1 ? E23[0].p.monte : E23.length + ' escalier']);
+      if (E23.length) await annuler(p);
+    }
+    R.ok(JSON.stringify(m23) === JSON.stringify([[9, true, 'facade', 'depart'], [10, true, null, 'fin']]), 'e23 : le long, coin gauche, 10 m pour un côté de 9 m : départ au point '
+      + 'calculé, au-delà du coin droit, sans aide, montée vers la fin ; témoin : à 9 m (sur le coin droit), aide « facade » et montée vers le départ (obtenu '
+      + JSON.stringify(m23) + ')');
+    erreurs(A, 'e (m108)');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [prolongement, poses, valeursEtSorties, superposees, geometrie, mesureEtDeplacement, casLimites]){
+  for (const f of [prolongement, poses, valeursEtSorties, superposees, geometrie, mesureEtDeplacement, casLimites, departEscalier]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();

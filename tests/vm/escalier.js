@@ -10,6 +10,12 @@
 //   contour n'entre pas dans le bâti fictif (à gauche, puis à droite ; deux côtés dehors ou dedans : « g ») ; seules les lignes de bâti
 //   fermées comptent (lignesRef comprise) ; montée vers le bout posé au coin ou sur une façade (départ seul : « depart », sinon « fin ») ;
 //   entrées invalides : null ; fonction pure.
+// d10 à d16 (m108) : sixième argument cotes = {O, w, facade} (départ posé par cotes ; w : direction de la convention 11.1) : la largeur part
+//   à l'opposé du coin d'origine, le long d'un côté (façades sud et ouest, depuis l'un et l'autre coin, départ sur la façade ou devant, fin
+//   en biais) puis dans son prolongement ; escalier presque parallèle à w (|nc·w| < 0,1) : règle de m107 (témoin : |nc·w| = 0,12) ; côté
+//   opposé qui entrerait dans le bâti : règle de m107 ; montée vers le départ s'il est posé le long d'une façade (facade vrai), sauf fin au
+//   coin ou sur une façade ; l'aide du départ est alors ignorée ; sans l'argument ou s'il est invalide : même résultat qu'en m107 ;
+//   fonction pure.
 // a1, a2 : analyse identique avec et sans escalier, objet ou tracé d'un type inconnu (croquis de démonstration).
 // e1 à e5 : écran : contour, marches et flèche en gris ; marches omises sous 4 px, contour et flèche gardés ; ordre des tracés (escalier
 //   et complément d'abord, jamais NaN) ; emprise du plan avec les quatre coins ; étiquette voisine écartée du bord de l'escalier.
@@ -22,6 +28,7 @@
 // Échouent sur 689e83b : g, m1, m3, e1 à e5, p1, p2, p4 à p8, x1, x3 à x7, i1 à i3, i5 à i7 ; témoins : m2, a1, a2,
 // p3, x2, x8, i4, i8, i9.
 // Échoue sur 6e365ec : d (VCroquis.geo.escalierDefauts absente).
+// Échouent sur b08e6cd : d10, d11, d12, d14 et d16 (le sixième argument est ignoré) ; témoins : d13 et d15.
 // usage : node tests/vm/escalier.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, rapport} = require('./charger.js');
@@ -191,6 +198,94 @@ function defauts(){
   R.ok(JSON.stringify([D, F, Lc]) === avant && !!m9 && m9.y < 0 && r9.monte === 'depart' && r9.n === '11',
     'd9 fonction pure (départ, fin et lignes inchangés) ; ses valeurs dessinent l\'escalier par VCroquis.geo.escalier, contour hors du bâti (centre '
     + txtPt(m9) + ', montée ' + champ(r9, 'monte') + ')');
+}
+
+/* d10 à d16 (m108) : départ posé par cotes, sixième argument cotes = {O, w, facade} de VCroquis.geo.escalierDefauts. O : coin d'origine ;
+   w : direction de la convention 11.1 (le long : de O vers l'autre coin ; prolongement : de O vers le dehors du côté) ; facade : départ posé
+   le long d'une façade, sans décalage. Même bâti fictif de 10 × 6 m : façade sud en y = 0, de (0 ; 0) à (10 ; 0) ; façade ouest en x = 0. */
+function departCotes(){
+  const f = V.geo && V.geo.escalierDefauts;
+  if (typeof f !== 'function'){ R.ok(false, 'd10 : VCroquis.geo.escalierDefauts est absente'); return; }
+  const champ = (r, k) => r && typeof r === 'object' ? r[k] : String(r);
+  const dir = q => { const l = Math.hypot(q[0], q[1]); return {x: q[0] / l, y: q[1] / l}; };
+  const cotes = (O, w, facade) => ({O: PT(O), w: dir(w), facade: !!facade});
+  const val = (D, F, c, a, b) => sur(() => f(PT(D), PT(F), BATI, a, b, c));
+  /* centre du contour dessiné par VCroquis.geo.escalier avec les valeurs rendues, projeté sur w depuis le départ : positif si la largeur
+     part à l'opposé du coin d'origine */
+  const avance = (D, F, r, w) => {
+    const g = r && typeof r === 'object' ? sur(() => V.geo.escalier(PT(D), PT(F), r.larg, r.n, r.cote, r.monte)) : null;
+    if (!g || !g.contour) return NaN;
+    const m = PT([g.contour.reduce((s, q) => s + q.x, 0) / 4, g.contour.reduce((s, q) => s + q.y, 0) / 4]);
+    return (m.x - D[0]) * w.x + (m.y - D[1]) * w.y;
+  };
+  /* cas : [nom, départ, fin, O, w, côté attendu] ; écarts : côté rendu et, si demandé, largeur qui ne part pas à l'opposé du coin */
+  const ecarts = (cas, opp) => cas.map(c => {
+    const k = cotes(c[3], c[4], false), r = val(c[1], c[2], k), a = avance(c[1], c[2], r, k.w);
+    return champ(r, 'cote') === c[5] && (!opp || a > 0) ? null : c[0] + ' : ' + champ(r, 'cote') + (opp ? ', avance ' + (isFinite(a) ? a.toFixed(3) : a) : '');
+  }).filter(x => x);
+  /* d10 : le long d'un côté */
+  const cas10 = [['façade sud depuis le coin ouest, départ sur la façade', [3, 0], [3, -2], [0, 0], [1, 0], 'g'],
+    ['façade sud depuis le coin est, départ sur la façade', [7, 0], [7, -2], [10, 0], [-1, 0], 'd'],
+    ['façade sud depuis le coin ouest, 1 m devant', [3, -1], [3, -3], [0, 0], [1, 0], 'g'],
+    ['façade sud depuis le coin est, 1 m devant', [7, -1], [7, -3], [10, 0], [-1, 0], 'd'],
+    ['façade ouest depuis le coin nord', [0, 4], [-2, 4], [0, 6], [0, -1], 'g'],
+    ['façade ouest depuis le coin sud', [0, 2], [-2, 2], [0, 0], [0, 1], 'd'],
+    ['façade sud depuis le coin ouest, fin en biais', [3, 0], [4, -2], [0, 0], [1, 0], 'g'],
+    ['façade sud depuis le coin est, fin en biais', [7, 0], [6, -2], [10, 0], [-1, 0], 'd']];
+  const ko10 = ecarts(cas10, true);
+  R.ok(!ko10.length, 'd10 le long d\'un côté (' + cas10.length + ' cas : façades sud et ouest, depuis l\'un et l\'autre coin, départ sur la façade ou devant, fin d\'équerre '
+    + 'ou en biais) : la largeur part à l\'opposé du coin d\'origine (nc·w > 0 ; centre du contour plus loin que le départ sur w)' + (ko10.length ? ' (écarts : ' + ko10.join(' ; ') + ')' : ''));
+  /* d11 : dans le prolongement d'un côté, au-delà d'un coin */
+  const cas11 = [['au-delà du coin ouest de la façade sud', [-2, -0.5], [-2, -2.5], [0, 0], [-1, 0], 'd'],
+    ['au-delà du coin est de la façade sud', [12, -0.5], [12, -2.5], [10, 0], [1, 0], 'g'],
+    ['au-delà du coin sud de la façade ouest, vers l\'est', [-0.5, -2], [1.5, -2], [0, 0], [0, -1], 'd'],
+    ['au-delà du coin sud de la façade ouest, vers l\'ouest', [-0.5, -2], [-2.5, -2], [0, 0], [0, -1], 'g']];
+  const ko11 = ecarts(cas11, true);
+  R.ok(!ko11.length, 'd11 dans le prolongement (' + cas11.length + ' cas) : la largeur part à l\'opposé du coin d\'origine, vers le dehors du côté'
+    + (ko11.length ? ' (écarts : ' + ko11.join(' ; ') + ')' : ''));
+  /* d12 : escalier presque parallèle à w (|nc·w| < 0,1) : règle de m107 ; témoin au-dessus du seuil */
+  const cas12 = [['nc·w = −0,08', [3, -1], [3, -4], [0, 0], [-0.08, -1], 'g'], ['nc·w = +0,08', [3, -1], [3, -4], [0, 0], [0.08, -1], 'g'],
+    ['parallèle à w, dehors', [-2, 0], [-5, 0], [0, 0], [-1, 0], 'g'], ['parallèle à w, le long de la façade', [2, 0], [5, 0], [0, 0], [1, 0], 'd'],
+    ['témoin : nc·w = −0,12', [3, -1], [3, -4], [0, 0], [-0.12, -1], 'd']];
+  const ko12 = ecarts(cas12, false);
+  R.ok(!ko12.length, 'd12 escalier presque parallèle à w (|nc·w| < 0,1) : règle de m107 (côté hors du bâti, sinon « g ») ; témoin : à −0,12, le côté opposé au coin (« d »)'
+    + (ko12.length ? ' (écarts : ' + ko12.join(' ; ') + ')' : ''));
+  /* d13 : le côté opposé au coin entrerait dans le bâti : règle de m107 */
+  const cas13 = [['le long de la façade sud vers l\'est, w vers le nord', [2, 0], [5, 0], [0, 0], [0, 1], 'd'],
+    ['le long de la façade sud vers l\'ouest, w vers le nord', [5, 0], [2, 0], [0, 0], [0, 1], 'g'],
+    ['départ dans le bâti, les deux côtés dedans', [3, 2], [6, 2], [0, 0], [0, -1], 'g']];
+  const ko13 = ecarts(cas13, false);
+  R.ok(!ko13.length, 'd13 côté opposé au coin qui entrerait dans le bâti : règle de m107 (l\'autre côté s\'il est dehors, « g » si les deux entrent)'
+    + (ko13.length ? ' (écarts : ' + ko13.join(' ; ') + ')' : ''));
+  /* d14 : montée : le départ posé sur une façade (facade) compte comme un bout posé sur une façade ; l'aide du départ est ignorée */
+  const W = [1, 0], cas14 = [[true, null, null, 'depart'], [true, undefined, 'parallele', 'depart'], [true, null, 'angle', 'depart'], [true, null, 'facade', 'fin'],
+    [true, 'parallele', 'coin', 'fin'], [false, 'coin', null, 'fin'], [false, 'facade', null, 'fin'], [undefined, 'coin', null, 'fin']];
+  const ko14 = [];
+  cas14.forEach(c => {
+    const k = c[0] === undefined ? {O: PT([0, 0]), w: dir(W)} : cotes([0, 0], W, c[0]), m = champ(val([3, 0], [3, -2], k, c[1], c[2]), 'monte');
+    if (m !== c[3]) ko14.push('facade ' + c[0] + ', aides ' + c[1] + '/' + c[2] + ' : ' + m);
+  });
+  R.ok(!ko14.length, 'd14 montée : départ posé sur une façade (facade vrai) → « depart », sauf si la fin est au coin ou sur une façade ; facade faux ou absent → « fin », '
+    + 'même avec une aide « coin » ou « facade » au départ (ignorée)' + (ko14.length ? ' (écarts : ' + ko14.join(' ; ') + ')' : ''));
+  /* d15 : sans l'argument, ou s'il est invalide (w absent, nul ou non fini) : résultat de m107 */
+  const base = [[[0, -1], [3, -1], 'coin', null], [[2, 0], [5, 0], null, null], [[5, 0], [2, 0], 'facade', 'coin'], [[2, 2], [5, 2], null, 'facade'],
+    [[2, 0], [2, -3], 'facade', null], [[1, -1], [1, -1], null, null]];
+  const invalides = [['undefined', undefined], ['null', null], ['texte', 'cotes'], ['nombre', 3], ['vrai', true], ['tableau', []], ['objet vide', {}],
+    ['w absent', {O: {x: 0, y: 0}, facade: true}], ['w nul', {O: {x: 0, y: 0}, w: {x: 0, y: 0}, facade: true}], ['w non fini', {w: {x: NaN, y: 1}, facade: true}],
+    ['w en texte', {w: 'est', facade: true}]];
+  const ko15 = [];
+  base.forEach(b => {
+    const r5 = JSON.stringify(sur(() => f(PT(b[0]), PT(b[1]), BATI, b[2], b[3])));
+    invalides.forEach(x => { const r6 = JSON.stringify(sur(() => f(PT(b[0]), PT(b[1]), BATI, b[2], b[3], x[1]))); if (r6 !== r5) ko15.push(x[0] + ' ' + JSON.stringify(b) + ' : ' + r6 + ' au lieu de ' + r5); });
+  });
+  R.ok(!ko15.length, 'd15 sans l\'argument ou s\'il est invalide (' + invalides.length + ' formes, ' + base.length + ' escaliers) : même résultat qu\'avec cinq arguments (m107), sans exception'
+    + (ko15.length ? ' (écarts : ' + ko15.slice(0, 3).join(' ; ') + ')' : ''));
+  /* d16 : fonction pure */
+  const D = {x: 7, y: 0}, F = {x: 7, y: -2}, Lc = copie(BATI), K = {O: {x: 10, y: 0}, w: {x: -1, y: 0}, facade: true}, avant = JSON.stringify([D, F, Lc, K]);
+  const r16 = sur(() => f(D, F, Lc, null, null, K)), cles = Object.keys(V.defautsLn('esc')).sort().join(', ');
+  R.ok(JSON.stringify([D, F, Lc, K]) === avant && champ(r16, 'cote') === 'd' && champ(r16, 'monte') === 'depart' && champ(r16, 'n') === '7' && champ(r16, 'larg') === '1,00'
+    && !!r16 && typeof r16 === 'object' && Object.keys(r16).sort().join(', ') === cles,
+    'd16 fonction pure (départ, fin, lignes et cotes inchangés) ; mêmes champs qu\'en m107 (' + cles + ') ; obtenu ' + JSON.stringify(r16));
 }
 
 /* a : analyse */
@@ -442,6 +537,7 @@ async function typesInconnus(){
   geometrie();
   modele();
   defauts();
+  departCotes();
   analyse();
   ecran();
   await plans();

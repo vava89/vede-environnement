@@ -77,7 +77,9 @@ CROQUIS DE TERRAIN (facultatif)
   position change, les tuyaux attachés suivent, une annulation suffit.
   L'outil « Escalier » des Tracés dessine un escalier en deux touchers (le
   départ, puis la fin) ; sa fiche règle la largeur, les marches, la
-  longueur, le côté et le sens de la montée.
+  longueur, le côté et le sens de la montée. Son bouton « Cotes » pose le
+  départ à une distance mesurée d'une façade ou d'une limite ; on touche
+  ensuite la fin.
 - Les anomalies déduites du dessin (EU vers EP, EP vers EU, fosse, descente
   non visitable, tampon béton…) rejoignent la liste du dossier, avec les
   mêmes numéros (A1, A2…) que les bulles du plan : la fiche Préco, le

@@ -735,9 +735,15 @@ VC.geo.escalier = escalier;
    Largeur 1,00 m ; marches de 0,28 m environ : arrondi de L / 0,28, de 1 à 60 ; côté : celui dont le contour n'entre pas dans le bâti (centre
    du contour dans une ligne de bâti), « g » si les deux côtés y entrent ou si aucun n'y entre ; montée vers le départ s'il est le seul bout
    posé sur un coin ou une façade, sinon vers la fin. Rend p, en textes comme la fiche ; null si D et F sont invalides ou confondus.
+   Départ posé par cotes (m108) : cotes = {O, w, facade}, facultatif. O est le coin d'origine (gardé pour mémoire, le calcul ne s'en sert
+   pas) ; w, la direction de la convention 11.1 (le long : de O vers l'autre coin ; prolongement : de O vers le dehors du côté) ; facade :
+   départ posé le long d'une façade, entre ses deux coins, sans décalage. Côté : celui dont la largeur part à l'opposé du coin (nc·w > 0,
+   nc : ccw(t) pour « g », cw(t) pour « d ») ; règle ci-dessus si l'escalier est presque parallèle à w (|nc·w| < 0,1) ou si ce côté entre
+   dans le bâti. Montée : facade tient lieu d'aide du départ (« facade » ou rien), puis même règle. Sans cotes, ou si w est absent, nul ou
+   non fini : comme avant.
    Fonction pure : une ligne invalide est sautée, sans exception. */
-function escalierDefauts(D, F, lignes, aideDepart, aideFin){
-  var t = unite(D, F), L, n, bati, dedans = {};
+function escalierDefauts(D, F, lignes, aideDepart, aideFin, cotes){
+  var t = unite(D, F), L, n, bati, dedans = {}, cote, w, k;
   if (!t) return null;
   L = Math.hypot(F.x - D.x, F.y - D.y); if (!(L > GEO_EPS)) return null;
   n = Math.min(60, Math.max(1, Math.round(L / 0.28)));
@@ -748,7 +754,15 @@ function escalierDefauts(D, F, lignes, aideDepart, aideFin){
     dedans[c] = !!m && bati.some(function(l){ return dansPolygone(m, l.P) === true; });
   });
   function surBati(a){ return a === 'coin' || a === 'facade'; }
-  return {larg: '1,00', n: String(n), cote: dedans.g && !dedans.d ? 'd' : 'g', monte: surBati(aideDepart) && !surBati(aideFin) ? 'depart' : 'fin', st: 'existant'};
+  cote = dedans.g && !dedans.d ? 'd' : 'g';
+  w = cotes && typeof cotes === 'object' ? unite({x: 0, y: 0}, cotes.w) : null;
+  if (w){
+    /* départ posé par cotes (m108) : k = ccw(t)·w ; la largeur part à l'opposé du coin d'origine, si ce côté reste hors du bâti */
+    k = -t.y * w.x + t.x * w.y;
+    if (Math.abs(k) >= 0.1 && !dedans[k > 0 ? 'g' : 'd']) cote = k > 0 ? 'g' : 'd';
+    aideDepart = cotes.facade === true ? 'facade' : null;
+  }
+  return {larg: '1,00', n: String(n), cote: cote, monte: surBati(aideDepart) && !surBati(aideFin) ? 'depart' : 'fin', st: 'existant'};
 }
 VC.geo.escalierDefauts = escalierDefauts;
 /* Tracés : canalisation (tronçon, collecteur), complément du fond (trait, escalier) ; un tracé d'un autre type (croquis d'une version plus
@@ -2809,7 +2823,8 @@ function editeur(racine, opts){
     if (g.type === 'attente'){
       if (Math.hypot(p.x - g.x0, p.y - g.y0) < (g.souris ? 4 : 9)) return;
       if (g.cible){ quitterSaisie(); instantane(); g.type = 'glisser'; g.modifie = false; demarrerGlisser(g); }
-      else if (S.outil.k === 'ln' && aideOn('glisser') && !g.panForce){ quitterSaisie(); g.type = 'trace'; demarrerTrace(g); }
+      /* pendant la pose par cotes (départ d'un escalier, m108), le glissé déplace la vue : il ne trace rien */
+      else if (S.outil.k === 'ln' && aideOn('glisser') && !g.panForce && !S.cotes){ quitterSaisie(); g.type = 'trace'; demarrerTrace(g); }
       else { g.type = 'pan'; g.w0 = S.vue.monde(g.x0, g.y0); }
     }
     if (g.type === 'trace'){ apercuTrace(g, p); return; }
@@ -3234,7 +3249,8 @@ function editeur(racine, opts){
   /* contour fantôme de l'escalier en cours : du départ au point visé par le glissé en cours (S.apercu), sinon par la souris qui survole le
      plan hors de tout geste (S.survol ; pas quand un doigt ou un stylet a appuyé depuis le dernier survol, S.survolPerime : entre deux
      touchers, seul le départ est marqué ; sur un appareil à écran tactile et souris, la souris qui bouge ensuite montre de nouveau le contour).
-     Valeurs par défaut de VC.geo.escalierDefauts ; les lignes du bâti affiché sont relues quand le fond change (clé de aretesFond).
+     Valeurs par défaut de VC.geo.escalierDefauts, avec les données d'un départ posé par cotes (b.cotes, m108) : le contour montre le côté
+     qui sera créé ; les lignes du bâti affiché sont relues quand le fond change (clé de aretesFond).
      Rend les quatre coins, ou null */
   function fantomeEscalier(){
     if (!attendFinEscalier()) return null;
@@ -3243,7 +3259,7 @@ function editeur(racine, opts){
     else if (!S.geste && S.survol && !S.survolPerime && S.outil.k === 'ln' && S.outil.id === b.outil) fe = pointTrace(S.survol.x, S.survol.y);
     if (!fe) return null;
     A = aretesFond(); if (!b.bati || b.bati.cle !== A.cle) b.bati = {cle: A.cle, L: refsCotes(['bati'])};
-    pe = escalierDefauts(d0, fe, b.bati.L, d0.aide, fe.aide ? fe.type : null);
+    pe = escalierDefauts(d0, fe, b.bati.L, d0.aide, fe.aide ? fe.type : null, b.cotes);
     G = pe ? escalier(d0, fe, pe.larg, pe.n, pe.cote, pe.monte) : null;
     return G ? G.contour : null;
   }
@@ -3623,20 +3639,27 @@ function editeur(racine, opts){
      une façade » (mesure) passe de l'étape 'cote' au panneau, rempli par la mesure de la position de l'objet. Dans le panneau, « Déplacer »
      remplace « Poser ». Pendant le mode, rien n'est choisi (S.sel null). « Fermer », « Abandonner » et « Déplacer » rouvrent la fiche de
      l'objet ; Échap, la croix du panneau, un autre outil, « Annuler » et « Rétablir » finissent le mode sans la rouvrir ; un autre choix,
-     ou l'objet supprimé, aussi (majPanneau, tapCotes). */
+     ou l'objet supprimé, aussi (majPanneau, tapCotes).
+     Départ d'un escalier (m108, bouton « Cotes » de l'outil Escalier, sans départ posé) : pour = {esc: true}, sans id. Mêmes étapes ; dans
+     le panneau, « Poser le départ » pose le seul point du brouillon au point calculé, sans accroche ni redressement, et sans pas
+     d'annulation. Le mode prend fin, l'outil Escalier attend la fin. Les données du départ (cotesDepart) restent sur le brouillon (b.cotes)
+     et s'oublient avec lui : « Point », « Abandonner », un autre outil, Échap, l'ouverture d'un croquis. */
   var NAT_COTES = {bati: 'Façade', limite: 'Limite de parcelle', complement: 'Complément'}, RANG_NAT = {bati: 0, limite: 1, complement: 2};
   /* tolérance du toucher sur une ligne, en pixels : 10 à la souris, 24 au doigt ou au stylet */
   function tolCotes(){ return S.dernierPointeur === 'mouse' ? 10 : 24; }
   /* lignes de référence affichées : celles du fond s'il est visible (décalées comme à l'écran), puis les compléments du croquis */
   function refsCotes(natures){ var f = S.aff.fond ? S.fond : null; return lignesRef(S.doc, f, offFond(f), natures) || []; }
-  /* sans id : pose avec l'outil d'objet (bouton « Cotes ») ; avec id (m102) : objet existant, déplacé, ou mesuré si mesure est vrai */
+  /* sans id : pose avec l'outil d'objet (bouton « Cotes »), ou départ de l'escalier avec l'outil Escalier (m108) ; avec id (m102) : objet
+     existant, déplacé, ou mesuré si mesure est vrai */
   function entrerCotes(id, mesure){
-    var o = id ? el(id) : S.outil;
-    if (!S.doc || !o || o.k !== 'pt' || !T[o.t]) return;
+    var o = id ? el(id) : S.outil, depEsc = !id && !!o && o.k === 'ln' && !!OUTILS_LN[o.id] && OUTILS_LN[o.id].t === 'esc';
+    if (!S.doc || !o || (!depEsc && (o.k !== 'pt' || !T[o.t]))) return;
+    /* escalier : seulement avant le départ (le bouton n'est montré que sans départ) */
+    if (depEsc && S.brouillon && S.brouillon.pts.length) return;
     if (!refsCotes().length){ toast('Aucune ligne de référence affichée : ni façade, ni limite de parcelle, ni complément.', 4000); return; }
     quitterSaisie();
     S.aligner = null; S.relier = null; S.placer = null; S.apercu = null;
-    S.cotes = {etape: 'cote', pour: id ? {id: id, t: o.t, mesure: !!mesure} : {t: o.t}, cands: null, k: 0, w0: null, ref: null, c: null, essai: null, refus: 0, t0: Date.now()};
+    S.cotes = {etape: 'cote', pour: depEsc ? {esc: true} : id ? {id: id, t: o.t, mesure: !!mesure} : {t: o.t}, cands: null, k: 0, w0: null, ref: null, c: null, essai: null, refus: 0, t0: Date.now()};
     if (S.sel || S.panneau){ S.sel = null; S.panneau = null; majPanneau(); }
     fermerPalette(); majAide(); redessiner();
   }
@@ -3697,7 +3720,7 @@ function editeur(racine, opts){
     if (C.etape === 'saisie'){
       if (C.pour.mesure && suivante){ C.k = (C.k + 1) % C.cands.length; choisirRefCotes(); mesurerCotes(); return; }
       toast(C.pour.id ? 'Réglez les cotes dans le panneau, puis « Déplacer » ; « Autre trait » change de ligne de référence, « Fermer » revient à la fiche.'
-        : 'Réglez les cotes dans le panneau, puis « Poser » ; « Fermer » quitte la pose par cotes.', 3500); return;
+        : 'Réglez les cotes dans le panneau, puis « ' + (C.pour.esc ? 'Poser le départ' : 'Poser') + ' » ; « Fermer » quitte la pose par cotes.', 3500); return;
     }
     if (C.etape === 'cote'){
       var L = candidatsCotes(w, tol / S.vue.s);
@@ -3732,24 +3755,38 @@ function editeur(racine, opts){
     if (mode === 'long') return (c.cote === 'droite') === (dn > 0) ? 'devant' : 'derriere';
     return (c.cote === 'devant') === (dn > 0) ? 'droite' : 'gauche';
   }
+  /* direction w de la convention 11.1 : le long, du coin d'origine vers l'autre coin ; dans le prolongement, du coin d'origine vers le
+     dehors du côté */
+  function directionCotes(r, c){
+    var t = unite(r.A, r.B); if (!t) return null;
+    return (c.mode === 'prol') === (c.coin === 'A') ? {x: -t.x, y: -t.y} : t;
+  }
+  /* données d'un départ d'escalier posé par cotes (m108), pour VC.geo.escalierDefauts : coin d'origine O, direction w ; facade : départ
+     posé le long d'une façade (ligne de bâti), sans décalage (moins de 5 mm) et entre ses deux coins. Le long, une distance plus grande
+     que le côté met le point au-delà de l'autre coin, hors de la façade : il ne compte pas comme posé sur elle (5 mm de tolérance) */
+  function cotesDepart(r, c){
+    var w = directionCotes(r, c), O = c.coin === 'A' ? r.A : r.B, L = Math.hypot(r.B.x - r.A.x, r.B.y - r.A.y);
+    return w ? {O: {x: O.x, y: O.y}, w: w, facade: c.mode === 'long' && r.nat === 'bati' && c.e < 0.005 && c.d <= L + 0.005} : null;
+  }
   function aideCotes(){
-    var C = S.cotes, r = C.ref, nb = C.cands ? C.cands.length : 0, h, id = C.pour.id, mes = id && C.pour.mesure;
+    var C = S.cotes, r = C.ref, nb = C.cands ? C.cands.length : 0, h, id = C.pour.id, mes = id && C.pour.mesure, dep = !!C.pour.esc;
     var nat = r ? '<strong>' + esc(NAT_COTES[r.nat] || '') + '</strong>' + (nb > 1 ? ' (' + (C.k + 1) + ' sur ' + nb + ')' : '') : '';
     var autre = '<button type="button" class="vc-b vc-bt" data-a="cotesAutre">' + ico('retour', 18) + 'Autre trait</button>';
     var titre = mes ? 'Mesurer depuis une façade' : id ? 'Déplacer par cotes' : 'Pose par cotes';
-    if (C.etape === 'cote') h = '<span><strong>' + titre + '</strong> (' + esc((T[C.pour.t] || {}).lib || '') + '). Touchez la façade ou la limite de référence.</span>';
-    else if (C.etape === 'endroit') h = '<span>' + nat + '. Touchez ' + (id ? 'le nouvel endroit' : 'l\'endroit') + ' de l\'objet' + (nb > 1 ? ' ; touchez de nouveau le même point du trait pour la ligne suivante' : '') + '.</span>' + autre;
-    else h = '<span>' + nat + ' : réglez les cotes dans le panneau, puis « ' + (id ? 'Déplacer' : 'Poser') + ' »'
+    if (C.etape === 'cote') h = '<span><strong>' + (dep ? 'Départ de l\'escalier par cotes' : titre) + '</strong>' + (dep ? '' : ' (' + esc((T[C.pour.t] || {}).lib || '') + ')')
+      + '. Touchez la façade ou la limite de référence.</span>';
+    else if (C.etape === 'endroit') h = '<span>' + nat + '. Touchez ' + (dep ? 'l\'endroit du départ' : (id ? 'le nouvel endroit' : 'l\'endroit') + ' de l\'objet') + (nb > 1 ? ' ; touchez de nouveau le même point du trait pour la ligne suivante' : '') + '.</span>' + autre;
+    else h = '<span>' + nat + ' : réglez les cotes dans le panneau, puis « ' + (id ? 'Déplacer' : dep ? 'Poser le départ' : 'Poser') + ' »'
       + (mes && nb > 1 ? ' ; touchez de nouveau le même point du trait pour mesurer depuis la ligne suivante' : '') + '.</span>' + autre;
     return h + '<button type="button" class="vc-b vc-bt" data-a="cotesStop">' + ico('fermer', 18) + 'Abandonner</button>';
   }
   function cotesHtml(){
     var C = S.cotes, r = C.ref, c = C.c, prol = c.mode === 'prol', g = coinGauche(r) || 'A';
     var cotes = prol ? [['droite', 'Droite'], ['gauche', 'Gauche']] : r.nat === 'limite' && r.dedans ? [['derriere', 'Intérieur'], ['devant', 'Extérieur']] : [['devant', 'Devant'], ['derriere', 'Derrière']];
-    /* objet existant (m102) : « mesuré » ou « déplacé », et « Déplacer » à la place de « Poser » */
-    var ty = T[C.pour.t] || {}, id = C.pour.id, verbe = id ? (C.pour.mesure ? ' mesuré' : ' déplacé') : ' posé';
+    /* objet existant (m102) : « mesuré » ou « déplacé », et « Déplacer » à la place de « Poser » ; départ d'un escalier (m108) : « Poser le départ » */
+    var dep = !!C.pour.esc, ty = dep ? {lib: 'Départ de l\'escalier'} : T[C.pour.t] || {}, id = C.pour.id, verbe = id ? (C.pour.mesure ? ' mesuré' : ' déplacé') : ' posé';
     var ok = id ? '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesDeplacer">' + ico('valider', 18) + 'Déplacer</button>'
-      : '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesPoser">' + ico('valider', 18) + 'Poser</button>';
+      : '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesPoser">' + ico('valider', 18) + (dep ? 'Poser le départ' : 'Poser') + '</button>';
     return '<p class="vc-muet">' + esc(ty.lib || '') + verbe + (ty.g === 'f' ? 'e' : '') + ' depuis : <strong>' + esc(NAT_COTES[r.nat] || '') + '</strong> (côté de '
         + frNum(Math.hypot(r.B.x - r.A.x, r.B.y - r.A.y), 2) + ' m).</p>'
       + champ('Mode', chipsHtml('mode', [['prol', 'Prolongement'], ['long', 'Le long']], c.mode, {a: 'cotes', label: 'Mode'}))
@@ -3763,7 +3800,7 @@ function editeur(racine, opts){
   function actionCotes(a, b){
     var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c) return;
     if (a === 'cotesFermer'){ quitterCotes(); return; }
-    if (a === 'cotesPoser'){ if (!C.pour.id) poserParCotes(); return; }
+    if (a === 'cotesPoser'){ if (C.pour.esc) poserDepartParCotes(); else if (!C.pour.id) poserParCotes(); return; }
     if (a === 'cotesDeplacer'){ if (C.pour.id) deplacerParCotes(); return; }
     var k = b.dataset.k, v = b.dataset.v, c = C.c;
     if (k === 'mode' && (v === 'prol' || v === 'long')){ if (v !== c.mode){ c.cote = coteEquivalente(C.ref, c, v); c.mode = v; } }
@@ -3814,6 +3851,23 @@ function editeur(racine, opts){
     changement({garderPanneau: true}); selectionner(o.id); majAide(); vibrer();
     if (dedans) toast('Le point tombe dans le bâti : l\'objet est posé quand même. Vérifiez les cotes (« Annuler » le retire).', 5000);
   }
+  /* « Poser le départ » (m108) : le départ de l'escalier, seul point du brouillon, exactement au point calculé (VC.geo.placer), sans accroche
+     ni redressement ; ses données (cotesDepart) restent sur le brouillon pour le côté et la montée proposés à la fin. Aucun pas
+     d'annulation : le brouillon n'est pas dans l'historique. Fin du mode ; l'outil Escalier attend la fin. Même garde-fou que « Poser »
+     après une valeur refusée ; D1 : point dans le bâti, avertissement sans refus. */
+  function poserDepartParCotes(){
+    quitterSaisie();
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c || !C.pour.esc) return;
+    if (C.refus && Date.now() - C.refus < 800) return;
+    var o = S.outil; if (o.k !== 'ln' || !OUTILS_LN[o.id] || OUTILS_LN[o.id].t !== 'esc'){ quitterCotes(); return; }
+    var P = placer(C.ref, C.c), dc = P ? cotesDepart(C.ref, C.c) : null;
+    if (!P || !dc){ toast('Position incalculable : vérifiez les cotes.'); return; }
+    var dedans = dansBati(P);
+    S.cotes = null; S.panneau = null; S.sel = null;
+    S.brouillon = {outil: o.id, pts: [{x: P.x, y: P.y, snap: null, aide: dc.facade ? 'facade' : null, doigt: null}], cotes: dc};
+    majPanneau(); majAide(); redessiner(); vibrer();
+    if (dedans) toast('Le point tombe dans le bâti : le départ est posé quand même. Vérifiez les cotes (« Point » le retire).', 5000);
+  }
   /* « Déplacer » (m102) : l'objet existant exactement au point calculé, par deplacerObjet (m104) : seuls o.x et o.y changent, les bouts de
      tracé attachés suivent, ni accroche, ni raccord, ni insertion ; un seul pas d'annulation, aucun si rien ne bouge. Puis fin du mode :
      l'objet reste choisi et sa fiche se rouvre. Même garde-fou que « Poser » après une valeur refusée. */
@@ -3833,7 +3887,7 @@ function editeur(racine, opts){
     if (dedans) toast('Le point tombe dans le bâti : l\'objet est déplacé quand même. Vérifiez les cotes (« Annuler » le ramène).', 5000);
   }
   /* repères temporaires (surcouche) : le côté retenu surligné et son prolongement en tirets ; à l'étape de saisie, l'objet fantôme au point
-     calculé et les deux cotes en tirets (d le long du côté ou du prolongement, e perpendiculaire) */
+     calculé (départ d'un escalier : une petite croix) et les deux cotes en tirets (d le long du côté ou du prolongement, e perpendiculaire) */
   function dessinerCotes(){
     var C = S.cotes, r = C.ref, A = S.vue.ecran(r.A.x, r.A.y), B = S.vue.ecran(r.B.x, r.B.y), L = Math.hypot(B.x - A.x, B.y - A.y);
     if (!(L > 0)) return;
@@ -3847,7 +3901,7 @@ function editeur(racine, opts){
     if (c && C.essai) c[C.essai.k] = C.essai.v;
     var P = c ? placer(r, c) : null;
     if (P){
-      var t = unite(r.A, r.B), O = c.coin === 'A' ? r.A : r.B, w = (c.mode === 'prol') === (c.coin === 'A') ? {x: -t.x, y: -t.y} : t;
+      var O = c.coin === 'A' ? r.A : r.B, w = directionCotes(r, c);
       var eO = S.vue.ecran(O.x, O.y), eQ = S.vue.ecran(O.x + c.d * w.x, O.y + c.d * w.y), eP = S.vue.ecran(P.x, P.y);
       ctx.beginPath(); ctx.moveTo(eO.x, eO.y); ctx.lineTo(eQ.x, eQ.y); ctx.lineTo(eP.x, eP.y); ctx.setLineDash([6, 4]); ctx.strokeStyle = ac; ctx.lineWidth = 2.5; ctx.stroke(); ctx.setLineDash([]);
       ctx.font = '700 12px Barlow, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.fillStyle = ac;
@@ -3855,6 +3909,12 @@ function editeur(racine, opts){
         if (Math.hypot(s[1].x - s[0].x, s[1].y - s[0].y) < 4) return;
         var lb = frNum(s[2], 2) + ' m', mx = (s[0].x + s[1].x) / 2, my = (s[0].y + s[1].y) / 2 - 6; ctx.strokeText(lb, mx, my); ctx.fillText(lb, mx, my);
       });
+      /* départ d'un escalier (m108) : une petite croix au point calculé, à la place d'un symbole */
+      if (C.pour.esc){
+        ctx.beginPath(); ctx.moveTo(eP.x - 7, eP.y - 7); ctx.lineTo(eP.x + 7, eP.y + 7); ctx.moveTo(eP.x - 7, eP.y + 7); ctx.lineTo(eP.x + 7, eP.y - 7);
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.stroke(); ctx.strokeStyle = ac; ctx.lineWidth = 2.5; ctx.stroke();
+        ctx.restore(); return;
+      }
       /* objet existant (m102) : son symbole, avec son angle et sa couleur ; sinon celui de l'outil, avec les valeurs de la pose */
       var o = C.pour.id ? el(C.pour.id) : null, ty = o ? o.t : C.pour.t, e = o || {k: 'pt', t: ty, p: defautsPt(ty)}, ang = o ? (o.p && o.p.a) || 0 : angleCotes(ty, r);
       ctx.globalAlpha = .55;
@@ -3960,8 +4020,9 @@ function editeur(racine, opts){
     }
     dedoublonner(l);
     if (l.v.length < 2){ S.doc.el = S.doc.el.filter(function(x){ return x.id !== l.id; }); S.undo.pop(); majAide(); redessiner(); return; }
-    /* escalier neuf : largeur, marches, côté hors du bâti affiché et sens de la montée proposés depuis le plan (VC.geo.escalierDefauts) */
-    if (l.t === 'esc'){ var pe = escalierDefauts(l.v[0], l.v[1], refsCotes(['bati']), b.pts[0].aide, b.pts[b.pts.length - 1].aide); if (pe) l.p = pe; }
+    /* escalier neuf : largeur, marches, côté hors du bâti affiché et sens de la montée proposés depuis le plan (VC.geo.escalierDefauts) ;
+       départ posé par cotes (m108) : ses données (b.cotes) proposent le côté et la montée, puis s'oublient avec le brouillon */
+    if (l.t === 'esc'){ var pe = escalierDefauts(l.v[0], l.v[1], refsCotes(['bati']), b.pts[0].aide, b.pts[b.pts.length - 1].aide, b.cotes); if (pe) l.p = pe; }
     analyse();
     if (!l.lab && texteEtiquette(l, S.an)) l.lab = placerEtiquette(S.doc, S.an, l, E(), idx());
     /* fin discrète (arrière-plan, « Retour ») : le panneau ouvert reste tel quel (un choix de fichier en cours n'est pas perdu) */
@@ -3972,6 +4033,11 @@ function editeur(racine, opts){
     toast(nomTrace(l.t) + ' ajouté' + (r ? (r === 'INC' ? ' : réseau à préciser' : r === 'MIX' ? ' : plusieurs réseaux atteints' : ' : réseau ' + libRes(r) + (RES[l.p.res] ? '' : ' déduit')) : '') + ' · ' + frNum(Math.round(longueur(lignePts(l, idx())) * 10) / 10) + ' m');
   }
   function annulerTrace(){ S.brouillon = null; majAide(); redessiner(); }
+  /* « Abandonner » du tracé en cours, dans la barre d'aide. Avec l'outil Escalier, « Cotes » prend aussitôt sa place (m108) : ce bouton
+     est ignoré pendant 0,5 s, le temps du second toucher d'un double toucher (comme « Abandonner » après « Cotes », abandonnerCotes) */
+  var tAbandonTrace = 0;
+  function abandonnerTrace(){ tAbandonTrace = Date.now(); annulerTrace(); }
+  function boutonCotes(){ if (Date.now() - tAbandonTrace >= 500) entrerCotes(); }
   function retirerPoint(){ if (S.brouillon){ S.brouillon.pts.pop(); if (!S.brouillon.pts.length) S.brouillon = null; majAide(); redessiner(); } }
   function vibrer(){ try { if (global.navigator && navigator.vibrate) navigator.vibrate(12); } catch(e){} }
 
@@ -4041,10 +4107,12 @@ function editeur(racine, opts){
         + (S.relier ? '<button type="button" class="vc-b vc-bt" data-a="relierStop">' + ico('fermer', 18) + 'Abandonner</button>' : '');
     }
     else if (o.k === 'ln' && OUTILS_LN[o.id].t === 'esc'){
-      /* escalier : le départ (un coin de l'escalier), puis la fin ; il se termine seul au second point, sans bouton « Terminer » */
+      /* escalier : le départ (un coin de l'escalier), puis la fin ; il se termine seul au second point, sans bouton « Terminer ». Sans départ,
+         « Cotes » le pose à une distance mesurée (m108) */
       var ne = S.brouillon ? S.brouillon.pts.length : 0;
       h = '<span><strong>Escalier</strong> : ' + (ne ? 'touchez la fin.' : 'touchez le départ (un coin de l\'escalier), puis la fin.') + '</span>'
-        + (ne ? '<button type="button" class="vc-b vc-bt" data-a="retirerPoint">' + ico('annuler', 18) + 'Point</button><button type="button" class="vc-b vc-bt" data-a="annulerTrace">' + ico('fermer', 18) + 'Abandonner</button>' : '');
+        + (ne ? '<button type="button" class="vc-b vc-bt" data-a="retirerPoint">' + ico('annuler', 18) + 'Point</button><button type="button" class="vc-b vc-bt" data-a="annulerTrace">' + ico('fermer', 18) + 'Abandonner</button>'
+          : '<button type="button" class="vc-b vc-bt" data-a="cotes" title="Poser le départ à une distance mesurée d\'une façade ou d\'une limite">' + ico('cotes', 18) + 'Cotes</button>');
     }
     else if (o.k === 'ln'){
       var oo = OUTILS_LN[o.id], n = S.brouillon ? S.brouillon.pts.length : 0, gl = aideOn('glisser');
@@ -4056,7 +4124,7 @@ function editeur(racine, opts){
     else if (o.k === 'tx') h = '<span>Touchez le plan à l\'endroit du texte.</span>';
     aide.innerHTML = h; aide.hidden = !h;
   }
-  aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') annulerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } else if (a === 'placerStop'){ S.placer = null; majAide(); } else if (a === 'relierStop'){ S.relier = null; majAide(); redessiner(); } else if (a === 'cotes') entrerCotes(); else if (a === 'cotesAutre') autreCoteCotes(); else if (a === 'cotesStop') abandonnerCotes(); });
+  aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') abandonnerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } else if (a === 'placerStop'){ S.placer = null; majAide(); } else if (a === 'relierStop'){ S.relier = null; majAide(); redessiner(); } else if (a === 'cotes') boutonCotes(); else if (a === 'cotesAutre') autreCoteCotes(); else if (a === 'cotesStop') abandonnerCotes(); });
   R.querySelector('.vc-outils').addEventListener('click', function(ev){
     var b = ev.target.closest('.vc-o'); if (!b) return;
     if (b.dataset.outil === 'main'){ choisirOutil({k: 'main'}); return; }
