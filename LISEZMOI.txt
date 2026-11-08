@@ -80,6 +80,12 @@ CROQUIS DE TERRAIN (facultatif)
   longueur, le côté et le sens de la montée. Son bouton « Cotes » pose le
   départ à une distance mesurée d'une façade ou d'une limite ; on touche
   ensuite la fin.
+  À la souris, avec l'outil « Choisir », une pause de 0,4 s ou un clic
+  droit sur une poignée du tracé choisi ouvre un petit menu près du
+  pointeur : « Retirer le point », « Détacher » ou « Ajouter un point ».
+  Échap ou un clic ailleurs le ferme ; sur le plan, ce clic ne fait que
+  fermer le menu, même sur le point. Au doigt et au stylet, rien ne
+  change.
 - Les anomalies déduites du dessin (EU vers EP, EP vers EU, fosse, descente
   non visitable, tampon béton…) rejoignent la liste du dossier, avec les
   mêmes numéros (A1, A2…) que les bulles du plan : la fiche Préco, le

@@ -1,4 +1,4 @@
-// Souris dans l'éditeur du croquis, dans Chromium (données fictives, fond fictif de VCroquis.demoDxf()) : correctif m100.
+// Souris dans l'éditeur du croquis, dans Chromium (données fictives, fond fictif de VCroquis.demoDxf()) : correctifs m100 et m109.
 // c : un clic droit ou du milieu ne pose rien et ne choisit rien ; sur le plan, le menu du navigateur est empêché ; témoins : un clic
 //     gauche pose un regard, puis le choisit ;
 // g : un glissé au bouton droit depuis l'objet choisi ou une poignée du tracé choisi (sommet, milieu) déplace la vue, le dessin ne change
@@ -8,6 +8,24 @@
 //     s'efface quand le bouton est levé hors du plan, et quand le croquis se rouvre ; témoin : le stylet qui survole ne la change pas ;
 // d : témoins au doigt : un toucher pose un regard, un glissé depuis un sommet du tracé choisi le déplace.
 // c, g et s échouent sur 1e27c7b (sauf les témoins) ; d passe sur les deux versions.
+// Menu de poignée à la souris (m109), outil Choisir, tracé choisi, sur des tracés fictifs :
+// p : pause de la souris sur la poignée d'un sommet : menu à 0,4 s, près du pointeur, dans l'éditeur, boutons de 44 px au moins, au-dessus
+//     de la palette et sous le toast, croquis inchangé ; un mouvement de plus de 3 px relance la minuterie, pas un de 2 px ; pause de 0,2 s
+//     seulement, sortie du plan, clic ou molette pendant la pause : aucun menu ; sommet libre : « Retirer le point » et « Ajouter un
+//     point », sans « Détacher » ; Échap ferme le menu, le tracé reste choisi ; menu ouvert, un glissé au bouton gauche depuis le point ne
+//     fait que fermer le menu, même sur le point (témoin : le glissé suivant le déplace) ;
+// r : clic droit sur une poignée : menu ouvert une fois, croquis inchangé ; clic droit hors des poignées ou avec un autre outil : aucun
+//     menu, croquis inchangé ; fermeture : clic gauche sur le plan (rien d'autre ; le suivant agit), bouton de l'éditeur (il agit), molette,
+//     choix d'un outil, tracé qui n'est plus choisi, Ctrl+Z, fenêtre redimensionnée (le clic suivant agit) ; glissé au bouton droit depuis
+//     une poignée : la vue bouge, aucun menu ; clic droit sur un bouton du menu : menu du navigateur empêché, rien ne change ; sommet à
+//     60 px de la fiche : menu hors de la fiche, près du pointeur ;
+// a : « Retirer le point » (deux sommets, aucun point choisi ; une annulation rend le JSON ; grisé avec sa raison sur un tracé de deux
+//     sommets et sur un point porteur), « Ajouter un point » (sommet : milieu du segment suivant, du précédent pour le dernier ; poignée du
+//     milieu : milieu du segment ; à 1e-9 ; point ajouté choisi), « Détacher » (v.a nul, point choisi, même JSON que le bouton de la
+//     fiche) ; un pas d'annulation par action ; saisie en cours dans la fiche : enregistrée avant l'action (une annulation retire seulement
+//     le point) ; double clic sur « Ajouter un point » : le second clic est ignoré, le point ajouté reste choisi ;
+// t : témoins, aucun menu : escalier choisi (pause, clic droit), appui long du doigt, stylet qui survole une poignée.
+// p, r et a échouent sur f3f8ae9 (sauf les cas « aucun menu » et « croquis inchangé », et les témoins) ; t passe sur les deux versions.
 // usage : node tests/navigateur/souris.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -197,8 +215,364 @@ async function doigt(){
   } finally { await A.fermer(); }
 }
 
+/* --- menu de poignée (m109) --- */
+/* menu de poignée affiché : null s'il est caché ou absent ; sinon ses boutons (texte, grisé, title, hauteur), sa boîte (pixels de la page),
+   s'il tient dans l'éditeur, et les z-index du menu, de la palette et du toast */
+const menu = p => p.evaluate(() => {
+  const m = document.querySelector('.vc .vc-menu'); if (!m || m.hidden || !m.getClientRects().length) return null;
+  const b = m.getBoundingClientRect(), r = document.querySelector('.vc').getBoundingClientRect();
+  const z = s => { const e = s ? document.querySelector('.vc ' + s) : m; return e ? Number(getComputedStyle(e).zIndex) : NaN; };
+  return {items: [...m.querySelectorAll('button')].map(x => ({txt: x.textContent.trim(), dis: x.disabled, title: x.title || '', h: x.getBoundingClientRect().height})),
+    l: b.left, t: b.top, r: b.right, b: b.bottom, dedans: b.left >= r.left && b.top >= r.top && b.right <= r.right && b.bottom <= r.bottom,
+    z: z(''), zPal: z('.vc-palette'), zToast: z('.vc-toast')};
+});
+const libs = m => m ? m.items.map(x => x.txt).join(', ') : 'aucun menu';
+const item = (m, t) => m ? m.items.find(x => x.txt === t) : undefined;
+const jsonEl = async p => JSON.stringify((await C.docCroquis(p)).el);
+const selEtat = p => p.evaluate(() => { const s = window.__vcEd.etat.sel; return s ? {id: s.id, sommet: s.sommet} : null; });
+const nbUndo = p => p.evaluate(() => window.__vcEd.etat.undo.length);
+const sommetCv = async (p, id, i) => { const e = await elDoc(p, id); return C.ecranCv(p, e.v[i].x, e.v[i].y); };
+const milieuCv = async (p, id, j) => { const e = await elDoc(p, id), a = e.v[j - 1], b = e.v[j]; return C.ecranCv(p, (a.x + b.x) / 2, (a.y + b.y) / 2); };
+const mil = (a, b) => ({x: (a.x + b.x) / 2, y: (a.y + b.y) / 2});
+const egal = (a, b) => !!a && !!b && Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.y - b.y) < 1e-9;
+const pt = w => w ? '(' + w.x.toFixed(3) + ' ; ' + w.y.toFixed(3) + ')' : '-';
+/* souris amenée au point q du canevas (sur le plan), sans pause */
+async function amener(p, q){ const a = await C.pageCv(p, q); await C.surLePlan(p, a, 'le survol'); await p.mouse.move(a.x, a.y); }
+/* horloge de la page : instants (performance.now) des survols de la souris (pointermove sans bouton) et des ouvertures du menu (boutons
+   écrits dans .vc-menu) */
+const horloge = p => p.evaluate(() => {
+  const h = window.__h = {mv: [], ouv: []};
+  window.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' && !e.buttons) h.mv.push(performance.now()); }, true);
+  new MutationObserver(rs => rs.forEach(r => { if (r.type === 'childList' && r.addedNodes.length && r.target.classList && r.target.classList.contains('vc-menu')) h.ouv.push(performance.now()); }))
+    .observe(document.querySelector('.vc'), {childList: true, subtree: true});
+});
+const dernierSurvol = p => p.evaluate(() => window.__h.mv[window.__h.mv.length - 1]);
+const ouvertures = p => p.evaluate(() => window.__h.ouv.length);
+/* clic droit au point q du canevas, puis le menu */
+async function menuSur(p, q){ await C.cliquerCv(p, q, 'right'); return menu(p); }
+/* centre du bouton t du menu (pixels de la page) ; null s'il n'y est pas */
+const centreBouton = (p, t) => p.evaluate(t => { const m = document.querySelector('.vc .vc-menu'), x = m && !m.hidden && [...m.querySelectorAll('button')].find(e => e.textContent.trim() === t);
+  if (!x) return null; const r = x.getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + r.height / 2}; }, t);
+/* clic de la souris sur le bouton t du menu ; faux s'il n'y est pas */
+async function choisirMenu(p, t){
+  const b = await centreBouton(p, t); if (!b) return false;
+  await p.mouse.click(b.x, b.y); await C.pause(p, 400); return true;
+}
+/* boîte de la fiche ouverte (pixels de la page) ; null si elle est fermée */
+const boiteFiche = p => p.evaluate(() => { const e = document.querySelector('.vc .vc-panneau'); if (!e || e.hidden) return null;
+  const b = e.getBoundingClientRect(); return {l: b.left, t: b.top, r: b.right, b: b.bottom}; });
+/* distance du point a (pixels de la page) à la boîte du menu m */
+const ecartMenu = (m, a) => Math.hypot(Math.max(m.l - a.x, 0, a.x - m.r), Math.max(m.t - a.y, 0, a.y - m.b));
+/* Échap, seulement si le menu est ouvert (sinon Échap libérerait l'élément choisi) */
+async function echap(p){ if (await menu(p)){ await p.keyboard.press('Escape'); await C.pause(p, 300); } }
+/* dessin fictif injecté, vue centrée sur (x, y) à 63 px/m, outil Choisir, élément id choisi (fiche ouverte) */
+async function dessinChoisi(p, els, id, x, y){
+  await C.injecter(p, {el: els}); await C.regler(p, x, y, 63); await C.outil(p, {k: 'main'});
+  await p.evaluate(id => window.__vcEd.selectionner(id), id); await C.pause(p, 250);
+}
+/* tracé A de trois sommets, (cx - 3 ; cy), (cx ; cy + 1), (cx + 3 ; cy), vue décalée vers la droite (la fiche cache la droite du plan) */
+const traceA = (cx, cy) => [C.L('A', 'tr', [[cx - 3, cy], [cx, cy + 1], [cx + 3, cy]], {})];
+
+/* p : pause de la souris sur une poignée */
+async function menuPause(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy;
+    await dessinChoisi(p, traceA(cx, cy), 'A', cx + 1.5, cy); await horloge(p);
+    const j0 = await jsonEl(p), q1 = await sommetCv(p, 'A', 1), loin = decale(q1, 0, -100);
+    await C.survolerCv(p, loin); await C.pause(p, 300);
+    /* 0,2 s sur la poignée, puis départ : aucun menu */
+    await amener(p, q1); await C.pause(p, 200); const m0 = await menu(p);
+    await amener(p, loin); await C.pause(p, 500); const m0b = await menu(p);
+    R.ok(!m0 && !m0b, 'p : pause de 0,2 s sur la poignée, puis départ : aucun menu (' + (m0 || m0b ? 'menu ouvert' : 'aucun') + ')');
+    /* arrivée sur le sommet du milieu, mouvement de 5 px après 0,25 s (la minuterie repart), pause : menu 0,4 s après le mouvement */
+    const q1b = decale(q1, 4, 3);
+    await amener(p, q1); await C.pause(p, 250); await amener(p, q1b); const tMv = await dernierSurvol(p);
+    await C.pause(p, 750);
+    const m = await menu(p), ouv = await p.evaluate(() => window.__h.ouv.slice()), dt = ouv.length ? ouv[0] - tMv : NaN;
+    R.ok(!!m && ouv.length === 1 && dt >= 380, 'p : pause de la souris sur la poignée d\'un sommet : menu ouvert 0,4 s après le dernier mouvement de plus de 3 px ('
+      + (m ? 'ouvert' : 'aucun menu') + (ouv.length ? ', ' + Math.round(dt) + ' ms après le mouvement' : '') + ', ' + ouv.length + ' ouverture)');
+    if (m){
+      const a = await C.pageCv(p, q1b), d = ecartMenu(m, a);
+      R.ok(libs(m) === 'Retirer le point, Ajouter un point' && !m.items[0].dis, 'p : sommet libre d\'un tracé de trois sommets : « Retirer le point » et'
+        + ' « Ajouter un point », sans « Détacher » (' + libs(m) + (m.items[0] && m.items[0].dis ? ', grisé' : '') + ')');
+      R.ok(m.items.every(x => x.h >= 44), 'p : boutons du menu de 44 px de haut au moins (' + m.items.map(x => Math.round(x.h)).join(', ') + ' px)');
+      R.ok(m.dedans && d <= 40, 'p : menu dans l\'éditeur, près du pointeur (' + Math.round(d) + ' px du pointeur' + (m.dedans ? '' : ', hors de l\'éditeur') + ')');
+      R.ok(m.z > m.zPal && m.z < m.zToast, 'p : menu au-dessus de la palette et sous le toast (z-index ' + m.z + ', palette ' + m.zPal + ', toast ' + m.zToast + ')');
+    } else R.ok(false, 'p : contenu, taille et place du menu : aucun menu');
+    const j1 = await jsonEl(p);
+    R.ok(j1 === j0, 'p : le menu ouvert ne change pas le croquis');
+    /* Échap ferme le menu ; le tracé reste choisi et l'éditeur ouvert */
+    if (m){
+      await p.keyboard.press('Escape'); await C.pause(p, 300);
+      const m2 = await menu(p), s = await choisi(p), ouvert = await p.evaluate(() => !!document.querySelector('#modal-root .vc'));
+      R.ok(!m2 && s === 'A' && ouvert, 'p : Échap ferme le menu, le tracé reste choisi (' + (m2 ? 'menu ouvert' : 'menu fermé') + ', choisi : ' + s + (ouvert ? '' : ', éditeur fermé') + ')');
+    } else R.ok(false, 'p : Échap ferme le menu : aucun menu');
+    /* mouvement de 2 px pendant la pause : la minuterie continue */
+    await amener(p, loin); await C.pause(p, 300); const n2 = await ouvertures(p);
+    await amener(p, q1); const tA = await dernierSurvol(p); await C.pause(p, 250); await amener(p, decale(q1, 2, 0)); const tB = await dernierSurvol(p);
+    await C.pause(p, 500);
+    const m3 = await menu(p), o3 = await p.evaluate(n => window.__h.ouv.slice(n), n2), d3 = o3.length ? o3[0] - tA : NaN;
+    R.ok(!!m3 && o3.length === 1 && d3 >= 380 && o3[0] - tB < 300, 'p : mouvement de 2 px pendant la pause : la minuterie continue (' + (o3.length ? 'menu ouvert '
+      + Math.round(d3) + ' ms après l\'arrivée, ' + Math.round(o3[0] - tB) + ' ms après le mouvement' : 'aucun menu') + ')');
+    await echap(p);
+    /* pause sur la poignée du milieu d'un segment : seul « Ajouter un point » */
+    const qm = await milieuCv(p, 'A', 1);
+    await amener(p, loin); await C.pause(p, 300); await amener(p, qm); await C.pause(p, 650);
+    const m4 = await menu(p);
+    R.ok(libs(m4) === 'Ajouter un point', 'p : pause sur la poignée du milieu d\'un segment : menu « Ajouter un point » (' + libs(m4) + ')');
+    await echap(p);
+    /* souris sortie du plan pendant la pause (directement sur le titre de la barre) : aucun menu */
+    await amener(p, loin); await C.pause(p, 300); const n5 = await ouvertures(p);
+    await amener(p, q1); await C.pause(p, 150); const b = await C.titreBarre(p); await p.mouse.move(b.x, b.y); await C.pause(p, 600);
+    const m5 = await menu(p), n5b = await ouvertures(p);
+    R.ok(!m5 && n5b === n5, 'p : souris sortie du plan pendant la pause : aucun menu (' + (n5b - n5) + ' ouverture)');
+    /* clic sur la poignée pendant la pause : aucun menu */
+    await C.survolerCv(p, loin); await C.pause(p, 300); const n6 = await ouvertures(p);
+    await amener(p, q1); await C.pause(p, 150); await p.mouse.down(); await p.mouse.up(); await C.pause(p, 650);
+    const m6 = await menu(p), n6b = await ouvertures(p);
+    R.ok(!m6 && n6b === n6, 'p : clic sur la poignée pendant la pause : aucun menu (' + (n6b - n6) + ' ouverture)');
+    /* molette pendant la pause (la vue grandit autour de la souris, qui reste sur la poignée) : aucun menu */
+    await amener(p, loin); await C.pause(p, 300); const n7 = await ouvertures(p);
+    await amener(p, q1); await C.pause(p, 150); await p.mouse.wheel(0, -100); await C.pause(p, 650);
+    const m7 = await menu(p), n7b = await ouvertures(p);
+    R.ok(!m7 && n7b === n7, 'p : molette pendant la pause : aucun menu (' + (n7b - n7) + ' ouverture)');
+    /* menu ouvert par la pause, glissé au bouton gauche depuis le point : l'appui ne fait que fermer le menu, même sur le point, qui ne
+       bouge pas [p] ; témoin : le glissé suivant le déplace */
+    await C.regler(p, cx + 1.5, cy, 63);
+    const q8 = await sommetCv(p, 'A', 1), q8b = decale(q8, -40, -30), w8 = (await elDoc(p, 'A')).v[1];
+    await amener(p, decale(q8, 0, -100)); await C.pause(p, 300); await amener(p, q8); await C.pause(p, 650);
+    const m8 = await menu(p), j8 = await jsonEl(p);
+    await C.glisserSourisCv(p, q8, q8b, 'left');
+    const m8b = await menu(p), j8b = await jsonEl(p);
+    R.ok(!!m8 && !m8b && j8b === j8, 'p : menu ouvert par la pause, glissé au bouton gauche depuis le point : le menu se ferme, même sur le point, qui ne bouge pas ('
+      + (m8 ? (m8b ? 'menu ouvert' : 'menu fermé') + (j8b === j8 ? '' : ', croquis changé') : 'aucun menu') + ')');
+    await C.glisserSourisCv(p, q8, q8b, 'left');
+    const w8b = (await elDoc(p, 'A')).v[1], d8 = Math.hypot(w8b.x - w8.x, w8b.y - w8.y);
+    R.ok(d8 > 0.3, 'p : témoin : le glissé suivant déplace le point (déplacé de ' + d8.toFixed(2) + ' m)');
+    erreurs(A, 'p');
+  } finally { await A.fermer(); }
+}
+
+/* r : clic droit et fermeture du menu */
+async function menuClicDroit(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy, VX = cx + 1.5;
+    await dessinChoisi(p, traceA(cx, cy), 'A', VX, cy); await horloge(p);
+    const j0 = await jsonEl(p), q0 = await sommetCv(p, 'A', 0), q1 = await sommetCv(p, 'A', 1), vide = decale(q1, 0, -100);
+    await C.survolerCv(p, vide); await C.pause(p, 200);
+    /* clic droit sur un sommet : menu ouvert une fois, croquis inchangé */
+    const m1 = await menuSur(p, q0), n1 = await ouvertures(p);
+    R.ok(!!m1 && n1 === 1, 'r : clic droit sur la poignée d\'un sommet : menu ouvert une fois (' + n1 + ' ouverture ; ' + libs(m1) + ')');
+    R.ok(await jsonEl(p) === j0, 'r : le clic droit ne change pas le croquis');
+    /* clic gauche sur le plan, le menu ouvert : le menu se ferme, rien d'autre ; le clic suivant agit */
+    if (m1){
+      await C.cliquerCv(p, vide, 'left'); const m2 = await menu(p), s2 = await choisi(p), j2 = await jsonEl(p);
+      R.ok(!m2 && s2 === 'A' && j2 === j0, 'r : clic gauche sur le plan, le menu ouvert : le menu se ferme, sans autre effet (' + (m2 ? 'menu ouvert' : 'menu fermé')
+        + ', choisi : ' + s2 + (j2 === j0 ? '' : ', croquis changé') + ')');
+      await C.cliquerCv(p, vide, 'left'); const s3 = await choisi(p);
+      R.ok(s3 === null, 'r : témoin : le clic gauche suivant dans le vide libère le tracé (choisi : ' + s3 + ')');
+    } else R.ok(false, 'r : fermeture par un clic gauche sur le plan : aucun menu');
+    const rechoisir = async () => { if (await choisi(p) !== 'A'){ await p.evaluate(() => window.__vcEd.selectionner('A')); await C.pause(p, 250); } };
+    /* clic droit hors des poignées : aucun menu, croquis inchangé */
+    await rechoisir(); const n4 = await ouvertures(p);
+    await C.cliquerCv(p, vide, 'right'); const m4 = await menu(p), n4b = await ouvertures(p), j4 = await jsonEl(p);
+    R.ok(!m4 && n4b === n4 && j4 === j0, 'r : clic droit hors des poignées du tracé choisi : aucun menu, croquis inchangé (' + (n4b - n4) + ' ouverture'
+      + (j4 === j0 ? '' : ', croquis changé') + ')');
+    /* autre outil (Tronçon EU) : clic droit sur une poignée du tracé choisi, ni menu ni tracé */
+    await C.outil(p, {k: 'ln', id: 'trEU', pal: 'trace'}); const n5 = await ouvertures(p), s5 = await choisi(p);
+    await C.cliquerCv(p, q1, 'right');
+    const m5 = await menu(p), n5b = await ouvertures(p), br = await p.evaluate(() => !!window.__vcEd.etat.brouillon), j5 = await jsonEl(p);
+    R.ok(!m5 && n5b === n5 && !br && j5 === j0, 'r : outil Tronçon EU, clic droit sur une poignée (tracé choisi : ' + s5 + ') : ni menu ni tracé ('
+      + (n5b - n5) + ' ouverture' + (br ? ', tracé commencé' : '') + (j5 === j0 ? '' : ', croquis changé') + ')');
+    await C.outil(p, {k: 'main'}); await rechoisir();
+    /* glissé au bouton droit depuis une poignée : la vue bouge, aucun menu */
+    const n6 = await ouvertures(p), c0 = await centre(p);
+    await C.glisserSourisCv(p, q1, decale(q1, 60, 40), 'right');
+    const c1 = await centre(p), m6 = await menu(p), n6b = await ouvertures(p), dv = Math.hypot(c1.x - c0.x, c1.y - c0.y);
+    R.ok(!m6 && n6b === n6 && dv > 0.5, 'r : glissé au bouton droit depuis une poignée : la vue bouge, aucun menu (vue déplacée de ' + dv.toFixed(2) + ' m, '
+      + (n6b - n6) + ' ouverture)');
+    await C.regler(p, VX, cy, 63);
+    /* fermetures : molette, choix d'un outil, tracé qui n'est plus choisi */
+    const ferme = async (k, agir) => {
+      await rechoisir();
+      const m = await menuSur(p, await sommetCv(p, 'A', 0));
+      if (!m){ R.ok(false, 'r : fermeture par ' + k + ' : aucun menu'); return; }
+      await agir(); await C.pause(p, 250); const mf = await menu(p);
+      R.ok(!mf, 'r : ' + k + ' ferme le menu (' + (mf ? 'menu ouvert' : 'menu fermé') + ')');
+    };
+    await ferme('la molette', () => p.mouse.wheel(0, -100)); await C.regler(p, VX, cy, 63);
+    await ferme('le choix d\'un outil (Choisir)', () => C.outil(p, {k: 'main'}));
+    await ferme('la perte de la sélection', () => p.evaluate(() => window.__vcEd.selectionner(null)));
+    /* « Ajouter un point », menu rouvert, puis Ctrl+Z : l'ajout est annulé et le menu se ferme */
+    await rechoisir();
+    const m7 = await menuSur(p, await sommetCv(p, 'A', 0)), ok7 = !!m7 && await choisirMenu(p, 'Ajouter un point'), n7 = (await elDoc(p, 'A')).v.length;
+    if (ok7){
+      const m8 = await menuSur(p, await sommetCv(p, 'A', 0));
+      await p.keyboard.press('Control+z'); await C.pause(p, 300);
+      const m9 = await menu(p), j9 = await jsonEl(p);
+      R.ok(n7 === 4 && !!m8 && !m9 && j9 === j0, 'r : Ctrl+Z, le menu ouvert après « Ajouter un point » : l\'ajout est annulé, le menu se ferme (' + n7 + ' sommets après l\'ajout'
+        + (m8 ? '' : ', menu non rouvert') + (m9 ? ', menu ouvert' : '') + (j9 === j0 ? '' : ', croquis différent de l\'original') + ')');
+    } else R.ok(false, 'r : fermeture par Ctrl+Z : aucun menu');
+    /* bouton de l'éditeur (Zoom avant), le menu ouvert : le menu se ferme et le bouton agit */
+    await rechoisir();
+    const m10 = await menuSur(p, await sommetCv(p, 'A', 0)), s0 = (await C.vue(p)).s;
+    await p.click('.vc [data-a="zoomp"]'); await C.pause(p, 400);
+    const m11 = await menu(p), s1 = (await C.vue(p)).s;
+    R.ok(!!m10 && !m11 && s1 > s0 * 1.2, 'r : bouton « Zoom avant », le menu ouvert : le menu se ferme et le zoom se fait (' + (m10 ? (m11 ? 'menu ouvert' : 'menu fermé') : 'aucun menu')
+      + ', échelle ' + s0.toFixed(1) + ' puis ' + s1.toFixed(1) + ' px/m)');
+    /* clic droit sur un bouton du menu : le menu du navigateur est empêché, rien ne change, le menu reste ouvert */
+    await C.regler(p, VX, cy, 63); await rechoisir();
+    const m12 = await menuSur(p, await sommetCv(p, 'A', 0)), b12 = m12 && await centreBouton(p, 'Ajouter un point');
+    await p.evaluate(() => { window.__menus = []; window.addEventListener('contextmenu', e => { window.__menus.push(e.defaultPrevented); }); });
+    if (b12){ await p.mouse.click(b12.x, b12.y, {button: 'right'}); await C.pause(p, 300); }
+    const cm = await p.evaluate(() => window.__menus), m13 = await menu(p), j13 = await jsonEl(p);
+    R.ok(!!b12 && cm.length === 1 && cm[0] === true && !!m13 && j13 === j0, 'r : clic droit sur un bouton du menu : le menu du navigateur est empêché, rien ne change,'
+      + ' le menu reste ouvert (' + (b12 ? 'contextmenu ' + (cm.length ? (cm[0] ? 'empêché' : 'non empêché') : 'absent') + (m13 ? '' : ', menu fermé')
+      + (j13 === j0 ? '' : ', croquis changé') : 'aucun menu') + ')');
+    await echap(p);
+    /* dernier sommet à 60 px de la fiche : le menu s'ouvre de l'autre côté du pointeur, hors de la fiche, et reste près du pointeur */
+    const f = await boiteFiche(p);
+    if (f){
+      const a2 = await C.pageCv(p, await sommetCv(p, 'A', 2)); await C.regler(p, VX + (a2.x - (f.l - 60)) / 63, cy, 63);
+      const q2 = await sommetCv(p, 'A', 2), a2b = await C.pageCv(p, q2), m16 = await menuSur(p, q2);
+      const hors = !!m16 && (m16.r <= f.l || m16.l >= f.r || m16.b <= f.t || m16.t >= f.b), d16 = m16 ? ecartMenu(m16, a2b) : NaN;
+      R.ok(hors && m16.dedans && d16 <= 40, 'r : dernier sommet à 60 px de la fiche : le menu s\'ouvre hors de la fiche, près du pointeur ('
+        + (m16 ? (hors ? 'hors de la fiche' : 'sur la fiche') + (m16.dedans ? '' : ', hors de l\'éditeur') + ', ' + Math.round(d16) + ' px du pointeur' : 'aucun menu') + ')');
+      await echap(p); await C.regler(p, VX, cy, 63);
+    } else R.ok(false, 'r : menu près de la fiche : fiche fermée');
+    /* fenêtre redimensionnée (rotation de la tablette), le menu ouvert : le menu se ferme ; le clic suivant agit */
+    await rechoisir();
+    const m14 = await menuSur(p, await sommetCv(p, 'A', 0));
+    await p.setViewportSize({width: 1180, height: 760}); await C.pause(p, 400);
+    const m15 = await menu(p); await C.cliquerCv(p, decale(await sommetCv(p, 'A', 1), 0, -100), 'left'); const s15 = await choisi(p);
+    R.ok(!!m14 && !m15 && s15 === null, 'r : fenêtre redimensionnée, le menu ouvert : le menu se ferme, le clic suivant agit ('
+      + (m14 ? (m15 ? 'menu ouvert' : 'menu fermé') + ', choisi : ' + s15 : 'aucun menu') + ')');
+    erreurs(A, 'r');
+  } finally { await A.fermer(); }
+}
+
+/* a : actions du menu */
+async function menuActions(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy, VX = cx + 1.5, o = (x, y) => [cx + x, cy + y];
+    /* « Retirer le point » sur le sommet du milieu : deux sommets, aucun point choisi, un pas d'annulation, qui rend le croquis */
+    await dessinChoisi(p, traceA(cx, cy), 'A', VX, cy);
+    const j0 = await jsonEl(p), w0 = (await elDoc(p, 'A')).v;
+    const m1 = await menuSur(p, await sommetCv(p, 'A', 1)), ok1 = !!m1 && await choisirMenu(p, 'Retirer le point');
+    const e1 = await elDoc(p, 'A'), s1 = await selEtat(p), u1 = await nbUndo(p), mf1 = await menu(p);
+    R.ok(ok1 && e1.v.length === 2 && egal(e1.v[0], w0[0]) && egal(e1.v[1], w0[2]) && !!s1 && s1.id === 'A' && s1.sommet === null && u1 === 1 && !mf1,
+      'a : « Retirer le point » sur le sommet du milieu : il est retiré, en un pas d\'annulation (' + (ok1 ? e1.v.length + ' sommets, point choisi : ' + (s1 ? s1.sommet : '-')
+      + ', ' + u1 + ' pas' + (mf1 ? ', menu ouvert' : '') : libs(m1)) + ')');
+    await p.evaluate(() => window.__vcEd.annuler()); await C.pause(p, 250);
+    R.ok(ok1 && await jsonEl(p) === j0, 'a : une annulation rend le croquis d\'avant « Retirer le point »');
+    /* tracé de deux sommets : « Retirer le point » grisé, avec sa raison ; un clic ne change rien */
+    await dessinChoisi(p, [C.L('B', 'tr', [o(-3, 0), o(3, 0)], {})], 'B', VX, cy);
+    const jB = await jsonEl(p), mB = await menuSur(p, await sommetCv(p, 'B', 0)), rB = item(mB, 'Retirer le point');
+    R.ok(!!rB && rB.dis && /deux points/.test(rB.title), 'a : tracé de deux sommets : « Retirer le point » grisé, avec sa raison ('
+      + (rB ? (rB.dis ? 'grisé' : 'actif') + ', « ' + rB.title + ' »' : libs(mB)) + ')');
+    if (rB) await choisirMenu(p, 'Retirer le point');
+    const uB = await nbUndo(p);
+    R.ok(!!rB && await jsonEl(p) === jB && uB === 0, 'a : clic sur « Retirer le point » grisé : le croquis ne change pas (' + uB + ' pas d\'annulation)');
+    await echap(p);
+    /* point porteur d'un branchement (collecteur K, raccord j1 où finit le tracé T) : « Retirer le point » grisé, « Détacher » proposé */
+    const pts = [C.J('j1', cx, cy), C.P('r1', 'regard', cx, cy - 3)], ix = C.index(pts);
+    await dessinChoisi(p, pts.concat([C.L('K', 'col', [o(-3, 0), 'j1', o(3, 0)], ix), C.L('T', 'tr', ['r1', 'j1'], ix)]), 'K', VX, cy);
+    const mK = await menuSur(p, await sommetCv(p, 'K', 1)), rK = item(mK, 'Retirer le point'), dK = item(mK, 'Détacher');
+    R.ok(!!rK && rK.dis && /raccord/.test(rK.title) && !!dK && !dK.dis, 'a : point porteur d\'un branchement : « Retirer le point » grisé, avec sa raison, et « Détacher » proposé ('
+      + (mK ? libs(mK) + (rK ? (rK.dis ? ' ; grisé' : ' ; actif') + ', « ' + rK.title + ' »' : '') : 'aucun menu') + ')');
+    await echap(p);
+    /* « Ajouter un point » : premier sommet (milieu du segment suivant), dernier sommet (milieu du segment précédent), poignée du milieu */
+    const ajout = async (k, q, j, attendu) => {
+      await dessinChoisi(p, traceA(cx, cy), 'A', VX, cy);
+      const m = await menuSur(p, await q()), ok = !!m && await choisirMenu(p, 'Ajouter un point');
+      const e = await elDoc(p, 'A'), s = await selEtat(p), u = await nbUndo(p), mf = await menu(p);
+      R.ok(ok && e.v.length === 4 && egal(e.v[j], attendu) && e.v[j].a === null && !!s && s.sommet === j && u === 1 && !mf,
+        'a : « Ajouter un point » ' + k + ' : sommet ' + (j + 1) + ' au milieu du segment, choisi, en un pas d\'annulation ('
+        + (ok ? e.v.length + ' sommets, ' + pt(e.v[j]) + ' pour ' + pt(attendu) + ', point choisi : ' + (s ? s.sommet : '-') + ', ' + u + ' pas' + (mf ? ', menu ouvert' : '') : libs(m)) + ')');
+      return m;
+    };
+    await ajout('sur le premier sommet', () => sommetCv(p, 'A', 0), 1, mil(w0[0], w0[1]));
+    await ajout('sur le dernier sommet', () => sommetCv(p, 'A', 2), 2, mil(w0[1], w0[2]));
+    const mM = await ajout('sur la poignée du milieu du premier segment', () => milieuCv(p, 'A', 1), 1, mil(w0[0], w0[1]));
+    R.ok(libs(mM) === 'Ajouter un point', 'a : poignée du milieu d\'un segment : seul « Ajouter un point » (' + libs(mM) + ')');
+    /* « Détacher » le premier sommet du tracé D, posé sur le regard r2 : même croquis que le bouton « Détacher » de la fiche */
+    const rg = [C.P('r2', 'regard', cx - 3, cy)], ir = C.index(rg);
+    await dessinChoisi(p, rg.concat([C.L('D', 'tr', ['r2', o(3, 0)], ir)]), 'D', VX, cy);
+    const jD = await jsonEl(p), mD = await menuSur(p, await sommetCv(p, 'D', 0)), okD = !!item(mD, 'Détacher') && await choisirMenu(p, 'Détacher');
+    const eD = await elDoc(p, 'D'), sD = await selEtat(p), uD = await nbUndo(p), X = await jsonEl(p);
+    R.ok(okD && eD.v[0].a === null && !!sD && sD.sommet === 0 && uD === 1, 'a : « Détacher » : le premier sommet quitte le regard, il reste choisi, en un pas d\'annulation ('
+      + (okD ? 'lien : ' + eD.v[0].a + ', point choisi : ' + (sD ? sD.sommet : '-') + ', ' + uD + ' pas' : libs(mD)) + ')');
+    await p.evaluate(() => window.__vcEd.annuler()); await C.pause(p, 250);
+    const jD2 = await jsonEl(p);
+    await p.evaluate(() => { const ed = window.__vcEd; ed.selectionner('D'); ed.etat.sel.sommet = 0; ed.ouvrirPanneau('fiche'); }); await C.pause(p, 700);
+    const bF = await p.$('.vc .vc-panneau [data-a="sommetDetacher"]');
+    if (bF){ await p.click('.vc .vc-panneau [data-a="sommetDetacher"]'); await C.pause(p, 400); }
+    const Y = await jsonEl(p);
+    R.ok(okD && jD2 === jD && !!bF && X === Y, 'a : « Détacher » du menu : même croquis que le bouton « Détacher » de la fiche ('
+      + (okD ? (jD2 === jD ? '' : 'annulation incomplète, ') + (bF ? (X === Y ? 'identiques' : 'différents') : 'bouton de la fiche absent') : 'aucun « Détacher » au menu') + ')');
+    /* saisie en cours dans la fiche (Diamètre 125, champ non quitté), menu ouvert par une pause (le menu ne prend pas le focus),
+       « Ajouter un point » : la saisie est enregistrée d'abord ; une annulation retire seulement le point et garde 125 */
+    await dessinChoisi(p, traceA(cx, cy), 'A', VX, cy);
+    const champ = '.vc .vc-panneau input[data-k="diam"]', aChamp = !!(await p.$(champ));
+    if (aChamp){ await p.click(champ); await p.keyboard.type('125'); }
+    const qS = await sommetCv(p, 'A', 1);
+    await amener(p, decale(qS, 0, -100)); await C.pause(p, 300); await amener(p, qS); await C.pause(p, 650);
+    const mS = await menu(p), okS = aChamp && !!mS && await choisirMenu(p, 'Ajouter un point'), eS1 = await elDoc(p, 'A');
+    await p.evaluate(() => window.__vcEd.annuler()); await C.pause(p, 250);
+    const eS2 = await elDoc(p, 'A');
+    R.ok(okS && eS1.v.length === 4 && eS1.p.diam === '125' && eS2.v.length === 3 && eS2.p.diam === '125', 'a : saisie en cours dans la fiche (Diamètre 125),'
+      + ' menu ouvert par une pause, « Ajouter un point » : une annulation retire seulement le point et garde 125 (' + (okS ? 'après l\'ajout : ' + eS1.v.length
+      + ' sommets, Ø « ' + eS1.p.diam + ' » ; après une annulation : ' + eS2.v.length + ' sommets, Ø « ' + eS2.p.diam + ' »' : aChamp ? libs(mS) : 'champ Diamètre absent') + ')');
+    /* double clic sur « Ajouter un point » : le second clic tombe sur le plan découvert sous le menu ; il est ignoré, le point ajouté reste choisi */
+    await dessinChoisi(p, traceA(cx, cy), 'A', VX, cy);
+    const mC = await menuSur(p, await sommetCv(p, 'A', 0)), bC = mC && await centreBouton(p, 'Ajouter un point');
+    if (bC){ await p.mouse.dblclick(bC.x, bC.y); await C.pause(p, 400); }
+    const eC = await elDoc(p, 'A'), sC = await selEtat(p), uC = await nbUndo(p);
+    R.ok(!!bC && eC.v.length === 4 && !!sC && sC.id === 'A' && sC.sommet === 1 && uC === 1, 'a : double clic sur « Ajouter un point » : un seul point ajouté, qui reste choisi ('
+      + (bC ? eC.v.length + ' sommets, choisi : ' + (sC ? sC.id + ', point ' + sC.sommet : 'rien') + ', ' + uC + ' pas' : libs(mC)) + ')');
+    erreurs(A, 'a');
+  } finally { await A.fermer(); }
+}
+
+/* t : témoins sans menu (escalier, doigt, stylet) */
+async function menuTemoins(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy;
+    await horloge(p);
+    /* escalier choisi : ni la pause ni le clic droit sur une poignée n'ouvrent de menu */
+    const E = {id: 'E', k: 'ln', t: 'esc', v: [{x: cx - 2, y: cy, a: null}, {x: cx + 1, y: cy, a: null}], p: {larg: '1,00', n: '4', cote: 'g', monte: 'fin', st: 'existant'}, lab: null};
+    await dessinChoisi(p, [E], 'E', cx + 1.5, cy);
+    const jE = await jsonEl(p), qE = await sommetCv(p, 'E', 0);
+    await C.survolerCv(p, decale(qE, 0, -100)); await C.pause(p, 200);
+    await amener(p, qE); await C.pause(p, 650); const mE1 = await menu(p);
+    await C.cliquerCv(p, qE, 'right'); const mE2 = await menu(p), nE = await ouvertures(p), jE2 = await jsonEl(p);
+    R.ok(!mE1 && !mE2 && nE === 0 && jE2 === jE, 't : témoin : escalier choisi : ni la pause ni le clic droit sur une poignée n\'ouvrent de menu ('
+      + nE + ' ouverture' + (jE2 === jE ? '' : ', croquis changé') + ')');
+    /* appui long du doigt sur une poignée du tracé choisi : aucun menu, pendant ni après */
+    await dessinChoisi(p, traceA(cx, cy), 'A', cx + 1.5, cy);
+    const q1 = await sommetCv(p, 'A', 1), a1 = await C.pageCv(p, q1), n0 = await ouvertures(p); await C.surLePlan(p, a1, 'l\'appui long');
+    const s = await p.context().newCDPSession(p); let mL1;
+    try {
+      await s.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: a1.x, y: a1.y, id: 1}]});
+      await C.pause(p, 800); mL1 = await menu(p);
+      await s.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+    } finally { await s.detach(); }
+    await C.pause(p, 500); const mL2 = await menu(p), nL = await ouvertures(p);
+    R.ok(!mL1 && !mL2 && nL === n0, 't : témoin : appui long du doigt sur une poignée du tracé choisi : aucun menu (' + (nL - n0) + ' ouverture)');
+    /* stylet qui survole une poignée : aucun menu */
+    await C.survolerStyletCv(p, q1); await C.pause(p, 650);
+    const mS = await menu(p), nS = await ouvertures(p);
+    R.ok(!mS && nS === n0, 't : témoin : stylet qui survole une poignée du tracé choisi : aucun menu (' + (nS - n0) + ' ouverture)');
+    erreurs(A, 't');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [clics, glisses, survol, doigt]){
+  for (const f of [clics, glisses, survol, doigt, menuPause, menuClicDroit, menuActions, menuTemoins]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception du test : ' + (e && e.stack || e)); }
   }
   R.fin();

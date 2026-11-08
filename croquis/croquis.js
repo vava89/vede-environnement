@@ -2445,7 +2445,9 @@ function editeur(racine, opts){
     undo: [], redo: [], panneau: null, mode: 'edl', aff: {fond: true, reseau: true, etiquettes: true, attenuer: false}, dessinDemande: false, dernierTap: null, accrocheVue: null, aligner: null, palette: null,
     aides: Object.assign({}, AIDES_DEFAUT, opts.aides || {}), apercu: null, relier: null, survol: null,
     /* pose par cotes (m101) : null hors du mode ; dernierPointeur : genre du dernier appui ('mouse', 'touch', 'pen') */
-    cotes: null, dernierPointeur: null};
+    cotes: null, dernierPointeur: null,
+    /* menu de poignée ouvert à la souris (m109) : null, ou sa poignée {k: 'sommet' ou 'milieu', id, i} */
+    menu: null};
   racine.innerHTML = '<div class="vc" tabindex="-1">'
     + '<canvas class="vc-cv" aria-label="Plan du croquis"></canvas>'
     + '<header class="vc-barre">'
@@ -2476,6 +2478,7 @@ function editeur(racine, opts){
     + '</div>'
     + '<div class="vc-aide" role="status"></div>'
     + '<aside class="vc-panneau" hidden><div class="vc-ptete"><h2></h2><button type="button" class="vc-b" data-a="fermerPanneau" aria-label="Fermer">' + ico('fermer') + '</button></div><div class="vc-pcorps"></div></aside>'
+    + '<div class="vc-menu" role="menu" aria-label="Point du tracé" hidden></div>'
     + '<div class="vc-toast" role="status" aria-live="polite"></div>'
     + '</div>';
   var R = racine.firstChild, cv = R.querySelector('.vc-cv'), ctx = cv.getContext('2d'), pal = R.querySelector('.vc-palette'), aide = R.querySelector('.vc-aide');
@@ -2527,7 +2530,7 @@ function editeur(racine, opts){
   }
   var tEnr = null;
   function changement(o){
-    o = o || {};
+    o = o || {}; fermerMenu();
     S.doc.modifie = nowISO(); S.doc.rev = (S.doc.rev || 0) + 1;
     synchroSommets(S.doc);
     analyse(); synchroniser(o.forcer);
@@ -2544,21 +2547,26 @@ function editeur(racine, opts){
   function barriere(){ if (S.undo[S.undo.length - 1] !== BARRIERE){ S.undo.push(BARRIERE); if (S.undo.length > 100) S.undo.shift(); } }
   /* « Annuler » et « Rétablir » mettent fin aux saisies en cours, pose par cotes comprise (m101 : son trait de référence a pu disparaître) */
   function annuler(){
+    fermerMenu();
     if (!S.undo.length) return toast('Rien à annuler');
     if (S.undo[S.undo.length - 1] === BARRIERE){ S.undo.pop(); majBarre(); return toast('Le dernier changement porte sur une anomalie du dossier : « Annuler » ne le défait pas (pour un placement : « Retirer du plan »).' + (S.undo.length ? ' Touchez de nouveau « Annuler » pour revenir sur le dessin.' : ''), 6500); }
     S.redo.push(etatCourant()); restaurer(S.undo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; S.cotes = null; changement(); majAide();
   }
-  function refaire(){ if (!S.redo.length) return toast('Rien à rétablir'); S.undo.push(etatCourant()); restaurer(S.redo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; S.cotes = null; changement(); majAide(); }
+  function refaire(){ fermerMenu(); if (!S.redo.length) return toast('Rien à rétablir'); S.undo.push(etatCourant()); restaurer(S.redo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; S.cotes = null; changement(); majAide(); }
 
   /* --- affichage --- */
   function redim(){
     var r = R.getBoundingClientRect(), w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height)), d = Math.min(3, global.devicePixelRatio || 1);
+    /* menu de poignée (m109) : placé pour l'ancienne taille, il pourrait sortir de l'éditeur sans se voir et prendre le clic suivant ; fermé */
+    if (w !== S.vue.w || h !== S.vue.h) fermerMenu();
     if (cv.width !== Math.round(w * d) || cv.height !== Math.round(h * d)){ cv.width = Math.round(w * d); cv.height = Math.round(h * d); cv.style.width = w + 'px'; cv.style.height = h + 'px'; }
     S.dpr = d; S.vue.w = w; S.vue.h = h; redessiner();
   }
   function redessiner(){ if (S.dessinDemande) return; S.dessinDemande = true; (global.requestAnimationFrame || setTimeout)(function(){ S.dessinDemande = false; dessiner(); }); }
   function dessiner(){
     if (!S.doc) return;
+    /* menu de poignée (m109) : fermé quand son tracé n'est plus choisi ou n'a plus ce point, ou avec un autre outil */
+    if (S.menu){ var eMenu = el(S.menu.id); if (!eMenu || !S.sel || S.sel.id !== S.menu.id || S.outil.k !== 'main' || !eMenu.v || !eMenu.v[S.menu.i]) fermerMenu(); }
     var d = S.dpr, w = S.vue.w, h = S.vue.h;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#fbfbf8'; ctx.fillRect(0, 0, cv.width, cv.height);
     S.vue.rot = S.doc.rot || 0;
@@ -2788,6 +2796,9 @@ function editeur(racine, opts){
     /* appui du doigt ou du stylet : la position de survol de la souris (S.survol) est périmée jusqu'au prochain survol (m107) */
     if (ev.pointerType !== 'mouse') S.survolPerime = true;
     S.avaleRepete = null;
+    /* menu de poignée (m109) : tout appui arrête l'attente de la pause et ferme le menu ; le clic gauche de la souris qui le ferme n'a pas
+       d'autre effet */
+    if (fermerMenu() && ev.pointerType === 'mouse' && ev.button === 0) return;
     try { cv.setPointerCapture(ev.pointerId); } catch(e){}
     /* premier doigt d'un nouveau geste : les pointeurs dont le relâchement n'est jamais arrivé (fenêtre fermée, doigt levé ailleurs) sont oubliés */
     if (ev.isPrimary && Object.keys(S.ptr).length){ S.ptr = {}; finirGeste(true); }
@@ -2802,7 +2813,9 @@ function editeur(racine, opts){
     if (ids.length > 2) return;
     /* bouton droit ou du milieu de la souris (panForce) : le glissé déplace toujours la vue, jamais une poignée ni l'objet choisi */
     var souris = ev.pointerType === 'mouse', panForce = souris && ev.button > 0;
-    S.geste = {type: 'attente', x0: p.x, y0: p.y, t0: Date.now(), cible: panForce ? null : cibleGlisser(p.x, p.y), souris: souris, panForce: panForce};
+    /* menu : poignée du tracé choisi sous un clic droit (m109), menu ouvert au lever s'il n'y a pas de glissé */
+    S.geste = {type: 'attente', x0: p.x, y0: p.y, t0: Date.now(), cible: panForce ? null : cibleGlisser(p.x, p.y), souris: souris, panForce: panForce,
+      menu: souris && ev.button === 2 ? poigneeMenu(p.x, p.y) : null};
   });
   cv.addEventListener('pointermove', function(ev){
     /* Survol à la souris seulement (ni doigt ni stylet), sans bouton appuyé. S.survol garde la position du pointeur en pixels du canevas,
@@ -2811,6 +2824,8 @@ function editeur(racine, opts){
        du plan (pointerleave) et la réouverture du croquis (ouvrir) l'effacent. Rien n'est redessiné, sauf quand le départ d'un escalier
        est posé : son contour fantôme suit la souris. Un appui du doigt ou du stylet la rend périmée (S.survolPerime) jusqu'au survol suivant. */
     if (ev.pointerType === 'mouse' && ev.buttons === 0){ S.survol = pos(ev); S.survolPerime = false; if (!S.geste && attendFinEscalier()) redessiner(); }
+    /* menu de poignée (m109) : une pause de la souris sur une poignée du tracé choisi l'ouvre ; un bouton appuyé arrête l'attente */
+    if (ev.pointerType === 'mouse') suivrePause(ev.buttons === 0 ? S.survol : null);
     if (!S.ptr[ev.pointerId]) return;
     var p = pos(ev); S.ptr[ev.pointerId] = {x: p.x, y: p.y};
     var g = S.geste; if (!g) return;
@@ -2844,23 +2859,25 @@ function editeur(racine, opts){
       enregistrerVue(); return;
     }
     if (ev.type === 'pointercancel'){ finirGeste(true); return; }
-    /* clic droit ou du milieu de la souris : ni pose, ni choix, ni bulle */
-    if (g.type === 'attente'){ S.geste = null; if (!g.panForce) tap(p.x, p.y); return; }
+    /* clic droit ou du milieu de la souris : ni pose, ni choix, ni bulle ; un clic droit sans glissé sur une poignée du tracé choisi ouvre
+       le menu de poignée (m109), au lever seulement : le contextmenu, qui peut arriver avant (Linux), ne l'ouvre pas */
+    if (g.type === 'attente'){ S.geste = null; if (!g.panForce) tap(p.x, p.y); else if (g.menu) ouvrirMenu(g.menu, p.x, p.y); return; }
     if (g.type === 'glisser'){ terminerGlisser(g, p); S.geste = null; return; }
     if (g.type === 'trace'){ S.geste = null; finTrace(g, p); return; }
     if (g.type === 'pan') enregistrerVue();
     S.geste = null;
   }
   cv.addEventListener('pointerup', fin); cv.addEventListener('pointercancel', fin);
-  /* pointeur sorti du plan (sur une barre, hors de la fenêtre) : plus de survol */
-  cv.addEventListener('pointerleave', function(){ S.survol = null; if (attendFinEscalier()) redessiner(); });
+  /* pointeur sorti du plan (sur une barre, hors de la fenêtre) : plus de survol, ni d'attente du menu de poignée (m109) */
+  cv.addEventListener('pointerleave', function(){ S.survol = null; if (attendFinEscalier()) redessiner(); annulerPause(); });
   /* clic droit ou appui long, quel que soit le pointeur : aucun menu du navigateur sur le plan */
   cv.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
   /* au doigt, un toucher commencé sur le plan ne produit ni clic ni événements souris de compatibilité : rien n'agit sur ce qui vient se
      placer sous le doigt (fiche, barre de navigation, dialogue) ; le plan ne lit que les événements de pointeur */
   cv.addEventListener('touchend', function(ev){ if (ev.cancelable) ev.preventDefault(); }, {passive: false});
   cv.addEventListener('wheel', function(ev){
-    ev.preventDefault(); var p = pos(ev), w = S.vue.monde(p.x, p.y);
+    /* la molette ferme le menu de poignée et arrête l'attente de la pause (m109) */
+    ev.preventDefault(); fermerMenu(); var p = pos(ev), w = S.vue.monde(p.x, p.y);
     S.vue.s = clamp(S.vue.s * Math.pow(1.0018, -ev.deltaY), .02, 2000);
     var w2 = S.vue.monde(p.x, p.y); S.vue.cx += w.x - w2.x; S.vue.cy += w.y - w2.y; redessiner(); enregistrerVue();
   }, {passive: false});
@@ -2870,6 +2887,95 @@ function editeur(racine, opts){
     var g = S.geste; S.geste = null; S.accrocheVue = null; S.apercu = null;
     if (g && g.type === 'trace' && annule && g.cree && S.brouillon && S.brouillon.pts.length === 1){ S.brouillon = null; majAide(); redessiner(); }
     if (g && g.type === 'glisser'){ if (annule && g.modifie){ S.undo.length && restaurer(S.undo.pop()); } else if (!g.modifie) S.undo.pop(); changement(); }
+  }
+
+  /* --- menu de poignée à la souris (m109) : outil Choisir, poignée du tracé choisi (sommet, milieu d'un segment), ouvert par une pause de
+     0,4 s ou par un clic droit sans glissé ; « Retirer le point », « Détacher », « Ajouter un point ». Au doigt et au stylet, rien ne change. */
+  var menuEl = R.querySelector('.vc-menu'), pauseMenu = null;
+  /* poignée du tracé choisi au point (x, y) du canevas, celle qu'un glissé prendrait (cibleGlisser) ; aucune pour un escalier */
+  function poigneeMenu(x, y){
+    var e = S.sel && el(S.sel.id); if (!e || e.k !== 'ln' || e.t === 'esc') return null;
+    var c = cibleGlisser(x, y);
+    return c && c.id === e.id && (c.k === 'sommet' || c.k === 'milieu') ? c : null;
+  }
+  function memePoignee(a, b){ return !!a && !!b && a.k === b.k && a.id === b.id && a.i === b.i; }
+  function annulerPause(){ if (pauseMenu){ clearTimeout(pauseMenu.t); pauseMenu = null; } }
+  /* survol de la souris au point q (null : bouton appuyé) : 0,4 s sur la même poignée ouvrent le menu ; un mouvement de plus de 3 px relance
+     l'attente, la sortie de la poignée l'arrête ; pas d'attente pendant un geste ni quand le menu est ouvert */
+  function suivrePause(q){
+    var c = q && !S.geste && !S.menu ? poigneeMenu(q.x, q.y) : null;
+    if (!c){ annulerPause(); return; }
+    if (pauseMenu && memePoignee(pauseMenu.c, c) && Math.hypot(q.x - pauseMenu.x, q.y - pauseMenu.y) <= 3) return;
+    annulerPause();
+    var d = {c: c, x: q.x, y: q.y};
+    d.t = setTimeout(function(){
+      if (pauseMenu !== d) return; pauseMenu = null;
+      /* la souris survole toujours la même poignée (la vue a pu changer entre-temps) */
+      var s = S.survol, c2 = s && !S.survolPerime && !S.geste && !S.menu ? poigneeMenu(s.x, s.y) : null;
+      if (memePoignee(c2, d.c)) ouvrirMenu(c2, s.x, s.y);
+    }, 400);
+    pauseMenu = d;
+  }
+  /* bouton du menu ; motif : pourquoi il est grisé (vide : actif) */
+  function boutonMenu(m, lib, motif){
+    return '<button type="button" class="vc-chip" role="menuitem" data-m="' + m + '"' + (motif ? ' disabled title="' + esc(motif) + '"' : '') + '>' + esc(lib) + '</button>';
+  }
+  /* menu de la poignée c, près du point (x, y) du canevas (les pixels de l'éditeur), gardé dans l'éditeur ; le point n'est pas choisi */
+  function ouvrirMenu(c, x, y){
+    annulerPause();
+    var e = el(c.id); if (!e || e.k !== 'ln' || e.t === 'esc' || !S.sel || S.sel.id !== e.id || S.outil.k !== 'main' || !e.v[c.i]) return;
+    var h;
+    if (c.k === 'sommet'){
+      var motif = e.v.length <= 2 ? 'Un tracé garde au moins deux points.' : pointPorteur(S.doc, e, c.i) ? 'Un autre tracé est raccordé à ce point : « Détacher » l\'en sépare.' : '';
+      h = boutonMenu('retirer', 'Retirer le point', motif) + (e.v[c.i].a ? boutonMenu('detacher', 'Détacher') : '') + boutonMenu('ajouter', 'Ajouter un point');
+    } else h = boutonMenu('ajouter', 'Ajouter un point');
+    S.menu = {k: c.k, id: e.id, i: c.i};
+    menuEl.innerHTML = h; menuEl.hidden = false;
+    /* place : à 14 px du pointeur, en bas à droite, sinon à gauche ou en haut ; à 8 px des bords de l'éditeur au moins et hors de la fiche
+       ouverte (à droite, ou en bas sur un écran étroit) quand c'est possible ; sinon dans l'éditeur, au plus près */
+    var W = R.clientWidth, H = R.clientHeight, w = menuEl.offsetWidth, hm = menuEl.offsetHeight, rr = R.getBoundingClientRect(), rp = pan.hidden ? null : pan.getBoundingClientRect();
+    var libre = function(q){ var l = q[0], t = q[1]; return l >= 8 && t >= 8 && l + w <= W - 8 && t + hm <= H - 8
+      && !(rp && l < rp.right - rr.left && l + w > rp.left - rr.left && t < rp.bottom - rr.top && t + hm > rp.top - rr.top); };
+    var pl = [[x + 14, y + 14], [x - 14 - w, y + 14], [x + 14, y - 14 - hm], [x - 14 - w, y - 14 - hm]].filter(libre)[0];
+    if (!pl){
+      var l = x + 14, t = y + 14;
+      if (l + w > W - 8) l = x - 14 - w;
+      if (t + hm > H - 8) t = y - 14 - hm;
+      pl = [clamp(l, 8, Math.max(8, W - 8 - w)), clamp(t, 8, Math.max(8, H - 8 - hm))];
+    }
+    menuEl.style.left = Math.round(pl[0]) + 'px'; menuEl.style.top = Math.round(pl[1]) + 'px';
+  }
+  /* ferme le menu et arrête l'attente de la pause ; vrai si le menu était ouvert */
+  function fermerMenu(){
+    annulerPause();
+    if (!S.menu) return false;
+    S.menu = null; menuEl.hidden = true; menuEl.innerHTML = '';
+    return true;
+  }
+  /* le menu ne prend pas le focus : Échap et les raccourcis restent à l'éditeur ; un clic droit sur le menu n'ouvre pas celui du navigateur */
+  menuEl.addEventListener('mousedown', function(ev){ ev.preventDefault(); });
+  menuEl.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
+  menuEl.addEventListener('click', function(ev){
+    var b = ev.target.closest && ev.target.closest('[data-m]'); if (!b || b.disabled || !S.menu) return;
+    var m = S.menu; fermerMenu();
+    /* saisie en cours dans la fiche (le menu ne prend pas le focus) : enregistrée d'abord, comme au départ d'un glissé ; sinon son pas
+       d'annulation passerait après celui de l'action */
+    quitterSaisie();
+    var e = el(m.id); if (!e || e.k !== 'ln' || !S.sel || S.sel.id !== e.id || !e.v[m.i]) return;
+    /* les fonctions des boutons de la fiche (« Ajouter un point » : comme le glissé de la poignée du milieu), un pas d'annulation ;
+       « Détacher » et « Ajouter un point » choisissent le point concerné, « Retirer le point » n'en laisse aucun */
+    if (b.dataset.m === 'retirer' && e.v.length > 2){ S.sel.sommet = m.i; retirerSommet(e); }
+    else if (b.dataset.m === 'detacher' && e.v[m.i].a){ S.sel.sommet = m.i; detacherSommet(e); }
+    else if (b.dataset.m === 'ajouter') ajouterSommet(e, m.k === 'milieu' ? m.i : m.i < e.v.length - 1 ? m.i + 1 : m.i);
+  });
+  /* un appui hors du menu et hors du plan (barres, fiche, boutons) ferme le menu ; un appui sur le plan est traité par le plan (pointerdown) */
+  document.addEventListener('pointerdown', function(ev){ if (S.menu && ev.target !== cv && !menuEl.contains(ev.target)) fermerMenu(); }, true);
+  /* « Ajouter un point » : sommet libre au milieu du segment j - 1 → j, comme au glissé de la poignée du milieu ; il est choisi */
+  function ajouterSommet(e, j){
+    var P = lignePts(e, idx()), a = P[j - 1], b = P[j]; if (!a || !b) return;
+    instantane();
+    e.v.splice(j, 0, {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, a: null});
+    S.sel.sommet = j; changement();
   }
 
   /* --- glisser : objet choisi, sommet ou milieu de tracé, étiquette, bulle --- */
@@ -3012,6 +3118,10 @@ function editeur(racine, opts){
     e.v.splice(i, 1); S.sel.sommet = null;
     quitterRaccord(e, jq, true);
     changement();
+  }
+  /* « Détacher » (fiche, menu de poignée) : le point choisi quitte l'objet ou le raccord qui le porte, il reste choisi */
+  function detacherSommet(e){
+    instantane(); var vd = e.v[S.sel.sommet]; vd.a = null; nettoyerJonctions(S.doc, null, gardesJ()); var nd = e.v.indexOf(vd); S.sel.sommet = nd >= 0 ? nd : null; changement();
   }
   function terminerGlisser(g){
     var c = g.cible; S.accrocheVue = null;
@@ -4071,6 +4181,7 @@ function editeur(racine, opts){
     }
   }
   function choisirOutil(o){
+    fermerMenu();
     if (S.brouillon && S.brouillon.pts.length >= 2) terminerTrace(); else S.brouillon = null;
     S.outil = o; S.aligner = null; S.relier = null; S.apercu = null; S.placer = null;
     /* un autre outil met fin à la pose par cotes (m101), panneau « Cotes » compris */
@@ -4524,12 +4635,12 @@ function editeur(racine, opts){
     panMajAttente = false; majPanneau();
   }
   pan.addEventListener('pointerdown', function(){ panBas = true; }, true);
-  /* dernier appui (garde de la fiche) et dernier clic sur la fiche, la palette ou la barre d'aide, qui peuvent disparaître ou se déplacer
-     (garde du plan), en coordonnées du plan */
+  /* dernier appui (garde de la fiche) et dernier clic sur la fiche, la palette, la barre d'aide ou le menu de poignée (m109 : un double clic
+     sur l'un de ses boutons), qui peuvent disparaître ou se déplacer (garde du plan), en coordonnées du plan */
   function surPlan(ev){ var r = cv.getBoundingClientRect(); return {t: Date.now(), x: ev.clientX - r.left, y: ev.clientY - r.top}; }
   R.addEventListener('pointerdown', function(ev){ S.appui = surPlan(ev); }, true);
   R.addEventListener('pointerup', function(){ S.relache = Date.now(); }, true);
-  R.addEventListener('click', function(ev){ if (ev.detail && (pan.contains(ev.target) || pal.contains(ev.target) || aide.contains(ev.target))) S.clicHors = surPlan(ev); }, true);
+  R.addEventListener('click', function(ev){ if (ev.detail && (pan.contains(ev.target) || pal.contains(ev.target) || aide.contains(ev.target) || menuEl.contains(ev.target))) S.clicHors = surPlan(ev); }, true);
   ['pointerup', 'pointercancel'].forEach(function(t){ R.addEventListener(t, function(){ if (!panBas) return; panBas = false; if (panMajAttente) setTimeout(majPanneauDifferee, 0); }, true); });
   pcorps.addEventListener('focusout', function(){ if (panMajAttente) setTimeout(majPanneauDifferee, 0); });
   /* état montré par une puce au début du toucher (avant l'enregistrement d'une saisie voisine, qui peut le changer) */
@@ -4598,7 +4709,7 @@ function editeur(racine, opts){
     if (a === 'supprimer'){ supprimerSel(); return; }
     if (a === 'inverserCoude' && e && e.v.length === 3 && !e.v[1].a){ instantane(); var I3 = idx(), A3 = vpos(e.v[0], I3), B3 = vpos(e.v[2], I3); e.v[1] = {x: A3.x + B3.x - e.v[1].x, y: A3.y + B3.y - e.v[1].y, a: null}; changement(); return; }
     if (a === 'sommetSuppr' && e && S.sel.sommet != null){ retirerSommet(e); return; }
-    if (a === 'sommetDetacher' && e && S.sel.sommet != null){ instantane(); var vd = e.v[S.sel.sommet]; vd.a = null; nettoyerJonctions(S.doc, null, gardesJ()); var nd = e.v.indexOf(vd); S.sel.sommet = nd >= 0 ? nd : null; changement(); return; }
+    if (a === 'sommetDetacher' && e && S.sel.sommet != null){ detacherSommet(e); return; }
     if (a === 'dec' || a === 'decNc'){
       var cle = b.dataset.cle, m = (S.doc.anomManu || []).filter(function(x){ return x.id === cle; })[0], cur = S.liste.filter(function(x){ return x.cle === cle; })[0];
       /* anomalie du dossier : la nature se règle sur l'enregistrement ; un retrait qui emporte des photos se confirme */
@@ -4820,9 +4931,11 @@ function editeur(racine, opts){
     } catch(err){ toast('Sortie impossible : ' + (err && err.message || err), 6000); }
   }
 
-  /* ferme le niveau le plus haut : ce qui est affiché par-dessus (dialogue, palette, panneau), puis les modes, et le tracé en cours
-     en dernier (l'abandonner perd des points) ; faux s'il n'y avait rien : l'hôte peut alors fermer l'éditeur */
+  /* ferme le niveau le plus haut : le menu de poignée d'abord (m109 : l'élément reste choisi), ce qui est affiché par-dessus (dialogue,
+     palette, panneau), puis les modes, et le tracé en cours en dernier (l'abandonner perd des points) ; faux s'il n'y avait rien : l'hôte
+     peut alors fermer l'éditeur */
   function fermerNiveau(){
+    if (fermerMenu()) return true;
     var m = R.querySelector('.vc-modal'); if (m){ m.remove(); return true; }
     if (S.palette){ fermerPalette(); return true; }
     if (S.sel || S.panneau){ fermerPanneau(); return true; }
@@ -4833,7 +4946,7 @@ function editeur(racine, opts){
 
   /* --- ouverture --- */
   function ouvrir(doc, fond, reseau, o){
-    o = o || {};
+    o = o || {}; fermerMenu();
     if (o.aides) S.aides = Object.assign({}, AIDES_DEFAUT, o.aides);
     S.placer = null; S.cotes = null; var m0 = R.querySelector('.vc-modal'); if (m0) m0.remove();
     S.doc = doc; S.fond = fond || null; S.reseau = reseau || null; S.undo = []; S.redo = []; S.sel = null; S.brouillon = null; S.panneau = null; S.mode = 'edl'; S.ajoutAnom = null; S.aligner = null;
@@ -4963,6 +5076,9 @@ var CSS = [
 '.vc-aidech[aria-pressed="true"]{border-color:var(--brand,#0F5C63);background:var(--brand-soft,#D9ECEB)}',
 '.vc-aidech[aria-pressed="true"] strong::before{content:"✓ ";color:var(--brand,#0F5C63)}',
 '.vc-aimant[aria-pressed="false"]{opacity:.55}',
+'.vc-menu{position:absolute;left:0;top:0;z-index:8;display:flex;flex-direction:column;gap:4px;min-width:200px;padding:6px;background:var(--surface,#fff);border:1px solid var(--line,#C7D1D8);border-radius:14px;box-shadow:var(--shadow,0 18px 50px -22px rgba(9,18,24,.55))}',
+'.vc-menu[hidden]{display:none}',
+'.vc-menu .vc-chip{min-height:44px;justify-content:flex-start;white-space:nowrap}',
 '.vc-toast{position:absolute;left:50%;top:70px;transform:translate(-50%,-12px);max-width:min(560px,calc(100% - 24px));padding:10px 16px;border-radius:12px;background:#1f2a31;color:#fff;font-size:15px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:9;text-align:center}',
 '.vc-toast.on{opacity:1;transform:translate(-50%,0)}',
 '.vc-modal{position:absolute;inset:0;background:var(--scrim,rgba(9,18,24,.5));display:flex;align-items:center;justify-content:center;z-index:10;padding:16px;-webkit-user-select:text;user-select:text;touch-action:auto}',
