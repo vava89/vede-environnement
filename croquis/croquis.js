@@ -2449,6 +2449,9 @@ function editeur(racine, opts){
   var S = {doc: null, fond: null, reseau: null, an: null, liste: [], vue: new Vue(), dpr: 1, outil: {k: 'main'}, sel: null, brouillon: null, zones: [], ptr: {}, geste: null,
     undo: [], redo: [], panneau: null, mode: 'edl', aff: {fond: true, reseau: true, etiquettes: true, attenuer: false}, dessinDemande: false, dernierTap: null, accrocheVue: null, aligner: null, palette: null,
     aides: Object.assign({}, AIDES_DEFAUT, opts.aides || {}), apercu: null, relier: null, survol: null,
+    /* « + » de la souris sur le tracé choisi (m110) : null, ou sa cible {k: 'segment', id, i, x, y} ; bulle « + point » du doigt et du
+       stylet : null, ou {id, i, x, y, tx, ty, vue} ; plusClic : dernier clic sur le « + » {t, id, i}, pour le double clic */
+    plus: null, bullePoint: null, plusClic: null,
     /* pose par cotes (m101) : null hors du mode ; dernierPointeur : genre du dernier appui ('mouse', 'touch', 'pen') */
     cotes: null, dernierPointeur: null,
     /* menu de poignée ouvert à la souris (m109) : null, ou sa poignée {k: 'sommet' ou 'milieu', id, i} */
@@ -2608,6 +2611,16 @@ function editeur(racine, opts){
         });
       }
     }
+    /* « + » de la souris sur le tracé choisi (m110), au pied du segment survolé ; curseur « copie » */
+    var pl = plusSurvol(); S.plus = pl; cv.style.cursor = pl ? 'copy' : '';
+    if (pl){
+      var pq = S.vue.ecran(pl.x, pl.y);
+      ctx.beginPath(); ctx.arc(pq.x, pq.y, 9, 0, 2 * Math.PI); ctx.fillStyle = ac; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pq.x - 5, pq.y); ctx.lineTo(pq.x + 5, pq.y); ctx.moveTo(pq.x, pq.y - 5); ctx.lineTo(pq.x, pq.y + 5); ctx.lineWidth = 2.5; ctx.stroke();
+    }
+    /* bulle « + point » (m110) : fermée quand son tracé n'est plus choisi ou n'a plus ce segment, avec un autre outil, ou quand la vue a changé */
+    var bq = S.bullePoint, eb = bq && el(bq.id);
+    if (bq && (!eb || !S.sel || S.sel.id !== bq.id || S.outil.k !== 'main' || !eb.v || !eb.v[bq.i] || bq.vue !== cleVue())) fermerBullePoint();
     if (S.brouillon){
       var b = S.brouillon, Q = b.pts.map(function(q){ return S.vue.ecran(q.x, q.y); }), o = OUTILS_LN[b.outil] || OUTILS_LN.tr, col = rgbCss((RES[o.res] || RES.INC).rgb);
       if (Q.length > 1){ trace(ctx, Q); ctx.strokeStyle = col; ctx.lineWidth = o.col ? 6 : 4; ctx.setLineDash(o.st ? [9, 6] : []); ctx.stroke(); ctx.setLineDash([]); }
@@ -2830,7 +2843,7 @@ function editeur(racine, opts){
     /* bouton droit ou du milieu de la souris (panForce) : le glissé déplace toujours la vue, jamais une poignée ni l'objet choisi */
     var souris = ev.pointerType === 'mouse', panForce = souris && ev.button > 0;
     /* menu : poignée du tracé choisi sous un clic droit (m109), menu ouvert au lever s'il n'y a pas de glissé */
-    S.geste = {type: 'attente', x0: p.x, y0: p.y, t0: Date.now(), cible: panForce ? null : cibleGlisser(p.x, p.y), souris: souris, panForce: panForce,
+    S.geste = {type: 'attente', x0: p.x, y0: p.y, t0: Date.now(), cible: panForce ? null : cibleGlisser(p.x, p.y, souris), souris: souris, panForce: panForce,
       menu: souris && ev.button === 2 ? poigneeMenu(p.x, p.y) : null};
   });
   cv.addEventListener('pointermove', function(ev){
@@ -2842,6 +2855,8 @@ function editeur(racine, opts){
     if (ev.pointerType === 'mouse' && ev.buttons === 0){ S.survol = pos(ev); S.survolPerime = false; if (!S.geste && attendFinEscalier()) redessiner(); }
     /* menu de poignée (m109) : une pause de la souris sur une poignée du tracé choisi l'ouvre ; un bouton appuyé arrête l'attente */
     if (ev.pointerType === 'mouse') suivrePause(ev.buttons === 0 ? S.survol : null);
+    /* « + » de la souris sur le tracé choisi (m110) : il suit le survol, redessiné seulement quand son pied change */
+    if (ev.pointerType === 'mouse' && ev.buttons === 0) suivrePlus();
     if (!S.ptr[ev.pointerId]) return;
     var p = pos(ev); S.ptr[ev.pointerId] = {x: p.x, y: p.y};
     var g = S.geste; if (!g) return;
@@ -2878,7 +2893,10 @@ function editeur(racine, opts){
     if (ev.type === 'pointercancel'){ finirGeste(true); return; }
     /* clic droit ou du milieu de la souris : ni pose, ni choix, ni bulle ; un clic droit sans glissé sur une poignée du tracé choisi ouvre
        le menu de poignée (m109), au lever seulement : le contextmenu, qui peut arriver avant (Linux), ne l'ouvre pas */
-    if (g.type === 'attente'){ S.geste = null; if (!g.panForce) tap(p.x, p.y); else if (g.menu) ouvrirMenu(g.menu, p.x, p.y); return; }
+    /* clic gauche sur le « + » (m110) : sommet ajouté au pied ; pas au second clic d'un double clic, qui reste un toucher du plan (tracé
+       choisi au premier clic), ni au clic que tapPlan ignore (bouton qui vient de disparaître, plan qui vient de glisser pour montrer la
+       fiche) ; le second clic d'un double clic sur le « + », sur le sommet ajouté, est ignoré */
+    if (g.type === 'attente'){ S.geste = null; if (!g.panForce){ if (g.cible && g.cible.k === 'segment' && !suiteDeClic(p) && !clicGarde(p)) clicPlus(g.cible); else if (!secondClicPlus(g)) tap(p.x, p.y); } else if (g.menu) ouvrirMenu(g.menu, p.x, p.y); return; }
     if (g.type === 'glisser'){ terminerGlisser(g, p); S.geste = null; return; }
     if (g.type === 'trace'){ S.geste = null; finTrace(g, p); return; }
     if (g.type === 'pan') enregistrerVue();
@@ -2886,7 +2904,7 @@ function editeur(racine, opts){
   }
   cv.addEventListener('pointerup', fin); cv.addEventListener('pointercancel', fin);
   /* pointeur sorti du plan (sur une barre, hors de la fenêtre) : plus de survol, ni d'attente du menu de poignée (m109) */
-  cv.addEventListener('pointerleave', function(){ S.survol = null; if (attendFinEscalier()) redessiner(); annulerPause(); });
+  cv.addEventListener('pointerleave', function(){ S.survol = null; if (attendFinEscalier() || S.plus) redessiner(); annulerPause(); });
   /* clic droit ou appui long, quel que soit le pointeur : aucun menu du navigateur sur le plan */
   cv.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
   /* au doigt, un toucher commencé sur le plan ne produit ni clic ni événements souris de compatibilité : rien n'agit sur ce qui vient se
@@ -2962,11 +2980,14 @@ function editeur(racine, opts){
     }
     menuEl.style.left = Math.round(pl[0]) + 'px'; menuEl.style.top = Math.round(pl[1]) + 'px';
   }
-  /* ferme le menu et arrête l'attente de la pause ; vrai si le menu était ouvert */
+  /* ferme le menu et arrête l'attente de la pause ; ferme aussi la bulle « + point » (m110) ; vrai si le menu ou la bulle était ouvert.
+     Menu fermé : le plan est redessiné, pour que le « + » et son curseur reviennent aussitôt sous la souris immobile (m110) */
   function fermerMenu(){
     annulerPause();
-    if (!S.menu) return false;
+    var bulle = fermerBullePoint();
+    if (!S.menu) return bulle;
     S.menu = null; menuEl.hidden = true; menuEl.innerHTML = '';
+    redessiner();
     return true;
   }
   /* le menu ne prend pas le focus : Échap et les raccourcis restent à l'éditeur ; un clic droit sur le menu n'ouvre pas celui du navigateur */
@@ -2987,16 +3008,84 @@ function editeur(racine, opts){
   });
   /* un appui hors du menu et hors du plan (barres, fiche, boutons) ferme le menu ; un appui sur le plan est traité par le plan (pointerdown) */
   document.addEventListener('pointerdown', function(ev){ if (S.menu && ev.target !== cv && !menuEl.contains(ev.target)) fermerMenu(); }, true);
-  /* « Ajouter un point » : sommet libre au milieu du segment j - 1 → j, comme au glissé de la poignée du milieu ; il est choisi */
-  function ajouterSommet(e, j){
+  /* « Ajouter un point » : sommet libre au milieu du segment j - 1 → j, comme au glissé de la poignée du milieu ; il est choisi. w : sa place
+     en mètres du plan (m110 : le pied du « + » de la souris ou de la bulle « + point »), sinon le milieu */
+  function ajouterSommet(e, j, w){
     var P = lignePts(e, idx()), a = P[j - 1], b = P[j]; if (!a || !b) return;
     instantane();
-    e.v.splice(j, 0, {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, a: null});
+    e.v.splice(j, 0, w ? {x: w.x, y: w.y, a: null} : {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, a: null});
     S.sel.sommet = j; changement();
   }
 
+  /* --- bulle « + point » du doigt et du stylet (m110) : outil Choisir, tracé choisi touché hors de ses poignées ; la toucher ajoute un sommet
+     au pied du point touché. Tout autre appui, Échap, la molette, un autre outil, un autre choix, un changement du croquis ou de la vue la
+     ferment, et 4 s après son ouverture (jamais sous le doigt : un appui sur elle suspend ce délai). */
+  var bulleEl = document.createElement('button'), tBulle = null, bulleAppui = false;
+  bulleEl.type = 'button'; bulleEl.className = 'vc-bulle-point'; bulleEl.hidden = true;
+  bulleEl.setAttribute('aria-label', 'Ajouter un point ici');
+  bulleEl.innerHTML = '+ point<i aria-hidden="true"></i>';
+  R.insertBefore(bulleEl, R.querySelector('.vc-toast'));
+  /* pied, en mètres du plan, du point (x, y) du canevas sur le segment le plus proche du tracé e (points P en pixels) ; null pour un
+     escalier, ou si le pied tombe sur un sommet */
+  function piedBulle(e, P, x, y){
+    if (e.t === 'esc') return null;
+    var s = segmentProche(P, x, y); if (!s || s.q.t <= 0 || s.q.t >= 1) return null;
+    var w = S.vue.monde(s.q.x, s.q.y), t = S.vue.monde(x, y);
+    return {id: e.id, i: s.j, x: w.x, y: w.y, tx: t.x, ty: t.y};
+  }
+  /* bulle b : son bas à 44 px au-dessus du point touché (au-dessous s'il est trop près de la barre), dans l'éditeur à 8 px des bords, à
+     gauche de la fiche ouverte à droite ; sa marque vise le pied ; fermée au bout de 4 s */
+  function ouvrirBullePoint(b){
+    fermerBullePoint();
+    var e = el(b.id); if (!e || !S.sel || S.sel.id !== e.id || S.outil.k !== 'main') return;
+    var p = S.vue.ecran(b.x, b.y), t = S.vue.ecran(b.tx, b.ty);
+    b.vue = cleVue(); S.bullePoint = b;
+    bulleEl.classList.remove('vc-dessous'); bulleEl.hidden = false;
+    var W = R.clientWidth, w = bulleEl.offsetWidth, h = bulleEl.offsetHeight, rr = R.getBoundingClientRect(), rp = pan.hidden ? null : pan.getBoundingClientRect();
+    var barre = R.querySelector('.vc-barre'), haut = (barre ? barre.getBoundingClientRect().bottom - rr.top : 0) + 8;
+    var l = p.x - w / 2, top = Math.min(p.y, t.y) - 44 - h;
+    if (rp && rp.width < rr.width * .9 && l + w > rp.left - rr.left - 8) l = rp.left - rr.left - 8 - w;
+    l = Math.round(clamp(l, 8, Math.max(8, W - 8 - w)));
+    if (top < haut){ top = Math.max(p.y, t.y) + 44; bulleEl.classList.add('vc-dessous'); }
+    bulleEl.style.left = l + 'px'; bulleEl.style.top = Math.round(top) + 'px';
+    var mq = bulleEl.querySelector('i'); if (mq) mq.style.left = Math.round(clamp(p.x - l, 14, w - 14)) + 'px';
+    armerBullePoint();
+  }
+  /* minuterie de la bulle ouverte : fermée 4 s plus tard */
+  function armerBullePoint(){
+    var b = S.bullePoint; clearTimeout(tBulle);
+    tBulle = b ? setTimeout(function(){ if (S.bullePoint === b) fermerBullePoint(); }, 4000) : null;
+  }
+  /* ferme la bulle ; vrai si elle était ouverte */
+  function fermerBullePoint(){
+    clearTimeout(tBulle); tBulle = null;
+    if (!S.bullePoint) return false;
+    S.bullePoint = null; bulleEl.hidden = true;
+    return true;
+  }
+  /* la bulle ne prend pas le focus (Échap et les raccourcis restent à l'éditeur) ; un appui long n'ouvre pas le menu du navigateur */
+  bulleEl.addEventListener('mousedown', function(ev){ ev.preventDefault(); });
+  bulleEl.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
+  bulleEl.addEventListener('click', function(ev){
+    var b = S.bullePoint; fermerBullePoint(); if (!b) return;
+    /* la bulle disparaît : le second toucher d'un double toucher, qui tombe sur le plan, est ignoré (garde du plan, comme pour la fiche) */
+    if (ev.detail) S.clicHors = surPlan(ev);
+    /* saisie en cours dans la fiche : enregistrée d'abord, comme pour le menu de poignée */
+    quitterSaisie();
+    var e = el(b.id); if (!e || e.k !== 'ln' || e.t === 'esc' || !S.sel || S.sel.id !== e.id || S.outil.k !== 'main' || !e.v[b.i - 1] || !e.v[b.i]) return;
+    /* sommet libre au pied, sans accroche, un pas d'annulation ; il est choisi */
+    ajouterSommet(e, b.i, {x: b.x, y: b.y});
+  });
+  /* tout appui hors de la bulle la ferme ; il agit ensuite comme d'habitude (sur le plan : toucher, glissé, pincement) */
+  document.addEventListener('pointerdown', function(ev){ if (S.bullePoint && !bulleEl.contains(ev.target)) fermerBullePoint(); }, true);
+  /* doigt posé sur la bulle : la minuterie est suspendue jusqu'à ce qu'il se relève, sinon la bulle partirait sous lui sans ajouter le
+     point ; s'il se relève sans l'activer (glissé hors d'elle), elle repart pour 4 s */
+  bulleEl.addEventListener('pointerdown', function(){ bulleAppui = true; clearTimeout(tBulle); tBulle = null; });
+  function relacherBullePoint(){ if (!bulleAppui) return; bulleAppui = false; if (S.bullePoint) armerBullePoint(); }
+  document.addEventListener('pointerup', relacherBullePoint, true); document.addEventListener('pointercancel', relacherBullePoint, true);
+
   /* --- glisser : objet choisi, sommet ou milieu de tracé, étiquette, bulle --- */
-  function cibleGlisser(x, y){
+  function cibleGlisser(x, y, souris){
     if (S.outil.k !== 'main' || !S.sel) return null;
     var e = el(S.sel.id); if (!e) return null;
     if (e.k === 'ln'){
@@ -3010,11 +3099,64 @@ function editeur(racine, opts){
     for (i = 0; i < zs.length; i++){ z = zs[i]; if (z.type === 'pt' && Math.hypot(x - z.x, y - z.y) <= (z.zone ? z.r : z.r + 8)) return {k: 'objet', id: e.id}; }
     for (i = 0; i < zs.length; i++){ z = zs[i]; if ((z.type === 'etiq' || z.type === 'tx') && x >= z.b[0] - 4 && x <= z.b[2] + 4 && y >= z.b[1] - 4 && y <= z.b[3] + 4) return z.type === 'tx' ? {k: 'objet', id: e.id} : {k: 'etiq', id: e.id}; }
     for (i = 0; i < zs.length; i++){ z = zs[i]; if (z.type === 'bulle' && Math.hypot(x - z.x, y - z.y) <= z.r + 6) return {k: 'bulle', id: z.id, objId: e.id}; }
-    return null;
+    /* à la souris (m110) : le « + » du segment survolé du tracé choisi, hors de ses poignées */
+    return souris && e.k === 'ln' ? plusSous(e, P, x, y) : null;
+  }
+  /* segment des points P (pixels du canevas) le plus proche du point (x, y) : {j : rang de son sommet d'arrivée, q : pied (projSeg)} */
+  function segmentProche(P, x, y){
+    var best = null;
+    for (var j = 1; j < P.length; j++){ var q = projSeg({x: x, y: y}, P[j - 1], P[j]); if (!best || q.d < best.q.d) best = {j: j, q: q}; }
+    return best;
+  }
+  /* « + » de la souris (m110) sur le tracé choisi e (points P en pixels) : pied du segment le plus proche du point (x, y), à 10 px au plus.
+     Seulement là où un clic choisirait ce tracé : ni sur un objet, une étiquette ou une bulle, ni sur des tracés superposés où un clic
+     passerait au suivant ; ni sur un escalier, ni pendant les cotes, l'alignement ou le placement, ni avec le menu de poignée ouvert */
+  function plusSous(e, P, x, y){
+    if (e.t === 'esc' || S.menu || S.cotes || S.aligner || S.placer) return null;
+    var s = segmentProche(P, x, y); if (!s || s.q.d > 10 || s.q.t <= 0 || s.q.t >= 1) return null;
+    var z = toucher(x, y); if (!z || z.type !== 'ln' || z.id !== e.id) return null;
+    if (S.panneau === 'fiche' && tracesSous(x, y).length > 1) return null;
+    var w = S.vue.monde(s.q.x, s.q.y);
+    return {k: 'segment', id: e.id, i: s.j, x: w.x, y: w.y};
+  }
+  /* « + » à montrer : celui du survol de la souris (S.survol), hors d'un geste et d'un survol périmé */
+  function plusSurvol(){
+    var s = S.survol, c = s && !S.survolPerime && !S.geste ? cibleGlisser(s.x, s.y, true) : null;
+    return c && c.k === 'segment' ? c : null;
+  }
+  /* survol de la souris : le « + » n'est redessiné que s'il paraît, disparaît, change de segment ou si son pied bouge d'un demi-pixel */
+  function suivrePlus(){
+    var c = plusSurvol(), o = S.plus;
+    if (!c && !o) return;
+    if (c && o && c.id === o.id && c.i === o.i && Math.hypot(c.x - o.x, c.y - o.y) * S.vue.s < .5) return;
+    redessiner();
+  }
+  /* simple clic sur le « + » : sommet libre ajouté au pied, sans accroche, un pas d'annulation ; il est choisi */
+  function clicPlus(c){
+    var ae = document.activeElement; if (ae !== R && (!ae || ae === document.body || R.contains(ae))) try { R.focus({preventScroll: true}); } catch(er){}
+    quitterSaisie();
+    var e = el(c.id); if (!e || e.k !== 'ln' || !S.sel || S.sel.id !== e.id || S.outil.k !== 'main' || !e.v[c.i - 1] || !e.v[c.i]) return;
+    ajouterSommet(e, c.i, {x: c.x, y: c.y});
+    S.plusClic = {t: Date.now(), id: e.id, i: c.i};
+  }
+  /* clic qui suit de près un toucher ou un clic du plan (double clic : 380 ms, 24 px, même vue, comme le double toucher de tapPlan) */
+  function suiteDeClic(p){ var d = S.dernierTap; return !!d && Date.now() - d.t < 380 && Math.hypot(p.x - d.x, p.y - d.y) < 24 && d.vue === cleVue(); }
+  /* clic que les gardes de tapPlan ignorent (600 ms, 48 px) : second clic d'un double clic sur un bouton qui vient de disparaître (S.clicHors :
+     « Ajouter un point » du menu posé sur le trait, bouton de la fiche), ou plan qui vient de glisser pour montrer la fiche (S.gardeFiche) */
+  function clicGarde(p){
+    var t = Date.now(), ch = S.clicHors, gf = S.gardeFiche;
+    return !!(ch && t - ch.t < 600 && Math.hypot(p.x - ch.x, p.y - ch.y) < 48) || !!(gf && gf.glisse && t - gf.t < 600 && Math.hypot(p.x - gf.tx, p.y - gf.ty) < 48);
+  }
+  /* second clic d'un double clic sur le « + » : sur le sommet qu'il vient d'ajouter, dans les 500 ms ; ignoré, le sommet reste choisi */
+  function secondClicPlus(g){
+    var c = S.plusClic; S.plusClic = null;
+    return !!c && !!g.souris && Date.now() - c.t < 500 && !!g.cible && g.cible.k === 'sommet' && g.cible.id === c.id && g.cible.i === c.i;
   }
   function demarrerGlisser(g){
     var c = g.cible, e = el(c.id) || el(c.objId);
     if (c.k === 'milieu'){ var I = idx(), P = lignePts(e, I), a = P[c.i - 1], b = P[c.i]; e.v.splice(c.i, 0, {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, a: null}); c.k = 'sommet'; S.sel = {id: e.id, sommet: c.i}; }
+    /* « + » de la souris (m110) : sommet libre inséré au pied, puis glissé comme les autres (accroche, redressement, attaches) */
+    if (c.k === 'segment'){ e.v.splice(c.i, 0, {x: c.x, y: c.y, a: null}); c.k = 'sommet'; S.sel = {id: e.id, sommet: c.i}; }
     if (c.k === 'sommet'){
       var v = e.v[c.i], o = v.a && el(v.a);
       /* point intermédiaire posé sur un raccord où arrive un autre tracé (branchement sur le collecteur) : le raccord se déplace et les tracés
@@ -3234,8 +3376,11 @@ function editeur(racine, opts){
       if (z.type === 'ln' && S.sel && S.sel.id === z.id){
         var e = el(z.id), P = lignePts(e, idx()).map(function(p){ return S.vue.ecran(p.x, p.y); });
         for (var i = 0; i < P.length; i++) if (Math.hypot(x - P[i].x, y - P[i].y) <= 18){ S.sel.sommet = S.sel.sommet === i ? null : i; majPanneau(); redessiner(); return; }
+        /* doigt ou stylet sur le tracé déjà choisi, hors de ses poignées (m110) : bulle « + point », ouverte après le choix (la vue a pu
+           glisser pour montrer la fiche) ; pas au second toucher d'un double toucher */
+        var bpt = (S.dernierPointeur === 'touch' || S.dernierPointeur === 'pen') && !double && !cibleGlisser(x, y) ? piedBulle(e, P, x, y) : null;
       }
-      selectionner(z.id); return;
+      selectionner(z.id); if (bpt) ouvrirBullePoint(bpt); return;
     }
     if (o.k === 'pt'){
       var z2 = toucher(x, y), zs = null, ds = Infinity, zz = null, dz = Infinity;
@@ -5136,6 +5281,10 @@ var CSS = [
 '.vc-mboite h3{margin:0 0 8px;font-size:18px}',
 '.vc-mboite input,.vc-mboite textarea{width:100%;min-height:44px;padding:8px 10px;border:1px solid var(--line,#C7D1D8);border-radius:10px;font:inherit;font-size:16px;background:var(--surface,#fff);color:inherit}',
 '.vc-mact{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:14px}',
+'.vc-bulle-point{position:absolute;left:0;top:0;z-index:8;min-width:44px;min-height:44px;padding:0 16px;border:0;border-radius:999px;background:var(--brand,#0F5C63);color:var(--on-brand,#fff);font:inherit;font-size:16px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;cursor:pointer;box-shadow:var(--shadow,0 18px 50px -22px rgba(9,18,24,.55))}',
+'.vc-bulle-point[hidden]{display:none}',
+'.vc-bulle-point i{position:absolute;top:100%;left:50%;width:0;height:0;margin-left:-8px;border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid var(--brand,#0F5C63)}',
+'.vc-bulle-point.vc-dessous i{top:auto;bottom:100%;border-top:0;border-bottom:8px solid var(--brand,#0F5C63)}',
 '.vc-avecpanneau .vc-nav{right:420px}',
 '.vc-avecpanneau .vc-aide{right:420px}',
 '.vc-avecpanneau .vc-accroches{right:474px;width:min(300px,calc(100% - 560px))}',

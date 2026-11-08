@@ -84,8 +84,11 @@ CROQUIS DE TERRAIN (facultatif)
   droit sur une poignée du tracé choisi ouvre un petit menu près du
   pointeur : « Retirer le point », « Détacher » ou « Ajouter un point ».
   Échap ou un clic ailleurs le ferme ; sur le plan, ce clic ne fait que
-  fermer le menu, même sur le point. Au doigt et au stylet, rien ne
-  change.
+  fermer le menu, même sur le point. Survolé à la souris, un segment du
+  tracé choisi montre un « + » : un clic y ajoute un point, un glissé
+  l'ajoute et le déplace. Au doigt et au stylet, toucher le tracé déjà
+  choisi ouvre une bulle « + point » : la toucher ajoute un point à cet
+  endroit ; elle se ferme seule au bout de 4 s ou au geste suivant.
 - Les anomalies déduites du dessin (EU vers EP, EP vers EU, fosse, descente
   non visitable, tampon béton…) rejoignent la liste du dossier, avec les
   mêmes numéros (A1, A2…) que les bulles du plan : la fiche Préco, le

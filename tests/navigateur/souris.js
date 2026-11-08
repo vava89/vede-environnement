@@ -1,4 +1,4 @@
-// Souris dans l'éditeur du croquis, dans Chromium (données fictives, fond fictif de VCroquis.demoDxf()) : correctifs m100 et m109.
+// Souris dans l'éditeur du croquis, dans Chromium (données fictives, fond fictif de VCroquis.demoDxf()) : correctifs m100, m109 et m110.
 // c : un clic droit ou du milieu ne pose rien et ne choisit rien ; sur le plan, le menu du navigateur est empêché ; témoins : un clic
 //     gauche pose un regard, puis le choisit ;
 // g : un glissé au bouton droit depuis l'objet choisi ou une poignée du tracé choisi (sommet, milieu) déplace la vue, le dessin ne change
@@ -26,6 +26,19 @@
 //     le point) ; double clic sur « Ajouter un point » : le second clic est ignoré, le point ajouté reste choisi ;
 // t : témoins, aucun menu : escalier choisi (pause, clic droit), appui long du doigt, stylet qui survole une poignée.
 // p, r et a échouent sur f3f8ae9 (sauf les cas « aucun menu » et « croquis inchangé », et les témoins) ; t passe sur les deux versions.
+// « + » de la souris sur le tracé choisi (m110), outil Choisir :
+// u : survol d'un segment du tronçon choisi, hors des poignées : « + » au pied de la projection (à 1e-6, état S.plus), curseur « copy », à
+//     8 px du trait (pas à 14 px) ; il suit la souris le long du trait et d'un segment à l'autre, s'efface quand la souris quitte le plan ;
+//     aucun « + » sur une poignée (sommet, milieu, à 12 px d'un sommet) ni quand le menu de poignée est ouvert ; glissé de 50 px depuis le
+//     « + » : un sommet de plus, à l'endroit lâché (ou à l'accroche montrée), choisi, un pas d'annulation, une annulation rend le JSON ;
+//     glissé jusqu'à un regard : le sommet s'y attache ; simple clic : un sommet libre au pied (à 1e-6), choisi, un pas d'annulation ;
+//     double clic sur le « + » : un seul sommet ; aucun redessin la souris immobile ou déplacée à travers le trait (même pied), un redessin
+//     le long du trait (compteur des dessins) ; double clic sur « Ajouter un point » du menu posé sur un segment : le second clic, sur le
+//     « + », est ignoré (un seul point) ; menu de poignée fermé (Échap, ou clic gauche qui ne fait que le fermer), la souris immobile sur
+//     un segment : le « + » revient aussitôt (curseur « copy »), le clic suivant ajoute le sommet à son pied ; témoins : double clic sur le
+//     tronçon pas encore choisi (aucun sommet), glissé au bouton droit (la vue bouge), aucun « + » sur un tracé non choisi, avec l'outil
+//     Tronçon, sur un escalier choisi, sur des tracés superposés.
+// u échoue sur 6067bd5, sauf le survol d'une poignée (aucun « + »), les témoins et l'absence d'erreur dans la console.
 // usage : node tests/navigateur/souris.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -571,8 +584,216 @@ async function menuTemoins(){
   } finally { await A.fermer(); }
 }
 
+/* u : « + » de la souris sur le tracé choisi (m110) */
+const plusEtat = p => p.evaluate(() => { const S = window.__vcEd.etat, c = document.querySelector('.vc .vc-cv'), q = S.plus;
+  return {plus: q ? {id: q.id, i: q.i, x: q.x, y: q.y} : null, curseur: c.style.cursor || ''}; });
+const plusTxt = e => e.plus ? 'segment ' + e.plus.i + ' ' + pt(e.plus) : 'aucun « + »';
+const survolPx = p => p.evaluate(() => { const s = window.__vcEd.etat.survol; return s ? {x: s.x, y: s.y} : null; });
+/* pied, en mètres du plan, du point q du canevas sur le segment j - 1 → j du tracé id (projection orthogonale, bornée au segment) */
+const piedSur = (p, id, j, q) => p.evaluate(([id, j, q]) => {
+  const S = window.__vcEd.etat, e = S.doc.el.find(x => x.id === id), a = e.v[j - 1], b = e.v[j], m = S.vue.monde(q.x, q.y), dx = b.x - a.x, dy = b.y - a.y;
+  const t = Math.max(0, Math.min(1, ((m.x - a.x) * dx + (m.y - a.y) * dy) / (dx * dx + dy * dy))); return {x: a.x + t * dx, y: a.y + t * dy}; }, [id, j, q]);
+const monde = (p, q) => p.evaluate(q => window.__vcEd.etat.vue.monde(q.x, q.y), q);
+const pres = (a, b) => !!a && !!b && Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.y - b.y) < 1e-6;
+/* point du segment j - 1 → j des sommets V (mètres du plan), au paramètre t */
+const surSeg = (V, j, t) => ({x: V[j - 1][0] + t * (V[j][0] - V[j - 1][0]), y: V[j - 1][1] + t * (V[j][1] - V[j - 1][1])});
+/* survol au point q du canevas, en venant de 100 px au-dessus ; puis l'état du « + » */
+async function survolPlus(p, q){ await C.survolerCv(p, decale(q, 0, -100)); await C.survolerCv(p, q); await C.pause(p, 60); return plusEtat(p); }
+/* compteur des dessins du plan (remplissage de tout le canevas par lequel chacun commence), remis à zéro */
+async function compterDessins(p){
+  await p.evaluate(() => { const cv = document.querySelector('.vc .vc-cv'), c = cv.getContext('2d'); if (!window.__fr){ window.__fr = c.fillRect;
+    c.fillRect = function(x, y, w, h){ if (!x && !y && w === cv.width && h === cv.height) window.__dessins++; return window.__fr.apply(this, arguments); }; } window.__dessins = 0; });
+}
+const dessins = p => p.evaluate(() => window.__dessins);
+async function plus(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy, V = [[cx - 3, cy], [cx, cy + 1], [cx + 3, cy]];
+    await dessinChoisi(p, traceA(cx, cy), 'A', cx + 1.5, cy);
+    const j0 = await jsonEl(p);
+    /* au quart du segment 1 : à 50 px de son premier sommet et de sa poignée du milieu */
+    const w1 = surSeg(V, 1, .25), q1 = await C.ecranCv(p, w1.x, w1.y);
+    const e1 = await survolPlus(p, q1), s1 = await survolPx(p), f1 = s1 && await piedSur(p, 'A', 1, s1);
+    R.ok(!!e1.plus && e1.plus.id === 'A' && e1.plus.i === 1 && pres(e1.plus, f1) && e1.curseur === 'copy', 'u : survol d\'un segment du tronçon choisi, hors des'
+      + ' poignées : « + » au pied de la projection (à 1e-6), curseur « copy » (' + plusTxt(e1) + ', attendu ' + pt(f1) + ', curseur « ' + e1.curseur + ' »)');
+    /* 8 px à côté du trait (perpendiculaire) : même pied ; 14 px : aucun « + » */
+    const L1 = Math.hypot(V[1][0] - V[0][0], V[1][1] - V[0][1]), n1 = await C.ecranCv(p, w1.x - (V[1][1] - V[0][1]) / L1, w1.y + (V[1][0] - V[0][0]) / L1);
+    const nx = (n1.x - q1.x) / Math.hypot(n1.x - q1.x, n1.y - q1.y), ny = (n1.y - q1.y) / Math.hypot(n1.x - q1.x, n1.y - q1.y);
+    const e8 = await survolPlus(p, decale(q1, 8 * nx, 8 * ny)), s8 = await survolPx(p), f8 = s8 && await piedSur(p, 'A', 1, s8);
+    const e14 = await survolPlus(p, decale(q1, 14 * nx, 14 * ny));
+    R.ok(!!e8.plus && pres(e8.plus, f8) && !e14.plus && e14.curseur === '', 'u : à 8 px du trait, « + » au pied ; à 14 px, aucun « + » et curseur ordinaire ('
+      + plusTxt(e8) + ' ; ' + plusTxt(e14) + ')');
+    /* le long du segment 1 (20 px plus loin), puis sur le segment 2 : le « + » suit */
+    const w2 = surSeg(V, 1, .35), q2 = await C.ecranCv(p, w2.x, w2.y);
+    await C.survolerCv(p, q2); await C.pause(p, 60); const e2 = await plusEtat(p), s2 = await survolPx(p), f2 = s2 && await piedSur(p, 'A', 1, s2);
+    const w3 = surSeg(V, 2, .25), q3 = await C.ecranCv(p, w3.x, w3.y);
+    await C.survolerCv(p, q3); await C.pause(p, 60); const e3 = await plusEtat(p), s3 = await survolPx(p), f3 = s3 && await piedSur(p, 'A', 2, s3);
+    R.ok(!!e2.plus && e2.plus.i === 1 && pres(e2.plus, f2) && !!e3.plus && e3.plus.i === 2 && pres(e3.plus, f3), 'u : le « + » suit la souris le long du'
+      + ' segment, puis sur le segment suivant (' + plusTxt(e2) + ' ; ' + plusTxt(e3) + ')');
+    /* poignées : sommet, milieu du segment, point à 12 px d'un sommet le long du trait ; aucun « + » (la poignée a la priorité) */
+    const qs = await sommetCv(p, 'A', 1), qm = await milieuCv(p, 'A', 1), w12 = surSeg(V, 1, 12 / (L1 * 63)), q12 = await C.ecranCv(p, w12.x, w12.y);
+    const eS = await survolPlus(p, qs); await echap(p);
+    const eM = await survolPlus(p, qm); await echap(p);
+    const e12 = await survolPlus(p, q12); await echap(p);
+    R.ok(!eS.plus && !eM.plus && !e12.plus && !eS.curseur && !eM.curseur, 'u : survol d\'une poignée (sommet, milieu du segment, à 12 px d\'un sommet) : aucun'
+      + ' « + » (' + [eS, eM, e12].map(plusTxt).join(' ; ') + ')');
+    /* souris sortie du plan : le « + » s'efface */
+    const eAv = await survolPlus(p, q1); await C.sortirDuPlan(p); await C.pause(p, 100); const eAp = await plusEtat(p);
+    R.ok(!!eAv.plus && !eAp.plus && !eAp.curseur, 'u : souris sortie du plan : le « + » s\'efface, curseur ordinaire (avant ' + plusTxt(eAv) + ', après '
+      + plusTxt(eAp) + ')');
+    /* menu de poignée ouvert (clic droit sur un sommet) : aucun « + » sur le segment ; menu fermé (Échap), il revient au survol */
+    await C.cliquerCv(p, qs, 'right'); const mOuv = !!(await menu(p));
+    await C.survolerCv(p, q1); await C.pause(p, 60); const eMn = await plusEtat(p);
+    await echap(p); await C.survolerCv(p, decale(q1, 3, 0)); await C.pause(p, 60); const eMf = await plusEtat(p);
+    R.ok(mOuv && !eMn.plus && !!eMf.plus, 'u : menu de poignée ouvert : aucun « + » sur le segment ; menu fermé, il revient (' + (mOuv ? 'menu ouvert' : 'aucun menu')
+      + ', ' + plusTxt(eMn) + ' ; ' + plusTxt(eMf) + ')');
+
+    /* glissé de 50 px depuis le « + » : un sommet de plus, à l'endroit lâché (ou à l'accroche montrée), choisi ; un pas d'annulation */
+    const u0 = await nbUndo(p); let av = null;
+    await survolPlus(p, q1);
+    await C.glisserSourisCv(p, q1, decale(q1, 0, -50), 'left', {avantLever: async () => { av = await p.evaluate(() => { const a = window.__vcEd.etat.accrocheVue; return a ? {x: a.x, y: a.y, type: a.type} : null; }); }});
+    const eG = await elDoc(p, 'A'), sG = await selEtat(p), uG = await nbUndo(p), lever = await survolPx(p), wL = lever && await monde(p, lever), attendu = av || wL;
+    R.ok(eG.v.length === 4 && pres(eG.v[1], attendu) && !eG.v[1].a, 'u : glissé de 50 px depuis le « + » : un sommet de plus, à l\'endroit lâché'
+      + (av ? ' (accroche « ' + av.type + ' »)' : ' (aucune accroche, à 1e-6)') + ' (' + eG.v.length + ' sommets, ' + pt(eG.v[1]) + ', attendu ' + pt(attendu) + ')');
+    R.ok(!!sG && sG.id === 'A' && sG.sommet === 1 && uG === u0 + 1, 'u : le sommet glissé est choisi, un pas d\'annulation (' + JSON.stringify(sG) + ', '
+      + (uG - u0) + ' pas)');
+    await p.evaluate(() => window.__vcEd.annuler()); await C.pause(p, 250);
+    const jG = await jsonEl(p); await C.regler(p, cx + 1.5, cy, 63);
+    R.ok(eG.v.length === 4 && jG === j0, 'u : une annulation après le glissé rend le croquis d\'avant (' + (eG.v.length === 4 ? '' : 'aucun sommet ajouté, ')
+      + (jG === j0 ? 'même JSON' : 'JSON différent') + ')');
+
+    /* simple clic sur le « + » : un sommet libre au pied (sans accroche), choisi ; un pas d'annulation */
+    await p.evaluate(() => window.__vcEd.selectionner('A')); await C.pause(p, 250);
+    const uC0 = await nbUndo(p); await survolPlus(p, q1); const sC0 = await survolPx(p), fC = sC0 && await piedSur(p, 'A', 1, sC0);
+    await C.cliquerCv(p, q1, 'left');
+    const eC = await elDoc(p, 'A'), sC = await selEtat(p), uC = await nbUndo(p);
+    R.ok(eC.v.length === 4 && pres(eC.v[1], fC) && !eC.v[1].a, 'u : simple clic sur le « + » : un sommet libre de plus, au pied (à 1e-6) (' + eC.v.length
+      + ' sommets, ' + pt(eC.v[1]) + ', attendu ' + pt(fC) + ')');
+    R.ok(!!sC && sC.id === 'A' && sC.sommet === 1 && uC === uC0 + 1, 'u : le sommet ajouté est choisi, un pas d\'annulation (' + JSON.stringify(sC) + ', '
+      + (uC - uC0) + ' pas)');
+    await p.evaluate(() => window.__vcEd.annuler()); await C.pause(p, 250);
+    const jC = await jsonEl(p); await C.regler(p, cx + 1.5, cy, 63);
+    R.ok(eC.v.length === 4 && jC === j0, 'u : une annulation après le clic rend le croquis d\'avant (' + (eC.v.length === 4 ? '' : 'aucun sommet ajouté, ')
+      + (jC === j0 ? 'même JSON' : 'JSON différent') + ')');
+
+    /* double clic sur le « + » : un seul sommet, qui reste choisi */
+    await p.evaluate(() => window.__vcEd.selectionner('A')); await C.pause(p, 250);
+    await survolPlus(p, q1); const aD = await C.pageCv(p, q1); await p.mouse.dblclick(aD.x, aD.y); await C.pause(p, 450);
+    const eD = await elDoc(p, 'A'), sD = await selEtat(p);
+    R.ok(eD.v.length === 4 && !!sD && sD.id === 'A' && sD.sommet === 1, 'u : double clic sur le « + » : un seul sommet ajouté, qui reste choisi (' + eD.v.length
+      + ' sommets, ' + JSON.stringify(sD) + ')');
+    await p.evaluate(() => window.__vcEd.annuler()); await C.pause(p, 250); await C.regler(p, cx + 1.5, cy, 63);
+
+    /* témoin : double clic sur le tronçon pas encore choisi : il est choisi, aucun sommet (le « + » montré après le premier clic n'agit pas) */
+    await p.evaluate(() => window.__vcEd.selectionner(null)); await C.pause(p, 250);
+    await C.survolerCv(p, q1); await p.mouse.dblclick(aD.x, aD.y); await C.pause(p, 450);
+    const eD2 = await elDoc(p, 'A'), sD2 = await selEtat(p), jD2 = await jsonEl(p);
+    R.ok(jD2 === j0 && !!sD2 && sD2.id === 'A', 'u : témoin : double clic sur le tronçon pas encore choisi : il est choisi, aucun sommet ajouté (' + eD2.v.length
+      + ' sommets, choisi : ' + (sD2 ? sD2.id : 'rien') + ')');
+
+    /* témoin : glissé au bouton droit depuis le « + » : la vue bouge, le croquis ne change pas */
+    await survolPlus(p, q1); const c0 = await centre(p);
+    await C.glisserSourisCv(p, q1, decale(q1, 40, -30), 'right'); const c1 = await centre(p), jR = await jsonEl(p);
+    R.ok(jR === j0 && Math.hypot(c1.x - c0.x, c1.y - c0.y) > .3, 'u : témoin : glissé au bouton droit depuis le « + » : la vue bouge, croquis inchangé (vue déplacée de '
+      + Math.hypot(c1.x - c0.x, c1.y - c0.y).toFixed(2) + ' m' + (jR === j0 ? '' : ', croquis changé') + ')');
+
+    /* glissé depuis le « + » jusqu'à un regard : le nouveau sommet s'y attache (tronçon), comme un sommet glissé */
+    await dessinChoisi(p, traceA(cx, cy), 'A', cx + 1.5, cy);
+    const wR = await monde(p, decale(q1, 0, -60));
+    const els = traceA(cx, cy).concat([C.P('r1', 'regard', wR.x, wR.y, {tampon: 'fonte'})]);
+    await dessinChoisi(p, els, 'A', cx + 1.5, cy);
+    const jA0 = await jsonEl(p), qR = await C.ecranCv(p, wR.x, wR.y);
+    await survolPlus(p, q1); const eA0 = await plusEtat(p);
+    await C.glisserSourisCv(p, q1, qR, 'left');
+    const eA = await elDoc(p, 'A'), uA = await nbUndo(p);
+    R.ok(!!eA0.plus && eA.v.length === 4 && eA.v[1].a === 'r1' && Math.abs(eA.v[1].x - wR.x) < 1e-9 && Math.abs(eA.v[1].y - wR.y) < 1e-9 && uA === 1,
+      'u : glissé depuis le « + » jusqu\'à un regard : le nouveau sommet s\'y attache, un pas d\'annulation (' + eA.v.length + ' sommets, attaché à '
+      + (eA.v[1] && eA.v[1].a) + ', ' + uA + ' pas)');
+    await p.evaluate(() => window.__vcEd.annuler()); await C.pause(p, 250);
+    const jA = await jsonEl(p);
+    R.ok(eA.v.length === 4 && jA === jA0, 'u : une annulation rend le croquis d\'avant le glissé jusqu\'au regard (' + (eA.v.length === 4 ? '' : 'aucun sommet ajouté, ')
+      + (jA === jA0 ? 'même JSON' : 'JSON différent') + ')');
+
+    /* redessins : « + » montré, aucun redessin sans mouvement ni pour un mouvement qui garde le pied ; un mouvement le long du trait redessine */
+    const W = [[cx - 3, cy], [cx + 3, cy]];
+    await dessinChoisi(p, [C.L('B', 'tr', W, {})], 'B', cx + 1.5, cy);
+    const wb = surSeg(W, 1, .25), qb = await C.ecranCv(p, wb.x, wb.y), eb = await survolPlus(p, qb);
+    await compterDessins(p); await C.pause(p, 300); const d0 = await dessins(p);
+    const ab = await C.pageCv(p, qb); await p.mouse.move(ab.x, ab.y - 3); await C.pause(p, 150); const d1 = await dessins(p), eb1 = await plusEtat(p);
+    await p.mouse.move(ab.x + 20, ab.y - 3); await C.pause(p, 150); const d2 = await dessins(p), eb2 = await plusEtat(p);
+    R.ok(!!eb.plus && d0 === 0 && d1 === 0 && !!eb1.plus && pres(eb1.plus, eb.plus), 'u : « + » montré, la souris immobile puis déplacée de 3 px à travers le trait'
+      + ' (même pied) : aucun redessin (' + d0 + ' puis ' + d1 + ' dessin, ' + plusTxt(eb) + ' ; ' + plusTxt(eb1) + ')');
+    R.ok(d2 > d1 && !!eb2.plus && Math.abs(eb2.plus.x - eb.plus.x - 20 / 63) < .02, 'u : déplacée de 20 px le long du trait : le « + » suit, le plan est redessiné ('
+      + (d2 - d1) + ' dessin, ' + plusTxt(eb2) + ')');
+
+    /* témoins, aucun « + » : tracé non choisi, autre outil, escalier choisi, tracés superposés (un clic passerait au suivant) */
+    const Wc = [[cx - 3, cy - 2], [cx + 3, cy - 2]];
+    await dessinChoisi(p, [C.L('B', 'tr', W, {}), C.L('Bc', 'tr', Wc, {})], 'B', cx + 1.5, cy);
+    const wc = surSeg(Wc, 1, .25), eNc = await survolPlus(p, await C.ecranCv(p, wc.x, wc.y));
+    await C.outil(p, {k: 'ln', id: 'tr', pal: 'tr'}); await C.pause(p, 150); const eOu = await survolPlus(p, qb);
+    await C.outil(p, {k: 'main'}); await C.pause(p, 150);
+    R.ok(!eNc.plus && !eOu.plus, 'u : témoin : tracé non choisi, outil Tronçon : aucun « + » (' + plusTxt(eNc) + ' ; ' + plusTxt(eOu) + ')');
+    const Es = {id: 'E', k: 'ln', t: 'esc', v: [{x: cx - 2, y: cy, a: null}, {x: cx + 1, y: cy, a: null}], p: {larg: '1,00', n: '4', cote: 'g', monte: 'fin', st: 'existant'}, lab: null};
+    await dessinChoisi(p, [Es], 'E', cx + 1.5, cy);
+    const eE1 = await survolPlus(p, await C.ecranCv(p, cx - 1.25, cy)), eE2 = await survolPlus(p, await C.ecranCv(p, cx - .5, cy)), jE = await jsonEl(p);
+    await C.cliquerCv(p, await C.ecranCv(p, cx - 1.25, cy), 'left'); const jE2 = await jsonEl(p);
+    R.ok(!eE1.plus && !eE2.plus && !eE1.curseur && jE2 === jE, 'u : témoin : escalier choisi : aucun « + » sur sa ligne, un clic n\'y ajoute rien (' + plusTxt(eE1) + ' ; '
+      + plusTxt(eE2) + (jE2 === jE ? '' : ', croquis changé') + ')');
+    await dessinChoisi(p, [C.L('S1', 'tr', W, {}, {st: 'supprimer'}), C.L('S2', 'tr', W, {}, {st: 'projet'})], 'S1', cx + 1.5, cy);
+    const eSu = await survolPlus(p, qb), jS = await jsonEl(p);
+    await C.cliquerCv(p, qb, 'left'); const sSu = await selEtat(p), jS2 = await jsonEl(p);
+    R.ok(!eSu.plus && !!sSu && sSu.id === 'S2' && jS2 === jS, 'u : témoin : tracés superposés, l\'un choisi : aucun « + », le clic passe au suivant (' + plusTxt(eSu)
+      + ', choisi : ' + (sSu ? sSu.id : 'rien') + (jS2 === jS ? '' : ', croquis changé') + ')');
+
+    /* double clic sur « Ajouter un point » du menu, le bouton posé sur un segment du tracé choisi : le second clic tombe sur le « + » du plan
+       découvert ; il reste ignoré (garde du bouton qui vient de disparaître), un seul point est ajouté. Le tracé est refait pour que son
+       segment 2 passe sous le bouton, au tiers, loin de ses poignées. */
+    await dessinChoisi(p, traceA(cx, cy), 'A', cx + 1.5, cy);
+    const qK = await milieuCv(p, 'A', 1), mK = await menuSur(p, qK), bK = mK && await centreBouton(p, 'Ajouter un point');
+    await p.keyboard.press('Escape'); await C.pause(p, 200);
+    let plK = null, bK2 = null;
+    if (bK){
+      const o = await C.pageCv(p, {x: 0, y: 0}), qB = {x: bK.x - o.x, y: bK.y - o.y}, wB = await monde(p, qB), v1 = V[1];
+      await dessinChoisi(p, [C.L('A', 'tr', [V[0], v1, [v1[0] + 3 * (wB.x - v1[0]), v1[1] + 3 * (wB.y - v1[1])]], {})], 'A', cx + 1.5, cy);
+      plK = await survolPlus(p, qB); await C.sortirDuPlan(p);
+      const mK2 = await menuSur(p, qK); bK2 = mK2 && await centreBouton(p, 'Ajouter un point');
+    }
+    const uK0 = await nbUndo(p), memeK = !!bK2 && Math.hypot(bK2.x - bK.x, bK2.y - bK.y) < 2;
+    if (memeK){ await p.mouse.dblclick(bK2.x, bK2.y); await C.pause(p, 450); }
+    const eK = await elDoc(p, 'A'), sK = await selEtat(p), uK = await nbUndo(p);
+    R.ok(!!plK && !!plK.plus && memeK && eK.v.length === 4 && !!sK && sK.id === 'A' && sK.sommet === 1 && uK === uK0 + 1, 'u : double clic sur « Ajouter un'
+      + ' point » posé sur un segment du tracé choisi : le second clic, sur le « + », est ignoré, un seul point ajouté (' + (plK ? 'sous le bouton : '
+      + plusTxt(plK) : 'aucun menu') + (bK2 && !memeK ? ', menu déplacé' : '') + ', ' + eK.v.length + ' sommets, ' + JSON.stringify(sK) + ', ' + (uK - uK0)
+      + ' pas)');
+
+    /* menu de poignée fermé, la souris immobile sur un segment : le « + » revient aussitôt, curseur « copy » ; le clic suivant, sans
+       bouger, ajoute le sommet au pied de ce « + ». Menu fermé par Échap, puis par le clic gauche qui ne fait que le fermer. */
+    await dessinChoisi(p, traceA(cx, cy), 'A', cx + 1.5, cy);
+    const jF0 = await jsonEl(p), uF0 = await nbUndo(p), qsF = await sommetCv(p, 'A', 1);
+    const mF = await menuSur(p, qsF); await C.survolerCv(p, q1); await C.pause(p, 60); const eFo = await plusEtat(p);
+    await p.keyboard.press('Escape'); await C.pause(p, 150); const eFe = await plusEtat(p);
+    await p.mouse.down(); await p.mouse.up(); await C.pause(p, 450);
+    const eF = await elDoc(p, 'A'), sF = await selEtat(p), uF = await nbUndo(p);
+    R.ok(!!mF && !eFo.plus && !!eFe.plus && eFe.curseur === 'copy' && eF.v.length === 4 && pres(eF.v[1], eFe.plus) && !!sF && sF.sommet === 1 && uF === uF0 + 1,
+      'u : menu fermé par Échap, souris immobile sur le segment : le « + » revient aussitôt (curseur « copy »), un clic sans bouger ajoute le sommet à son pied ('
+      + (mF ? 'menu ouvert' : 'aucun menu') + ', puis ' + plusTxt(eFe) + ', curseur « ' + eFe.curseur + ' » ; ' + eF.v.length + ' sommets, ' + pt(eF.v[1]) + ', '
+      + JSON.stringify(sF) + ', ' + (uF - uF0) + ' pas)');
+    await dessinChoisi(p, traceA(cx, cy), 'A', cx + 1.5, cy);
+    const mF2 = await menuSur(p, qsF); await C.survolerCv(p, q1); await C.pause(p, 60);
+    await p.mouse.down(); await p.mouse.up(); await C.pause(p, 150);
+    const mF2b = await menu(p), jF2 = await jsonEl(p), eFc = await plusEtat(p);
+    await C.pause(p, 300); await p.mouse.down(); await p.mouse.up(); await C.pause(p, 450);
+    const eF2 = await elDoc(p, 'A'), sF2 = await selEtat(p);
+    R.ok(!!mF2 && !mF2b && jF2 === jF0 && !!eFc.plus && eFc.curseur === 'copy' && eF2.v.length === 4 && pres(eF2.v[1], eFc.plus) && !!sF2 && sF2.sommet === 1,
+      'u : menu fermé par un clic gauche sur le segment : ce clic n\'ajoute rien, le « + » revient aussitôt (curseur « copy »), le clic suivant ajoute le'
+      + ' sommet à son pied (' + (mF2 ? (mF2b ? 'menu resté ouvert' : 'menu fermé') : 'aucun menu') + (jF2 === jF0 ? '' : ', croquis changé au premier clic') + ', '
+      + plusTxt(eFc) + ', curseur « ' + eFc.curseur + ' » ; ' + eF2.v.length + ' sommets, ' + pt(eF2.v[1]) + ', ' + JSON.stringify(sF2) + ')');
+    erreurs(A, 'u');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [clics, glisses, survol, doigt, menuPause, menuClicDroit, menuActions, menuTemoins]){
+  for (const f of [clics, glisses, survol, doigt, menuPause, menuClicDroit, menuActions, menuTemoins, plus]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception du test : ' + (e && e.stack || e)); }
   }
   R.fin();
