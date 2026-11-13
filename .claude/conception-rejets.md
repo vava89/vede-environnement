@@ -245,7 +245,8 @@ signaler à l'utilisateur. CJ = croquis/croquis.js, IX = index.html ; vm/ et nav
     ces objets : un « Tronçon EP », « Tronçon EU » ou « Tronçon unitaire » qui y mène y est présumé raccordé à ce réseau. Une descente vers un puits,
     un WC vers une infiltration, non conformes sur une tablette à jour, y restent non conformes tant que le croquis n'y est pas ouvert ; son ouverture
     retire du dossier les anomalies « rejet au sol » ou « rejet dans le puits » que personne n'a modifiées, et le plan comme le constat y paraissent
-    alors conformes (« À compléter » par un simple « Tronçon ») ; elles reviennent sur une tablette à jour. Un drain y est un simple tuyau ; vers une
+    alors conformes (« À compléter » par un simple « Tronçon » ; par un « Tronçon EP », un WC y reste non conforme, mais comme raccordé aux EP) ;
+    elles reviennent sur une tablette à jour. Un drain y est un simple tuyau ; vers une
     infiltration, comme le bouton « Rejet au sol », il y donne « À compléter ». N'y signez aucun constat de ces dossiers : un constat signé ne change
     plus. »
     La version ne s'affiche qu'au pied du plan PDF (IX:4832, CJ:5842) [p : aucun autre affichage trouvé]. « Ou plus ancienne » attend l'essai de m125
