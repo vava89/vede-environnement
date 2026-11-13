@@ -777,6 +777,9 @@ var EXU = {
   INF: {lib: 'puisard (infiltration)', res: 'EP',
     eu: {cle: 'eu-inf', obs: 'rejet dans un puisard', preco: 'Suppression du rejet dans le puisard et raccordement au branchement EU', nc: true, codes: ['raccEUsep'], cat: 'inversion'},
     cEU: {code: 'MILIEU', lib: 'Puisard : rejet au sol (milieu naturel)'}, cEP: {code: '', lib: 'Puisard (infiltration à la parcelle)', recup: 'puisard'}},
+  SOL: {lib: 'infiltration au sol', res: 'EP',
+    eu: {cle: 'eu-sol', obs: 'rejet au sol (infiltration)', preco: 'Suppression du rejet au sol et raccordement au branchement EU', nc: true, codes: ['suppMilieu'], cat: 'inversion'},
+    cEU: {code: 'MILIEU', lib: 'Infiltration au sol : rejet au sol (milieu naturel)'}, cEP: {code: '', lib: 'Infiltration au sol (infiltration diffuse)', recup: 'infil'}},
   GARG: {lib: 'gargouille', res: 'EP',
     eu: {cle: 'eu-garg', obs: 'rejet à la gargouille', preco: 'Déconnexion des EU de la gargouille et raccordement au branchement EU', nc: true, codes: ['decoGarg'], cat: 'inversion'},
     cEU: {code: 'GARG'}, cEP: {code: 'GARG'}},
@@ -833,6 +836,7 @@ def('clapet', {fam: 'equ', lib: 'Clapet anti-retour', role: 'passage', forme: 'c
 def('fosse', {fam: 'equ', lib: 'Fosse septique', ab: 'FS', g: 'f', role: 'passage', forme: 'fosse', fosse: true});
 def('jonction', {fam: 'equ', lib: 'Raccord', role: 'passage', forme: 'point', sansEtiquette: true});
 def('puisard', {fam: 'exu', lib: 'Puisard', role: 'exutoire', forme: 'puisard', exu: 'INF'});
+def('infiltration', {fam: 'exu', lib: 'Infiltration au sol', g: 'f', role: 'exutoire', forme: 'infiltration', exu: 'SOL', droit: true});
 def('gargouille', {fam: 'exu', lib: 'Gargouille', g: 'f', role: 'exutoire', forme: 'gargouille', exu: 'GARG', oriente: true, mur: true});
 def('milieu', {fam: 'exu', lib: 'Rejet en milieu naturel', ab: 'MN', role: 'exutoire', forme: 'app', exu: 'MILIEU'});
 def('regard_pub', {fam: 'pub', lib: 'Regard public', role: 'passage', forme: 'regpub', regard: true});
@@ -842,7 +846,7 @@ var FAMILLES = [
   {id: 'eu', lib: 'Appareils EU', court: 'EU', types: ['wc', 'lavabo', 'douche', 'baignoire', 'sdb', 'evier', 'cuisine', 'lavelinge', 'lavevaisselle', 'chaudiere', 'siphon_garage', 'attente']},
   {id: 'ep', lib: 'Ouvrages EP', court: 'EP', types: ['descente', 'grille', 'caniveau', 'siphon_sol', 'siphon_cour', 'drain', 'tropplein']},
   {id: 'reg', lib: 'Regards', court: 'Regards', types: ['regard', 'boite', 'te']},
-  {id: 'equ', lib: 'Équipements et exutoires', court: 'Équip.', types: ['pr', 'clapet', 'fosse', 'jonction', 'puisard', 'gargouille', 'milieu']},
+  {id: 'equ', lib: 'Équipements et exutoires', court: 'Équip.', types: ['pr', 'clapet', 'fosse', 'jonction', 'puisard', 'infiltration', 'gargouille', 'milieu']},
   {id: 'pub', lib: 'Réseau public', court: 'Public', types: ['regard_pub']},
   {id: 'ann', lib: 'Annotations', court: 'Notes', types: ['test', 'zone']}
 ];
@@ -1478,7 +1482,7 @@ VC.anomaliesDoc = anomaliesDoc; VC.conclusion = conclusion;
    {id, reseau, observation, preconisation, localisation, installation, nc, photos, brouillon, croquis?: {cle, objId, auto: {obs, preco, reseau, nc, installation}}}.
    Une anomalie du dessin retenue devient un enregistrement relié par sa clé ; le croquis garde les décisions et la place des bulles.
    Un enregistrement resté tel que le croquis l'a créé suit le dessin ; dès qu'il est modifié (texte, photo, localisation…), c'est lui qui fait foi. */
-var REGLES_LIGNE = /^(eu-ep|eu-inf|eu-garg|eu-milieu|ep-eu|ep-fosse|dep-nv):/;
+var REGLES_LIGNE = /^(eu-ep|eu-inf|eu-sol|eu-garg|eu-milieu|ep-eu|ep-fosse|dep-nv):/;
 /* non-conformité ou réserve : l'application remplace cette règle par la sienne (anomNC) */
 VC.ncAnomalie = function(r){
   if (r.nc === true || r.nc === false) return r.nc;
@@ -1877,7 +1881,7 @@ VC.texteEtiquette = texteEtiquette; VC.resLigne = resLigne; VC.texteLimite = tex
 
 /* ---------- Symboles : primitives en millimètres papier, y en haut, centrées sur l'objet ---------- */
 var BLANC = [255, 255, 255];
-function rayonSymbole(t){ var f = (T[t] || {forme: 'app'}).forme; return {app: 1.9, app2: 2.3, descente: 1.25, grille: 1.6, caniveau: 2.7, siphon: 1.5, regard: 1.7, boite: 1.9, te: 1.4, clapet: 1.3, fosse: 2.6, point: .7, puisard: 2.1, gargouille: 1.9, regpub: 1.7, test: 2, zone: 1}[f] || 1.6; }
+function rayonSymbole(t){ var f = (T[t] || {forme: 'app'}).forme; return {app: 1.9, app2: 2.3, descente: 1.25, grille: 1.6, caniveau: 2.7, siphon: 1.5, regard: 1.7, boite: 1.9, te: 1.4, clapet: 1.3, fosse: 2.6, point: .7, puisard: 2.1, infiltration: 2.1, gargouille: 1.9, regpub: 1.7, test: 2, zone: 1}[f] || 1.6; }
 function couleurPt(e, an){
   var ty = T[e.t] || {};
   if (e.p && e.p.st === 'projet') return RES.PRJ.rgb;
@@ -1912,6 +1916,10 @@ function primitives(e, rgb, angPlan){
     case 'fosse': rect(5, 3, {trait: rgb, fond: BLANC, ep: .3}); texte('FS', 1.5, {coul: rgb, gras: true}); break;
     case 'point': cercle(.6, {fond: rgb}); break;
     case 'puisard': cercle(2.1, {trait: rgb, fond: BLANC, ep: ep}); cercle(1.1, {trait: rgb, ep: ep}); break;
+    /* infiltration au sol : un disque blanc sans trait (masque) cache le bout du tuyau, qui va jusqu'au centre ; puis une tige et trois barres */
+    case 'infiltration':
+      cercle(2.1, {fond: BLANC, masque: true}); poly([0, 2, 0, .4], false, {trait: rgb, ep: .3});
+      [[1.8, .4], [1.15, -.5], [.5, -1.4]].forEach(function(b){ poly([-b[0], b[1], b[0], b[1]], false, {trait: rgb, ep: .3}); }); break;
     case 'gargouille': poly([-1.7, -.8, .5, -.8, 1.8, 0, .5, .8, -1.7, .8], true, {trait: rgb, fond: BLANC, ep: ep}); break;
     case 'regpub': cercle(1.7, {trait: rgb, fond: BLANC, ep: .3}); cercle(.5, {fond: rgb}); break;
     case 'test': poly([0, 0, 0, 3.4], false, {trait: rgb, ep: .25}); poly([0, 3.4, 2.2, 2.8, 0, 2.2], true, {trait: rgb, fond: rgb, ep: .15}); break;
@@ -1920,6 +1928,9 @@ function primitives(e, rgb, angPlan){
   return P;
 }
 VC.primitives = primitives; VC.rayonSymbole = rayonSymbole; VC.couleurPt = couleurPt;
+/* angle du symbole du type t dans le repère du papier (radians) : a, angle propre en degrés ; rot, rotation du plan. Un type « droit » reste
+   droit sur le papier, même avec un angle propre venu d'un fichier (p.a) ; un changement de type vers lui efface l'angle (defautsPt) */
+function angleSymbole(t, a, rot){ return (T[t] || {}).droit ? 0 : ((a || 0) * Math.PI / 180) - (rot || 0); }
 
 /* ---------- Vue : centre (mètres), échelle (px par mètre), rotation du plan (radians, sens trigonométrique) ---------- */
 function Vue(w, h){ this.w = w || 800; this.h = h || 600; this.cx = 0; this.cy = 0; this.s = 4; this.rot = 0; }
@@ -2205,7 +2216,7 @@ function dessinerCroquis(ctx, doc, an, vue, dpr, o){
     if (e.k !== 'pt' || e.t === 'zone') return;
     var c = vue.ecran(e.x, e.y), R = rayonSymbole(e.t), kk = Math.max(k, (e.t === 'jonction' ? 4 : 8.5) / R), rgb = couleurPt(e, an);
     ctx.globalAlpha = attenue(e) ? .35 : 1;
-    dessinerPrims(ctx, primitives(e, rgb, ((e.p.a || 0) * Math.PI / 180) - rot), c.x, c.y, kk);
+    dessinerPrims(ctx, primitives(e, rgb, angleSymbole(e.t, e.p.a, rot)), c.x, c.y, kk);
     if (e.p.st === 'supprimer'){ ctx.beginPath(); ctx.moveTo(c.x - R * kk, c.y - R * kk); ctx.lineTo(c.x + R * kk, c.y + R * kk); ctx.moveTo(c.x - R * kk, c.y + R * kk); ctx.lineTo(c.x + R * kk, c.y - R * kk); ctx.strokeStyle = rgbCss(rgb); ctx.lineWidth = 1.5; ctx.stroke(); }
     zones.push({type: 'pt', id: e.id, x: c.x, y: c.y, r: R * kk});
   });
@@ -4478,7 +4489,7 @@ function editeur(racine, opts){
       var o = C.pour.id ? el(C.pour.id) : null, ty = o ? o.t : C.pour.t, e = o || {k: 'pt', t: ty, p: defautsPt(ty)}, ang = o ? (o.p && o.p.a) || 0 : angleCotes(ty, r);
       ctx.globalAlpha = .55;
       if (ty === 'zone'){ ctx.beginPath(); ctx.arc(eP.x, eP.y, Math.max(10, (num(e.p.r) || 1.5) * S.vue.s), 0, 2 * Math.PI); ctx.setLineDash([5, 4]); ctx.strokeStyle = rgbCss(RES.ANN.rgb); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); }
-      else dessinerPrims(ctx, primitives(e, couleurPt(e, o ? S.an : null), ((ang || 0) * Math.PI / 180) - (S.doc.rot || 0)), eP.x, eP.y, Math.max(S.vue.s * E() / 1000, (ty === 'jonction' ? 4 : 8.5) / rayonSymbole(ty)));
+      else dessinerPrims(ctx, primitives(e, couleurPt(e, o ? S.an : null), angleSymbole(ty, ang, S.doc.rot || 0)), eP.x, eP.y, Math.max(S.vue.s * E() / 1000, (ty === 'jonction' ? 4 : 8.5) / rayonSymbole(ty)));
       ctx.globalAlpha = 1;
     }
     ctx.restore();
@@ -5033,7 +5044,7 @@ function editeur(racine, opts){
     var ouv = RECUP_LIB.filter(function(q){ return cd.epRecup[q[0]]; }).map(function(q){ return q[1]; });
     if (ouv.length) h += '<p><strong>' + (ouv.length > 1 ? 'Ouvrages' : 'Ouvrage') + ' de récupération des EP :</strong> ' + esc(ouv.join(', ')) + '</p>';
     if (cd.sansCote.length) h += '<p class="vc-muet">' + (cd.sansCote.length > 1 ? cd.sansCote.length + ' descentes EP sans façade indiquée ne sont comptées' : 'Une descente EP sans façade indiquée n\'est comptée') + ' ni en façade avant ni en façade arrière.</p>';
-    if (cd.rows.some(function(r){ return r.nb && !r.raccord && r.libs.length; })) h += '<p class="vc-muet">Un raccordement sans code du formulaire (réseau privé, puisard EP) reste à cocher à la main dans le constat.</p>';
+    if (cd.rows.some(function(r){ return r.nb && !r.raccord && r.libs.length; })) h += '<p class="vc-muet">Un raccordement sans code du formulaire (réseau privé, puisard, infiltration ou autre destination des EP) reste à cocher à la main dans le constat.</p>';
     h += '<p><strong>Conclusion proposée :</strong> ' + esc(CONCL[conclusion(S.liste, S.an)] || '—') + '</p>';
     return h;
   }
@@ -5779,7 +5790,7 @@ function pdfPlan(doc, fond, o){
   doc.el.forEach(function(e){
     if (e.k !== 'pt' || e.t === 'zone' || !montrer(e)) return;
     var c = papier(e.x, e.y), rgb = couleurPt(e, an);
-    primsPdf(pdf, primitives(e, rgb, ((e.p.a || 0) * Math.PI / 180) - rot), c.x, c.y, 1);
+    primsPdf(pdf, primitives(e, rgb, angleSymbole(e.t, e.p.a, rot)), c.x, c.y, 1);
     if (mode === 'avp' && e.p.st === 'supprimer'){ var R = rayonSymbole(e.t); pdf.setDrawColor(rgb[0], rgb[1], rgb[2]); pdf.setLineWidth(.3); pdf.line(c.x - R, c.y - R, c.x + R, c.y + R); pdf.line(c.x - R, c.y + R, c.x + R, c.y - R); }
   });
   /* étiquettes et textes libres, horizontaux sur le papier */
@@ -6043,6 +6054,8 @@ function ecrireDxf(doc, an, liste){
   Object.keys(types).forEach(function(t){
     g(0, 'BLOCK'); g(8, '0'); g(2, 'VEDE_' + t.toUpperCase()); g(70, 0); g(10, '0.0'); g(20, '0.0'); g(30, '0.0'); g(3, 'VEDE_' + t.toUpperCase());
     primitives({k: 'pt', t: t, p: defautsPt(t)}, [0, 0, 0], 0).forEach(function(q){
+      /* masque (infiltration au sol) : il cache le bout du tuyau sur le plan ; dans le bloc, il deviendrait un disque plein */
+      if (q.masque) return;
       if (q.k === 'c'){
         if (q.fond && !q.trait || (q.fond && q.trait && q.fond[0] === q.trait[0] && q.fond[1] === q.trait[1] && q.fond[2] === q.trait[2] && q.fond[0] !== 255)){
           /* disque plein : polyligne épaisse fermée (anneau sans trou) */

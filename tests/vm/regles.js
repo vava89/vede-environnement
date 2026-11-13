@@ -3,6 +3,8 @@
 // tampon béton (NC en EU, réserve en EP), fosse septique traversée (NC), en cul-de-sac ou hors fonction grâce à un by-pass (rien), fosses
 // en parallèle (une fosse d'un chemin qui en traverse le moins), boîte sur le mauvais collecteur, et la conclusion proposée qui en découle
 // (by-pass sous toutes ses formes : fosse-contournee.js ; fosse désignée comparée à un oracle : fosse-oracle.js).
+// Infiltration au sol (m117) : descente conforme, WC non conforme (eu-sol), par un regard au tampon béton (réserve en EP), et une descente
+// vers une infiltration et un puisard (deux exutoires : état « multiple »). Ces cinq cas échouent sur 2f3faa1 (type inconnu : bout libre).
 // usage : node tests/vm/regles.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rapport} = require('./charger.js');
@@ -19,6 +21,15 @@ const cas = [
   {n: 'évier vers la gargouille', d: doc({o: [['s', 'evier', 0, 8], ['G', 'gargouille', 0, 0]], l: [['L', 'tr', '', '', ['s', 'G']]]}), et: 's=ok:GARG', a: [['eu-garg:s', true, 'Évier : rejet à la gargouille']], c: 'non_conformes'},
   {n: 'lave-linge vers le milieu naturel', d: doc({o: [['s', 'lavelinge', 0, 8], ['M', 'milieu', 0, 0]], l: [['L', 'tr', '', '', ['s', 'M']]]}), et: 's=ok:MILIEU', a: [['eu-milieu:s', true, 'Lave-linge : rejet en milieu naturel']], c: 'non_conformes'},
   {n: 'descente vers un puisard (gestion à la parcelle)', d: doc({o: [['s', 'descente', 0, 8], ['P', 'puisard', 0, 0]], l: [['L', 'tr', '', '', ['s', 'P']]]}), et: 's=ok:INF', a: [], c: 'conformes'},
+  {n: 'descente vers une infiltration au sol', d: doc({o: [['s', 'descente', 0, 8], ['I', 'infiltration', 0, 0]], l: [['L', 'tr', '', '', ['s', 'I']]]}), et: 's=ok:SOL', a: [], c: 'conformes'},
+  {n: 'WC vers une infiltration au sol', d: doc({o: [['s', 'wc', 0, 8], ['I', 'infiltration', 0, 0]], l: [['L', 'tr', '', '', ['s', 'I']]]}), et: 's=ok:SOL', a: [['eu-sol:s', true, 'WC : rejet au sol (infiltration)']], c: 'non_conformes'},
+  {n: 'descente vers une infiltration au sol et un puisard (deux exutoires)', d: doc({o: [['s', 'descente', 0, 8], ['R', 'regard', 0, 4], ['I', 'infiltration', -3, 0], ['P', 'puisard', 3, 0]],
+    l: [['L1', 'tr', '', '', ['s', 'R']], ['L2', 'tr', '', '', ['R', 'I']], ['L3', 'tr', '', '', ['R', 'P']]]}), et: 's=multiple', a: [], c: 'incomplet'},
+  {n: 'descente vers une infiltration au sol par un regard au tampon béton (réserve)', d: doc({o: [['s', 'descente', 0, 8], ['R', 'regard', 0, 4, {tampon: 'beton'}], ['I', 'infiltration', 0, 0]],
+    l: [['L1', 'tr', '', '', ['s', 'R']], ['L2', 'tr', '', '', ['R', 'I']]]}), et: 's=ok:SOL', a: [['tampon:R', false, 'Regard EP : tampon béton']], c: 'reserves'},
+  {n: 'WC vers une infiltration au sol par un regard au tampon béton', d: doc({o: [['s', 'wc', 0, 8], ['R', 'regard', 0, 4, {tampon: 'beton'}], ['I', 'infiltration', 0, 0]],
+    l: [['L1', 'tr', '', '', ['s', 'R']], ['L2', 'tr', '', '', ['R', 'I']]]}), et: 's=ok:SOL',
+    a: [['tampon:R', false, 'Regard EP : tampon béton'], ['eu-sol:s', true, 'WC : rejet au sol (infiltration)']], c: 'non_conformes'},
   {n: 'descente non visitable, côté avant', d: vers('descente', 'EP', {visitable: 'non', cote: 'avant'}), et: 's=ok:EP', a: [['dep-nv:s', true, 'Descente EP avant : non visitable']], c: 'non_conformes'},
   {n: 'descente non visitable, côté arrière', d: vers('descente', 'EP', {visitable: 'non', cote: 'arriere'}), et: 's=ok:EP', a: [['dep-nv:s', true, 'Descente EP arrière : non visitable']], c: 'non_conformes'},
   {n: 'descente visitable', d: vers('descente', 'EP'), et: 's=ok:EP', a: [], c: 'conformes'},

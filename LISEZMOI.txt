@@ -226,3 +226,17 @@ MISE À JOUR DE L'APPLICATION
 - Sur la tablette : ouvrez l'application une fois avec connexion (elle
   télécharge la nouvelle version et l'annonce), puis fermez-la
   complètement et rouvrez-la. Vos données ne sont pas touchées.
+- Mettez à jour toutes les tablettes avant de poser une infiltration au
+  sol, et avant d'échanger une sauvegarde ou un dossier qui en contient
+  (la version se lit au pied du plan PDF). Une tablette restée en
+  v1.7.0, ou plus ancienne, ne connaît pas cet objet : un « Tronçon
+  EP », « Tronçon EU » ou « Tronçon unitaire » qui y mène y est présumé
+  raccordé à ce réseau. Un WC vers une infiltration, non conforme sur
+  une tablette à jour, y reste non conforme tant que le croquis n'y est
+  pas ouvert ; son ouverture retire du dossier les anomalies « rejet au
+  sol » que personne n'a modifiées, et le plan comme le constat y
+  paraissent alors conformes (« À compléter » par un simple
+  « Tronçon » ; par un « Tronçon EP », le WC y reste non conforme, mais
+  comme raccordé aux EP) ; elles reviennent sur une tablette à jour.
+  N'y signez aucun constat de ces dossiers : un constat signé ne change
+  plus.
