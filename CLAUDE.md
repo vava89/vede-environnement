@@ -14,6 +14,7 @@
 ## Règles métier
 - Descente non visitable = NC. Tampon béton : NC en EU, réserve en EP. Siphon de garage → EU ; siphon de sol → EP.
 - Fosse septique hors fonction grâce à un by-pass : pas d'anomalie (elle ne compte que si l'eau ne peut pas l'éviter).
+- Rejet des EP dans un puits = NC (décision du 13 nov. 2026).
 - Le PDF est le livrable. Un constat signé n'est jamais modifié. Croquis désactivé ou absent : comportement de la v1.5.1, sauf une anomalie
   saisie à la main qui nomme un lavabo : ligne « Évier », comme sur le croquis (décision du 7 nov. 2026).
 
