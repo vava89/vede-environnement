@@ -11,7 +11,7 @@ for a in "$@"; do
   esac
 done
 ec=0
-for t in analyse regles sens constat fosse-contournee fosse-oracle copie avant-projet aleatoire dessin compat boite escalier; do
+for t in analyse regles sens constat fosse-contournee fosse-oracle copie avant-projet aleatoire dessin compat boite escalier rejets; do
   # shellcheck disable=SC2086
   node "tests/vm/$t.js" $opts || ec=1
 done

@@ -3554,14 +3554,19 @@ var VC_ACTIONS = {
 
 /* ---------- Croquis de terrain et constat ----------
    Résumé du croquis (installations dessinées, raccordement, méthodes), gardé en mémoire par dossier : jamais recalculé à chaque affichage.
-   Le constat ne reprend que nombre, raccordement et méthodes des lignes, le puisard, la distance à la limite et la profondeur de la boîte de
-   branchement (seule boîte existante du réseau), et seulement là où le technicien n'a rien saisi (ou a gardé la dernière valeur venue du
-   croquis : c.croqAuto) ; jamais la conformité, la conclusion ni les préconisations, jamais un constat signé, rien quand le croquis est désactivé. */
+   Le constat ne reprend que nombre, raccordement et méthodes des lignes, les cases des ouvrages de récupération des EP (puisard, récupérateur,
+   infiltration diffuse, indéterminé/autres), la distance à la limite et la profondeur de la boîte de branchement (seule boîte existante du
+   réseau), et seulement là où le technicien n'a rien saisi (ou a gardé la dernière valeur venue du croquis : c.croqAuto) ; jamais la
+   conformité, la conclusion ni les préconisations, jamais un constat signé, rien quand le croquis est désactivé. */
 var VC_RESUMES = new Map();
 function vcResumeCalc(v, doc){
   var V = window.VCroquis, an = V.analyser(doc, 'edl'), cd = V.constatDeduit(doc, an);
   var r = {rev: doc.rev || 0, plan: typeof doc.id === 'string' ? doc.id : '', rows: cd.rows.filter(function(x){ return x.nb > 0; }).map(function(x){ return {id: x.id, groupe: x.groupe, label: x.label, std: !!x.std, nb: x.nb, raccord: x.raccord || '', conforme: x.conforme || '', non: (x.non || []).slice(), meth: (x.meth || []).slice(), types: (x.types || []).slice()}; }),
     puisard: !!(cd.epRecup && cd.epRecup.puisard), sansCote: (cd.sansCote || []).length};
+  /* autres cases des ouvrages de récupération des EP d'après le croquis (récupérateur, infiltration diffuse, indéterminé/autres : décision D7
+     de .claude/conception-rejets.md), s'il y en a */
+  var rc = {}; EP_RECUP.forEach(function(q){ if (q[0] !== 'puisard' && cd.epRecup && cd.epRecup[q[0]]) rc[q[0]] = true; });
+  if (Object.keys(rc).length) r.recup = rc;
   /* anomalies du dossier restées intactes que le dessin d'aujourd'hui met à jour (texte, réseau, nature, ligne du constat), par exemple un
      dossier commencé avant une mise à jour qui range autrement un lavabo : l'éditeur les reporte à son ouverture */
   try { var dc = JSON.parse(JSON.stringify(doc)), ops = V.reconcilier(dc, null, anomsOf(v.id), {});
@@ -3609,6 +3614,14 @@ function vcProvenance(c){
     if (!P.boite || typeof P.boite !== 'object' || Array.isArray(P.boite)) delete P.boite;
     else Object.keys(P.boite).forEach(function(k){ if (VC_BOITE_CHAMPS.indexOf(k) < 0 || typeof P.boite[k] !== 'string') delete P.boite[k]; });
   }
+  /* autres cases des ouvrages de récupération des EP cochées d'après le croquis (P.recup : {case: true} ; le puisard garde P.puisard) */
+  if (P.recup !== undefined){
+    if (!P.recup || typeof P.recup !== 'object' || Array.isArray(P.recup)) delete P.recup;
+    else {
+      Object.keys(P.recup).forEach(function(k){ if (k === 'puisard' || P.recup[k] !== true || !EP_RECUP.some(function(q){ return q[0] === k; })) delete P.recup[k]; });
+      if (!Object.keys(P.recup).length) delete P.recup;
+    }
+  }
   return P;
 }
 var VC_BOITE_CHAMPS = ['distEU', 'distEP', 'profEU', 'profEP'];
@@ -3619,7 +3632,7 @@ function constatDepuisCroquis(v, res, suivi){
   if (suivi && !(v.constat && v.constat.croqAuto)) return 0;
   var neuf = !v.constat, c = constatOf(v), P = vcProvenance(c), n = 0, vus = {}, boiteNeuve = false;
   /* valeurs reprises d'un autre croquis (supprimé puis recommencé) : elles restent, comme saisies par le technicien */
-  if (res.plan && P.plan !== res.plan){ P.rows = {}; P.crees = {}; delete P.puisard; if (P.boite) P.boite = {}; }
+  if (res.plan && P.plan !== res.plan){ P.rows = {}; P.crees = {}; delete P.puisard; delete P.recup; if (P.boite) P.boite = {}; }
   if (res.plan) P.plan = res.plan;
   function poser(r, vals){
     var a = P.rows[r.id]; if (!a || typeof a !== 'object') a = {};
@@ -3656,6 +3669,14 @@ function constatDepuisCroquis(v, res, suivi){
   if (!c.epRecup || typeof c.epRecup !== 'object') c.epRecup = {};
   if (res.puisard){ if (c.epRecup.puisard === undefined){ c.epRecup.puisard = true; P.puisard = true; n++; } }
   else if (P.puisard){ if (c.epRecup.puisard === true){ delete c.epRecup.puisard; n++; } delete P.puisard; }
+  /* autres cases (récupérateur, infiltration diffuse, indéterminé/autres) : même règle, marquées dans P.recup */
+  var rRecup = res.recup && typeof res.recup === 'object' ? res.recup : {};
+  EP_RECUP.forEach(function(q){
+    var k = q[0]; if (k === 'puisard') return;
+    if (rRecup[k] === true){ if (c.epRecup[k] === undefined){ c.epRecup[k] = true; (P.recup || (P.recup = {}))[k] = true; n++; } }
+    else if (P.recup && P.recup[k]){ if (c.epRecup[k] === true){ delete c.epRecup[k]; n++; } delete P.recup[k]; }
+  });
+  if (P.recup && !Object.keys(P.recup).length) delete P.recup;
   /* boîte de branchement (réponse 10.4) : distance à la limite et profondeur, par réseau, d'après la seule boîte existante du réseau ; comme
      pour les lignes, une valeur retouchée, ou saisie sans avoir été posée par le croquis, reste ; une valeur posée que le croquis ne donne plus
      (aucune ou plusieurs boîtes) est vidée si personne n'y a touché */
@@ -3725,6 +3746,10 @@ function vcEcarts(v, c){
       + ', conforme au constat : vérifiez le raccordement de chaque appareil de la ligne.');
   });
   if (res.puisard && !(c.epRecup || {}).puisard) out.push('Puisard : sur le croquis de terrain, non coché au constat (ouvrages de récupération des EP).');
+  EP_RECUP.forEach(function(q){
+    if (q[0] === 'puisard' || !(res.recup && res.recup[q[0]] === true) || (c.epRecup || {})[q[0]]) return;
+    out.push(q[1].charAt(0).toUpperCase() + q[1].slice(1) + ' : sur le croquis de terrain, non ' + (q[0] === 'infil' ? 'cochée' : 'coché') + ' au constat (ouvrages de récupération des EP).');
+  });
   /* boîte de branchement : distance à la limite et profondeur de la seule boîte du réseau sur le croquis, autres ou absentes au constat
      (comparées par vcBoiteCle : « 0,8 » vaut « 0,80 m ») ; plusieurs boîtes sur le réseau : rien n'est repris, et un champ vide du constat
      est rappelé si l'une d'elles porte cette valeur */
@@ -4537,7 +4562,7 @@ async function restoreZip(file){
     (data.visites || []).forEach(function(v){ if (v && v.constat != null && (typeof v.constat !== 'object' || Array.isArray(v.constat))) delete v.constat; var c0 = v && v.constat; if (!c0) return; var nc0 = newConstat(v); if (!Array.isArray(c0.rows)) c0.rows = nc0.rows; c0.rows = c0.rows.filter(function(r){ return r && typeof r === 'object' && typeof r.id === 'string'; }); ['methodes', 'epRecup', 'precos', 'boite'].forEach(function(k){ if (!c0[k] || typeof c0[k] !== 'object' || Array.isArray(c0[k])) c0[k] = nc0[k]; }); if (c0.croqAuto != null && (typeof c0.croqAuto !== 'object' || Array.isArray(c0.croqAuto))) delete c0.croqAuto;
       if (c0.croqAuto){ var P0 = vcProvenance(c0); Object.keys(P0.rows).forEach(function(k){ var x = P0.rows[k]; if (!x || typeof x !== 'object' || Array.isArray(x)) delete P0.rows[k]; }); if (P0.plan != null && typeof P0.plan !== 'string') delete P0.plan; if (P0.puisard !== true) delete P0.puisard;
         /* clés inconnues de la provenance retirées, clés connues gardées (la boîte est vérifiée par vcProvenance) */
-        Object.keys(P0).forEach(function(k){ if (['rows', 'refus', 'crees', 'plan', 'puisard', 'boite'].indexOf(k) < 0) delete P0[k]; }); }
+        Object.keys(P0).forEach(function(k){ if (['rows', 'refus', 'crees', 'plan', 'puisard', 'recup', 'boite'].indexOf(k) < 0) delete P0[k]; }); }
       c0.rows.forEach(function(r){ ['nb', 'raccord', 'conforme', 'label', 'groupe'].forEach(function(f){ if (r[f] != null && typeof r[f] !== 'string') r[f] = String(r[f]); }); r.methodes = Array.isArray(r.methodes) ? r.methodes.filter(function(m){ return typeof m === 'string'; }) : []; if (r.croq != null && typeof r.croq !== 'string') delete r.croq; }); });
     (data.visites || []).forEach(function(v){ var c = v && v.constat; if (!c || typeof c !== 'object') return; ['croquis', 'sigTech', 'sigProp'].forEach(function(k){ if (c[k]) c[k] = imgData(c[k]); }); if (c.croquisV && c.croquisV.fond) c.croquisV.fond = imgData(c.croquisV.fond); });
     (data.visites || []).forEach(function(v){ if (v && v.id) VIS_SUPPR.delete(v.id); });

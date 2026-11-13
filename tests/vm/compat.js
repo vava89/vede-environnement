@@ -1,22 +1,24 @@
 // Garde de compatibilité à valeurs figées (m98 ; décision D10 de .claude/conception-outils-dessin.md). Un croquis fait sans les champs du lot
 // « Outils de dessin » garde les sorties du module de 1e27c7b (v1.7.0, m97) : analyse (état des lieux et avant-projet : réseau, pièces,
 // sens, anomalies, contrôles, conclusion), texte d'étiquette de chaque objet et DXF écrit par le module (entités ; en-tête, tables et blocs).
+// Depuis m116 (décision D11 de .claude/conception-rejets.md), aussi le constat déduit de l'état des lieux (lignes, ouvrages de récupération des EP,
+// descentes sans façade), figé sur 52cd3c8, dont les cinq autres sorties sont celles de 1e27c7b.
 // Croquis, tous fictifs : la démonstration (VCroquis.demoCroquis) ; un croquis fixe qui complète (traits « Complément du fond », texte libre,
 // zone, étiquette personnalisée, étiquette déplacée ou masquée, anomalie saisie à la main, échelle, origine et rotation données), puis le même
 // dans un fond en millimètres et en miles (u = 0,001 et 1609,344 : le DXF divise par u et règle ses décimales sur u) ; un croquis fixe des
 // types que les autres ne posent pas (salle de bain, baignoire, cuisine, lave-vaisselle, chaudière, attente, drain, caniveau et clapet
 // orientés) ; 30 croquis du générateur (vm/generateur.js, graines 1 à 30, réglages d'aleatoire.js, étiquettes placées d'office).
 // Dans vm/compat.json, par croquis : une empreinte sha256 (16 premiers caractères) du croquis d'entrée (« entree ») et une par sortie.
-// La garde passe sur 1e27c7b et doit passer après chaque correctif du lot.
+// La garde passe sur 52cd3c8 (ses cinq premières sorties aussi sur 1e27c7b) et doit passer après chaque correctif.
 // usage : node tests/vm/compat.js [-v] [--app=<dossier>] [--detail=<dossier>] [--regenerer[=<origine>]]
 //   --detail=<dossier> : écrit chaque sortie en clair (<croquis>.<sortie>.txt) ; lancé sur deux versions, « diff -r » montre l'écart.
 //   --regenerer[=<origine>] : réécrit vm/compat.json avec la version lue et liste ce qui change ; l'origine est gardée dans le fichier
 //   (par défaut : le dossier lu et la date). Seulement sur décision, car une empreinte qui change veut dire qu'un croquis déjà fait sort
-//   autrement (analyse, étiquette ou DXF). Et sur la bonne version :
-//   - le test change (générateur partagé avec aleatoire.js, croquis fixes, sorties gardées) : régénérer sur une copie de 1e27c7b, sinon
+//   autrement (analyse, étiquette, DXF ou constat). Et sur la bonne version :
+//   - le test change (générateur partagé avec aleatoire.js, croquis fixes, sorties gardées) : régénérer sur une copie de 52cd3c8, sinon
 //     on fige aussi les écarts entrés depuis. Par exemple, depuis la racine du dépôt :
-//       mkdir <dossier> && git archive 1e27c7b | tar -x -C <dossier>
-//       node tests/vm/compat.js --app=<dossier> --regenerer="1e27c7b (v1.7.0, m97)"
+//       mkdir <dossier> && git archive 52cd3c8 | tar -x -C <dossier>
+//       node tests/vm/compat.js --app=<dossier> --regenerer="1e27c7b (v1.7.0, m97) ; constat : 52cd3c8"
 //   - une sortie doit changer (décision) : régénérer sur la nouvelle version, le correctif pour origine (--regenerer="m1xx : …").
 'use strict';
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
@@ -25,7 +27,7 @@ const Gen = require('./generateur.js');
 const {V, ctx, dir} = charger(), R = rapport('compat');
 const FICHIER = path.join(__dirname, 'compat.json');
 const option = n => { const a = process.argv.find(x => x === '--' + n || x.indexOf('--' + n + '=') === 0); return a == null ? null : a.indexOf('=') > 0 ? a.slice(a.indexOf('=') + 1) : true; };
-const SORTIES = ['analyse-edl', 'analyse-avp', 'etiquettes', 'dxf-entites', 'dxf-tables'];
+const SORTIES = ['analyse-edl', 'analyse-avp', 'etiquettes', 'dxf-entites', 'dxf-tables', 'constat'];
 
 /* Croquis de démonstration. Le module tire ses identifiants au hasard (uid) : le tirage est figé pendant la création, puis les identifiants
    sont renommés d1, d2… dans l'ordre du dessin (les sorties n'en dépendent pas : seule l'empreinte de l'analyse les cite). */
@@ -122,6 +124,9 @@ function sorties(d0){
   const x = Buffer.from(V.ecrireDxf(copie(d0))).toString('latin1'), i = x.indexOf('  0\r\nSECTION\r\n  2\r\nENTITIES\r\n');
   o['dxf-entites'] = i >= 0 ? x.slice(i) : '(section ENTITIES absente)';
   o['dxf-tables'] = i >= 0 ? x.slice(0, i) : x;
+  /* constat déduit de l'état des lieux (m116) : lignes, ouvrages de récupération des EP, descentes sans façade */
+  const dC = copie(d0), cd = V.constatDeduit(dC, V.analyser(dC, 'edl'));
+  o.constat = canon({rows: cd.rows, epRecup: cd.epRecup, sansCote: cd.sansCote}, new Set(dC.el), []);
   return o;
 }
 const empreinte = s => crypto.createHash('sha256').update(s, 'utf8').digest('hex').slice(0, 16);
@@ -144,7 +149,7 @@ croquis.forEach(d => {
 
 const regen = option('regenerer'), depot = path.resolve(dir) === path.resolve(__dirname, '..', '..');
 if (regen){
-  if (depot) R.info('attention : --regenerer lit le dépôt lui-même ; si c\'est le test qui a changé, régénérer sur une copie de 1e27c7b (--app=<dossier>, voir l\'en-tête)');
+  if (depot) R.info('attention : --regenerer lit le dépôt lui-même ; si c\'est le test qui a changé, régénérer sur une copie de 52cd3c8 (--app=<dossier>, voir l\'en-tête)');
   /* écarts avec les valeurs en place, pour la trace de la décision */
   let avant = {};
   try { avant = JSON.parse(fs.readFileSync(FICHIER, 'utf8')).empreintes || {}; } catch (e){ avant = {}; }
@@ -167,11 +172,11 @@ if (regen){
     croquis.forEach(d => {
       if (!obtenu[d.id]) return;
       if (!fige[d.id]){ R.ok(false, 'croquis ' + d.id + ' : aucune valeur figée'); ecarts++; return; }
-      /* croquis d'entrée changé : les sorties ne se comparent plus à celles de 1e27c7b */
+      /* croquis d'entrée changé : les sorties ne se comparent plus aux valeurs figées */
       const memeEntree = fige[d.id].entree === obtenu[d.id].entree;
       if (!memeEntree) ecarts++;
       R.ok(memeEntree, 'croquis ' + d.id + ', croquis d\'entrée' + (memeEntree ? ' : identique' : ' : changé (figé ' + fige[d.id].entree + ', obtenu ' + obtenu[d.id].entree
-        + ') ; si c\'est le test qui a changé (générateur, croquis fixe), régénérer sur une copie de 1e27c7b (--app=<dossier>, voir l\'en-tête)'));
+        + ') ; si c\'est le test qui a changé (générateur, croquis fixe), régénérer sur une copie de 52cd3c8 (--app=<dossier>, voir l\'en-tête)'));
       SORTIES.forEach(k => {
         const bon = fige[d.id][k] === obtenu[d.id][k];
         if (!bon) ecarts++;

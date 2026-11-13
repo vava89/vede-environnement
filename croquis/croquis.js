@@ -764,7 +764,36 @@ var RES = {
   ANN: {lib: 'Annotations', nom: 'annotations', rgb: [212, 101, 10], aci: 30},
   LIM: {lib: 'Complément du fond', nom: 'complément du fond', rgb: [40, 40, 40], aci: 7}
 };
-var EXU_LIB = {EU: 'réseau EU', EP: 'réseau EP', UN: 'réseau unitaire', INF: 'puisard (infiltration)', GARG: 'gargouille', MILIEU: 'milieu naturel'};
+/* libellé du rejet vers un réseau (fiche, contrôles, plan PDF) ; celui d'un exutoire est dans sa ligne d'EXU */
+var EXU_LIB = {EU: 'réseau EU', EP: 'réseau EP', UN: 'réseau unitaire'};
+/* Table commune des exutoires (décision D1 de .claude/conception-rejets.md) : une ligne par code d'exutoire (ty.exu), qui donne
+   - lib : le libellé du rejet (fiche, contrôles, plan PDF) ;
+   - res : le réseau de la couleur et du calque (EP) ;
+   - eu : la règle d'une source EU qui y aboutit (clé, texte après « <source> : », préconisation, nature, codes, catégorie) ;
+   - cEU, cEP : la place au constat d'une ligne EU ou EP : code du formulaire, libellé (à défaut, celui de RACC_LIB pour ce code) et, en EP,
+     la case des ouvrages de récupération des EP (recup).
+   Toute lecture de la table passe par le code (exuDe) : un rejet peut être une clé « CODE:… » (destination ajoutée), jamais lue telle quelle. */
+var EXU = {
+  INF: {lib: 'puisard (infiltration)', res: 'EP',
+    eu: {cle: 'eu-inf', obs: 'rejet dans un puisard', preco: 'Suppression du rejet dans le puisard et raccordement au branchement EU', nc: true, codes: ['raccEUsep'], cat: 'inversion'},
+    cEU: {code: 'MILIEU', lib: 'Puisard : rejet au sol (milieu naturel)'}, cEP: {code: '', lib: 'Puisard (infiltration à la parcelle)', recup: 'puisard'}},
+  GARG: {lib: 'gargouille', res: 'EP',
+    eu: {cle: 'eu-garg', obs: 'rejet à la gargouille', preco: 'Déconnexion des EU de la gargouille et raccordement au branchement EU', nc: true, codes: ['decoGarg'], cat: 'inversion'},
+    cEU: {code: 'GARG'}, cEP: {code: 'GARG'}},
+  MILIEU: {lib: 'milieu naturel', res: 'EP',
+    eu: {cle: 'eu-milieu', obs: 'rejet en milieu naturel', preco: 'Suppression du rejet en milieu naturel et raccordement au branchement EU', nc: true, codes: ['suppMilieu'], cat: 'inversion'},
+    cEU: {code: 'MILIEU'}, cEP: {code: 'MILIEU'}}
+};
+/* code d'un rejet : la partie avant le premier « : », sinon le rejet entier */
+function codeExu(res){ var s = res == null ? '' : String(res), i = s.indexOf(':'); return i >= 0 ? s.slice(0, i) : s; }
+/* ligne de la table d'un rejet ; null pour un réseau ou un code inconnu */
+function exuDe(res){ var k = codeExu(res); return Object.prototype.hasOwnProperty.call(EXU, k) ? EXU[k] : null; }
+/* réseau du tracé (couleur, calque, contrôles) : celui de la ligne de la table, sinon le rejet tel quel */
+function resTrace(res){ var x = exuDe(res); return x ? x.res : res; }
+/* libellé du rejet : celui du réseau, sinon celui de la ligne de la table, sinon le rejet tel quel (an : l'analyse, pour une destination
+   ajoutée) */
+function libExu(res, an){ if (Object.prototype.hasOwnProperty.call(EXU_LIB, res)) return EXU_LIB[res]; var x = exuDe(res); return x ? x.lib : res; }
+VC.EXU = EXU; VC.libExu = libExu;
 /* Codes de l'application (constat) ; caméra et déclaré s'y ajoutent */
 var METH = [['visuel', 'Visuel', 'V'], ['eau', 'Eau', 'E'], ['fluo', 'Colorant', 'Fl'], ['fumee', 'Fumée', 'Fu'], ['reso', 'Résonance', 'R'], ['camera', 'Caméra', 'Ca'], ['declare', 'Déclaré', 'D']];
 var NIV = [['ss', 'Sous-sol'], ['rdc', 'RDC'], ['etage', 'Étage']];
@@ -1241,7 +1270,7 @@ function analyser(doc, mode){
        ou arrivée non orientée) laisse les réseaux mêlés après travaux : relevée pour les Contrôles et le contrôle de l'avant-projet */
     var sortiesLibres = null;
     if (mode === 'avp' && nets.length && !presume){
-      var dessines = nets.map(function(k){ return k === 'INF' || k === 'GARG' || k === 'MILIEU' ? 'EP' : k; }), la = {};
+      var dessines = nets.map(function(k){ return resTrace(k); }), la = {};
       libresDe(r, pr, id).forEach(function(ch){ if (ch.res && dessines.indexOf(ch.res) < 0) la[ch.res] = true; });
       sortiesLibres = ['EU', 'EP', 'UN'].filter(function(k){ return la[k]; }); if (!sortiesLibres.length) sortiesLibres = null;
     }
@@ -1253,7 +1282,7 @@ function analyser(doc, mode){
   pieces.forEach(function(p){
     var dep = p.sens === 1 ? [p.b] : p.sens === -1 ? [p.a] : [p.a, p.b];
     var r = parcours(dep), nets = [];
-    r.term.forEach(function(t){ var k = /^(EU|EP|UN)$/.test(t.res) ? t.res : (t.res === 'INF' || t.res === 'GARG' || t.res === 'MILIEU' ? 'EP' : t.res); if (nets.indexOf(k) < 0) nets.push(k); });
+    r.term.forEach(function(t){ var k = resTrace(t.res); if (nets.indexOf(k) < 0) nets.push(k); });
     /* toujours dans le même ordre (EU, EP, unitaire) : le message « le dessin le relie à » ne dépend pas de l'ordre du dessin */
     nets.sort(function(x, y){ var a = ['EU', 'EP', 'UN'].indexOf(x), b = ['EU', 'EP', 'UN'].indexOf(y); return (a < 0 ? 9 : a) - (b < 0 ? 9 : b); });
     var expl = RES[p.l.p.res] ? p.l.p.res : null, res = expl || (nets.length === 1 ? nets[0] : nets.length > 1 ? 'MIX' : 'INC');
@@ -1284,7 +1313,7 @@ function analyser(doc, mode){
     var o = objs[id], ty = T[o.t];
     if (ty.role === 'source'){ resPt[id] = ty.nat; return; }
     if (ty.boite && terminal(id)){ resPt[id] = o.p.res; return; }
-    if (ty.exu){ resPt[id] = ty.exu === 'INF' || ty.exu === 'GARG' || ty.exu === 'MILIEU' ? 'EP' : null; return; }
+    if (ty.exu){ resPt[id] = exuDe(ty.exu) ? resTrace(ty.exu) : null; return; }
     if (o.t === 'regard_pub' && RES[o.p.res]) { resPt[id] = o.p.res; return; }
     var q = resNoeud[id] ? Object.keys(resNoeud[id]).filter(function(k){ return k !== 'INC' && k !== 'MIX'; }) : [];
     resPt[id] = q.length === 1 ? q[0] : q.length > 1 ? 'MIX' : (ty.role === 'note' ? 'ANN' : 'INC');
@@ -1319,9 +1348,9 @@ function reglesAnomalies(doc, an){
     if (r.etat === 'ok'){
       if (ty.nat === 'EU'){
         if (r.res === 'EP') ajoute({cle: 'eu-ep:' + id, objId: id, reseau: 'EU', obs: lib + ' : rejet au réseau EP' + (r.presume ? ' (présumé)' : ''), preco: 'Déconnexion du réseau EP et raccordement au branchement EU', nc: true, codes: ['sepEU', 'raccEUsep'], cat: 'inversion'});
-        else if (r.res === 'INF') ajoute({cle: 'eu-inf:' + id, objId: id, reseau: 'EU', obs: lib + ' : rejet dans un puisard', preco: 'Suppression du rejet dans le puisard et raccordement au branchement EU', nc: true, codes: ['raccEUsep'], cat: 'inversion'});
-        else if (r.res === 'GARG') ajoute({cle: 'eu-garg:' + id, objId: id, reseau: 'EU', obs: lib + ' : rejet à la gargouille', preco: 'Déconnexion des EU de la gargouille et raccordement au branchement EU', nc: true, codes: ['decoGarg'], cat: 'inversion'});
-        else if (r.res === 'MILIEU') ajoute({cle: 'eu-milieu:' + id, objId: id, reseau: 'EU', obs: lib + ' : rejet en milieu naturel', preco: 'Suppression du rejet en milieu naturel et raccordement au branchement EU', nc: true, codes: ['suppMilieu'], cat: 'inversion'});
+        /* exutoire de la table (puisard, gargouille, milieu naturel…) : la règle EU de sa ligne */
+        else if (exuDe(r.res) && exuDe(r.res).eu){ var re = exuDe(r.res).eu;
+          ajoute({cle: re.cle + ':' + id, objId: id, reseau: 'EU', obs: lib + ' : ' + re.obs, preco: re.preco, nc: re.nc, codes: re.codes.slice(), cat: re.cat}); }
       } else if (ty.nat === 'EP' && r.res === 'EU'){
         ajoute({cle: 'ep-eu:' + id, objId: id, reseau: 'EP', obs: lib + ' : rejet au réseau EU' + (r.presume ? ' (présumé)' : ''), preco: 'Déconnexion des EP du réseau EU ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['decoEP', 'raccEPep'], cat: 'inversion'});
       }
@@ -1376,7 +1405,7 @@ function controles(doc, an){
       if (r){
         if (r.etat === 'nonrelie') c(id, 'manque', lib + ' : non relié au réseau sur le dessin', 'relie');
         else if (r.etat === 'sansexu') c(id, 'manque', lib + ' : exutoire non dessiné' + (r.conflit ? ', tronçons ' + listeEt(r.conflit.map(libRes)) + ' réunis vers la même extrémité libre (indiquer le réseau du tronçon commun, ou le sens du tracé d\'une arrivée)' : r.ambigu ? ', extrémités libres de réseaux ' + listeEt(r.ambigu.map(libRes)) + (r.ambiguArrivee ? ' (prolonger le tracé, ou indiquer le sens du tracé d\'une arrivée)' : ' (prolonger le tracé jusqu\'à l\'exutoire)') : ' (prolonger le tracé ou indiquer le réseau du tronçon)'), 'exu');
-        else if (r.etat === 'multiple') c(id, 'manque', lib + ' : relié à plusieurs réseaux (' + r.nets.map(function(x){ return EXU_LIB[x] || x; }).join(', ') + ') : indiquer le sens d\'écoulement d\'un tronçon', 'multi');
+        else if (r.etat === 'multiple') c(id, 'manque', lib + ' : relié à plusieurs réseaux (' + r.nets.map(function(x){ return libExu(x, an); }).join(', ') + ') : indiquer le sens d\'écoulement d\'un tronçon', 'multi');
         if (r.etat === 'ok' && r.sortiesLibres){ var pl = r.sortiesLibres.length > 1;
           c(id, 'manque', lib + (pl ? ' : sorties ' : ' : sortie ') + listeEt(r.sortiesLibres.map(libRes)) + (pl ? ' laissées libres à côté de l\'exutoire dessiné (les passer « À supprimer », les prolonger, ou indiquer le sens du tracé d\'une arrivée)' : ' laissée libre à côté de l\'exutoire dessiné (la passer « À supprimer », la prolonger, ou indiquer le sens du tracé d\'une arrivée)'), 'sortielibre'); }
         if (r.etat === 'ok' && fosseArbitrage(doc, an, id) === 'arbitrer') c(id, 'manque', lib + ' : fosse septique évitée seulement vers une extrémité laissée libre qui peut être une arrivée (indiquer le sens du tracé de l\'arrivée ou dessiner l\'exutoire, sinon retenir ou écarter l\'anomalie de la fosse)', 'fossedouteuse');
@@ -1393,7 +1422,7 @@ function controles(doc, an){
   an.pieces.forEach(function(p){
     var rp = an.resPiece[p.id]; if (!(rp && rp.contredit)) return;
     /* une fois par tuyau (un regard au milieu le coupe en deux pièces qui disent la même chose) */
-    var txt = 'Tronçon ' + libRes(p.l.p.res) + ' : le dessin le relie à ' + rp.nets.map(function(x){ return EXU_LIB[x] || x; }).join(', ');
+    var txt = 'Tronçon ' + libRes(p.l.p.res) + ' : le dessin le relie à ' + rp.nets.map(function(x){ return libExu(x, an); }).join(', ');
     if (dits[p.l.id + '|' + txt]) return; dits[p.l.id + '|' + txt] = true; c(p.l.id, 'info', txt, 'contredit');
   });
   Object.keys(an.lignes).forEach(function(id){
@@ -1682,6 +1711,8 @@ VC.CONCL = CONCL;
 var ROWS_STD = [['wc', 'EU', 'WC'], ['lavelinge', 'EU', 'Lave-linge'], ['evier', 'EU', 'Évier'], ['sdb', 'EU', 'Salle de bain (douche ou baignoire et lavabo)'], ['cuisine', 'EU', 'Cuisine (évier, lave-vaisselle)'], ['siphon', 'EU', 'Siphon de garage'],
   ['gout_av', 'EP', 'Gouttière(s) avant'], ['gout_ar', 'EP', 'Gouttière(s) arrière'], ['grilles', 'EP', 'Grilles'], ['siphon_sol', 'EP', 'Siphon de sol']];
 var RACC_LIB = {EU_D: 'Réseau EU départemental', EU_T: 'Réseau EU territorial', EP_D: 'Réseau EP départemental', EP_T: 'Réseau EP territorial', UN_D: 'Réseau unitaire départemental', UN_T: 'Réseau unitaire territorial', FOSSE: 'Fosse septique', MILIEU: 'Milieu naturel', GARG: 'Gargouille', INF: 'Puisard (infiltration)'};
+/* cases des ouvrages de récupération des EP du constat (EP_RECUP de l'application), dans l'ordre du formulaire : texte du panneau */
+var RECUP_LIB = [['puisard', 'puisard'], ['recup', 'récupérateur'], ['infil', 'infiltration diffuse'], ['autre', 'indéterminé/autres']];
 /* Raccordement d'un équipement pour le constat : code de l'application (vide si le formulaire n'en a pas), libellé, conformité d'après le réseau atteint */
 function raccInfo(r, groupe, arb){
   if (!r || r.etat !== 'ok') return {code: '', lib: '', ok: null};
@@ -1689,8 +1720,14 @@ function raccInfo(r, groupe, arb){
   /* fosse à arbitrer (fosseArbitrage) : raccordement et conformité laissés à l'opérateur tant qu'il ne l'a ni retenue ni écartée */
   if (arb === 'arbitrer') return {code: '', lib: 'Fosse septique à arbitrer (extrémité laissée libre à orienter)', ok: null};
   var res = r.res, ep = groupe !== 'EU';
-  if (res === 'GARG' || res === 'MILIEU') return {code: res, lib: RACC_LIB[res], ok: ep};
-  if (res === 'INF') return ep ? {code: '', lib: 'Puisard (infiltration à la parcelle)', ok: true, puisard: true} : {code: 'MILIEU', lib: 'Puisard : rejet au sol (milieu naturel)', ok: false};
+  /* exutoire de la table : sa place au constat, conforme en EP, non conforme en EU ; recup : la case des ouvrages de récupération des EP
+     (puisard : aussi l'ancienne marque) */
+  var xe = exuDe(res);
+  if (xe){
+    var pl = ep ? xe.cEP : xe.cEU, out = {code: pl.code, lib: pl.lib || RACC_LIB[pl.code] || '', ok: ep};
+    if (pl.recup){ out.recup = pl.recup; if (pl.recup === 'puisard') out.puisard = true; }
+    return out;
+  }
   if (/^(EU|EP|UN)$/.test(res)){
     var ok = ep ? res !== 'EU' : res !== 'EP';
     if (r.gest === 'P') return {code: '', lib: 'Réseau ' + libRes(res) + ' privé : aboutissement public à préciser', ok: ok};
@@ -1712,7 +1749,7 @@ function constatDeduit(doc, an){
   }
   Object.keys(an.resObj).forEach(function(id){
     var o = an.objs[id], row = ligne(o), ri = raccInfo(an.resObj[id], row ? row.groupe : T[o.t].nat || 'EP', fosseArbitrage(doc, an, id));
-    if (ri.puisard) recup.puisard = true;
+    if (ri.recup) recup[ri.recup] = true;
     if (!row){ sansCote.push(id); return; }
     row.objets.push(id); row.codes.push(ri.code); row.oks.push(ri.ok);
     if (ri.lib && row.libs.indexOf(ri.lib) < 0) row.libs.push(ri.lib);
@@ -4780,7 +4817,7 @@ function editeur(racine, opts){
     if (r.etat === 'nonrelie') return {cls: 'ko', txt: 'Non relié : tracez un tronçon depuis cet objet'};
     if (r.etat === 'sansexu') return {cls: 'att', txt: r.conflit ? 'Exutoire non dessiné : tronçons ' + listeEt(r.conflit.map(libRes)) + ' réunis vers la même extrémité libre, indiquez le réseau du tronçon commun, ou le sens du tracé d\'une arrivée' : r.ambigu ? 'Exutoire non dessiné : extrémités libres de réseaux ' + listeEt(r.ambigu.map(libRes)) + (r.ambiguArrivee ? ', prolongez le tracé ou indiquez le sens du tracé d\'une arrivée' : ', prolongez le tracé jusqu\'à l\'exutoire') : 'Exutoire non dessiné : prolongez le tracé ou indiquez le réseau du tronçon'};
     if (r.etat === 'multiple') return {cls: 'ko', txt: 'Relié à plusieurs réseaux : indiquez le sens d\'écoulement'};
-    var txt = 'Rejet : ' + (EXU_LIB[r.res] || r.res) + (/^(EU|EP|UN)$/.test(r.res) && r.gest ? ' ' + GEST_LIB[r.gest] : '') + (r.presume ? ' (d\'après le tronçon)' : '');
+    var txt = 'Rejet : ' + libExu(r.res, S.an) + (/^(EU|EP|UN)$/.test(r.res) && r.gest ? ' ' + GEST_LIB[r.gest] : '') + (r.presume ? ' (d\'après le tronçon)' : '');
     if (fosseArbitrage(S.doc, S.an, e.id) === 'arbitrer' && !a.length) return {cls: 'att', txt: txt + ' · fosse septique à arbitrer : une extrémité laissée libre peut être une arrivée'};
     return a.length ? {cls: 'ko', txt: txt + ' · anomalie' + (a.length > 1 ? 's' : '') + ' n° ' + a.map(function(x){ return x.num; }).join(', ')} : {cls: 'ok', txt: txt};
   }
@@ -4992,7 +5029,9 @@ function editeur(racine, opts){
     }).join('') + '</tbody></table>';
     var ms = METH.filter(function(m){ return cd.methodes[m[0]]; }).map(function(m){ return m[1].toLowerCase(); });
     h += '<p><strong>Méthodes de contrôle :</strong> ' + (ms.length ? esc(ms.join(', ')) : 'aucune indiquée') + '</p>';
-    if (cd.epRecup.puisard) h += '<p><strong>Ouvrage de récupération des EP :</strong> puisard</p>';
+    /* cases des ouvrages de récupération des EP d'après le croquis, dans l'ordre du formulaire (le puisard seul : le texte d'avant) */
+    var ouv = RECUP_LIB.filter(function(q){ return cd.epRecup[q[0]]; }).map(function(q){ return q[1]; });
+    if (ouv.length) h += '<p><strong>' + (ouv.length > 1 ? 'Ouvrages' : 'Ouvrage') + ' de récupération des EP :</strong> ' + esc(ouv.join(', ')) + '</p>';
     if (cd.sansCote.length) h += '<p class="vc-muet">' + (cd.sansCote.length > 1 ? cd.sansCote.length + ' descentes EP sans façade indiquée ne sont comptées' : 'Une descente EP sans façade indiquée n\'est comptée') + ' ni en façade avant ni en façade arrière.</p>';
     if (cd.rows.some(function(r){ return r.nb && !r.raccord && r.libs.length; })) h += '<p class="vc-muet">Un raccordement sans code du formulaire (réseau privé, puisard EP) reste à cocher à la main dans le constat.</p>';
     h += '<p><strong>Conclusion proposée :</strong> ' + esc(CONCL[conclusion(S.liste, S.an)] || '—') + '</p>';
@@ -5932,7 +5971,7 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL, conclC){
   var sources = doc.el.filter(function(e){ return e.k === 'pt' && T[e.t] && T[e.t].role === 'source' && an.resObj[e.id]; });
   y = tableauPdf(pdf, y, [{t: 'Équipement', w: 62}, {t: 'Niveau', w: 22}, {t: 'Rejet constaté', w: 74}, {t: 'Méthode de contrôle', w: 58}, {t: 'Observation', w: 60}],
     sources.length ? sources.map(function(e){
-      var r = an.resObj[e.id], rej = r.etat === 'ok' ? (EXU_LIB[r.res] || r.res) + (/^(EU|EP|UN)$/.test(r.res) && r.gest ? ' ' + GEST_LIB[r.gest] : '') + (r.presume ? ' (présumé)' : '') : r.etat === 'nonrelie' ? 'non relevé' : r.etat === 'multiple' ? 'à préciser' : 'exutoire non relevé';
+      var r = an.resObj[e.id], rej = r.etat === 'ok' ? libExu(r.res, an) + (/^(EU|EP|UN)$/.test(r.res) && r.gest ? ' ' + GEST_LIB[r.gest] : '') + (r.presume ? ' (présumé)' : '') : r.etat === 'nonrelie' ? 'non relevé' : r.etat === 'multiple' ? 'à préciser' : 'exutoire non relevé';
       var nums = ret.filter(function(a){ return a.objId === e.id; }).map(function(a){ return a.num; }), hdObj = hors.some(function(a){ return a.objId === e.id; });
       return {cells: [libEquipement(e), NIV_LIB[e.p.niv] || '', rej + (nums.length ? ' · anomalie n° ' + nums.join(', ') : '') + (hdObj ? ' · anomalie à reprendre' : ''), methLib(e.p.meth) || 'non indiquée', e.p.obs || ''], coul: [null, null, nums.length || hdObj ? [180, 35, 24] : null]};
     }) : [{cells: ['Aucun équipement dessiné.', '', '', '', '']}], 'Équipements, rejets et méthodes de contrôle');
