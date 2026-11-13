@@ -1,4 +1,4 @@
-VÉDÉ Terrain, version installable hors connexion (v1.6.3)
+VÉDÉ Terrain, version installable hors connexion (v1.7.0)
 =====================================================
 
 Ce dossier contient l'application complète. Une fois installée sur la
@@ -54,7 +54,41 @@ CROQUIS DE TERRAIN (facultatif)
   tablette et sert à tous les dossiers de l'étude.
 - On pose les équipements (WC, évier, descentes…), les regards, la boîte
   de branchement et les collecteurs, puis on les relie par des tronçons.
-  L'application en déduit où chaque eau se rejette.
+  L'application en déduit où chaque eau se rejette. Dans la fiche de la
+  boîte de branchement, on indique sa position par rapport à la limite de
+  propriété (côté intérieur ou extérieur, distance en mètres) ; l'étiquette
+  du plan la reprend, par exemple « à 0,80 m de la limite, intérieur ».
+  Avec le fond de plan, la fiche mesure la boîte dans la parcelle de
+  l'installation : la parcelle fermée qui contient le plus d'objets
+  existants dessinés (sans elle, en cas d'égalité par exemple, rien
+  n'est mesuré). La fiche écrit « Sur le plan : ≈ 0,80 m intérieur »
+  et propose le côté en pointillé ; à moins de 0,30 m de la limite,
+  elle écrit « côté à confirmer » et ne propose rien. « Reprendre la
+  mesure » recopie cette mesure, arrondie à 5 cm, et le côté s'il est
+  sûr. « Placer sur le plan », actif une fois la distance et le côté
+  saisis, pose la boîte à cette distance et de ce côté. Près d'un coin,
+  si la boîte arrivait plus près d'un autre bord, elle ne bouge pas et
+  un message le dit.
+  Le bouton « Cotes » pose un objet à une distance mesurée d'une façade ou
+  d'une limite de parcelle, dans son prolongement ou le long d'elle.
+  Dans la fiche d'un objet, « Mesurer depuis une façade » redonne ses
+  cotes (au centimètre) et « Déplacer par cotes » le place de la même
+  façon. On peut changer les cotes, puis « Déplacer » : seule la
+  position change, les tuyaux attachés suivent, une annulation suffit.
+  L'outil « Escalier » des Tracés dessine un escalier en deux touchers (le
+  départ, puis la fin) ; sa fiche règle la largeur, les marches, la
+  longueur, le côté et le sens de la montée. Son bouton « Cotes » pose le
+  départ à une distance mesurée d'une façade ou d'une limite ; on touche
+  ensuite la fin.
+  À la souris, avec l'outil « Choisir », une pause de 0,4 s ou un clic
+  droit sur une poignée du tracé choisi ouvre un petit menu près du
+  pointeur : « Retirer le point », « Détacher » ou « Ajouter un point ».
+  Échap ou un clic ailleurs le ferme ; sur le plan, ce clic ne fait que
+  fermer le menu, même sur le point. Survolé à la souris, un segment du
+  tracé choisi montre un « + » : un clic y ajoute un point, un glissé
+  l'ajoute et le déplace. Au doigt et au stylet, toucher le tracé déjà
+  choisi ouvre une bulle « + point » : la toucher ajoute un point à cet
+  endroit ; elle se ferme seule au bout de 4 s ou au geste suivant.
 - Les anomalies déduites du dessin (EU vers EP, EP vers EU, fosse, descente
   non visitable, tampon béton…) rejoignent la liste du dossier, avec les
   mêmes numéros (A1, A2…) que les bulles du plan : la fiche Préco, le
@@ -85,21 +119,57 @@ CROQUIS DE TERRAIN (facultatif)
   dessinées, sans remplacer ce qui a été saisi. Chaque objet dessiné compte
   pour une installation : une salle de bain ou une cuisine se dessine d'un
   seul objet (son lavabo, son évier, son lave-vaisselle y sont compris) ;
-  un lavabo seul compte comme un évier. Ensuite ces valeurs suivent
-  le croquis tant qu'on n'y touche pas (à la fermeture du croquis et à
-  l'ouverture du constat). Une anomalie posée sur un objet du croquis
-  rend non conforme la ligne de cet objet (un lavabo : « Évier »). Les
-  écarts entre le croquis et le constat sont rappelés avant la
-  signature. Un constat signé n'est jamais modifié, et le croquis n'y
-  rappelle plus d'écart.
-- Aides au dessin (Réglages, ou bouton aimant dans le croquis) : traits
-  parallèles au côté de bâti le plus proche, angles droits, accroche aux
-  coins et façades, fin automatique d'un tronçon sur un objet, tracé en
-  glissant le doigt, outil Relier en L. Chacune se désactive, et toutes
-  ensemble par « Aides activées ».
+  un lavabo seul compte comme un évier. Il remplit aussi la section Boîte
+  de branchement, réseau par réseau, quand le croquis porte une seule
+  boîte existante (ni « projet » ni « à supprimer ») sur ce réseau :
+  distance à la limite et côté (« 0,80 m intérieur », « en limite »),
+  profondeur (« 0,80 m »). Une boîte unitaire compte pour les deux
+  réseaux ; une boîte sans réseau (ni indiqué dans sa fiche, ni déduit du
+  dessin) n'est pas reprise. En zone unitaire, avec une boîte pour les EU
+  et une pour les EP, on indique le réseau dans la fiche de chaque boîte.
+  Avec deux boîtes ou plus sur un réseau, rien n'y est repris (une valeur
+  reprise avant, et non modifiée, est vidée) ; le constat rappelle de les
+  saisir avant la signature. Ensuite ces valeurs suivent le croquis tant
+  qu'on n'y touche pas (à la fermeture du croquis et à l'ouverture du
+  constat). Une anomalie posée sur un objet du croquis rend non conforme
+  la ligne de cet objet (un lavabo : « Évier », comme une anomalie saisie
+  à la main qui nomme un lavabo). La pièce nommée avec le lavabo, dans le
+  texte ou la localisation (« Lavabo de la salle de bain », « Cuisine »),
+  le situe seulement : la ligne reste « Évier ». Une douche, une baignoire
+  ou un lave-vaisselle nommés avec lui ont aussi leur ligne. Les écarts
+  entre le croquis et le constat sont rappelés avant la signature. Un
+  constat signé n'est jamais modifié, et le croquis n'y rappelle plus
+  d'écart.
+- Aides au dessin (Réglages, ou bouton aimant et palette d'accrochage
+  dans le croquis) : traits parallèles au côté de bâti le plus proche,
+  angles droits, accroche aux coins et façades, fin automatique d'un
+  tronçon sur un objet, tracé en glissant le doigt, outil Relier en L,
+  orientation automatique (caniveaux, clapets et gargouilles suivent le
+  tracé ou la façade).
+  Chacune se désactive, et toutes ensemble (sauf le tracé en glissant)
+  par « Aides activées » ou par l'aimant : tracé libre, sans redressement
+  ni accroche au bâti. Les tuyaux se raccordent toujours aux objets et
+  aux autres tuyaux : cette accroche au réseau ne se coupe pas.
+  La palette d'accrochage (bouton juste au-dessus de l'aimant, à droite
+  du plan) coche ou décoche d'un toucher l'accroche au bâti, le parallèle
+  au bâti, les angles droits et 45° et les nouveaux accrochages ; aimant
+  coupé, ses puces sont grisées. Un toucher sur le plan la ferme sans
+  rien faire d'autre. Les nouveaux accrochages, décochés d'origine,
+  « Milieu d'un côté », « Perpendiculaire » (depuis le point précédent),
+  « Limites de parcelle », « Prolongement d'un côté » (jusqu'à 30 m
+  au-delà d'un bout) et « Intersection » (rencontre de deux côtés ou de
+  leurs prolongements ; un coin reste un coin), calent les points d'un
+  tracé (tronçon compris) et les objets posés sur un mur (sur le bâti
+  seulement : ni prolongement ni intersection), après l'accroche au
+  réseau, qui passe toujours avant.
 - Sorties : plan de l'état des lieux et plan d'avant-projet en PDF, plan
   DXF pour la DAO (dans le croquis, « Sorties »), « Plan PDF » sur la page
-  du dossier. L'export de l'étude joint le plan PDF dans le dossier.
+  du dossier. L'export de l'étude joint le plan PDF dans le dossier. Le
+  plan de l'état des lieux imprime la conclusion choisie dans le constat
+  (« Conclusion du constat »). Pour un constat signé, c'est celle qu'il
+  atteste, choisie ou proposée au moment de la signature, même si le
+  dessin change ensuite. Sinon, le plan imprime celle que le dessin
+  propose.
 
 SAUVEGARDE
 - Effacer les données du navigateur ou désinstaller l'application efface

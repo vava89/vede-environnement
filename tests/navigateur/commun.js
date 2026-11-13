@@ -1,5 +1,5 @@
 // Outils communs des tests dans le navigateur (Chromium, par Playwright) : petit serveur local, application ouverte dans un profil neuf,
-// étude et dossier fictifs, croquis sur le fond fictif de VCroquis.demoDxf(), gestes sur le plan. Aucune donnée réelle.
+// étude et dossier fictifs, croquis sur le fond fictif de VCroquis.demoDxf(), gestes sur le plan (doigt, souris, stylet). Aucune donnée réelle.
 // Dossier de l'application : la racine du dépôt ; une autre version par --app=<dossier> ou la variable VEDE_APP.
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path');
@@ -43,7 +43,8 @@ function crochets(){
   }});
 }
 
-/* Application ouverte dans un profil neuf (tablette paysage, tactile). o.erreursTolerees : expressions des messages admis. */
+/* Application ouverte dans un profil neuf (tablette paysage, tactile). o.viewport : taille de la fenêtre (1280 × 800 par défaut) ;
+   o.sw : service worker permis. Les exceptions de la page et les erreurs de la console sont gardées dans « erreurs ». */
 async function ouvrir(o){
   o = o || {};
   const srv = await serveur(), nav = await chromium.launch(), ctx = await nav.newContext({viewport: o.viewport || {width: 1280, height: 800}, hasTouch: true, locale: 'fr-FR', serviceWorkers: o.sw ? 'allow' : 'block'});
@@ -91,10 +92,14 @@ async function versPage(p, x, y){
 async function toucher(p, x, y, ms){
   const q = await versPage(p, x, y); await toucherPage(p, q, ms);
 }
-/* Toucher à un point de la page, qui doit tomber sur le plan (pas sur une barre ou un bouton de l'éditeur). */
-async function toucherPage(p, q, ms){
+/* Le point de la page doit tomber sur le plan (pas sur une barre ou un bouton de l'éditeur) ; quoi : le geste, pour le message. */
+async function surLePlan(p, q, quoi){
   const sur = await p.evaluate(([x, y]) => { const e = document.elementFromPoint(x, y); return e && e.classList.contains('vc-cv') ? '' : (e ? e.tagName + '.' + e.className : 'rien'); }, [q.x, q.y]);
-  if (sur) throw new Error('le toucher en ' + Math.round(q.x) + ', ' + Math.round(q.y) + ' tombe sur ' + sur + ', pas sur le plan');
+  if (sur) throw new Error(quoi + ' en ' + Math.round(q.x) + ', ' + Math.round(q.y) + ' tombe sur ' + sur + ', pas sur le plan');
+}
+/* Toucher à un point de la page, qui doit tomber sur le plan. */
+async function toucherPage(p, q, ms){
+  await surLePlan(p, q, 'le toucher');
   await p.touchscreen.tap(q.x, q.y); await pause(p, ms == null ? 450 : ms);
 }
 const outil = (p, o) => p.evaluate(o => window.__vcEd.choisirOutil(o), o);
@@ -140,11 +145,73 @@ async function regler(p, cx, cy, s){
   await p.evaluate(([cx, cy, s]) => { const S = window.__vcEd.etat; S.vue.cx = cx; S.vue.cy = cy; if (s) S.vue.s = s; window.__vcEd.redessiner(); }, [cx, cy, s]);
   await pause(p, 120);
 }
-/* Point du croquis vers le canevas (pixels) ; toucher à un point du canevas. */
+/* Point du croquis vers le canevas (pixels) ; point du canevas vers la page ; toucher à un point du canevas. */
 const ecranCv = (p, x, y) => p.evaluate(([x, y]) => window.__vcEd.etat.vue.ecran(x, y), [x, y]);
-async function toucherCv(p, q, ms){
+async function pageCv(p, q){
   const r = await p.evaluate(() => { const b = document.querySelector('.vc .vc-cv').getBoundingClientRect(); return {l: b.left, t: b.top}; });
-  await toucherPage(p, {x: r.l + q.x, y: r.t + q.y}, ms);
+  return {x: r.l + q.x, y: r.t + q.y};
+}
+async function toucherCv(p, q, ms){
+  await toucherPage(p, await pageCv(p, q), ms);
+}
+
+/* Souris (pointerType 'mouse'), aux points du canevas (pixels), qui doivent tomber sur le plan. Clic d'un bouton ('left', 'right' ou
+   'middle'), puis une pause pour ne pas faire un double clic. */
+async function cliquerCv(p, q, bouton, ms){
+  const a = await pageCv(p, q); await surLePlan(p, a, 'le clic');
+  await p.mouse.click(a.x, a.y, {button: bouton || 'left'}); await pause(p, ms == null ? 450 : ms);
+}
+/* Glissé à la souris, bouton appuyé, de q0 à q1 (huit pas) ; o.avantLever : fonction appelée avant de lever le bouton ; o.ms : pause. */
+async function glisserSourisCv(p, q0, q1, bouton, o){
+  o = o || {}; bouton = bouton || 'left';
+  const a = await pageCv(p, q0), b = await pageCv(p, q1); await surLePlan(p, a, 'le glissé'); await surLePlan(p, b, 'le glissé');
+  await p.mouse.move(a.x, a.y); await p.mouse.down({button: bouton});
+  await p.mouse.move(b.x, b.y, {steps: 8});
+  if (o.avantLever) await o.avantLever();
+  await p.mouse.up({button: bouton}); await pause(p, o.ms == null ? 450 : o.ms);
+}
+/* Survol à la souris, sans bouton appuyé ; sortie du plan : la souris passe sur le titre de la barre de l'éditeur (point de la page donné
+   par titreBarre, hors du plan). */
+async function survolerCv(p, q){
+  const a = await pageCv(p, q); await surLePlan(p, a, 'le survol');
+  await p.mouse.move(a.x, a.y); await pause(p, 80);
+}
+async function titreBarre(p){
+  const b = await p.evaluate(() => { const r = document.querySelector('.vc .vc-titre').getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, e = document.elementFromPoint(x, y);
+    return {x, y, plan: !!e && e.classList.contains('vc-cv')}; });
+  if (b.plan) throw new Error('le titre de la barre est sur le plan : la souris n\'en sortirait pas');
+  return {x: b.x, y: b.y};
+}
+async function sortirDuPlan(p){
+  const b = await titreBarre(p); await p.mouse.move(b.x, b.y, {steps: 4}); await pause(p, 80);
+}
+/* Glissé à la souris qui finit hors du plan : bouton appuyé au point q du canevas, levé sur le titre de la barre de l'éditeur. */
+async function glisserSourisHorsPlan(p, q, bouton){
+  bouton = bouton || 'left';
+  const a = await pageCv(p, q), b = await titreBarre(p); await surLePlan(p, a, 'le glissé');
+  await p.mouse.move(a.x, a.y); await p.mouse.down({button: bouton});
+  await p.mouse.move(b.x, b.y, {steps: 8}); await p.mouse.up({button: bouton}); await pause(p, 450);
+}
+/* Stylet qui survole le plan sans le toucher (pointerType 'pen', aucun bouton), par le protocole de Chromium. */
+async function survolerStyletCv(p, q){
+  const a = await pageCv(p, q); await surLePlan(p, a, 'le survol du stylet');
+  const s = await p.context().newCDPSession(p);
+  try { await s.send('Input.dispatchMouseEvent', {type: 'mouseMoved', x: a.x, y: a.y, pointerType: 'pen', button: 'none', buttons: 0}); }
+  finally { await s.detach(); }
+  await pause(p, 80);
+}
+/* Glissé au doigt (pointerType 'touch'), de q0 à q1 en huit pas, par les événements tactiles de Chromium ; o.avantLever : fonction appelée
+   avant de lever le doigt ; puis une pause. */
+async function glisserDoigtCv(p, q0, q1, ms, o){
+  const a = await pageCv(p, q0), b = await pageCv(p, q1); await surLePlan(p, a, 'le glissé'); await surLePlan(p, b, 'le glissé');
+  const s = await p.context().newCDPSession(p), t = (type, q) => s.send('Input.dispatchTouchEvent', {type, touchPoints: q ? [{x: q.x, y: q.y, id: 1}] : []});
+  try {
+    await t('touchStart', a);
+    for (let k = 1; k <= 8; k++) await t('touchMove', {x: a.x + (b.x - a.x) * k / 8, y: a.y + (b.y - a.y) * k / 8});
+    if (o && o.avantLever) await o.avantLever();
+    await t('touchEnd', null);
+  } finally { await s.detach(); }
+  await pause(p, ms == null ? 450 : ms);
 }
 /* Point du canevas à d px du point A le long de B (u), décalé de e px sur le côté opposé à C (n) : « à côté de A, sur le tuyau AB ». */
 async function aCote(p, A, B, C, d, e){
@@ -172,4 +239,5 @@ function rapport(nom){
 }
 
 module.exports = {RACINE, dossierApp, serveur, ouvrir, pause, etudeEtDossier, ouvrirCroquis, versPage, toucher, toucherPage, outil, docCroquis, vue, rayonPx, zoomerJusqua, fermerCroquis, rapport,
-  injecter, P, J, L, index, regler, ecranCv, toucherCv, aCote, analyseCroquis, dossierAnomalies};
+  injecter, P, J, L, index, regler, ecranCv, toucherCv, aCote, analyseCroquis, dossierAnomalies,
+  surLePlan, pageCv, cliquerCv, glisserSourisCv, survolerCv, titreBarre, sortirDuPlan, glisserSourisHorsPlan, survolerStyletCv, glisserDoigtCv};

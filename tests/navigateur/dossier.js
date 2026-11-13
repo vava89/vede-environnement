@@ -11,6 +11,28 @@
 //     « non conforme sur le croquis de terrain, conforme au constat » est rappelé (échoue sur b0ef508) ; 8 : témoin, deux éviers conformes, aucun écart.
 // 9 à 12 : ligne « Autres » saisie à la main et lavabo dessiné : « Lavabos » et « Lavabo de la salle d'eau » sont rappelés comme un double compte
 //     possible (échouent sur be1d749), comme « Lavabo » (témoin) ; « Chaudière (purge, condensat) » ne l'est pas (témoin).
+// 13 à 17 : anomalie saisie à la main, hors croquis, dont le texte contient « lavabo » : ligne « Évier » (avant : « Salle de bain » ; décision
+//     du 7 novembre 2026 ; échouent sur 22df7f2) ; une douche reste en salle de bain (témoin) ; sans ligne « Évier » comptée, aucune ligne.
+//     Une pièce nommée avec le lavabo le situe, elle ne lie pas sa ligne : voir 30 à 40, 47 et 48 (m115).
+// 18 à 24 (m97, décision du 7 novembre 2026) : plan PDF de l'état des lieux : « Conclusion du constat : … » quand le technicien l'a choisie dans
+//     le constat (plan du dossier, plan de l'export, bouton PDF du croquis ; constat signé : celle qu'il a signée), sinon « Conclusion proposée : … »
+//     d'après le dessin, comme avant (témoins : aucune conclusion choisie, choix retiré, visite non effectuée) ; 19 à 21 et 24 échouent sur 0a317cc.
+// 25 et 26 (m111, décision D11) : Réglages de l'application, « Aides au dessin » : la case « Aides activées » dit ce qu'elle coupe (tracé libre,
+//     sans redressement ni accroche au bâti) et que les tuyaux se raccordent toujours aux objets et aux autres tuyaux ; la note nomme le bouton
+//     aimant et la palette d'accrochage du croquis ; échouent sur e6618ef.
+// 27 à 29 (m112, puis m113) : nouveaux accrochages (« Milieu d'un côté », « Perpendiculaire », « Limites de parcelle », puis « Prolongement
+//     d'un côté » et « Intersection ») dans les mêmes Réglages : cases décochées avec d'anciens réglages (sans leurs clés), cochées seulement
+//     si la clé vaut true (null : décochée) ; un clic garde les clés connues ; échouent sur e9e8b5d ; 27 et 28 échouent aussi sur 4691c1a
+//     (cases « Prolongement d'un côté » et « Intersection » absentes).
+// 30 à 40, 47 et 48 (m115, L1) : anomalie saisie à la main qui nomme un lavabo et sa pièce, dans le texte ou la localisation (« Salle de bain »,
+//     « 1er étage, salle de bains », « Lavabo de la salle de bain », « Cuisine ») : ligne « Évier » seule, la pièce situe le lavabo ; au constat
+//     de l'écran, seule la ligne « Évier » est non conforme (39) ; sans évier compté, aucune ligne, et l'éditeur de l'anomalie affiche
+//     « Automatique, aucune trouvée » (37, 40) ; 30 à 33, 37, 39 et 40 échouent sur 52f0b00 ; témoins : une douche ou un lave-vaisselle nommés
+//     avec le lavabo lient aussi leur ligne (34, 38) ; sans lavabo, rien ne change (35, 36 ; 47 et 48 : la salle de bain nommée seule, dans
+//     le texte ou la localisation, lie sa ligne, comme en v1.5.1).
+// 41 à 46 (m115, L2) : constat signé (geste « c-lock ») sans conclusion choisie, puis une descente reliée à la boîte EU après la signature :
+//     le plan PDF (plan du dossier, bouton du croquis, plan de l'export) imprime « Conclusion du constat : Conformes », celle que le constat
+//     atteste ; 41 à 44 échouent sur 52f0b00 (« Conclusion proposée : … ») ; témoins : visite figée non effectuée (45), constat non signé (46).
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -137,8 +159,207 @@ async function autresDouble(){
   }
 }
 
+/* anomalie saisie à la main, hors croquis (aucune ligne choisie) : lignes du constat que ses mots désignent. Décision du 7 novembre 2026 : le
+   lavabo se confond avec l'évier, comme sur le croquis (ligne « Évier ») ; avant, le mot « lavabo » rangeait l'anomalie en salle de bain. Sans
+   ligne « Évier » comptée, aucune ligne : en cas de doute, l'application n'en choisit pas, le technicien la choisit dans l'anomalie */
+async function motLavabo(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    const cas = [['13 « Lavabo : non siphonné »', 'Lavabo : non siphonné', '1', 'evier'],
+      ['14 anomalie type « Rejet évier, lave-linge (sous-sol) et lavabo (étage) sur le réseau EP »', 'Rejet évier, lave-linge (sous-sol) et lavabo (étage) sur le réseau EP', '1', 'lavelinge+evier'],
+      ['15 anomalie type « Rejet du lavabo, de la buanderie et du siphon (sous escalier) vers le réseau EP »', 'Rejet du lavabo, de la buanderie et du siphon (sous escalier) vers le réseau EP', '1', 'evier'],
+      ['16 « Douche non raccordée » (témoin)', 'Douche non raccordée', '1', 'sdb'],
+      ['17 « Lavabo : non siphonné », aucun évier compté', 'Lavabo : non siphonné', '0', 'aucune']];
+    const vu = await p.evaluate(cas => { const T = window.__VT;
+      const rows = ev => [['wc', 'WC', '1'], ['lavelinge', 'Lave-linge', '1'], ['evier', 'Évier', ev], ['sdb', 'Salle de bain (douche ou baignoire et lavabo)', '1']]
+        .map(([id, label, nb]) => ({id, groupe: 'EU', label, std: true, nb, raccord: '', conforme: '', methodes: []}));
+      return cas.map(k => T.anomRows({rows: rows(k[2])}, {reseau: 'EU', observation: k[1], localisation: '', installation: ''}).map(r => r.id).join('+') || 'aucune'); }, cas);
+    cas.forEach((k, i) => R.ok(vu[i] === k[3], k[0] + ' : ' + vu[i] + (vu[i] === k[3] ? '' : ' (attendu ' + k[3] + ')')));
+  } finally { await A.fermer(); }
+}
+
+/* m115 (L1) : anomalie saisie à la main qui nomme un lavabo et la pièce où il se trouve (dans le texte ou la localisation) : la pièce situe le
+   lavabo, elle ne lie pas sa ligne (« Salle de bain », « Cuisine ») ; une douche, une baignoire ou un lave-vaisselle nommés avec lui lient
+   toujours la leur (deux installations nommées, deux lignes) ; sans lavabo nommé, rien ne change ; sans ligne « Évier » comptée, aucune
+   ligne, même avec une pièce nommée. Lignes fictives ; dossier fictif (12 rue Fictive, Ville-Exemple) */
+async function lavaboPiece(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    const OBS = 'Lavabo : rejet au réseau EP', SDB = 'Lavabo de la salle de bain : rejet au réseau EP';
+    const cas = [['30 « ' + OBS + ' », localisation « Salle de bain »', OBS, 'Salle de bain', '1', 'evier'],
+      ['31 « ' + OBS + ' », localisation « 1er étage, salle de bains »', OBS, '1er étage, salle de bains', '1', 'evier'],
+      ['32 « ' + SDB + ' »', SDB, '', '1', 'evier'],
+      ['33 « ' + OBS + ' », localisation « Cuisine »', OBS, 'Cuisine', '1', 'evier'],
+      ['34 « Lavabo et douche de la salle de bain : rejet au réseau EP » (témoin, deux installations nommées)', 'Lavabo et douche de la salle de bain : rejet au réseau EP', '', '1', 'evier+sdb'],
+      ['35 « Douche de la salle de bain : rejet au réseau EP » (témoin, sans lavabo)', 'Douche de la salle de bain : rejet au réseau EP', '', '1', 'sdb'],
+      ['36 « Évier : rejet au réseau EP », localisation « Cuisine » (témoin, sans lavabo)', 'Évier : rejet au réseau EP', 'Cuisine', '1', 'evier+cuisine'],
+      ['37 « ' + OBS + ' », localisation « Salle de bain », aucun évier compté', OBS, 'Salle de bain', '0', 'aucune'],
+      ['38 « Lavabo et lave-vaisselle de la cuisine : rejet au réseau EP » (témoin, deux installations nommées)', 'Lavabo et lave-vaisselle de la cuisine : rejet au réseau EP', '', '1', 'evier+cuisine'],
+      ['47 « Salle de bain : rejet au réseau EP » (témoin, sans lavabo)', 'Salle de bain : rejet au réseau EP', '', '1', 'sdb'],
+      ['48 « Rejet au réseau EP », localisation « Salle de bain » (témoin, sans lavabo)', 'Rejet au réseau EP', 'Salle de bain', '1', 'sdb']];
+    const vu = await p.evaluate(cas => { const T = window.__VT;
+      const rows = ev => [['wc', 'WC', '1'], ['evier', 'Évier', ev], ['sdb', 'Salle de bain (douche ou baignoire et lavabo)', '1'], ['cuisine', 'Cuisine (évier, lave-vaisselle)', '1']]
+        .map(([id, label, nb]) => ({id, groupe: 'EU', label, std: true, nb, raccord: '', conforme: '', methodes: []}));
+      return cas.map(k => T.anomRows({rows: rows(k[3])}, {reseau: 'EU', observation: k[1], localisation: k[2], installation: ''}).map(r => r.id).join('+') || 'aucune'); }, cas);
+    cas.forEach((k, i) => R.ok(vu[i] === k[4], k[0] + ' : ' + vu[i] + (vu[i] === k[4] ? '' : ' (attendu ' + k[4] + ')')));
+    /* constat de l'écran (WC, évier, salle de bain comptés) : la seule anomalie, celle du lavabo en salle de bain, ne rend non conforme que
+       la ligne « Évier » */
+    await C.etudeEtDossier(p);
+    const E = await p.evaluate(OBS => { const T = window.__VT, v = T.S.visites[0]; v.constat = T.constatEval(v, []).c;
+      v.constat.rows.forEach(x => { if (x.id === 'wc' || x.id === 'evier' || x.id === 'sdb') x.nb = '1'; });
+      const a = {id: 'a-l1', etudeId: v.etudeId, visiteId: v.id, reseau: 'EU', observation: OBS, preconisation: 'Raccorder le lavabo au réseau EU', localisation: 'Salle de bain',
+        installation: '', categorie: 'autre', photos: [], createdAt: '2026-11-08T08:00:00.000Z', updatedAt: '2026-11-08T08:00:00.000Z'};
+      const r = T.constatEval(v, [a]); return {non: r.rows.filter(x => x.conf === 'non').map(x => x.r.id).join('+') || 'aucune', concl: r.conclusion}; }, OBS);
+    R.ok(E.non === 'evier', '39 constat (WC, évier, salle de bain comptés), « ' + OBS + ' » en salle de bain : lignes non conformes ' + E.non
+      + (E.non === 'evier' ? '' : ' (attendu evier seule)') + ', conclusion ' + E.concl);
+    /* éditeur de l'anomalie, sans évier compté : « Automatique, aucune trouvée » (le technicien choisit la ligne) */
+    await p.evaluate(OBS => { const T = window.__VT, v = T.S.visites[0];
+      v.constat.rows.forEach(x => { if (x.id === 'evier') x.nb = ''; });
+      const a = {id: 'a-l1e', etudeId: v.etudeId, visiteId: v.id, reseau: 'EU', observation: OBS, preconisation: '', localisation: 'Salle de bain', photos: [], photoNonRequise: true,
+        createdAt: '2026-11-08T08:00:00.000Z', updatedAt: '2026-11-08T08:00:00.000Z'};
+      T.S.anoms.push(a); location.hash = '#/e/' + v.etudeId + '/v/' + v.id + '/a/' + a.id; }, OBS);
+    await p.waitForSelector('select[data-af="installation"]', {timeout: 10000}); await C.pause(p, 300);
+    const opt = await p.evaluate(() => { const o = document.querySelector('select[data-af="installation"] option'); return o ? o.textContent : 'aucune option'; });
+    R.ok(opt === 'Automatique, aucune trouvée', '40 éditeur de l\'anomalie, « ' + OBS + ' » en salle de bain, aucun évier compté : ' + JSON.stringify(opt)
+      + (opt === 'Automatique, aucune trouvée' ? '' : ' (attendu « Automatique, aucune trouvée »)'));
+  } finally { R.ok(!A.erreurs.length, 'lavabo et pièce : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
+/* Plan PDF de l'état des lieux : ligne de conclusion imprimée (texte capté à l'appel de la bibliothèque PDF ; enregistrement simulé) */
+async function conclusionPlan(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p); await C.ouvrirCroquis(p, {fond: false});
+    const v0 = await C.vue(p), els = [C.P('w', 'wc', v0.cx, v0.cy + 4), C.P('B', 'boite', v0.cx, v0.cy, {res: 'EU'})], I = C.index(els);
+    els.push(C.L('t', 'tr', ['w', 'B'], I, {res: 'EU'}));
+    await C.injecter(p, {el: els});
+    await p.evaluate(() => { const S = window.__vcEd.etat; S.doc.rev = (S.doc.rev || 0) + 1; window.__vcEd.enregistrer();
+      const J0 = window.jspdf.jsPDF; window.__txtPdf = []; window.__pdfFaits = 0;
+      const W = function(){ const d = new J0(...arguments), ot = d.text; d.text = function(t){ try { window.__txtPdf.push([].concat(t).join(' ')); } catch (e){} return ot.apply(d, arguments); }; return d; };
+      W.API = J0.API; window.jspdf.jsPDF = W; window.__VT_SAVE = async () => { window.__pdfFaits++; return true; }; });
+    await C.pause(p, 500);
+    const lu = () => p.evaluate(() => { const t = window.__txtPdf.filter(x => /^Conclusion/.test(x)).join(' | ') || 'aucune'; window.__txtPdf = []; return t; });
+    /* bouton PDF du croquis (état des lieux) */
+    const parBouton = async () => { const n = await p.evaluate(() => window.__pdfFaits); await p.evaluate(() => window.__vcEd.sortie('pdfEdl'));
+      await p.waitForFunction(n => window.__pdfFaits > n, n, {timeout: 15000}); return lu(); };
+    const parDossier = async () => { await p.evaluate(async () => { const T = window.__VT; await T.vcPdf(T.S.visites[0]); }); return lu(); };
+    const parExport = async () => { const ok = await p.evaluate(async () => { const T = window.__VT, v = T.S.visites[0]; if (!T.vcPlansPdf) return false;
+      await T.vcPlansPdf(v, T.S.anoms.filter(a => a.visiteId === v.id)); return true; }); return ok ? lu() : 'vcPlansPdf absent'; };
+    const verif = (nom, vu, re) => R.ok(re.test(vu), nom + ' : ' + vu);
+    verif('18 bouton PDF du croquis, aucune conclusion choisie (témoin)', await parBouton(), /^Conclusion proposée : Conformes$/);
+    await C.fermerCroquis(p); await C.pause(p, 400);
+    verif('18b plan du dossier, aucune conclusion choisie (témoin)', await parDossier(), /^Conclusion proposée : Conformes$/);
+    await p.evaluate(() => { const v = window.__VT.S.visites[0]; v.statut = 'visitee'; location.hash = '#/e/' + v.etudeId + '/v/' + v.id + '/constat'; });
+    await p.waitForSelector('[data-act="c-concl"][data-v="reserves"]'); await C.pause(p, 600);
+    await p.click('[data-act="c-concl"][data-v="reserves"]'); await C.pause(p, 300);
+    const choix = await p.evaluate(() => window.__VT.S.visites[0].constat.conclusion);
+    R.ok(choix === 'reserves', 'conclusion « Conformes avec réserves » choisie dans le constat : ' + JSON.stringify(choix));
+    verif('19 plan du dossier, conclusion choisie dans le constat', await parDossier(), /^Conclusion du constat : Conformes avec réserves$/);
+    verif('20 plan de l\'export, conclusion choisie dans le constat', await parExport(), /^Conclusion du constat : Conformes avec réserves$/);
+    await p.evaluate(() => { const v = window.__VT.S.visites[0]; location.hash = '#/e/' + v.etudeId + '/v/' + v.id; }); await p.waitForSelector('[data-act="vc-ouvrir"]');
+    await C.ouvrirCroquis(p, {dejaCommence: true}); await p.waitForSelector('#modal-root .vc'); await C.pause(p, 400);
+    verif('21 bouton PDF du croquis, conclusion choisie dans le constat', await parBouton(), /^Conclusion du constat : Conformes avec réserves$/);
+    await C.fermerCroquis(p); await C.pause(p, 400);
+    await p.evaluate(() => { window.__VT.S.visites[0].statut = 'absent'; });
+    verif('22 visite non effectuée (absent), conclusion restée choisie (témoin)', await parDossier(), /^Conclusion proposée : Conformes$/);
+    await p.evaluate(() => { const v = window.__VT.S.visites[0]; v.statut = 'visitee'; location.hash = '#/e/' + v.etudeId + '/v/' + v.id + '/constat'; });
+    await p.waitForSelector('[data-act="c-concl"][data-v="reserves"]'); await C.pause(p, 600);
+    await p.click('[data-act="c-concl"][data-v="reserves"]'); await C.pause(p, 300);
+    verif('23 choix retiré (second toucher), plan du dossier (témoin)', await parDossier(), /^Conclusion proposée : Conformes$/);
+    /* constat signé (état posé à la main) : la conclusion qu'il atteste */
+    await p.evaluate(() => { const c = window.__VT.S.visites[0].constat; c.conclusion = 'non_conformes'; c.signeLe = '2026-11-07';
+      c.fige = Object.assign({}, c.fige || {}, {conclusion: 'non_conformes', visite: {statut: 'visitee'}}); });
+    verif('24 constat signé, conclusion choisie avant la signature', await parDossier(), /^Conclusion du constat : Non conformes$/);
+    /* m115 (L2) : constat signé sans que le technicien ait touché la conclusion : la signature (geste « c-lock », signature du technicien
+       fictive : une image vide d'un pixel) fige la conclusion proposée ; le croquis change ensuite (il reste modifiable) : une descente reliée
+       à la boîte EU, non-conformité nouvelle ; le plan imprime la conclusion que le constat atteste */
+    const sig = await p.evaluate(async () => { const T = window.__VT, v = T.S.visites[0], c = v.constat; c.conclusion = ''; delete c.signeLe; delete c.fige;
+      const res = await T.vcResume(v); if (res) T.constatDepuisCroquis(v, res, false);
+      c.sigTech = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+      await T.ACTIONS['c-lock']();
+      return {choisie: c.conclusion || '', signe: !!c.signeLe, attestee: c.fige ? c.fige.conclusion : 'aucun gel'}; });
+    R.ok(sig.signe && sig.choisie === '' && sig.attestee === 'conformes', 'constat signé (« c-lock ») sans conclusion choisie : conclusion attestée ' + JSON.stringify(sig.attestee)
+      + ', choisie ' + JSON.stringify(sig.choisie) + (sig.signe ? '' : ', pas signé'));
+    verif('41 constat signé sans conclusion choisie, plan du dossier', await parDossier(), /^Conclusion du constat : Conformes$/);
+    await p.evaluate(() => { const v = window.__VT.S.visites[0]; location.hash = '#/e/' + v.etudeId + '/v/' + v.id; }); await p.waitForSelector('[data-act="vc-ouvrir"]');
+    await C.ouvrirCroquis(p, {dejaCommence: true}); await p.waitForSelector('#modal-root .vc'); await C.pause(p, 400);
+    const els2 = els.slice(0, 2).concat([C.P('d', 'descente', v0.cx + 4, v0.cy + 4, {cote: 'avant'})]), I2 = C.index(els2);
+    els2.push(C.L('t', 'tr', ['w', 'B'], I2, {res: 'EU'}), C.L('td', 'tr', ['d', 'B'], I2, {res: ''}));
+    await C.injecter(p, {el: els2});
+    await p.evaluate(() => { const S = window.__vcEd.etat; S.doc.rev = (S.doc.rev || 0) + 1; window.__vcEd.enregistrer(); }); await C.pause(p, 600);
+    const nc = await p.evaluate(() => { const T = window.__VT, v = T.S.visites[0]; return T.S.anoms.filter(a => a.visiteId === v.id && T.anomNC(a)).length; });
+    R.ok(nc >= 1, 'descente reliée à la boîte EU après la signature : ' + nc + ' non-conformité(s) au dossier');
+    verif('42 bouton PDF du croquis, constat signé sans conclusion choisie, dessin changé après la signature', await parBouton(), /^Conclusion du constat : Conformes$/);
+    await C.fermerCroquis(p); await C.pause(p, 400);
+    verif('43 plan du dossier, même constat', await parDossier(), /^Conclusion du constat : Conformes$/);
+    verif('44 plan de l\'export, même constat', await parExport(), /^Conclusion du constat : Conformes$/);
+    /* témoins : visite figée non effectuée (absent) ; constat non signé, sans conclusion choisie : la conclusion proposée d'après le dessin */
+    await p.evaluate(() => { window.__VT.S.visites[0].constat.fige.visite = {statut: 'absent'}; });
+    verif('45 constat signé, visite figée non effectuée (absent) (témoin)', await parDossier(), /^Conclusion proposée : Non conformes$/);
+    await p.evaluate(() => { const c = window.__VT.S.visites[0].constat; c.signeLe = ''; c.sigTech = ''; delete c.fige; });
+    verif('46 constat non signé, sans conclusion choisie, dessin changé (témoin)', await parDossier(), /^Conclusion proposée : Non conformes$/);
+  } finally { R.ok(!A.erreurs.length, 'conclusion du plan : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
+/* Réglages de l'application, bloc « Aides au dessin » (m111) : texte de la case « Aides activées » et note sur le croquis */
+async function reglagesAides(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p);
+    await p.evaluate(() => { location.hash = '#/reglages'; });
+    await p.waitForSelector('input[data-act="vc-aide"][data-k="actives"]', {state: 'attached', timeout: 10000});
+    const t = await p.evaluate(() => {
+      const c = document.querySelector('input[data-act="vc-aide"][data-k="actives"]'), o = c && c.closest('label') && c.closest('label').querySelector('.opt');
+      const n = Array.from(document.querySelectorAll('p')).filter(x => /valent aussi dans le croquis/.test(x.textContent));
+      return {opt: o ? o.textContent : '', note: n.map(x => x.textContent).join(' | ')};
+    });
+    const OPT = 'décoché : tracé libre, sans redressement ni accroche au bâti ; les tuyaux se raccordent toujours aux objets et aux autres tuyaux';
+    const NOTE = 'Ces réglages valent aussi dans le croquis (bouton aimant et palette d\'accrochage, à droite du plan).';
+    R.ok(t.opt === OPT, '25 Réglages de l\'application, « Aides activées » : ' + JSON.stringify(t.opt) + (t.opt === OPT ? '' : ' (attendu ' + JSON.stringify(OPT) + ')'));
+    R.ok(t.note === NOTE, '26 Réglages de l\'application, note sur le croquis : ' + JSON.stringify(t.note) + (t.note === NOTE ? '' : ' (attendu ' + JSON.stringify(NOTE) + ')'));
+  } finally { R.ok(!A.erreurs.length, 'réglages des aides : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
+/* Réglages de l'application, nouveaux accrochages (m112, puis m113) : avec d'anciens réglages (sans leurs clés), cases présentes et
+   décochées ; cochées seulement si la clé vaut true ; l'enregistrement garde les clés connues */
+async function reglagesAccroches(){
+  const A = await C.ouvrir(), p = A.p;
+  const NOUV = [['accMilieu', 'Milieu d\'un côté'], ['accPerp', 'Perpendiculaire'], ['accParcelle', 'Limites de parcelle'], ['accProl', 'Prolongement d\'un côté'],
+    ['accInter', 'Intersection']];
+  const ANC = {actives: true, glisser: true, finir: true, parallele: true, bati: true, angles: true, orienter: true, coude: true};
+  try {
+    await C.etudeEtDossier(p);
+    await p.evaluate(a => { window.__VT.S.croq.aides = a; location.hash = '#/reglages'; }, ANC);
+    await p.waitForSelector('input[data-act="vc-aide"][data-k="actives"]', {state: 'attached', timeout: 10000});
+    const cases = () => p.evaluate(() => Array.from(document.querySelectorAll('input[data-act="vc-aide"]')).map(c => {
+      const s = c.closest('label') && c.closest('label').querySelector('span'); return {k: c.dataset.k, on: c.checked, lib: s && s.firstChild ? s.firstChild.textContent.trim() : ''}; }));
+    const f = (cs, k) => cs.find(c => c.k === k), dit = (cs, k) => f(cs, k) ? JSON.stringify(f(cs, k).lib) + (f(cs, k).on ? ' cochée' : ' décochée') : k + ' absente';
+    await p.evaluate(() => window.__VT.render()); await C.pause(p, 300);
+    const c1 = await cases(), anc = Object.keys(ANC).every(k => f(c1, k) && f(c1, k).on);
+    R.ok(NOUV.every(([k, lib]) => f(c1, k) && !f(c1, k).on && f(c1, k).lib === lib) && anc, '27 Réglages de l\'application, anciens réglages : '
+      + NOUV.map(([k]) => dit(c1, k)).join(', ') + ' ; anciennes aides ' + (anc ? 'cochées' : 'pas toutes cochées'));
+    /* une clé à true : cochée ; à null : décochée (lecture stricte) */
+    await p.evaluate(a => { window.__VT.S.croq.aides = a; window.__VT.render(); }, Object.assign({}, ANC, {accPerp: true, accMilieu: null, accInter: true, accProl: null}));
+    await C.pause(p, 300);
+    const c2 = await cases(), oui = k => !!f(c2, k) && f(c2, k).on, non = k => !!f(c2, k) && !f(c2, k).on;
+    R.ok(oui('accPerp') && non('accMilieu') && non('accParcelle') && oui('accInter') && non('accProl'), '28 clés accPerp et accInter à true, accMilieu et accProl à null, '
+      + 'accParcelle absente : ' + NOUV.map(([k]) => dit(c2, k)).join(', ') + ' (attendu : seules « Perpendiculaire » et « Intersection » cochées)');
+    /* un clic coche « Milieu d'un côté » : l'enregistrement garde les clés connues */
+    let a3 = null;
+    if (f(c2, 'accMilieu')){ await p.click('input[data-act="vc-aide"][data-k="accMilieu"]'); await C.pause(p, 400); a3 = await p.evaluate(() => Object.assign({}, window.__VT.S.croq.aides)); }
+    const garde = !!a3 && a3.accMilieu === true && a3.accPerp === true && a3.accInter === true && Object.keys(ANC).every(k => a3[k] === true);
+    R.ok(garde, '29 clic sur « Milieu d\'un côté » : aides enregistrées ' + (a3 ? JSON.stringify(a3) : 'aucune (case absente)') + ' (attendu : accMilieu, accPerp et accInter à true, '
+      + 'anciennes clés gardées)');
+  } finally { R.ok(!A.erreurs.length, 'réglages des accrochages : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
 (async () => {
   try {
+    await reglagesAides();
+    await reglagesAccroches();
+    await conclusionPlan();
+    await motLavabo();
+    await lavaboPiece();
     await cas('1 NC choisie en EP, dessin changé pendant le retrait puis rétabli', 'relier();', 'true', false, {nature: 'NC', constat: 'non_conformes'});
     await cas('2 réserve choisie en EU, dessin changé pendant le retrait puis rétabli', '', 'false', true, {nature: 'réserve', constat: 'reserves'});
     await lavabo();

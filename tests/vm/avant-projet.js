@@ -15,6 +15,9 @@
 // l'état des lieux, une arrivée, pas une sortie : la fosse en série reste comptée.
 // p5, p6 (m95) : raccord au milieu d'un tuyau existant, d'où part un tuyau « Projet » (état des lieux) ou une branche « À supprimer »
 // (avant-projet) : même analyse que sans le raccord (échouent sur ba2d32a).
+// c1 à c4 (m97) : conclusion choisie dans le constat, donnée par l'hôte (conclusionConstat) : le plan de l'état des lieux l'imprime
+// (« Conclusion du constat : … », échouent sur 0a317cc) ; une valeur que le constat ne peut pas choisir (« À compléter ») ou rien :
+// « Conclusion proposée : … » d'après le dessin (témoins) ; l'avant-projet n'imprime pas de conclusion (témoin).
 'use strict';
 const {charger, rapport} = require('./charger.js');
 const {V, ctx} = charger({pdf: true}), R = rapport('avant-projet');
@@ -113,6 +116,16 @@ const PDF_S = 'Après travaux : WC garde une sortie EP laissée libre : la passe
     ln(d, 'L1', 'tr', 'EU', ['wc', 'R1']); ln(d, 'A', 'tr', '', ['R1', 'F']); ln(d, 'S', 'tr', 'EU', ['F', [0, 0]]); ln(d, 'At', 'tr', 'EU', ['R1', 'la']);
     const an = V.analyser(JSON.parse(JSON.stringify(d)), 'edl'), L = V.anomaliesDoc(JSON.parse(JSON.stringify(d)), an), r = an.resObj.wc;
     R.ok(r.etat === 'ok' && r.fosse === 'F' && L.some(a => a.cle === 'fosse:F' && a.st === 'retenue'), 'p4 (attente vers un lavabo « Projet ») : wc=' + r.etat + ':' + r.res + (r.presume ? '(p)' : '') + (r.fosse ? ' fosse=' + r.fosse : '') + ' | ' + L.map(a => a.cle).join(','));
+  }
+  {
+    const d = maison('s3'), concl = async o => (await textesPdf(d, o)).filter(t => /^Conclusion|^ERR/.test(t)).join(' | ') || 'aucune';
+    for (const [n, o, re] of [['c1 conclusion du constat « reserves »', {mode: 'edl', conclusionConstat: 'reserves'}, /^Conclusion du constat : Conformes avec réserves$/],
+      ['c2 conclusion du constat « non_conformes »', {mode: 'edl', conclusionConstat: 'non_conformes'}, /^Conclusion du constat : Non conformes$/],
+      ['c3 valeur que le constat ne peut pas choisir (« incomplet », témoin)', {mode: 'edl', conclusionConstat: 'incomplet'}, /^Conclusion proposée : /],
+      ['c3b aucune conclusion donnée (témoin)', {mode: 'edl'}, /^Conclusion proposée : /],
+      ['c4 avant-projet (témoin)', {mode: 'avp', conclusionConstat: 'reserves'}, /^aucune$/]]){
+      const vu = await concl(o); R.ok(re.test(vu), n + ' : ' + vu);
+    }
   }
   R.fin();
 })().catch(e => { console.log('ERREUR ' + (e && e.stack || e)); process.exitCode = 1; });

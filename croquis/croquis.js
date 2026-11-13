@@ -25,6 +25,393 @@ function projSeg(p, a, b){
 function norm(s){ return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
 VC.outils = {uid: uid, esc: esc, clamp: clamp, num: num, frNum: frNum, copie: copie, projSeg: projSeg, norm: norm};
 
+/* ---------- Géométrie du plan (VC.geo) : fonctions pures, en mètres du plan (y vers le nord), sans arrondi, sans DOM ----------
+   Le repère du plan ne dépend pas de la rotation de la vue. cw(v) est la droite de qui regarde selon v, ccw(v) sa gauche.
+   Côté ref = {A, B, n?} : t = (B − A)/|AB| ; n, facultative, est la normale extérieure ; seul son côté compte (le décalage est pris
+   perpendiculaire au côté). Une entrée invalide (point absent, nombre non fini, côté de longueur nulle) rend null, sans exception. */
+var GEO_EPS = 1e-9; /* m : deux sommets plus proches sont confondus ; un point plus près du bord est sur le bord */
+function estPt(p){ return !!p && typeof p.x === 'number' && typeof p.y === 'number' && isFinite(p.x) && isFinite(p.y); }
+function cw(v){ return estPt(v) ? {x: v.y, y: -v.x} : null; }
+function ccw(v){ return estPt(v) ? {x: -v.y, y: v.x} : null; }
+function unite(a, b){
+  if (!estPt(a) || !estPt(b)) return null;
+  var dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy);
+  return L > 0 && isFinite(L) ? {x: dx / L, y: dy / L} : null;
+}
+/* repère d'un côté : A, B, t, L = |AB| et n (normale unitaire du côté de ref.n, null sans ref.n) ; null si le côté ou ref.n est invalide */
+function repereCote(ref){
+  if (!ref || !estPt(ref.A) || !estPt(ref.B)) return null;
+  var t = unite(ref.A, ref.B), n = null, c;
+  if (!t) return null;
+  if (ref.n != null){
+    if (!estPt(ref.n)) return null;
+    c = ref.n.x * t.y - ref.n.y * t.x; /* n·cw(t) ; 0 : n parallèle au côté */
+    if (c === 0) return null;
+    n = c > 0 ? cw(t) : ccw(t);
+  }
+  return {A: ref.A, B: ref.B, t: t, L: Math.hypot(ref.B.x - ref.A.x, ref.B.y - ref.A.y), n: n};
+}
+/* Point posé par cotes depuis un côté (convention 11.1 : le technicien est dehors, face au bâtiment).
+   c = {mode: 'prol' | 'long', coin: 'A' | 'B', d, e, cote} ; d et e en mètres, positifs ou nuls.
+   Dans le prolongement, au-delà du coin O : w part de O et s'éloigne du côté (−t au-delà de A, +t au-delà de B) ;
+   P = O + d·w + e·(droite ? ccw(w) : cw(w)), cote 'droite' ou 'gauche' ; n ne sert pas.
+   Le long, depuis le coin O : w va de O vers l'autre coin ; P = O + d·w + e·(devant ? n : −n), cote 'devant' ou 'derriere' ; sans n, null. */
+function placer(ref, c){
+  var r = repereCote(ref); if (!r || !c) return null;
+  var d = c.d, e = c.e, O = c.coin === 'A' ? r.A : c.coin === 'B' ? r.B : null, w, k, x, y;
+  if (!O || typeof d !== 'number' || typeof e !== 'number' || !isFinite(d) || !isFinite(e) || d < 0 || e < 0) return null;
+  if (c.mode === 'prol'){
+    w = c.coin === 'A' ? {x: -r.t.x, y: -r.t.y} : r.t;
+    k = c.cote === 'droite' ? ccw(w) : c.cote === 'gauche' ? cw(w) : null;
+  } else if (c.mode === 'long' && r.n){
+    w = c.coin === 'A' ? r.t : {x: -r.t.x, y: -r.t.y};
+    k = c.cote === 'devant' ? r.n : c.cote === 'derriere' ? {x: -r.n.x, y: -r.n.y} : null;
+  }
+  if (!k) return null;
+  x = O.x + d * w.x + e * k.x; y = O.y + d * w.y + e * k.y;
+  return isFinite(x) && isFinite(y) ? {x: x, y: y} : null;
+}
+/* Mesure d'un point P depuis un côté : l'inverse de placer (aller-retour à 1e-9 près).
+   s = (P − A)·t ; h = (P − A)·n (null sans n). s < 0 : prolongement au-delà de A ; s > |AB| : au-delà de B ; sinon le long (null sans n),
+   depuis le coin o.coin s'il est donné, sinon depuis le plus proche (à égalité, le coin gauche vu du dehors).
+   Bruit de calcul : à GEO_EPS / 2 près, le point est sur le côté (e = 0), à un coin ou à mi-côté.
+   Si e = 0, le côté o.cote (celui qui est affiché) est gardé. À un coin, le mode o.mode est gardé s'il se calcule ; sinon le point est
+   mesuré le long (d = 0 ou |AB|), ou dans le prolongement (d = 0) sans n. Une saisie « prolongement, d 0 » mesurée sans o.mode
+   donne donc « le long » : c'est le même point. Rend {mode, coin, d, e, cote, s, h} ; s et h sont calculés sans tolérance. */
+function mesurer(ref, P, o){
+  var r = repereCote(ref); if (!r || !estPt(P)) return null;
+  o = o || {};
+  var tol = GEO_EPS / 2, ax = P.x - r.A.x, ay = P.y - r.A.y, s = ax * r.t.x + ay * r.t.y, h = r.n ? ax * r.n.x + ay * r.n.y : null;
+  var enA = Math.abs(s) <= tol, enB = !enA && Math.abs(s - r.L) <= tol, m, O, g, lam, coin, sc;
+  if (s < -tol || s > r.L + tol || (enA || enB) && (o.mode === 'prol' || !r.n)){
+    coin = enA || s < -tol ? 'A' : 'B'; O = coin === 'A' ? r.A : r.B;
+    g = coin === 'A' ? ccw({x: -r.t.x, y: -r.t.y}) : ccw(r.t); lam = (P.x - O.x) * g.x + (P.y - O.y) * g.y;
+    m = {mode: 'prol', coin: coin, d: enA || enB ? 0 : coin === 'A' ? -s : s - r.L, e: Math.abs(lam) <= tol ? 0 : Math.abs(lam),
+      cote: Math.abs(lam) <= tol ? (o.cote === 'gauche' ? 'gauche' : 'droite') : lam > 0 ? 'droite' : 'gauche'};
+  } else {
+    if (!r.n) return null;
+    coin = o.coin === 'A' || o.coin === 'B' ? o.coin : Math.abs(s - r.L / 2) <= tol ? coinGaucheR(r) : s < r.L - s ? 'A' : 'B';
+    sc = enA ? 0 : enB ? r.L : s;
+    m = {mode: 'long', coin: coin, d: coin === 'A' ? sc : r.L - sc, e: Math.abs(h) <= tol ? 0 : Math.abs(h),
+      cote: Math.abs(h) <= tol ? (o.cote === 'derriere' ? 'derriere' : 'devant') : h > 0 ? 'devant' : 'derriere'};
+  }
+  m.s = s; m.h = h;
+  return m;
+}
+/* Coin gauche d'un côté, vu du dehors face à la façade : A si t·cw(−n) > 0, sinon B ; null sans n */
+function coinGaucheR(r){ var g = cw({x: -r.n.x, y: -r.n.y}); return r.t.x * g.x + r.t.y * g.y > 0 ? 'A' : 'B'; }
+function coinGauche(ref){ var r = repereCote(ref); return r && r.n ? coinGaucheR(r) : null; }
+/* Côtés d'une polyligne P : un segment rejoint le côté en cours si sa direction reste à tolDeg degrés au plus (2 par défaut) de celle du
+   côté (de son premier sommet au dernier sommet atteint) ; pour deux segments, c'est l'écart entre leurs directions. Les sommets répétés
+   sont ignorés. ferme : la fusion traverse le sommet 0 (le côté qui le traverse a i0 > i1) ; un dernier sommet égal au premier est ignoré.
+   Rend [{A, B, i0, i1}] dans l'ordre des sommets, i0 et i1 : indices dans P des sommets de début et de fin du côté (fermée : le côté
+   qui traverse le sommet 0 vient en dernier). */
+function cotesAlignes(P, ferme, tolDeg){
+  var tol = tolDeg == null ? 2 : tolDeg, I = [], i, k, m, k0 = 0, out = [], deb, fin, a, aMax;
+  if (!P || typeof P.length !== 'number' || typeof tol !== 'number' || !isFinite(tol) || tol < 0) return null;
+  tol = tol * Math.PI / 180;
+  function S(j){ return P[I[j % I.length]]; }
+  function loin(a, b){ return Math.hypot(b.x - a.x, b.y - a.y) > GEO_EPS; }
+  /* écart entre les directions de a→b et de c→d, de 0 à π */
+  function ecart(a, b, c, d){ var ux = b.x - a.x, uy = b.y - a.y, vx = d.x - c.x, vy = d.y - c.y; return Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)); }
+  function cote(a, b){ return {A: {x: S(a).x, y: S(a).y}, B: {x: S(b).x, y: S(b).y}, i0: I[a % I.length], i1: I[b % I.length]}; }
+  for (i = 0; i < P.length; i++){ if (!estPt(P[i])) return null; if (!I.length || loin(P[I[I.length - 1]], P[i])) I.push(i); }
+  if (ferme && I.length > 1 && !loin(P[I[I.length - 1]], P[I[0]])) I.pop();
+  m = I.length; if (m < 2) return [];
+  /* polyligne fermée : départ sur le coin le plus marqué (le premier à égalité), s'il dépasse tol (sinon sur le sommet 0). Un côté peut
+     ainsi traverser le sommet 0. Le départ ne dépend pas du sommet 0, sauf à égalité : un faux coin ne sert pas de départ. */
+  if (ferme) for (k = 0, aMax = tol; k < m; k++){ a = ecart(S(k + m - 1), S(k), S(k), S(k + 1)); if (a > aMax){ aMax = a; k0 = k; } }
+  deb = k0; fin = k0 + 1;
+  for (k = k0 + 1; k < k0 + (ferme ? m : m - 1); k++){
+    if (ecart(S(deb), S(fin), S(k), S(k + 1)) <= tol) fin = k + 1;
+    else { out.push(cote(deb, fin)); deb = k; fin = k + 1; }
+  }
+  out.push(cote(deb, fin));
+  /* ordre des sommets, quel que soit le départ : d'abord le côté qui commence au plus petit indice */
+  for (k = 1, i = 0; k < out.length; k++) if (out[k].i0 < out[i].i0) i = k;
+  return out.slice(i).concat(out.slice(0, i));
+}
+/* Distance d'un point au bord d'un polygone (fermé) : {d, seg, proj} ; seg : indice du côté le plus proche (de P[seg] à P[seg + 1],
+   le dernier revient à P[0]) ; proj : le point de ce côté le plus proche ; à égalité, le premier côté l'emporte */
+function distPolygone(p, P){
+  if (!estPt(p) || !P || typeof P.length !== 'number' || P.length < 2) return null;
+  var best = null, i, q;
+  for (i = 0; i < P.length; i++){
+    if (!estPt(P[i]) || !estPt(P[(i + 1) % P.length])) return null;
+    q = projSeg(p, P[i], P[(i + 1) % P.length]);
+    if (!best || q.d < best.d) best = {d: q.d, seg: i, proj: {x: q.x, y: q.y}};
+  }
+  return best;
+}
+/* Point dans un polygone, règle pair-impair ; un point sur le bord (à GEO_EPS près) est dehors */
+function dansPolygone(p, P){
+  if (!estPt(p) || !P || typeof P.length !== 'number') return null;
+  var i, j, a, b, dedans = false;
+  for (i = 0; i < P.length; i++) if (!estPt(P[i])) return null;
+  if (P.length < 3 || distPolygone(p, P).d <= GEO_EPS) return false;
+  for (i = 0, j = P.length - 1; i < P.length; j = i++){
+    a = P[i]; b = P[j];
+    if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) dedans = !dedans;
+  }
+  return dedans;
+}
+/* Pied de la perpendiculaire menée de p sur la droite (a, b), non bornée (projSeg s'arrête aux bouts) : {x, y, t}, t = 0 en a, 1 en b */
+function piedPerp(p, a, b){
+  if (!estPt(p) || !estPt(a) || !estPt(b)) return null;
+  var dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy, t;
+  if (!(L2 > 0) || !isFinite(L2)) return null;
+  t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2;
+  return {x: a.x + t * dx, y: a.y + t * dy, t: t};
+}
+/* Escalier vu de dessus (souhait 12, décision D7), dans le repère du croquis : départ D et fin F d'un même bord, largeur larg (m) d'un seul
+   côté de la ligne D-F (cote 'g' : à gauche en allant de D vers F ; 'd' : à droite), n marches, monte vers la fin ('fin') ou vers le départ
+   ('depart'). Rend {contour : [D, F, F + larg·nc, D + larg·nc], marches : n − 1 traits [a, b] d'un bord à l'autre, fleche : [début, tête] sur
+   la ligne du milieu (vers le haut de l'escalier), pointe : les deux bouts des traits de la pointe (menés de la tête), pas : longueur d'une
+   marche}. larg et n : nombres ou textes (« 1,00 ») ; n entier de 1 à 100. D et F confondus ou une valeur invalide : null, sans exception. */
+function escalier(D, F, larg, n, cote, monte){
+  var t = unite(D, F), w = num(larg), k = num(n), L, nc, i, a, P = [], M = [], Dm, Fm, haut, bas, u, s;
+  if (!t || w == null || !(w > 0) || k == null || k !== Math.round(k) || k < 1 || k > 100) return null;
+  if ((cote !== 'g' && cote !== 'd') || (monte !== 'fin' && monte !== 'depart')) return null;
+  L = Math.hypot(F.x - D.x, F.y - D.y); if (!(L > GEO_EPS)) return null;
+  nc = cote === 'g' ? ccw(t) : cw(t);
+  P = [{x: D.x, y: D.y}, {x: F.x, y: F.y}, {x: F.x + w * nc.x, y: F.y + w * nc.y}, {x: D.x + w * nc.x, y: D.y + w * nc.y}];
+  for (i = 1; i < k; i++){
+    a = {x: D.x + (F.x - D.x) * i / k, y: D.y + (F.y - D.y) * i / k};
+    M.push([a, {x: a.x + w * nc.x, y: a.y + w * nc.y}]);
+  }
+  Dm = {x: D.x + w / 2 * nc.x, y: D.y + w / 2 * nc.y}; Fm = {x: F.x + w / 2 * nc.x, y: F.y + w / 2 * nc.y};
+  haut = monte === 'fin' ? Fm : Dm; bas = monte === 'fin' ? Dm : Fm;
+  u = monte === 'fin' ? t : {x: -t.x, y: -t.y}; s = Math.min(w * .3, L * .25);
+  return {contour: P, marches: M, fleche: [{x: bas.x, y: bas.y}, {x: haut.x, y: haut.y}],
+    pointe: [{x: haut.x - s * u.x + .6 * s * nc.x, y: haut.y - s * u.y + .6 * s * nc.y}, {x: haut.x - s * u.x - .6 * s * nc.x, y: haut.y - s * u.y - .6 * s * nc.y}], pas: L / k};
+}
+/* Intersection des droites (a, b) et (c, d), non bornées : {x, y, t, u} (t sur a→b, u sur c→d : 0 au premier point, 1 au second) ;
+   null si elles sont parallèles ou confondues (angle sous 1e-12 rad), ou si a = b ou c = d */
+function interDroites(a, b, c, d){
+  if (!estPt(a) || !estPt(b) || !estPt(c) || !estPt(d)) return null;
+  var rx = b.x - a.x, ry = b.y - a.y, sx = d.x - c.x, sy = d.y - c.y, den = rx * sy - ry * sx, Lr = Math.hypot(rx, ry), Ls = Math.hypot(sx, sy), t, u;
+  if (!(Lr > 0) || !(Ls > 0) || !isFinite(den) || !(Math.abs(den) > 1e-12 * Lr * Ls)) return null;
+  t = ((c.x - a.x) * sy - (c.y - a.y) * sx) / den; u = ((c.x - a.x) * ry - (c.y - a.y) * rx) / den;
+  return {x: a.x + t * rx, y: a.y + t * ry, t: t, u: u};
+}
+function milieu(a, b){ return estPt(a) && estPt(b) ? {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2} : null; }
+/* Aire signée d'une polyligne fermée (formule du lacet, en éventail depuis le premier point) : positive dans le sens trigonométrique,
+   négative dans le sens des aiguilles d'une montre. Le point qui ferme la polyligne (répété) n'ajoute rien. */
+function aireSignee(P){
+  var s = 0;
+  for (var k = 1; k < P.length - 1; k++) s += (P[k].x - P[0].x) * (P[k + 1].y - P[0].y) - (P[k + 1].x - P[0].x) * (P[k].y - P[0].y);
+  return s / 2;
+}
+/* m : une polyligne fermée dont la largeur moyenne (2 × |aire| / périmètre) ne dépasse pas 1 cm, l'arrondi de l'affichage, n'a pas
+   d'intérieur. Ses sommets sont alignés, aux arrondis près (le DXF arrondit au millimètre ou au centimètre, le fond est gardé en simple
+   précision) : son aire n'est que du bruit de calcul, elle compte pour 0. */
+var GEO_MINCE = 0.01;
+/* Lignes de référence du plan : [{nat, P, ferme, src, aire}], celles du fond dans l'ordre de fond.L, puis celles du croquis dans l'ordre de doc.el.
+   - nat 'bati' : polylignes des calques visibles de style bati ou batileger (les côtés que suivent les aides au dessin) ;
+   - nat 'limite' : polylignes des calques visibles dont le nom contient PARCELLE, sans TEX, SECTION, SUBDFISC, SUBDSECT ni ZONCOMM.
+     PARCELLENFP en est, parce que son nom contient PARCELLE sans TEX (règle D3) [présomption]. styleCalque ne tranche pas : il lui donne
+     le style 'parcelle', comme à PARCELLE, mais aussi à SECTION, SUBDFISC, SUBDSECT et ZONCOMM, écartés ici. Un calque de bâti n'est
+     jamais une limite ;
+   - nat 'complement' : traits « Complément du fond » du croquis (t 'lim').
+   Ni l'escalier, ni les tronçons, ni les collecteurs ne sont des lignes de référence.
+   P : sommets en mètres du plan, le point répété qui ferme la polyligne compris (les rangs sont ceux du fond). Le fond est décalé de off,
+   par défaut de son décalage sur le croquis (decalageFond). ferme : drapeau du DXF, ou dernier point confondu avec le premier (à GEO_EPS
+   près, 3 points au moins). src : {L : indice du calque, i : rang de la polyligne dans fond.L} pour le fond, {id} pour le croquis.
+   aire : signée (positive dans le sens trigonométrique) ; 0 pour une polyligne ouverte, ou fermée sans intérieur (GEO_MINCE).
+   fond null : aucune ligne du fond (fond masqué) ; doc null : aucun trait du croquis ; natures : liste des natures voulues, null pour toutes.
+   Entrée invalide (fond sans L, xy ou calques ; doc sans el ; décalage non fini ; natures qui n'est pas une liste) : null.
+   Jamais d'exception : une polyligne du fond ou un élément du croquis qui n'est pas un objet est sauté, comme un trait dont un sommet
+   n'est pas un objet. */
+function lignesRef(doc, fond, off, natures){
+  if (natures != null && !Array.isArray(natures)) return null;
+  if (doc != null && !Array.isArray(doc.el)) return null;
+  if (fond != null && !(Array.isArray(fond.L) && fond.xy && typeof fond.xy.length === 'number' && Array.isArray(fond.calques))) return null;
+  if (off == null) off = decalageFond(fond, doc) || {x: 0, y: 0};
+  if (!estPt(off)) return null;
+  var out = [];
+  function veut(nat){ return !natures || natures.indexOf(nat) >= 0; }
+  function objet(o){ return !!o && typeof o === 'object'; }
+  function ajouter(nat, P, drapeau, src){
+    var n = P.length, ferme = !!drapeau || (n >= 3 && Math.hypot(P[n - 1].x - P[0].x, P[n - 1].y - P[0].y) <= GEO_EPS), a = ferme ? aireSignee(P) : 0;
+    /* aire incalculable, ou polyligne sans intérieur (GEO_MINCE) : 0. Le périmètre compte le retour au premier point s'il n'est pas répété. */
+    if (a !== 0 && !(isFinite(a) && 2 * Math.abs(a) > GEO_MINCE * (longueur(P) + Math.hypot(P[n - 1].x - P[0].x, P[n - 1].y - P[0].y)))) a = 0;
+    out.push({nat: nat, P: P, ferme: ferme, src: src, aire: a});
+  }
+  if (fond && (veut('bati') || veut('limite'))) fond.L.forEach(function(l, i){
+    if (!objet(l)) return;
+    var cq = fond.calques[l.c]; if (!cq || !cq.vis || !(l.n >= 2)) return;
+    var nom = String(cq.nom).toUpperCase(), nat = cq.style === 'bati' || cq.style === 'batileger' ? 'bati'
+      : /PARCELLE/.test(nom) && !/TEX|SECTION|SUBDFISC|SUBDSECT|ZONCOMM/.test(nom) ? 'limite' : null;
+    if (!nat || !veut(nat)) return;
+    /* mêmes valeurs, au bit près, que les côtés des aides au dessin (aretesFond) */
+    var P = [];
+    for (var k = 0; k < l.n; k++){ var j = 2 * (l.d + k); P.push({x: fond.xy[j] + off.x, y: fond.xy[j + 1] + off.y}); }
+    ajouter(nat, P, l.f, {L: l.c, i: i});
+  });
+  if (doc && veut('complement')){
+    /* index des objets, comme indexDoc, sans les éléments qui ne sont pas des objets */
+    var I = {};
+    doc.el.forEach(function(e){ if (objet(e)) I[e.id] = e; });
+    doc.el.forEach(function(e){
+      if (objet(e) && e.k === 'ln' && e.t === 'lim' && Array.isArray(e.v) && e.v.length >= 2 && e.v.every(objet)) ajouter('complement', lignePts(e, I), false, {id: e.id});
+    });
+  }
+  return out;
+}
+/* Normale extérieure unitaire du côté i (de P[i] vers P[i + 1], le dernier vers le premier) d'une ligne fermée de lignesRef : cw(t) si
+   l'aire est positive (sens trigonométrique), ccw(t) sinon. null pour une ligne ouverte ou d'aire nulle (sans intérieur : GEO_MINCE),
+   un rang qui n'est pas un sommet, ou un côté de longueur nulle (le point répété qui ferme la polyligne n'ouvre aucun côté). */
+function normaleExt(ligne, i){
+  if (!ligne || !ligne.ferme || !Array.isArray(ligne.P) || typeof ligne.aire !== 'number' || !isFinite(ligne.aire) || ligne.aire === 0) return null;
+  var P = ligne.P, n = P.length;
+  if (typeof i !== 'number' || i !== Math.floor(i) || i < 0 || i >= n) return null;
+  var a = P[i], b = P[(i + 1) % n];
+  if (!estPt(a) || !estPt(b) || !(Math.hypot(b.x - a.x, b.y - a.y) > GEO_EPS)) return null;
+  var t = unite(a, b);
+  return t ? (ligne.aire > 0 ? cw(t) : ccw(t)) : null;
+}
+/* Parcelle de l'installation (souhait 10, décision D5). lignes : lignes de référence (lignesRef) ; objets : les éléments du croquis (doc.el).
+   Parmi les lignes de nature 'limite', fermées et d'aire non nulle, rend celle qui contient le plus d'objets ponctuels existants (k 'pt',
+   ni « projet » ni « à supprimer ») ; un tracé, un escalier ou un texte ne compte pas ; un objet sur le bord n'est pas dedans.
+   Égalité au plus haut, aucun objet contenu, aucune limite fermée ou entrée invalide : null, sans exception. */
+function parcelleInstallation(lignes, objets){
+  if (!Array.isArray(lignes) || !Array.isArray(objets)) return null;
+  var pts = objets.filter(function(o){ var st = o && o.p && o.p.st; return !!o && typeof o === 'object' && o.k === 'pt' && estPt(o) && st !== 'projet' && st !== 'supprimer'; });
+  var best = null, nBest = 0, egal = false;
+  lignes.forEach(function(l){
+    if (!l || typeof l !== 'object' || l.nat !== 'limite' || !l.ferme || !Array.isArray(l.P) || l.P.length < 3 || !l.P.every(estPt)) return;
+    if (typeof l.aire !== 'number' || !isFinite(l.aire) || l.aire === 0) return;
+    /* boîte englobante d'abord : un fond cadastral compte des centaines de parcelles */
+    var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    l.P.forEach(function(q){ x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); });
+    var n = pts.filter(function(o){ return o.x > x0 && o.x < x1 && o.y > y0 && o.y < y1 && dansPolygone(o, l.P) === true; }).length;
+    if (n > nBest){ best = l; nBest = n; egal = false; }
+    else if (n && n === nBest) egal = true;
+  });
+  return best && !egal ? best : null;
+}
+/* Distance d'une boîte à la limite de sa parcelle (ligne fermée de lignesRef) : {d, cote, douteux, proj, seg}. cote : 'int' si la boîte est
+   dans la parcelle, 'ext' sinon (sur le bord : 'ext') ; douteux : à moins de LIM_DOUTE (0,30 m) du bord, le côté est à confirmer ; proj et
+   seg comme distPolygone (pied sur le côté le plus proche). Ligne ouverte ou sans sommets, point invalide : null. */
+var LIM_DOUTE = .3;
+function distanceLimite(p, ligne){
+  if (!estPt(p) || !ligne || typeof ligne !== 'object' || !ligne.ferme || !Array.isArray(ligne.P) || ligne.P.length < 3) return null;
+  var r = distPolygone(p, ligne.P), dans = r ? dansPolygone(p, ligne.P) : null;
+  if (!r || dans == null) return null;
+  return {d: r.d, cote: dans ? 'int' : 'ext', douteux: r.d < LIM_DOUTE, proj: r.proj, seg: r.seg};
+}
+/* Nouveaux accrochages (m112), sur des côtés [x0, y0, x1, y1, …] en mètres (les éléments suivants sont ignorés) ; un côté de 20 cm au plus,
+   ou aux valeurs non finies, est écarté, comme pour l'accroche à la façade. Milieu d'un côté à R au plus du point p ; pied de la
+   perpendiculaire menée du point précédent prec à un côté, à l'intérieur du côté (bouts compris) et à R au plus de p, si prec est à plus de
+   20 cm du côté (sinon le pied serait prec lui-même). Le plus proche de p, le premier à égalité : {x, y, d, s}, s étant le côté ; sinon, ou
+   pour une entrée invalide, null */
+var ACC_MIN = .2;
+function coteValable(s){
+  if (!s || !(s.length >= 4)) return false;
+  for (var k = 0; k < 4; k++) if (typeof s[k] !== 'number' || !isFinite(s[k])) return false;
+  return Math.hypot(s[2] - s[0], s[3] - s[1]) > ACC_MIN;
+}
+function milieuSegs(p, segs, R){
+  if (!estPt(p) || !Array.isArray(segs) || !(R >= 0)) return null;
+  var best = null;
+  segs.forEach(function(s){
+    if (!coteValable(s)) return;
+    var x = (s[0] + s[2]) / 2, y = (s[1] + s[3]) / 2, d = Math.hypot(x - p.x, y - p.y);
+    if (d <= R && (!best || d < best.d)) best = {x: x, y: y, d: d, s: s};
+  });
+  return best;
+}
+function piedSegs(p, prec, segs, R){
+  if (!estPt(p) || !estPt(prec) || !Array.isArray(segs) || !(R >= 0)) return null;
+  var best = null;
+  segs.forEach(function(s){
+    if (!coteValable(s)) return;
+    var f = piedPerp(prec, {x: s[0], y: s[1]}, {x: s[2], y: s[3]}), d;
+    if (!f || !(f.t >= 0 && f.t <= 1) || Math.hypot(f.x - prec.x, f.y - prec.y) <= ACC_MIN) return;
+    d = Math.hypot(f.x - p.x, f.y - p.y);
+    if (d <= R && (!best || d < best.d)) best = {x: f.x, y: f.y, d: d, s: s};
+  });
+  return best;
+}
+/* Nouveaux accrochages, second lot (m113), sur les mêmes côtés que milieuSegs et piedSegs, avec le même contrat. Le prolongement d'un côté
+   [A, B] est la droite AB au-delà de ses bouts, jusqu'à Lmax (30 m si Lmax n'est pas donné [p]) du bout ; ext est la longueur du
+   prolongement utilisé (0 sur le côté même).
+   - prolSegs : pied de la perpendiculaire menée de p sur le prolongement d'un côté, à R au plus de p. Rien depuis un côté si p est à R au
+     plus de lui ou d'un côté qui lui est aligné (à 5° près) : c'est ce côté (la façade). Un côté qui croise la droite ne l'empêche pas.
+     Rend {x, y, d, s, bout, ext}, bout étant le bout du côté d'où part le prolongement.
+   - interSegs : point où deux côtés, ou leurs prolongements, se rencontrent, à R au plus de p. Les deux droites font plus de 5° entre elles.
+     Un point à 1 cm au plus d'un bout de l'un des deux côtés est un coin existant (côtés qui se touchent déjà) : écarté, le coin s'en
+     charge. Au plus INTER_MAX côtés comptent : ceux dont la droite passe le plus près de p [p]. Rend {x, y, d, s, s2, ext, ext2, bout,
+     bout2} ; bout (ou bout2) vaut null quand le point est sur le côté même.
+   Le plus proche de p ; à 1 mm près (le même point pour le technicien : des côtés alignés donnent la même droite, au bruit du fond près),
+   le plus court prolongement ; puis le premier. Sinon, ou pour une entrée invalide, null */
+var PROL_MAX = 30, INTER_SIN = Math.sin(5 * Math.PI / 180), ACC_COIN = .01, ACC_EGAL = .001, INTER_MAX = 64;
+/* longueur du prolongement au paramètre t d'un côté de longueur L (0 entre les bouts) */
+function depasse(t, L){ return t < 0 ? -t * L : t > 1 ? (t - 1) * L : 0; }
+/* côtés s et t ([x0, y0, x1, y1], de longueurs Ls et Lt) presque parallèles : 5° au plus entre leurs droites. Ils ne se rencontrent pas
+   (interSegs) ; près de l'un, l'autre n'a pas de prolongement (prolSegs) */
+function presqueParalleles(s, Ls, t, Lt){ return !(Math.abs((s[2] - s[0]) * (t[3] - t[1]) - (s[3] - s[1]) * (t[2] - t[0])) > INTER_SIN * Ls * Lt); }
+/* parmi les candidats c ({d, …}), le plus proche ; à ACC_EGAL près, celui dont la valeur v(q) est la plus petite ; puis le premier */
+function plusProche(c, v){
+  var dmin = Infinity, best = null, i;
+  for (i = 0; i < c.length; i++) if (c[i].d < dmin) dmin = c[i].d;
+  for (i = 0; i < c.length; i++) if (c[i].d <= dmin + ACC_EGAL && (!best || v(c[i]) < v(best) - ACC_EGAL)) best = c[i];
+  return best;
+}
+function prolSegs(p, segs, R, Lmax){
+  if (Lmax === undefined) Lmax = PROL_MAX;
+  if (!estPt(p) || !Array.isArray(segs) || !(R >= 0) || typeof Lmax !== 'number' || !(Lmax >= 0)) return null;
+  var c = [], pres = [], i, s, a, b, f, e, d, L;
+  /* côtés à R au plus de p (entre leurs bouts ou près d'eux) */
+  for (i = 0; i < segs.length; i++){
+    s = segs[i]; if (!coteValable(s)) continue;
+    if (projSeg(p, {x: s[0], y: s[1]}, {x: s[2], y: s[3]}).d <= R) pres.push({s: s, L: Math.hypot(s[2] - s[0], s[3] - s[1])});
+  }
+  for (i = 0; i < segs.length; i++){
+    s = segs[i]; if (!coteValable(s)) continue;
+    a = {x: s[0], y: s[1]}; b = {x: s[2], y: s[3]}; L = Math.hypot(b.x - a.x, b.y - a.y);
+    f = piedPerp(p, a, b); if (!f) continue;
+    e = depasse(f.t, L); d = Math.hypot(f.x - p.x, f.y - p.y);
+    if (!(e > 0 && e <= Lmax && d <= R)) continue;
+    /* l'un des côtés proches est ce côté ou lui est aligné (à 5° près) : c'est ce côté, pas son prolongement ; un côté qui croise la droite
+       n'y fait rien. Ce contrôle vient en dernier : il ne coûte que pour les vrais candidats */
+    if (pres.some(function(t){ return presqueParalleles(s, L, t.s, t.L); })) continue;
+    c.push({x: f.x, y: f.y, d: d, s: s, bout: f.t < 0 ? a : b, ext: e});
+  }
+  return plusProche(c, function(q){ return q.ext; });
+}
+function interSegs(p, segs, R, Lmax){
+  if (Lmax === undefined) Lmax = PROL_MAX;
+  if (!estPt(p) || !Array.isArray(segs) || !(R >= 0) || typeof Lmax !== 'number' || !(Lmax >= 0)) return null;
+  var k = [], c = [], i, j, s, a, b, f, L, u, w, X, e1, e2, d;
+  /* coût : seuls comptent les côtés dont la droite passe à R au plus de p, à Lmax + R au plus de leurs bouts (un point de rencontre à R au
+     plus de p est alors à Lmax au plus de leurs bouts) */
+  for (i = 0; i < segs.length; i++){
+    s = segs[i]; if (!coteValable(s)) continue;
+    a = {x: s[0], y: s[1]}; b = {x: s[2], y: s[3]}; f = piedPerp(p, a, b); if (!f) continue;
+    L = Math.hypot(b.x - a.x, b.y - a.y); d = Math.hypot(f.x - p.x, f.y - p.y);
+    if (d <= R && depasse(f.t, L) <= Lmax + R) k.push({s: s, a: a, b: b, L: L, dl: d, n: k.length});
+  }
+  /* au fort dézoom, le seuil fait des dizaines de mètres et chaque paire coûte : au plus INTER_MAX côtés, ceux dont la droite passe le plus
+     près de p, dans l'ordre de la liste. Une rencontre plus proche de p que la droite du dernier gardé est toujours trouvée : ses deux
+     droites passent plus près encore */
+  if (k.length > INTER_MAX) k = k.sort(function(x, y){ return x.dl - y.dl || x.n - y.n; }).slice(0, INTER_MAX).sort(function(x, y){ return x.n - y.n; });
+  for (i = 0; i < k.length; i++) for (j = i + 1; j < k.length; j++){
+    u = k[i]; w = k[j];
+    if (presqueParalleles(u.s, u.L, w.s, w.L)) continue;
+    X = interDroites(u.a, u.b, w.a, w.b); if (!X) continue;
+    d = Math.hypot(X.x - p.x, X.y - p.y); e1 = depasse(X.t, u.L); e2 = depasse(X.u, w.L);
+    if (d > R || e1 > Lmax || e2 > Lmax) continue;
+    if ([u.a, u.b, w.a, w.b].some(function(q){ return Math.hypot(q.x - X.x, q.y - X.y) <= ACC_COIN; })) continue;
+    c.push({x: X.x, y: X.y, d: d, s: u.s, s2: w.s, ext: e1, ext2: e2, bout: e1 > 0 ? (X.t < 0 ? u.a : u.b) : null, bout2: e2 > 0 ? (X.u < 0 ? w.a : w.b) : null});
+  }
+  return plusProche(c, function(q){ return q.ext + q.ext2; });
+}
+VC.geo = {cw: cw, ccw: ccw, unite: unite, placer: placer, mesurer: mesurer, coinGauche: coinGauche, cotesAlignes: cotesAlignes,
+  dansPolygone: dansPolygone, distPolygone: distPolygone, piedPerp: piedPerp, interDroites: interDroites, milieu: milieu,
+  lignesRef: lignesRef, normaleExt: normaleExt, parcelleInstallation: parcelleInstallation, distanceLimite: distanceLimite,
+  milieuSegs: milieuSegs, piedSegs: piedSegs, prolSegs: prolSegs, interSegs: interSegs};
+
 /* ---------- Couleurs AutoCAD (ACI), approchées : 1 à 9 exactes, 10 à 249 par teinte, 250 à 255 en gris ---------- */
 var ACI = (function(){
   var t = [[0, 0, 0], [255, 0, 0], [255, 255, 0], [0, 255, 0], [0, 255, 255], [0, 0, 255], [255, 0, 255], [255, 255, 255], [128, 128, 128], [192, 192, 192]];
@@ -446,9 +833,77 @@ function defautsLn(t, o){
   o = o || {};
   if (t === 'col') return {res: o.res || 'EU', gest: o.gest || 'D', diam: '', st: 'existant'};
   if (t === 'lim') return {st: 'existant'};
+  if (t === 'esc') return {larg: '1,00', n: '4', cote: 'g', monte: 'fin', st: 'existant'};
   return {res: o.res || '', st: o.st || 'existant', diam: '', mat: '', pose: '', long: '', sens: 0, obs: ''};
 }
 VC.defautsPt = defautsPt; VC.defautsLn = defautsLn;
+VC.geo.escalier = escalier;
+/* Valeurs d'un escalier neuf (outil « Escalier », m107 ; décision D7) : départ D et fin F posés à l'outil, lignes de référence du plan
+   (VC.geo.lignesRef : seules comptent les lignes de bâti fermées), aides des deux points (« coin », « facade », autre ou rien). Un point
+   calé au milieu d'un côté ou au pied d'une perpendiculaire (m112) sur une façade ou un trait de complément est posé sur le bâti :
+   l'éditeur passe alors « facade » ; de même pour une intersection (m113) qui tombe sur l'un d'eux ; sur une limite de parcelle, sur le
+   prolongement d'un côté ou à la rencontre de deux prolongements, il ne l'est pas. Largeur 1,00 m ; marches de 0,28 m environ : arrondi de L / 0,28, de 1 à 60 ; côté : celui dont le contour n'entre pas dans le bâti (centre
+   du contour dans une ligne de bâti), « g » si les deux côtés y entrent ou si aucun n'y entre ; montée vers le départ s'il est le seul bout
+   posé sur un coin ou une façade, sinon vers la fin. Rend p, en textes comme la fiche ; null si D et F sont invalides ou confondus.
+   Départ posé par cotes (m108) : cotes = {O, w, facade}, facultatif. O est le coin d'origine (gardé pour mémoire, le calcul ne s'en sert
+   pas) ; w, la direction de la convention 11.1 (le long : de O vers l'autre coin ; prolongement : de O vers le dehors du côté) ; facade :
+   départ posé le long d'une façade ou d'un trait de complément (m115), entre ses deux coins, sans décalage. Côté : celui dont la largeur
+   part à l'opposé du coin (nc·w > 0, nc : ccw(t) pour « g », cw(t) pour « d ») ; règle ci-dessus si l'escalier est presque parallèle à w
+   (|nc·w| < 0,1) ou si ce côté entre dans le bâti. Montée : facade tient lieu d'aide du départ (« facade » ou rien), puis même règle. Sans
+   cotes, ou si w est absent, nul ou non fini : comme avant.
+   Fonction pure : une ligne invalide est sautée, sans exception. */
+function escalierDefauts(D, F, lignes, aideDepart, aideFin, cotes){
+  var t = unite(D, F), L, n, bati, dedans = {}, cote, w, k;
+  if (!t) return null;
+  L = Math.hypot(F.x - D.x, F.y - D.y); if (!(L > GEO_EPS)) return null;
+  n = Math.min(60, Math.max(1, Math.round(L / 0.28)));
+  bati = (Array.isArray(lignes) ? lignes : []).filter(function(l){ return !!l && l.nat === 'bati' && l.ferme === true && l.aire !== 0 && !!l.P && typeof l.P.length === 'number'; });
+  ['g', 'd'].forEach(function(c){
+    var G = escalier(D, F, 1, n, c, 'fin'), Q = G ? G.contour : null;
+    var m = Q ? {x: (Q[0].x + Q[1].x + Q[2].x + Q[3].x) / 4, y: (Q[0].y + Q[1].y + Q[2].y + Q[3].y) / 4} : null;
+    dedans[c] = !!m && bati.some(function(l){ return dansPolygone(m, l.P) === true; });
+  });
+  function surBati(a){ return a === 'coin' || a === 'facade'; }
+  cote = dedans.g && !dedans.d ? 'd' : 'g';
+  w = cotes && typeof cotes === 'object' ? unite({x: 0, y: 0}, cotes.w) : null;
+  if (w){
+    /* départ posé par cotes (m108) : k = ccw(t)·w ; la largeur part à l'opposé du coin d'origine, si ce côté reste hors du bâti */
+    k = -t.y * w.x + t.x * w.y;
+    if (Math.abs(k) >= 0.1 && !dedans[k > 0 ? 'g' : 'd']) cote = k > 0 ? 'g' : 'd';
+    aideDepart = cotes.facade === true ? 'facade' : null;
+  }
+  return {larg: '1,00', n: String(n), cote: cote, monte: surBati(aideDepart) && !surBati(aideFin) ? 'depart' : 'fin', st: 'existant'};
+}
+VC.geo.escalierDefauts = escalierDefauts;
+/* Tracés : canalisation (tronçon, collecteur), complément du fond (trait, escalier) ; un tracé d'un autre type (croquis d'une version plus
+   récente) n'est ni l'un ni l'autre : il est dessiné comme un trait neutre et gardé tel quel. */
+function estCanalisation(t){ return t === 'tr' || t === 'col'; }
+function estComplement(t){ return t === 'lim' || t === 'esc'; }
+/* ordre du dessin des tracés : complément, escalier et tracé inconnu dessous, puis collecteur, puis tronçon */
+function rangTrace(t){ return t === 'col' ? 1 : t === 'tr' ? 2 : 0; }
+/* nom d'un tracé dans les messages de l'éditeur */
+function nomTrace(t){ return t === 'col' ? 'Collecteur' : t === 'lim' ? 'Trait' : t === 'esc' ? 'Escalier' : 'Tronçon'; }
+/* géométrie d'un escalier (deux sommets) : VC.geo.escalier, ou null (valeurs illisibles : rien n'est dessiné) */
+function geoEscalier(e, idx){
+  var P = lignePts(e, idx || {}), p = e.p || {};
+  return P.length === 2 ? escalier(P[0], P[1], p.larg, p.n, p.cote, p.monte) : null;
+}
+/* points qui comptent pour l'emprise d'un tracé : les quatre coins d'un escalier, sinon ses sommets */
+function coinsTrace(e, idx){
+  var G = e.t === 'esc' ? geoEscalier(e, idx) : null;
+  return G ? G.contour : lignePts(e, idx || {});
+}
+/* segments [a, b] d'un tracé tels qu'ils sont dessinés : contour, marches, flèche et pointe d'un escalier ; sinon ceux de la ligne */
+function segmentsTrace(e, idx){
+  var G = e.t === 'esc' ? geoEscalier(e, idx) : null, P, r = [], i;
+  if (G){
+    for (i = 0; i < 4; i++) r.push([G.contour[i], G.contour[(i + 1) % 4]]);
+    return r.concat(G.marches, [G.fleche, [G.fleche[1], G.pointe[0]], [G.fleche[1], G.pointe[1]]]);
+  }
+  P = lignePts(e, idx || {});
+  for (i = 1; i < P.length; i++) r.push([P[i - 1], P[i]]);
+  return r;
+}
 
 /* ---------- Document ---------- */
 function nouveauDoc(o){
@@ -1279,6 +1734,38 @@ function constatDeduit(doc, an){
   return {rows: rows, methodes: meth, epRecup: recup, sansCote: sansCote};
 }
 VC.constatDeduit = constatDeduit; VC.RACC_LIB = RACC_LIB;
+/* Boîte de branchement reprise au constat (souhait 10, décision D6, réponse 10.4) : par réseau, le nombre de boîtes existantes (ni « projet »
+   ni « à supprimer ») et, s'il y en a exactement une, sa distance à la limite de propriété et sa profondeur, écrites comme dans les champs du
+   constat (« 0,80 m intérieur », « en limite », « 0,80 m »). Réseau : p.res, sinon celui que l'analyse déduit du dessin (celui de l'étiquette) ;
+   une boîte unitaire compte en EU et en EP ; une boîte de réseau inconnu ou mêlé ne compte nulle part. p.limCote, p.limDist et p.prof sont lus
+   tels qu'ils sont enregistrés, sans recalcul d'après le plan. Distance : deux décimales, 0,00 = « en limite » ; une distance négative ou
+   illisible est ignorée, comme sur l'étiquette. Zéro ou plusieurs boîtes sur un réseau : dist et prof vides. nDist et nProf : nombre de
+   boîtes du réseau qui portent une distance (ou un côté) et une profondeur ; avec plusieurs boîtes, le constat rappelle ce qui n'est pas
+   repris. Ne modifie ni doc ni an. */
+function boitesConstat(doc, an){
+  var out = {EU: {n: 0, dist: '', prof: '', nDist: 0, nProf: 0}, EP: {n: 0, dist: '', prof: '', nDist: 0, nProf: 0}};
+  /* distance (côté compris) et profondeur d'une boîte, écrites comme dans les champs du constat */
+  function mesures(p){
+    var cote = p.limCote === 'int' ? 'intérieur' : p.limCote === 'ext' ? 'extérieur' : '', d = num(p.limDist), pr = num(p.prof), t, dist = cote;
+    if (d != null && d >= 0){ t = frNum(d, 2); dist = t === '0,00' ? 'en limite' : t + ' m' + (cote ? ' ' + cote : ''); }
+    return {dist: dist, prof: pr != null ? frNum(pr, 2) + ' m' : ''};
+  }
+  (doc && Array.isArray(doc.el) ? doc.el : []).forEach(function(e){
+    if (!e || e.k !== 'pt' || !T[e.t] || !T[e.t].boite) return;
+    var p = e.p && typeof e.p === 'object' ? e.p : {};
+    if (p.st === 'projet' || p.st === 'supprimer') return;
+    var res = /^(EU|EP|UN)$/.test(p.res) ? p.res : an && an.resPt ? an.resPt[e.id] || (an.ref && an.ref.resPt && an.ref.resPt[e.id]) : '', m = mesures(p);
+    (res === 'UN' ? ['EU', 'EP'] : res === 'EU' || res === 'EP' ? [res] : []).forEach(function(g){
+      var o = out[g]; o.n++;
+      if (m.dist) o.nDist++;
+      if (m.prof) o.nProf++;
+      /* les valeurs de la seule boîte du réseau ; dès la deuxième, rien */
+      o.dist = o.n === 1 ? m.dist : ''; o.prof = o.n === 1 ? m.prof : '';
+    });
+  });
+  return out;
+}
+VC.boitesConstat = boitesConstat;
 
 /* ---------- Étiquettes : texte tiré du catalogue, centre décalé dans le repère du plan (mètres, x à droite, y en haut) ---------- */
 var NIV_LIB = {ss: 'sous-sol', rdc: 'RDC', etage: 'étage'}, TAMPON_LIB = {beton: 'béton', fonte: 'fonte', hydrau: 'hydraulique', absent: 'absent'};
@@ -1287,7 +1774,8 @@ var STATUT_LIB = {existant: 'existant', presume: 'présumé', projet: 'projet', 
 function methLib(m){ return (m || []).map(function(k){ for (var i = 0; i < METH.length; i++) if (METH[i][0] === k) return METH[i][1].toLowerCase(); return k; }).join(', '); }
 function resLigne(e, an){
   if (e.t === 'col') return RES[e.p.res] ? e.p.res : 'EU';
-  if (e.t === 'lim') return 'LIM';
+  /* complément du fond, escalier, tracé d'un type inconnu : gris du complément */
+  if (e.t !== 'tr') return 'LIM';
   if (e.p.st === 'projet') return 'PRJ';
   if (RES[e.p.res] && e.p.res !== 'PRJ') return e.p.res;
   if (!an) return 'INC';
@@ -1295,6 +1783,18 @@ function resLigne(e, an){
   Object.keys(vu).forEach(function(r){ if (!k || vu[r] > vu[k]) k = r; });
   if (!k && an.ref) return resLigne(e, an.ref);
   return k || 'INC';
+}
+/* Boîte en limite de propriété (souhait 10, décision D4) : ligne de l'étiquette, d'après p.limCote ('int' | 'ext') et p.limDist (en mètres,
+   « 0 » : en limite). La distance s'écrit avec deux décimales ; une distance qui s'écrit 0,00 est « en limite ». Une distance négative ou
+   illisible (la fiche la refuse : croquis altéré) est ignorée. Rien si aucun des deux champs n'est donné. */
+function texteLimite(p){
+  p = p || {};
+  var cote = p.limCote === 'int' ? 'intérieur' : p.limCote === 'ext' ? 'extérieur' : '', d = num(p.limDist);
+  if (d != null && d >= 0){
+    var t = frNum(d, 2);
+    return t === '0,00' ? 'en limite de propriété' : 'à ' + t + ' m de la limite' + (cote ? ', ' + cote : '');
+  }
+  return cote ? 'côté ' + cote : '';
 }
 function texteEtiquette(e, an){
   if (e.p && e.p.etiq) return String(e.p.etiq);
@@ -1312,9 +1812,10 @@ function texteEtiquette(e, an){
       return pre + s;
     }
     if (ty.regard){
-      var base = (ty.boite ? 'Boîte de branchement' : e.t === 'regard_pub' ? 'Regard public' : 'Regard') + lr;
+      var base = (ty.boite ? 'Boîte de branchement' : e.t === 'regard_pub' ? 'Regard public' : 'Regard') + lr, lim = ty.boite ? texteLimite(e.p) : '';
       if (e.p.dim) det.push(e.p.dim); if (num(e.p.prof) != null) det.push('P : ' + frNum(num(e.p.prof), 2) + ' m'); if (e.p.tampon) det.push('tampon ' + TAMPON_LIB[e.p.tampon]);
-      return pre + base + (det.length ? '\n' + det.join(', ') : '');
+      /* boîte : la position par rapport à la limite de propriété en dernière ligne */
+      return pre + base + (det.length ? '\n' + det.join(', ') : '') + (lim ? '\n' + lim : '');
     }
     if (e.t === 'test') return 'Test' + ((e.p.meth || []).length ? ' ' + methLib(e.p.meth) : '') + (e.p.resultat ? ' : ' + e.p.resultat : '');
     if (e.t === 'zone') return e.p.obs || 'Zone suspecte';
@@ -1322,7 +1823,8 @@ function texteEtiquette(e, an){
     return pre + ty.lib;
   }
   if (e.k === 'ln'){
-    if (e.t === 'lim') return '';
+    /* complément du fond, escalier, tracé d'un type inconnu : pas d'étiquette d'office */
+    if (!estCanalisation(e.t)) return '';
     if (e.t === 'col') return 'Collecteur ' + libRes(RES[e.p.res] ? e.p.res : 'EU') + (e.p.diam ? ' Ø' + e.p.diam : '') + (e.p.gest ? ' ' + GEST_LIB[e.p.gest] : '');
     var r = resLigne(e, an);
     if (e.p.diam) det.push('Ø' + e.p.diam); if (e.p.mat) det.push(MAT_LIB[e.p.mat] || e.p.mat); if (num(e.p.long) != null) det.push('L ' + frNum(num(e.p.long)) + ' m');
@@ -1334,11 +1836,11 @@ function texteEtiquette(e, an){
   }
   return '';
 }
-VC.texteEtiquette = texteEtiquette; VC.resLigne = resLigne;
+VC.texteEtiquette = texteEtiquette; VC.resLigne = resLigne; VC.texteLimite = texteLimite;
 
 /* ---------- Symboles : primitives en millimètres papier, y en haut, centrées sur l'objet ---------- */
 var BLANC = [255, 255, 255];
-function rayonSymbole(t){ var f = (T[t] || {}).forme; return {app: 1.9, app2: 2.3, descente: 1.25, grille: 1.6, caniveau: 2.7, siphon: 1.5, regard: 1.7, boite: 1.9, te: 1.4, clapet: 1.3, fosse: 2.6, point: .7, puisard: 2.1, gargouille: 1.9, regpub: 1.7, test: 2, zone: 1}[f] || 1.6; }
+function rayonSymbole(t){ var f = (T[t] || {forme: 'app'}).forme; return {app: 1.9, app2: 2.3, descente: 1.25, grille: 1.6, caniveau: 2.7, siphon: 1.5, regard: 1.7, boite: 1.9, te: 1.4, clapet: 1.3, fosse: 2.6, point: .7, puisard: 2.1, gargouille: 1.9, regpub: 1.7, test: 2, zone: 1}[f] || 1.6; }
 function couleurPt(e, an){
   var ty = T[e.t] || {};
   if (e.p && e.p.st === 'projet') return RES.PRJ.rgb;
@@ -1564,7 +2066,7 @@ function obstaclesPlan(doc, an, E, idx, sauf){
   var m = E / 1000, rot = doc.rot || 0, boites = [], segs = [];
   doc.el.forEach(function(e){
     if (e.k === 'pt'){ var A = versPlan(e.x, e.y, rot), r = rayonSymbole(e.t) * m; boites.push([A.x - r, A.y - r, A.x + r, A.y + r]); }
-    if (e.k === 'ln'){ var P = lignePts(e, idx).map(function(p){ return versPlan(p.x, p.y, rot); }); for (var i = 1; i < P.length; i++) segs.push([P[i - 1].x, P[i - 1].y, P[i].x, P[i].y]); }
+    if (e.k === 'ln') segmentsTrace(e, idx).forEach(function(sg){ var a = versPlan(sg[0].x, sg[0].y, rot), b = versPlan(sg[1].x, sg[1].y, rot); segs.push([a.x, a.y, b.x, b.y]); });
     if (e.id !== sauf && e.lab && !e.lab.off){
       var txt = texteEtiquette(e, an); if (!txt) return;
       var b = boiteTexte(txt, TAILLE_ETIQ * m), a = ancre(e, idx), A2 = versPlan(a.x, a.y, rot);
@@ -1607,6 +2109,20 @@ function dessinerPrims(ctx, P, cx, cy, k){
   });
 }
 /* o : {E, mode, sel, anomalies, etiquettes, brouillon, accent} */
+/* Escalier à l'écran, en gris du complément : contour, marches (omises sous 4 px), flèche vers le haut et sa pointe. Rend sa zone de toucher :
+   le contour et la ligne du milieu (celle de la flèche) ; valeurs illisibles : rien n'est dessiné, la zone est la ligne départ-fin (W). */
+function escalierEcran(ctx, e, idx, vue, W, larg){
+  var G = geoEscalier(e, idx), ec = function(p){ return vue.ecran(p.x, p.y); };
+  if (!G) return {type: 'ln', id: e.id, pts: W, larg: larg};
+  var C = G.contour.map(ec), F = G.fleche.map(ec), P = G.pointe.map(ec);
+  ctx.strokeStyle = rgbCss(RES.LIM.rgb); ctx.lineWidth = larg; ctx.setLineDash([]);
+  trace(ctx, C); ctx.closePath(); ctx.stroke();
+  if (G.pas * vue.s >= 4 && G.marches.length){
+    ctx.beginPath(); G.marches.forEach(function(m){ var a = ec(m[0]), b = ec(m[1]); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(F[0].x, F[0].y); ctx.lineTo(F[1].x, F[1].y); ctx.moveTo(P[0].x, P[0].y); ctx.lineTo(F[1].x, F[1].y); ctx.lineTo(P[1].x, P[1].y); ctx.stroke();
+  return {type: 'ln', id: e.id, pts: [C[0], C[1], C[2], C[3], C[0], milieu(C[0], C[3]), milieu(C[1], C[2])], larg: larg};
+}
 function dessinerCroquis(ctx, doc, an, vue, dpr, o){
   o = o || {};
   var E = o.E || 200, k = vue.s * E / 1000, idx = indexDoc(doc), zones = [], mode = o.mode || 'edl', rot = doc.rot || 0;
@@ -1623,21 +2139,22 @@ function dessinerCroquis(ctx, doc, an, vue, dpr, o){
     zones.push({type: 'pt', id: e.id, x: c.x, y: c.y, r: r, zone: true});
   });
   ctx.globalAlpha = 1;
-  /* tracés */
-  var ordreL = {lim: 0, col: 1, tr: 2};
-  doc.el.filter(function(e){ return e.k === 'ln' && e.v.length >= 2; }).sort(function(a, b){ return ordreL[a.t] - ordreL[b.t]; }).forEach(function(e){
+  /* tracés : complément du fond, escalier et tracé d'un type inconnu dessous, puis collecteurs, puis tronçons */
+  doc.el.filter(function(e){ return e.k === 'ln' && e.v.length >= 2; }).sort(function(a, b){ return rangTrace(a.t) - rangTrace(b.t); }).forEach(function(e){
     var W = lignePts(e, idx).map(function(p){ return vue.ecran(p.x, p.y); }), st = e.p.st || 'existant';
     ctx.globalAlpha = attenue(e) ? .3 : 1;
+    if (e.t === 'esc'){ zones.push(escalierEcran(ctx, e, idx, vue, W, px(.3, 1.2, 5))); return; }
     var morceaux = (parLigne[e.id] || []).map(function(p){ return {pts: W.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
     if (!morceaux.length || e.t !== 'tr') morceaux = [{pts: W, res: resLigne(e, an)}];
-    var larg = e.t === 'col' ? px(.9, 3, 14) : e.t === 'lim' ? px(.3, 1.2, 5) : px(.5, 2, 9);
+    /* complément du fond et tracé d'un type inconnu : trait neutre, fin, gris, plein */
+    var neutre = !estCanalisation(e.t), larg = e.t === 'col' ? px(.9, 3, 14) : neutre ? px(.3, 1.2, 5) : px(.5, 2, 9);
     morceaux.forEach(function(m){
       if (m.pts.length < 2) return;
-      var res = st === 'projet' ? 'PRJ' : m.res, col = rgbCss((RES[res] || RES.INC).rgb);
+      var res = neutre ? 'LIM' : st === 'projet' ? 'PRJ' : m.res, col = rgbCss((RES[res] || RES.INC).rgb);
       ctx.strokeStyle = col; ctx.lineWidth = larg;
-      var dash = st === 'projet' ? [px(4, 10), px(2.5, 6)] : st === 'presume' || res === 'INC' ? [px(2.2, 6), px(1.8, 5)] : [];
+      var dash = neutre ? [] : st === 'projet' ? [px(4, 10), px(2.5, 6)] : st === 'presume' || res === 'INC' ? [px(2.2, 6), px(1.8, 5)] : [];
       ctx.setLineDash(dash); trace(ctx, m.pts); ctx.stroke(); ctx.setLineDash([]);
-      if (st === 'supprimer'){ ctx.beginPath(); hachures(ctx, m.pts, px(3, 12), px(2.2, 9)); ctx.lineWidth = Math.max(1.2, larg * .6); ctx.stroke(); }
+      if (st === 'supprimer' && !neutre){ ctx.beginPath(); hachures(ctx, m.pts, px(3, 12), px(2.2, 9)); ctx.lineWidth = Math.max(1.2, larg * .6); ctx.stroke(); }
       if (m.p && an.sensPiece[m.p.id] && o.fleches !== false){
         var c = milieuChemin(m.pts), sg = an.sensPiece[m.p.id];
         if (c && c.L > 36){ var ux = c.ux * sg, uy = c.uy * sg, a = px(1.6, 6, 13); ctx.beginPath(); ctx.moveTo(c.x - ux * a - uy * a * .6, c.y - uy * a + ux * a * .6); ctx.lineTo(c.x, c.y); ctx.lineTo(c.x - ux * a + uy * a * .6, c.y - uy * a - ux * a * .6); ctx.lineWidth = Math.max(1.5, larg * .7); ctx.stroke(); }
@@ -1664,7 +2181,7 @@ function dessinerCroquis(ctx, doc, an, vue, dpr, o){
     var h = libre ? Math.max(9, (num(e.taille) || 2.5) * k) : hpx; if (libre && h < 6.5 && o.sel !== e.id) h = 6.5;
     var a = ancre(e, idx), A = vue.ecran(a.x, a.y), lab = libre ? {dx: 0, dy: 0} : decalLab(e.lab || placerEtiquette(doc, an, e, E, idx) || {dx: 0, dy: 0}, E);
     var cx = A.x + lab.dx * vue.s, cy = A.y - lab.dy * vue.s, L = String(txt).split('\n');
-    var col = libre ? '#1f2328' : e.k === 'pt' ? (TXT_RES[(function(){ var r = an.resPt[e.id]; var ty = T[e.t]; if (e.p.st === 'projet') return 'PRJ'; if (ty.role === 'source') return ty.nat; if (ty.role === 'note') return 'ANN'; return r; })()] || TXT_RES.INC) : TXT_RES[resLigne(e, an)] || TXT_RES.INC;
+    var col = libre ? '#1f2328' : e.k === 'pt' ? (TXT_RES[(function(){ var r = an.resPt[e.id]; var ty = T[e.t] || {}; if (e.p.st === 'projet') return 'PRJ'; if (ty.role === 'source') return ty.nat; if (ty.role === 'note') return 'ANN'; return r; })()] || TXT_RES.INC) : TXT_RES[resLigne(e, an)] || TXT_RES.INC;
     ctx.globalAlpha = attenue(e) ? .4 : 1;
     ctx.font = (libre ? '500 ' : '600 ') + h.toFixed(1) + 'px Barlow, "Segoe UI", Roboto, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     var w = 0; L.forEach(function(l){ w = Math.max(w, ctx.measureText(l).width); }); var lh = h * 1.22, bh = lh * L.length;
@@ -1752,7 +2269,7 @@ function emprisePlan(doc, idx, mode){
     if (!surPlan(e, mode, rc)) return;
     if (e.k === 'ln' && e.t === 'col' && autres) return;
     if (e.k === 'pt' && e.t === 'zone'){ var rz = num(e.p.r) || 1.5; ajoute(e.x - rz, e.y - rz); ajoute(e.x + rz, e.y + rz); ajoute(e.x - rz, e.y + rz); ajoute(e.x + rz, e.y - rz); }
-    else if (e.k === 'pt' || e.k === 'tx') ajoute(e.x, e.y); else if (e.k === 'ln') lignePts(e, idx).forEach(function(p){ ajoute(p.x, p.y); });
+    else if (e.k === 'pt' || e.k === 'tx') ajoute(e.x, e.y); else if (e.k === 'ln') coinsTrace(e, idx).forEach(function(p){ ajoute(p.x, p.y); });
   });
   return x0 === Infinity ? null : [x0, y0, x1, y1];
 }
@@ -1766,7 +2283,7 @@ function pointsPlan(doc, mode, idx){
   doc.el.forEach(function(e){
     if (!surPlan(e, mode, rc) || e.k === 'tx' || (e.k === 'ln' && e.t === 'col')) return;
     if (e.k === 'pt'){ var p = versPlan(e.x, e.y, rot), z = e.t === 'zone'; l.push({x: p.x, y: p.y, r: z ? 0 : rayonSymbole(e.t) + .3, rm: z ? (num(e.p.r) || 1.5) : 0, masque: !z}); }
-    else if (e.k === 'ln') lignePts(e, idx).forEach(function(q){ var p2 = versPlan(q.x, q.y, rot); l.push({x: p2.x, y: p2.y, r: .4, rm: 0, masque: false}); });
+    else if (e.k === 'ln') coinsTrace(e, idx).forEach(function(q){ var p2 = versPlan(q.x, q.y, rot); l.push({x: p2.x, y: p2.y, r: .4, rm: 0, masque: false}); });
   });
   return {l: l, b: emprisePlan(doc, idx, mode)};
 }
@@ -1950,7 +2467,9 @@ var ICO = {
   fermer: '<path d="M6 6l12 12M18 6L6 18"/>', valider: '<path d="M4 12.5l5 5L20 6.5"/>', retour: '<path d="M15 5l-7 7 7 7"/>',
   chercher: '<circle cx="11" cy="11" r="6"/><path d="M15.5 15.5L20 20"/>',
   aimant: '<path d="M6 4v8a6 6 0 0 0 12 0V4"/><path d="M6 8h4M14 8h4"/>',
-  relier: '<circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="6" r="2.2"/><path d="M7 18h12V8.2"/>', lien: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'
+  cible: '<circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="1.2"/>',
+  relier: '<circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="6" r="2.2"/><path d="M7 18h12V8.2"/>', lien: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  cotes: '<path d="M4 7v10M20 7v10M4 12h16M7 9.5L4 12l3 2.5M17 9.5l3 2.5-3 2.5"/>'
 };
 function ico(n, s){ return '<svg viewBox="0 0 24 24" width="' + (s || 22) + '" height="' + (s || 22) + '" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICO[n] || '') + '</svg>'; }
 VC.ico = ico;
@@ -1971,6 +2490,12 @@ function traitSvg(res, st, taille){
   var s = taille || 34, col = rgbCss((RES[res] || RES.INC).rgb), d = st === 'projet' ? ' stroke-dasharray="7 4"' : st === 'presume' || res === 'INC' ? ' stroke-dasharray="4 3"' : '';
   return '<svg viewBox="0 0 ' + s + ' ' + s + '" width="' + s + '" height="' + s + '" aria-hidden="true"><path d="M4 ' + (s - 8) + 'L' + (s - 4) + ' 8" stroke="' + col + '" stroke-width="' + (res === 'COL' ? 5 : 3) + '" stroke-linecap="round" fill="none"' + d + '/></svg>';
 }
+/* pictogramme d'un escalier vu de dessus : contour, marches, flèche vers le haut */
+function escalierSvg(taille){
+  var s = taille || 34, col = rgbCss(RES.LIM.rgb);
+  return '<svg viewBox="0 0 34 34" width="' + s + '" height="' + s + '" aria-hidden="true"><g fill="none" stroke="' + col + '" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    + '<rect x="5" y="10" width="24" height="14"/><path d="M11 10V24M17 10V24M23 10V24"/><path d="M5 17H29M25.5 14.5L29 17L25.5 19.5"/></g></svg>';
+}
 VC.symboleSvg = symboleSvg; VC.traitSvg = traitSvg;
 
 /* ---------- Éditeur tactile ---------- */
@@ -1985,10 +2510,13 @@ var OUTILS_LN = {
   colEP: {k: 'ln', t: 'col', p: {res: 'EP'}, lib: 'Collecteur EP', res: 'EP', col: true},
   colUN: {k: 'ln', t: 'col', p: {res: 'UN'}, lib: 'Collecteur unitaire', res: 'UN', col: true},
   lim: {k: 'ln', t: 'lim', p: {}, lib: 'Complément du fond', sous: 'bâti, limite', res: 'LIM'},
+  esc: {k: 'ln', t: 'esc', p: {}, lib: 'Escalier', sous: 'départ, fin, largeur', res: 'LIM'},
   relier: {k: 'ln', t: 'tr', p: {}, lib: 'Relier deux objets', sous: 'tronçon tracé d\'équerre', res: 'INC', relier: true}
 };
-/* Aides au dessin : chacune se désactive ; « actives » les coupe toutes */
-var AIDES_DEFAUT = {actives: true, glisser: true, finir: true, parallele: true, bati: true, angles: true, orienter: true, coude: true};
+/* Aides au dessin : chacune se désactive ; « actives » les coupe toutes. Nouveaux accrochages (m112 puis m113, décision D9) : décochés
+   d'origine et lus strictement (accrocheOn : seulement s'ils valent true) */
+var AIDES_DEFAUT = {actives: true, glisser: true, finir: true, parallele: true, bati: true, angles: true, orienter: true, coude: true, accMilieu: false, accPerp: false, accParcelle: false,
+  accProl: false, accInter: false};
 var AIDES_LIB = [
   ['glisser', 'Tracer en glissant le doigt', 'un segment par glissé ; deux doigts pour déplacer le plan'],
   ['finir', 'Terminer sur un objet', 'le tronçon s\'arrête dès qu\'il touche un objet ou un autre tracé'],
@@ -1996,11 +2524,26 @@ var AIDES_LIB = [
   ['bati', 'Accroche au bâti', 'coins et façades attirent les descentes et les traits de complément'],
   ['angles', 'Angles droits et 45°', 'redresse les traits proches d\'un angle droit ou de 45°'],
   ['orienter', 'Orientation automatique', 'caniveaux, clapets et gargouilles suivent le tracé ou la façade'],
-  ['coude', 'Relier en L', 'l\'outil Relier trace un coude d\'équerre avec le bâti']
+  ['coude', 'Relier en L', 'l\'outil Relier trace un coude d\'équerre avec le bâti'],
+  ['accMilieu', 'Milieu d\'un côté', 'le point se cale au milieu du côté le plus proche (bâti, trait de complément)'],
+  ['accPerp', 'Perpendiculaire', 'le point se cale au pied de la perpendiculaire menée du point précédent à un côté'],
+  ['accParcelle', 'Limites de parcelle', 'coins et côtés des limites de parcelle attirent aussi les points'],
+  /* 4e élément, facultatif : libellé court de la puce de la palette (m113 : les huit puces restent entières en portrait) */
+  ['accProl', 'Prolongement d\'un côté', 'le point se cale sur le prolongement d\'un côté, au-delà de l\'un de ses bouts, jusqu\'à 30 m', 'Prolongement'],
+  ['accInter', 'Intersection', 'le point se cale où deux côtés, ou leurs prolongements, se croisent']
 ];
 VC.AIDES_DEFAUT = AIDES_DEFAUT; VC.AIDES_LIB = AIDES_LIB;
+/* libellé du repère d'une aide au dessin, près du point (surcouche) ; milieu, perpendiculaire, coin ou côté d'une limite : m112 ;
+   prolongement et intersection : m113 */
+var LIB_ACCROCHE = {parallele: '∥ bâti', angle: 'équerre', coin: 'coin du bâti', facade: 'façade', milieu: 'Milieu', perp: 'Perpendiculaire', parcelle: 'Limite',
+  prol: 'Prolongement', inter: 'Intersection'};
+/* Palette d'accrochage (m111) : une puce par clé, dans cet ordre, avec le libellé d'AIDES_LIB (le court s'il y en a un, m113), puis les
+   nouveaux accrochages de m112 et de m113. L'accroche au réseau (bout de tuyau posé sur un objet ou sur un autre tuyau) n'a pas de puce :
+   elle reste toujours active et passe avant tous les accrochages. */
+var ACCROCHES = ['bati', 'parallele', 'angles', 'accMilieu', 'accPerp', 'accParcelle', 'accProl', 'accInter'];
+VC.ACCROCHES = ACCROCHES;
 var PALETTES = {
-  tr: {lib: 'Tracés', court: 'Tracé', ico: 'tr', items: ['ln:tr', 'ln:relier', 'ln:trEU', 'ln:trEP', 'ln:trUN', 'ln:trPres', 'ln:trPrj', 'ln:lim']},
+  tr: {lib: 'Tracés', court: 'Tracé', ico: 'tr', items: ['ln:tr', 'ln:relier', 'ln:trEU', 'ln:trEP', 'ln:trUN', 'ln:trPres', 'ln:trPrj', 'ln:lim', 'ln:esc']},
   eu: {lib: 'Appareils EU', court: 'EU', ico: 'eu', items: FAMILLES[0].types.map(function(t){ return 'pt:' + t; })},
   ep: {lib: 'Ouvrages EP', court: 'EP', ico: 'ep', items: FAMILLES[1].types.map(function(t){ return 'pt:' + t; })},
   reg: {lib: 'Regards', court: 'Regards', ico: 'reg', items: FAMILLES[2].types.map(function(t){ return 'pt:' + t; })},
@@ -2024,9 +2567,20 @@ function editeur(racine, opts){
   /* mode intégré : les anomalies du dossier de l'application (opts.anomalies) font référence */
   var INTEG = typeof opts.anomalies === 'function';
   function ext(){ if (!INTEG) return null; try { var r = opts.anomalies(); return Array.isArray(r) ? r : null; } catch(e){ return null; } }
+  /* conclusion choisie dans le constat du dossier (hôte), pour le plan PDF ; vide sinon */
+  function conclHote(){ if (typeof opts.conclusionConstat !== 'function') return ''; try { return String(opts.conclusionConstat() || ''); } catch(e){ return ''; } }
   var S = {doc: null, fond: null, reseau: null, an: null, liste: [], vue: new Vue(), dpr: 1, outil: {k: 'main'}, sel: null, brouillon: null, zones: [], ptr: {}, geste: null,
     undo: [], redo: [], panneau: null, mode: 'edl', aff: {fond: true, reseau: true, etiquettes: true, attenuer: false}, dessinDemande: false, dernierTap: null, accrocheVue: null, aligner: null, palette: null,
-    aides: Object.assign({}, AIDES_DEFAUT, opts.aides || {}), apercu: null, relier: null};
+    aides: Object.assign({}, AIDES_DEFAUT, opts.aides || {}), apercu: null, relier: null, survol: null,
+    /* « + » de la souris sur le tracé choisi (m110) : null, ou sa cible {k: 'segment', id, i, x, y} ; bulle « + point » du doigt et du
+       stylet : null, ou {id, i, x, y, tx, ty, vue} ; plusClic : dernier clic sur le « + » {t, id, i}, pour le double clic */
+    plus: null, bullePoint: null, plusClic: null,
+    /* pose par cotes (m101) : null hors du mode ; dernierPointeur : genre du dernier appui ('mouse', 'touch', 'pen') */
+    cotes: null, dernierPointeur: null,
+    /* menu de poignée ouvert à la souris (m109) : null, ou sa poignée {k: 'sommet' ou 'milieu', id, i} */
+    menu: null,
+    /* palette d'accrochage ouverte (m111) */
+    accroches: false};
   racine.innerHTML = '<div class="vc" tabindex="-1">'
     + '<canvas class="vc-cv" aria-label="Plan du croquis"></canvas>'
     + '<header class="vc-barre">'
@@ -2053,13 +2607,17 @@ function editeur(racine, opts){
     + '<button type="button" class="vc-b" data-a="rotg" aria-label="Tourner le plan à gauche">' + ico('rotg') + '</button>'
     + '<button type="button" class="vc-b" data-a="rotd" aria-label="Tourner le plan à droite">' + ico('rotd') + '</button>'
     + '<button type="button" class="vc-b vc-nord" data-a="nord" aria-label="Nord en haut">' + ico('nord') + '</button>'
+    + '<button type="button" class="vc-b vc-accr" data-a="accroches" aria-label="Palette d\'accrochage" aria-expanded="false">' + ico('cible') + '</button>'
     + '<button type="button" class="vc-b vc-aimant" data-a="aides" aria-label="Aides au dessin" aria-pressed="true">' + ico('aimant') + '</button>'
     + '</div>'
+    + '<div class="vc-accroches" hidden></div>'
     + '<div class="vc-aide" role="status"></div>'
     + '<aside class="vc-panneau" hidden><div class="vc-ptete"><h2></h2><button type="button" class="vc-b" data-a="fermerPanneau" aria-label="Fermer">' + ico('fermer') + '</button></div><div class="vc-pcorps"></div></aside>'
+    + '<div class="vc-menu" role="menu" aria-label="Point du tracé" hidden></div>'
     + '<div class="vc-toast" role="status" aria-live="polite"></div>'
     + '</div>';
   var R = racine.firstChild, cv = R.querySelector('.vc-cv'), ctx = cv.getContext('2d'), pal = R.querySelector('.vc-palette'), aide = R.querySelector('.vc-aide');
+  var acc = R.querySelector('.vc-accroches');
   var pan = R.querySelector('.vc-panneau'), pcorps = pan.querySelector('.vc-pcorps'), ptitre = pan.querySelector('h2');
 
   /* --- état et document --- */
@@ -2108,7 +2666,7 @@ function editeur(racine, opts){
   }
   var tEnr = null;
   function changement(o){
-    o = o || {};
+    o = o || {}; fermerMenu();
     S.doc.modifie = nowISO(); S.doc.rev = (S.doc.rev || 0) + 1;
     synchroSommets(S.doc);
     analyse(); synchroniser(o.forcer);
@@ -2123,22 +2681,65 @@ function editeur(racine, opts){
      du dessin ; une barrière dans l'historique empêche « Annuler » de défaire à sa place, sans le dire, le geste de dessin précédent */
   var BARRIERE = 'barriere';
   function barriere(){ if (S.undo[S.undo.length - 1] !== BARRIERE){ S.undo.push(BARRIERE); if (S.undo.length > 100) S.undo.shift(); } }
+  /* « Annuler » et « Rétablir » mettent fin aux saisies en cours, pose par cotes comprise (m101 : son trait de référence a pu disparaître) */
   function annuler(){
+    fermerMenu();
     if (!S.undo.length) return toast('Rien à annuler');
     if (S.undo[S.undo.length - 1] === BARRIERE){ S.undo.pop(); majBarre(); return toast('Le dernier changement porte sur une anomalie du dossier : « Annuler » ne le défait pas (pour un placement : « Retirer du plan »).' + (S.undo.length ? ' Touchez de nouveau « Annuler » pour revenir sur le dessin.' : ''), 6500); }
-    S.redo.push(etatCourant()); restaurer(S.undo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; changement(); majAide();
+    S.redo.push(etatCourant()); restaurer(S.undo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; S.cotes = null; changement(); majAide();
   }
-  function refaire(){ if (!S.redo.length) return toast('Rien à rétablir'); S.undo.push(etatCourant()); restaurer(S.redo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; changement(); majAide(); }
+  function refaire(){ fermerMenu(); if (!S.redo.length) return toast('Rien à rétablir'); S.undo.push(etatCourant()); restaurer(S.redo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; S.cotes = null; changement(); majAide(); }
 
   /* --- affichage --- */
   function redim(){
     var r = R.getBoundingClientRect(), w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height)), d = Math.min(3, global.devicePixelRatio || 1);
+    /* menu de poignée (m109) : placé pour l'ancienne taille, il pourrait sortir de l'éditeur sans se voir et prendre le clic suivant ; fermé */
+    if (w !== S.vue.w || h !== S.vue.h) fermerMenu();
     if (cv.width !== Math.round(w * d) || cv.height !== Math.round(h * d)){ cv.width = Math.round(w * d); cv.height = Math.round(h * d); cv.style.width = w + 'px'; cv.style.height = h + 'px'; }
-    S.dpr = d; S.vue.w = w; S.vue.h = h; redessiner();
+    S.dpr = d; S.vue.w = w; S.vue.h = h; redessiner(); placerBarres();
+  }
+  /* barres de navigation et d'aide, palette d'accrochage (m114) : placées d'après la place réelle de l'éditeur, au redimensionnement, à
+     l'ouverture et à la fermeture du panneau, à chaque changement de la barre d'aide et à l'ouverture de la palette. Le CSS suffit quand la
+     barre de navigation tient sur une colonne sous la barre du haut (6 px plus bas) : rien n'est changé. Sinon (portrait ou écran étroit,
+     panneau ouvert, moins de 1008 px de haut), elle passe sur plusieurs colonnes de même hauteur, lues de haut en bas, la première à gauche
+     (4 + 4 en général) ; l'ordre des boutons ne change pas, l'aimant reste en bas à droite, le bouton de la palette juste au-dessus ; la
+     barre d'aide et la palette se décalent de la largeur ajoutée. La palette ouverte reste à gauche de la barre de navigation, au-dessus
+     de la barre d'aide (quel que soit son nombre de lignes), à droite des outils et sous la barre du haut (8 px plus bas) ; elle défile
+     si la place manque */
+  function placerBarres(){
+    var nav = R.querySelector('.vc-nav'), r0 = R.getBoundingClientRect(), dx = 0, st = acc.scrollTop;
+    nav.classList.remove('vc-colonnes'); nav.style.width = nav.style.height = '';
+    aide.style.right = ''; acc.style.right = acc.style.bottom = acc.style.width = acc.style.maxHeight = '';
+    if (!r0.width || !r0.height) return;
+    var haut = R.querySelector('.vc-barre').getBoundingClientRect().bottom, rn = nav.getBoundingClientRect();
+    var bs = [].filter.call(nav.children, function(b){ return b.offsetWidth > 0; });
+    if (bs.length > 1 && rn.top < haut + 6){
+      /* pas d'un bouton au suivant (44 + 6 px) ; rangs qui tiennent entre la barre du haut et le bas de la barre, puis colonnes égales */
+      var b0 = bs[0].getBoundingClientRect(), bw = Math.round(b0.width), pas = Math.round(bs[1].getBoundingClientRect().top - b0.top);
+      var ecart = pas - Math.round(b0.height);
+      var rangs = Math.max(1, Math.floor((rn.bottom - haut - 6 + ecart) / pas)), cols = Math.ceil(bs.length / rangs);
+      rangs = Math.ceil(bs.length / cols); dx = (cols - 1) * (bw + ecart);
+      nav.classList.add('vc-colonnes'); nav.style.height = (rangs * pas - ecart) + 'px'; nav.style.width = (cols * (bw + ecart) - ecart) + 'px';
+      if (!aide.hidden) aide.style.right = (r0.right - aide.getBoundingClientRect().right + dx) + 'px';
+    }
+    if (!S.accroches || acc.hidden) return;
+    var ra = acc.getBoundingClientRect(), ro = R.querySelector('.vc-outils').getBoundingClientRect(), droite = r0.right - ra.right + dx;
+    /* outils en colonne à gauche (paysage) : la palette reste à leur droite */
+    var gauche = (ro.height > ro.width ? ro.right - r0.left : 0) + 8, w = Math.min(ra.width, r0.width - droite - gauche);
+    if (dx) acc.style.right = droite + 'px';
+    if (w < ra.width - .5) acc.style.width = Math.max(0, w) + 'px';
+    ra = acc.getBoundingClientRect();
+    var bas = r0.bottom - ra.bottom, rh = aide.hidden ? null : aide.getBoundingClientRect();
+    if (rh && rh.left < ra.right && rh.right > ra.left && ra.bottom > rh.top - 6){ bas = r0.bottom - rh.top + 6; acc.style.bottom = bas + 'px'; }
+    /* vider les styles de la palette puis la mesurer ramène sa position de défilement dans la boîte du CSS : on la remet (sinon chaque
+       toucher d'une puce, qui passe par majAide, la ferait sauter) */
+    acc.style.maxHeight = Math.max(0, r0.bottom - bas - haut - 8) + 'px'; acc.scrollTop = st;
   }
   function redessiner(){ if (S.dessinDemande) return; S.dessinDemande = true; (global.requestAnimationFrame || setTimeout)(function(){ S.dessinDemande = false; dessiner(); }); }
   function dessiner(){
     if (!S.doc) return;
+    /* menu de poignée (m109) : fermé quand son tracé n'est plus choisi ou n'a plus ce point, ou avec un autre outil */
+    if (S.menu){ var eMenu = el(S.menu.id); if (!eMenu || !S.sel || S.sel.id !== S.menu.id || S.outil.k !== 'main' || !eMenu.v || !eMenu.v[S.menu.i]) fermerMenu(); }
     var d = S.dpr, w = S.vue.w, h = S.vue.h;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#fbfbf8'; ctx.fillRect(0, 0, cv.width, cv.height);
     S.vue.rot = S.doc.rot || 0;
@@ -2158,9 +2759,11 @@ function editeur(racine, opts){
       if (e && e.k === 'tx'){ var zt = S.zones.filter(function(z){ return z.type === 'tx' && z.id === e.id; })[0]; if (zt){ ctx.strokeStyle = ac; ctx.lineWidth = 2; ctx.setLineDash([5, 3]); ctx.strokeRect(zt.b[0], zt.b[1], zt.b[2] - zt.b[0], zt.b[3] - zt.b[1]); ctx.setLineDash([]); } }
       if (e && e.k === 'ln'){
         var P = lignePts(e, idx()).map(function(p){ return S.vue.ecran(p.x, p.y); });
-        trace(ctx, P); ctx.strokeStyle = 'rgba(15,92,99,.28)'; ctx.lineWidth = 16; ctx.stroke();
+        /* escalier : le halo suit son contour ; ses deux sommets n'ont pas de poignée au milieu */
+        var Gs = e.t === 'esc' ? geoEscalier(e, idx()) : null, H = Gs ? Gs.contour.map(function(p){ return S.vue.ecran(p.x, p.y); }) : P;
+        trace(ctx, H); if (Gs) ctx.closePath(); ctx.strokeStyle = 'rgba(15,92,99,.28)'; ctx.lineWidth = 16; ctx.stroke();
         P.forEach(function(p, i){
-          if (i){ var m = {x: (p.x + P[i - 1].x) / 2, y: (p.y + P[i - 1].y) / 2}; if (Math.hypot(p.x - P[i - 1].x, p.y - P[i - 1].y) > 44){ ctx.beginPath(); ctx.arc(m.x, m.y, 7, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.fill(); ctx.strokeStyle = ac; ctx.lineWidth = 1.5; ctx.stroke(); ctx.beginPath(); ctx.moveTo(m.x - 3.5, m.y); ctx.lineTo(m.x + 3.5, m.y); ctx.moveTo(m.x, m.y - 3.5); ctx.lineTo(m.x, m.y + 3.5); ctx.stroke(); } }
+          if (i && e.t !== 'esc'){ var m = {x: (p.x + P[i - 1].x) / 2, y: (p.y + P[i - 1].y) / 2}; if (Math.hypot(p.x - P[i - 1].x, p.y - P[i - 1].y) > 44){ ctx.beginPath(); ctx.arc(m.x, m.y, 7, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.fill(); ctx.strokeStyle = ac; ctx.lineWidth = 1.5; ctx.stroke(); ctx.beginPath(); ctx.moveTo(m.x - 3.5, m.y); ctx.lineTo(m.x + 3.5, m.y); ctx.moveTo(m.x, m.y - 3.5); ctx.lineTo(m.x, m.y + 3.5); ctx.stroke(); } }
         });
         P.forEach(function(p, i){
           var att = e.v[i].a, choisi = S.sel.sommet === i;
@@ -2168,11 +2771,24 @@ function editeur(racine, opts){
         });
       }
     }
+    /* « + » de la souris sur le tracé choisi (m110), au pied du segment survolé ; curseur « copie » */
+    var pl = plusSurvol(); S.plus = pl; cv.style.cursor = pl ? 'copy' : '';
+    if (pl){
+      var pq = S.vue.ecran(pl.x, pl.y);
+      ctx.beginPath(); ctx.arc(pq.x, pq.y, 9, 0, 2 * Math.PI); ctx.fillStyle = ac; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pq.x - 5, pq.y); ctx.lineTo(pq.x + 5, pq.y); ctx.moveTo(pq.x, pq.y - 5); ctx.lineTo(pq.x, pq.y + 5); ctx.lineWidth = 2.5; ctx.stroke();
+    }
+    /* bulle « + point » (m110) : fermée quand son tracé n'est plus choisi ou n'a plus ce segment, avec un autre outil, ou quand la vue a changé */
+    var bq = S.bullePoint, eb = bq && el(bq.id);
+    if (bq && (!eb || !S.sel || S.sel.id !== bq.id || S.outil.k !== 'main' || !eb.v || !eb.v[bq.i] || bq.vue !== cleVue())) fermerBullePoint();
     if (S.brouillon){
       var b = S.brouillon, Q = b.pts.map(function(q){ return S.vue.ecran(q.x, q.y); }), o = OUTILS_LN[b.outil] || OUTILS_LN.tr, col = rgbCss((RES[o.res] || RES.INC).rgb);
       if (Q.length > 1){ trace(ctx, Q); ctx.strokeStyle = col; ctx.lineWidth = o.col ? 6 : 4; ctx.setLineDash(o.st ? [9, 6] : []); ctx.stroke(); ctx.setLineDash([]); }
       Q.forEach(function(p, i){ var s = b.pts[i].snap; ctx.beginPath(); ctx.arc(p.x, p.y, s ? 8 : 6, 0, 2 * Math.PI); ctx.fillStyle = s ? ac : '#fff'; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.stroke(); });
     }
+    /* escalier dont le départ est posé : contour fantôme, en tirets, jusqu'au point visé */
+    var Fe = fantomeEscalier();
+    if (Fe){ trace(ctx, Fe.map(function(q){ return S.vue.ecran(q.x, q.y); })); ctx.closePath(); ctx.strokeStyle = rgbCss(RES.LIM.rgb, .9); ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]); }
     if (S.apercu && S.apercu.pts){
       var Ap = S.apercu.pts.map(function(q){ return S.vue.ecran(q.x, q.y); }), oa = OUTILS_LN[S.outil.id] || OUTILS_LN.tr;
       trace(ctx, Ap); ctx.strokeStyle = rgbCss((RES[oa.res] || RES.INC).rgb, .8); ctx.lineWidth = oa.col ? 6 : 4; ctx.setLineDash([10, 6]); ctx.stroke(); ctx.setLineDash([]);
@@ -2181,12 +2797,25 @@ function editeur(racine, opts){
     }
     if (S.accrocheVue){
       var av = S.accrocheVue, a = S.vue.ecran(av.x, av.y);
-      if (av.arete){ var e1 = S.vue.ecran(av.arete[0], av.arete[1]), e2 = S.vue.ecran(av.arete[2], av.arete[3]); ctx.beginPath(); ctx.moveTo(e1.x, e1.y); ctx.lineTo(e2.x, e2.y); ctx.strokeStyle = 'rgba(212,101,10,.85)'; ctx.lineWidth = 4; ctx.setLineDash([8, 5]); ctx.stroke(); ctx.setLineDash([]); }
+      /* côté qui attire le point ; second côté d'une intersection (m113) */
+      [av.arete, av.arete2].forEach(function(ar){ if (!ar) return; var e1 = S.vue.ecran(ar[0], ar[1]), e2 = S.vue.ecran(ar[2], ar[3]); ctx.beginPath(); ctx.moveTo(e1.x, e1.y); ctx.lineTo(e2.x, e2.y); ctx.strokeStyle = 'rgba(212,101,10,.85)'; ctx.lineWidth = 4; ctx.setLineDash([8, 5]); ctx.stroke(); ctx.setLineDash([]); });
       ctx.beginPath(); ctx.arc(a.x, a.y, 14, 0, 2 * Math.PI); ctx.strokeStyle = '#d4650a'; ctx.lineWidth = 2.5; ctx.stroke();
-      if (av.type === 'parallele' || av.type === 'angle' || av.type === 'coin' || av.type === 'facade'){ var lb = {parallele: '∥ bâti', angle: 'équerre', coin: 'coin du bâti', facade: 'façade'}[av.type]; ctx.font = '700 12px Barlow, Arial, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.strokeText(lb, a.x + 16, a.y + 8); ctx.fillStyle = '#a14d06'; ctx.fillText(lb, a.x + 16, a.y + 8); }
+      /* prolongement et intersection (m113) : tirets du bout du côté au point, pour chaque prolongement utilisé */
+      if ((av.type === 'prol' || av.type === 'inter') && av.bouts) av.bouts.forEach(function(b){
+        var eb = S.vue.ecran(b.x, b.y); ctx.beginPath(); ctx.moveTo(eb.x, eb.y); ctx.lineTo(a.x, a.y); ctx.strokeStyle = '#d4650a'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+      });
+      /* perpendiculaire (m112) : tirets du point précédent au pied, et petit carré d'angle droit au pied, du côté du point précédent */
+      if (av.type === 'perp' && av.de && av.arete){
+        var dp = S.vue.ecran(av.de.x, av.de.y), u0 = S.vue.ecran(av.arete[0], av.arete[1]), u1 = S.vue.ecran(av.arete[2], av.arete[3]), lu = Math.hypot(u1.x - u0.x, u1.y - u0.y), lv = Math.hypot(dp.x - a.x, dp.y - a.y);
+        ctx.beginPath(); ctx.moveTo(dp.x, dp.y); ctx.lineTo(a.x, a.y); ctx.strokeStyle = '#d4650a'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+        if (lu > 1e-9 && lv > 1e-9){ var ux = 8 * (u1.x - u0.x) / lu, uy = 8 * (u1.y - u0.y) / lu, vx = 8 * (dp.x - a.x) / lv, vy = 8 * (dp.y - a.y) / lv;
+          ctx.beginPath(); ctx.moveTo(a.x + vx, a.y + vy); ctx.lineTo(a.x + vx + ux, a.y + vy + uy); ctx.lineTo(a.x + ux, a.y + uy); ctx.stroke(); }
+      }
+      if (LIB_ACCROCHE.hasOwnProperty(av.type)){ var lb = LIB_ACCROCHE[av.type]; ctx.font = '700 12px Barlow, Arial, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.strokeText(lb, a.x + 16, a.y + 8); ctx.fillStyle = '#a14d06'; ctx.fillText(lb, a.x + 16, a.y + 8); }
     }
     if (S.relier){ var rd = S.vue.ecran(S.relier.x, S.relier.y); ctx.beginPath(); ctx.arc(rd.x, rd.y, 16, 0, 2 * Math.PI); ctx.strokeStyle = ac; ctx.lineWidth = 3; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]); }
     if (S.aligner){ S.aligner.forEach(function(p){ var q = S.vue.ecran(p.x, p.y); ctx.beginPath(); ctx.arc(q.x, q.y, 9, 0, 2 * Math.PI); ctx.fillStyle = '#d4650a'; ctx.fill(); }); }
+    if (S.cotes && S.cotes.ref) dessinerCotes();
     ctx.restore();
   }
   /* Nord et barre d'échelle à l'écran */
@@ -2232,17 +2861,25 @@ function editeur(racine, opts){
     return lns.filter(function(c){ return c.d <= dmin + 1; }).sort(function(a, b2){ return rang(b2) - rang(a); }).map(function(c){ return c.z; });
   }
   /* --- aides au dessin : côtés du bâti (fond cadastral et traits de complément), en mètres locaux --- */
-  /* le tracé au glissé est un geste, pas un automatisme : l'aimant ne le coupe pas */
-  function aideOn(k){ if (k === 'glisser') return S.aides.glisser !== false; return S.aides.actives !== false && S.aides[k] !== false; }
+  /* le tracé au glissé est un geste, pas un automatisme : l'aimant ne le coupe pas. Lecture d'accrocheOn : une aide cochée d'origine l'est
+     tant qu'elle ne vaut pas false ; un nouvel accrochage (m112, m113), absent d'anciens réglages, seulement s'il vaut true */
+  function aideOn(k){ if (k === 'glisser') return S.aides.glisser !== false; return S.aides.actives !== false && accrocheOn(k); }
   function normAng(a){ return normAngle(a); }
   function aretesFond(){
-    /* fond masqué ou calque décoché : ses côtés ne guident plus le dessin */
+    /* fond masqué ou calque décoché : ses côtés ne guident plus le dessin. Côtés des lignes de référence 'bati' (lignesRef), chacun
+       [x0, y0, x1, y1, polyligne du fond, son rang dans fond.L, rang de son premier sommet] */
     var f = S.aff.fond ? S.fond : null, off = offFond(f), cle = f ? f.id + ':' + off.x + ':' + off.y + ':' + f.calques.map(function(k){ return k.vis ? 1 : 0; }).join('') : '-', c = S.aretes;
     if (c && c.cle === cle) return c;
+    var G = grilleCotes(f, off, 'bati');
+    return (S.aretes = {cle: cle, segs: G.segs, g: G.g, TU: G.TU});
+  }
+  /* côtés des lignes de référence de nature nat du fond f (décalage off), chacun [x0, y0, x1, y1, polyligne du fond, son rang dans fond.L,
+     rang de son premier sommet], plus 'limite' pour un côté de limite de parcelle ; et leur grille, en cases de TU mètres */
+  function grilleCotes(f, off, nat){
     var segs = [], TU = 8, g = {};
-    if (f) f.L.forEach(function(l){
-      var cq = f.calques[l.c], st = cq.style; if ((st !== 'bati' && st !== 'batileger') || !cq.vis) return;
-      for (var k = 1; k < l.n; k++){ var i0 = 2 * (l.d + k - 1), i1 = 2 * (l.d + k); segs.push([f.xy[i0] + off.x, f.xy[i0 + 1] + off.y, f.xy[i1] + off.x, f.xy[i1 + 1] + off.y, l]); }
+    if (f) (lignesRef(null, f, off, [nat]) || []).forEach(function(r){
+      var l = f.L[r.src.i], P = r.P;
+      for (var k = 1; k < P.length; k++){ var sg = [P[k - 1].x, P[k - 1].y, P[k].x, P[k].y, l, r.src.i, k - 1]; if (nat === 'limite') sg.push('limite'); segs.push(sg); }
     });
     /* un trait aberrant (valeur infinie, kilomètres de long) n'est pas une façade : écarté */
     segs = segs.filter(function(sg){ return isFinite(sg[0]) && isFinite(sg[1]) && isFinite(sg[2]) && isFinite(sg[3]) && Math.abs(sg[2] - sg[0]) + Math.abs(sg[3] - sg[1]) < 2000; });
@@ -2256,24 +2893,45 @@ function editeur(racine, opts){
         for (a = ca - 1; a <= ca + 1; a++) for (b = cb - 1; b <= cb + 1; b++){ k2 = a + ',' + b; if (!vu[k2]){ vu[k2] = 1; (g[k2] = g[k2] || []).push(i); } }
       }
     });
-    return (S.aretes = {cle: cle, segs: segs, g: g, TU: TU});
+    return {segs: segs, g: g, TU: TU};
+  }
+  /* côtés des limites de parcelle du fond affiché (accrochage « Limites de parcelle », m112) : même découpage que le bâti, dans un cache à
+     part, relu quand le fond change (clé d'aretesFond) ; sans lui, chaque mouvement relirait toutes les limites du fond */
+  function aretesLimites(){
+    var A = aretesFond(), c = S.aretesLim;
+    if (c && c.cle === A.cle) return c;
+    var f = S.aff.fond ? S.fond : null, G = grilleCotes(f, offFond(f), 'limite');
+    return (S.aretesLim = {cle: A.cle, segs: G.segs, g: G.g, TU: G.TU});
+  }
+  /* côtés de la grille A dans les cases que touche le carré de demi-côté R autour de p, ajoutés à out, chacun une fois ; rend out */
+  function dansGrille(A, p, R, out){
+    var vu = {}, x0 = Math.floor((p.x - R) / A.TU), x1 = Math.floor((p.x + R) / A.TU), y0 = Math.floor((p.y - R) / A.TU), y1 = Math.floor((p.y + R) / A.TU);
+    for (var a = x0; a <= x1; a++) for (var b = y0; b <= y1; b++) (A.g[a + ',' + b] || []).forEach(function(i){ if (!vu[i]){ vu[i] = 1; out.push(A.segs[i]); } });
+    return out;
   }
   function segsPres(p, R, sauf){
     R = Math.min(R, 120);
-    var A = aretesFond(), out = [], vu = {}, x0 = Math.floor((p.x - R) / A.TU), x1 = Math.floor((p.x + R) / A.TU), y0 = Math.floor((p.y - R) / A.TU), y1 = Math.floor((p.y + R) / A.TU);
-    for (var a = x0; a <= x1; a++) for (var b = y0; b <= y1; b++) (A.g[a + ',' + b] || []).forEach(function(i){ if (!vu[i]){ vu[i] = 1; out.push(A.segs[i]); } });
-    var I = idx();
-    S.doc.el.forEach(function(l){ if (l.k !== 'ln' || l.t !== 'lim' || l.id === sauf) return; var P = lignePts(l, I); for (var k = 1; k < P.length; k++) out.push([P[k - 1].x, P[k - 1].y, P[k].x, P[k].y, null]); });
+    var out = dansGrille(aretesFond(), p, R, []);
+    /* traits « Complément du fond » du croquis (lignes de référence 'complement'), sauf le trait sauf : hors du cache, ils changent à
+       chaque dessin ; chacun [x0, y0, x1, y1, null] */
+    (lignesRef(S.doc, null, null, ['complement']) || []).forEach(function(r){ if (r.src.id === sauf) return; var P = r.P; for (var k = 1; k < P.length; k++) out.push([P[k - 1].x, P[k - 1].y, P[k].x, P[k].y, null]); });
     return out;
   }
-  function areteProche(p, R, sauf){
+  /* cibles des nouveaux accrochages (m112, m113) : côtés du bâti et traits de complément (segsPres), plus ceux des limites de parcelle si
+     « Limites de parcelle » est cochée et que sansLim est faux ; jamais un tronçon ni un escalier (lignesRef ne les prend pas) */
+  function segsCibles(p, R, sauf, sansLim){ var out = segsPres(p, R, sauf); if (!sansLim && aideOn('accParcelle')) dansGrille(aretesLimites(), p, Math.min(R, 120), out); return out; }
+  /* cibles du coin et de la façade : bâti et traits de complément si « Accroche au bâti » est cochée, limites de parcelle si « Limites de
+     parcelle » l'est et que sansLim est faux ; à égalité, le bâti (le premier) l'emporte */
+  function segsCoinCote(p, R, sauf, sansLim){ var out = aideOn('bati') ? segsPres(p, R, sauf) : []; if (!sansLim && aideOn('accParcelle')) dansGrille(aretesLimites(), p, Math.min(R, 120), out); return out; }
+  /* côté (ou coin) le plus proche parmi segs, sinon parmi les côtés du bâti et les traits de complément (segsPres) */
+  function areteProche(p, R, sauf, segs){
     var best = null;
-    segsPres(p, R, sauf).forEach(function(sg){ var q = projSeg(p, {x: sg[0], y: sg[1]}, {x: sg[2], y: sg[3]}); if (q.d <= R && Math.hypot(sg[2] - sg[0], sg[3] - sg[1]) > .2 && (!best || q.d < best.d)) best = {s: sg, d: q.d, x: q.x, y: q.y, ang: Math.atan2(sg[3] - sg[1], sg[2] - sg[0])}; });
+    (segs || segsPres(p, R, sauf)).forEach(function(sg){ var q = projSeg(p, {x: sg[0], y: sg[1]}, {x: sg[2], y: sg[3]}); if (q.d <= R && Math.hypot(sg[2] - sg[0], sg[3] - sg[1]) > .2 && (!best || q.d < best.d)) best = {s: sg, d: q.d, x: q.x, y: q.y, ang: Math.atan2(sg[3] - sg[1], sg[2] - sg[0])}; });
     return best;
   }
-  function coinProche(p, R, sauf){
+  function coinProche(p, R, sauf, segs){
     var best = null;
-    segsPres(p, R, sauf).forEach(function(sg){ [[sg[0], sg[1]], [sg[2], sg[3]]].forEach(function(c){ var d = Math.hypot(c[0] - p.x, c[1] - p.y); if (d <= R && (!best || d < best.d)) best = {x: c[0], y: c[1], d: d, s: sg}; }); });
+    (segs || segsPres(p, R, sauf)).forEach(function(sg){ [[sg[0], sg[1]], [sg[2], sg[3]]].forEach(function(c){ var d = Math.hypot(c[0] - p.x, c[1] - p.y); if (d <= R && (!best || d < best.d)) best = {x: c[0], y: c[1], d: d, s: sg}; }); });
     return best;
   }
   /* Redressement d'un segment depuis le point précédent : parallèle ou perpendiculaire au côté de bâti le plus proche, sinon angles du plan */
@@ -2292,12 +2950,32 @@ function editeur(racine, opts){
     var Lp = L * Math.cos(best.d), a = best.c.a;
     return {x: pp.x + Lp * Math.cos(a), y: pp.y + Lp * Math.sin(a), type: best.c.ref ? 'parallele' : 'angle', arete: best.c.ref ? best.c.ref.s : null, aide: true};
   }
-  /* Point libre (traits de complément, objets de façade) : coin, redressement, façade */
+  /* Nouveaux accrochages cochés (m112, m113), aimant actif, sur les cibles de segsCibles, dans cet ordre : intersection de deux côtés ou de
+     leurs prolongements (seuil du coin, 14 px), milieu d'un côté (14 px), pied de la perpendiculaire menée du point précédent prec (seuil
+     de la façade, 10 px), prolongement d'un côté (10 px). Intersection et prolongement prennent les côtés à PROL_MAX (30 m) plus le seuil
+     du point, une seule fois pour les deux. mur : objet posé sur un mur (descente, trop-plein, té, gargouille), qui ne va que sur le bâti :
+     ni limite de parcelle, ni prolongement, ni intersection. Rien : null. Repère : 'inter' et 'prol' gardent dans bouts les bouts d'où
+     partent leurs prolongements ; sur : côtés sur lesquels tombe une intersection (pour surLeBati) */
+  function accrochesNouvelles(m, prec, sauf, mur){
+    var R, r, loin = null;
+    function cibles(){ return loin || (loin = segsCibles(m, PROL_MAX + 14 / S.vue.s, sauf, mur)); }
+    if (!mur && aideOn('accInter')){ R = 14 / S.vue.s; r = interSegs(m, cibles(), R);
+      if (r) return {x: r.x, y: r.y, type: 'inter', arete: r.s, arete2: r.s2, bouts: [r.bout, r.bout2].filter(Boolean), sur: [r.ext ? null : r.s, r.ext2 ? null : r.s2].filter(Boolean), aide: true}; }
+    if (aideOn('accMilieu')){ R = 14 / S.vue.s; r = milieuSegs(m, segsCibles(m, R, sauf, mur), R); if (r) return {x: r.x, y: r.y, type: 'milieu', arete: r.s, aide: true}; }
+    if (prec && aideOn('accPerp')){ R = 10 / S.vue.s; r = piedSegs(m, prec, segsCibles(m, R, sauf, mur), R); if (r) return {x: r.x, y: r.y, type: 'perp', arete: r.s, de: {x: prec.x, y: prec.y}, aide: true}; }
+    if (!mur && aideOn('accProl')){ R = 10 / S.vue.s; r = prolSegs(m, cibles(), R); if (r) return {x: r.x, y: r.y, type: 'prol', arete: r.s, bouts: [r.bout], aide: true}; }
+    return null;
+  }
+  /* Point libre (traits de complément, escalier, objets de façade) : coin (du bâti ; d'une limite de parcelle si elle est cochée), nouveaux
+     accrochages, redressement, façade (ou côté d'une limite). o.mur : objet posé sur un mur (descente, trop-plein, té, gargouille), qui ne
+     va que sur le bâti : aucune limite de parcelle n'est alors cible (ni coin, ni côté, ni milieu), et ni le prolongement d'un côté ni
+     une intersection ne l'attirent (ce ne sont pas des murs, m113) */
   function accrocheLibre(x, y, o){
-    o = o || {}; var m = S.vue.monde(x, y);
-    if (aideOn('bati')){ var cn = coinProche(m, 14 / S.vue.s, o.saufLigne); if (cn) return {x: cn.x, y: cn.y, type: 'coin', arete: cn.s, aide: true}; }
+    o = o || {}; var m = S.vue.monde(x, y), sl = !!o.mur, cc = aideOn('bati') || (!sl && aideOn('accParcelle')), R;
+    if (cc){ R = 14 / S.vue.s; var cn = coinProche(m, R, o.saufLigne, segsCoinCote(m, R, o.saufLigne, sl)); if (cn) return {x: cn.x, y: cn.y, type: cn.s[7] === 'limite' ? 'parcelle' : 'coin', arete: cn.s, aide: true}; }
+    var nv = accrochesNouvelles(m, o.prec, o.saufLigne, sl); if (nv) return nv;
     if (o.prec){ var rd = redresser(o.prec, m, o.saufLigne); if (rd) return rd; }
-    if (aideOn('bati')){ var ar = areteProche(m, 10 / S.vue.s, o.saufLigne); if (ar) return {x: ar.x, y: ar.y, type: 'facade', arete: ar.s, aide: true}; }
+    if (cc){ R = 10 / S.vue.s; var ar = areteProche(m, R, o.saufLigne, segsCoinCote(m, R, o.saufLigne, sl)); if (ar) return {x: ar.x, y: ar.y, type: ar.s[7] === 'limite' ? 'parcelle' : 'facade', arete: ar.s, aide: true}; }
     return {x: m.x, y: m.y};
   }
   function attache(a){ return !!a && (a.type === 'obj' || a.type === 'som' || a.type === 'seg'); }
@@ -2307,7 +2985,8 @@ function editeur(racine, opts){
      symbole + 12 px) passe avant les tracés, sauf si le doigt est nettement plus près d'un tracé (6 px de marge) que du bord de son symbole :
      vu de loin, la zone d'un raccord ou d'un regard déborde sur le collecteur voisin. Le sommet d'un tracé posé sur un objet est cet objet : il
      ne compte pas comme sommet. sansObj : tracés seulement ; sansSeg : sommets seulement ; rayonSom : rayon des sommets (16 px) ; rayonSeg : celui des segments (13 px) ; bouts : id
-     d'un objet, seules comptent les extrémités libres des tracés qui ne le portent pas (objet lâché) */
+     d'un objet, seules comptent les extrémités libres des tracés qui ne le portent pas (objet lâché) ; saisie : point saisi d'un tracé du
+     réseau (point de tronçon, sommet glissé), dont le repli reçoit les nouveaux accrochages cochés (m112, m113) */
   function accroche(x, y, o){
     o = o || {}; var I = idx(), best = null, bd = Infinity, ob = null, dob = Infinity, de = Infinity, surObj = {};
     for (var i = 0; i < S.zones.length; i++){
@@ -2322,7 +3001,7 @@ function editeur(racine, opts){
        puis le plus proche, puis le plus ancien (au croisement d'un collecteur et d'un branchement dessiné après lui : le collecteur) */
     var plan = o.plan || planAccroche(), som = [], seg = [];
     S.doc.el.forEach(function(l){
-      if (l.k !== 'ln' || l.t === 'lim' || o.saufLigne === l.id || (o.col && l.t !== 'col')) return;
+      if (l.k !== 'ln' || !estCanalisation(l.t) || o.saufLigne === l.id || (o.col && l.t !== 'col')) return;
       var P = lignePts(l, I), Q = P.map(function(p){ return S.vue.ecran(p.x, p.y); });
       P.forEach(function(p, i){ if (surObj[l.v[i].a]) return; if (o.bouts && (l.v[i].a || (i && i !== P.length - 1) || l.v.some(function(w){ return w.a === o.bouts; }))) return;
         var d = Math.hypot(x - Q[i].x, y - Q[i].y); if (d <= (o.rayonSom || 16)) som.push({d: d, l: l, a: {type: 'som', ligne: l.id, i: i, x: p.x, y: p.y, a: l.v[i].a && !(I[l.v[i].a] && I[l.v[i].a].t === 'zone') ? l.v[i].a : null}}); });
@@ -2342,6 +3021,9 @@ function editeur(racine, opts){
     if (ob && !(best && bd + 6 < de)) return ob;
     if (best) return best;
     var m = S.vue.monde(x, y);
+    /* le réseau passe avant ; puis, pour un point saisi, les nouveaux accrochages cochés (m112, m113 : intersection, milieu, perpendiculaire,
+       prolongement), avant le redressement (ni coin ni façade : ils restent hors des tronçons) */
+    if (o.saisie){ var nv = accrochesNouvelles(m, o.prec, o.saufLigne); if (nv) return nv; }
     if (o.prec){ var rd = redresser(o.prec, m); if (rd) return rd; }
     return {x: m.x, y: m.y};
   }
@@ -2354,10 +3036,22 @@ function editeur(racine, opts){
 
   /* --- gestes --- */
   function pos(ev){ var r = cv.getBoundingClientRect(); return {x: ev.clientX - r.left, y: ev.clientY - r.top}; }
+  /* pointeurs avalés (m111) : l'appui sur le plan qui a fermé la palette d'accrochage, et les autres doigts posés avant son lever */
+  var ptrAvales = {};
   cv.addEventListener('pointerdown', function(ev){
     if (!S.doc) return;
+    S.dernierPointeur = ev.pointerType || '';
+    /* appui du doigt ou du stylet : la position de survol de la souris (S.survol) est périmée jusqu'au prochain survol (m107) */
+    if (ev.pointerType !== 'mouse') S.survolPerime = true;
     S.avaleRepete = null;
+    /* menu de poignée (m109) : tout appui arrête l'attente de la pause et ferme le menu ; le clic gauche de la souris qui le ferme n'a pas
+       d'autre effet */
+    if (fermerMenu() && ev.pointerType === 'mouse' && ev.button === 0) return;
     try { cv.setPointerCapture(ev.pointerId); } catch(e){}
+    /* palette d'accrochage ouverte (m111) : l'appui sur le plan la ferme et ne fait rien d'autre (ni pose, ni choix, ni tracé, ni
+       déplacement de la vue) ; les autres doigts du même geste ne font rien non plus, jusqu'au lever du dernier */
+    if (ev.isPrimary) ptrAvales = {};
+    if (S.accroches || Object.keys(ptrAvales).length){ if (S.accroches) fermerAccroches(); ptrAvales[ev.pointerId] = true; return; }
     /* premier doigt d'un nouveau geste : les pointeurs dont le relâchement n'est jamais arrivé (fenêtre fermée, doigt levé ailleurs) sont oubliés */
     if (ev.isPrimary && Object.keys(S.ptr).length){ S.ptr = {}; finirGeste(true); }
     var p = pos(ev); S.ptr[ev.pointerId] = {x: p.x, y: p.y};
@@ -2369,9 +3063,23 @@ function editeur(racine, opts){
       return;
     }
     if (ids.length > 2) return;
-    S.geste = {type: 'attente', x0: p.x, y0: p.y, t0: Date.now(), cible: cibleGlisser(p.x, p.y), souris: ev.pointerType === 'mouse', panForce: ev.pointerType === 'mouse' && ev.button > 0};
+    /* bouton droit ou du milieu de la souris (panForce) : le glissé déplace toujours la vue, jamais une poignée ni l'objet choisi */
+    var souris = ev.pointerType === 'mouse', panForce = souris && ev.button > 0;
+    /* menu : poignée du tracé choisi sous un clic droit (m109), menu ouvert au lever s'il n'y a pas de glissé */
+    S.geste = {type: 'attente', x0: p.x, y0: p.y, t0: Date.now(), cible: panForce ? null : cibleGlisser(p.x, p.y, souris), souris: souris, panForce: panForce,
+      menu: souris && ev.button === 2 ? poigneeMenu(p.x, p.y) : null};
   });
   cv.addEventListener('pointermove', function(ev){
+    /* Survol à la souris seulement (ni doigt ni stylet), sans bouton appuyé. S.survol garde la position du pointeur en pixels du canevas,
+       le repère de pos() et de cibleGlisser : un sommet s'y vise à 18 px, une poignée du milieu à 14 px. Cette position reste juste quand
+       la vue change sous la souris immobile (molette). Elle ne suit pas un glissé ; au lever, elle prend le point de lever (fin). La sortie
+       du plan (pointerleave) et la réouverture du croquis (ouvrir) l'effacent. Rien n'est redessiné, sauf quand le départ d'un escalier
+       est posé : son contour fantôme suit la souris. Un appui du doigt ou du stylet la rend périmée (S.survolPerime) jusqu'au survol suivant. */
+    if (ev.pointerType === 'mouse' && ev.buttons === 0){ S.survol = pos(ev); S.survolPerime = false; if (!S.geste && attendFinEscalier()) redessiner(); }
+    /* menu de poignée (m109) : une pause de la souris sur une poignée du tracé choisi l'ouvre ; un bouton appuyé arrête l'attente */
+    if (ev.pointerType === 'mouse') suivrePause(ev.buttons === 0 ? S.survol : null);
+    /* « + » de la souris sur le tracé choisi (m110) : il suit le survol, redessiné seulement quand son pied change */
+    if (ev.pointerType === 'mouse' && ev.buttons === 0) suivrePlus();
     if (!S.ptr[ev.pointerId]) return;
     var p = pos(ev); S.ptr[ev.pointerId] = {x: p.x, y: p.y};
     var g = S.geste; if (!g) return;
@@ -2384,7 +3092,8 @@ function editeur(racine, opts){
     if (g.type === 'attente'){
       if (Math.hypot(p.x - g.x0, p.y - g.y0) < (g.souris ? 4 : 9)) return;
       if (g.cible){ quitterSaisie(); instantane(); g.type = 'glisser'; g.modifie = false; demarrerGlisser(g); }
-      else if (S.outil.k === 'ln' && aideOn('glisser') && !g.panForce){ quitterSaisie(); g.type = 'trace'; demarrerTrace(g); }
+      /* pendant la pose par cotes (départ d'un escalier, m108), le glissé déplace la vue : il ne trace rien */
+      else if (S.outil.k === 'ln' && aideOn('glisser') && !g.panForce && !S.cotes){ quitterSaisie(); g.type = 'trace'; demarrerTrace(g); }
       else { g.type = 'pan'; g.w0 = S.vue.monde(g.x0, g.y0); }
     }
     if (g.type === 'trace'){ apercuTrace(g, p); return; }
@@ -2392,9 +3101,12 @@ function editeur(racine, opts){
     if (g.type === 'glisser'){ glisser(g, p); g.modifie = true; }
   });
   function fin(ev){
+    if (ptrAvales[ev.pointerId]){ delete ptrAvales[ev.pointerId]; if (ev.pointerType === 'mouse' && ev.type === 'pointerup'){ S.survol = pos(ev); S.survolPerime = false; } return; }
     if (!S.ptr[ev.pointerId]) return;
     delete S.ptr[ev.pointerId];
     var g = S.geste, p = pos(ev);
+    /* souris levée : elle survole le point de lever. Levée hors du plan : le pointerleave qui suit efface le survol. */
+    if (ev.pointerType === 'mouse' && ev.type === 'pointerup'){ S.survol = p; S.survolPerime = false; }
     if (!g) return;
     if (g.type === 'pince'){
       var reste = Object.keys(S.ptr);
@@ -2402,18 +3114,28 @@ function editeur(racine, opts){
       enregistrerVue(); return;
     }
     if (ev.type === 'pointercancel'){ finirGeste(true); return; }
-    if (g.type === 'attente'){ S.geste = null; tap(p.x, p.y); return; }
+    /* clic droit ou du milieu de la souris : ni pose, ni choix, ni bulle ; un clic droit sans glissé sur une poignée du tracé choisi ouvre
+       le menu de poignée (m109), au lever seulement : le contextmenu, qui peut arriver avant (Linux), ne l'ouvre pas */
+    /* clic gauche sur le « + » (m110) : sommet ajouté au pied ; pas au second clic d'un double clic, qui reste un toucher du plan (tracé
+       choisi au premier clic), ni au clic que tapPlan ignore (bouton qui vient de disparaître, plan qui vient de glisser pour montrer la
+       fiche) ; le second clic d'un double clic sur le « + », sur le sommet ajouté, est ignoré */
+    if (g.type === 'attente'){ S.geste = null; if (!g.panForce){ if (g.cible && g.cible.k === 'segment' && !suiteDeClic(p) && !clicGarde(p)) clicPlus(g.cible); else if (!secondClicPlus(g)) tap(p.x, p.y); } else if (g.menu) ouvrirMenu(g.menu, p.x, p.y); return; }
     if (g.type === 'glisser'){ terminerGlisser(g, p); S.geste = null; return; }
     if (g.type === 'trace'){ S.geste = null; finTrace(g, p); return; }
     if (g.type === 'pan') enregistrerVue();
     S.geste = null;
   }
   cv.addEventListener('pointerup', fin); cv.addEventListener('pointercancel', fin);
+  /* pointeur sorti du plan (sur une barre, hors de la fenêtre) : plus de survol, ni d'attente du menu de poignée (m109) */
+  cv.addEventListener('pointerleave', function(){ S.survol = null; if (attendFinEscalier() || S.plus) redessiner(); annulerPause(); });
+  /* clic droit ou appui long, quel que soit le pointeur : aucun menu du navigateur sur le plan */
+  cv.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
   /* au doigt, un toucher commencé sur le plan ne produit ni clic ni événements souris de compatibilité : rien n'agit sur ce qui vient se
      placer sous le doigt (fiche, barre de navigation, dialogue) ; le plan ne lit que les événements de pointeur */
   cv.addEventListener('touchend', function(ev){ if (ev.cancelable) ev.preventDefault(); }, {passive: false});
   cv.addEventListener('wheel', function(ev){
-    ev.preventDefault(); var p = pos(ev), w = S.vue.monde(p.x, p.y);
+    /* la molette ferme le menu de poignée et arrête l'attente de la pause (m109) */
+    ev.preventDefault(); fermerMenu(); var p = pos(ev), w = S.vue.monde(p.x, p.y);
     S.vue.s = clamp(S.vue.s * Math.pow(1.0018, -ev.deltaY), .02, 2000);
     var w2 = S.vue.monde(p.x, p.y); S.vue.cx += w.x - w2.x; S.vue.cy += w.y - w2.y; redessiner(); enregistrerVue();
   }, {passive: false});
@@ -2425,25 +3147,251 @@ function editeur(racine, opts){
     if (g && g.type === 'glisser'){ if (annule && g.modifie){ S.undo.length && restaurer(S.undo.pop()); } else if (!g.modifie) S.undo.pop(); changement(); }
   }
 
+  /* --- menu de poignée à la souris (m109) : outil Choisir, poignée du tracé choisi (sommet, milieu d'un segment), ouvert par une pause de
+     0,4 s ou par un clic droit sans glissé ; « Retirer le point », « Détacher », « Ajouter un point ». Au doigt et au stylet, rien ne change. */
+  var menuEl = R.querySelector('.vc-menu'), pauseMenu = null;
+  /* poignée du tracé choisi au point (x, y) du canevas, celle qu'un glissé prendrait (cibleGlisser) ; aucune pour un escalier */
+  function poigneeMenu(x, y){
+    var e = S.sel && el(S.sel.id); if (!e || e.k !== 'ln' || e.t === 'esc') return null;
+    var c = cibleGlisser(x, y);
+    return c && c.id === e.id && (c.k === 'sommet' || c.k === 'milieu') ? c : null;
+  }
+  function memePoignee(a, b){ return !!a && !!b && a.k === b.k && a.id === b.id && a.i === b.i; }
+  function annulerPause(){ if (pauseMenu){ clearTimeout(pauseMenu.t); pauseMenu = null; } }
+  /* survol de la souris au point q (null : bouton appuyé) : 0,4 s sur la même poignée ouvrent le menu ; un mouvement de plus de 3 px relance
+     l'attente, la sortie de la poignée l'arrête ; pas d'attente pendant un geste, quand le menu est ouvert ni quand la palette d'accrochage
+     l'est (m115 : jamais deux niveaux ouverts ensemble ; l'appui suivant sur le plan ferme la palette, rien d'autre) */
+  function suivrePause(q){
+    var c = q && !S.geste && !S.menu && !S.accroches ? poigneeMenu(q.x, q.y) : null;
+    if (!c){ annulerPause(); return; }
+    if (pauseMenu && memePoignee(pauseMenu.c, c) && Math.hypot(q.x - pauseMenu.x, q.y - pauseMenu.y) <= 3) return;
+    annulerPause();
+    var d = {c: c, x: q.x, y: q.y};
+    d.t = setTimeout(function(){
+      if (pauseMenu !== d) return; pauseMenu = null;
+      /* la souris survole toujours la même poignée (la vue a pu changer entre-temps) */
+      var s = S.survol, c2 = s && !S.survolPerime && !S.geste && !S.menu && !S.accroches ? poigneeMenu(s.x, s.y) : null;
+      if (memePoignee(c2, d.c)) ouvrirMenu(c2, s.x, s.y);
+    }, 400);
+    pauseMenu = d;
+  }
+  /* bouton du menu ; motif : pourquoi il est grisé (vide : actif) */
+  function boutonMenu(m, lib, motif){
+    return '<button type="button" class="vc-chip" role="menuitem" data-m="' + m + '"' + (motif ? ' disabled title="' + esc(motif) + '"' : '') + '>' + esc(lib) + '</button>';
+  }
+  /* menu de la poignée c, près du point (x, y) du canevas (les pixels de l'éditeur), gardé dans l'éditeur ; le point n'est pas choisi */
+  function ouvrirMenu(c, x, y){
+    annulerPause();
+    /* m115 : palette d'accrochage ouverte, aucun menu (un seul niveau ouvert à la fois) */
+    if (S.accroches) return;
+    var e = el(c.id); if (!e || e.k !== 'ln' || e.t === 'esc' || !S.sel || S.sel.id !== e.id || S.outil.k !== 'main' || !e.v[c.i]) return;
+    /* m115 : le menu ferme la bulle « + point » ouverte au doigt (le dernier geste l'emporte : jamais les deux ensemble) */
+    fermerBullePoint();
+    var h;
+    if (c.k === 'sommet'){
+      var motif = e.v.length <= 2 ? 'Un tracé garde au moins deux points.' : pointPorteur(S.doc, e, c.i) ? 'Un autre tracé est raccordé à ce point : « Détacher » l\'en sépare.' : '';
+      h = boutonMenu('retirer', 'Retirer le point', motif) + (e.v[c.i].a ? boutonMenu('detacher', 'Détacher') : '') + boutonMenu('ajouter', 'Ajouter un point');
+    } else h = boutonMenu('ajouter', 'Ajouter un point');
+    S.menu = {k: c.k, id: e.id, i: c.i};
+    menuEl.innerHTML = h; menuEl.hidden = false;
+    /* place : à 14 px du pointeur, en bas à droite, sinon à gauche ou en haut ; à 8 px des bords de l'éditeur au moins et hors de la fiche
+       ouverte (à droite, ou en bas sur un écran étroit) quand c'est possible ; sinon dans l'éditeur, au plus près */
+    var W = R.clientWidth, H = R.clientHeight, w = menuEl.offsetWidth, hm = menuEl.offsetHeight, rr = R.getBoundingClientRect(), rp = pan.hidden ? null : pan.getBoundingClientRect();
+    var libre = function(q){ var l = q[0], t = q[1]; return l >= 8 && t >= 8 && l + w <= W - 8 && t + hm <= H - 8
+      && !(rp && l < rp.right - rr.left && l + w > rp.left - rr.left && t < rp.bottom - rr.top && t + hm > rp.top - rr.top); };
+    var pl = [[x + 14, y + 14], [x - 14 - w, y + 14], [x + 14, y - 14 - hm], [x - 14 - w, y - 14 - hm]].filter(libre)[0];
+    if (!pl){
+      var l = x + 14, t = y + 14;
+      if (l + w > W - 8) l = x - 14 - w;
+      if (t + hm > H - 8) t = y - 14 - hm;
+      pl = [clamp(l, 8, Math.max(8, W - 8 - w)), clamp(t, 8, Math.max(8, H - 8 - hm))];
+    }
+    menuEl.style.left = Math.round(pl[0]) + 'px'; menuEl.style.top = Math.round(pl[1]) + 'px';
+  }
+  /* ferme le menu et arrête l'attente de la pause ; ferme aussi la bulle « + point » (m110), sauf garderBulle (m115 : appui sur la bulle
+     elle-même) ; vrai si le menu ou la bulle était ouvert. Menu fermé : le plan est redessiné, pour que le « + » et son curseur reviennent
+     aussitôt sous la souris immobile (m110) */
+  function fermerMenu(garderBulle){
+    annulerPause();
+    var bulle = !garderBulle && fermerBullePoint();
+    if (!S.menu) return bulle;
+    S.menu = null; menuEl.hidden = true; menuEl.innerHTML = '';
+    redessiner();
+    return true;
+  }
+  /* le menu ne prend pas le focus : Échap et les raccourcis restent à l'éditeur ; un clic droit sur le menu n'ouvre pas celui du navigateur */
+  menuEl.addEventListener('mousedown', function(ev){ ev.preventDefault(); });
+  menuEl.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
+  menuEl.addEventListener('click', function(ev){
+    var b = ev.target.closest && ev.target.closest('[data-m]'); if (!b || b.disabled || !S.menu) return;
+    var m = S.menu; fermerMenu();
+    /* saisie en cours dans la fiche (le menu ne prend pas le focus) : enregistrée d'abord, comme au départ d'un glissé ; sinon son pas
+       d'annulation passerait après celui de l'action */
+    quitterSaisie();
+    var e = el(m.id); if (!e || e.k !== 'ln' || !S.sel || S.sel.id !== e.id || !e.v[m.i]) return;
+    /* les fonctions des boutons de la fiche (« Ajouter un point » : comme le glissé de la poignée du milieu), un pas d'annulation ;
+       « Détacher » et « Ajouter un point » choisissent le point concerné, « Retirer le point » n'en laisse aucun */
+    if (b.dataset.m === 'retirer' && e.v.length > 2){ S.sel.sommet = m.i; retirerSommet(e); }
+    else if (b.dataset.m === 'detacher' && e.v[m.i].a){ S.sel.sommet = m.i; detacherSommet(e); }
+    else if (b.dataset.m === 'ajouter') ajouterSommet(e, m.k === 'milieu' ? m.i : m.i < e.v.length - 1 ? m.i + 1 : m.i);
+  });
+  /* un appui hors du menu et hors du plan (barres, fiche, boutons) ferme le menu ; un appui sur le plan est traité par le plan (pointerdown) ;
+     un appui sur la bulle « + point » ne ferme que le menu : la bulle reste pour son clic (m115) */
+  document.addEventListener('pointerdown', function(ev){
+    if (!S.menu || ev.target === cv || menuEl.contains(ev.target)) return;
+    fermerMenu(bulleEl.contains(ev.target));
+  }, true);
+  /* « Ajouter un point » : sommet libre au milieu du segment j - 1 → j, comme au glissé de la poignée du milieu ; il est choisi. w : sa place
+     en mètres du plan (m110 : le pied du « + » de la souris ou de la bulle « + point »), sinon le milieu */
+  function ajouterSommet(e, j, w){
+    var P = lignePts(e, idx()), a = P[j - 1], b = P[j]; if (!a || !b) return;
+    instantane();
+    e.v.splice(j, 0, w ? {x: w.x, y: w.y, a: null} : {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, a: null});
+    S.sel.sommet = j; changement();
+  }
+
+  /* --- bulle « + point » du doigt et du stylet (m110) : outil Choisir, tracé choisi touché hors de ses poignées ; la toucher ajoute un sommet
+     au pied du point touché. Tout autre appui, Échap, la molette, un autre outil, un autre choix, un changement du croquis ou de la vue la
+     ferment, l'ouverture du menu de poignée aussi (m115), et 4 s après son ouverture (jamais sous le doigt : un appui sur elle suspend ce
+     délai). */
+  var bulleEl = document.createElement('button'), tBulle = null, bulleAppui = false;
+  bulleEl.type = 'button'; bulleEl.className = 'vc-bulle-point'; bulleEl.hidden = true;
+  bulleEl.setAttribute('aria-label', 'Ajouter un point ici');
+  bulleEl.innerHTML = '+ point<i aria-hidden="true"></i>';
+  R.insertBefore(bulleEl, R.querySelector('.vc-toast'));
+  /* pied, en mètres du plan, du point (x, y) du canevas sur le segment le plus proche du tracé e (points P en pixels) ; null pour un
+     escalier, ou si le pied tombe sur un sommet */
+  function piedBulle(e, P, x, y){
+    if (e.t === 'esc') return null;
+    var s = segmentProche(P, x, y); if (!s || s.q.t <= 0 || s.q.t >= 1) return null;
+    var w = S.vue.monde(s.q.x, s.q.y), t = S.vue.monde(x, y);
+    return {id: e.id, i: s.j, x: w.x, y: w.y, tx: t.x, ty: t.y};
+  }
+  /* bulle b : son bas à 44 px au-dessus du point touché (au-dessous s'il est trop près de la barre), dans l'éditeur à 8 px des bords, à
+     gauche de la fiche ouverte à droite ; sa marque vise le pied ; fermée au bout de 4 s */
+  function ouvrirBullePoint(b){
+    fermerBullePoint();
+    var e = el(b.id); if (!e || !S.sel || S.sel.id !== e.id || S.outil.k !== 'main') return;
+    var p = S.vue.ecran(b.x, b.y), t = S.vue.ecran(b.tx, b.ty);
+    b.vue = cleVue(); S.bullePoint = b;
+    bulleEl.classList.remove('vc-dessous'); bulleEl.hidden = false;
+    var W = R.clientWidth, w = bulleEl.offsetWidth, h = bulleEl.offsetHeight, rr = R.getBoundingClientRect(), rp = pan.hidden ? null : pan.getBoundingClientRect();
+    var barre = R.querySelector('.vc-barre'), haut = (barre ? barre.getBoundingClientRect().bottom - rr.top : 0) + 8;
+    var l = p.x - w / 2, top = Math.min(p.y, t.y) - 44 - h;
+    if (rp && rp.width < rr.width * .9 && l + w > rp.left - rr.left - 8) l = rp.left - rr.left - 8 - w;
+    l = Math.round(clamp(l, 8, Math.max(8, W - 8 - w)));
+    if (top < haut){ top = Math.max(p.y, t.y) + 44; bulleEl.classList.add('vc-dessous'); }
+    bulleEl.style.left = l + 'px'; bulleEl.style.top = Math.round(top) + 'px';
+    var mq = bulleEl.querySelector('i'); if (mq) mq.style.left = Math.round(clamp(p.x - l, 14, w - 14)) + 'px';
+    armerBullePoint();
+  }
+  /* minuterie de la bulle ouverte : fermée 4 s plus tard */
+  function armerBullePoint(){
+    var b = S.bullePoint; clearTimeout(tBulle);
+    tBulle = b ? setTimeout(function(){ if (S.bullePoint === b) fermerBullePoint(); }, 4000) : null;
+  }
+  /* ferme la bulle ; vrai si elle était ouverte */
+  function fermerBullePoint(){
+    clearTimeout(tBulle); tBulle = null;
+    if (!S.bullePoint) return false;
+    S.bullePoint = null; bulleEl.hidden = true;
+    return true;
+  }
+  /* la bulle ne prend pas le focus (Échap et les raccourcis restent à l'éditeur) ; un appui long n'ouvre pas le menu du navigateur */
+  bulleEl.addEventListener('mousedown', function(ev){ ev.preventDefault(); });
+  bulleEl.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
+  bulleEl.addEventListener('click', function(ev){
+    var b = S.bullePoint; fermerBullePoint(); if (!b) return;
+    /* la bulle disparaît : le second toucher d'un double toucher, qui tombe sur le plan, est ignoré (garde du plan, comme pour la fiche) */
+    if (ev.detail) S.clicHors = surPlan(ev);
+    /* saisie en cours dans la fiche : enregistrée d'abord, comme pour le menu de poignée */
+    quitterSaisie();
+    var e = el(b.id); if (!e || e.k !== 'ln' || e.t === 'esc' || !S.sel || S.sel.id !== e.id || S.outil.k !== 'main' || !e.v[b.i - 1] || !e.v[b.i]) return;
+    /* sommet libre au pied, sans accroche, un pas d'annulation ; il est choisi */
+    ajouterSommet(e, b.i, {x: b.x, y: b.y});
+  });
+  /* tout appui hors de la bulle la ferme ; il agit ensuite comme d'habitude (sur le plan : toucher, glissé, pincement) */
+  document.addEventListener('pointerdown', function(ev){ if (S.bullePoint && !bulleEl.contains(ev.target)) fermerBullePoint(); }, true);
+  /* doigt posé sur la bulle : la minuterie est suspendue jusqu'à ce qu'il se relève, sinon la bulle partirait sous lui sans ajouter le
+     point ; s'il se relève sans l'activer (glissé hors d'elle), elle repart pour 4 s */
+  bulleEl.addEventListener('pointerdown', function(){ bulleAppui = true; clearTimeout(tBulle); tBulle = null; });
+  function relacherBullePoint(){ if (!bulleAppui) return; bulleAppui = false; if (S.bullePoint) armerBullePoint(); }
+  document.addEventListener('pointerup', relacherBullePoint, true); document.addEventListener('pointercancel', relacherBullePoint, true);
+
   /* --- glisser : objet choisi, sommet ou milieu de tracé, étiquette, bulle --- */
-  function cibleGlisser(x, y){
+  function cibleGlisser(x, y, souris){
     if (S.outil.k !== 'main' || !S.sel) return null;
     var e = el(S.sel.id); if (!e) return null;
     if (e.k === 'ln'){
       var P = lignePts(e, idx()).map(function(p){ return S.vue.ecran(p.x, p.y); });
       for (var i = 0; i < P.length; i++) if (Math.hypot(x - P[i].x, y - P[i].y) <= 18) return {k: 'sommet', id: e.id, i: i};
-      for (var j = 1; j < P.length; j++){ var m = {x: (P[j].x + P[j - 1].x) / 2, y: (P[j].y + P[j - 1].y) / 2}; if (Math.hypot(P[j].x - P[j - 1].x, P[j].y - P[j - 1].y) > 44 && Math.hypot(x - m.x, y - m.y) <= 14) return {k: 'milieu', id: e.id, i: j}; }
+      /* poignée du milieu d'un segment (ajout d'un sommet) : pas pour un escalier, qui a toujours deux sommets */
+      if (e.t !== 'esc') for (var j = 1; j < P.length; j++){ var m = {x: (P[j].x + P[j - 1].x) / 2, y: (P[j].y + P[j - 1].y) / 2}; if (Math.hypot(P[j].x - P[j - 1].x, P[j].y - P[j - 1].y) > 44 && Math.hypot(x - m.x, y - m.y) <= 14) return {k: 'milieu', id: e.id, i: j}; }
     }
     /* l'élément choisi d'abord : son corps, puis son étiquette, puis ses bulles */
     var zs = S.zones.filter(function(z){ return z.id === e.id || z.objId === e.id; }), i, z;
     for (i = 0; i < zs.length; i++){ z = zs[i]; if (z.type === 'pt' && Math.hypot(x - z.x, y - z.y) <= (z.zone ? z.r : z.r + 8)) return {k: 'objet', id: e.id}; }
     for (i = 0; i < zs.length; i++){ z = zs[i]; if ((z.type === 'etiq' || z.type === 'tx') && x >= z.b[0] - 4 && x <= z.b[2] + 4 && y >= z.b[1] - 4 && y <= z.b[3] + 4) return z.type === 'tx' ? {k: 'objet', id: e.id} : {k: 'etiq', id: e.id}; }
     for (i = 0; i < zs.length; i++){ z = zs[i]; if (z.type === 'bulle' && Math.hypot(x - z.x, y - z.y) <= z.r + 6) return {k: 'bulle', id: z.id, objId: e.id}; }
-    return null;
+    /* à la souris (m110) : le « + » du segment survolé du tracé choisi, hors de ses poignées */
+    return souris && e.k === 'ln' ? plusSous(e, P, x, y) : null;
+  }
+  /* segment des points P (pixels du canevas) le plus proche du point (x, y) : {j : rang de son sommet d'arrivée, q : pied (projSeg)} */
+  function segmentProche(P, x, y){
+    var best = null;
+    for (var j = 1; j < P.length; j++){ var q = projSeg({x: x, y: y}, P[j - 1], P[j]); if (!best || q.d < best.q.d) best = {j: j, q: q}; }
+    return best;
+  }
+  /* « + » de la souris (m110) sur le tracé choisi e (points P en pixels) : pied du segment le plus proche du point (x, y), à 10 px au plus.
+     Seulement là où un clic choisirait ce tracé : ni sur un objet, une étiquette ou une bulle, ni sur des tracés superposés où un clic
+     passerait au suivant ; ni sur un escalier, ni pendant les cotes, l'alignement ou le placement, ni avec le menu de poignée ou la palette
+     d'accrochage ouverts (m114 : un clic sur le plan ne ferait que la fermer) */
+  function plusSous(e, P, x, y){
+    if (e.t === 'esc' || S.menu || S.accroches || S.cotes || S.aligner || S.placer) return null;
+    var s = segmentProche(P, x, y); if (!s || s.q.d > 10 || s.q.t <= 0 || s.q.t >= 1) return null;
+    var z = toucher(x, y); if (!z || z.type !== 'ln' || z.id !== e.id) return null;
+    if (S.panneau === 'fiche' && tracesSous(x, y).length > 1) return null;
+    var w = S.vue.monde(s.q.x, s.q.y);
+    return {k: 'segment', id: e.id, i: s.j, x: w.x, y: w.y};
+  }
+  /* « + » à montrer : celui du survol de la souris (S.survol), hors d'un geste et d'un survol périmé */
+  function plusSurvol(){
+    var s = S.survol, c = s && !S.survolPerime && !S.geste ? cibleGlisser(s.x, s.y, true) : null;
+    return c && c.k === 'segment' ? c : null;
+  }
+  /* survol de la souris : le « + » n'est redessiné que s'il paraît, disparaît, change de segment ou si son pied bouge d'un demi-pixel */
+  function suivrePlus(){
+    var c = plusSurvol(), o = S.plus;
+    if (!c && !o) return;
+    if (c && o && c.id === o.id && c.i === o.i && Math.hypot(c.x - o.x, c.y - o.y) * S.vue.s < .5) return;
+    redessiner();
+  }
+  /* simple clic sur le « + » : sommet libre ajouté au pied, sans accroche, un pas d'annulation ; il est choisi */
+  function clicPlus(c){
+    var ae = document.activeElement; if (ae !== R && (!ae || ae === document.body || R.contains(ae))) try { R.focus({preventScroll: true}); } catch(er){}
+    quitterSaisie();
+    var e = el(c.id); if (!e || e.k !== 'ln' || !S.sel || S.sel.id !== e.id || S.outil.k !== 'main' || !e.v[c.i - 1] || !e.v[c.i]) return;
+    ajouterSommet(e, c.i, {x: c.x, y: c.y});
+    S.plusClic = {t: Date.now(), id: e.id, i: c.i};
+  }
+  /* clic qui suit de près un toucher ou un clic du plan (double clic : 380 ms, 24 px, même vue, comme le double toucher de tapPlan) */
+  function suiteDeClic(p){ var d = S.dernierTap; return !!d && Date.now() - d.t < 380 && Math.hypot(p.x - d.x, p.y - d.y) < 24 && d.vue === cleVue(); }
+  /* clic que les gardes de tapPlan ignorent (600 ms, 48 px) : second clic d'un double clic sur un bouton qui vient de disparaître (S.clicHors :
+     « Ajouter un point » du menu posé sur le trait, bouton de la fiche), ou plan qui vient de glisser pour montrer la fiche (S.gardeFiche) */
+  function clicGarde(p){
+    var t = Date.now(), ch = S.clicHors, gf = S.gardeFiche;
+    return !!(ch && t - ch.t < 600 && Math.hypot(p.x - ch.x, p.y - ch.y) < 48) || !!(gf && gf.glisse && t - gf.t < 600 && Math.hypot(p.x - gf.tx, p.y - gf.ty) < 48);
+  }
+  /* second clic d'un double clic sur le « + » : sur le sommet qu'il vient d'ajouter, dans les 500 ms ; ignoré, le sommet reste choisi */
+  function secondClicPlus(g){
+    var c = S.plusClic; S.plusClic = null;
+    return !!c && !!g.souris && Date.now() - c.t < 500 && !!g.cible && g.cible.k === 'sommet' && g.cible.id === c.id && g.cible.i === c.i;
   }
   function demarrerGlisser(g){
     var c = g.cible, e = el(c.id) || el(c.objId);
     if (c.k === 'milieu'){ var I = idx(), P = lignePts(e, I), a = P[c.i - 1], b = P[c.i]; e.v.splice(c.i, 0, {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, a: null}); c.k = 'sommet'; S.sel = {id: e.id, sommet: c.i}; }
+    /* « + » de la souris (m110) : sommet libre inséré au pied, puis glissé comme les autres (accroche, redressement, attaches) */
+    if (c.k === 'segment'){ e.v.splice(c.i, 0, {x: c.x, y: c.y, a: null}); c.k = 'sommet'; S.sel = {id: e.id, sommet: c.i}; }
     if (c.k === 'sommet'){
       var v = e.v[c.i], o = v.a && el(v.a);
       /* point intermédiaire posé sur un raccord où arrive un autre tracé (branchement sur le collecteur) : le raccord se déplace et les tracés
@@ -2475,7 +3423,7 @@ function editeur(racine, opts){
         var ks = []; l.v.forEach(function(u, kk){ if (kk !== c.i && u.a === w.a) ks.push(kk); });
         if (bout || ks.some(function(kk){ return Math.abs(kk - c.i) !== 1; }) || l.v.length - ks.length < 2) siens[w.a] = true;
       });
-      var a = l.t === 'lim' ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, saufObjs: siens, prec: prec, col: l.t === 'col', plan: l.p && l.p.st === 'projet' ? 'avp' : 'edl'});
+      var a = !estCanalisation(l.t) ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, saufObjs: siens, prec: prec, col: l.t === 'col', saisie: true, plan: l.p && l.p.st === 'projet' ? 'avp' : 'edl'});
       /* un tracé qui porte un objet du tracé (sortie d'une boîte, collecteur d'un regard ou d'un raccord) n'est pas une cible : s'y raccrocher
          refermerait le tracé sur cet objet. Le doigt dans la zone de l'objet d'un sommet voisin, le coude s'y fond (coude glissé sur la boîte
          voisine, le doigt sur sa sortie) ; sinon le sommet reste libre */
@@ -2483,7 +3431,7 @@ function editeur(racine, opts){
       if (porteurs.length){
         var voisin = [l.v[c.i - 1], l.v[c.i + 1]].map(function(w){ return w && w.a; }).filter(function(id){ var z = id && !siens[id] && porteurs.indexOf(id) >= 0 ? zonePt(id) : null; return !!z && Math.hypot(p.x - z.x, p.y - z.y) <= Math.max(z.r, 10) + 12; })[0], ov = voisin && el(voisin);
         if (ov) a = {type: 'obj', id: ov.id, x: ov.x, y: ov.y};
-        else { var m0 = S.vue.monde(p.x, p.y); a = (prec && redresser(prec, m0)) || {x: m0.x, y: m0.y}; }
+        else { var m0 = S.vue.monde(p.x, p.y); a = accrochesNouvelles(m0, prec, l.id) || (prec && redresser(prec, m0)) || {x: m0.x, y: m0.y}; }
       }
       l.v[c.i].x = a.x; l.v[c.i].y = a.y; S.accrocheVue = a.type ? a : null; g.accroche = a;
     }
@@ -2565,10 +3513,14 @@ function editeur(racine, opts){
     quitterRaccord(e, jq, true);
     changement();
   }
+  /* « Détacher » (fiche, menu de poignée) : le point choisi quitte l'objet ou le raccord qui le porte, il reste choisi */
+  function detacherSommet(e){
+    instantane(); var vd = e.v[S.sel.sommet]; vd.a = null; nettoyerJonctions(S.doc, null, gardesJ()); var nd = e.v.indexOf(vd); S.sel.sommet = nd >= 0 ? nd : null; changement();
+  }
   function terminerGlisser(g){
     var c = g.cible; S.accrocheVue = null;
     if (!g.modifie){ S.undo.pop(); return; }
-    if (c.k === 'sommet' && attache(g.accroche) && el(c.id).t !== 'lim'){
+    if (c.k === 'sommet' && attache(g.accroche) && estCanalisation(el(c.id).t)){
       var l = el(c.id), a = g.accroche;
       if (a.type === 'obj'){ l.v[c.i].a = a.id; }
       else { var j = jonctionSur(S.doc, a); if (j && j.id !== l.id){ l.v[c.i].a = j.id; l.v[c.i].x = j.x; l.v[c.i].y = j.y; } }
@@ -2589,6 +3541,18 @@ function editeur(racine, opts){
       if (aa.type === 'som' && !aa.a){ var l2 = el(aa.ligne); if (l2 && (aa.i === 0 || aa.i === l2.v.length - 1) && !l2.v.some(function(w){ return w.a === e.id; })) l2.v[aa.i].a = e.id; }
     }
     changement();
+  }
+  /* objet ponctuel déplacé en (x, y) (« Placer sur le plan » de la boîte en limite, déplacement par cotes) : seuls o.x et o.y changent, les
+     bouts de tracé attachés suivent (synchroSommets, dans changement) ; un seul pas d'annulation ; ni accroche ni raccord, contrairement au
+     glissé. Rend false si rien ne bouge. */
+  function deplacerObjet(id, x, y){
+    var o = el(id);
+    if (!o || o.k !== 'pt' || typeof x !== 'number' || typeof y !== 'number' || !isFinite(x) || !isFinite(y)) return false;
+    if (Math.hypot(x - o.x, y - o.y) <= GEO_EPS) return false;
+    instantane();
+    o.x = x; o.y = y;
+    changement(); rendreVisible(o.id);
+    return true;
   }
 
   /* --- toucher bref : selon l'outil --- */
@@ -2623,6 +3587,8 @@ function editeur(racine, opts){
       var dpg = S.dernierePose; if (S.outil.k === 'pt' && dpg && el(dpg.id)) S.dernierePose = {t: Date.now(), x: x, y: y, id: dpg.id, vue: cleVue()};
       toast('Le plan vient de glisser pour montrer la fiche : touchez-le de nouveau.', 3500); return; }
     var o = S.outil;
+    /* pose par cotes (m101) : le toucher choisit la ligne de référence, puis l'endroit ; rien d'autre */
+    if (S.cotes){ tapCotes(x, y); return; }
     if (S.aligner){ var w = S.vue.monde(x, y); S.aligner.push(w); if (S.aligner.length === 2){ var a = S.aligner[0], b = S.aligner[1]; S.aligner = null; if (Math.hypot(b.x - a.x, b.y - a.y) > 1e-6){ instantane(); var ang = Math.atan2(b.y - a.y, b.x - a.x), r0 = S.doc.rot || 0; while (ang > Math.PI / 2) ang -= Math.PI; while (ang <= -Math.PI / 2) ang += Math.PI; S.doc.rot = ang; S.vue.rot = ang; replacerTraces(r0); changement(); toast('Plan orienté selon la voie'); } majAide(); } else { majAide(); redessiner(); } return; }
     if (S.placer){
       var zp = toucher(x, y), cible = zp ? (zp.type === 'bulle' ? zp.objId : zp.id) : null, ep = cible && el(cible);
@@ -2645,8 +3611,11 @@ function editeur(racine, opts){
       if (z.type === 'ln' && S.sel && S.sel.id === z.id){
         var e = el(z.id), P = lignePts(e, idx()).map(function(p){ return S.vue.ecran(p.x, p.y); });
         for (var i = 0; i < P.length; i++) if (Math.hypot(x - P[i].x, y - P[i].y) <= 18){ S.sel.sommet = S.sel.sommet === i ? null : i; majPanneau(); redessiner(); return; }
+        /* doigt ou stylet sur le tracé déjà choisi, hors de ses poignées (m110) : bulle « + point », ouverte après le choix (la vue a pu
+           glisser pour montrer la fiche) ; pas au second toucher d'un double toucher */
+        var bpt = (S.dernierPointeur === 'touch' || S.dernierPointeur === 'pen') && !double && !cibleGlisser(x, y) ? piedBulle(e, P, x, y) : null;
       }
-      selectionner(z.id); return;
+      selectionner(z.id); if (bpt) ouvrirBullePoint(bpt); return;
     }
     if (o.k === 'pt'){
       var z2 = toucher(x, y), zs = null, ds = Infinity, zz = null, dz = Infinity;
@@ -2726,7 +3695,11 @@ function editeur(racine, opts){
         /* ensuite, un tuyau prolongé ne revient pas sur lui-même (un point de son tracé, ou un objet qu'il porte) : il se refermerait en boucle */
         if (!un && !habituel && b2.prolonge && attache(at) && surProlonge(at, b2.prolonge.id)){ S.dernierTap = null; toast('Le tronçon reviendrait sur le tuyau qu\'il prolonge : touchez son point suivant ailleurs.', 3500); return; }
         if (habituel){
-          if (un){ S.dernierTap = null; if (double){ toast('Départ du tronçon posé : touchez le point suivant.', 2500); return; } annulerTrace(); toast('Tronçon abandonné'); return; }
+          if (un){
+            var escT = OUTILS_LN[o.id].t === 'esc'; S.dernierTap = null;
+            if (double){ toast(escT ? 'Départ de l\'escalier posé : touchez la fin.' : 'Départ du tronçon posé : touchez le point suivant.', 2500); return; }
+            annulerTrace(); toast(escT ? 'Escalier abandonné' : 'Tronçon abandonné'); return;
+          }
           /* fin par le geste habituel : comme après une fin automatique, le second toucher qui suit (double toucher) ne prolonge pas le tronçon fini */
           terminerGarde(sp || pl, {x: x, y: y}); return;
         }
@@ -2775,11 +3748,42 @@ function editeur(racine, opts){
   /* Point de tracé selon l'outil : les traits de complément suivent le bâti, les tronçons s'accrochent au réseau */
   function pointTrace(x, y){
     var oo = OUTILS_LN[S.outil.id], b = S.brouillon, prec = b && b.pts.length ? b.pts[b.pts.length - 1] : null;
-    return oo.t === 'lim' ? accrocheLibre(x, y, {prec: prec}) : accroche(x, y, {prec: prec, col: oo.t === 'col'});
+    /* complément du fond et escalier : accroche au coin et à la façade, nouveaux accrochages cochés (m112, m113), redressement depuis le point
+       précédent ; jamais d'attache. Tronçon : le réseau d'abord, puis les seuls nouveaux accrochages cochés (saisie), puis le redressement */
+    return estComplement(oo.t) ? accrocheLibre(x, y, {prec: prec}) : accroche(x, y, {prec: prec, col: oo.t === 'col', saisie: true});
+  }
+  /* escalier en cours : son départ est posé, sa fin est attendue */
+  function attendFinEscalier(){ var b = S.brouillon, oo = b && OUTILS_LN[b.outil]; return !!oo && oo.t === 'esc' && b.pts.length === 1; }
+  /* point a (rendu par une accroche) posé sur le bâti, pour le sens de la montée d'un escalier (décision D7) : coin ou façade, du bâti ou
+     d'un trait de complément ; ou point calé au milieu d'un côté ou au pied d'une perpendiculaire (m112) sur l'un d'eux ; ou intersection
+     (m113) qui tombe sur l'un d'eux (a.sur : côtés sur lesquels elle tombe), pas celle de deux prolongements. Un point posé sur une limite
+     de parcelle ne l'est pas, ni un point sur le prolongement d'un côté */
+  function surLeBati(a){
+    return !!a && !!a.aide && (a.type === 'coin' || a.type === 'facade' || ((a.type === 'milieu' || a.type === 'perp') && !!a.arete && a.arete[7] !== 'limite')
+      || (a.type === 'inter' && Array.isArray(a.sur) && a.sur.some(function(s){ return !!s && s[7] !== 'limite'; })));
+  }
+  /* aide d'un point du brouillon pour VC.geo.escalierDefauts : « facade » s'il est posé sur le bâti (q.surBati), sinon son aide */
+  function aideEscalier(q){ return q.surBati ? 'facade' : q.aide; }
+  /* contour fantôme de l'escalier en cours : du départ au point visé par le glissé en cours (S.apercu), sinon par la souris qui survole le
+     plan hors de tout geste (S.survol ; pas quand un doigt ou un stylet a appuyé depuis le dernier survol, S.survolPerime : entre deux
+     touchers, seul le départ est marqué ; sur un appareil à écran tactile et souris, la souris qui bouge ensuite montre de nouveau le contour).
+     Valeurs par défaut de VC.geo.escalierDefauts, avec les données d'un départ posé par cotes (b.cotes, m108) : le contour montre le côté
+     qui sera créé ; les lignes du bâti affiché sont relues quand le fond change (clé de aretesFond).
+     Rend les quatre coins, ou null */
+  function fantomeEscalier(){
+    if (!attendFinEscalier()) return null;
+    var b = S.brouillon, d0 = b.pts[0], fe = null, A, pe, G;
+    if (S.apercu && S.apercu.a) fe = S.apercu.a;
+    else if (!S.geste && S.survol && !S.survolPerime && S.outil.k === 'ln' && S.outil.id === b.outil) fe = pointTrace(S.survol.x, S.survol.y);
+    if (!fe) return null;
+    A = aretesFond(); if (!b.bati || b.bati.cle !== A.cle) b.bati = {cle: A.cle, L: refsCotes(['bati'])};
+    pe = escalierDefauts(d0, fe, b.bati.L, aideEscalier(d0), surLeBati(fe) ? 'facade' : fe.aide ? fe.type : null, b.cotes);
+    G = pe ? escalier(d0, fe, pe.larg, pe.n, pe.cote, pe.monte) : null;
+    return G ? G.contour : null;
   }
   /* src : point de l'écran qui a posé ce point (toucher, ou fin du glissé) */
   function ajouterPointTrace(a2, src){
-    var oo = OUTILS_LN[S.outil.id], b2 = S.brouillon, at = attache(a2) && oo.t !== 'lim';
+    var oo = OUTILS_LN[S.outil.id], b2 = S.brouillon, at = attache(a2) && !estComplement(oo.t);
     if (!b2){
       S.brouillon = b2 = {outil: S.outil.id, pts: []};
       /* prolongation : extrémité libre d'un tuyau du statut que dessine l'outil (existant, présumé, projet) et d'un réseau qu'il ne contredit
@@ -2787,12 +3791,15 @@ function editeur(racine, opts){
          l'outil indique (tuyau projeté au bout d'un tuyau existant, branche « Tronçon EP » au bout du tuyau « Tronçon EU » d'un WC) */
       if (a2.type === 'som' && !a2.a && oo.t === 'tr'){ var l0 = el(a2.ligne); if (l0 && l0.t === 'tr' && (a2.i === 0 || a2.i === l0.v.length - 1) && ((l0.p && l0.p.st) || 'existant') === ((oo.p && oo.p.st) || 'existant') && (!(oo.p && oo.p.res) || oo.p.res === (l0.p && l0.p.res))) b2.prolonge = {id: l0.id, debut: a2.i === 0}; }
     }
-    /* doigt : là où le doigt a posé le point (le point lui-même peut avoir été redressé ou accroché plus loin) */
-    b2.pts.push({x: a2.x, y: a2.y, snap: at ? a2 : null, aide: a2.aide ? a2.type : null, doigt: src ? S.vue.monde(src.x, src.y) : null});
+    /* doigt : là où le doigt a posé le point (le point lui-même peut avoir été redressé ou accroché plus loin) ; surBati : posé sur le bâti,
+       pour le sens d'un escalier (surLeBati). Ces champs restent dans le brouillon : seules les coordonnées vont dans le croquis */
+    b2.pts.push({x: a2.x, y: a2.y, snap: at ? a2 : null, aide: a2.aide ? a2.type : null, surBati: surLeBati(a2), doigt: src ? S.vue.monde(src.x, src.y) : null});
     S.sel = null;
     if (a2.aide) montrerAide(a2);
     /* un tronçon qui touche un objet ou un autre tracé est terminé ; le second toucher d'un double toucher (habitude « toucher à nouveau pour terminer ») ne commence pas de nouveau tracé */
     if (at && b2.pts.length >= 2 && oo.t === 'tr' && aideOn('finir')){ terminerGarde(a2, src); return; }
+    /* escalier : deux sommets, jamais plus ; il est terminé au second point, avec la garde du second toucher d'habitude, puis sa fiche s'ouvre */
+    if (oo.t === 'esc' && b2.pts.length >= 2){ terminerGarde(a2, src); return; }
     majAide(); majPanneau(); redessiner();
   }
   /* fin d'un tronçon par un toucher (fin automatique, ou geste habituel sur le dernier point) : le second toucher d'habitude qui suit est ignoré
@@ -2809,15 +3816,15 @@ function editeur(racine, opts){
     }
   }
   function msgFin(fa){
-    var t = fa && fa.lt, quoi = t === 'col' ? 'Collecteur' : t === 'lim' ? 'Trait' : 'Tronçon';
+    var t = fa && fa.lt, quoi = nomTrace(t);
     if (fa && fa.id) return quoi + ' déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.';
-    return quoi + ' déjà terminé.' + (t === 'col' || t === 'lim' ? '' : ' Pour le prolonger, touchez de nouveau son extrémité.');
+    return quoi + ' déjà terminé.' + (t === 'col' || estComplement(t) ? '' : ' Pour le prolonger, touchez de nouveau son extrémité.');
   }
   /* même explication pour un toucher ignoré sur la fiche ou une barre qui vient de se placer sous le doigt après la fin : l'objet ou
      l'extrémité de fin est dessous, il faut fermer la fiche pour les toucher */
   function msgFinSous(fa, fiche, bouton){
-    var t = fa && fa.lt, quoi = t === 'col' ? 'Collecteur' : t === 'lim' ? 'Trait' : 'Tronçon', deb = quoi + ' déjà terminé' + (fa && fa.id ? ' sur cet objet' : '') + ' : ';
-    var suite = fa && fa.id ? ' ; pour partir de l\'objet, fermez la fiche puis touchez-le.' : t === 'col' || t === 'lim' ? '.' : ' ; pour le prolonger, fermez la fiche puis touchez son extrémité.';
+    var t = fa && fa.lt, quoi = nomTrace(t), deb = quoi + ' déjà terminé' + (fa && fa.id ? ' sur cet objet' : '') + ' : ';
+    var suite = fa && fa.id ? ' ; pour partir de l\'objet, fermez la fiche puis touchez-le.' : t === 'col' || estComplement(t) ? '.' : ' ; pour le prolonger, fermez la fiche puis touchez son extrémité.';
     if (!fiche) return deb + (bouton ? 'ce bouton vient de se placer sous le doigt (fiche ouverte), touchez-le de nouveau pour vous en servir.' : 'cette barre vient de se placer sous le doigt (fiche ouverte)' + suite);
     return deb + 'sa fiche vient de s\'ouvrir sous le doigt, touchez-la de nouveau pour la modifier' + suite;
   }
@@ -2877,7 +3884,7 @@ function editeur(racine, opts){
     var oo = OUTILS_LN[S.outil.id];
     g.glisseFin = apresGlissement(g.x0, g.y0, g.t0 || Date.now());
     if (oo.relier){ g.relierDep = surObjetFin(accroche(g.x0, g.y0, {}), g.x0, g.y0); return; }
-    if (!S.brouillon){ var a0 = pointTrace(g.x0, g.y0); ajouterPointTrace(oo.t === 'lim' ? a0 : surObjetFin(a0, g.x0, g.y0), {x: g.x0, y: g.y0}); g.cree = !!S.brouillon; }
+    if (!S.brouillon){ var a0 = pointTrace(g.x0, g.y0); ajouterPointTrace(estComplement(oo.t) ? a0 : surObjetFin(a0, g.x0, g.y0), {x: g.x0, y: g.y0}); g.cree = !!S.brouillon; }
     g.ok = !!S.brouillon;
   }
   function apercuTrace(g, p){
@@ -3058,11 +4065,13 @@ function editeur(racine, opts){
     }
     /* une descente, une gargouille ou un té se pose sur le coin ou la façade du bâti le plus proche, sauf si un objet est déjà posé sur ce
        point (descente au même coin : son centre à moins de la moitié de son rayon, 4 px au moins) ; l'objet reste alors sous le doigt,
-       visible et touchable. Un symbole voisin qui n'est pas sur le point (regard au pied de la descente) ne l'en empêche pas */
+       visible et touchable. Un symbole voisin qui n'est pas sur le point (regard au pied de la descente) ne l'en empêche pas. Nouveaux
+       accrochages cochés (m112) : le milieu d'une façade ou d'un trait de complément, jamais une limite de parcelle, ni le prolongement
+       d'un côté, ni une intersection (mur : true, m113) */
     /* … sauf si l'objet prend l'accroche (extrémité libre d'un tuyau ; tuyau ou coude où un ouvrage de passage s'insère) : un tuyau qui passe
        ou un coude voisin qu'il ne prend pas ne l'en empêche pas */
     var lpr = a.type === 'som' && !a.a ? el(a.ligne) : null, prend = (!!lpr && (a.i === 0 || a.i === lpr.v.length - 1 || passage)) || (a.type === 'seg' && passage);
-    if (!prend && !boutSous && T[t].mur && aideOn('bati')){ var af = accrocheLibre(x, y, {}), sa = af.aide ? S.vue.ecran(af.x, af.y) : null;
+    if (!prend && !boutSous && T[t].mur && aideOn('bati')){ var af = accrocheLibre(x, y, {mur: true}), sa = af.aide ? S.vue.ecran(af.x, af.y) : null;
       if (sa && !S.zones.some(function(z){ return z.type === 'pt' && !z.zone && Math.hypot(sa.x - z.x, sa.y - z.y) < Math.max(4, z.r / 2); })){ o.x = af.x; o.y = af.y; montrerAide(af); } }
     S.doc.el.push(o);
     if (boutSous){ var lb = el(boutSous.ligne); if (lb && (boutSous.i === 0 || boutSous.i === lb.v.length - 1)){ lb.v[boutSous.i].a = o.id; lb.v[boutSous.i].x = o.x; lb.v[boutSous.i].y = o.y;
@@ -3140,6 +4149,303 @@ function editeur(racine, opts){
     changement(); rendreVisible(o.id);
     vibrer();
   }
+  /* --- pose par cotes (m101 ; convention 11.1 de la conception du lot « Outils de dessin ») ---
+     S.cotes = {etape, pour: {t}, cands, k, w0, ref, c, essai, refus, t0} ; null hors du mode.
+     Étape 'cote' : le technicien touche la façade ou la limite de référence (cands : les lignes sous le doigt, k : celle retenue, w0 : le
+     point touché). Étape 'endroit' : il touche l'endroit de l'objet ; un nouveau toucher au même point du trait prend la ligne superposée
+     suivante. Étape 'saisie' : il règle les cotes dans le panneau « Cotes » (c = {mode, coin, d, e, cote}, comme VC.geo.placer), puis
+     « Poser ». ref = {A, B, n, nat, dedans} : le côté retenu (copie de ses points), sa normale (extérieure pour une ligne fermée, du côté
+     touché pour un trait ouvert), sa nature, et dedans : la ligne a un intérieur. Rien n'est gardé des cotes : seule la position compte.
+     Objet existant (m102, boutons de sa fiche) : pour = {id, t, mesure}. « Déplacer par cotes » suit les mêmes étapes ; « Mesurer depuis
+     une façade » (mesure) passe de l'étape 'cote' au panneau, rempli par la mesure de la position de l'objet. Dans le panneau, « Déplacer »
+     remplace « Poser ». Pendant le mode, rien n'est choisi (S.sel null). « Fermer », « Abandonner » et « Déplacer » rouvrent la fiche de
+     l'objet ; Échap, la croix du panneau, un autre outil, « Annuler » et « Rétablir » finissent le mode sans la rouvrir ; un autre choix,
+     ou l'objet supprimé, aussi (majPanneau, tapCotes).
+     Départ d'un escalier (m108, bouton « Cotes » de l'outil Escalier, sans départ posé) : pour = {esc: true}, sans id. Mêmes étapes ; dans
+     le panneau, « Poser le départ » pose le seul point du brouillon au point calculé, sans accroche ni redressement, et sans pas
+     d'annulation. Le mode prend fin, l'outil Escalier attend la fin. Les données du départ (cotesDepart) restent sur le brouillon (b.cotes)
+     et s'oublient avec lui : « Point », « Abandonner », un autre outil, Échap, l'ouverture d'un croquis. */
+  var NAT_COTES = {bati: 'Façade', limite: 'Limite de parcelle', complement: 'Complément'}, RANG_NAT = {bati: 0, limite: 1, complement: 2};
+  /* tolérance du toucher sur une ligne, en pixels : 10 à la souris, 24 au doigt ou au stylet */
+  function tolCotes(){ return S.dernierPointeur === 'mouse' ? 10 : 24; }
+  /* lignes de référence affichées : celles du fond s'il est visible (décalées comme à l'écran), puis les compléments du croquis */
+  function refsCotes(natures){ var f = S.aff.fond ? S.fond : null; return lignesRef(S.doc, f, offFond(f), natures) || []; }
+  /* sans id : pose avec l'outil d'objet (bouton « Cotes »), ou départ de l'escalier avec l'outil Escalier (m108) ; avec id (m102) : objet
+     existant, déplacé, ou mesuré si mesure est vrai */
+  function entrerCotes(id, mesure){
+    var o = id ? el(id) : S.outil, depEsc = !id && !!o && o.k === 'ln' && !!OUTILS_LN[o.id] && OUTILS_LN[o.id].t === 'esc';
+    if (!S.doc || !o || (!depEsc && (o.k !== 'pt' || !T[o.t]))) return;
+    /* escalier : seulement avant le départ (le bouton n'est montré que sans départ) */
+    if (depEsc && S.brouillon && S.brouillon.pts.length) return;
+    if (!refsCotes().length){ toast('Aucune ligne de référence affichée : ni façade, ni limite de parcelle, ni complément.', 4000); return; }
+    quitterSaisie();
+    S.aligner = null; S.relier = null; S.placer = null; S.apercu = null;
+    S.cotes = {etape: 'cote', pour: depEsc ? {esc: true} : id ? {id: id, t: o.t, mesure: !!mesure} : {t: o.t}, cands: null, k: 0, w0: null, ref: null, c: null, essai: null, refus: 0, t0: Date.now()};
+    if (S.sel || S.panneau){ S.sel = null; S.panneau = null; majPanneau(); }
+    fermerPalette(); fermerAccroches(); majAide(); redessiner();
+  }
+  /* fin du mode ; objet existant (m102) encore là : retour à sa fiche */
+  function quitterCotes(){
+    var p = S.panneau === 'cotes', id = S.cotes && S.cotes.pour.id;
+    S.cotes = null;
+    if (id && el(id)){ selectionner(id); majAide(); return; }
+    if (p){ S.panneau = null; majPanneau(); }
+    majAide(); redessiner();
+  }
+  /* « Abandonner » (barre d'aide) : il prend la place de « Cotes » ; ignoré pendant 0,5 s après l'entrée dans le mode, le temps du second
+     toucher d'un double toucher sur « Cotes » */
+  function abandonnerCotes(){ if (S.cotes && Date.now() - S.cotes.t0 < 500) return; quitterCotes(); }
+  /* « Autre trait » : retour à l'étape 'cote' (le panneau se ferme, les cotes réglées sont oubliées) */
+  function autreCoteCotes(){
+    var C = S.cotes; if (!C) return;
+    C.etape = 'cote'; C.cands = null; C.k = 0; C.w0 = null; C.ref = null; C.c = null; C.essai = null;
+    if (S.panneau === 'cotes'){ S.panneau = null; majPanneau(); }
+    majAide(); redessiner();
+  }
+  /* Lignes de référence à tolM mètres au plus du point w : [{l, k, d, i}] ; k : rang du segment le plus proche de la ligne l (de P[k] à
+     P[k + 1], ou du dernier sommet au premier pour une ligne fermée qui ne le répète pas). D'abord les lignes au plus près (à 1 px), dans
+     l'ordre bâti, limite, complément (lignes superposées), puis les autres par distance. */
+  function candidatsCotes(w, tolM){
+    var out = [];
+    refsCotes().forEach(function(l, i){
+      var P = l.P, n = P.length, nb = l.ferme && n >= 3 && Math.hypot(P[n - 1].x - P[0].x, P[n - 1].y - P[0].y) > GEO_EPS ? n : n - 1, best = null;
+      for (var k = 0; k < nb; k++){
+        var a = P[k], b = P[(k + 1) % n]; if (!(Math.hypot(b.x - a.x, b.y - a.y) > GEO_EPS)) continue;
+        var q = projSeg(w, a, b); if (!best || q.d < best.d) best = {l: l, k: k, d: q.d, i: i};
+      }
+      if (best && best.d <= tolM) out.push(best);
+    });
+    if (!out.length) return out;
+    var dmin = Math.min.apply(null, out.map(function(c){ return c.d; })), eps = 1 / S.vue.s;
+    out.sort(function(a, b){
+      var pa = a.d <= dmin + eps, pb = b.d <= dmin + eps;
+      if (pa !== pb) return pa ? -1 : 1;
+      return (pa ? RANG_NAT[a.l.nat] - RANG_NAT[b.l.nat] : a.d - b.d) || a.i - b.i;
+    });
+    return out;
+  }
+  /* côté retenu : le côté fusionné de cotesAlignes qui contient le segment touché */
+  function choisirRefCotes(){
+    var C = S.cotes, c = C.cands[C.k], l = c.l, k = c.k, P = l.P;
+    var s = (cotesAlignes(P, l.ferme) || []).filter(function(x){ return x.i0 < x.i1 ? x.i0 <= k && k < x.i1 : x.i0 > x.i1 && (k >= x.i0 || k < x.i1); })[0];
+    var A = s ? s.A : P[k], B = s ? s.B : P[(k + 1) % P.length], n = normaleExt(l, k);
+    C.ref = {A: {x: A.x, y: A.y}, B: {x: B.x, y: B.y}, n: n, nat: l.nat, dedans: !!n};
+    C.c = null; C.essai = null;
+  }
+  function tapCotes(x, y){
+    var C = S.cotes, w = S.vue.monde(x, y), tol = tolCotes();
+    /* objet existant (m102) supprimé entre-temps : fin du mode, rien n'est changé */
+    if (C.pour.id && !el(C.pour.id)){ quitterCotes(); return; }
+    /* nouveau toucher au même point du trait : la ligne superposée suivante (étape 'endroit' ; panneau d'une mesure ouvert : elle est mesurée) */
+    var e0 = C.etape !== 'cote' && C.cands && C.cands.length > 1 && C.w0 && S.vue.ecran(C.w0.x, C.w0.y), suivante = !!e0 && Math.hypot(x - e0.x, y - e0.y) <= tol;
+    if (C.etape === 'saisie'){
+      if (C.pour.mesure && suivante){ C.k = (C.k + 1) % C.cands.length; choisirRefCotes(); mesurerCotes(); return; }
+      toast(C.pour.id ? 'Réglez les cotes dans le panneau, puis « Déplacer » ; « Autre trait » change de ligne de référence, « Fermer » revient à la fiche.'
+        : 'Réglez les cotes dans le panneau, puis « ' + (C.pour.esc ? 'Poser le départ' : 'Poser') + ' » ; « Fermer » quitte la pose par cotes.', 3500); return;
+    }
+    if (C.etape === 'cote'){
+      var L = candidatsCotes(w, tol / S.vue.s);
+      if (!L.length) return;
+      C.cands = L; C.k = 0; C.w0 = w; choisirRefCotes();
+      /* « Mesurer depuis une façade » : pas d'endroit à toucher, la position de l'objet est mesurée */
+      if (C.pour.mesure){ mesurerCotes(); return; }
+      C.etape = 'endroit'; majAide(); redessiner(); return;
+    }
+    if (suivante){ C.k = (C.k + 1) % C.cands.length; choisirRefCotes(); majAide(); redessiner(); return; }
+    endroitCotes(w);
+  }
+  /* « Mesurer depuis une façade » (m102) : le panneau rempli par la mesure exacte de la position de l'objet (affichée au centimètre) */
+  function mesurerCotes(){
+    var o = el(S.cotes.pour.id); if (!o){ quitterCotes(); return; }
+    endroitCotes({x: o.x, y: o.y}, true);
+  }
+  /* endroit touché : mode, coin, distance, décalage et côté pré-remplis (VC.geo.mesurer, arrondis à 5 cm) ; trait ouvert : « Devant » est
+     le côté touché. exact (mesure d'un objet existant) : valeurs sans arrondi, VC.geo.placer redonne le point ; décalage nul : côté par défaut */
+  function endroitCotes(w, exact){
+    var C = S.cotes, r = C.ref, t = unite(r.A, r.B); if (!t) return;
+    if (!r.n){ var g = cw(t); r.n = (w.x - r.A.x) * g.x + (w.y - r.A.y) * g.y >= 0 ? g : ccw(t); }
+    var m = mesurer(r, w); if (!m) return;
+    C.c = exact ? {mode: m.mode, coin: m.coin, d: m.d, e: m.e, cote: m.cote}
+      : {mode: m.mode, coin: m.coin, d: Math.round(m.d * 20) / 20, e: Math.round(m.e * 20) / 20, cote: m.cote};
+    C.etape = 'saisie'; C.essai = null;
+    S.sel = null; S.panneau = 'cotes'; fermerPalette(); majPanneau(); majAide(); redessiner();
+  }
+  /* changement de mode : le côté choisi garde le même côté du plan (droite ou gauche du prolongement, devant ou derrière) */
+  function coteEquivalente(r, c, mode){
+    var t = unite(r.A, r.B), w = c.coin === 'A' ? {x: -t.x, y: -t.y} : t, kd = ccw(w), dn = kd.x * r.n.x + kd.y * r.n.y;
+    if (mode === 'long') return (c.cote === 'droite') === (dn > 0) ? 'devant' : 'derriere';
+    return (c.cote === 'devant') === (dn > 0) ? 'droite' : 'gauche';
+  }
+  /* direction w de la convention 11.1 : le long, du coin d'origine vers l'autre coin ; dans le prolongement, du coin d'origine vers le
+     dehors du côté */
+  function directionCotes(r, c){
+    var t = unite(r.A, r.B); if (!t) return null;
+    return (c.mode === 'prol') === (c.coin === 'A') ? {x: -t.x, y: -t.y} : t;
+  }
+  /* données d'un départ d'escalier posé par cotes (m108), pour VC.geo.escalierDefauts : coin d'origine O, direction w ; facade : départ
+     posé le long d'une façade (ligne de bâti ou trait de complément ; m115 : comme le départ touché sur ce trait, posé sur le bâti), sans
+     décalage (moins de 5 mm) et entre ses deux coins ; une limite de parcelle n'en est pas une. Le long, une distance plus grande que le côté
+     met le point au-delà de l'autre coin, hors de la façade : il ne compte pas comme posé sur elle (5 mm de tolérance) */
+  function cotesDepart(r, c){
+    var w = directionCotes(r, c), O = c.coin === 'A' ? r.A : r.B, L = Math.hypot(r.B.x - r.A.x, r.B.y - r.A.y);
+    return w ? {O: {x: O.x, y: O.y}, w: w, facade: c.mode === 'long' && (r.nat === 'bati' || r.nat === 'complement') && c.e < 0.005 && c.d <= L + 0.005} : null;
+  }
+  function aideCotes(){
+    var C = S.cotes, r = C.ref, nb = C.cands ? C.cands.length : 0, h, id = C.pour.id, mes = id && C.pour.mesure, dep = !!C.pour.esc;
+    var nat = r ? '<strong>' + esc(NAT_COTES[r.nat] || '') + '</strong>' + (nb > 1 ? ' (' + (C.k + 1) + ' sur ' + nb + ')' : '') : '';
+    var autre = '<button type="button" class="vc-b vc-bt" data-a="cotesAutre">' + ico('retour', 18) + 'Autre trait</button>';
+    var titre = mes ? 'Mesurer depuis une façade' : id ? 'Déplacer par cotes' : 'Pose par cotes';
+    if (C.etape === 'cote') h = '<span><strong>' + (dep ? 'Départ de l\'escalier par cotes' : titre) + '</strong>' + (dep ? '' : ' (' + esc((T[C.pour.t] || {}).lib || '') + ')')
+      + '. Touchez la façade ou la limite de référence.</span>';
+    else if (C.etape === 'endroit') h = '<span>' + nat + '. Touchez ' + (dep ? 'l\'endroit du départ' : (id ? 'le nouvel endroit' : 'l\'endroit') + ' de l\'objet') + (nb > 1 ? ' ; touchez de nouveau le même point du trait pour la ligne suivante' : '') + '.</span>' + autre;
+    else h = '<span>' + nat + ' : réglez les cotes dans le panneau, puis « ' + (id ? 'Déplacer' : dep ? 'Poser le départ' : 'Poser') + ' »'
+      + (mes && nb > 1 ? ' ; touchez de nouveau le même point du trait pour mesurer depuis la ligne suivante' : '') + '.</span>' + autre;
+    return h + '<button type="button" class="vc-b vc-bt" data-a="cotesStop">' + ico('fermer', 18) + 'Abandonner</button>';
+  }
+  function cotesHtml(){
+    var C = S.cotes, r = C.ref, c = C.c, prol = c.mode === 'prol', g = coinGauche(r) || 'A';
+    var cotes = prol ? [['droite', 'Droite'], ['gauche', 'Gauche']] : r.nat === 'limite' && r.dedans ? [['derriere', 'Intérieur'], ['devant', 'Extérieur']] : [['devant', 'Devant'], ['derriere', 'Derrière']];
+    /* objet existant (m102) : « mesuré » ou « déplacé », et « Déplacer » à la place de « Poser » ; départ d'un escalier (m108) : « Poser le départ » */
+    var dep = !!C.pour.esc, ty = dep ? {lib: 'Départ de l\'escalier'} : T[C.pour.t] || {}, id = C.pour.id, verbe = id ? (C.pour.mesure ? ' mesuré' : ' déplacé') : ' posé';
+    var ok = id ? '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesDeplacer">' + ico('valider', 18) + 'Déplacer</button>'
+      : '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesPoser">' + ico('valider', 18) + (dep ? 'Poser le départ' : 'Poser') + '</button>';
+    return '<p class="vc-muet">' + esc(ty.lib || '') + verbe + (ty.g === 'f' ? 'e' : '') + ' depuis : <strong>' + esc(NAT_COTES[r.nat] || '') + '</strong> (côté de '
+        + frNum(Math.hypot(r.B.x - r.A.x, r.B.y - r.A.y), 2) + ' m).</p>'
+      + champ('Mode', chipsHtml('mode', [['prol', 'Prolongement'], ['long', 'Le long']], c.mode, {a: 'cotes', label: 'Mode'}))
+      + champ('Coin', chipsHtml('coin', [[g, 'Coin gauche'], [g === 'A' ? 'B' : 'A', 'Coin droit']], c.coin, {a: 'cotes', label: 'Coin'}), 'vus du dehors, face au trait')
+      + champ('Distance (m)', saisie('d', frNum(c.d, 2), {a: 'cotesNum', num: true, lab: 'Distance en mètres'}), prol ? 'au-delà du coin' : 'le long du trait, depuis le coin')
+      + champ('Décalage (m)', saisie('e', frNum(c.e, 2), {a: 'cotesNum', num: true, lab: 'Décalage en mètres'}), 'perpendiculaire au trait')
+      + champ('Côté', chipsHtml('cote', cotes, c.cote, {a: 'cotes', label: 'Côté'}))
+      + '<div class="vc-fact">' + ok
+      + '<button type="button" class="vc-b vc-bt" data-a="cotesFermer">' + ico('fermer', 18) + 'Fermer</button></div>';
+  }
+  function actionCotes(a, b){
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c) return;
+    if (a === 'cotesFermer'){ quitterCotes(); return; }
+    if (a === 'cotesPoser'){ if (C.pour.esc) poserDepartParCotes(); else if (!C.pour.id) poserParCotes(); return; }
+    if (a === 'cotesDeplacer'){ if (C.pour.id) deplacerParCotes(); return; }
+    var k = b.dataset.k, v = b.dataset.v, c = C.c;
+    if (k === 'mode' && (v === 'prol' || v === 'long')){ if (v !== c.mode){ c.cote = coteEquivalente(C.ref, c, v); c.mode = v; } }
+    else if (k === 'coin' && (v === 'A' || v === 'B')) c.coin = v;
+    else if (k === 'cote' && /^(droite|gauche|devant|derriere)$/.test(v)) c.cote = v;
+    else return;
+    majPanneau(); redessiner();
+  }
+  /* distance ou décalage : nombre positif ou nul (virgule ou point) ; fin : saisie enregistrée (événement change), sinon aperçu seulement.
+     Valeur refusée : toast des valeurs refusées, la valeur précédente reste ; la valeur saisie est gardée telle quelle, affichée à 1 cm. */
+  function saisieCotes(b, fin){
+    var C = S.cotes, k = b.dataset.k; if (!C || C.etape !== 'saisie' || !C.c || (k !== 'd' && k !== 'e')) return;
+    var x = num(String(b.value).trim());
+    if (!fin){ C.essai = x != null && x >= 0 ? {k: k, v: x} : null; redessiner(); return; }
+    C.essai = null;
+    if (x == null || x < 0){ C.refus = Date.now(); toast('Nombre attendu, par exemple 0,80'); b.value = frNum(C.c[k], 2); redessiner(); return; }
+    C.c[k] = x; b.value = frNum(x, 2); redessiner();
+  }
+  /* angle d'un objet orientable posé par cotes, comme poserObjet : avec l'orientation automatique, celui du côté (une gargouille : celui
+     de la normale, vers le dehors de la ligne, ou vers le côté touché d'un trait ouvert) ; sans, celui de la rotation du plan */
+  function angleCotes(t, r){
+    if (!T[t] || !T[t].oriente) return null;
+    if (!aideOn('orienter')) return Math.round(((S.doc.rot || 0) * 180 / Math.PI) * 10) / 10;
+    var u = unite(r.A, r.B); if (!u) return null;
+    var a = u;
+    if (t === 'gargouille' && r.n){ var g = cw(u); a = r.n.x * g.x + r.n.y * g.y > 0 ? g : ccw(u); }
+    return Math.round(((Math.atan2(a.y, a.x) * 180 / Math.PI) % 360 + 360) % 360 * 10) / 10;
+  }
+  /* D1 : point dans un bâti fermé du fond affiché */
+  function dansBati(P){ return refsCotes(['bati']).some(function(l){ return l.ferme && l.aire !== 0 && dansPolygone(P, l.P) === true; }); }
+  /* « Poser » : l'objet exactement au point calculé (VC.geo.placer), sans accroche, ni raccord, ni insertion dans un tuyau, ni attache à
+     un mur ; valeurs par défaut de poserObjet ; une seule annulation ; puis sa fiche, et fin du mode */
+  function poserParCotes(){
+    quitterSaisie();
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c) return;
+    /* une valeur vient d'être refusée en quittant le champ (toucher sur « Poser ») : rien n'est posé, le toast l'explique */
+    if (C.refus && Date.now() - C.refus < 800) return;
+    var t = C.pour.t, P = placer(C.ref, C.c);
+    if (!T[t] || !P){ toast('Position incalculable : vérifiez les cotes.'); return; }
+    instantane();
+    var o = {id: uid(), k: 'pt', t: t, x: P.x, y: P.y, p: defautsPt(t), lab: null}, ang = angleCotes(t, C.ref);
+    if (ang != null) o.p.a = ang;
+    S.doc.el.push(o);
+    analyse();
+    if (!T[t].sansEtiquette) o.lab = placerEtiquette(S.doc, S.an, o, E(), idx()) || null;
+    var dedans = dansBati(P);
+    S.cotes = null; S.panneau = null;
+    changement({garderPanneau: true}); selectionner(o.id); majAide(); vibrer();
+    if (dedans) toast('Le point tombe dans le bâti : l\'objet est posé quand même. Vérifiez les cotes (« Annuler » le retire).', 5000);
+  }
+  /* « Poser le départ » (m108) : le départ de l'escalier, seul point du brouillon, exactement au point calculé (VC.geo.placer), sans accroche
+     ni redressement ; ses données (cotesDepart) restent sur le brouillon pour le côté et la montée proposés à la fin. Aucun pas
+     d'annulation : le brouillon n'est pas dans l'historique. Fin du mode ; l'outil Escalier attend la fin. Même garde-fou que « Poser »
+     après une valeur refusée ; D1 : point dans le bâti, avertissement sans refus. */
+  function poserDepartParCotes(){
+    quitterSaisie();
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c || !C.pour.esc) return;
+    if (C.refus && Date.now() - C.refus < 800) return;
+    var o = S.outil; if (o.k !== 'ln' || !OUTILS_LN[o.id] || OUTILS_LN[o.id].t !== 'esc'){ quitterCotes(); return; }
+    var P = placer(C.ref, C.c), dc = P ? cotesDepart(C.ref, C.c) : null;
+    if (!P || !dc){ toast('Position incalculable : vérifiez les cotes.'); return; }
+    var dedans = dansBati(P);
+    S.cotes = null; S.panneau = null; S.sel = null;
+    S.brouillon = {outil: o.id, pts: [{x: P.x, y: P.y, snap: null, aide: dc.facade ? 'facade' : null, surBati: dc.facade === true, doigt: null}], cotes: dc};
+    majPanneau(); majAide(); redessiner(); vibrer();
+    if (dedans) toast('Le point tombe dans le bâti : le départ est posé quand même. Vérifiez les cotes (« Point » le retire).', 5000);
+  }
+  /* « Déplacer » (m102) : l'objet existant exactement au point calculé, par deplacerObjet (m104) : seuls o.x et o.y changent, les bouts de
+     tracé attachés suivent, ni accroche, ni raccord, ni insertion ; un seul pas d'annulation, aucun si rien ne bouge. Puis fin du mode :
+     l'objet reste choisi et sa fiche se rouvre. Même garde-fou que « Poser » après une valeur refusée. */
+  function deplacerParCotes(){
+    quitterSaisie();
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c || !C.pour.id) return;
+    if (C.refus && Date.now() - C.refus < 800) return;
+    var id = C.pour.id; if (!el(id)){ quitterCotes(); return; }
+    var P = placer(C.ref, C.c); if (!P){ toast('Position incalculable : vérifiez les cotes.'); return; }
+    var dedans = dansBati(P);
+    S.cotes = null; S.sel = {id: id, sommet: null}; S.panneau = 'fiche';
+    var bouge = deplacerObjet(id, P.x, P.y);
+    if (!bouge) selectionner(id);
+    majAide();
+    if (!bouge) return;
+    vibrer();
+    if (dedans) toast('Le point tombe dans le bâti : l\'objet est déplacé quand même. Vérifiez les cotes (« Annuler » le ramène).', 5000);
+  }
+  /* repères temporaires (surcouche) : le côté retenu surligné et son prolongement en tirets ; à l'étape de saisie, l'objet fantôme au point
+     calculé (départ d'un escalier : une petite croix) et les deux cotes en tirets (d le long du côté ou du prolongement, e perpendiculaire) */
+  function dessinerCotes(){
+    var C = S.cotes, r = C.ref, A = S.vue.ecran(r.A.x, r.A.y), B = S.vue.ecran(r.B.x, r.B.y), L = Math.hypot(B.x - A.x, B.y - A.y);
+    if (!(L > 0)) return;
+    var ux = (B.x - A.x) / L, uy = (B.y - A.y) / L, loin = S.vue.w + S.vue.h, or = '#d4650a', ac = '#0F5C63';
+    ctx.save(); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.strokeStyle = 'rgba(212,101,10,.55)'; ctx.lineWidth = 9; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(A.x - ux * loin, A.y - uy * loin); ctx.moveTo(B.x, B.y); ctx.lineTo(B.x + ux * loin, B.y + uy * loin);
+    ctx.setLineDash([8, 5]); ctx.strokeStyle = or; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+    [A, B].forEach(function(q){ ctx.beginPath(); ctx.arc(q.x, q.y, 5, 0, 2 * Math.PI); ctx.fillStyle = or; ctx.fill(); });
+    var c = C.etape === 'saisie' && C.c ? Object.assign({}, C.c) : null;
+    if (c && C.essai) c[C.essai.k] = C.essai.v;
+    var P = c ? placer(r, c) : null;
+    if (P){
+      var O = c.coin === 'A' ? r.A : r.B, w = directionCotes(r, c);
+      var eO = S.vue.ecran(O.x, O.y), eQ = S.vue.ecran(O.x + c.d * w.x, O.y + c.d * w.y), eP = S.vue.ecran(P.x, P.y);
+      ctx.beginPath(); ctx.moveTo(eO.x, eO.y); ctx.lineTo(eQ.x, eQ.y); ctx.lineTo(eP.x, eP.y); ctx.setLineDash([6, 4]); ctx.strokeStyle = ac; ctx.lineWidth = 2.5; ctx.stroke(); ctx.setLineDash([]);
+      ctx.font = '700 12px Barlow, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.fillStyle = ac;
+      [[eO, eQ, c.d], [eQ, eP, c.e]].forEach(function(s){
+        if (Math.hypot(s[1].x - s[0].x, s[1].y - s[0].y) < 4) return;
+        var lb = frNum(s[2], 2) + ' m', mx = (s[0].x + s[1].x) / 2, my = (s[0].y + s[1].y) / 2 - 6; ctx.strokeText(lb, mx, my); ctx.fillText(lb, mx, my);
+      });
+      /* départ d'un escalier (m108) : une petite croix au point calculé, à la place d'un symbole */
+      if (C.pour.esc){
+        ctx.beginPath(); ctx.moveTo(eP.x - 7, eP.y - 7); ctx.lineTo(eP.x + 7, eP.y + 7); ctx.moveTo(eP.x - 7, eP.y + 7); ctx.lineTo(eP.x + 7, eP.y - 7);
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.stroke(); ctx.strokeStyle = ac; ctx.lineWidth = 2.5; ctx.stroke();
+        ctx.restore(); return;
+      }
+      /* objet existant (m102) : son symbole, avec son angle et sa couleur ; sinon celui de l'outil, avec les valeurs de la pose */
+      var o = C.pour.id ? el(C.pour.id) : null, ty = o ? o.t : C.pour.t, e = o || {k: 'pt', t: ty, p: defautsPt(ty)}, ang = o ? (o.p && o.p.a) || 0 : angleCotes(ty, r);
+      ctx.globalAlpha = .55;
+      if (ty === 'zone'){ ctx.beginPath(); ctx.arc(eP.x, eP.y, Math.max(10, (num(e.p.r) || 1.5) * S.vue.s), 0, 2 * Math.PI); ctx.setLineDash([5, 4]); ctx.strokeStyle = rgbCss(RES.ANN.rgb); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); }
+      else dessinerPrims(ctx, primitives(e, couleurPt(e, o ? S.an : null), ((ang || 0) * Math.PI / 180) - (S.doc.rot || 0)), eP.x, eP.y, Math.max(S.vue.s * E() / 1000, (ty === 'jonction' ? 4 : 8.5) / rayonSymbole(ty)));
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
   function poserTexte(x, y){
     demander('Texte sur le plan', '', function(txt){
       if (!String(txt || '').trim()) return;
@@ -3172,6 +4478,7 @@ function editeur(racine, opts){
     /* sur une barre, hors d'un bouton (texte de la barre d'aide) : rien à toucher de nouveau, il faut fermer la fiche pour atteindre le plan */
     var bouton = !fiche && !!(ev.target && ev.target.closest && ev.target.closest('button'));
     var fin = fa === S.finAuto, m = fin ? msgFinSous(fa, fiche, bouton)
+      : fa.cotes ? (fiche ? 'Le panneau « Cotes » vient de s\'ouvrir sous le doigt : touchez-le de nouveau pour vous en servir.' : bouton ? 'Ce bouton vient de se placer sous le doigt (panneau « Cotes » ouvert) : touchez-le de nouveau pour vous en servir.' : 'Cette barre vient de se placer sous le doigt (panneau « Cotes » ouvert).')
       : fiche ? 'La fiche vient de s\'ouvrir sous le doigt : touchez-la de nouveau pour la modifier.' : bouton ? 'Ce bouton vient de se placer sous le doigt (fiche ouverte) : touchez-le de nouveau pour vous en servir.' : 'Cette barre vient de se placer sous le doigt (fiche ouverte) : fermez la fiche pour toucher le plan dessous.';
     /* t : relâcher du toucher ignoré, noté par les écouteurs qui avalent son relâcher (à défaut, son appui) */
     S.finAuto = null; S.gardeFiche = null; S.avaleRepete = {t: t, x: x, y: y, m: m, w: fin ? 1000 : 600}; return m;
@@ -3219,7 +4526,7 @@ function editeur(racine, opts){
       var s = q.snap;
       if (s && s.type === 'som' && vises[k]){ var lv = el(s.ligne), ni = lv ? lv.v.indexOf(vises[k]) : -1; if (ni >= 0 && ni !== s.i) s = {type: 'som', ligne: s.ligne, i: ni, x: s.x, y: s.y, a: s.a}; }
       if (s && s.type === 'obj' && el(s.id)){ var ob = el(s.id); sommets.push({x: ob.x, y: ob.y, a: ob.id}); }
-      else if (s && (s.type === 'som' || s.type === 'seg') && oo.t !== 'lim'){
+      else if (s && (s.type === 'som' || s.type === 'seg') && !estComplement(oo.t)){
         if (b.prolonge && s.type === 'som' && s.ligne === b.prolonge.id){ var lp = el(s.ligne); sommets.push({x: q.x, y: q.y, a: lp && lp.v[s.i] ? lp.v[s.i].a : null, propre: true}); return; }
         var j = jonctionSur(S.doc, s); sommets.push(j ? {x: j.x, y: j.y, a: j.id} : {x: q.x, y: q.y, a: null});
       }
@@ -3235,6 +4542,10 @@ function editeur(racine, opts){
     }
     dedoublonner(l);
     if (l.v.length < 2){ S.doc.el = S.doc.el.filter(function(x){ return x.id !== l.id; }); S.undo.pop(); majAide(); redessiner(); return; }
+    /* escalier neuf : largeur, marches, côté hors du bâti affiché et sens de la montée proposés depuis le plan (VC.geo.escalierDefauts) ;
+       départ posé par cotes (m108) : ses données (b.cotes) proposent le côté et la montée, puis s'oublient avec le brouillon. Un bout calé
+       au milieu d'une façade ou au pied d'une perpendiculaire sur elle (m112) compte comme posé sur la façade (aideEscalier) */
+    if (l.t === 'esc'){ var pe = escalierDefauts(l.v[0], l.v[1], refsCotes(['bati']), aideEscalier(b.pts[0]), aideEscalier(b.pts[b.pts.length - 1]), b.cotes); if (pe) l.p = pe; }
     analyse();
     if (!l.lab && texteEtiquette(l, S.an)) l.lab = placerEtiquette(S.doc, S.an, l, E(), idx());
     /* fin discrète (arrière-plan, « Retour ») : le panneau ouvert reste tel quel (un choix de fichier en cours n'est pas perdu) */
@@ -3242,9 +4553,14 @@ function editeur(racine, opts){
     S.sel = {id: l.id, sommet: null}; S.panneau = 'fiche';
     changement(); rendreVisible(l.id); majAide();
     var r = l.t === 'tr' ? resLigne(l, S.an) : null;
-    toast((l.t === 'col' ? 'Collecteur' : l.t === 'lim' ? 'Trait' : 'Tronçon') + ' ajouté' + (r ? (r === 'INC' ? ' : réseau à préciser' : r === 'MIX' ? ' : plusieurs réseaux atteints' : ' : réseau ' + libRes(r) + (RES[l.p.res] ? '' : ' déduit')) : '') + ' · ' + frNum(Math.round(longueur(lignePts(l, idx())) * 10) / 10) + ' m');
+    toast(nomTrace(l.t) + ' ajouté' + (r ? (r === 'INC' ? ' : réseau à préciser' : r === 'MIX' ? ' : plusieurs réseaux atteints' : ' : réseau ' + libRes(r) + (RES[l.p.res] ? '' : ' déduit')) : '') + ' · ' + frNum(Math.round(longueur(lignePts(l, idx())) * 10) / 10) + ' m');
   }
   function annulerTrace(){ S.brouillon = null; majAide(); redessiner(); }
+  /* « Abandonner » du tracé en cours, dans la barre d'aide. Avec l'outil Escalier, « Cotes » prend aussitôt sa place (m108) : ce bouton
+     est ignoré pendant 0,5 s, le temps du second toucher d'un double toucher (comme « Abandonner » après « Cotes », abandonnerCotes) */
+  var tAbandonTrace = 0;
+  function abandonnerTrace(){ tAbandonTrace = Date.now(); annulerTrace(); }
+  function boutonCotes(){ if (Date.now() - tAbandonTrace >= 500) entrerCotes(); }
   function retirerPoint(){ if (S.brouillon){ S.brouillon.pts.pop(); if (!S.brouillon.pts.length) S.brouillon = null; majAide(); redessiner(); } }
   function vibrer(){ try { if (global.navigator && navigator.vibrate) navigator.vibrate(12); } catch(e){} }
 
@@ -3278,10 +4594,13 @@ function editeur(racine, opts){
     }
   }
   function choisirOutil(o){
+    fermerMenu();
     if (S.brouillon && S.brouillon.pts.length >= 2) terminerTrace(); else S.brouillon = null;
     S.outil = o; S.aligner = null; S.relier = null; S.apercu = null; S.placer = null;
+    /* un autre outil met fin à la pose par cotes (m101), panneau « Cotes » compris */
+    if (S.cotes){ S.cotes = null; if (S.panneau === 'cotes'){ S.panneau = null; majPanneau(); } }
     R.querySelectorAll('.vc-o').forEach(function(b){ var on = o.k === 'main' ? b.dataset.outil === 'main' : b.dataset.pal === o.pal; b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-    fermerPalette(); majAide(); redessiner();
+    fermerPalette(); fermerAccroches(); majAide(); redessiner();
   }
   function ouvrirPalette(k){
     if (S.palette === k){ fermerPalette(); return; }
@@ -3289,7 +4608,7 @@ function editeur(racine, opts){
     pal.innerHTML = '<h3>' + esc(P.lib) + '</h3><div class="vc-pgrille">' + P.items.map(function(it){
       var q = it.split(':'), lib, sous = '', svg, actif = false;
       if (q[0] === 'pt'){ lib = T[q[1]].lib; svg = symboleSvg(q[1], 38); actif = S.outil.k === 'pt' && S.outil.t === q[1]; }
-      else if (q[0] === 'ln'){ var oo = OUTILS_LN[q[1]]; lib = oo.lib; sous = oo.sous || ''; svg = oo.relier ? '<span class="vc-ptx">' + ico('relier', 30) + '</span>' : traitSvg(oo.res, oo.st, 38); actif = S.outil.k === 'ln' && S.outil.id === q[1]; }
+      else if (q[0] === 'ln'){ var oo = OUTILS_LN[q[1]]; lib = oo.lib; sous = oo.sous || ''; svg = oo.relier ? '<span class="vc-ptx">' + ico('relier', 30) + '</span>' : oo.t === 'esc' ? escalierSvg(38) : traitSvg(oo.res, oo.st, 38); actif = S.outil.k === 'ln' && S.outil.id === q[1]; }
       else { lib = 'Texte libre'; svg = '<span class="vc-ptx">' + ico('texte', 30) + '</span>'; actif = S.outil.k === 'tx'; }
       return '<button type="button" class="vc-pitem" data-item="' + it + '" aria-pressed="' + actif + '">' + svg + '<span>' + esc(lib) + (sous ? '<small>' + esc(sous) + '</small>' : '') + '</span></button>';
     }).join('') + '</div>';
@@ -3306,20 +4625,30 @@ function editeur(racine, opts){
     var o = S.outil, h = '';
     if (S.aligner) h = '<span>Touchez deux points le long de la voie : le plan tournera pour la mettre à l\'horizontale.</span><button type="button" class="vc-b vc-bt" data-a="alignerStop">Annuler</button>';
     else if (S.placer){ var rp = recDe(S.placer), ip = S.liste.filter(function(a){ return a.appId === S.placer; })[0]; h = '<span><strong>Placer l\'anomalie ' + esc(ip ? numLib(ip) : '') + '</strong>' + (rp ? ' (' + esc(coupe(rp.observation, 50)) + ')' : '') + ' : touchez l\'objet ou le tronçon concerné.</span><button type="button" class="vc-b vc-bt" data-a="placerStop">' + ico('fermer', 18) + 'Annuler</button>'; }
+    else if (S.cotes) h = aideCotes();
     else if (o.k === 'ln' && OUTILS_LN[o.id].relier){
       h = '<span><strong>Relier deux objets</strong> : ' + (S.relier ? 'touchez l\'objet d\'arrivée (regard, boîte, tracé…).' : 'touchez l\'objet de départ puis celui d\'arrivée, ou glissez de l\'un à l\'autre.') + (aideOn('coude') ? ' Le tronçon est tracé d\'équerre avec le bâti.' : '') + '</span>'
         + (S.relier ? '<button type="button" class="vc-b vc-bt" data-a="relierStop">' + ico('fermer', 18) + 'Abandonner</button>' : '');
+    }
+    else if (o.k === 'ln' && OUTILS_LN[o.id].t === 'esc'){
+      /* escalier : le départ (un coin de l'escalier), puis la fin ; il se termine seul au second point, sans bouton « Terminer ». Sans départ,
+         « Cotes » le pose à une distance mesurée (m108) */
+      var ne = S.brouillon ? S.brouillon.pts.length : 0;
+      h = '<span><strong>Escalier</strong> : ' + (ne ? 'touchez la fin.' : 'touchez le départ (un coin de l\'escalier), puis la fin.') + '</span>'
+        + (ne ? '<button type="button" class="vc-b vc-bt" data-a="retirerPoint">' + ico('annuler', 18) + 'Point</button><button type="button" class="vc-b vc-bt" data-a="annulerTrace">' + ico('fermer', 18) + 'Abandonner</button>'
+          : '<button type="button" class="vc-b vc-bt" data-a="cotes" title="Poser le départ à une distance mesurée d\'une façade ou d\'une limite">' + ico('cotes', 18) + 'Cotes</button>');
     }
     else if (o.k === 'ln'){
       var oo = OUTILS_LN[o.id], n = S.brouillon ? S.brouillon.pts.length : 0, gl = aideOn('glisser');
       h = '<span><strong>' + esc(oo.lib) + '</strong> : ' + (n ? n + ' point' + (n > 1 ? 's' : '') + '. ' + (gl ? 'Glissez ou touchez' : 'Touchez') + ' le point suivant' + (oo.t === 'tr' && aideOn('finir') ? ' ; le tronçon se termine sur un objet' : '') + (n >= 2 ? ' ; touchez à nouveau le dernier point pour terminer.' : '.') : (gl ? 'glissez depuis le point de départ, ou touchez-le' : 'touchez le point de départ') + ' (un objet, un tracé ou un point libre)' + (gl ? ' ; deux doigts pour déplacer le plan' : '') + '.') + '</span>'
         + (n ? '<button type="button" class="vc-b vc-bt" data-a="retirerPoint">' + ico('annuler', 18) + 'Point</button><button type="button" class="vc-b vc-bt" data-a="annulerTrace">' + ico('fermer', 18) + 'Abandonner</button>' + (n >= 2 ? '<button type="button" class="vc-b vc-bt vc-prim" data-a="terminerTrace">' + ico('valider', 18) + 'Terminer</button>' : '') : '');
     }
-    else if (o.k === 'pt') h = '<span>Touchez le plan pour poser : <strong>' + esc(T[o.t].lib) + '</strong>' + (T[o.t].role === 'passage' ? ' (posé sur un tracé, il s\'y insère)' : '') + '.</span>';
+    else if (o.k === 'pt') h = '<span>Touchez le plan pour poser : <strong>' + esc(T[o.t].lib) + '</strong>' + (T[o.t].role === 'passage' ? ' (posé sur un tracé, il s\'y insère)' : '') + '.</span>'
+      + '<button type="button" class="vc-b vc-bt" data-a="cotes" title="Poser à une distance mesurée d\'une façade ou d\'une limite">' + ico('cotes', 18) + 'Cotes</button>';
     else if (o.k === 'tx') h = '<span>Touchez le plan à l\'endroit du texte.</span>';
-    aide.innerHTML = h; aide.hidden = !h;
+    aide.innerHTML = h; aide.hidden = !h; placerBarres();
   }
-  aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') annulerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } else if (a === 'placerStop'){ S.placer = null; majAide(); } else if (a === 'relierStop'){ S.relier = null; majAide(); redessiner(); } });
+  aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') abandonnerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } else if (a === 'placerStop'){ S.placer = null; majAide(); } else if (a === 'relierStop'){ S.relier = null; majAide(); redessiner(); } else if (a === 'cotes') boutonCotes(); else if (a === 'cotesAutre') autreCoteCotes(); else if (a === 'cotesStop') abandonnerCotes(); });
   R.querySelector('.vc-outils').addEventListener('click', function(ev){
     var b = ev.target.closest('.vc-o'); if (!b) return;
     if (b.dataset.outil === 'main'){ choisirOutil({k: 'main'}); return; }
@@ -3330,13 +4659,35 @@ function editeur(racine, opts){
     if (a === 'zoomp' || a === 'zoomm'){ S.vue.s = clamp(S.vue.s * (a === 'zoomp' ? 1.5 : 1 / 1.5), .02, 2000); redessiner(); enregistrerVue(); }
     else if (a === 'ajuster') ajusterVue();
     else if (a === 'rotg' || a === 'rotd' || a === 'nord'){ if (a === 'nord' && Math.abs(S.doc.rot || 0) < 1e-9) return; instantane(); var r0 = S.doc.rot || 0, r1 = a === 'nord' ? 0 : r0 + (a === 'rotg' ? 1 : -1) * Math.PI / 12; S.doc.rot = Math.abs(r1) < 1e-9 ? 0 : r1; S.vue.rot = S.doc.rot; replacerTraces(r0); changement({garderPanneau: S.panneau !== 'reglages'}); }
+    else if (a === 'accroches'){ if (S.accroches) fermerAccroches(); else ouvrirAccroches(); }
     else if (a === 'aides'){ S.aides.actives = S.aides.actives === false; majAides(); toast(S.aides.actives ? 'Aides au dessin activées' : 'Aides au dessin désactivées : tracé libre'); }
   });
   function majAides(sansEnregistrer){
     var b = R.querySelector('.vc-aimant'); if (b) b.setAttribute('aria-pressed', S.aides.actives !== false ? 'true' : 'false');
     if (opts.enregistrerAides && !sansEnregistrer) try { opts.enregistrerAides(Object.assign({}, S.aides)); } catch(e){}
-    majAide(); if (S.panneau === 'reglages') majPanneau();
+    majAide(); majAccroches(); if (S.panneau === 'reglages') majPanneau();
   }
+  /* --- palette d'accrochage (m111) : puces des clés d'ACCROCHES ; aimant coupé, elles sont grisées et gardent leur état --- */
+  /* puce cochée : une aide cochée d'origine l'est tant qu'elle ne vaut pas false (comme aideOn) ; une clé décochée d'origine ou absente
+     d'AIDES_DEFAUT (nouveaux accrochages de m112 et de m113, décision D9), seulement si elle vaut true */
+  function accrocheOn(k){ return AIDES_DEFAUT[k] === true ? S.aides[k] !== false : S.aides[k] === true; }
+  function majAccroches(){
+    if (!S.accroches) return;
+    /* puce qui a le focus (au clavier) : la palette est reconstruite, la nouvelle puce de même clé le reprend */
+    var coupe = S.aides.actives === false, ae = document.activeElement, kf = ae && ae !== acc && acc.contains(ae) ? ae.getAttribute('data-accr') : null;
+    acc.innerHTML = '<h3>Accrochage</h3><div class="vc-chips">' + ACCROCHES.map(function(k){
+      var l = AIDES_LIB.filter(function(x){ return x[0] === k; })[0];
+      return '<button type="button" class="vc-chip" data-accr="' + esc(k) + '" aria-pressed="' + accrocheOn(k) + '"' + (l && l[2] ? ' title="' + esc(l[2]) + '"' : '')
+        + (coupe ? ' disabled' : '') + '>' + esc(l ? l[3] || l[1] : k) + '</button>';
+    }).join('') + '</div>' + (coupe ? '<p class="vc-muet">Aides coupées : touchez l\'aimant pour les rétablir</p>' : '');
+    if (kf) acc.querySelectorAll('[data-accr]').forEach(function(b){ if (b.getAttribute('data-accr') === kf && !b.disabled) try { b.focus({preventScroll: true}); } catch(e){} });
+  }
+  function ouvrirAccroches(){ S.accroches = true; acc.hidden = false; majAccroches(); placerBarres(); var b = R.querySelector('.vc-accr'); if (b) b.setAttribute('aria-expanded', 'true'); }
+  function fermerAccroches(){ S.accroches = false; acc.hidden = true; var b = R.querySelector('.vc-accr'); if (b) b.setAttribute('aria-expanded', 'false'); }
+  acc.addEventListener('click', function(ev){
+    var b = ev.target.closest('[data-accr]'); if (!b || b.disabled) return;
+    var k = b.dataset.accr; S.aides[k] = !accrocheOn(k); majAides();
+  });
   function ajusterVue(){
     var b = emprisePlan(S.doc);
     if (b){ var c = depuisPlan((b[0] + b[2]) / 2, (b[1] + b[3]) / 2, S.doc.rot || 0), hw = Math.max(8, (b[2] - b[0]) / 2 + 4), hh = Math.max(8, (b[3] - b[1]) / 2 + 4);
@@ -3385,7 +4736,7 @@ function editeur(racine, opts){
     if (a === 'annuler') annuler(); else if (a === 'refaire') refaire();
     else if (a === 'retour'){ if (S.brouillon && S.brouillon.pts.length >= 2) terminerTrace('discret'); else S.brouillon = null; enregistrer(); if (opts.retour) opts.retour(); }
   });
-  function ouvrirPanneau(n){ S.panneau = n; fermerPalette(); majPanneau(); }
+  function ouvrirPanneau(n){ S.panneau = n; fermerPalette(); fermerAccroches(); majPanneau(); }
   function fermerPanneau(){ S.panneau = null; if (S.sel){ S.sel = null; redessiner(); } majPanneau(); }
   pan.querySelector('[data-a="fermerPanneau"]').addEventListener('click', fermerPanneau);
   document.addEventListener('keydown', function(ev){
@@ -3415,7 +4766,8 @@ function editeur(racine, opts){
     o = o || {}; var multi = Array.isArray(val);
     return '<div class="vc-chips" role="group"' + (o.label ? ' aria-label="' + esc(o.label) + '"' : '') + '>' + options.map(function(op){
       var on = multi ? val.indexOf(op[0]) >= 0 : String(val) === String(op[0]);
-      return '<button type="button" class="vc-chip' + (o.cls ? ' ' + o.cls : '') + '" data-a="' + (o.a || 'prop') + '" data-k="' + k + '" data-v="' + esc(op[0]) + '"' + (multi ? ' data-multi="1"' : '') + (o.garder ? ' data-garder="1"' : '') + ' aria-pressed="' + on + '">' + esc(op[1]) + '</button>';
+      /* o.propose : valeur proposée d'après le plan, puce en pointillé tant qu'elle n'est pas choisie (rien n'est écrit) */
+      return '<button type="button" class="vc-chip' + (o.cls ? ' ' + o.cls : '') + (!on && o.propose != null && String(o.propose) === String(op[0]) ? ' vc-propose' : '') + '" data-a="' + (o.a || 'prop') + '" data-k="' + k + '" data-v="' + esc(op[0]) + '"' + (multi ? ' data-multi="1"' : '') + (o.garder ? ' data-garder="1"' : '') + ' aria-pressed="' + on + '">' + esc(op[1]) + '</button>';
     }).join('') + '</div>';
   }
   function champ(lib, html, aide){ return '<div class="vc-champ"><div class="vc-lab">' + lib + (aide ? ' <small>' + aide + '</small>' : '') + '</div>' + html + '</div>'; }
@@ -3432,9 +4784,56 @@ function editeur(racine, opts){
     if (fosseArbitrage(S.doc, S.an, e.id) === 'arbitrer' && !a.length) return {cls: 'att', txt: txt + ' · fosse septique à arbitrer : une extrémité laissée libre peut être une arrivée'};
     return a.length ? {cls: 'ko', txt: txt + ' · anomalie' + (a.length > 1 ? 's' : '') + ' n° ' + a.map(function(x){ return x.num; }).join(', ')} : {cls: 'ok', txt: txt};
   }
+  /* boîte en limite de propriété (souhait 10, décision D5) : parcelle de l'installation (VCroquis.geo.parcelleInstallation), prise parmi les
+     limites du fond affiché, et distance de la boîte à son bord : {ligne, d, cote, douteux, proj, seg}. null pour un autre objet, sans fond
+     affiché (fond masqué, calque décoché) ou sans parcelle de l'installation. Rien n'est gardé : la mesure suit le plan */
+  function limitePlan(e){
+    if (!e || e.k !== 'pt' || !T[e.t] || !T[e.t].boite) return null;
+    var f = S.aff.fond ? S.fond : null; if (!f) return null;
+    var par = parcelleInstallation(lignesRef(null, f, offFond(f), ['limite']), S.doc.el), m = par ? distanceLimite(e, par) : null;
+    return m ? {ligne: par, d: m.d, cote: m.cote, douteux: m.douteux, proj: m.proj, seg: m.seg} : null;
+  }
+  /* « Reprendre la mesure » : distance du plan arrondie à 5 cm (deux décimales, virgule) et côté, en un seul pas d'annulation ; côté douteux
+     (moins de 0,30 m) : la distance seule, le côté reste celui du technicien. Rien ne change : aucun pas */
+  function reprendreLimite(e){
+    var m = limitePlan(e); if (!m) return;
+    var dist = frNum(Math.round(m.d * 20) / 20, 2);
+    if (e.p.limDist === dist && (m.douteux || e.p.limCote === m.cote)) return;
+    instantane(); e.p.limDist = dist; if (!m.douteux) e.p.limCote = m.cote;
+    apresProp(e);
+  }
+  /* « Placer sur le plan » : la boîte va sur la perpendiculaire au bord de limite le plus proche, à la distance saisie, du côté choisi
+     (intérieur : vers la parcelle, à l'opposé de la normale extérieure) ; les bouts de tuyau attachés suivent (deplacerObjet). Rien ne bouge,
+     avec un message, quand le bord est ambigu (pied de la perpendiculaire sur un sommet : boîte en face d'un coin) ou quand la boîte
+     arriverait plus près d'un autre bord (près d'un coin, parcelle étroite) : la mesure du plan contredirait alors la saisie */
+  function placerLimite(e){
+    var m = limitePlan(e); if (!m) return;
+    var dd = num(e.p.limDist), c = e.p.limCote;
+    if (dd == null || dd < 0 || (c !== 'int' && c !== 'ext')) return;
+    var P = m.ligne.P, A = P[m.seg], B = P[(m.seg + 1) % P.length], n = normaleExt(m.ligne, m.seg);
+    if (!n || Math.hypot(m.proj.x - A.x, m.proj.y - A.y) <= GEO_EPS || Math.hypot(m.proj.x - B.x, m.proj.y - B.y) <= GEO_EPS){
+      toast('La boîte est en face d\'un coin de la limite : rapprochez-la du bord voulu, puis touchez de nouveau « Placer sur le plan »'); return;
+    }
+    /* point d'arrivée remesuré sur toute la limite : à 5 mm près de la distance saisie, et du côté choisi ; à 5 mm ou moins, la boîte est
+       sur la limite et son côté n'est pas vérifié (un point du bord est dit extérieur) */
+    var s = c === 'ext' ? 1 : -1, cible = {x: m.proj.x + s * dd * n.x, y: m.proj.y + s * dd * n.y}, v = distanceLimite(cible, m.ligne);
+    if (!v || Math.abs(v.d - dd) > .005 || (dd > .005 && v.cote !== c)){
+      toast('À cette distance, la boîte serait plus près d\'un autre bord de la limite : rapprochez-la du bord voulu, puis touchez de nouveau « Placer sur le plan »'); return;
+    }
+    deplacerObjet(e.id, cible.x, cible.y);
+  }
+  /* « Placer sur le plan » grisé ou non d'après la distance v : le texte du champ pendant la frappe, sans attendre qu'il soit quitté (sinon
+     le toucher qui le quitte tombe sur un bouton encore grisé et il est perdu) ; « Reprendre la mesure » grisé : pas de parcelle */
+  function etatPlacer(e, v){
+    var bp = pcorps.querySelector('button[data-a="limPlacer"]'), bm = pcorps.querySelector('button[data-a="limMesure"]'), d = num(v);
+    if (bp && bm) bp.disabled = bm.disabled || d == null || d < 0 || (e.p.limCote !== 'int' && e.p.limCote !== 'ext');
+  }
   function ficheHtml(e){
     var h = '', ty, I = idx();
-    if (e.k === 'pt'){
+    if (e.k === 'pt' && !T[e.t]){
+      /* objet d'un type inconnu (croquis d'une version plus récente) : symbole neutre, aucun champ, gardé tel quel */
+      h += '<div class="vc-ftete">' + symboleSvg(e.t, 40) + '<div><strong>Objet</strong><span class="vc-etat att">Type inconnu de cette version : gardé tel quel</span></div></div>';
+    } else if (e.k === 'pt'){
       ty = T[e.t];
       var fam = FAMILLES.filter(function(f){ return f.types.indexOf(e.t) >= 0; })[0], et = ty.role === 'source' ? etatSource(e) : null, res = S.an.resPt[e.id];
       h += '<div class="vc-ftete">' + symboleSvg(e.t, 40) + '<div><strong>' + esc(ty.lib) + '</strong>' + (et ? '<span class="vc-etat ' + et.cls + '">' + esc(et.txt) + '</span>' : ty.regard || ty.role === 'passage' ? '<span class="vc-etat ' + (/^(EU|EP|UN)$/.test(res) ? 'ok' : 'att') + '">' + (/^(EU|EP|UN)$/.test(res) ? 'Réseau ' + libRes(res) + (ty.boite && RES[e.p.res] ? '' : ' déduit') : res === 'MIX' ? 'Plusieurs réseaux' : 'Réseau à préciser') + '</span>' : '') + '</div></div>';
@@ -3443,6 +4842,17 @@ function editeur(racine, opts){
       if (e.t === 'descente'){ h += champ('Façade', chipsHtml('cote', [['avant', 'Avant'], ['arriere', 'Arrière']], e.p.cote)); h += champ('Visitable', chipsHtml('visitable', OUI_NON, e.p.visitable)); }
       if (ty.role === 'source') h += champ('Niveau', chipsHtml('niv', NIV, e.p.niv));
       if (ty.boite || e.t === 'regard_pub') h += champ('Réseau', chipsHtml('res', [['EU', 'EU'], ['EP', 'EP'], ['UN', 'Unitaire']], e.p.res), RES[e.p.res] ? '' : 'déduit du dessin tant qu\'il n\'est pas indiqué');
+      /* boîte en limite de propriété (souhait 10) : côté et distance, facultatifs, repris sur l'étiquette (texteLimite). Mesure lue sur le
+         plan (limitePlan) : ligne « Sur le plan », côté proposé en pointillé tant que le technicien n'en a choisi aucun (sûr seulement),
+         « Reprendre la mesure » et « Placer sur le plan » ; sans parcelle de l'installation, ni ligne ni proposition, boutons grisés */
+      if (ty.boite){
+        var limP = limitePlan(e), limD = num(e.p.limDist), limOk = !!limP && limD != null && limD >= 0 && (e.p.limCote === 'int' || e.p.limCote === 'ext');
+        h += champ('Limite de propriété', chipsHtml('limCote', [['int', 'Intérieur'], ['ext', 'Extérieur']], e.p.limCote || '', {label: 'Côté de la limite de propriété', propose: !e.p.limCote && limP && !limP.douteux ? limP.cote : null})
+          + saisie('limDist', e.p.limDist, {num: true, ph: 'distance, ex. 0,80', lab: 'Distance à la limite de propriété en mètres'})
+          + (limP ? '<p class="vc-fixe vc-limplan">Sur le plan : ≈ ' + frNum(limP.d, 2) + ' m ' + (limP.douteux ? 'côté à confirmer' : limP.cote === 'int' ? 'intérieur' : 'extérieur') + '</p>' : '')
+          + '<div class="vc-chips vc-limbt"><button type="button" class="vc-chip" data-a="limMesure"' + (limP ? '' : ' disabled') + '>Reprendre la mesure</button>'
+          + '<button type="button" class="vc-chip" data-a="limPlacer"' + (limOk ? '' : ' disabled') + '>Placer sur le plan</button></div>', 'côté de la boîte, distance en mètres (0 : en limite)');
+      }
       if (ty.regard && e.t !== 'regard_pub'){
         h += champ('Tampon', chipsHtml('tampon', TAMPON, e.p.tampon));
         h += champ('Cunette', chipsHtml('cunette', OUI_NON, e.p.cunette));
@@ -3455,6 +4865,9 @@ function editeur(racine, opts){
       if (ty.oriente) h += champ('Orientation', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="orienter" data-v="15">' + ico('rotg', 18) + ' 15°</button><button type="button" class="vc-chip" data-a="orienter" data-v="-15">' + ico('rotd', 18) + ' 15°</button><button type="button" class="vc-chip" data-a="orienter" data-v="90">90°</button></div>');
       if (e.t === 'test') h += champ('Résultat', saisie('resultat', e.p.resultat, {ph: 'ex. colorant ressorti en boîte EP'}));
       if (e.t === 'zone') h += champ('Rayon', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="rayon" data-v="-.5">−</button><span class="vc-val">' + frNum(num(e.p.r) || 1.5) + ' m</span><button type="button" class="vc-chip" data-a="rayon" data-v=".5">+</button></div>');
+      /* position par cotes (m102) : déplacer l'objet, ou relire sa position, depuis une façade, une limite ou un trait de complément */
+      h += champ('Position', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="cotesObjet" data-v="deplacer">Déplacer par cotes</button>'
+        + '<button type="button" class="vc-chip" data-a="cotesObjet" data-v="mesurer">Mesurer depuis une façade</button></div>', 'depuis une façade, une limite de parcelle ou un trait de complément');
       if (e.t !== 'jonction' && ty.role !== 'note') h += champ('Statut', chipsHtml('st', [['existant', 'Existant'], ['projet', 'Projet'], ['supprimer', 'À supprimer']], e.p.st || 'existant', {garder: true}));
       h += champ('Observation', zone('obs', e.p.obs, {ph: 'note libre, reprise dans le rapport'}));
     } else if (e.k === 'ln'){
@@ -3466,6 +4879,24 @@ function editeur(racine, opts){
         h += champ('Diamètre', chipsHtml('diam', [['200', 'Ø200'], ['250', 'Ø250'], ['300', 'Ø300'], ['400', 'Ø400'], ['500', 'Ø500']], e.p.diam) + saisie('diam', e.p.diam, {num: true, ph: 'autre diamètre (mm)', lab: 'Diamètre'}));
       } else if (e.t === 'lim'){
         h += '<div class="vc-ftete">' + traitSvg('LIM', '', 40) + '<div><strong>Complément du fond</strong><span class="vc-etat att">Bâti, limite ou repère ajouté au plan</span></div></div>';
+      } else if (e.t === 'esc'){
+        /* escalier (souhait 12) : en-tête de m106, puis ses champs (m107), montrés aussi quand il n'est pas dessiné, pour qu'on le répare.
+           Non dessiné : l'en-tête dit si le départ et la fin sont confondus (un sommet glissé sur l'autre), sinon que les valeurs sont
+           illisibles ; la longueur est grisée si le départ et la fin sont confondus ou illisibles. Ni étiquette, ni « Inverser » (D7) */
+        var gE = geoEscalier(e, I), nE = gE ? num(e.p.n) : 0, confE = !gE && e.v.length === 2 && isFinite(L) && !(L > GEO_EPS);
+        h += '<div class="vc-ftete">' + escalierSvg(40) + '<div><strong>Escalier</strong><span class="vc-etat ' + (gE ? 'ok' : 'att') + '">' + esc(gE ? 'largeur ' + frNum(num(e.p.larg), 2) + ' m · '
+          + nE + (nE > 1 ? ' marches' : ' marche') + ' · ' + frNum(Math.round(L * 10) / 10) + ' m sur le plan' : confE ? 'départ et fin confondus : non dessiné' : 'valeurs illisibles : non dessiné') + '</span></div></div>';
+        var okL = e.v.length === 2 && !!unite(e.v[0], e.v[1]) && Math.hypot(e.v[1].x - e.v[0].x, e.v[1].y - e.v[0].y) > GEO_EPS;
+        h += champ('Largeur (m)', saisie('larg', valEscalier(e, 'larg'), {num: true, a: 'escNum', lab: 'Largeur'}), 'de 0,30 à 10,00');
+        h += champ('Marches', saisie('n', valEscalier(e, 'n'), {num: true, a: 'escNum', lab: 'Marches'}), 'de 1 à 60');
+        /* champ grisé : saisie rend une seule balise <input …>, qui reçoit l'attribut disabled */
+        var inL = saisie('long', valEscalier(e, 'long'), {num: true, a: 'escNum', lab: 'Longueur'});
+        h += champ('Longueur (m)', okL ? inL : inL.replace(/^<input /, '<input disabled '), okL ? 'la fin se déplace, le départ reste' : confE ? 'départ et fin confondus' : 'départ ou fin illisible');
+        h += champ('Côté', chipsHtml('cote', [['g', 'Gauche'], ['d', 'Droite']], e.p.cote, {garder: true}), 'vu du départ vers la fin');
+        h += champ('Sens', chipsHtml('monte', [['fin', 'Monte'], ['depart', 'Descend']], e.p.monte, {garder: true}), 'du départ vers la fin');
+      } else if (e.t !== 'tr'){
+        /* tracé d'un type inconnu (croquis d'une version plus récente) : trait neutre, aucun champ, gardé tel quel */
+        h += '<div class="vc-ftete">' + traitSvg('LIM', '', 40) + '<div><strong>Tracé</strong><span class="vc-etat att">Type inconnu de cette version : gardé tel quel</span></div></div>';
       } else {
         var dd = RES[e.p.res] ? '' : ' déduit', cls = rl === 'INC' || rl === 'MIX' ? 'att' : 'ok';
         h += '<div class="vc-ftete">' + traitSvg(e.p.st === 'projet' ? 'PRJ' : rl, e.p.st, 40) + '<div><strong>Tronçon</strong><span class="vc-etat ' + cls + '">' + esc(rl === 'INC' ? 'Réseau à préciser' : rl === 'MIX' ? 'Plusieurs réseaux atteints' : rl === 'PRJ' ? 'Projet' : 'Réseau ' + libRes(rl) + dd) + ' · ' + frNum(Math.round(L * 10) / 10) + ' m sur le plan</span></div></div>';
@@ -3489,12 +4920,13 @@ function editeur(racine, opts){
       h += champ('Texte', zone('txt', e.txt, {a: 'texteLibre', lab: 'Texte'}));
       h += champ('Taille', chipsHtml('taille', [['2', 'Petit'], ['2.5', 'Moyen'], ['3.5', 'Grand']], String(e.taille || 2.5), {a: 'tailleTexte', garder: true}));
     }
-    if (e.k !== 'tx' && !(e.k === 'pt' && T[e.t].sansEtiquette) && e.t !== 'lim'){
+    /* pas d'étiquette à saisir : texte libre, objet sans étiquette ou d'un type inconnu, complément du fond, escalier, tracé d'un type inconnu */
+    if (e.k !== 'tx' && !(e.k === 'pt' && (!T[e.t] || T[e.t].sansEtiquette)) && !(e.k === 'ln' && !estCanalisation(e.t))){
       var auto = texteEtiquette(Object.assign({}, e, {p: Object.assign({}, e.p, {etiq: ''})}), S.an), off = e.lab && e.lab.off;
       h += champ('Étiquette', saisie('etiq', e.p.etiq || '', {ph: auto || 'pas d\'étiquette automatique', lab: 'Texte de l\'étiquette'})
         + '<div class="vc-chips"><button type="button" class="vc-chip" data-a="etiqOnOff" aria-pressed="' + !off + '">' + (off ? 'Masquée' : 'Affichée') + '</button>' + (!off ? '<button type="button" class="vc-chip" data-a="etiqReplacer">Replacer</button>' : '') + '</div>', 'glissez-la sur le plan pour la déplacer');
     }
-    if (e.k === 'pt' || (e.k === 'ln' && e.t === 'tr')) h += anomsObjet(e);
+    if ((e.k === 'pt' && T[e.t]) || (e.k === 'ln' && e.t === 'tr')) h += anomsObjet(e);
     h += '<div class="vc-fact"><button type="button" class="vc-b vc-bt vc-danger" data-a="supprimer">' + ico('poubelle', 18) + 'Supprimer</button></div>';
     return h;
   }
@@ -3617,14 +5049,14 @@ function editeur(racine, opts){
     h += champ('Gestionnaire par défaut', ['EU', 'EP', 'UN'].map(function(r){ return '<div class="vc-ligne"><span class="vc-g ' + r + '">' + (r === 'UN' ? 'UN' : r) + '</span>' + chipsHtml(r, [['D', 'Départemental'], ['T', 'Territorial']], (d.gest || {})[r] || 'D', {a: 'docGest', garder: true}) + '</div>'; }).join(''), 'quand le collecteur n\'est pas dessiné');
     h += champ('Orientation', '<div class="vc-chips"><span class="vc-val">' + frNum(Math.round(((d.rot || 0) * 180 / Math.PI) * 10) / 10) + '°</span><button type="button" class="vc-chip" data-a="aligner">' + ico('aligner', 18) + 'Aligner sur une voie</button><button type="button" class="vc-chip" data-a="nordHaut">Nord en haut</button></div>');
     h += champ('Étiquettes', '<button type="button" class="vc-b vc-bt" data-a="replacerTout">Replacer toutes les étiquettes</button>');
-    function chAide(a){ return '<button type="button" class="vc-aidech" data-a="aide" data-k="' + a[0] + '" aria-pressed="' + (S.aides[a[0]] !== false) + '"><strong>' + esc(a[1]) + '</strong><small>' + esc(a[2]) + '</small></button>'; }
+    function chAide(a){ return '<button type="button" class="vc-aidech" data-a="aide" data-k="' + a[0] + '" aria-pressed="' + accrocheOn(a[0]) + '"><strong>' + esc(a[1]) + '</strong><small>' + esc(a[2]) + '</small></button>'; }
     h += champ('Geste de tracé', '<div class="vc-aides">' + AIDES_LIB.filter(function(a){ return a[0] === 'glisser'; }).map(chAide).join('') + '</div>');
     h += champ('Aides au dessin', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="aide" data-k="actives" aria-pressed="' + (S.aides.actives !== false) + '">' + (S.aides.actives !== false ? 'Activées' : 'Désactivées : tracé libre') + '</button></div>'
-      + '<div class="vc-aides"' + (S.aides.actives === false ? ' hidden' : '') + '>' + AIDES_LIB.filter(function(a){ return a[0] !== 'glisser'; }).map(chAide).join('') + '</div>', 'aussi par le bouton aimant, à droite du plan');
+      + '<div class="vc-aides"' + (S.aides.actives === false ? ' hidden' : '') + '>' + AIDES_LIB.filter(function(a){ return a[0] !== 'glisser'; }).map(chAide).join('') + '</div>', 'aussi par le bouton aimant et la palette d\'accrochage, à droite du plan');
     if (opts.supprimer) h += '<div class="vc-fact"><button type="button" class="vc-b vc-bt vc-danger" data-a="docSuppr">' + ico('poubelle', 18) + 'Supprimer ce croquis</button></div>';
     return h;
   }
-  var TITRES = {fiche: '', controles: 'Contrôles', constat: 'Constat déduit', calques: 'Fond et réseaux', sorties: 'Sorties', reglages: 'Réglages du croquis'};
+  var TITRES = {fiche: '', controles: 'Contrôles', constat: 'Constat déduit', calques: 'Fond et réseaux', sorties: 'Sorties', reglages: 'Réglages du croquis', cotes: 'Cotes'};
   /* saisie en cours dans le panneau (clavier ouvert) : enregistrée par son événement « change », sur l'élément que décrit la fiche */
   function quitterSaisie(){ var ae = document.activeElement; if (ae && ae !== pcorps && pcorps.contains(ae) && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) ae.blur(); }
   /* après une saisie, la fiche n'est pas reconstruite pendant le toucher en cours sur le panneau (la puce, le champ ou le bouton touché
@@ -3638,12 +5070,12 @@ function editeur(racine, opts){
     panMajAttente = false; majPanneau();
   }
   pan.addEventListener('pointerdown', function(){ panBas = true; }, true);
-  /* dernier appui (garde de la fiche) et dernier clic sur la fiche, la palette ou la barre d'aide, qui peuvent disparaître ou se déplacer
-     (garde du plan), en coordonnées du plan */
+  /* dernier appui (garde de la fiche) et dernier clic sur la fiche, la palette, la barre d'aide ou le menu de poignée (m109 : un double clic
+     sur l'un de ses boutons), qui peuvent disparaître ou se déplacer (garde du plan), en coordonnées du plan */
   function surPlan(ev){ var r = cv.getBoundingClientRect(); return {t: Date.now(), x: ev.clientX - r.left, y: ev.clientY - r.top}; }
   R.addEventListener('pointerdown', function(ev){ S.appui = surPlan(ev); }, true);
   R.addEventListener('pointerup', function(){ S.relache = Date.now(); }, true);
-  R.addEventListener('click', function(ev){ if (ev.detail && (pan.contains(ev.target) || pal.contains(ev.target) || aide.contains(ev.target))) S.clicHors = surPlan(ev); }, true);
+  R.addEventListener('click', function(ev){ if (ev.detail && (pan.contains(ev.target) || pal.contains(ev.target) || aide.contains(ev.target) || menuEl.contains(ev.target))) S.clicHors = surPlan(ev); }, true);
   ['pointerup', 'pointercancel'].forEach(function(t){ R.addEventListener(t, function(){ if (!panBas) return; panBas = false; if (panMajAttente) setTimeout(majPanneauDifferee, 0); }, true); });
   pcorps.addEventListener('focusout', function(){ if (panMajAttente) setTimeout(majPanneauDifferee, 0); });
   /* état montré par une puce au début du toucher (avant l'enregistrement d'une saisie voisine, qui peut le changer) */
@@ -3660,18 +5092,26 @@ function editeur(racine, opts){
     quitterSaisie(); panMajAttente = false;
     var n = S.panneau;
     if (n === 'fiche' && !(S.sel && el(S.sel.id))) n = S.panneau = null;
+    /* objet existant (m102) supprimé, ou un choix fait pendant le mode (S.sel reste vide jusqu'à la fin) : fin du mode, rien n'est changé */
+    if (S.cotes && S.cotes.pour.id && (S.sel || !el(S.cotes.pour.id))){ S.cotes = null; majAide(); redessiner(); }
+    /* panneau « Cotes » (m101) : seulement à l'étape de saisie ; un autre panneau, ou sa fermeture, met fin au mode */
+    if (n === 'cotes' && !(S.cotes && S.cotes.etape === 'saisie' && S.cotes.c)) n = S.panneau = null;
+    if (S.cotes && S.cotes.etape === 'saisie' && n !== 'cotes'){ S.cotes = null; majAide(); redessiner(); }
     R.querySelectorAll('.vc-barre [data-p]').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.p === n ? 'true' : 'false'); });
-    if (!n){ pan.hidden = true; pan.dataset.id = ''; R.classList.remove('vc-avecpanneau'); return; }
+    if (!n){ pan.hidden = true; pan.dataset.id = ''; R.classList.remove('vc-avecpanneau'); placerBarres(); return; }
+    /* panneau qui s'ouvre, autre panneau ou fiche d'un autre élément : la palette d'accrochage se ferme (m111) */
+    if (S.accroches && (pan.hidden || pan.dataset.n !== n + (S.sel ? S.sel.id : ''))) fermerAccroches();
     var top = pan.dataset.n === n + (S.sel ? S.sel.id : '') ? pcorps.scrollTop : 0;
     var e = n === 'fiche' ? el(S.sel.id) : null, tg = Date.now();
     /* fiche ouverte, ou d'un autre élément, par un toucher ou un clic qui vient de finir : elle a pu venir sous le doigt (second toucher d'un
-       double toucher) */
-    if (e && (pan.hidden || pan.dataset.n !== n + e.id) && S.appui && tg - S.appui.t < 700 && S.relache && tg - S.relache < 300 && !(S.finAuto && tg - S.finAuto.t < 100)) S.gardeFiche = {t: tg, tx: S.appui.x, ty: S.appui.y, r: 48};
-    ptitre.textContent = n === 'fiche' ? (e.k === 'pt' ? 'Objet' : e.k === 'ln' ? (e.t === 'col' ? 'Collecteur' : 'Tracé') : 'Texte') : TITRES[n];
+       double toucher) ; de même le panneau « Cotes », qu'ouvre le toucher de l'endroit (m101) */
+    var ouvre = e ? pan.hidden || pan.dataset.n !== n + e.id : n === 'cotes' && (pan.hidden || pan.dataset.n !== n);
+    if (ouvre && S.appui && tg - S.appui.t < 700 && S.relache && tg - S.relache < 300 && !(S.finAuto && tg - S.finAuto.t < 100)) S.gardeFiche = {t: tg, tx: S.appui.x, ty: S.appui.y, r: 48, cotes: !e};
+    ptitre.textContent = n === 'fiche' ? (e.k === 'pt' ? 'Objet' : e.k === 'ln' ? (e.t === 'col' ? 'Collecteur' : e.t === 'esc' ? 'Escalier' : 'Tracé') : 'Texte') : TITRES[n];
     var enCours = {}; if (pan.dataset.n === n + (S.sel ? S.sel.id : '')) pcorps.querySelectorAll('input[id], textarea[id]').forEach(function(i){ if (!i.dataset.a && i.value) enCours[i.id] = i.value; });
-    pcorps.innerHTML = n === 'fiche' ? ficheHtml(e) : n === 'controles' ? controlesHtml() : n === 'constat' ? constatHtml() : n === 'calques' ? calquesHtml() : n === 'sorties' ? sortiesHtml() : reglagesHtml();
+    pcorps.innerHTML = n === 'fiche' ? ficheHtml(e) : n === 'controles' ? controlesHtml() : n === 'constat' ? constatHtml() : n === 'calques' ? calquesHtml() : n === 'sorties' ? sortiesHtml() : n === 'cotes' ? cotesHtml() : reglagesHtml();
     Object.keys(enCours).forEach(function(id){ var i = document.getElementById(id); if (i && pcorps.contains(i) && !i.value) i.value = enCours[id]; });
-    pan.hidden = false; pan.dataset.n = n + (S.sel ? S.sel.id : ''); pan.dataset.id = e ? e.id : ''; pcorps.scrollTop = top; R.classList.add('vc-avecpanneau');
+    pan.hidden = false; pan.dataset.n = n + (S.sel ? S.sel.id : ''); pan.dataset.id = e ? e.id : ''; pcorps.scrollTop = top; R.classList.add('vc-avecpanneau'); placerBarres();
   }
   function centrerSur(id){
     var e = el(id); if (!e) return;
@@ -3681,6 +5121,9 @@ function editeur(racine, opts){
   pcorps.addEventListener('click', function(ev){
     var b = ev.target.closest('[data-a]'); if (!b || b.tagName === 'INPUT' && b.type !== 'checkbox' || b.tagName === 'TEXTAREA' || b.tagName === 'SELECT') return;
     var a = b.dataset.a, e = S.sel && el(S.sel.id);
+    if (a === 'cotes' || a === 'cotesPoser' || a === 'cotesDeplacer' || a === 'cotesFermer'){ actionCotes(a, b); return; }
+    /* fiche d'un objet ponctuel (m102) : « Déplacer par cotes » ou « Mesurer depuis une façade » */
+    if (a === 'cotesObjet' && e){ entrerCotes(e.id, b.dataset.v === 'mesurer'); return; }
     if (a === 'prop' && e){
       var k = b.dataset.k, v = b.dataset.v;
       /* puce déjà choisie (réseau, statut, gestionnaire, sens) : rien ne change, pas de pas d'annulation */
@@ -3694,13 +5137,16 @@ function editeur(racine, opts){
     }
     if (a === 'orienter' && e){ instantane(); e.p.a = (((e.p.a || 0) + parseFloat(b.dataset.v)) % 360 + 360) % 360; changement(); return; }
     if (a === 'rayon' && e){ var r0 = num(e.p.r) || 1.5, nr = clamp(r0 + parseFloat(b.dataset.v), .5, 30); if (nr === r0) return; instantane(); e.p.r = nr; changement(); return; }
+    /* boîte en limite : mesure reprise du plan, ou boîte placée d'après la distance et le côté saisis (limitePlan revérifie la boîte) */
+    if (a === 'limMesure' && e){ reprendreLimite(e); return; }
+    if (a === 'limPlacer' && e){ placerLimite(e); return; }
     if (a === 'tailleTexte' && e){ var tt = parseFloat(b.dataset.v) || 2.5; if ((num(e.taille) || 2.5) === tt) return; instantane(); e.taille = tt; changement(); return; }
     if (a === 'etiqOnOff' && e){ instantane(); if (e.lab && e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); else e.lab = {off: true}; changement(); return; }
     if (a === 'etiqReplacer' && e){ instantane(); e.lab = null; e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); changement(); return; }
     if (a === 'supprimer'){ supprimerSel(); return; }
     if (a === 'inverserCoude' && e && e.v.length === 3 && !e.v[1].a){ instantane(); var I3 = idx(), A3 = vpos(e.v[0], I3), B3 = vpos(e.v[2], I3); e.v[1] = {x: A3.x + B3.x - e.v[1].x, y: A3.y + B3.y - e.v[1].y, a: null}; changement(); return; }
     if (a === 'sommetSuppr' && e && S.sel.sommet != null){ retirerSommet(e); return; }
-    if (a === 'sommetDetacher' && e && S.sel.sommet != null){ instantane(); var vd = e.v[S.sel.sommet]; vd.a = null; nettoyerJonctions(S.doc, null, gardesJ()); var nd = e.v.indexOf(vd); S.sel.sommet = nd >= 0 ? nd : null; changement(); return; }
+    if (a === 'sommetDetacher' && e && S.sel.sommet != null){ detacherSommet(e); return; }
     if (a === 'dec' || a === 'decNc'){
       var cle = b.dataset.cle, m = (S.doc.anomManu || []).filter(function(x){ return x.id === cle; })[0], cur = S.liste.filter(function(x){ return x.cle === cle; })[0];
       /* anomalie du dossier : la nature se règle sur l'enregistrement ; un retrait qui emporte des photos se confirme */
@@ -3766,7 +5212,7 @@ function editeur(racine, opts){
     if (a === 'aligner'){ S.aligner = []; fermerPanneau(); choisirOutil({k: 'main'}); S.aligner = []; majAide(); return; }
     if (a === 'nordHaut'){ if (Math.abs(S.doc.rot || 0) < 1e-9) return; instantane(); var r0 = S.doc.rot || 0; S.doc.rot = 0; S.vue.rot = 0; replacerTraces(r0); changement(); return; }
     if (a === 'replacerTout'){ instantane(); var I = idx(); S.doc.el.forEach(function(x){ if (x.k !== 'tx' && !(x.lab && x.lab.off)) x.lab = null; }); S.doc.el.forEach(function(x){ if (x.k !== 'tx' && x.lab === null && texteEtiquette(x, S.an)) x.lab = placerEtiquette(S.doc, S.an, x, E(), I); }); changement(); toast('Étiquettes replacées'); return; }
-    if (a === 'aide'){ var k = b.dataset.k; S.aides[k] = S.aides[k] === false; majAides(); return; }
+    if (a === 'aide'){ var k = b.dataset.k; S.aides[k] = !accrocheOn(k); majAides(); return; }
     if (a === 'docEchelle'){ var ve = parseInt(b.dataset.v, 10) || 0; if ((S.doc.echelle || 0) === ve) return; instantane(); S.doc.echelle = ve; changement(); return; }
     if (a === 'docGest'){ var g0 = Object.assign({EU: 'D', EP: 'D', UN: 'D'}, S.doc.gest); if (g0[b.dataset.k] === b.dataset.v) return; instantane(); S.doc.gest = g0; S.doc.gest[b.dataset.k] = b.dataset.v; changement(); return; }
     if (a === 'docSuppr'){
@@ -3780,6 +5226,36 @@ function editeur(racine, opts){
     if (a === 'pdfEdl' || a === 'pdfAvp' || a === 'dxf' || a === 'json'){ sortie(a); return; }
     if (a === 'resultat'){ var w = {x: parseFloat(b.dataset.x), y: parseFloat(b.dataset.y)}; S.vue.cx = w.x; S.vue.cy = w.y; if (S.vue.s < 30) S.vue.s = 45; redessiner(); enregistrerVue(); return; }
   });
+  /* fiche de l'escalier : bornes de ses champs, et toast d'une valeur refusée (hors bornes, négative ou non numérique) */
+  var BORNES_ESC = {larg: [0.3, 10, 'Nombre attendu, de 0,30 à 10,00 m'], n: [1, 60, 'Nombre entier attendu, de 1 à 60'], long: [0.1, 50, 'Nombre attendu, de 0,10 à 50,00 m']};
+  /* valeur montrée dans un champ de la fiche de l'escalier : largeur à deux décimales, marches en entier, longueur du plan (départ et fin
+     confondus : 0,00) ; une valeur illisible ou hors bornes (croquis altéré) est montrée telle quelle */
+  function valEscalier(e, k){
+    if (k === 'long'){ var L = e.v.length === 2 && unite(e.v[0], e.v[1]) ? Math.hypot(e.v[1].x - e.v[0].x, e.v[1].y - e.v[0].y) : 0; return frNum(L, 2); }
+    var B = BORNES_ESC[k], x = num(e.p[k]), brut = e.p[k] == null ? '' : String(e.p[k]);
+    if (x == null || x < B[0] || x > B[1] || (k === 'n' && x !== Math.round(x))) return brut;
+    return k === 'larg' ? frNum(x, 2) : String(x);
+  }
+  /* saisie d'un champ de la fiche de l'escalier (Largeur, Marches, Longueur) : valeur refusée, toast qui nomme les bornes et la valeur
+     d'avant reste ; valeur acceptée, un seul instantane. Largeur et marches sont écrites en texte (« 1,20 », « 12 ») ; la longueur déplace
+     la fin sur la ligne départ-fin (v[1] = v[0] + L·t : le départ reste, la fin n'est pas attachée) et n'est jamais écrite dans p */
+  function saisieEscalier(b, e){
+    var k = b.dataset.k, B = BORNES_ESC[k], x = num(String(b.value).trim()), t = e.v.length === 2 ? unite(e.v[0], e.v[1]) : null, avant, nv;
+    if (!B) return;
+    avant = valEscalier(e, k);
+    /* départ et fin confondus : le champ Longueur est grisé, rien à changer */
+    if (k === 'long' && !(t && Math.hypot(e.v[1].x - e.v[0].x, e.v[1].y - e.v[0].y) > GEO_EPS)){ b.value = avant; return; }
+    if (x == null || x < B[0] || x > B[1] || (k === 'n' && x !== Math.round(x))){ toast(B[2]); b.value = avant; return; }
+    if (k === 'long'){
+      if (Math.abs(Math.hypot(e.v[1].x - e.v[0].x, e.v[1].y - e.v[0].y) - x) <= GEO_EPS){ b.value = avant; return; }
+      instantane(); e.v[1].x = e.v[0].x + x * t.x; e.v[1].y = e.v[0].y + x * t.y;
+    } else {
+      nv = k === 'larg' ? frNum(x, 2) : String(x);
+      if (e.p[k] === nv){ b.value = nv; return; }
+      instantane(); e.p[k] = nv;
+    }
+    apresProp(e, {garderPanneau: true}); majPanneauBientot();
+  }
   function apresProp(e, o){
     if (e.p.st === '') e.p.st = 'existant';
     if (!e.lab && texteEtiquette(e, S.an)){ analyse(); e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); }
@@ -3789,11 +5265,14 @@ function editeur(racine, opts){
     var b = ev.target.closest('[data-a]'); if (!b) return;
     /* l'élément que décrit la fiche affichée (le choix a pu changer : saisie enregistrée au moment où la fiche change) */
     var a = b.dataset.a, fid = pan.dataset.id, e = fid ? el(fid) : S.sel && el(S.sel.id), v = b.value;
+    if (a === 'cotesNum'){ saisieCotes(b, true); return; }
     if (a === 'propTxt' && e){
-      var k = b.dataset.k; if (k === 'prof' || k === 'long' || k === 'diam'){ v = String(v).trim(); if (v && num(v) == null){ toast('Nombre attendu, par exemple 0,80'); b.value = e.p[k] || ''; return; } }
+      /* nombres ; la distance à la limite de propriété ne peut pas être négative (0 : en limite) */
+      var k = b.dataset.k; if (k === 'prof' || k === 'long' || k === 'diam' || k === 'limDist'){ v = String(v).trim(); if (v && (num(v) == null || k === 'limDist' && num(v) < 0)){ toast('Nombre attendu, par exemple 0,80'); b.value = e.p[k] || ''; if (k === 'limDist') etatPlacer(e, b.value); return; } }
       if ((e.p[k] || '') === v) return; instantane(); e.p[k] = v; apresProp(e, {garderPanneau: true}); rafraichirFiche(e, k); majPanneauBientot(); return;
     }
     if (a === 'texteLibre' && e){ if (!String(v).trim()){ toast('Le texte est vide'); b.value = e.txt; return; } instantane(); e.txt = String(v).trim(); changement({garderPanneau: true}); majPanneauBientot(); return; }
+    if (a === 'escNum' && e && e.t === 'esc'){ saisieEscalier(b, e); return; }
     if (a === 'type' && e){
       instantane(); var ancien = e.p, nv = defautsPt(v), perdus = [];
       Object.keys(nv).forEach(function(k){ if (ancien[k] !== undefined) nv[k] = Array.isArray(ancien[k]) ? ancien[k].slice() : ancien[k]; });
@@ -3822,7 +5301,11 @@ function editeur(racine, opts){
     if (a === 'calque' && S.fond){ S.fond.calques[+b.dataset.k].vis = b.checked; if (opts.fondModifie) opts.fondModifie(S.fond); redessiner(); return; }
     if ((a === 'fondFichier' || a === 'reseauFichier') && b.files && b.files[0]){ chargerFichier(b.files[0], a === 'fondFichier' ? 'cadastre' : 'reseau'); b.value = ''; return; }
   });
+  /* pose par cotes : aperçu en direct pendant la frappe */
+  pcorps.addEventListener('input', function(ev){ var b = ev.target.closest('[data-a="cotesNum"]'); if (b) saisieCotes(b, false); });
   pcorps.addEventListener('input', function(ev){
+    /* distance à la limite en cours de frappe : « Placer sur le plan » la suit (etatPlacer) */
+    var li = ev.target.closest('input[data-k="limDist"]'); if (li){ var eL = pan.dataset.id ? el(pan.dataset.id) : null; if (eL) etatPlacer(eL, li.value); return; }
     var b = ev.target.closest('[data-a="chercher"]'); if (!b || !S.fond) return;
     var q = norm(b.value).trim(), out = pcorps.querySelector('.vc-res'), off = offFond(S.fond); if (!out) return;
     if (!q){ out.innerHTML = ''; return; }
@@ -3881,28 +5364,33 @@ function editeur(racine, opts){
       if (a === 'dxf'){ var an = analyser(S.doc, 'edl'); annoncer(telecharger(new Blob([ecrireDxf(S.doc, an, anomaliesDoc(S.doc, an, ext()))], {type: 'application/dxf'}), nomFichier('Croquis', 'dxf')), 'DXF enregistré'); return; }
       if (!global.jspdf){ toast('La bibliothèque PDF n\'est pas chargée'); return; }
       var mode = a === 'pdfAvp' ? 'avp' : 'edl';
-      Promise.resolve(pdfPlan(S.doc, S.fond, {mode: mode, logo: opts.logo, reseau: S.reseau, anomalies: ext()})).then(function(blob){ annoncer(telecharger(blob, nomFichier(mode === 'avp' ? 'Avant-projet' : opts.cartoucheHote ? 'Plan' : 'État des lieux', 'pdf')), 'PDF enregistré'); }).catch(function(err){ toast('PDF impossible : ' + (err && err.message || err), 6000); });
+      Promise.resolve(pdfPlan(S.doc, S.fond, {mode: mode, logo: opts.logo, reseau: S.reseau, anomalies: ext(), conclusionConstat: conclHote()})).then(function(blob){ annoncer(telecharger(blob, nomFichier(mode === 'avp' ? 'Avant-projet' : opts.cartoucheHote ? 'Plan' : 'État des lieux', 'pdf')), 'PDF enregistré'); }).catch(function(err){ toast('PDF impossible : ' + (err && err.message || err), 6000); });
     } catch(err){ toast('Sortie impossible : ' + (err && err.message || err), 6000); }
   }
 
-  /* ferme le niveau le plus haut : ce qui est affiché par-dessus (dialogue, palette, panneau), puis les modes, et le tracé en cours
-     en dernier (l'abandonner perd des points) ; faux s'il n'y avait rien : l'hôte peut alors fermer l'éditeur */
+  /* ferme le niveau le plus haut : le menu de poignée d'abord (m109 : l'élément reste choisi), ce qui est affiché par-dessus (dialogue,
+     palette, panneau), puis les modes, et le tracé en cours en dernier (l'abandonner perd des points) ; faux s'il n'y avait rien : l'hôte
+     peut alors fermer l'éditeur */
   function fermerNiveau(){
+    if (fermerMenu()) return true;
     var m = R.querySelector('.vc-modal'); if (m){ m.remove(); return true; }
     if (S.palette){ fermerPalette(); return true; }
+    if (S.accroches){ fermerAccroches(); return true; }
     if (S.sel || S.panneau){ fermerPanneau(); return true; }
-    if (S.relier || S.aligner || S.placer){ S.relier = null; S.aligner = null; S.placer = null; majAide(); redessiner(); return true; }
+    if (S.relier || S.aligner || S.placer || S.cotes){ S.relier = null; S.aligner = null; S.placer = null; S.cotes = null; majAide(); redessiner(); return true; }
     if (S.brouillon){ annulerTrace(); return true; }
     return false;
   }
 
   /* --- ouverture --- */
   function ouvrir(doc, fond, reseau, o){
-    o = o || {};
+    o = o || {}; fermerMenu();
     if (o.aides) S.aides = Object.assign({}, AIDES_DEFAUT, o.aides);
-    S.placer = null; var m0 = R.querySelector('.vc-modal'); if (m0) m0.remove();
+    S.placer = null; S.cotes = null; var m0 = R.querySelector('.vc-modal'); if (m0) m0.remove();
     S.doc = doc; S.fond = fond || null; S.reseau = reseau || null; S.undo = []; S.redo = []; S.sel = null; S.brouillon = null; S.panneau = null; S.mode = 'edl'; S.ajoutAnom = null; S.aligner = null;
-    S.ptr = {}; S.geste = null; S.apercu = null; S.accrocheVue = null;
+    S.ptr = {}; S.geste = null; S.apercu = null; S.accrocheVue = null; S.survol = null;
+    /* palette d'accrochage fermée, appuis avalés oubliés (m111) */
+    ptrAvales = {}; fermerAccroches();
     clearTimeout(tToast); R.querySelector('.vc-toast').classList.remove('on');
     doc.el = doc.el || []; doc.decisions = doc.decisions || {}; doc.ordre = doc.ordre || []; doc.anomManu = doc.anomManu || []; doc.gest = doc.gest || {EU: 'D', EP: 'D', UN: 'D'};
     /* croquis d'avant la v1.6.1 : une zone suspecte ne tient aucun tuyau (raccord à sa place si elle en reliait plusieurs) */
@@ -3952,7 +5440,17 @@ var CSS = [
 '.vc-pitem[aria-pressed="true"]{border-color:var(--brand,#0F5C63);background:var(--brand-soft,#D9ECEB)}',
 '.vc-pitem svg,.vc-ptx{flex:none;background:#fff;border-radius:8px;color:#222;display:inline-flex}',
 '.vc-nav{position:absolute;right:10px;bottom:12px;display:flex;flex-direction:column;gap:6px;z-index:4}',
+/* barre de navigation trop haute pour la place (m114, placerBarres) : plusieurs colonnes de même hauteur, lues de haut en bas, la première
+   à gauche ; chaque colonne est calée en bas : l'aimant reste en bas à droite, le bouton de la palette juste au-dessus */
+'.vc-nav.vc-colonnes{flex-wrap:wrap;justify-content:flex-end;align-content:flex-end}',
 '.vc-nav .vc-b{background:var(--surface,#fff);border:1px solid var(--line,#C7D1D8);box-shadow:0 2px 8px rgba(0,0,0,.12)}',
+/* palette d'accrochage (m111) : à gauche de la barre de navigation, à hauteur de son bouton, ou juste au-dessus de la barre d'aide
+   qu'elle recouperait, et décalée avec les colonnes de la barre de navigation (placerBarres, m114) ; au-dessus du plan et des barres, sous
+   le panneau, la palette des outils et le toast */
+'.vc-accroches{position:absolute;right:64px;bottom:62px;width:min(300px,calc(100% - 160px));max-height:calc(100% - 140px);overflow:auto;background:var(--surface,#fff);border:1px solid var(--line,#C7D1D8);border-radius:14px;box-shadow:var(--shadow,0 18px 50px -22px rgba(9,18,24,.55));padding:10px;z-index:5;touch-action:pan-y}',
+'.vc-accroches[hidden]{display:none}',
+'.vc-accroches h3{margin:2px 4px 8px;font-size:15px}',
+'.vc-accroches p{margin:8px 4px 2px}',
 '.vc-nord svg{transition:transform .2s}',
 '.vc-aide{position:absolute;left:90px;right:72px;bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;background:var(--surface,#fff);border:1px solid var(--line,#C7D1D8);border-radius:12px;box-shadow:0 6px 18px -10px rgba(0,0,0,.35);z-index:4;font-size:15px;line-height:1.3}',
 '.vc-aide>span{flex:1 1 220px}',
@@ -3980,9 +5478,13 @@ var CSS = [
 '.vc-chip{min-height:40px;padding:0 12px;border:1px solid var(--line,#C7D1D8);border-radius:999px;background:var(--surface,#fff);color:inherit;font:inherit;font-size:14.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}',
 '.vc-chip small{font-weight:500;color:var(--muted,#5C6C78)}',
 '.vc-chip[aria-pressed="true"]{background:var(--brand,#0F5C63);border-color:var(--brand,#0F5C63);color:var(--on-brand,#fff)}',
+'.vc-chip.vc-propose{border:2px dashed var(--brand,#0F5C63);padding:0 11px}',
+'.vc-chip:disabled{opacity:.35;cursor:default}',
 '.vc-val{min-width:54px;text-align:center;font-weight:600}',
 '.vc-fixe{margin:2px 0 0;line-height:1.4}',
+'.vc-limplan,.vc-limbt{margin-top:6px}',
 '.vc-in{width:100%;min-height:42px;margin-top:6px;padding:8px 10px;border:1px solid var(--line,#C7D1D8);border-radius:10px;background:var(--surface,#fff);color:inherit;font:inherit;font-size:15px}',
+'.vc-in:disabled{opacity:.5;cursor:default}',
 'textarea.vc-in{resize:vertical}',
 '.vc-sommet{margin:12px 0;padding:10px;border-radius:12px;background:var(--surface-2,#F3F6F8)}',
 '.vc-fact{display:flex;gap:8px;margin-top:18px;padding-top:12px;border-top:1px solid var(--line-2,#DEE5EA)}',
@@ -4024,6 +5526,9 @@ var CSS = [
 '.vc-aidech[aria-pressed="true"]{border-color:var(--brand,#0F5C63);background:var(--brand-soft,#D9ECEB)}',
 '.vc-aidech[aria-pressed="true"] strong::before{content:"✓ ";color:var(--brand,#0F5C63)}',
 '.vc-aimant[aria-pressed="false"]{opacity:.55}',
+'.vc-menu{position:absolute;left:0;top:0;z-index:8;display:flex;flex-direction:column;gap:4px;min-width:200px;padding:6px;background:var(--surface,#fff);border:1px solid var(--line,#C7D1D8);border-radius:14px;box-shadow:var(--shadow,0 18px 50px -22px rgba(9,18,24,.55))}',
+'.vc-menu[hidden]{display:none}',
+'.vc-menu .vc-chip{min-height:44px;justify-content:flex-start;white-space:nowrap}',
 '.vc-toast{position:absolute;left:50%;top:70px;transform:translate(-50%,-12px);max-width:min(560px,calc(100% - 24px));padding:10px 16px;border-radius:12px;background:#1f2a31;color:#fff;font-size:15px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:9;text-align:center}',
 '.vc-toast.on{opacity:1;transform:translate(-50%,0)}',
 '.vc-modal{position:absolute;inset:0;background:var(--scrim,rgba(9,18,24,.5));display:flex;align-items:center;justify-content:center;z-index:10;padding:16px;-webkit-user-select:text;user-select:text;touch-action:auto}',
@@ -4031,8 +5536,14 @@ var CSS = [
 '.vc-mboite h3{margin:0 0 8px;font-size:18px}',
 '.vc-mboite input,.vc-mboite textarea{width:100%;min-height:44px;padding:8px 10px;border:1px solid var(--line,#C7D1D8);border-radius:10px;font:inherit;font-size:16px;background:var(--surface,#fff);color:inherit}',
 '.vc-mact{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:14px}',
+'.vc-bulle-point{position:absolute;left:0;top:0;z-index:8;min-width:44px;min-height:44px;padding:0 16px;border:0;border-radius:999px;background:var(--brand,#0F5C63);color:var(--on-brand,#fff);font:inherit;font-size:16px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;cursor:pointer;box-shadow:var(--shadow,0 18px 50px -22px rgba(9,18,24,.55))}',
+'.vc-bulle-point[hidden]{display:none}',
+'.vc-bulle-point i{position:absolute;top:100%;left:50%;width:0;height:0;margin-left:-8px;border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid var(--brand,#0F5C63)}',
+'.vc-bulle-point.vc-dessous i{top:auto;bottom:100%;border-top:0;border-bottom:8px solid var(--brand,#0F5C63)}',
 '.vc-avecpanneau .vc-nav{right:420px}',
-'.vc-avecpanneau .vc-aide{right:420px}',
+/* paysage, panneau ouvert : la barre d'aide s'arrête à gauche de la barre de navigation, avec le même écart qu'hors panneau (m114) */
+'.vc-avecpanneau .vc-aide{right:482px}',
+'.vc-avecpanneau .vc-accroches{right:474px;width:min(300px,calc(100% - 560px))}',
 '@media (max-width:760px),(orientation:portrait){',
 '  .vc-outils{top:auto;left:0;right:0;bottom:0;width:auto;height:70px;flex-direction:row;border-right:0;border-top:1px solid var(--line,#C7D1D8);overflow-x:auto;overflow-y:hidden}',
 '  .vc-o{min-width:64px;min-height:56px}',
@@ -4042,6 +5553,9 @@ var CSS = [
 '  .vc-panneau{top:auto;left:0;right:0;width:auto;height:min(56%,540px);bottom:0;border-left:0;border-top:1px solid var(--line,#C7D1D8);border-radius:16px 16px 0 0;box-shadow:0 -10px 28px -18px rgba(0,0,0,.45)}',
 '  .vc-avecpanneau .vc-nav{right:10px;bottom:calc(min(56%,540px) + 10px)}',
 '  .vc-avecpanneau .vc-aide{right:64px;bottom:calc(min(56%,540px) + 10px)}',
+'  .vc-accroches{bottom:132px;width:min(300px,calc(100% - 72px))}',
+/* panneau ouvert (en bas) : la largeur du portrait, pas celle du paysage, et jamais sous la barre du haut */
+'  .vc-avecpanneau .vc-accroches{right:64px;bottom:calc(min(56%,540px) + 60px);width:min(300px,calc(100% - 72px));max-height:calc(100% - min(56%,540px) - 126px)}',
 '  .vc-bl span{display:none}',
 '  .vc-sep{display:none}',
 '}',
@@ -4095,6 +5609,16 @@ function couleurTexte(e, an){
   return (an && an.resPt[e.id]) || 'INC';
 }
 function hexRgb(h){ h = h.replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
+/* Escalier sur le papier (G : VCroquis.geo.escalier, ou null : rien), en gris du complément ; papier : point du croquis vers le papier (mm) ;
+   m : mètres par mm de papier. Marches omises sous 1 mm ; contour et flèche toujours. */
+function escalierPdf(pdf, G, papier, m){
+  if (!G) return;
+  var pp = function(q){ return papier(q.x, q.y); }, g = RES.LIM.rgb, F = G.fleche.map(pp), P = G.pointe.map(pp);
+  pdf.setDrawColor(g[0], g[1], g[2]); pdf.setLineWidth(.25); pdf.setLineDashPattern([], 0);
+  polyPdf(pdf, G.contour.map(pp), 'S', true);
+  if (G.pas / m >= 1) G.marches.forEach(function(s){ var a = pp(s[0]), b = pp(s[1]); pdf.line(a.x, a.y, b.x, b.y); });
+  pdf.line(F[0].x, F[0].y, F[1].x, F[1].y); polyPdf(pdf, [P[0], F[1], P[1]], 'S', false);
+}
 function pdfPlan(doc, fond, o){
   o = o || {};
   var mode = o.mode || 'edl', J = global.jspdf.jsPDF, pdf = new J({orientation: 'landscape', unit: 'mm', format: 'a4', compress: true});
@@ -4130,7 +5654,7 @@ function pdfPlan(doc, fond, o){
   var segsP = null, symbP = null, imprimees = [];
   function segsPapier(){
     if (segsP) return segsP; segsP = [];
-    doc.el.forEach(function(l){ if (l.k !== 'ln' || l.v.length < 2 || !montrer(l)) return; var W = lignePts(l, idx).map(function(q){ return papier(q.x, q.y); }); for (var i = 1; i < W.length; i++) segsP.push([W[i - 1].x, W[i - 1].y, W[i].x, W[i].y, l.id]); });
+    doc.el.forEach(function(l){ if (l.k !== 'ln' || l.v.length < 2 || !montrer(l)) return; segmentsTrace(l, idx).forEach(function(sg){ var a = papier(sg[0].x, sg[0].y), b = papier(sg[1].x, sg[1].y); segsP.push([a.x, a.y, b.x, b.y, l.id]); }); });
     return segsP;
   }
   function symbPapier(){
@@ -4189,19 +5713,21 @@ function pdfPlan(doc, fond, o){
     if (e.k !== 'pt' || e.t !== 'zone' || !montrer(e)) return;
     var c = papier(e.x, e.y), r = (num(e.p.r) || 1.5) / m; pdf.setDrawColor(212, 101, 10); pdf.setLineWidth(.25); pdf.setLineDashPattern([1.2, .9], 0); pdf.circle(c.x, c.y, r, 'S'); pdf.setLineDashPattern([], 0);
   });
-  var ordreL = {lim: 0, col: 1, tr: 2};
-  doc.el.filter(function(e){ return e.k === 'ln' && e.v.length >= 2 && montrer(e); }).sort(function(a, b2){ return ordreL[a.t] - ordreL[b2.t]; }).forEach(function(e){
+  /* complément du fond, escalier et tracé d'un type inconnu dessous, puis collecteurs, puis tronçons */
+  doc.el.filter(function(e){ return e.k === 'ln' && e.v.length >= 2 && montrer(e); }).sort(function(a, b2){ return rangTrace(a.t) - rangTrace(b2.t); }).forEach(function(e){
+    if (e.t === 'esc'){ escalierPdf(pdf, geoEscalier(e, idx), papier, m); return; }
     var W = lignePts(e, idx).map(function(p){ return papier(p.x, p.y); }), st = e.p.st || 'existant';
     var morceaux = (parLigne[e.id] || []).map(function(p){ return {pts: W.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
     if (!morceaux.length || e.t !== 'tr') morceaux = [{pts: W, res: resLigne(e, an)}];
-    var larg = e.t === 'col' ? .7 : e.t === 'lim' ? .25 : .45;
+    /* complément du fond et tracé d'un type inconnu : trait neutre, fin, gris, plein */
+    var neutre = !estCanalisation(e.t), larg = e.t === 'col' ? .7 : neutre ? .25 : .45;
     morceaux.forEach(function(mc){
       if (mc.pts.length < 2) return;
-      var res = st === 'projet' ? 'PRJ' : mc.res, c = (RES[res] || RES.INC).rgb;
+      var res = neutre ? 'LIM' : st === 'projet' ? 'PRJ' : mc.res, c = (RES[res] || RES.INC).rgb;
       pdf.setDrawColor(c[0], c[1], c[2]); pdf.setLineWidth(larg);
-      pdf.setLineDashPattern(st === 'projet' ? [3, 1.8] : st === 'presume' || res === 'INC' ? [1.6, 1.2] : [], 0);
+      pdf.setLineDashPattern(neutre ? [] : st === 'projet' ? [3, 1.8] : st === 'presume' || res === 'INC' ? [1.6, 1.2] : [], 0);
       polyPdf(pdf, mc.pts, 'S', false); pdf.setLineDashPattern([], 0);
-      if (st === 'supprimer' && mode === 'avp'){
+      if (st === 'supprimer' && mode === 'avp' && !neutre){
         pdf.setLineWidth(.3); var reste = 1.5;
         for (var i = 1; i < mc.pts.length; i++){ var A = mc.pts[i - 1], B = mc.pts[i], L = Math.hypot(B.x - A.x, B.y - A.y); if (!L || !isFinite(L) || L > 5000) continue; var ux = (B.x - A.x) / L, uy = (B.y - A.y) / L, d = reste; while (d <= L){ var x = A.x + ux * d, y = A.y + uy * d; pdf.line(x - (uy - ux * .6) * 1.1, y + (ux + uy * .6) * 1.1, x + (uy - ux * .6) * 1.1, y - (ux + uy * .6) * 1.1); d += 3; } reste = d - L; }
       }
@@ -4301,6 +5827,13 @@ function pdfPlan(doc, fond, o){
     else if (it.k === 'pt'){ primsPdf(pdf, primitives({k: 'pt', t: it.t, p: defautsPt(it.t)}, it.rgb, 0), X + 7, cy, Math.min(1, (hRow - .6) / (2 * rayonSymbole(it.t)))); }
     else if (it.k === 'bulle'){ pdf.setDrawColor(212, 101, 10); pdf.setFillColor(255, 255, 255); pdf.setLineWidth(.25); pdf.circle(X + 7, cy, 1.7, 'FD'); textePdf(pdf, '1', X + 7, cy, 1.8, 0, {gras: true, coul: [212, 101, 10]}); }
     else if (it.k === 'fleche'){ pdf.setFillColor(80, 80, 80); pdf.triangle(X + 9, cy, X + 6, cy - 1.2, X + 6, cy + 1.2, 'F'); }
+    else if (it.k === 'esc'){
+      /* échantillon : escalier de 8 × 2,4 mm, 4 marches, flèche vers la droite */
+      var g = RES.LIM.rgb; pdf.setDrawColor(g[0], g[1], g[2]); pdf.setLineWidth(.25); pdf.setLineDashPattern([], 0);
+      polyPdf(pdf, [{x: X + 3, y: cy - 1.2}, {x: X + 11, y: cy - 1.2}, {x: X + 11, y: cy + 1.2}, {x: X + 3, y: cy + 1.2}], 'S', true);
+      [5, 7, 9].forEach(function(dx){ pdf.line(X + dx, cy - 1.2, X + dx, cy + 1.2); });
+      pdf.line(X + 3, cy, X + 11, cy); polyPdf(pdf, [{x: X + 9.8, y: cy - .7}, {x: X + 11, y: cy}, {x: X + 9.8, y: cy + .7}], 'S', false);
+    }
     pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7.2); pdf.setTextColor(30, 30, 30); pdf.text(pdfTxt(it.lib), X + 13, cy + 1);
     y += hRow;
   });
@@ -4309,7 +5842,7 @@ function pdfPlan(doc, fond, o){
   pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.setTextColor(140, 140, 140); pdf.text(pdfTxt(VC.signature || ''), 290, 205, {align: 'right'});
   /* page 2 */
   pdf.addPage('a4', 'landscape');
-  pageTableaux(pdf, doc, an, liste, mode, ext, oL);
+  pageTableaux(pdf, doc, an, liste, mode, ext, oL, o.conclusionConstat);
   var nb = pdf.getNumberOfPages();
   for (var pg = 1; pg <= nb; pg++){ pdf.setPage(pg); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.setTextColor(140, 140, 140); pdf.text('Page ' + pg + ' / ' + nb, 7, 205); }
   return pdf.output('blob');
@@ -4321,12 +5854,15 @@ function legende(doc, an, mode, ext, oL){
     if (e.k === 'ln'){
       if (e.t === 'col'){ var k = 'col' + e.p.res; if (!vus[k]){ vus[k] = 1; out.push({k: 'ln', res: e.p.res, col: true, lib: 'Collecteur ' + libRes(e.p.res), o: 0}); } return; }
       if (e.t === 'lim') { if (!vus.lim){ vus.lim = 1; out.push({k: 'ln', res: 'LIM', lib: 'Complément du fond', o: 9}); } return; }
+      /* escalier : une ligne s'il est dessiné ; tracé d'un type inconnu : aucune ligne */
+      if (e.t === 'esc'){ if (!vus.esc && geoEscalier(e, indexDoc(doc))){ vus.esc = 1; out.push({k: 'esc', lib: 'Escalier', o: 10}); } return; }
+      if (!estCanalisation(e.t)) return;
       var r = e.p.st === 'projet' ? 'PRJ' : resLigne(e, an);
       if (e.p.st === 'presume') st.presume = 1; if (e.p.st === 'supprimer' && mode === 'avp') st.supprimer = 1;
       if (/^(EU|EP|UN|INC|MIX|PRJ)$/.test(r) && !vus['l' + r]){ vus['l' + r] = 1; out.push({k: 'ln', res: r, lib: r === 'PRJ' ? 'Canalisation projetée' : r === 'INC' ? 'Réseau non déterminé' : r === 'MIX' ? 'Plusieurs réseaux atteints' : 'Canalisation ' + libRes(r) + (r === 'UN' ? '' : ' (' + RES[r].nom + ')'), o: 1}); }
       return;
     }
-    if (e.k === 'pt' && e.t !== 'jonction' && !vus[e.t]){ vus[e.t] = 1; out.push({k: 'pt', t: e.t, rgb: couleurPt(Object.assign({}, e, {p: Object.assign({}, e.p, {st: 'existant'})}), an), lib: T[e.t].lib + (T[e.t].ab && T[e.t].ab !== T[e.t].lib ? ' (' + T[e.t].ab + ')' : ''), o: 3}); }
+    if (e.k === 'pt' && e.t !== 'jonction' && T[e.t] && !vus[e.t]){ vus[e.t] = 1; out.push({k: 'pt', t: e.t, rgb: couleurPt(Object.assign({}, e, {p: Object.assign({}, e.p, {st: 'existant'})}), an), lib: T[e.t].lib + (T[e.t].ab && T[e.t].ab !== T[e.t].lib ? ' (' + T[e.t].ab + ')' : ''), o: 3}); }
   });
   if (st.presume) out.push({k: 'ln', res: 'INC', st: 'presume', lib: 'Tracé présumé (tirets)', o: 2});
   if (st.supprimer) out.push({k: 'ln', res: 'INC', st: 'supprimer', lib: 'Tracé barré : à supprimer', o: 2});
@@ -4365,7 +5901,7 @@ function libEquipement(e){
 }
 /* ligne des plans PDF hors de l'éditeur quand le dessin retient n anomalies que la liste du dossier n'a pas encore (croquis à rouvrir) */
 function texteAReprendre(n){ return 'À reprendre : le croquis retient ' + (n > 1 ? n + ' anomalies absentes' : 'une anomalie absente') + ' de la liste du dossier (rouvrir le croquis)'; }
-function pageTableaux(pdf, doc, an, liste, mode, ext, oL){
+function pageTableaux(pdf, doc, an, liste, mode, ext, oL, conclC){
   var y = 10, ret = liste.filter(function(a){ return a.st === 'retenue'; }), idx = indexDoc(doc);
   /* hors de l'éditeur : anomalies que le dessin retient et que la liste du dossier n'a pas encore (croquis à rouvrir), quelle que soit la
      conclusion (une NC déjà retenue n'en dispense pas) */
@@ -4400,10 +5936,12 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL){
       var nums = ret.filter(function(a){ return a.objId === e.id; }).map(function(a){ return a.num; }), hdObj = hors.some(function(a){ return a.objId === e.id; });
       return {cells: [libEquipement(e), NIV_LIB[e.p.niv] || '', rej + (nums.length ? ' · anomalie n° ' + nums.join(', ') : '') + (hdObj ? ' · anomalie à reprendre' : ''), methLib(e.p.meth) || 'non indiquée', e.p.obs || ''], coul: [null, null, nums.length || hdObj ? [180, 35, 24] : null]};
     }) : [{cells: ['Aucun équipement dessiné.', '', '', '', '']}], 'Équipements, rejets et méthodes de contrôle');
-  var c = conclusion(liste, an);
+  /* la conclusion que le technicien a choisie dans le constat du dossier, ou celle qu'atteste le constat signé (conclusionConstat de pdfPlan,
+     donnée par l'hôte), sinon celle que le dessin propose (décision du 7 novembre 2026) */
+  var c = conclusion(liste, an), cc = /^(conformes|non_conformes|reserves)$/.test(conclC || '') ? conclC : '';
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10.5); pdf.setTextColor(20, 20, 20);
   if (y > 190){ pdf.addPage('a4', 'landscape'); y = 14; }
-  pdf.text(pdfTxt('Conclusion proposée : ' + (CONCL[c] || 'sans objet')), 10, y);
+  pdf.text(pdfTxt(cc ? 'Conclusion du constat : ' + CONCL[cc] : 'Conclusion proposée : ' + (CONCL[c] || 'sans objet')), 10, y);
 }
 VC.pdfPlan = pdfPlan;
 
@@ -4432,9 +5970,11 @@ function ecrireDxf(doc, an, liste){
   function X(x){ return f(x / u + O.x); } function Y(y){ return f(y / u + O.y); }
   var mu = m / u;
   var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  doc.el.forEach(function(e){ var P = e.k === 'ln' ? lignePts(e, idx) : [{x: e.x, y: e.y}]; P.forEach(function(p){ x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }); });
+  doc.el.forEach(function(e){ var P = e.k === 'ln' ? coinsTrace(e, idx) : [{x: e.x, y: e.y}]; P.forEach(function(p){ x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }); });
   if (x0 === Infinity){ x0 = y0 = 0; x1 = y1 = 1; }
   var CAL = {'VEDE-EU': 1, 'VEDE-EP': 3, 'VEDE-UNITAIRE': 6, 'VEDE-RESEAU-A-PRECISER': 8, 'VEDE-PROJET': 5, 'VEDE-A-SUPPRIMER': 8, 'VEDE-COLLECTEURS': 7, 'VEDE-SYMBOLES': 7, 'VEDE-ETIQUETTES': 7, 'VEDE-ANOMALIES': 30, 'VEDE-ANNOTATIONS': 30, 'VEDE-COMPLEMENT-FOND': 7, 'VEDE-ECOULEMENT': 8};
+  /* calque des escaliers (gris 8), déclaré seulement s'il sert */
+  if (doc.el.some(function(e){ return e.k === 'ln' && e.t === 'esc' && !!geoEscalier(e, idx); })) CAL['VEDE-ESCALIERS'] = 8;
   function calRes(r){ return r === 'EU' ? 'VEDE-EU' : r === 'EP' ? 'VEDE-EP' : r === 'UN' ? 'VEDE-UNITAIRE' : r === 'PRJ' ? 'VEDE-PROJET' : 'VEDE-RESEAU-A-PRECISER'; }
   /* en-tête */
   g(0, 'SECTION'); g(2, 'HEADER');
@@ -4458,7 +5998,8 @@ function ecrireDxf(doc, an, liste){
   g(0, 'ENDTAB');
   g(0, 'ENDSEC');
   /* blocs : un par type de symbole utilisé, en millimètres papier, couleur « du bloc » */
-  var types = {}; doc.el.forEach(function(e){ if (e.k === 'pt' && e.t !== 'zone' && T[e.t]) types[e.t] = true; });
+  /* objet d'un type inconnu (croquis d'une version plus récente) : bloc neutre VEDE_OBJET (un cercle) */
+  var types = {}; doc.el.forEach(function(e){ if (e.k === 'pt' && e.t !== 'zone') types[T[e.t] ? e.t : 'objet'] = true; });
   g(0, 'SECTION'); g(2, 'BLOCKS');
   Object.keys(types).forEach(function(t){
     g(0, 'BLOCK'); g(8, '0'); g(2, 'VEDE_' + t.toUpperCase()); g(70, 0); g(10, '0.0'); g(20, '0.0'); g(30, '0.0'); g(3, 'VEDE_' + t.toUpperCase());
@@ -4490,6 +6031,7 @@ function ecrireDxf(doc, an, liste){
     P.forEach(function(p){ g(0, 'VERTEX'); g(8, cal); g(10, X(p.x)); g(20, Y(p.y)); g(30, '0.0'); });
     g(0, 'SEQEND'); g(8, cal);
   }
+  function ligne(a, b, cal){ g(0, 'LINE'); g(8, cal); g(10, X(a.x)); g(20, Y(a.y)); g(30, '0.0'); g(11, X(b.x)); g(21, Y(b.y)); g(31, '0.0'); }
   function texte(s, x, y, h, cal, col, ang){
     String(s).split('\n').forEach(function(l, i, A){
       var dy = ((A.length - 1) / 2 - i) * h * 1.6, p = depuisPlan(0, dy, rot), px = x + p.x, py = y + p.y;
@@ -4500,8 +6042,17 @@ function ecrireDxf(doc, an, liste){
   doc.el.forEach(function(e){
     if (e.k !== 'ln' || e.v.length < 2) return;
     var P = lignePts(e, idx), st = e.p.st || 'existant';
+    /* escalier : contour en polyligne fermée, marches et flèche en lignes, à l'échelle réelle (toutes les marches) ; valeurs illisibles : rien */
+    if (e.t === 'esc'){
+      var G = geoEscalier(e, idx); if (!G) return;
+      poly(G.contour, 'VEDE-ESCALIERS', {ferme: true});
+      G.marches.concat([G.fleche, [G.fleche[1], G.pointe[0]], [G.fleche[1], G.pointe[1]]]).forEach(function(sg){ ligne(sg[0], sg[1], 'VEDE-ESCALIERS'); });
+      return;
+    }
     if (e.t === 'lim'){ poly(P, 'VEDE-COMPLEMENT-FOND'); return; }
     if (e.t === 'col'){ poly(P, 'VEDE-COLLECTEURS', {col: (RES[e.p.res] || RES.EU).aci, larg: .6 * m}); return; }
+    /* tracé d'un type inconnu : trait neutre sur le calque 0 */
+    if (!estCanalisation(e.t)){ poly(P, '0'); return; }
     if (st === 'projet'){ poly(P, 'VEDE-PROJET', {lt: 'VEDE_PROJET'}); return; }
     var ms = (parLigne[e.id] || []).map(function(p){ return {pts: P.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
     if (!ms.length) ms = [{pts: P, res: resLigne(e, an)}];
@@ -4521,8 +6072,8 @@ function ecrireDxf(doc, an, liste){
     if (e.k !== 'pt') return;
     if (e.t === 'zone'){ g(0, 'CIRCLE'); g(8, 'VEDE-ANNOTATIONS'); g(10, X(e.x)); g(20, Y(e.y)); g(30, '0.0'); g(40, f((num(e.p.r) || 1.5) / u)); return; }
     var rgb = couleurPt(e, an), aci = 7; Object.keys(RES).forEach(function(k){ if (RES[k].rgb === rgb) aci = RES[k].aci; });
-    g(0, 'INSERT'); g(8, e.p.st === 'projet' ? 'VEDE-PROJET' : e.p.st === 'supprimer' ? 'VEDE-A-SUPPRIMER' : 'VEDE-SYMBOLES'); g(62, aci); g(2, 'VEDE_' + e.t.toUpperCase());
-    g(10, X(e.x)); g(20, Y(e.y)); g(30, '0.0'); g(41, f(mu)); g(42, f(mu)); g(43, f(mu)); g(50, f(T[e.t].oriente ? (e.p.a || 0) : rotDeg));
+    g(0, 'INSERT'); g(8, e.p.st === 'projet' ? 'VEDE-PROJET' : e.p.st === 'supprimer' ? 'VEDE-A-SUPPRIMER' : 'VEDE-SYMBOLES'); g(62, aci); g(2, 'VEDE_' + (T[e.t] ? e.t : 'objet').toUpperCase());
+    g(10, X(e.x)); g(20, Y(e.y)); g(30, '0.0'); g(41, f(mu)); g(42, f(mu)); g(43, f(mu)); g(50, f((T[e.t] || {}).oriente ? (e.p.a || 0) : rotDeg));
   });
   doc.el.forEach(function(e){
     var libre = e.k === 'tx', txt = libre ? e.txt : texteEtiquette(e, an);
