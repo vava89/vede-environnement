@@ -1,9 +1,10 @@
 # Conception du lot « Rejets » (v1.7.1, souhaits 2, 3, 4)
 
 Établie le 8 nov. 2026 sur 52cd3c8 (code de la v1.7.0), point de départ de m116 ; révisée les 13 et 14 nov. (puits NC ; réponses et consignes du 13
-nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m120 (envoyés : 8f9094d, ab926ec, 6df324c,
-a5a5d05, 7a6c041) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du code : `carte-*.md` (8 nov. ; le puits y est
-encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js, IX = index.html ; vm/ et navigateur/ sont sous tests/.
+nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m121 (envoyés : 8f9094d, ab926ec, 6df324c,
+a5a5d05, 7a6c041, b562636) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du code : `carte-*.md` (8 nov. ; le puits
+y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js, IX = index.html ; vm/ et navigateur/ sont sous
+tests/.
 
 ## Réponses de l'utilisateur (7 et 13 nov. 2026)
 - Décision du 13 nov., mot pour mot : « Un rejet EP dans un puits est une non conformité. » (`.claude/etat-travaux.md`, l. 8 ; CLAUDE.md, l. 17).
@@ -339,7 +340,7 @@ encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = c
 ## Découpage (m116 à m129 ; quatorze correctifs, batterie verte après chacun)
 Ordre : le commun, sans changement visible (m116) ; l'infiltration (m117, m118) ; l'arbitrage, règle générale, juste après m118 (m119) ; le puits
 (m120) ; les drains (m121 à m124) ; les destinations (m125 à m128), la palette après l'analyse et le rendu ; le cas limite des drains, après la
-réponse à Q6 (m129). m116 à m120 sont envoyés : leur fiche ne change plus. Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js reste vert
+réponse à Q6 (m129). m116 à m121 sont envoyés : leur fiche ne change plus. Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js reste vert
 partout ; tests/LISEZMOI.md suit chaque test ajouté. Dès m117, poser un objet nouveau demande des tablettes à jour (D11). Après m129 : 14 correctifs
 depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
 
@@ -424,22 +425,20 @@ depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
   - Risques : symbole proche de celui du puisard sur l'A4 (0,25 mm de blanc entre les traits, contre 0,75) [p, à signaler] ; code MILIEU en EP [p] ;
     un nom qui contient « puits » est refusé à une destination (m127, D3) ; un fichier fait à la main qui en garde un suit sa fiche ; ep-puits hors du
     futur barème des Réglages, ou montrée verrouillée [p].
-- **m121 Drains (1) : champ, fiche, peigne, légende, DXF** (souhait 4, 1re partie du cadrage, l. 157 ; Q2 a ; D4, D8, D9).
-  - Fichiers (CJ) : defautsLn ; fiche du tronçon (CJ:4900-4911 : puces « Drain » ; puces Réseau masquées sur un drain d'infiltration) ; peigne à
-    l'écran et au PDF ; légende et échantillons (CJ:5823-5836) ; ecrireDxf ; nomTrace. vm/charger.js : une ligne de doc() prend un 7e champ
-    facultatif, des propriétés ({drain: 'collecte'}), car p y est rebâti (l. 37-39).
-  - Pour l'utilisateur : la fiche d'un tronçon propose « Drain : non, collecte, infiltration » ; « Collecte » met en EP un tronçon sans réseau ;
-    « Infiltration » le laisse sans réseau (il disperse dans le sol). Le drain prend un peigne à l'écran, au PDF et au DXF, d'un côté (collecte) ou
-    des deux (infiltration) ; la légende dit « Drain » ou « Drain d'infiltration ». Jusqu'à m122 et m123, il s'analyse comme un tronçon.
-  - Test : nouveau vm/drain.js (tests/tout.sh:14) : d1 defautsLn garde 'collecte' et 'infiltration', écarte toute autre valeur, ne change pas un
-    tronçon sans drain (échoue avant : p.drain perdu) ; d2 sur le canevas factice, environ L / 1 m dents, toutes à droite du tracé pour la collecte,
-    des deux côtés pour l'infiltration ; d3 de même au PDF ; d4 DXF : VEDE-DRAINS déclaré seulement avec un drain, polyligne dessus, nombre de LINE,
-    drain « projet » et « à supprimer » sur leur calque ; d5 légende : « Drain » et « Drain d'infiltration » une fois chacune. Nouveau
-    navigateur/drain.js (tests/tout.sh:19) : f1 « Collecte » pose p.drain 'collecte' et p.res 'EP' en un pas d'annulation ; Réseau EU puis Déduit
-    gardent p.drain ; « Infiltration » pose 'infiltration' et p.res '', sans puces Réseau ; « Collecte » y remet EP ; « Non » retire p.drain et garde
-    p.res.
-  - Risques : fiche du tronçon plus haute (navigateur/mise-en-page.js) [p] ; légende qui déborde du cadre [p] ; au 1/500, 1 m = 2 mm, peigne serré
-    [p] ; unité du fond (u) au DXF ; peigne et hachures sur un drain « à supprimer ».
+- **m121 Drains (1) : champ, fiche, peigne, légende, DXF** (souhait 4, 1re partie du cadrage, l. 157 ; Q2 a ; D4, D8, D9). Fait : b562636, 14 nov.
+  - Fichiers (CJ) : sorteDrain, drainDe, nomTrace(t, p), defautsLn ; fiche du tronçon (puces « Drain », action 'drain', puces Réseau masquées sur un
+    drain d'infiltration) ; dentsPeigne (peigne du tracé entier) et dentsPiece (ses dents, pièce par pièce) à l'écran, au PDF et au DXF ; légende et
+    échantillon ; ecrireDxf (VEDE-DRAINS ; ligne et dentsDxf prennent un type de ligne). vm/charger.js : 7e champ de doc().
+  - Pour l'utilisateur : puces « Drain : Non, Collecte, Infiltration », en un pas d'annulation ; « Collecte » met en EP un tronçon « Déduit » (EU, EP,
+    unitaire gardés) ; « Infiltration » le laisse sans réseau ; « Non » garde le réseau. Peigne : une dent de 0,4 m par mètre, à droite (collecte) ou
+    des deux côtés, aux mêmes places à l'écran, au DXF et au PDF jusqu'au 1/500 (au-delà, une dent tous les 2 mm sur le papier) ; le pas ne repart pas
+    à un regard. Légende : « Drain », « Drain d'infiltration ». DXF : VEDE-DRAINS (3) s'il sert ; un drain projet ou à supprimer reste sur son calque,
+    dents en trait plein. Jusqu'à m122 et m123, il s'analyse comme un tronçon.
+  - Tests : vm/drain.js d1 à d5 (36 cas, 8 passent avant) ; navigateur/drain.js f1 (12 cas, 3 avant).
+  - Garde : compat.js 245/245 sans régénération ; aléatoire 8000 contre la version d'avant : aucune exception, aucun écart ; sonde de rendu sans drain
+    (écran, PDF, DXF) : 217 comparaisons, aucun écart.
+  - Risques : fiche du tronçon plus haute [p] ; légende qui peut déborder du cadre [p] ; à l'écran, pas sans minimum en pixels [p] ; gris 8 du drain
+    d'infiltration au DXF jusqu'à m122 (3, D9) ; peigne et hachures sur un drain « à supprimer ».
 - **m122 Drains (2) : drain d'infiltration, exutoire linéaire, étiquette** (consigne du 13 nov. ; D1, D4, D5, D7, D8).
   - Fichiers (CJ) : EXU.DISP ; analyser (sommets tenus vers 'D:<id>', segments hors des pièces, comme le collecteur ; resPt 'EP' d'un objet tenu,
     pendant de CJ:1292) et terminal ; lecteurs de 'C:' relus (CJ:1106, 4045) ; resLigne ; texteEtiquette ; controles (bouts sautés) ; raccInfo,
