@@ -1,10 +1,10 @@
 # Conception du lot « Rejets » (v1.7.1, souhaits 2, 3, 4)
 
 Établie le 8 nov. 2026 sur 52cd3c8 (code de la v1.7.0), point de départ de m116 ; révisée les 13 et 14 nov. (puits NC ; réponses et consignes du 13
-nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m122 (envoyés : 8f9094d, ab926ec, 6df324c,
-a5a5d05, 7a6c041, b562636, bd16bb9) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du code : `carte-*.md` (8 nov. ;
-le puits y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js, IX = index.html ; vm/ et navigateur/
-sont sous tests/.
+nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m123 (envoyés : 8f9094d, ab926ec, 6df324c,
+a5a5d05, 7a6c041, b562636, bd16bb9, d036ee1) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du code : `carte-*.md`
+(8 nov. ; le puits y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js, IX = index.html ; vm/ et
+navigateur/ sont sous tests/.
 
 ## Réponses de l'utilisateur (7 et 13 nov. 2026)
 - Décision du 13 nov., mot pour mot : « Un rejet EP dans un puits est une non conformité. » (`.claude/etat-travaux.md`, l. 8 ; CLAUDE.md, l. 17).
@@ -106,9 +106,10 @@ sont sous tests/.
   - Drain de collecte (il recueille l'eau du sol) :
     - tuyau EP : l'outil le trace en p.res 'EP' (puce « Collecte » : ci-dessus). Sortie non dessinée : réseau EP présumé au bout libre (CJ:1210-1220),
       sans message, comme un « Tronçon EP » (Q3 b) ;
-    - source linéaire (Q4 b) : analysé depuis un nœud virtuel 'dr:<id>' relié à ses deux bouts, ou au seul bout aval si p.sens est donné ; son
-      résultat est rangé sous l'id du tracé dans an.resObj et lu comme un point « Drain » (T.drain, CJ:797 : source EP, ligne « Autres : Drain ») par
-      srcObj(an, id) (sonde `sonde-q4-drain-source.js`, variante 2 : aucun écart sur 800 analyses tirées) ;
+    - source linéaire (Q4 b) : analysé depuis un nœud virtuel 'dr:<id>' relié à chacun de ses nœuds (bouts, regards, raccords), sauf son bout
+      amont si p.sens est donné (relecture de m123 : relié à ses seuls bouts, un drain orienté cachait la sortie d'un regard ou d'un raccord du
+      milieu) ; son résultat est rangé sous l'id du tracé dans an.resObj et lu comme un point « Drain » (T.drain, CJ:797 : source EP, ligne
+      « Autres : Drain ») par srcObj(an, id) (sonde `sonde-q4-drain-source.js`, variante 2 : aucun écart sur 800 analyses tirées) ;
     - pas de double compte : un drain dont un sommet tient un point « Drain » ne compte pas, le point compte ; ce point n'est pas un équipement
       relié : il prend le résultat du drain (Q3 b), quelle que soit la réponse à Q6 ; un point « Drain » seul compte comme aujourd'hui (décision du 6
       nov. : compter ce que l'opérateur a dessiné).
@@ -340,7 +341,7 @@ sont sous tests/.
 ## Découpage (m116 à m129 ; quatorze correctifs, batterie verte après chacun)
 Ordre : le commun, sans changement visible (m116) ; l'infiltration (m117, m118) ; l'arbitrage, règle générale, juste après m118 (m119) ; le puits
 (m120) ; les drains (m121 à m124) ; les destinations (m125 à m128), la palette après l'analyse et le rendu ; les cas limites des drains, après les
-réponses à Q6 et Q7 (m129). m116 à m122 sont envoyés : leur fiche ne change plus. Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js
+réponses à Q6 et Q7 (m129). m116 à m123 sont envoyés : leur fiche ne change plus. Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js
 reste vert partout ; tests/LISEZMOI.md suit chaque test ajouté. Dès m117, poser un objet nouveau demande des tablettes à jour (D11). Après m129 : 14
 correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
 
@@ -453,19 +454,21 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     hors des sources qui atteignent un drain, aucun exutoire perdu ni NC disparue.
   - Risques : « multiple » qu'aucun sens vrai ne lève ; WC relié par le drain au réseau EU : « multiple », pas NC (Q7) ; « Tronçon EU : le dessin le
     relie à réseau EP » vers SOL, PUITS, DISP (mineur reporté, depuis m117) ; p.res 'EP' fait à la main ignoré [p] ; v1.7.0 : tronçon sans exutoire.
-- **m123 Drains (3) : drain de collecte, source linéaire, constat** (Q3 b, Q4 b ; D4, D6, D7).
-  - Fichiers (CJ) : analyser (nœud 'dr:<id>' et pièces virtuelles : variante 2 de la sonde `sonde-q4-drain-source.js`) ; srcObj et ses lecteurs
-    (resObj, fiche, constat, page 2 du PDF) ; controles (bouts sautés ; sources parcourues par srcObj : méthode, sansexu et multiple d'un drain, nommé
-    « Drain ») ; constatDeduit (« Autres : Drain », méthodes p.meth) ; fiche du tronçon (méthodes d'un drain de collecte). vm/constat.js (garde :
-    chaque point « Drain » compte). croquis/LISEZMOI.txt.
-  - Pour l'utilisateur : chaque drain de collecte compte au constat (« Autres : Drain »), sans point à poser ; sa sortie non dessinée est présumée au
-    réseau EP, sans message ; jusqu'à m129, un équipement qui y est relié y est présumé aussi (Q6).
-  - Test (vm/drain.js) : d10 drain de collecte seul (p.res 'EP', bouts libres) : ok, EP présumé, a [], 'conformes', aucun contrôle 'libre:<drain>',
-    une ligne « Autres : Drain », « Réseau EP départemental (présumé) », « oui » (échoue sur m122 : aucune ligne, contrôle 'libre') ; « Déduit »
-    (p.res '') : sansexu, contrôle « Drain : exutoire non dessiné », 'incomplet' ; d11 vers un puisard : case puisard ; vers un Tronçon EU et une
-    boîte EU : ep-eu NC, 'non_conformes' ; d12 un point « Drain » sur un sommet : une seule ligne, 's=ok:EP', presume true, 'conformes', aucune aide
-    ni 'manque' ; d13 témoin : 800 analyses tirées, aucun écart sur les sources ponctuelles ni sur les pièces.
-  - Risques : un lecteur qui suppose un objet (an.objs[id]) ; double compte avec un point « Drain » ; p.sens d'un drain [p].
+- **m123 Drains (3) : drain de collecte, source linéaire, constat** (Q3 b, Q4 b ; D4, D6, D7). Fait : d036ee1, 14 nov.
+  - Fichiers (CJ) : drainSource, srcObj (VCroquis.srcObj) ; analyser (nœud 'dr:<id>' relié par des pièces virt à chacun de ses nœuds, sauf le bout
+    amont d'un drain orienté, retirées après son analyse ; nbPieces ; resVers vidé ; pas de noterSens) ; reglesAnomalies (« pas de boîte » : point
+    source d'abord) ; fosseArbitrage ; controles (source(), « contredit » par nomTrace, pas d'« extrémité libre » sur un drain) ; constatDeduit ;
+    ficheHtml (puces « Méthode de test ») ; pageTableaux (page 2, avant-projet). Les trois LISEZMOI.
+  - Pour l'utilisateur : chaque drain de collecte compte au constat (« Autres : Drain »), avec sa méthode de test ; sortie non dessinée : réseau du
+    tracé (EP présumé, sans message ; « Déduit » : exutoire non dessiné) ; règles d'une source EP (puisard, sol, drain d'infiltration : conformes ;
+    EU, puits : NC ; deux exutoires : « multiple ») ; un point « Drain » du plan affiché sur un sommet compte seul ; « Drain EP : le dessin le relie à
+    réseau EU ».
+  - Tests : vm/drain.js d10 à d15, g1 repris (fixe() seul), d5 (légende de la page 1) : 90 cas, 64 passent avant ; vm/constat.js : 23 cas, 21 avant ;
+    navigateur/drain.js f2 : 21 cas, 17 avant.
+  - Garde : compat.js 245/245 sans régénération ; aléatoire 8000 contre avant : aucun écart ; sonde, 400 tirages (1 354 tronçons en drain de
+    collecte) : aucune exception, aucun écart sur les sources ponctuelles ni sur les pièces.
+  - Risques : bout amont d'un drain orienté sans son eau [p] ; aucun drain tiré n'a de nœud au milieu (d14 seul couvre la relecture ; m124) ; un drain
+    au réseau « EU » indiqué : NC (présumé).
 - **m124 Drains (4) : outils, générateur, documentation** (souhait 4, 2e et 3e parties du cadrage ; D10).
   - Fichiers : CJ OUTILS_LN, PALETTES.tr, drainSvg, aide, terminerTrace et ajouterPointTrace (toast, prolongation), fa.lp. vm/generateur.js : option
     `drains` (sans tirage de plus quand elle manque), passée par aleatoire.js. LISEZMOI.txt (mode d'emploi des drains, consigne de D11).
