@@ -793,7 +793,12 @@ var EXU = {
   PUITS: {lib: 'puits', res: 'EP',
     eu: {cle: 'eu-puits', obs: 'rejet dans un puits', preco: 'Suppression du rejet dans le puits et raccordement au branchement EU', nc: true, codes: ['raccEUsep'], cat: 'inversion'},
     ep: {cle: 'ep-puits', obs: 'rejet dans un puits', preco: 'Suppression du rejet dans le puits ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['gestEP'], cat: 'autre'},
-    cEU: {code: 'MILIEU', lib: 'Puits : rejet en milieu naturel'}, cEP: {code: 'MILIEU', lib: 'Puits : rejet en milieu naturel'}}
+    cEU: {code: 'MILIEU', lib: 'Puits : rejet en milieu naturel'}, cEP: {code: 'MILIEU', lib: 'Puits : rejet en milieu naturel'}},
+  /* drain d'infiltration (m122) : exutoire linéaire, qui disperse les eaux dans le sol (gestion des EP à la parcelle, décision du 13 nov.
+     2026) ; EU non conforme, comme l'infiltration au sol ; au constat, la case « Infiltration diffuse » */
+  DISP: {lib: 'dispersion dans le sol', res: 'EP',
+    eu: {cle: 'eu-sol', obs: 'rejet au sol (infiltration)', preco: 'Suppression du rejet au sol et raccordement au branchement EU', nc: true, codes: ['suppMilieu'], cat: 'inversion'},
+    cEU: {code: 'MILIEU', lib: 'Drain d\'infiltration : rejet au sol (milieu naturel)'}, cEP: {code: '', lib: 'Drain d\'infiltration (dispersion dans le sol)', recup: 'infil'}}
 };
 /* code d'un rejet : la partie avant le premier « : », sinon le rejet entier */
 function codeExu(res){ var s = res == null ? '' : String(res), i = s.indexOf(':'); return i >= 0 ? s.slice(0, i) : s; }
@@ -977,9 +982,11 @@ function actif(e, mode){ var st = e.p && e.p.st; if (mode === 'avp') return st !
 VC.vpos = vpos; VC.lignePts = lignePts; VC.longueur = longueur; VC.indexDoc = indexDoc;
 
 /* ---------- Déduction du réseau, anomalies, contrôles ----------
-   Graphe : nœuds = objets ponctuels actifs, extrémités libres des tronçons (x:ligne:i) et un nœud terminal par collecteur (C:ligne).
-   Une pièce relie deux sommets attachés successifs d'un tronçon. Exutoires (terminaux) : collecteur, puisard, gargouille, milieu naturel,
-   boîte de branchement dont le réseau est indiqué. Tout autre objet est traversé. Un tronçon orienté (p.sens) ne se remonte pas. */
+   Graphe : nœuds = objets ponctuels actifs, extrémités libres des tronçons (x:ligne:i) et un nœud terminal par collecteur (C:ligne) et
+   par drain d'infiltration (D:ligne).
+   Une pièce relie deux sommets attachés successifs d'un tronçon. Exutoires (terminaux) : collecteur, drain d'infiltration, puisard,
+   gargouille, milieu naturel, boîte de branchement dont le réseau est indiqué. Tout autre objet est traversé. Un tronçon orienté (p.sens)
+   ne se remonte pas. */
 function analyser(doc, mode){
   mode = mode || 'edl';
   var idx = indexDoc(doc), objs = {}, lignes = {}, adj = {}, pieces = [];
@@ -1002,6 +1009,16 @@ function analyser(doc, mode){
     l.v.forEach(function(v, i){ if (v.a && ((objs[v.a] && !raccordDePassage(l, i)) || (noeud(l, i).indexOf('h:') === 0 && (i === 0 || i === l.v.length - 1 || Object.keys(tenuPar[v.a]).length > 1)))) att.push(i); });
     if (l.t === 'col'){ att.forEach(function(i){ var p = {id: id + ':c' + i, l: l, a: noeud(l, i), b: 'C:' + id, col: true, i0: i, i1: i, sens: 0}; lier(p.a, p); lier(p.b, p); }); return; }
     if (l.v.length < 2) return;
+    /* drain d'infiltration (m122) : exutoire linéaire, comme le collecteur ; chaque sommet tenu mène au nœud terminal 'D:<id>' ; ses
+       segments ne sont pas des pièces et ses bouts libres ne sont pas des nœuds (aucun exutoire n'est attendu après lui). Comme celles du
+       collecteur (col), ces pièces ne sont pas des tuyaux : leur réseau ne compte pas. Ses sommets tenus se suivent aussi par des liens de
+       même sorte : ce qu'il tient (puits, boîte, puisard) et un tuyau qui part d'un de ses sommets restent vus de toute source qui
+       l'atteint, par n'importe quel sommet (deux exutoires : « multiple »). Ces liens n'ont pas de sens : l'analyse ne lit pas son p.sens */
+    if (drainDe(l) === 'infiltration'){
+      att.forEach(function(i){ var p = {id: id + ':d' + i, l: l, a: noeud(l, i), b: 'D:' + id, col: true, i0: i, i1: i, sens: 0}; lier(p.a, p); lier(p.b, p); });
+      for (var k = 0; k + 1 < att.length; k++){ var q = {id: id + ':e' + att[k], l: l, a: noeud(l, att[k]), b: noeud(l, att[k + 1]), col: true, i0: att[k], i1: att[k + 1], sens: 0}; lier(q.a, q); lier(q.b, q); }
+      return;
+    }
     var b = att.slice(); if (b[0] !== 0) b.unshift(0); if (b[b.length - 1] !== l.v.length - 1) b.push(l.v.length - 1);
     for (var k = 0; k + 1 < b.length; k++){
       var p = {id: id + ':' + b[k], l: l, a: noeud(l, b[k]), b: noeud(l, b[k + 1]), i0: b[k], i1: b[k + 1], sens: l.p.sens === 1 || l.p.sens === -1 ? l.p.sens : 0};
@@ -1010,6 +1027,8 @@ function analyser(doc, mode){
   });
   function terminal(n){
     if (n.indexOf('C:') === 0){ var l = lignes[n.slice(2)]; return l ? {res: RES[l.p.res] ? l.p.res : 'EU', gest: l.p.gest || 'D', via: 'collecteur', id: l.id, col: true} : null; }
+    /* drain d'infiltration (m122) : rejet « dispersion dans le sol », quel que soit p.res */
+    if (n.indexOf('D:') === 0){ var ld = lignes[n.slice(2)]; return ld ? {res: 'DISP', via: 'drain', id: ld.id} : null; }
     var o = objs[n], ty = o && T[o.t]; if (!ty) return null;
     if (ty.exu) return {res: ty.exu, via: o.t, id: o.id};
     if (ty.boite && /^(EU|EP|UN)$/.test(o.p.res || '')) return {res: o.p.res, via: 'boite', id: o.id, boite: true};
@@ -1156,8 +1175,10 @@ function analyser(doc, mode){
     return ok[0] || null;
   }
   /* Gestionnaire et cohérence des boîtes au réseau indiqué : collecteurs atteints au-delà de la boîte */
-  /* le collecteur le plus proche de la boîte, en traversant les autres boîtes (boîte intérieure puis boîte en limite) */
-  function terminalCollecteur(n){ if (n.indexOf('C:') === 0) return terminal(n); var ob = objs[n], tt = ob && T[ob.t]; return tt && tt.exu ? terminal(n) : null; }
+  /* le collecteur le plus proche de la boîte, en traversant les autres boîtes (boîte intérieure puis boîte en limite) ; le nœud 'D:' d'un
+     drain d'infiltration (m122) n'est pas traversé, comme un exutoire dessiné (il raccourcirait les chemins d'un sommet à l'autre) ; ses
+     sommets tenus se suivent par ses liens, comme ceux d'un tuyau */
+  function terminalCollecteur(n){ if (n.indexOf('C:') === 0 || n.indexOf('D:') === 0) return terminal(n); var ob = objs[n], tt = ob && T[ob.t]; return tt && tt.exu ? terminal(n) : null; }
   var boites = {};
   Object.keys(objs).forEach(function(id){
     var o = objs[id]; if (!T[o.t].boite || !terminal(id)) return;
@@ -1344,6 +1365,9 @@ function analyser(doc, mode){
     resPt[id] = q.length === 1 ? q[0] : q.length > 1 ? 'MIX' : (ty.role === 'note' ? 'ANN' : 'INC');
   });
   Object.keys(lignes).forEach(function(id){ if (lignes[id].t === 'col') lignes[id].v.forEach(function(v){ if (v.a && objs[v.a] && (resPt[v.a] === 'INC' || objs[v.a].t === 'regard_pub' && !RES[objs[v.a].p.res])) resPt[v.a] = RES[lignes[id].p.res] ? lignes[id].p.res : 'EU'; }); });
+  /* objet tenu par un drain d'infiltration (m122) et sans autre réseau (regard, raccord…) : EP, comme l'objet tenu par un collecteur prend
+     le sien ; pas la boîte de branchement : son réseau est celui du branchement public, que l'opérateur indique (« réseau à indiquer ») */
+  Object.keys(lignes).forEach(function(id){ var l = lignes[id]; if (drainDe(l) === 'infiltration' && l.v.length >= 2) l.v.forEach(function(v){ if (v.a && objs[v.a] && !T[objs[v.a].t].boite && resPt[v.a] === 'INC') resPt[v.a] = 'EP'; }); });
   var an = {mode: mode, objs: objs, lignes: lignes, pieces: pieces, adj: adj, resObj: resObj, resPiece: resPiece, sensPiece: sensPiece, sensSource: sensSource, resPt: resPt, boites: boites, dist: dist};
   /* après l'avant-projet : l'état des lieux sert de référence (numéros d'anomalie, réseau des tracés à supprimer) */
   if (mode === 'avp') an.ref = analyser(doc, 'edl');
@@ -1455,7 +1479,8 @@ function controles(doc, an){
     if (dits[p.l.id + '|' + txt]) return; dits[p.l.id + '|' + txt] = true; c(p.l.id, 'info', txt, 'contredit');
   });
   Object.keys(an.lignes).forEach(function(id){
-    var l = an.lignes[id]; if (l.t !== 'tr' || l.v.length < 2) return;
+    /* les bouts libres d'un drain d'infiltration (m122) n'attendent rien : il disperse l'eau dans le sol */
+    var l = an.lignes[id]; if (l.t !== 'tr' || l.v.length < 2 || drainDe(l) === 'infiltration') return;
     /* un ouvrage absent de ce plan (« À supprimer », « Projet ») qui relie encore d'autres tuyaux (raccordement direct) n'en fait pas une
        extrémité libre */
     var libres = [0, l.v.length - 1].filter(function(i){ var va = l.v[i].a; return !(va && (an.objs[va] || (an.adj['h:' + va] || []).length > 1)); });
@@ -1896,6 +1921,8 @@ function resLigne(e, an){
   /* complément du fond, escalier, tracé d'un type inconnu : gris du complément */
   if (e.t !== 'tr') return 'LIM';
   if (e.p.st === 'projet') return 'PRJ';
+  /* drain d'infiltration (m122) : vert, relié ou non (ses segments ne sont pas des pièces de l'analyse ; son p.res n'est pas lu) */
+  if (drainDe(e) === 'infiltration') return 'EP';
   if (RES[e.p.res] && e.p.res !== 'PRJ') return e.p.res;
   if (!an) return 'INC';
   var vu = {}, k = null; an.pieces.forEach(function(p){ if (p.l.id === e.id){ var r = an.resPiece[p.id].res; vu[r] = (vu[r] || 0) + 1; } });
@@ -1949,6 +1976,8 @@ function texteEtiquette(e, an){
     if (e.p.diam) det.push('Ø' + e.p.diam); if (e.p.mat) det.push(MAT_LIB[e.p.mat] || e.p.mat); if (num(e.p.long) != null) det.push('L ' + frNum(num(e.p.long)) + ' m');
     if (e.p.pose === 'aerien') det.push('aérien'); if (e.p.pose === 'encorbellement') det.push('en encorbellement');
     var st = e.p.st === 'presume' ? ' (présumé)' : e.p.st === 'supprimer' && avp ? ' à supprimer' : '';
+    /* drain d'infiltration (m122) : toujours une étiquette, « Dispersion dans le sol », suivie des détails du tuyau */
+    if (drainDe(e) === 'infiltration') return ((e.p.st === 'projet' ? 'Projet : ' : '') + 'Dispersion dans le sol' + (det.length ? ' ' + det.join(' ') : '') + st).trim();
     var nom = e.p.st === 'projet' ? 'Projet' + (RES[e.p.res] && e.p.res !== 'PRJ' ? ' ' + libRes(e.p.res) : '') : (/^(EU|EP|UN)$/.test(r) ? libRes(r) : '');
     if (!det.length && !st && e.p.st !== 'projet') return '';
     return (nom + (det.length ? ' ' + det.join(' ') : '') + st).trim();
@@ -5104,9 +5133,10 @@ function editeur(racine, opts){
         h += '<div class="vc-ftete">' + traitSvg('LIM', '', 40) + '<div><strong>Tracé</strong><span class="vc-etat att">Type inconnu de cette version : gardé tel quel</span></div></div>';
       } else {
         var dd = RES[e.p.res] ? '' : ' déduit', cls = rl === 'INC' || rl === 'MIX' ? 'att' : 'ok', dr = drainDe(e);
-        h += '<div class="vc-ftete">' + traitSvg(e.p.st === 'projet' ? 'PRJ' : rl, e.p.st, 40) + '<div><strong>' + esc(nomTrace(e.t, e.p)) + '</strong><span class="vc-etat ' + cls + '">' + esc(rl === 'INC' ? 'Réseau à préciser' : rl === 'MIX' ? 'Plusieurs réseaux atteints' : rl === 'PRJ' ? 'Projet' : 'Réseau ' + libRes(rl) + dd) + ' · ' + frNum(Math.round(L * 10) / 10) + ' m sur le plan</span></div></div>';
+        h += '<div class="vc-ftete">' + traitSvg(e.p.st === 'projet' ? 'PRJ' : rl, e.p.st, 40) + '<div><strong>' + esc(nomTrace(e.t, e.p)) + '</strong><span class="vc-etat ' + cls + '">' + esc(rl === 'INC' ? 'Réseau à préciser' : rl === 'MIX' ? 'Plusieurs réseaux atteints' : rl === 'PRJ' ? 'Projet' : dr === 'infiltration' ? 'Dispersion dans le sol' : 'Réseau ' + libRes(rl) + dd) + ' · ' + frNum(Math.round(L * 10) / 10) + ' m sur le plan</span></div></div>';
         /* drain (m121) : « Collecte » met EP à un tronçon sans réseau ; « Infiltration » le laisse sans réseau (il disperse dans le sol) et
-           masque les puces Réseau ; « Non » retire le drain et garde le réseau */
+           masque les puces Réseau ; « Non » retire le drain et garde le réseau. Le drain d'infiltration (m122) n'est relié à aucun réseau : la
+           tête dit « Dispersion dans le sol » ; l'analyse ne lit pas son sens : pas de puces « Sens d'écoulement » (p.sens reste au fichier) */
         h += champ('Drain', chipsHtml('drain', [['', 'Non'], ['collecte', 'Collecte'], ['infiltration', 'Infiltration']], dr, {a: 'drain', label: 'Drain'}), 'collecte : recueille l\'eau du sol ; infiltration : la disperse dans le sol');
         if (dr !== 'infiltration') h += champ('Réseau', chipsHtml('res', [['', 'Déduit'], ['EU', 'EU'], ['EP', 'EP'], ['UN', 'Unitaire']], e.p.res || '', {garder: true}), 'à indiquer seulement si le dessin ne va pas jusqu\'à l\'exutoire');
         h += champ('Statut', chipsHtml('st', STATUT, e.p.st || 'existant', {garder: true}));
@@ -5114,7 +5144,7 @@ function editeur(racine, opts){
         h += champ('Matériau', chipsHtml('mat', MAT, e.p.mat));
         h += champ('Pose', chipsHtml('pose', [['enterre', 'Enterrée'], ['aerien', 'Aérienne'], ['encorbellement', 'En encorbellement']], e.p.pose));
         h += champ('Longueur mesurée (m)', saisie('long', e.p.long, {num: true, ph: 'sur le plan : ' + frNum(Math.round(L * 10) / 10), lab: 'Longueur mesurée'}), 'prioritaire sur la longueur du plan');
-        h += champ('Sens d\'écoulement', chipsHtml('sens', [['0', 'Déduit'], ['1', 'Sens du tracé'], ['-1', 'Sens inverse']], String(e.p.sens || 0), {garder: true}), 'la flèche du plan montre le sens retenu');
+        if (dr !== 'infiltration') h += champ('Sens d\'écoulement', chipsHtml('sens', [['0', 'Déduit'], ['1', 'Sens du tracé'], ['-1', 'Sens inverse']], String(e.p.sens || 0), {garder: true}), 'la flèche du plan montre le sens retenu');
         if (e.v.length === 3 && !e.v[1].a) h += champ('Coude', '<button type="button" class="vc-chip" data-a="inverserCoude">Inverser le coude</button>', 'le tronçon passe par l\'autre angle');
         h += champ('Observation', zone('obs', e.p.obs, {ph: 'note libre'}));
       }
