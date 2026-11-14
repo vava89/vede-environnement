@@ -1,10 +1,10 @@
 # Conception du lot « Rejets » (v1.7.1, souhaits 2, 3, 4)
 
 Établie le 8 nov. 2026 sur 52cd3c8 (code de la v1.7.0), point de départ de m116 ; révisée les 13 et 14 nov. (puits NC ; réponses et consignes du 13
-nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m121 (envoyés : 8f9094d, ab926ec, 6df324c,
-a5a5d05, 7a6c041, b562636) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du code : `carte-*.md` (8 nov. ; le puits
-y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js, IX = index.html ; vm/ et navigateur/ sont sous
-tests/.
+nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m122 (envoyés : 8f9094d, ab926ec, 6df324c,
+a5a5d05, 7a6c041, b562636, bd16bb9) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du code : `carte-*.md` (8 nov. ;
+le puits y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js, IX = index.html ; vm/ et navigateur/
+sont sous tests/.
 
 ## Réponses de l'utilisateur (7 et 13 nov. 2026)
 - Décision du 13 nov., mot pour mot : « Un rejet EP dans un puits est une non conformité. » (`.claude/etat-travaux.md`, l. 8 ; CLAUDE.md, l. 17).
@@ -339,10 +339,10 @@ tests/.
 
 ## Découpage (m116 à m129 ; quatorze correctifs, batterie verte après chacun)
 Ordre : le commun, sans changement visible (m116) ; l'infiltration (m117, m118) ; l'arbitrage, règle générale, juste après m118 (m119) ; le puits
-(m120) ; les drains (m121 à m124) ; les destinations (m125 à m128), la palette après l'analyse et le rendu ; le cas limite des drains, après la
-réponse à Q6 (m129). m116 à m121 sont envoyés : leur fiche ne change plus. Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js reste vert
-partout ; tests/LISEZMOI.md suit chaque test ajouté. Dès m117, poser un objet nouveau demande des tablettes à jour (D11). Après m129 : 14 correctifs
-depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
+(m120) ; les drains (m121 à m124) ; les destinations (m125 à m128), la palette après l'analyse et le rendu ; les cas limites des drains, après les
+réponses à Q6 et Q7 (m129). m116 à m122 sont envoyés : leur fiche ne change plus. Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js
+reste vert partout ; tests/LISEZMOI.md suit chaque test ajouté. Dès m117, poser un objet nouveau demande des tablettes à jour (D11). Après m129 : 14
+correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
 
 - **m116 Table commune des exutoires et suivi des cases EP du constat**, avant tout type nouveau (D1, D7).
   - Fichiers : CJ : EXU, codeExu, resTrace, libExu et leurs lecteurs (D1), règles EU, raccInfo, constatDeduit, panneau ; codeExu vient ici, pour que
@@ -439,22 +439,20 @@ depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     (écran, PDF, DXF) : 217 comparaisons, aucun écart.
   - Risques : fiche du tronçon plus haute [p] ; légende qui peut déborder du cadre [p] ; à l'écran, pas sans minimum en pixels [p] ; gris 8 du drain
     d'infiltration au DXF jusqu'à m122 (3, D9) ; peigne et hachures sur un drain « à supprimer ».
-- **m122 Drains (2) : drain d'infiltration, exutoire linéaire, étiquette** (consigne du 13 nov. ; D1, D4, D5, D7, D8).
-  - Fichiers (CJ) : EXU.DISP ; analyser (sommets tenus vers 'D:<id>', segments hors des pièces, comme le collecteur ; resPt 'EP' d'un objet tenu,
-    pendant de CJ:1292) et terminal ; lecteurs de 'C:' relus (CJ:1106, 4045) ; resLigne ; texteEtiquette ; controles (bouts sautés) ; raccInfo,
-    constatDeduit. croquis/LISEZMOI.txt (l. 15, 51).
-  - Pour l'utilisateur : une descente (grille…) reliée à un drain d'infiltration est conforme, « Rejet : dispersion dans le sol », case « Infiltration
-    diffuse » au constat ; un WC relié est NC (« WC : rejet au sol (infiltration) »). Le drain est vert et porte l'étiquette « Dispersion dans le
-    sol » ; ses bouts libres ne donnent ni « exutoire non dessiné », ni « À compléter », ni « extrémité libre ».
-  - Test (vm/drain.js) : d6 descente → tronçon → drain d'infiltration à bouts libres : et 's=ok:DISP', presume false, a [], c 'conformes', aucun
-    contrôle 'libre:<drain>' (échoue sur m121 : 's=sansexu', 'incomplet') ; d7 un WC à sa place : a [['eu-sol:s', true, 'WC : rejet au sol
-    (infiltration)']], 'non_conformes' ; d8 descente posée sur le 1er sommet, sans tronçon : ok:DISP ; deux sources sur deux sommets : ok ; regard au
-    tampon béton sur un sommet : « Regard EP : tampon béton » en réserve [p] ; d9 constatDeduit : ligne de la descente sans code, ok true, case infil,
-    « Drain d'infiltration (dispersion dans le sol) » ; étiquette « Dispersion dans le sol », « Dispersion dans le sol Ø100 » avec un diamètre ;
-    resLigne 'EP', relié ou non ; DXF : couleur 3 sur VEDE-DRAINS, étiquette sur VEDE-ETIQUETTES. Témoin vert sur m121 : sans p.drain, le même tracé
-    reste sansexu.
-  - Risques : un lecteur qui prend 'D:<id>' pour un objet [p] ; un drain d'infiltration prolongé par un tuyau vers un réseau : deux exutoires,
-    « multiple » [p] ; un drain d'infiltration à p.res 'EP' (fichier fait à la main) : ignoré ici, présumé au réseau EP par une v1.7.0 [p].
+- **m122 Drains (2) : drain d'infiltration, exutoire linéaire, étiquette** (consigne du 13 nov. ; D1, D4, D5, D7 à D10). Fait : bd16bb9, 14 nov.
+  - Fichiers (CJ) : EXU.DISP ; analyser (sommets tenus vers 'D:<id>' par des pièces col ':d', et entre eux par des liens col ':e' sans sens ; objet
+    tenu sans réseau en EP, sauf la boîte de branchement) ; terminal ; terminalCollecteur ; controles ; resLigne ; texteEtiquette ; fiche du tronçon.
+    Les trois LISEZMOI.
+  - Pour l'utilisateur : une descente ou une grille qui rejoint le drain, par un tronçon ou sur un sommet, est conforme (« Rejet : dispersion dans le
+    sol », case « Infiltration diffuse ») ; un WC est NC (eu-sol) ; bouts libres sans contrôle ; vert, étiquette « Dispersion dans le sol », couleur 3
+    au DXF ; fiche « Dispersion dans le sol », sans puces de sens ; un regard tenu est EP, une boîte de branchement tenue garde INC. Ce que le drain
+    tient ou prolonge (puits, boîte, trop-plein) reste vu : deux exutoires, « multiple » (Q7).
+  - Tests : vm/drain.js d6 à d9 (d8 : cinq cas « multiple » ; 2e descente au puits du drain : ep-puits NC), d2 à d4, g1, g2 : 63 cas, 33 passent
+    avant ; navigateur/drain.js : 14 cas, 13 avant.
+  - Garde : compat.js 245/245 sans régénération ; aléatoire 8000 contre avant : aucun écart ; sondes, 2 000 tirages : aucune exception, aucun écart
+    hors des sources qui atteignent un drain, aucun exutoire perdu ni NC disparue.
+  - Risques : « multiple » qu'aucun sens vrai ne lève ; WC relié par le drain au réseau EU : « multiple », pas NC (Q7) ; « Tronçon EU : le dessin le
+    relie à réseau EP » vers SOL, PUITS, DISP (mineur reporté, depuis m117) ; p.res 'EP' fait à la main ignoré [p] ; v1.7.0 : tronçon sans exutoire.
 - **m123 Drains (3) : drain de collecte, source linéaire, constat** (Q3 b, Q4 b ; D4, D6, D7).
   - Fichiers (CJ) : analyser (nœud 'dr:<id>' et pièces virtuelles : variante 2 de la sonde `sonde-q4-drain-source.js`) ; srcObj et ses lecteurs
     (resObj, fiche, constat, page 2 du PDF) ; controles (bouts sautés ; sources parcourues par srcObj : méthode, sansexu et multiple d'un drain, nommé
@@ -538,8 +536,8 @@ depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     m3 sauvegarde restaurée sur un profil neuf, sans modèles : même analyse, même constat.
   - Garde : un croquis du lot ouvert sur une copie de 22df7f2 (v1.6.3) : plan PDF et fiche, pour la consigne de D11 [p].
   - Risques : croqCfgEcrire n'écrit aujourd'hui que {actif, aides} (IX:3147 ; retour en arrière : D11).
-- **m129 Drains (5) : équipement relié à un drain de collecte sans sortie** (Q6 ; D4, D10) : (b), recommandée, sauf avis contraire ; avec (c), il n'a
-  pas lieu.
+- **m129 Drains (5) : cas limites des drains** (Q6, Q7 ; D4, D5, D10) : Q6, (b), recommandée, sauf avis contraire (avec (c), sans objet) ; Q7, (a),
+  sauf avis contraire.
   - Fichiers (CJ) : libresDe ; avec (a), controles (aide du sansexu). croquis/LISEZMOI.txt.
   - Avec (b) : au bout libre d'un drain de collecte (libresDe, CJ:1212), une source autre que le drain et le point « Drain » qu'il tient prend
     ok:DISP, comme au drain d'infiltration (m122) ; la coupure se fait au bout, après tout Tronçon EP qui y mène (versExtremite, CJ:1019-1025) ; le
@@ -549,19 +547,23 @@ depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     compléter » (Q6).
   - Test (vm/drain.js) : d14 descente reliée au drain sans sortie, directement puis par un Tronçon EP : avec (b), ok:DISP, presume false,
     'conformes' ; un WC : eu-sol (échoue sur m128 : ok:EP présumé ; le WC y prend eu-ep) ; d10 et d12 restent verts.
+  - Q7 (a) : analyser sépare, pour une source, l'exutoire atteint avant le drain de ceux que le drain atteint au-delà (liens ':e') ; le drain compte
+    pour un dans « multiple » ; les autres gardent leur règle et leur case [p]. Test d15 : trop-plein vers une boîte EP : conformes ; vers une boîte
+    EU : ep-eu NC ; puits sur le drain : ep-puits NC ; bifurcation avant le drain : multiple (échoue sur m128).
   - Risques : sur le même tuyau, drain de collecte et dispersion pour l'équipement [p] ; différentiel : écarts sur ces seuls équipements.
 
 ## Questions qui restent
 - Q1 à Q5 : tranchées le 13 nov. (Q1 : D6, m119 ; Q2 : D8, m121 ; Q3 : D4, m122, m123 ; Q4 : D4, D7, m123 ; Q5 : D3, D6, m120).
-- Q6 Un équipement relié à un drain de collecte dont la sortie n'est pas dessinée.
-  Ce qu'on voit : le drain de collecte (outil « Drain ») recueille l'eau du sol ; sans sortie dessinée, il est présumé raccordé au réseau EP (Q3).
-  Quand une descente, une grille ou un WC y est aussi relié, la règle du 13 nov. dit qu'il disperse dans le sol, sans exutoire attendu ; mais le
-  technicien l'a dessiné en drain de collecte.
-  Choix : (a) « À compléter » : l'équipement reçoit « exutoire non dessiné », avec l'aide « dessiner la sortie du drain ou le passer en drain
-  d'infiltration » ; (a) s'écarte de la règle écrite, qui n'attend aucun exutoire ; (b) dispersion d'office : le drain est lu en drain d'infiltration
-  dès qu'un équipement y est relié (étiquette « Dispersion dans le sol », EP gérées à la parcelle, WC non conforme) ; (b) suit la règle écrite ; (c)
-  réseau EP présumé pour l'équipement aussi, comme pour le drain. (b) et (c) donnent les mêmes jugements (descente conforme, WC non conforme) ; seuls
-  l'étiquette, le raccordement et la case du constat changent.
-  Recommandation : (b), soumise à l'utilisateur le 14 nov. et codée en m129 sauf avis contraire : la lettre de la consigne du 13 nov. (D4). Le
-  relecteur recommandait (a) : le plan PDF n'imprime ni gestion à la parcelle ni réseau EP que le technicien n'a pas choisis, et un toucher dans la
-  fiche du drain lève le doute ; son coût : ce geste sur le terrain, et un WC relié reste « À compléter ». Avec (c), m129 n'a pas lieu.
+- Q6 Un équipement relié à un drain de collecte dont la sortie n'est pas dessinée (D4, m129).
+  Choix : (a) « À compléter » (« exutoire non dessiné ») ; (b) dispersion d'office : le drain est lu en drain d'infiltration dès qu'un équipement y
+  est relié (la lettre de la règle du 13 nov.) ; (c) réseau EP présumé, comme pour le drain (Q3). (b) et (c) jugent de même (descente conforme, WC
+  NC).
+  Recommandation : (b), soumise le 14 nov., codée en m129 sauf avis contraire ; le relecteur préférait (a) : le PDF n'imprime rien que le technicien
+  n'a pas choisi.
+- Q7 Un drain d'infiltration qui atteint aussi un autre exutoire (m122, m129).
+  Ce qu'on voit (m122) : trop-plein parti du drain vers un réseau, ou puits, puisard, boîte posés dessus : « Relié à plusieurs réseaux », à compléter,
+  sans sens vrai qui le lève (l'eau va aux deux). Le trop-plein d'un puisard ou d'une infiltration au sol n'est pas lu (v1.5.1).
+  Choix : (a) chaque exutoire atteint par le drain compte avec son jugement (réseau EU ou puits : NC ; réseau EP, puisard, infiltration : conforme),
+  une bifurcation avant le drain reste « multiple » ; (b) garder « multiple » ; (c) le drain arrête l'eau (un trop-plein vers le réseau EU passe
+  inaperçu).
+  Recommandation : (a), en m129 sauf avis contraire ; l'étendre au puisard déroge à la v1.5.1 (accord de l'utilisateur).
