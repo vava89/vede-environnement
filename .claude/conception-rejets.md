@@ -1,9 +1,9 @@
 # Conception du lot « Rejets » (v1.7.1, souhaits 2, 3, 4)
 
 Établie le 8 nov. 2026 sur 52cd3c8 (code de la v1.7.0), point de départ de m116 ; révisée les 13 et 14 nov. (puits NC ; réponses et consignes du 13
-nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m119 (envoyés : 8f9094d, ab926ec, 6df324c,
-a5a5d05) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du code : `carte-*.md` (8 nov. ; le puits y est encore une
-destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js, IX = index.html ; vm/ et navigateur/ sont sous tests/.
+nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m120 (envoyés : 8f9094d, ab926ec, 6df324c,
+a5a5d05, 7a6c041) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du code : `carte-*.md` (8 nov. ; le puits y est
+encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js, IX = index.html ; vm/ et navigateur/ sont sous tests/.
 
 ## Réponses de l'utilisateur (7 et 13 nov. 2026)
 - Décision du 13 nov., mot pour mot : « Un rejet EP dans un puits est une non conformité. » (`.claude/etat-travaux.md`, l. 8 ; CLAUDE.md, l. 17).
@@ -118,11 +118,11 @@ destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croq
     - aucun exutoire n'est attendu après lui : ses bouts libres ne sont pas des nœuds, donc ni « exutoire non dessiné », ni « À compléter », ni réseau
       EP présumé ; aucune infiltration n'est posée au bout ;
     - ce n'est pas une source : il ne compte pas au constat [p].
-  - Cas limite (Q6) : un équipement (descente, grille, WC…) relié à un drain de collecte dont la sortie n'est pas dessinée. Le présumer au réseau EP
-    contredirait « Les drains ne sont pas forcément raccordés au réseau EP » ; le faire disperser d'office, comme le veut la règle du 13 nov.,
-    passerait outre le choix « collecte » de l'opérateur. Recommandation (a) [p], codée en m129 après la réponse : il reçoit « exutoire non dessiné »
-    (CJ:1378), suivi de « dessiner la sortie du drain ou le passer en drain d'infiltration », et le plan dit « À compléter ». Jusqu'à m129, il y est
-    présumé au réseau EP (choix c). Le drain et le point « Drain » qu'il tient gardent Q3 (b).
+  - Cas limite (Q6) : un équipement (descente, grille, WC…) relié à un drain de collecte dont la sortie n'est pas dessinée. Recommandation (b),
+    soumise à l'utilisateur le 14 nov. et codée en m129 sauf avis contraire, la lettre de la règle : pour un équipement qui l'atteint, le drain est lu
+    en drain d'infiltration (« Dispersion dans le sol », EP gérées à la parcelle, WC non conforme) ; le relecteur recommandait (a), « exutoire non
+    dessiné » (CJ:1378) et « À compléter » (Q6). Jusqu'à m129, il y est présumé au réseau EP (choix c). Le drain et le point « Drain » qu'il tient
+    gardent Q3 (b) ; avec (b), le drain qui reçoit un équipement (étiquette, ligne du constat) se fixe en m129 [p].
 - D5 Analyse.
   - terminal (CJ:960) : pour le code X, `res` = 'X:' + nom normalisé (majuscules, sans accents, espaces réduits) + ':' + ep + ':' + cst (un étang :
     'X:ETANG:arbitrer:autre'). Ni ab ni art n'entrent dans la clé [p]. Même nom et mêmes jugements : un seul exutoire (état ok). Sinon deux (état
@@ -283,7 +283,7 @@ destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croq
     p.drain ne pose ni ne retire aucun objet.
   - Contrôles (CJ:1399-1405) : aucun « Tronçon : extrémité libre » sur un drain (cadrage, l. 155) : la sortie du drain de collecte est présumée au
     réseau EP sans message (Q3 b), le drain d'infiltration n'attend aucun exutoire. Un équipement relié à un drain de collecte sans sortie dessinée :
-    Q6 ; avec (a), « exutoire non dessiné » (cas limite de D4, m129).
+    Q6 ; avec (b), recommandée, aucun message : il disperse dans le sol (cas limite de D4, m129).
   - Regard sur un drain : aucune règle propre. Sur un drain de collecte en EP, le regard est EP (tampon béton en réserve, pas de « sans cunette ») par
     les règles d'aujourd'hui (sonde `sonde-q4-drain-source.js`, cas C8) ; sur un sommet d'un drain d'infiltration, il mène à DISP et se juge en EP :
     resPt y rend 'EP' au lieu de 'INC', pendant de CJ:1292 pour le collecteur (m122) [p].
@@ -320,10 +320,11 @@ destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croq
     ces objets : un « Tronçon EP », « Tronçon EU » ou « Tronçon unitaire » qui y mène y est présumé raccordé à ce réseau. Une descente vers un puits,
     un WC vers une infiltration, non conformes sur une tablette à jour, y restent non conformes tant que le croquis n'y est pas ouvert ; son ouverture
     retire du dossier les anomalies « rejet au sol » ou « rejet dans un puits » que personne n'a modifiées, et le plan comme le constat y paraissent
-    alors conformes (« À compléter » par un simple « Tronçon » ; par un « Tronçon EP », un WC y reste non conforme, mais comme raccordé aux EP) ;
-    elles reviennent sur une tablette à jour. Un drain y est un simple tuyau : un drain d'infiltration, comme le bouton « Rejet au sol », y donne « À
-    compléter » ; un drain de collecte n'y compte pas au constat, et un équipement qui y est relié y est présumé raccordé au réseau EP. Une anomalie à
-    arbitrer y laisse « Conformes ». N'y signez aucun constat de ces dossiers : un constat signé ne change plus. »
+    alors conformes (« À compléter » par un simple « Tronçon » ; par un « Tronçon EP », un WC y reste non conforme, mais comme raccordé aux EP ; par
+    un « Tronçon EU », une descente y reste non conforme, mais comme raccordée aux EU) ; elles reviennent sur une tablette à jour. Un drain y est un
+    simple tuyau : un drain d'infiltration, comme le bouton « Rejet au sol », y donne « À compléter » ; un drain de collecte n'y compte pas au
+    constat, et un équipement qui y est relié y est présumé raccordé au réseau EP. Une anomalie à arbitrer y laisse « Conformes ». N'y signez aucun
+    constat de ces dossiers : un constat signé ne change plus. »
     La version ne s'affiche qu'au pied du plan PDF (IX:4832, CJ:5842) [p : aucun autre affichage trouvé]. « Ou plus ancienne » attend l'essai de m128
     sur la v1.6.3 [p] : si le plan PDF n'y sort pas, la consigne le dira.
 - D12 Croquis désactivé ou absent : comportement de la v1.5.1.
@@ -338,7 +339,7 @@ destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croq
 ## Découpage (m116 à m129 ; quatorze correctifs, batterie verte après chacun)
 Ordre : le commun, sans changement visible (m116) ; l'infiltration (m117, m118) ; l'arbitrage, règle générale, juste après m118 (m119) ; le puits
 (m120) ; les drains (m121 à m124) ; les destinations (m125 à m128), la palette après l'analyse et le rendu ; le cas limite des drains, après la
-réponse à Q6 (m129). m116 à m118 sont envoyés : leur texte ne change pas. Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js reste vert
+réponse à Q6 (m129). m116 à m120 sont envoyés : leur fiche ne change plus. Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js reste vert
 partout ; tests/LISEZMOI.md suit chaque test ajouté. Dès m117, poser un objet nouveau demande des tablettes à jour (D11). Après m129 : 14 correctifs
 depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
 
@@ -406,24 +407,23 @@ depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     une conclusion déclarée conforme à la main le reste (rappel seulement) ; sans équipement analysé ni anomalie retenue, une anomalie à arbitrer
     laisse « sans objet », comme avant, jamais « Conformes » [p, à signaler] ; un constat signé pendant un arbitrage imprime ensuite la conclusion
     que propose le dessin (D7) [p].
-- **m120 Puits : type à règle fixe** (Q5.1, Q5.2 ; D1, D3, D6 à D9).
-  - Fichiers (CJ) : def('puits') et FAMILLES ; EXU.PUITS (règles EU et EP) ; reglesAnomalies (règle EP lue dans la table) ; REGLES_LIGNE ; raccInfo
-    (ok d'après etatAnomalie) ; primitives (forme 'puits'), rayonSymbole ; aide de l'outil et fiche (puits perdu) ; filtre de l'avant-projet
-    (/^(fosse|ep-puits):/). vm/aleatoire.js : 'puits' dans `exutoires`. LISEZMOI.txt (consigne de D11, puits perdu), croquis/LISEZMOI.txt (l. 11,
-    26-29).
-  - Pour l'utilisateur : « Puits » dans la palette Équipements, après « Rejet en milieu naturel ». Une descente reliée : « Descente EP : rejet dans un
-    puits », non conforme, créée au dossier, « Non conformes » au plan, ligne « non » au constat ; un WC relié : « WC : rejet dans un puits ». Rien à
-    régler dans la fiche ; l'anomalie se retient, se met à arbitrer ou s'écarte dans Contrôles, comme toute autre. Fiche et aide : un puits perdu se
-    dessine en Puisard.
-  - Test : vm/regles.js : descente → puits : et 's=ok:PUITS', a [['ep-puits:s', true, 'Descente EP : rejet dans un puits']], c 'non_conformes' (échoue
-    sur m119 : type inconnu, 's=sansexu', 'incomplet') ; WC → puits : eu-puits NC ; par un regard au tampon béton : la réserve « Regard EP : tampon
-    béton » et ep-puits, 'non_conformes'. vm/rejets.js : q1 constatDeduit : code MILIEU, ok null (retenue), true (écartée) ; mise à arbitrer : code
-    MILIEU gardé, ok null, 'arbitrer' ; q2 bloc VEDE_PUITS, légende « Puits » une fois, « puits » en page 2 ; q3 avant-projet qui garde le puits :
-    ep-puits au tableau du PDF, créée en cat 'autre' par reconcilier. navigateur/dossier.js, cas nouveau (modèle des cas 7 et 8, l. 10-11) : ligne de
-    la descente « non », case gestEP, préconisation « Suppression du rejet dans le puits ; … » ; réserve choisie au dossier : « oui », aucun rappel
-    « non conforme sur le croquis ».
-  - Risques : symbole proche du puisard sur l'A4 [p] ; code MILIEU en EP [p] ; un nom qui contient « puits » est refusé à une destination (m127, D3) ;
-    un fichier fait à la main qui en garde un suit sa fiche.
+- **m120 Puits : type à règle fixe** (Q5.1, Q5.2 ; D1, D3, D6 à D9). Fait : 7a6c041, 14 nov.
+  - Fichiers (CJ) : def('puits') (champ rappel : aide et fiche) et FAMILLES ; EXU.PUITS (règles EU et EP) ; reglesAnomalies ; REGLES_LIGNE ;
+    raccInfo(r, groupe, arb, arbL, etEP) et constatDeduit (ligne EP d'après l'état de ep-puits) ; phrase du panneau Constat ; primitives (forme
+    'puits'), rayonSymbole, bloc DXF VEDE_PUITS ; filtre de l'avant-projet (/^(fosse|ep-puits):/). vm/aleatoire.js : puits tiré, option
+    --sans=<type>,…. LISEZMOI.txt (consigne de D11, « Tronçon EU » compris ; puits perdu), croquis/LISEZMOI.txt.
+  - Pour l'utilisateur : « Puits » dans la palette Équipements, après « Rejet en milieu naturel » : deux cercles verts, anneau plus étroit que celui
+    du puisard. Une descente reliée : « Descente EP : rejet dans un puits », NC, au dossier, « Non conformes » au plan ; un WC relié : « WC : rejet
+    dans un puits ». Rien à régler dans la fiche ; l'anomalie se retient, se met à arbitrer ou s'écarte dans Contrôles. Constat : ligne « Puits :
+    rejet en milieu naturel » ; en EP, « non » tant que l'anomalie est NC au dossier, « oui » si elle y devient une réserve ou est écartée, jamais
+    « oui » à arbitrer ; le panneau Constat dit pourquoi. Aide et fiche : un puits perdu se dessine en Puisard. Avant-projet : un rejet que le projet
+    garde reste dans « Reste après travaux ».
+  - Tests : vm/regles.js (4 cas), vm/rejets.js q1 à q3, navigateur/dossier.js 59 et 60, navigateur/rejets.js p1 et p2.
+  - Garde : compat.js 245/245 sans régénération ; aléatoire 8000 contre la version d'avant : avec --sans=puits, aucun écart ; avec le puits, aucune
+    exception et 673 écarts, tous sur les 764 croquis qui en ont un.
+  - Risques : symbole proche de celui du puisard sur l'A4 (0,25 mm de blanc entre les traits, contre 0,75) [p, à signaler] ; code MILIEU en EP [p] ;
+    un nom qui contient « puits » est refusé à une destination (m127, D3) ; un fichier fait à la main qui en garde un suit sa fiche ; ep-puits hors du
+    futur barème des Réglages, ou montrée verrouillée [p].
 - **m121 Drains (1) : champ, fiche, peigne, légende, DXF** (souhait 4, 1re partie du cadrage, l. 157 ; Q2 a ; D4, D8, D9).
   - Fichiers (CJ) : defautsLn ; fiche du tronçon (CJ:4900-4911 : puces « Drain » ; puces Réseau masquées sur un drain d'infiltration) ; peigne à
     l'écran et au PDF ; légende et échantillons (CJ:5823-5836) ; ecrireDxf ; nomTrace. vm/charger.js : une ligne de doc() prend un 7e champ
@@ -539,16 +539,18 @@ depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     m3 sauvegarde restaurée sur un profil neuf, sans modèles : même analyse, même constat.
   - Garde : un croquis du lot ouvert sur une copie de 22df7f2 (v1.6.3) : plan PDF et fiche, pour la consigne de D11 [p].
   - Risques : croqCfgEcrire n'écrit aujourd'hui que {actif, aides} (IX:3147 ; retour en arrière : D11).
-- **m129 Drains (5) : équipement relié à un drain de collecte sans sortie** (Q6 ; D4, D10), codé après la réponse ; avec (c), il n'a pas lieu.
-  - Fichiers (CJ) : libresDe ; controles (aide du sansexu). croquis/LISEZMOI.txt.
-  - Avec (a) : au bout libre d'un drain de collecte (libresDe, CJ:1212), ch.res = null pour toute source autre que le drain et le point « Drain »
-    qu'il tient ; la coupure se fait au bout, après tout Tronçon EP qui y mène (versExtremite, CJ:1019-1025). Avec (b) : le drain est lu en drain
-    d'infiltration pour les équipements qui l'atteignent [p : détail après la réponse].
-  - Pour l'utilisateur, avec (a) : un équipement relié à un drain de collecte sans sortie dessinée reçoit « exutoire non dessiné », avec l'aide
-    « dessiner la sortie du drain ou le passer en drain d'infiltration », et le plan dit « À compléter » ; le drain reste présumé au réseau EP.
-  - Test (vm/drain.js) : d14 descente reliée au drain sans sortie, directement puis par un Tronçon EP : sansexu, l'aide, 'incomplet' (échoue sur
-    m128 : ok:EP présumé, 'conformes') ; le drain reste « ok, EP présumé » ; d10 et d12 restent verts.
-  - Risques : sur le même tuyau, drain présumé et équipement « À compléter » [p] ; différentiel : écarts sur ces seuls équipements.
+- **m129 Drains (5) : équipement relié à un drain de collecte sans sortie** (Q6 ; D4, D10) : (b), recommandée, sauf avis contraire ; avec (c), il n'a
+  pas lieu.
+  - Fichiers (CJ) : libresDe ; avec (a), controles (aide du sansexu). croquis/LISEZMOI.txt.
+  - Avec (b) : au bout libre d'un drain de collecte (libresDe, CJ:1212), une source autre que le drain et le point « Drain » qu'il tient prend
+    ok:DISP, comme au drain d'infiltration (m122) ; la coupure se fait au bout, après tout Tronçon EP qui y mène (versExtremite, CJ:1019-1025) ; le
+    drain lui-même (étiquette, ligne du constat) [p : à fixer]. Avec (a) : ch.res = null pour ces sources.
+  - Pour l'utilisateur, avec (b) : une descente reliée à un drain de collecte sans sortie dessinée est conforme, « Rejet : dispersion dans le sol »,
+    case « Infiltration diffuse » au constat ; un WC relié : « WC : rejet au sol (infiltration) », NC. Avec (a) : « exutoire non dessiné » et « À
+    compléter » (Q6).
+  - Test (vm/drain.js) : d14 descente reliée au drain sans sortie, directement puis par un Tronçon EP : avec (b), ok:DISP, presume false,
+    'conformes' ; un WC : eu-sol (échoue sur m128 : ok:EP présumé ; le WC y prend eu-ep) ; d10 et d12 restent verts.
+  - Risques : sur le même tuyau, drain de collecte et dispersion pour l'équipement [p] ; différentiel : écarts sur ces seuls équipements.
 
 ## Questions qui restent
 - Q1 à Q5 : tranchées le 13 nov. (Q1 : D6, m119 ; Q2 : D8, m121 ; Q3 : D4, m122, m123 ; Q4 : D4, D7, m123 ; Q5 : D3, D6, m120).
@@ -561,6 +563,6 @@ depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
   dès qu'un équipement y est relié (étiquette « Dispersion dans le sol », EP gérées à la parcelle, WC non conforme) ; (b) suit la règle écrite ; (c)
   réseau EP présumé pour l'équipement aussi, comme pour le drain. (b) et (c) donnent les mêmes jugements (descente conforme, WC non conforme) ; seuls
   l'étiquette, le raccordement et la case du constat changent.
-  Recommandation : (a) [p] : le plan PDF n'imprime ni gestion à la parcelle ni réseau EP que le technicien n'a pas choisis ; un toucher dans la fiche
-  du drain lève le doute. Son coût : ce geste sur le terrain ; un WC relié y reste « À compléter », non conforme en (b) et (c) ; sur le même tuyau, le
-  drain reste présumé au réseau EP. Codé en m129 ; avec (c), m129 n'a pas lieu.
+  Recommandation : (b), soumise à l'utilisateur le 14 nov. et codée en m129 sauf avis contraire : la lettre de la consigne du 13 nov. (D4). Le
+  relecteur recommandait (a) : le plan PDF n'imprime ni gestion à la parcelle ni réseau EP que le technicien n'a pas choisis, et un toucher dans la
+  fiche du drain lève le doute ; son coût : ce geste sur le terrain, et un WC relié reste « À compléter ». Avec (c), m129 n'a pas lieu.
