@@ -5,6 +5,9 @@
 // (by-pass sous toutes ses formes : fosse-contournee.js ; fosse désignée comparée à un oracle : fosse-oracle.js).
 // Infiltration au sol (m117) : descente conforme, WC non conforme (eu-sol), par un regard au tampon béton (réserve en EP), et une descente
 // vers une infiltration et un puisard (deux exutoires : état « multiple »). Ces cinq cas échouent sur 2f3faa1 (type inconnu : bout libre).
+// Arbitrage (m119, consigne du 13 nov. 2026 : une anomalie à arbitrer n'est jamais comptée conforme) : WC vers le collecteur EU sans boîte,
+// anomalie « à arbitrer » d'office : conclusion « boite » (« À compléter : absence de boîte de branchement à arbitrer »), et non plus
+// « conformes ». Ce cas échoue sur e728d76.
 // usage : node tests/vm/regles.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rapport} = require('./charger.js');
@@ -60,7 +63,7 @@ const cas = [
   {n: 'boîte EP sur le collecteur EU', d: doc({o: [['s', 'descente', 0, 8], ['B', 'boite', 0, 4, {res: 'EP'}], ['j', 'jonction', 0, 0, {}]], l: [['L1', 'tr', '', '', ['s', 'B']], ['L2', 'tr', '', '', ['B', 'j']], ['C', 'col', 'EU', '', [[-10, 0], 'j', [10, 0]]]]}),
     et: 's=ok:EP', a: [['boite-col:B:C', true, 'Boîte de branchement EP : rejet au collecteur EU']], c: 'non_conformes'},
   {n: 'WC vers le collecteur EU sans boîte (à arbitrer)', d: doc({o: [['s', 'wc', 0, 8], ['j', 'jonction', 0, 0, {}]], l: [['L1', 'tr', '', '', ['s', 'j']], ['C', 'col', 'EU', '', [[-10, 0], 'j', [10, 0]]]]}),
-    et: 's=ok:EU', a: [['sansboite:C:EU', true, 'Branchement EU : pas de boîte de branchement en limite de propriété', 'arbitrer']], c: 'conformes'},
+    et: 's=ok:EU', a: [['sansboite:C:EU', true, 'Branchement EU : pas de boîte de branchement en limite de propriété', 'arbitrer']], c: 'boite'},
   {n: 'WC sans exutoire dessiné', d: doc({o: [['s', 'wc', 0, 8]], l: [['L1', 'tr', '', '', ['s', [0, 0]]]]}), et: 's=sansexu', a: [], c: 'incomplet'},
 ];
 const FAM = /^(eu-|ep-|fosse|dep-nv|tampon|boite-col|sansboite)/;

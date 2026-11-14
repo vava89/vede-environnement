@@ -27,6 +27,22 @@
 // r6 (garde) : sans le type (croquis d'une version plus récente), écran, PDF et DXF sans exception, bloc VEDE_OBJET.
 // Échouent sur 2f3faa1 (type « infiltration » absent) : r1 à r5, sauf les témoins (en r2, le regard penché à l'écran et au PDF ; en r5, le
 //   puisard). r6 y passe.
+// Arbitrage (m119, consigne du 13 nov. 2026 : une anomalie à arbitrer n'est jamais comptée conforme) :
+// z1 : regard sans tampon (à arbitrer d'office) : conclusion « tampon » (plan : « À compléter : regard sans tampon à arbitrer ») ; la ligne
+//   du WC, que l'anomalie du regard ne vise pas, garde sa conformité.
+// z2 : descente non visitable mise à arbitrer : « arbitrer » ; la ligne de la descente garde son code EP_D, ok null, marquée « à arbitrer »
+//   (rows[].arbitrer) ; fiche de la descente « en attente » (VCroquis.etatSource) ; vers un puisard, la case puisard reste. Témoin : retenue.
+// z3 : tampon béton en EP (réserve) mis à arbitrer : « arbitrer » (témoins : retenue « reserves », écartée « conformes »).
+// z4 : anomalie saisie à la main sur le WC, à arbitrer : « arbitrer », ligne du WC à ok null ; témoins : retenue, écartée, sans objet.
+// z5 : sans boîte, à arbitrer : « boite » ; avec une NC retenue : « non_conformes » ; sans boîte retenue : « non_conformes » ; écartée : « conformes ».
+// z6 (garde) : ep-eu retenue et dep-nv à arbitrer : ligne EU_D, ok false, non conforme. z7 : deux anomalies à arbitrer : « plusieurs ».
+// z8 (garde) : aucun appareil sur le plan, tampon béton EU mis à arbitrer : aucune conclusion (« sans objet »), comme avant : le code
+//   d'arbitrage remplace seulement « Conformes » et « Conformes avec réserves ». Témoin : retenu, « non_conformes ».
+// z9 : WC vers une fosse peut-être traversée (fosse:F, posée sur la fosse, « à arbitrer » d'office) : ligne du WC marquée « à arbitrer »,
+//   comme celle d'une descente (ep-fosse) ; témoins : fosse retenue (FOSSE « non »), écartée (EU_D « oui »), descente.
+// Échouent sur e728d76 par le comportement (conclusion « conformes », ligne conforme ou sans marque) : z1 à z5, z7 et z9, sauf le témoin
+//   de z1 et la seconde vérification de z5 (NC retenue, retenue, écartée). z6 et le témoin « retenue » de z2 (gardes) n'y échouent que
+//   parce que VCroquis.etatSource y est absente. z8 y passe. z9 échoue aussi sur la première version de m119 (ligne du WC sans marque).
 // usage : node tests/vm/rejets.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rendus, rapport} = require('./charger.js');
@@ -248,6 +264,118 @@ function constat(){
   });
 }
 
+/* ---------- m119 : une anomalie à arbitrer n'est jamais comptée conforme (consigne du 13 nov. 2026) ---------- */
+/* bout du branchement : boîte du réseau res (B), puis regard public (Rp) sur le collecteur res */
+const auBout = res => ({o: [['B', 'boite', 0, 4, {res}], ['Rp', 'regard_pub', 0, 0, {res}]], l: [['tB', 'tr', '', '', ['B', 'Rp']], ['C', 'col', res, '', [[-10, 0], 'Rp', [10, 0]]]]});
+/* source S (type t, propriétés p) → [regard R aux propriétés pr] → boîte du réseau res */
+function versBoite(t, p, res, pr){
+  const b = auBout(res), o = [['S', t, 0, 10, p || {}]], l = [];
+  if (pr){ o.push(['R', 'regard', 0, 7, pr]); l.push(['t1', 'tr', '', '', ['S', 'R']], ['t2', 'tr', '', '', ['R', 'B']]); }
+  else l.push(['t1', 'tr', '', '', ['S', 'B']]);
+  return doc({o: o.concat(b.o), l: l.concat(b.l)});
+}
+/* WC relié par une jonction au collecteur EU, sans boîte (anomalie sansboite:C:EU, « à arbitrer » d'office) ; pr : un regard R en chemin ;
+   plus : objets et tracés de plus */
+function sansBoite(pr, plus){
+  const o = [['S', 'wc', 0, 10], ['j', 'jonction', 0, 0, {}]], l = [['C', 'col', 'EU', '', [[-10, 0], 'j', [10, 0]]]];
+  if (pr){ o.push(['R', 'regard', 0, 7, pr]); l.push(['t1', 'tr', '', '', ['S', 'R']], ['t2', 'tr', '', '', ['R', 'j']]); }
+  else l.push(['t1', 'tr', '', '', ['S', 'j']]);
+  return doc({o: o.concat(plus ? plus.o : []), l: l.concat(plus ? plus.l : [])});
+}
+/* le même croquis avec les décisions dec ({clé : état}) et les anomalies saisies à la main manu */
+function decide(d, dec, manu){
+  Object.keys(dec || {}).forEach(k => { d.decisions[k] = {st: dec[k]}; });
+  if (manu) d.anomManu = manu;
+  return d;
+}
+/* anomalie fictive saisie à la main, d'état st, sur l'objet objId (aucun : sans objet) */
+const aLaMain = (st, objId) => [Object.assign({id: 'm1', reseau: 'EU', obs: 'Anomalie fictive saisie à la main', preco: '', nc: true, st}, objId ? {objId} : {})];
+/* ce que l'application tire d'un croquis : état des anomalies, conclusion proposée (VCroquis.conclusion, plan PDF), ligne du constat (codes,
+   ok de chaque appareil, conformité, marque « à arbitrer » ; libellés à part), ouvrages EP, fiche de la source S (VCroquis.etatSource) */
+async function bilan(d, ligne){
+  const an = V.analyser(copie(d), 'edl'), l = V.anomaliesDoc(copie(d), an, null), cd = V.constatDeduit(copie(d), an), r = cd.rows.find(x => x.id === ligne);
+  const p = await pdf(d, {mode: 'edl'}), cp = p.txt.filter(s => /^Conclusion (proposée|du constat)/.test(s));
+  const es = typeof V.etatSource === 'function' ? sur(() => V.etatSource(copie(d), an, l, 'edl', 'S')) : 'VCroquis.etatSource absente';
+  return {st: l.map(a => a.cle + ' ' + a.st).join(', '), c: V.conclusion(l, an), plan: p.err.join(' | ') || cp.join(' | '),
+    ligne: r ? r.codes.join(',') + ' | ' + JSON.stringify(r.oks) + ' | ' + JSON.stringify(r.conforme) + (r.arbitrer ? ' | à arbitrer' : '') : 'ligne absente',
+    libs: r ? r.libs.join(' ; ') : '', recup: JSON.stringify(cd.epRecup), etat: es && typeof es === 'object' ? es.cls + ' « ' + es.txt + ' »' : String(es)};
+}
+const vu = (o, k) => JSON.stringify(k ? k.reduce((m, x) => Object.assign(m, {[x]: o[x]}), {}) : o);
+const CP = 'Conclusion proposée : ', DEP = 'Rejet : réseau EP départemental', WCR = 'Rejet : réseau EU départemental';
+async function arbitrage(){
+  /* z1 : regard sans tampon (« à arbitrer » d'office) entre le WC et la boîte EU */
+  let o = await bilan(versBoite('wc', {}, 'EU', {tampon: 'absent'}), 'wc');
+  R.ok(o.st === 'sanstampon:R arbitrer' && o.c === 'tampon' && o.plan === CP + 'À compléter : regard sans tampon à arbitrer',
+    'z1 regard sans tampon à arbitrer : conclusion « tampon », au plan « À compléter : regard sans tampon à arbitrer » (' + vu(o, ['st', 'c', 'plan']) + ')');
+  R.ok(o.ligne === 'EU_D | [true] | "oui"', 'z1 témoin : la ligne du WC, que l\'anomalie du regard ne vise pas, garde sa conformité (' + vu(o, ['ligne']) + ')');
+  /* z2 : descente non visitable (NC) mise « à arbitrer » par l'opérateur ; témoin : retenue (d'office) */
+  o = await bilan(decide(versBoite('descente', {visitable: 'non'}, 'EP'), {'dep-nv:S': 'arbitrer'}), 'gout_av');
+  R.ok(o.st === 'dep-nv:S arbitrer' && o.c === 'arbitrer' && o.plan === CP + 'À compléter : une anomalie reste à arbitrer',
+    'z2 descente non visitable à arbitrer : conclusion « arbitrer », au plan « À compléter : une anomalie reste à arbitrer » (' + vu(o, ['st', 'c', 'plan']) + ')');
+  R.ok(o.ligne === 'EP_D | [null] | "" | à arbitrer' && o.libs === 'Réseau EP départemental',
+    'z2 constat : la ligne de la descente garde son raccordement (EP_D), ok null, ni conforme ni non conforme, marquée « à arbitrer » (' + vu(o, ['ligne', 'libs']) + ')');
+  R.ok(o.etat === 'att « ' + DEP + ' · anomalie à arbitrer »', 'z2 fiche de la descente : en attente, « anomalie à arbitrer » (' + o.etat + ')');
+  o = await bilan(versBoite('descente', {visitable: 'non'}, 'EP'), 'gout_av');
+  R.ok(o.st === 'dep-nv:S retenue' && o.c === 'non_conformes' && o.ligne === 'EP_D | [true] | "oui"' && o.etat === 'ko « ' + DEP + ' · anomalie n° 1 »',
+    'z2 témoin, retenue : non conformes, ligne inchangée (le dossier la rend non conforme par l\'anomalie), fiche « anomalie n° 1 » (' + vu(o, ['st', 'c', 'ligne', 'etat']) + ')');
+  const verP = d => decide(doc({o: [['S', 'descente', 0, 10, {visitable: 'non'}], ['P', 'puisard', 0, 4]], l: [['t1', 'tr', '', '', ['S', 'P']]]}), d);
+  o = await bilan(verP({'dep-nv:S': 'arbitrer'}), 'gout_av');
+  R.ok(o.c === 'arbitrer' && o.ligne === ' | [null] | "" | à arbitrer' && o.libs === 'Puisard (infiltration à la parcelle)' && o.recup === '{"puisard":true}',
+    'z2 vers un puisard : « arbitrer », ligne marquée sans conformité, la case puisard reste (' + vu(o, ['c', 'ligne', 'libs', 'recup']) + ')');
+  /* z3 : réserve (tampon béton d'un regard EP) mise à arbitrer ; témoins : retenue (réserves), écartée (conformes) */
+  const z3 = dec => bilan(decide(versBoite('descente', {}, 'EP', {tampon: 'beton'}), dec), 'gout_av');
+  o = await z3({'tampon:R': 'arbitrer'});
+  const o3r = await z3({}), o3e = await z3({'tampon:R': 'ecartee'});
+  R.ok(o.st === 'tampon:R arbitrer' && o.c === 'arbitrer' && o.plan === CP + 'À compléter : une anomalie reste à arbitrer' && o3r.c === 'reserves' && o3e.c === 'conformes',
+    'z3 tampon béton en EP (réserve) à arbitrer : « arbitrer » ; retenue : « reserves » ; écartée : « conformes » (' + vu({arbitrer: [o.st, o.c, o.plan], retenue: o3r.c, ecartee: o3e.c}) + ')');
+  /* z4 : anomalie saisie à la main sur le WC, à arbitrer ; témoins : retenue, écartée, à arbitrer sans objet */
+  const z4 = (st, objId) => bilan(decide(versBoite('wc', {}, 'EU'), {}, aLaMain(st, objId)), 'wc');
+  o = await z4('arbitrer', 'S');
+  R.ok(o.c === 'arbitrer' && o.ligne === 'EU_D | [null] | "" | à arbitrer' && o.etat === 'att « ' + WCR + ' · anomalie à arbitrer »',
+    'z4 anomalie saisie à la main sur le WC, à arbitrer : « arbitrer », ligne du WC à ok null et marquée, fiche en attente (' + vu(o, ['c', 'ligne', 'etat']) + ')');
+  const o4r = await z4('retenue', 'S'), o4e = await z4('ecartee', 'S'), o4s = await z4('arbitrer');
+  R.ok(o4r.c === 'non_conformes' && o4r.ligne === 'EU_D | [true] | "oui"' && /^ko /.test(o4r.etat) && o4e.c === 'conformes' && o4e.ligne === 'EU_D | [true] | "oui"'
+    && o4s.c === 'arbitrer' && o4s.ligne === 'EU_D | [true] | "oui"',
+    'z4 témoins : retenue « non_conformes » (fiche ko), écartée « conformes », à arbitrer sans objet « arbitrer » sans ligne marquée ('
+    + vu({retenue: [o4r.c, o4r.ligne, o4r.etat], ecartee: [o4e.c, o4e.ligne], sansObjet: [o4s.c, o4s.ligne]}) + ')');
+  /* z5 : branchement sans boîte (à arbitrer d'office) : seul ; avec une NC retenue (descente non visitable vers un puisard) ; retenu ; écarté */
+  const nv = {o: [['D', 'descente', 6, 10, {visitable: 'non'}], ['P', 'puisard', 6, 4]], l: [['t3', 'tr', '', '', ['D', 'P']]]};
+  const o5 = await bilan(sansBoite(), 'wc'), o5n = await bilan(sansBoite(null, nv), 'wc');
+  const o5r = await bilan(decide(sansBoite(), {'sansboite:C:EU': 'retenue'}), 'wc'), o5e = await bilan(decide(sansBoite(), {'sansboite:C:EU': 'ecartee'}), 'wc');
+  R.ok(o5.st === 'sansboite:C:EU arbitrer' && o5.c === 'boite' && o5.plan === CP + 'À compléter : absence de boîte de branchement à arbitrer',
+    'z5 sans boîte, à arbitrer : « boite », au plan « À compléter : absence de boîte de branchement à arbitrer » (' + vu(o5, ['st', 'c', 'plan']) + ')');
+  R.ok(o5n.c === 'non_conformes' && o5r.c === 'non_conformes' && o5e.c === 'conformes' && o5e.plan === CP + 'Conformes',
+    'z5 avec une NC retenue : « non_conformes » ; sans boîte retenue : « non_conformes » ; écartée : « conformes » (' + vu({nc: o5n.c, retenue: o5r.c, ecartee: [o5e.c, o5e.plan]}) + ')');
+  /* z6 (garde) : descente non visitable reliée à la boîte EU : ep-eu retenue, dep-nv à arbitrer : la ligne reste non conforme */
+  o = await bilan(decide(versBoite('descente', {visitable: 'non'}, 'EU'), {'dep-nv:S': 'arbitrer'}), 'gout_av');
+  R.ok(o.st === 'ep-eu:S retenue, dep-nv:S arbitrer' && o.c === 'non_conformes' && /^EU_D \| \[false\] \| "non"/.test(o.ligne) && /^ko /.test(o.etat),
+    'z6 (garde) ep-eu retenue et dep-nv à arbitrer : non conformes, ligne EU_D à ok false, fiche ko (' + vu(o, ['st', 'c', 'ligne', 'etat']) + ')');
+  /* z7 : branchement sans boîte et regard sans tampon, tous deux à arbitrer */
+  o = await bilan(sansBoite({tampon: 'absent'}), 'wc');
+  R.ok(o.st === 'sansboite:C:EU arbitrer, sanstampon:R arbitrer' && o.c === 'plusieurs' && o.plan === CP + 'À compléter : plusieurs anomalies restent à arbitrer',
+    'z7 deux anomalies à arbitrer : « plusieurs », au plan « À compléter : plusieurs anomalies restent à arbitrer » (' + vu(o, ['st', 'c', 'plan']) + ')');
+  /* z8 (garde) : aucun appareil sur le plan, regard EU au tampon béton (NC) mis à arbitrer : rien n'est proposé, comme avant (« sans objet ») ;
+     témoin : retenue, « non_conformes » */
+  const z8 = dec => { const b = auBout('EU'); return bilan(decide(doc({o: [['R', 'regard', 0, 7, {tampon: 'beton'}]].concat(b.o), l: [['t2', 'tr', '', '', ['R', 'B']]].concat(b.l)}), dec), 'wc'); };
+  o = await z8({'tampon:R': 'arbitrer'});
+  const o8r = await z8({});
+  R.ok(o.st === 'tampon:R arbitrer' && o.c === '' && o.plan === CP + 'sans objet' && o8r.st === 'tampon:R retenue' && o8r.c === 'non_conformes',
+    'z8 (garde) sans appareil, tampon béton à arbitrer : aucune conclusion (« sans objet ») ; retenu : « non_conformes » (' + vu({arbitrer: [o.st, o.c, o.plan], retenue: [o8r.st, o8r.c]}) + ')');
+  /* z9 : WC vers une fosse peut-être traversée (une arrivée laissée libre dans le regard d'amont), « à arbitrer » d'office : l'anomalie
+     fosse:F est posée sur la fosse, mais la ligne du WC est marquée, comme celle d'une descente (ep-fosse:S) ; témoins : retenue, écartée */
+  const z9 = (t, dec) => { const r = t === 'wc' ? 'EU' : 'EP';
+    return bilan(decide(doc({o: [['S', t, 0, 12, t === 'wc' ? {} : {cote: 'avant'}], ['R1', 'regard', 0, 8], ['F', 'fosse', 0, 5], ['R3', 'regard', 0, 2]],
+      l: [['L1', 'tr', r, '', ['S', 'R1']], ['A', 'tr', r, '', ['R1', 'F']], ['B', 'tr', r, '', ['F', 'R3']], ['Sx', 'tr', r, '', ['R3', [0, -2]]], ['Arr', 'tr', r, '', [[-5, 8], 'R1'], 0]]}), dec),
+      t === 'wc' ? 'wc' : 'gout_av'); };
+  o = await z9('wc', {});
+  R.ok(o.st === 'fosse:F arbitrer' && o.c === 'fosse' && o.ligne === ' | [null] | "" | à arbitrer' && /^Fosse septique à arbitrer/.test(o.libs) && /^att .* · fosse septique à arbitrer/.test(o.etat),
+    'z9 WC vers une fosse peut-être traversée, à arbitrer : conclusion « fosse », ligne du WC sans code ni conformité, marquée « à arbitrer », fiche en attente ('
+    + vu(o, ['st', 'c', 'ligne', 'libs', 'etat']) + ')');
+  const o9r = await z9('wc', {'fosse:F': 'retenue'}), o9e = await z9('wc', {'fosse:F': 'ecartee'}), o9d = await z9('descente', {});
+  R.ok(o9r.ligne === 'FOSSE | [false] | "non"' && o9e.ligne === 'EU_D | [true] | "oui"' && o9d.st === 'ep-fosse:S arbitrer' && o9d.ligne === ' | [null] | "" | à arbitrer',
+    'z9 témoins : fosse retenue, ligne FOSSE « non » ; écartée, EU_D « oui », sans marque ; descente vers la fosse, marquée (' + vu({retenue: o9r.ligne, ecartee: o9e.ligne, descente: [o9d.st, o9d.ligne]}) + ')');
+}
+
 /* r6 (garde) : type absent, comme dans une version qui ne le connaît pas ; remis après */
 async function sansType(){
   const T0 = V.TYPES.infiltration;
@@ -276,6 +404,7 @@ async function sansType(){
     rendu();
     await planPdf();
     constat();
+    await arbitrage();
     await sansType();
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }
   R.fin();

@@ -112,6 +112,28 @@ CROQUIS DE TERRAIN (facultatif)
   l'arrivée ou dessinez l'exutoire, sinon retenez-la ou écartez-la.
   Sur l'état des lieux, un ouvrage « Projet » posé là où se rejoignent
   des tuyaux existants les relie comme un raccord.
+- Une anomalie « à arbitrer » n'est jamais comptée conforme (consigne du
+  13 nov. 2026). Tant qu'il en reste une (fosse peut-être traversée,
+  branchement sans boîte, regard sans tampon, ou toute anomalie mise « À
+  arbitrer », saisie à la main comprise), le plan dit « À compléter : …
+  à arbitrer » au lieu de « Conformes » ou « Conformes avec réserves »,
+  et la conclusion proposée du constat reste vide (rappel « Conclusion
+  non précisée ») ; choisir « Conformes » ou « Conformes avec réserves »
+  donne un rappel avant la signature.
+  Quand l'anomalie porte sur l'équipement lui-même (descente non
+  visitable ou mauvais réseau mis « À arbitrer », fosse que son eau
+  traverse peut-être, saisie à la main posée sur l'équipement…), sa
+  fiche est aussi « en attente », et sa ligne du constat garde son
+  raccordement sans être déclarée conforme, même si on ressaisit le
+  raccordement ; répondre « Oui » à « Conforme » pour cette ligne donne
+  un rappel. Une boîte manquante ou un tampon absent ne jouent que sur
+  la conclusion.
+  Décidez dans le croquis (Contrôles) : retenez l'anomalie ou
+  écartez-la. Un constat déjà signé ne change pas : signé pendant un
+  arbitrage, il paraît « changé depuis la signature (anomalies à
+  arbitrer) » une fois l'anomalie retenue ou écartée ; touchez
+  « Modifier » pour le mettre à jour et le faire signer à nouveau. Sans
+  croquis (désactivé ou absent), rien ne change.
 - Tant qu'on n'y touche pas, une anomalie déduite suit le dessin (texte mis
   à jour, retirée si le dessin ne la produit plus). Dès qu'on la modifie
   (texte, photo, localisation), c'est elle qui fait foi : le dessin ne la
@@ -248,3 +270,11 @@ MISE À JOUR DE L'APPLICATION
   comme raccordé aux EP) ; elles reviennent sur une tablette à jour.
   N'y signez aucun constat de ces dossiers : un constat signé ne change
   plus.
+- Une tablette restée en v1.7.0, ou plus ancienne, compte encore une
+  anomalie à arbitrer comme conforme : elle y laisse « Conformes ». N'y
+  signez pas le constat d'un dossier dont une anomalie reste à arbitrer.
+  Un constat signé sur une tablette à jour alors qu'une anomalie restait
+  à arbitrer y paraît changé depuis la signature (conclusion, parfois
+  aussi installations ou anomalies) : il est intact. N'y touchez pas
+  « Modifier », qui efface les signatures : mettez d'abord la tablette à
+  jour.

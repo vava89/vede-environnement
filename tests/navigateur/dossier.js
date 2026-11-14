@@ -33,6 +33,17 @@
 // 41 à 46 (m115, L2) : constat signé (geste « c-lock ») sans conclusion choisie, puis une descente reliée à la boîte EU après la signature :
 //     le plan PDF (plan du dossier, bouton du croquis, plan de l'export) imprime « Conclusion du constat : Conformes », celle que le constat
 //     atteste ; 41 à 44 échouent sur 52f0b00 (« Conclusion proposée : … ») ; témoins : visite figée non effectuée (45), constat non signé (46).
+// 49 à 58 (m119, consigne du 13 nov. 2026 : une anomalie à arbitrer n'est jamais comptée conforme) : WC relié sans boîte au collecteur EU
+//     (à arbitrer d'office) et descente non visitable mise « À arbitrer » : conclusion proposée vide, rappels « Conclusion non précisée » et
+//     « à arbitrer » (49) ; la ligne de la descente garde son raccordement sans être « oui », même ressaisi (50) ; « Oui » choisi pour la ligne
+//     puis « Conformes » pour la conclusion : un rappel chacun (51) ; croquis désactivé : « Conformes », comme en v1.5.1 (52, témoin) ; constat
+//     signé avant, sans arbitrage : conclusion et signature intactes, pas « Le dossier a changé » (53, garde) ; signé pendant l'arbitrage :
+//     conclusion attestée vide, rien de « changé », même sans le résumé du croquis (54) ; puis les deux anomalies écartées : le plan du dossier
+//     dit « Conclusion proposée : Conformes » (55) ; l'arbitrage tranché après la signature : « Le dossier a changé depuis la signature
+//     (anomalies à arbitrer) », au dossier, au constat et à l'envoi, constat signé intact, et rien tant que le résumé du croquis n'est pas
+//     prêt (56) ; WC vers une fosse septique peut-être traversée : sa ligne n'est ni « oui » ni « non », même ressaisie, et « Oui » choisi
+//     donne le rappel (57) ; la fosse écartée : « oui » d'office (58, témoin). 49, 50, 51 et 54 à 57 échouent sur e728d76 ; 56 et 57
+//     échouent aussi sur la première version de m119.
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -301,6 +312,158 @@ async function conclusionPlan(){
   } finally { R.ok(!A.erreurs.length, 'conclusion du plan : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
+/* m119 (consigne du 13 nov. 2026 : une anomalie à arbitrer n'est jamais comptée conforme) : WC relié sans boîte au collecteur EU (« à arbitrer »
+   d'office) et descente non visitable vers une boîte EP, mise « À arbitrer » ; constat, croquis désactivé, signatures, puis les deux anomalies
+   écartées dans le croquis */
+async function arbitrage(){
+  const A = await C.ouvrir(), p = A.p, PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+  try {
+    await C.etudeEtDossier(p); await C.ouvrirCroquis(p, {fond: false});
+    const v0 = await C.vue(p), x = v0.cx, y = v0.cy;
+    const els = [C.P('w', 'wc', x - 3, y + 6), C.J('j', x - 3, y), C.P('d', 'descente', x + 4, y + 6, {visitable: 'non', cote: 'avant'}), C.P('BP', 'boite', x + 4, y + 2, {res: 'EP'})], I = C.index(els);
+    els.push(C.L('tw', 'tr', ['w', 'j'], I), C.L('K', 'col', [[x - 12, y], 'j', [x + 12, y]], I, {res: 'EU'}), C.L('td', 'tr', ['d', 'BP'], I));
+    await C.injecter(p, {el: els});
+    const prep = await p.evaluate(() => { const ed = window.__vcEd, S = ed.etat, T = window.__VT, v = T.S.visites[0];
+      S.doc.decisions['dep-nv:d'] = {st: 'arbitrer'}; ed.synchroniser(); S.doc.rev = (S.doc.rev || 0) + 1; ed.enregistrer();
+      return {liste: S.liste.map(a => a.cle + ' ' + a.st).join(', '), dossier: T.S.anoms.filter(a => a.visiteId === v.id).map(a => a.croquis ? a.croquis.cle : 'à la main').join(', ')}; });
+    R.ok(/sansboite:K:EU arbitrer/.test(prep.liste) && /dep-nv:d arbitrer/.test(prep.liste) && !prep.dossier,
+      'arbitrage, croquis : sans boîte et descente non visitable à arbitrer, hors du dossier (' + JSON.stringify(prep) + ')');
+    await C.pause(p, 500); await C.fermerCroquis(p); await C.pause(p, 600);
+    await p.evaluate(async () => { const T = window.__VT, v = T.S.visites[0]; v.statut = 'visitee'; T.constatDepuisCroquis(v, await T.vcResume(v), false); await T.flushSaves();
+      location.hash = '#/e/' + v.etudeId + '/v/' + v.id + '/constat'; });
+    const pret = async () => { await p.waitForSelector('.croq-fill'); await p.waitForFunction(() => window.__VT.VC_RESUMES.has(window.__VT.S.visites[0].id)); await C.pause(p, 900); };
+    const rendre = async () => { await p.evaluate(() => window.__VT.render()); await pret(); };
+    /* état du constat : conclusion proposée et retenue, lignes (raccordement et conformité), boutons pressés, rappels d'arbitrage, signature */
+    const lire = () => p.evaluate(() => { const T = window.__VT, v = T.S.visites[0], L = T.S.anoms.filter(a => a.visiteId === v.id), E = T.constatEval(v, L);
+      const ligne = id => { const r = E.rows.find(q => q.r.id === id); return r ? (r.r.raccord || '-') + ' ' + JSON.stringify(r.conf) : 'absente'; };
+      return {auto: E.auto, conclusion: E.conclusion, gout: ligne('gout_av'), wc: ligne('wc'), rappels: T.constatIssues(v, L).filter(t => /Conclusion non précisée|arbitrer/.test(t)),
+        presses: [...document.querySelectorAll('[data-act="c-concl"][aria-pressed="true"], [data-act="c-conf"][data-row="gout_av"][aria-pressed="true"]')].map(b => b.dataset.act + ' ' + b.dataset.v),
+        change: !!E.changed, pourquoi: E.changeWhy || [], signe: !!v.constat.signeLe, fige: v.constat.fige ? v.constat.fige.conclusion : null}; });
+    const a = (e, re) => e.rappels.some(t => re.test(t));
+    const RAP = /^Le croquis de terrain propose 2 anomalies « à arbitrer »/, NONP = /^Conclusion non précisée\.$/;
+    const RLIG = /^Gouttière\(s\) avant : déclarée conforme alors qu'une anomalie reste à arbitrer : décidez dans le croquis \(Contrôles\)\.$/;
+    const RCON = /^Conclusion « Conformes » choisie alors qu'une anomalie reste à arbitrer : décidez dans le croquis \(Contrôles\)\.$/;
+    await pret();
+    let e = await lire();
+    R.ok(e.auto === '' && e.conclusion === '' && !e.presses.some(b => /^c-concl/.test(b)) && a(e, NONP) && a(e, RAP),
+      '49 sans boîte et descente à arbitrer : conclusion proposée vide, aucune choisie ; rappels « Conclusion non précisée » et « à arbitrer » ('
+      + JSON.stringify({auto: e.auto, conclusion: e.conclusion, presses: e.presses, rappels: e.rappels}) + ')');
+    const ok50 = e.gout === 'EP_D ""' && !e.presses.some(b => /^c-conf/.test(b)) && e.wc === 'EU_D "oui"';
+    await p.selectOption('select[data-cr="raccord"][data-row="gout_av"]', ''); await C.pause(p, 300);
+    await p.selectOption('select[data-cr="raccord"][data-row="gout_av"]', 'EP_D'); await C.pause(p, 400);
+    const e50 = await lire();
+    R.ok(ok50 && e50.gout === 'EP_D ""' && !e50.presses.some(b => /^c-conf/.test(b)),
+      '50 « Gouttière(s) avant » (descente à arbitrer) : raccordement EP_D gardé, ni « oui » ni « non », même ressaisi ; la ligne WC, que l\'absence de boîte ne vise pas, reste « oui » ('
+      + JSON.stringify({gout: e.gout, wc: e.wc, ressaisi: e50.gout, presses: e50.presses}) + ')');
+    await p.click('[data-act="c-conf"][data-row="gout_av"][data-v="oui"]'); await C.pause(p, 300);
+    const e51a = await lire();
+    await p.click('[data-act="c-concl"][data-v="conformes"]'); await C.pause(p, 300);
+    const e51b = await lire();
+    await p.click('[data-act="c-conf"][data-row="gout_av"][data-v="oui"]'); await C.pause(p, 300);
+    await p.click('[data-act="c-concl"][data-v="conformes"]'); await C.pause(p, 300);
+    const e51c = await lire();
+    R.ok(a(e51a, RLIG) && e51b.conclusion === 'conformes' && a(e51b, RLIG) && a(e51b, RCON) && !a(e51c, RLIG) && !a(e51c, RCON) && e51c.conclusion === '',
+      '51 « Oui » choisi pour la ligne, puis « Conformes » : les deux rappels ; choix retirés : plus de rappel ('
+      + JSON.stringify({ligne: e51a.rappels, conclusion: [e51b.conclusion, e51b.rappels], retires: [e51c.conclusion, e51c.rappels]}) + ')');
+    /* croquis désactivé (Réglages) : le constat se déduit des seules lignes et anomalies du dossier, comme en v1.5.1 */
+    const e52 = await p.evaluate(() => { const T = window.__VT; T.S.croq.actif = false; T.VC_RESUMES.clear(); T.render(); return true; }).then(() => C.pause(p, 600)).then(lire);
+    R.ok(e52.auto === 'conformes' && !e52.rappels.length, '52 croquis désactivé : « Conformes », comme en v1.5.1, sans rappel d\'arbitrage (témoin) ('
+      + JSON.stringify({auto: e52.auto, rappels: e52.rappels}) + ')');
+    /* 53 : constat signé comme avant m119 (calcul sans arbitrage : croquis désactivé à la signature), puis croquis réactivé */
+    await p.evaluate(async png => { const T = window.__VT, c = T.S.visites[0].constat; c.sigTech = png; await T.ACTIONS['c-lock'](); T.S.croq.actif = true; T.VC_RESUMES.clear(); }, PNG);
+    await rendre();
+    const e53 = await lire();
+    R.ok(e53.signe && e53.fige === 'conformes' && e53.conclusion === 'conformes' && !e53.change,
+      '53 constat signé avant (sans arbitrage), croquis réactivé : conclusion « Conformes » et signature intactes, pas « Le dossier a changé » ('
+      + JSON.stringify({signe: e53.signe, fige: e53.fige, conclusion: e53.conclusion, change: e53.pourquoi}) + ')');
+    /* 54 : signature retirée (comme « Modifier »), puis signé pendant l'arbitrage : conclusion attestée vide, rien de « changé », même sans le résumé */
+    await p.evaluate(() => { const c = window.__VT.S.visites[0].constat; c.signeLe = ''; c.sigTech = ''; c.sigProp = ''; delete c.fige; });
+    await rendre();
+    await p.evaluate(async png => { const T = window.__VT, c = T.S.visites[0].constat; c.sigTech = png; await T.ACTIONS['c-lock'](); }, PNG);
+    await pret();
+    const e54 = await lire(), e54s = await p.evaluate(() => { const T = window.__VT, v = T.S.visites[0]; T.VC_RESUMES.clear(); const E = T.constatEval(v, T.S.anoms.filter(a => a.visiteId === v.id)); return E.changeWhy || []; });
+    R.ok(e54.signe && e54.fige === '' && !e54.change && !e54s.length,
+      '54 signé pendant l\'arbitrage : conclusion attestée vide, pas « Le dossier a changé », ni après l\'effacement du résumé du croquis ('
+      + JSON.stringify({signe: e54.signe, fige: e54.fige, change: e54.pourquoi, sansResume: e54s}) + ')');
+    /* 55 : les deux anomalies écartées dans le croquis : le plan du dossier imprime la conclusion que propose le dessin */
+    await p.evaluate(() => { const v = window.__VT.S.visites[0]; location.hash = '#/e/' + v.etudeId + '/v/' + v.id; }); await p.waitForSelector('[data-act="vc-ouvrir"]');
+    await C.ouvrirCroquis(p, {dejaCommence: true}); await p.waitForSelector('#modal-root .vc'); await C.pause(p, 400);
+    const ec = await p.evaluate(() => { const ed = window.__vcEd, S = ed.etat;
+      S.liste.filter(q => /^(sansboite|dep-nv):/.test(q.cle)).forEach(q => { S.doc.decisions[q.cle] = Object.assign(S.doc.decisions[q.cle] || {}, {st: 'ecartee'}); });
+      ed.synchroniser(); S.doc.rev = (S.doc.rev || 0) + 1; ed.enregistrer(); return S.liste.map(q => q.cle + ' ' + q.st).join(', '); });
+    await C.pause(p, 500); await C.fermerCroquis(p); await C.pause(p, 400);
+    const plan = await p.evaluate(async () => { const T = window.__VT, J0 = window.jspdf.jsPDF, txt = [];
+      const W = function(){ const d = new J0(...arguments), ot = d.text; d.text = function(t){ try { txt.push([].concat(t).join(' ')); } catch (e){} return ot.apply(d, arguments); }; return d; };
+      W.API = J0.API; window.jspdf.jsPDF = W; const S0 = window.__VT_SAVE; window.__VT_SAVE = async () => true;
+      try { await T.vcPdf(T.S.visites[0]); } finally { window.jspdf.jsPDF = J0; window.__VT_SAVE = S0; }
+      const c = T.S.visites[0].constat; return {conclusion: txt.filter(t => /^Conclusion/.test(t)).join(' | ') || 'aucune', signe: !!c.signeLe, fige: c.fige ? c.fige.conclusion : null}; });
+    R.ok(/sansboite:K:EU ecartee/.test(ec) && /dep-nv:d ecartee/.test(ec) && plan.conclusion === 'Conclusion proposée : Conformes' && plan.signe && plan.fige === '',
+      '55 puis sans boîte et descente écartées : le plan du dossier dit « Conclusion proposée : Conformes » ; constat signé intact (' + JSON.stringify({liste: ec, plan}) + ')');
+    /* 56 : l'arbitrage tranché après la signature : « Le dossier a changé depuis la signature (anomalies à arbitrer) », au dossier, au
+       constat, même quand le résumé du croquis arrive après l'affichage du constat, et à l'envoi, qui calcule le résumé s'il manque ; résumé
+       pas prêt : rien n'est dit (témoin) */
+    const e56 = await p.evaluate(() => { const T = window.__VT, v = T.S.visites[0], L = T.S.anoms.filter(a => a.visiteId === v.id);
+      const pourquoi = T.constatEval(v, L).changeWhy || [], msg = T.issuesOf(v, L).map(x => x.msg).filter(t => /^Le dossier a changé/.test(t));
+      T.VC_RESUMES.clear(); const sans = T.constatEval(v, L).changeWhy || [];
+      location.hash = '#/e/' + v.etudeId + '/v/' + v.id + '/constat'; return {pourquoi, msg, sans}; });
+    await pret();
+    const e56p = await p.evaluate(() => { const c = window.__VT.S.visites[0].constat;
+      return {page: [...document.querySelectorAll('.inline-warn')].map(x => x.textContent).filter(t => /changé depuis la signature/.test(t)).join(' | '),
+        signe: !!c.signeLe, sig: !!c.sigTech, fige: c.fige ? c.fige.conclusion : null}; });
+    /* la fenêtre d'envoi, ouverte sans résumé du croquis (comme après le chargement de l'étude), le calcule et le dit aussi */
+    await p.evaluate(() => { const T = window.__VT; T.VC_RESUMES.clear(); T.mailModal(T.S.visites[0]); });
+    await p.waitForSelector('#modal-root .inline-warn', {timeout: 8000}).catch(() => null);
+    const e56m = await p.evaluate(() => [...document.querySelectorAll('#modal-root .inline-warn')].map(x => x.textContent).filter(t => /changé depuis la signature/.test(t)).join(' | '));
+    await p.click('#modal-root button:has-text("Annuler")').catch(() => null); await C.pause(p, 300);
+    R.ok(e56.pourquoi.join(', ') === 'anomalies à arbitrer' && e56.msg.join() === 'Le dossier a changé depuis la signature du constat (anomalies à arbitrer).' && !e56.sans.length
+      && /^Le dossier a changé depuis la signature \(anomalies à arbitrer\)\./.test(e56p.page) && e56p.signe && e56p.sig && e56p.fige === ''
+      && /^Le dossier a changé depuis la signature \(anomalies à arbitrer\) : le constat joint est celui signé le /.test(e56m),
+      '56 arbitrage tranché après la signature : « Le dossier a changé depuis la signature (anomalies à arbitrer) » au dossier, au constat et à l\'envoi, '
+      + 'constat signé intact ; résumé pas prêt : rien (' + JSON.stringify({e56, e56p, e56m}) + ')');
+  } finally { R.ok(!A.erreurs.length, 'arbitrage : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+/* m119 : WC vers une fosse septique peut-être traversée (une arrivée « Tronçon EU » laissée libre dans le regard d'amont : fosse:F, « à
+   arbitrer » d'office, posée sur la fosse) : au constat, la ligne du WC n'est pas « oui » d'office, même raccordement ressaisi ; « Oui »
+   choisi : un rappel. Témoin : la fosse écartée dans le croquis, la ligne redevient « oui » d'office */
+async function arbitrageFosse(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p); await C.ouvrirCroquis(p, {fond: false});
+    const v0 = await C.vue(p), x = v0.cx, y = v0.cy, EU = {res: 'EU'};
+    const els = [C.P('w', 'wc', x, y + 12), C.P('R1', 'regard', x, y + 8), C.P('F', 'fosse', x, y + 5), C.P('R3', 'regard', x, y + 2)], I = C.index(els);
+    els.push(C.L('L1', 'tr', ['w', 'R1'], I, EU), C.L('La', 'tr', ['R1', 'F'], I, EU), C.L('Lb', 'tr', ['F', 'R3'], I, EU), C.L('Ls', 'tr', ['R3', [x, y - 2]], I, EU),
+      C.L('Arr', 'tr', [[x - 5, y + 8], 'R1'], I, EU));
+    await C.injecter(p, {el: els});
+    const prep = await p.evaluate(() => { const ed = window.__vcEd, S = ed.etat; ed.synchroniser(); S.doc.rev = (S.doc.rev || 0) + 1; ed.enregistrer();
+      return S.liste.map(a => a.cle + ' ' + a.st).join(', '); });
+    await C.pause(p, 500); await C.fermerCroquis(p); await C.pause(p, 600);
+    await p.evaluate(async () => { const T = window.__VT, v = T.S.visites[0]; v.statut = 'visitee'; T.constatDepuisCroquis(v, await T.vcResume(v), false); await T.flushSaves(); });
+    const constat = async () => { await p.evaluate(() => { const v = window.__VT.S.visites[0]; location.hash = '#/e/' + v.etudeId + '/v/' + v.id + '/constat'; });
+      await p.waitForSelector('.croq-fill'); await p.waitForFunction(() => window.__VT.VC_RESUMES.has(window.__VT.S.visites[0].id)); await C.pause(p, 900); };
+    const lire = () => p.evaluate(() => { const T = window.__VT, v = T.S.visites[0], L = T.S.anoms.filter(a => a.visiteId === v.id), E = T.constatEval(v, L), r = E.rows.find(q => q.r.id === 'wc');
+      return {wc: r ? (r.r.raccord || '-') + ' ' + JSON.stringify(r.conf) : 'absente', auto: E.auto, rappels: T.constatIssues(v, L).filter(t => /^WC : déclarée conforme/.test(t))}; });
+    await constat();
+    const e0 = await lire();
+    await p.selectOption('select[data-cr="raccord"][data-row="wc"]', 'EU_D'); await C.pause(p, 400);
+    const e1 = await lire();
+    await p.click('[data-act="c-conf"][data-row="wc"][data-v="oui"]'); await C.pause(p, 300);
+    const e2 = await lire();
+    R.ok(/^fosse:F arbitrer$/.test(prep) && e0.wc === '- ""' && e0.auto === '' && e1.wc === 'EU_D ""' && !e1.rappels.length
+      && e2.wc === 'EU_D "oui"' && e2.rappels.join() === 'WC : déclarée conforme alors qu\'une anomalie reste à arbitrer : décidez dans le croquis (Contrôles).',
+      '57 WC vers une fosse peut-être traversée, à arbitrer : ligne du WC ni « oui » ni « non », même EU départemental ressaisi ; « Oui » choisi : un rappel ('
+      + JSON.stringify({prep, avant: e0, ressaisi: e1, oui: e2}) + ')');
+    /* témoin : « Oui » retiré, la fosse écartée dans le croquis : la ligne du WC redevient « oui » d'office */
+    await p.click('[data-act="c-conf"][data-row="wc"][data-v="oui"]'); await C.pause(p, 300);
+    await p.evaluate(() => { const v = window.__VT.S.visites[0]; location.hash = '#/e/' + v.etudeId + '/v/' + v.id; }); await p.waitForSelector('[data-act="vc-ouvrir"]');
+    await C.ouvrirCroquis(p, {dejaCommence: true}); await p.waitForSelector('#modal-root .vc'); await C.pause(p, 400);
+    await p.evaluate(() => { const ed = window.__vcEd, S = ed.etat; S.doc.decisions['fosse:F'] = {st: 'ecartee'}; ed.synchroniser(); S.doc.rev = (S.doc.rev || 0) + 1; ed.enregistrer(); });
+    await C.pause(p, 500); await C.fermerCroquis(p); await C.pause(p, 600);
+    await constat();
+    const e3 = await lire();
+    R.ok(e3.wc === 'EU_D "oui"' && !e3.rappels.length, '58 témoin, fosse écartée : ligne du WC « oui » d\'office (' + JSON.stringify(e3) + ')');
+  } finally { R.ok(!A.erreurs.length, 'arbitrage d\'une fosse : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
 /* Réglages de l'application, bloc « Aides au dessin » (m111) : texte de la case « Aides activées » et note sur le croquis */
 async function reglagesAides(){
   const A = await C.ouvrir(), p = A.p;
@@ -358,6 +521,8 @@ async function reglagesAccroches(){
     await reglagesAides();
     await reglagesAccroches();
     await conclusionPlan();
+    await arbitrage();
+    await arbitrageFosse();
     await motLavabo();
     await lavaboPiece();
     await cas('1 NC choisie en EP, dessin changé pendant le retrait puis rétabli', 'relier();', 'true', false, {nature: 'NC', constat: 'non_conformes'});

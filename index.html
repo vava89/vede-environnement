@@ -2025,17 +2025,31 @@ function precosAuto(c, L){
 function constatEval(v, list){
   var c = migrerConstat(v.constat, v) || newConstat(v), L = list.filter(function(a){ return !a.brouillon; }), link = new Map();
   L.forEach(function(a){ anomRows(c, a).forEach(function(r){ if (!link.has(r.id)) link.set(r.id, []); link.get(r.id).push(a); }); });
+  /* anomalies du croquis restées « à arbitrer » (m119, consigne du 13 nov. 2026 : jamais comptées conformes). Constat non signé : celles du
+     résumé du croquis (vcArbitrage). Constat signé : celles que la signature a vues (c.fige.arbitrer), pour que le dossier ne paraisse pas
+     changé depuis ; signé sans elles (avant m119, ou rien à arbitrer), rien ne change */
+  var F0 = c.signeLe && c.fige, A = c.signeLe ? (F0 && F0.arbitrer && typeof F0.arbitrer === 'object' ? F0.arbitrer : null) : vcArbitrage(v, c);
+  var AL = A && Array.isArray(A.lignes) ? A.lignes : [];
   var rows = c.rows.map(function(r){
-    var la = link.get(r.id) || [], ok = raccOk(r), auto = '';
+    var la = link.get(r.id) || [], ok = raccOk(r), auto = '', arb = AL.indexOf(r.id) >= 0;
     if (la.some(anomNC)) auto = 'non'; else if (rowActive(r) && ok !== null) auto = ok ? 'oui' : 'non';
-    return {r: r, auto: auto, conf: (r.conforme === 'oui' || r.conforme === 'non') ? r.conforme : auto, anoms: la};
+    /* une anomalie de la ligne reste à arbitrer : jamais « oui » d'office, même raccordement ressaisi ; « non » reste */
+    if (arb && auto === 'oui') auto = '';
+    var x = {r: r, auto: auto, conf: (r.conforme === 'oui' || r.conforme === 'non') ? r.conforme : auto, anoms: la};
+    if (arb && !c.signeLe) x.arbitrer = true;
+    return x;
   });
   var nc = rows.some(function(x){ return x.conf === 'non'; }) || L.some(anomNC), res = L.some(function(a){ return !anomNC(a); });
   var auto = nc ? 'non_conformes' : res ? 'reserves' : (rows.some(function(x){ return x.conf === 'oui'; }) ? 'conformes' : '');
+  /* tant qu'une anomalie reste à arbitrer, ni « Conformes » ni « Conformes avec réserves » ne sont proposées : « Conclusion non précisée » */
+  if (A && A.n > 0 && !nc) auto = '';
   var pa = precosAuto(c, L), precos = {}, meth = {};
   PRECO_ALL.forEach(function(p){ var k = p[0]; precos[k] = c.precos[k] === true || (c.precos[k] !== false && pa.has(k)); });
   METH.forEach(function(m){ meth[m[0]] = !!(c.methodes || {})[m[0]] || c.rows.some(function(r){ return rowActive(r) && (r.methodes || []).indexOf(m[0]) >= 0; }); });
   var E = {c: c, rows: rows, auto: auto, conclusion: c.conclusion || auto, precos: precos, precosAuto: pa, meth: meth, anoms: L};
+  /* constat non signé : nombre d'anomalies à arbitrer (rappels) et état gardé à la signature (constatFigeCalc) */
+  E.arbitrer = !c.signeLe && A ? (A.n || 0) : 0;
+  if (!c.signeLe && A) E.arbA = {n: A.n || 0, lignes: AL.slice()};
   E.obsText = String(c.observations || '').trim() || constatObsAuto(E);
   E.reservesText = String(c.reserves || '').trim() || constatObsAuto(E, true);
   var F = c.signeLe && c.fige;
@@ -2051,6 +2065,10 @@ function constatEval(v, list){
     /* ce qui a changé, dans l'ordre du constat, pour le dire au lieu d'un message général */
     if (dif('statut')) why.push('statut de la visite'); if (dif('dateVisite')) why.push('date de visite'); if (dif('nom')) why.push('nom du propriétaire'); if (dif('adresse') || dif('commune')) why.push('adresse du branchement');
     if (JSON.stringify(liveConf) !== JSON.stringify(F.conf)) why.push('installations ou anomalies'); if (E.conclusion !== F.conclusion) why.push('conclusion');
+    /* signé pendant un arbitrage (m119) : l'arbitrage a changé depuis (anomalie retenue ou écartée, dessin changé). Rien n'est dit tant que
+       le résumé du croquis n'est pas prêt (null), ni pour un constat signé sans rien à arbitrer, ou avant m119 */
+    var FA = F.arbitrer && typeof F.arbitrer === 'object' ? F.arbitrer : null, Av = FA ? vcArbitrage(v, c, true) : null;
+    if (Av && (Av.n !== (FA.n || 0) || JSON.stringify(Av.lignes) !== JSON.stringify(Array.isArray(FA.lignes) ? FA.lignes : []))) why.push('anomalies à arbitrer');
     if (JSON.stringify(precos) !== JSON.stringify(F.precos)) why.push('préconisations'); if (E.obsText !== F.observations || E.reservesText !== F.reserves) why.push('observations');
     E.changeWhy = why; E.changed = why.length > 0;
     rows.forEach(function(x){ x.conf = F.conf[x.r.id] || ''; });
@@ -2069,8 +2087,11 @@ function constatFige(v){ var c = v.constat; if (!c || !c.signeLe) return v; retu
 function constatFigeCalc(v){
   var E = constatEval(v, anomsOf(v.id)), conf = {}, w = constatFige(v);
   E.rows.forEach(function(x){ conf[x.r.id] = rowActive(x.r) ? x.conf : ''; });
-  return {logo: (S.etude && S.etude.fiche && S.etude.fiche.constatLogo) || '', conclusion: E.conclusion, conf: conf, precos: E.precos, meth: E.meth, observations: E.obsText, reserves: E.reservesText, soussigne: E.soussigne,
+  var fg = {logo: (S.etude && S.etude.fiche && S.etude.fiche.constatLogo) || '', conclusion: E.conclusion, conf: conf, precos: E.precos, meth: E.meth, observations: E.obsText, reserves: E.reservesText, soussigne: E.soussigne,
     visite: {statut: w.statut, dateVisite: w.dateVisite, absences: (w.absences || []).slice(), nom: ctc(w, 'nom'), adresse: w.adresse, commune: w.commune, domicile: ctc(w, 'domicile'), domVille: ctc(w, 'domVille'), tel: ctc(w, 'tel'), mail: ctc(w, 'mail')}};
+  /* anomalies du croquis à arbitrer vues à la signature (m119) : le constat signé les garde (constatEval), seulement s'il y en a */
+  if (E.arbA) fg.arbitrer = E.arbA;
+  return fg;
 }
 /* Constat signé en v1.3.0, sans gel : figé tel qu'il s'affiche avant que le croquis puisse changer les anomalies (un constat signé ne bouge jamais) */
 function constatGeler(v){
@@ -2100,12 +2121,14 @@ function constatIssues(v, list){
     if (rowActive(r) && !(r.methodes || []).length) out.push(lab + ' : méthode de contrôle non précisée.');
     if (!rowActive(r) && (r.raccord || x.anoms.length)) out.push(lab + ' : nombre non précisé.');
     if (r.conforme === 'oui' && x.auto === 'non') out.push(lab + ' : déclarée conforme alors que ' + (raccOk(r) === false ? 'son raccordement (' + raccLabel(r.raccord).toLowerCase() + ') ne l\'est pas.' : 'une anomalie liée est une non-conformité.'));
+    else if (r.conforme === 'oui' && x.arbitrer) out.push(lab + ' : déclarée conforme alors qu\'une anomalie reste à arbitrer : décidez dans le croquis (Contrôles).');
   });
   if (!c.reseau) out.push('Réseau desservant non précisé : départemental ou territorial.');
   if (vcPret()) E.anoms.forEach(function(a){ if (vcOrpheline(a)) out.push('A' + (list.indexOf(a) + 1) + ' « ' + String(a.observation || '').split('\n')[0].slice(0, 80) + ' » : le croquis ne la produit plus (dessin corrigé) ; vérifiez-la ou supprimez-la.'); });
   if (vcPret()) vcDoublons(E.anoms).forEach(function(l){ out.push(vcDoublonsMsg(l, list)); });
   if (E.conclusion === 'non_conformes' && !PRECO_ALL.some(function(p){ return E.precos[p[0]]; }) && !String(c.observations || '').trim() && !E.anoms.length) out.push('Installations non conformes sans préconisation ni observation.');
   if (c.conclusion && E.auto && c.conclusion !== E.auto) out.push('Conclusion choisie (« ' + conclLabel(c.conclusion) + ' ») différente de celle déduite des installations et anomalies (« ' + conclLabel(E.auto) + ' »).');
+  if ((c.conclusion === 'conformes' || c.conclusion === 'reserves') && E.arbitrer) out.push('Conclusion « ' + conclLabel(c.conclusion) + ' » choisie alors qu\'une anomalie reste à arbitrer : décidez dans le croquis (Contrôles).');
   if (!E.conclusion) out.push('Conclusion non précisée.');
   if (!String(E.soussigne || '').trim()) out.push('Nom du signataire manquant (« Je, soussigné ») : renseignez la fiche contact ou le champ du constat.');
   if (E.obsText.length > 470) out.push('Observations trop longues pour le cadre du constat (' + E.obsText.length + ' caractères, environ 470 au maximum) : raccourcissez-les ; le détail reste sur la fiche.');
@@ -3124,7 +3147,7 @@ function drawConstat(doc, v, list, first){
 }
 function constatFileName(v){ var hd = ficheHeader(S.etude, v); return safeNameFr('Constat ' + v.numero + (hd.ville ? ' - ' + hd.ville : ''), 120) + '.pdf'; }
 async function constatPdfBlob(v){
-  await croquisAJour(v);
+  await croquisAJour(v); await vcResumeSiBesoin(v);
   var doc = newPdf(); doc.setProperties({title: 'Constat ' + v.numero, author: 'SAS VÉDÉ Environnement', creator: 'VÉDÉ Terrain'});
   drawConstat(doc, v, anomsOf(v.id), true);
   return doc.output('blob');
@@ -3561,7 +3584,7 @@ var VC_ACTIONS = {
 var VC_RESUMES = new Map();
 function vcResumeCalc(v, doc){
   var V = window.VCroquis, an = V.analyser(doc, 'edl'), cd = V.constatDeduit(doc, an);
-  var r = {rev: doc.rev || 0, plan: typeof doc.id === 'string' ? doc.id : '', rows: cd.rows.filter(function(x){ return x.nb > 0; }).map(function(x){ return {id: x.id, groupe: x.groupe, label: x.label, std: !!x.std, nb: x.nb, raccord: x.raccord || '', conforme: x.conforme || '', non: (x.non || []).slice(), meth: (x.meth || []).slice(), types: (x.types || []).slice()}; }),
+  var r = {rev: doc.rev || 0, plan: typeof doc.id === 'string' ? doc.id : '', rows: cd.rows.filter(function(x){ return x.nb > 0; }).map(function(x){ var o = {id: x.id, groupe: x.groupe, label: x.label, std: !!x.std, nb: x.nb, raccord: x.raccord || '', conforme: x.conforme || '', non: (x.non || []).slice(), meth: (x.meth || []).slice(), types: (x.types || []).slice()}; if (x.arbitrer) o.arbitrer = true; return o; }),
     puisard: !!(cd.epRecup && cd.epRecup.puisard), sansCote: (cd.sansCote || []).length};
   /* autres cases des ouvrages de récupération des EP d'après le croquis (récupérateur, infiltration diffuse, indéterminé/autres : décision D7
      de .claude/conception-rejets.md), s'il y en a */
@@ -3588,6 +3611,23 @@ function vcLigneConstat(c, s){
   if (s.std) return rowById(c, s.id);
   var o = norm(s.label).replace(/[-']/g, ' ');
   return c.rows.filter(function(r){ return !r.std && r.groupe === s.groupe && (r.croq === s.id || autresMatch(r, o) || autresMatch({label: s.label}, norm(r.label).replace(/[-']/g, ' '))); })[0] || null;
+}
+/* anomalies du croquis restées « à arbitrer » (m119, consigne du 13 nov. 2026) : leur nombre (résumé du croquis) et les lignes du constat
+   qu'elles nomment (rows[].arbitrer du résumé) ; null sans croquis prêt, sans résumé ou sans rien à arbitrer. vide : {n: 0, lignes: []}
+   quand le résumé est prêt et que rien n'est à arbitrer (null veut alors dire : pas prêt) */
+function vcArbitrage(v, c, vide){
+  if (!vcPret() || !planDe(v.id)) return null;
+  var res = VC_RESUMES.get(v.id); if (!res) return null;
+  var lignes = [];
+  (res.rows || []).forEach(function(s){ if (!s.arbitrer) return; var r = vcLigneConstat(c, s); if (r && lignes.indexOf(r.id) < 0) lignes.push(r.id); });
+  var n = res.arbitrer || 0;
+  return n || lignes.length || vide ? {n: n, lignes: lignes} : null;
+}
+/* résumé du croquis calculé s'il manque (m119) : pour un constat non signé (signature, PDF du constat), la conclusion proposée tient compte
+   des anomalies à arbitrer ; pour un constat signé pendant un arbitrage (fenêtre d'envoi), il dit si l'arbitrage a changé depuis */
+async function vcResumeSiBesoin(v){
+  var c = v && v.constat;
+  if (v && (!(c && c.signeLe) || (c.fige && c.fige.arbitrer)) && vcPret() && planDe(v.id) && !VC_RESUMES.has(v.id)) await vcResume(v);
 }
 function vcValeurs(s){
   var rk = RACC.map(function(k){ return k[0]; }), mk = METH.map(function(m){ return m[0]; });
@@ -3795,6 +3835,8 @@ async function vcConstatApres(v){
   var nf = 0; try { nf = constatDepuisCroquis(v, res, true); } catch(e){ reportError(e, 'Croquis'); }
   if (nf){ toast('Constat mis à jour depuis le croquis (' + plural(nf, 'valeur', 'valeurs') + ').', 3500); await flushSaves(); if (curVisit() === v && S.route && S.route.name === 'constat') render(); return; }
   if (!neuf) return;
+  /* constat signé pendant un arbitrage (m119) : le résumé arrivé dit si l'arbitrage a changé depuis (« Le dossier a changé ») */
+  var c0 = v.constat; if (c0 && c0.signeLe && c0.fige && c0.fige.arbitrer && S.route && S.route.name === 'constat' && (constatEval(v, anomsOf(v.id)).changeWhy || []).indexOf('anomalies à arbitrer') >= 0){ render(); return; }
   var box = $('#croq-ecarts'); if (!box) return;
   var ec = vcEcarts(v, v.constat || newConstat(v));
   if (ec.length && S.route && S.route.name === 'constat'){ render(); return; }
@@ -3969,7 +4011,7 @@ function refreshEnvoiUI(){
 async function mailModal(v){
   var c = v.constat; if (!c || !c.signeLe){ toast('Signez d\'abord le constat.'); return; }
   if (!pdfLibOk()) return;
-  await flushSaves();
+  await flushSaves(); await vcResumeSiBesoin(v);   /* signé pendant un arbitrage : le résumé du croquis dit si l'arbitrage a changé (m119) */
   var cfg = await mailCfg(), direct = mailDirectOk(cfg), E = constatEval(v, anomsOf(v.id)), name = constatFileName(v), blob = null, dests = [], t0 = nowISO();
   var vSigne = c.fige && c.fige.visite ? constatFige(v) : v;   /* objet et message : adresse, ville, date et nom du constat signé joint */
   function addDest(adr, lib, on, note){ adr = String(adr || '').trim(); if (!mailOk(adr) || dests.some(function(d){ return d.adr.toLowerCase() === adr.toLowerCase(); })) return; dests.push({adr: adr, lib: lib, on: on, note: note || ''}); }
@@ -4168,7 +4210,7 @@ var CONSTAT_ACTIONS = {
     constatTouch(v); render();
   },
   'c-lock': async function(){
-    if (curVisit()) await croquisAJour(curVisit());
+    if (curVisit()){ await croquisAJour(curVisit()); await vcResumeSiBesoin(curVisit()); }
     var v = curVisit(), c = v.constat; if (!c || !c.sigTech) return;
     c.fige = constatFigeCalc(v);
     c.signeLe = nowISO(); constatTouch(v); await flushSaves(); toast('Constat validé et verrouillé'); render();

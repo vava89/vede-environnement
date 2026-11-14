@@ -4,6 +4,8 @@
 // Origine : banc m76 (cas c, h, n1, n2, u4 ; attendus de v1.6.1), m77 (k1 à k7 : chemins de même longueur) et m79 (k8 à k13 : la pièce la
 // plus proche qui passe le partage du tronc donne son réseau). Les autres cas de ces bancs (m, o, p, s, t, n3 à n9, u1 à u3) sont perdus
 // depuis l'effacement du dossier de travail du 6 novembre 2026 : à refaire.
+// k4 et k5 (branchement sans boîte, anomalie « à arbitrer » d'office) : conclusion « boite » depuis m119 (une anomalie à arbitrer n'est
+// jamais comptée conforme, consigne du 13 nov. 2026) ; « conformes » sur e728d76, où ces deux cas échouent.
 // usage : node tests/vm/analyse.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, reordonne, copie, rapport} = require('./charger.js');
@@ -62,8 +64,8 @@ const A = {
   'h1': ['wc=ok:EP(p) ev=ok:EP(p)', '', 'non_conformes'], 'h2': ['wc=ok:EP(p) ev=ok:EP(p)', '', 'non_conformes'],
   'h3': ['si=ok:EU(p) d1=ok:EU(p)', '', 'non_conformes'], 'h4': ['wc=ok:EP(p) ev=ok:EP(p)', '', 'non_conformes'], 'n1': ['wc=ok:EP(p)', ''],
   'n2': ['wc=ok:EP(p)', ''], 'u4': ['wc=sansexu', 'a:EU et EP', 'incomplet'], 'k1': ['wc=sansexu', 'c:EU et EP', 'incomplet'],
-  'k2': ['wc=sansexu', 'a:EU et unitaire', 'incomplet'], 'k3': ['wc=multiple', '', 'incomplet'], 'k4': ['wc=ok:EU', '', 'conformes'],
-  'k5': ['wc=ok:EU', '', 'conformes'], 'k6': ['wc=ok:EU(p) d1=sansexu', 'g', 'incomplet'],
+  'k2': ['wc=sansexu', 'a:EU et unitaire', 'incomplet'], 'k3': ['wc=multiple', '', 'incomplet'], 'k4': ['wc=ok:EU', '', 'boite'],
+  'k5': ['wc=ok:EU', '', 'boite'], 'k6': ['wc=ok:EU(p) d1=sansexu', 'g', 'incomplet'],
   'k7': ['wc=ok:EU(p) d1=sansexu', 'c:EU et EP', 'incomplet'], 'k8': ['wc=sansexu', 'a:EU et EP', 'incomplet'],
   'k9': ['d1=sansexu', 'a:EU et EP', 'incomplet'], 'k10': ['ev=sansexu', 'a:EU et EP', 'incomplet'], 'k11': ['d1=sansexu', 'a:EU et EP', 'incomplet'],
   'k12': ['ev=sansexu', 'a:EU et EP+x', 'incomplet'], 'k13': ['ev=sansexu', 'a:EU et EP', 'incomplet'],

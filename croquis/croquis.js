@@ -1472,8 +1472,13 @@ function conclusion(liste, an){
   if (Object.keys(an.resObj).some(function(id){ return an.resObj[id].etat !== 'ok'; })) return 'incomplet';
   /* ni tant qu'une fosse septique peut-être traversée (évitée seulement vers une extrémité libre qui peut être une arrivée) est à arbitrer */
   if (liste.some(function(a){ return a.douteuse && a.st === 'arbitrer'; })) return 'fosse';
+  /* ni tant qu'une autre anomalie reste à arbitrer : elle n'est jamais comptée conforme (consigne du 13 nov. 2026, m119) ; boîte de
+     branchement manquante et regard sans tampon (à arbitrer d'office) sont nommés. Cela remplace « Conformes » et « Conformes avec
+     réserves » seulement : sans appareil sur le plan ni anomalie retenue, rien n'est proposé, comme avant */
+  var arb = liste.filter(function(a){ return a.st === 'arbitrer'; }), nb = Object.keys(an.resObj).length;
+  if (arb.length && (ret.length || nb)) return arb.length > 1 ? 'plusieurs' : /^sansboite:/.test(arb[0].cle) ? 'boite' : /^sanstampon:/.test(arb[0].cle) ? 'tampon' : 'arbitrer';
   if (ret.length) return 'reserves';
-  return Object.keys(an.resObj).length ? 'conformes' : '';
+  return nb ? 'conformes' : '';
 }
 VC.anomaliesDoc = anomaliesDoc; VC.conclusion = conclusion;
 
@@ -1708,8 +1713,46 @@ function ecarterAnomalie(doc, cle){
 VC.reconcilier = reconcilier; VC.ecarterAnomalie = ecarterAnomalie; VC.recIntact = recIntact;
 var CONCL = {conformes: 'Conformes', non_conformes: 'Non conformes', reserves: 'Conformes avec réserves', incomplet: 'À compléter : un équipement n\'a pas de rejet établi',
   fosse: 'À compléter : fosse septique à arbitrer (une extrémité laissée libre peut être une arrivée)',
-  croquis: 'À compléter : le croquis retient une anomalie absente de la liste du dossier (rouvrir le croquis)'};
+  croquis: 'À compléter : le croquis retient une anomalie absente de la liste du dossier (rouvrir le croquis)',
+  boite: 'À compléter : absence de boîte de branchement à arbitrer', tampon: 'À compléter : regard sans tampon à arbitrer',
+  arbitrer: 'À compléter : une anomalie reste à arbitrer', plusieurs: 'À compléter : plusieurs anomalies restent à arbitrer'};
 VC.CONCL = CONCL;
+
+/* État d'une anomalie (m119) : 'retenue', 'arbitrer' ou 'ecartee', comme anomaliesDoc et le mode intégré (décision du technicien, sinon
+   « à arbitrer » d'office pour a.arbitrer) ; saisie à la main : son état (m.st). '' : anomalie absente. Lit an.anomalies, doc.decisions et
+   doc.anomManu, sans rien écrire (anomaliesDoc écrit doc.ordre). */
+function etatAnomalie(doc, an, cle){
+  var d = (doc.decisions || {})[cle] || {}, m = (doc.anomManu || []).filter(function(x){ return x.id === cle; })[0];
+  if (m) return d.st || m.st || 'retenue';
+  var a = (an.anomalies || []).filter(function(x){ return x.cle === cle; })[0];
+  if (!a) return '';
+  return d.st || (a.arbitrer ? 'arbitrer' : 'retenue');
+}
+/* Une anomalie de la ligne de la source id reste à arbitrer : la ligne n'est pas déclarée conforme (m119). Ce sont les règles de
+   REGLES_LIGNE, une saisie à la main posée sur la source (comme ligneDe) et la fosse septique douteuse que son eau traverse peut-être
+   (fosseArbitrage : l'anomalie fosse:F est posée sur la fosse, mais vise le raccordement de chaque source qui y passe, en EU comme en EP).
+   Une anomalie qui ne nomme pas de ligne (sans boîte, sans tampon) ne joue que sur la conclusion. */
+function ligneArbitrer(doc, an, id){
+  return (an.anomalies || []).some(function(a){ return a.objId === id && REGLES_LIGNE.test(a.cle) && etatAnomalie(doc, an, a.cle) === 'arbitrer'; })
+    || (doc.anomManu || []).some(function(m){ return m.objId === id && etatAnomalie(doc, an, m.id) === 'arbitrer'; })
+    || fosseArbitrage(doc, an, id) === 'arbitrer';
+}
+VC.etatAnomalie = etatAnomalie; VC.ligneArbitrer = ligneArbitrer;
+/* État de la fiche d'une source (tête de la fiche de l'éditeur) : {cls : 'ok', 'ko' ou 'att', txt}. liste : anomaliesDoc ; mode : 'edl' ou 'avp' */
+function etatSourceDe(doc, an, liste, mode, id){
+  var r = an.resObj[id], a = liste.filter(function(x){ return x.objId === id && x.st === 'retenue'; });
+  if (!r) return {cls: 'att', txt: mode === 'avp' ? 'Hors de l\'avant-projet' : 'Projet : non analysé dans l\'état des lieux'};
+  if (r.etat === 'nonrelie') return {cls: 'ko', txt: 'Non relié : tracez un tronçon depuis cet objet'};
+  if (r.etat === 'sansexu') return {cls: 'att', txt: r.conflit ? 'Exutoire non dessiné : tronçons ' + listeEt(r.conflit.map(libRes)) + ' réunis vers la même extrémité libre, indiquez le réseau du tronçon commun, ou le sens du tracé d\'une arrivée' : r.ambigu ? 'Exutoire non dessiné : extrémités libres de réseaux ' + listeEt(r.ambigu.map(libRes)) + (r.ambiguArrivee ? ', prolongez le tracé ou indiquez le sens du tracé d\'une arrivée' : ', prolongez le tracé jusqu\'à l\'exutoire') : 'Exutoire non dessiné : prolongez le tracé ou indiquez le réseau du tronçon'};
+  if (r.etat === 'multiple') return {cls: 'ko', txt: 'Relié à plusieurs réseaux : indiquez le sens d\'écoulement'};
+  var txt = 'Rejet : ' + libExu(r.res, an) + (/^(EU|EP|UN)$/.test(r.res) && r.gest ? ' ' + GEST_LIB[r.gest] : '') + (r.presume ? ' (d\'après le tronçon)' : '');
+  if (fosseArbitrage(doc, an, id) === 'arbitrer' && !a.length) return {cls: 'att', txt: txt + ' · fosse septique à arbitrer : une extrémité laissée libre peut être une arrivée'};
+  /* une anomalie de la source reste à arbitrer : en attente, jamais « ok » (m119) */
+  var aa = liste.filter(function(x){ return x.objId === id && x.st === 'arbitrer'; });
+  if (!a.length && aa.length) return {cls: 'att', txt: txt + ' · anomalie' + (aa.length > 1 ? 's' : '') + ' à arbitrer'};
+  return a.length ? {cls: 'ko', txt: txt + ' · anomalie' + (a.length > 1 ? 's' : '') + ' n° ' + a.map(function(x){ return x.num; }).join(', ')} : {cls: 'ok', txt: txt};
+}
+VC.etatSource = etatSourceDe;
 
 /* ---------- Constat déduit : lignes de l'application (nombre, raccordement, conformité, méthodes) ---------- */
 var ROWS_STD = [['wc', 'EU', 'WC'], ['lavelinge', 'EU', 'Lave-linge'], ['evier', 'EU', 'Évier'], ['sdb', 'EU', 'Salle de bain (douche ou baignoire et lavabo)'], ['cuisine', 'EU', 'Cuisine (évier, lave-vaisselle)'], ['siphon', 'EU', 'Siphon de garage'],
@@ -1717,9 +1760,12 @@ var ROWS_STD = [['wc', 'EU', 'WC'], ['lavelinge', 'EU', 'Lave-linge'], ['evier',
 var RACC_LIB = {EU_D: 'Réseau EU départemental', EU_T: 'Réseau EU territorial', EP_D: 'Réseau EP départemental', EP_T: 'Réseau EP territorial', UN_D: 'Réseau unitaire départemental', UN_T: 'Réseau unitaire territorial', FOSSE: 'Fosse septique', MILIEU: 'Milieu naturel', GARG: 'Gargouille', INF: 'Puisard (infiltration)'};
 /* cases des ouvrages de récupération des EP du constat (EP_RECUP de l'application), dans l'ordre du formulaire : texte du panneau */
 var RECUP_LIB = [['puisard', 'puisard'], ['recup', 'récupérateur'], ['infil', 'infiltration diffuse'], ['autre', 'indéterminé/autres']];
-/* Raccordement d'un équipement pour le constat : code de l'application (vide si le formulaire n'en a pas), libellé, conformité d'après le réseau atteint */
-function raccInfo(r, groupe, arb){
+/* Raccordement d'un équipement pour le constat : code de l'application (vide si le formulaire n'en a pas), libellé, conformité d'après le réseau atteint.
+   arbL : une anomalie de sa ligne reste à arbitrer (ligneArbitrer) : code, libellé et case gardés, mais pas de conformité (ok true devient null ;
+   ok false reste, m119) */
+function raccInfo(r, groupe, arb, arbL){
   if (!r || r.etat !== 'ok') return {code: '', lib: '', ok: null};
+  var conf = function(ok){ return ok && arbL ? null : ok; };
   if (r.fosse || arb === 'retenue') return {code: 'FOSSE', lib: RACC_LIB.FOSSE, ok: false};
   /* fosse à arbitrer (fosseArbitrage) : raccordement et conformité laissés à l'opérateur tant qu'il ne l'a ni retenue ni écartée */
   if (arb === 'arbitrer') return {code: '', lib: 'Fosse septique à arbitrer (extrémité laissée libre à orienter)', ok: null};
@@ -1728,15 +1774,15 @@ function raccInfo(r, groupe, arb){
      (puisard : aussi l'ancienne marque) */
   var xe = exuDe(res);
   if (xe){
-    var pl = ep ? xe.cEP : xe.cEU, out = {code: pl.code, lib: pl.lib || RACC_LIB[pl.code] || '', ok: ep};
+    var pl = ep ? xe.cEP : xe.cEU, out = {code: pl.code, lib: pl.lib || RACC_LIB[pl.code] || '', ok: conf(ep)};
     if (pl.recup){ out.recup = pl.recup; if (pl.recup === 'puisard') out.puisard = true; }
     return out;
   }
   if (/^(EU|EP|UN)$/.test(res)){
     var ok = ep ? res !== 'EU' : res !== 'EP';
-    if (r.gest === 'P') return {code: '', lib: 'Réseau ' + libRes(res) + ' privé : aboutissement public à préciser', ok: ok};
+    if (r.gest === 'P') return {code: '', lib: 'Réseau ' + libRes(res) + ' privé : aboutissement public à préciser', ok: conf(ok)};
     var code = res + '_' + (r.gest === 'T' ? 'T' : 'D');
-    return {code: code, lib: RACC_LIB[code] + (r.presume ? ' (présumé)' : ''), ok: ok};
+    return {code: code, lib: RACC_LIB[code] + (r.presume ? ' (présumé)' : ''), ok: conf(ok)};
   }
   return {code: '', lib: '', ok: null};
 }
@@ -1752,10 +1798,12 @@ function constatDeduit(doc, an){
     return autres[k];
   }
   Object.keys(an.resObj).forEach(function(id){
-    var o = an.objs[id], row = ligne(o), ri = raccInfo(an.resObj[id], row ? row.groupe : T[o.t].nat || 'EP', fosseArbitrage(doc, an, id));
+    var o = an.objs[id], row = ligne(o), arbL = ligneArbitrer(doc, an, id), ri = raccInfo(an.resObj[id], row ? row.groupe : T[o.t].nat || 'EP', fosseArbitrage(doc, an, id), arbL);
     if (ri.recup) recup[ri.recup] = true;
     if (!row){ sansCote.push(id); return; }
     row.objets.push(id); row.codes.push(ri.code); row.oks.push(ri.ok);
+    /* ligne marquée seulement quand une anomalie y reste à arbitrer : l'application ne la déclare pas conforme (m119) */
+    if (arbL) row.arbitrer = true;
     if (ri.lib && row.libs.indexOf(ri.lib) < 0) row.libs.push(ri.lib);
     /* raccordements non conformes de la ligne (fosse septique, mauvais réseau…) : rappelés si le constat la dit conforme */
     if (ri.ok === false && ri.lib && row.non.indexOf(ri.lib) < 0) row.non.push(ri.lib);
@@ -4877,16 +4925,7 @@ function editeur(racine, opts){
   function saisie(k, val, o){ o = o || {}; return '<input class="vc-in" type="text"' + (o.num ? ' inputmode="decimal"' : '') + ' data-a="' + (o.a || 'propTxt') + '" data-k="' + k + '" value="' + esc(val == null ? '' : val) + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + (o.lab ? ' aria-label="' + esc(o.lab) + '"' : '') + '>'; }
   function zone(k, val, o){ o = o || {}; return '<textarea class="vc-in" rows="2" data-a="' + (o.a || 'propTxt') + '" data-k="' + k + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + (o.lab ? ' aria-label="' + esc(o.lab) + '"' : '') + '>' + esc(val || '') + '</textarea>'; }
   var OUI_NON = [['oui', 'Oui'], ['non', 'Non']];
-  function etatSource(e){
-    var r = S.an.resObj[e.id], a = S.liste.filter(function(x){ return x.objId === e.id && x.st === 'retenue'; });
-    if (!r) return {cls: 'att', txt: S.mode === 'avp' ? 'Hors de l\'avant-projet' : 'Projet : non analysé dans l\'état des lieux'};
-    if (r.etat === 'nonrelie') return {cls: 'ko', txt: 'Non relié : tracez un tronçon depuis cet objet'};
-    if (r.etat === 'sansexu') return {cls: 'att', txt: r.conflit ? 'Exutoire non dessiné : tronçons ' + listeEt(r.conflit.map(libRes)) + ' réunis vers la même extrémité libre, indiquez le réseau du tronçon commun, ou le sens du tracé d\'une arrivée' : r.ambigu ? 'Exutoire non dessiné : extrémités libres de réseaux ' + listeEt(r.ambigu.map(libRes)) + (r.ambiguArrivee ? ', prolongez le tracé ou indiquez le sens du tracé d\'une arrivée' : ', prolongez le tracé jusqu\'à l\'exutoire') : 'Exutoire non dessiné : prolongez le tracé ou indiquez le réseau du tronçon'};
-    if (r.etat === 'multiple') return {cls: 'ko', txt: 'Relié à plusieurs réseaux : indiquez le sens d\'écoulement'};
-    var txt = 'Rejet : ' + libExu(r.res, S.an) + (/^(EU|EP|UN)$/.test(r.res) && r.gest ? ' ' + GEST_LIB[r.gest] : '') + (r.presume ? ' (d\'après le tronçon)' : '');
-    if (fosseArbitrage(S.doc, S.an, e.id) === 'arbitrer' && !a.length) return {cls: 'att', txt: txt + ' · fosse septique à arbitrer : une extrémité laissée libre peut être une arrivée'};
-    return a.length ? {cls: 'ko', txt: txt + ' · anomalie' + (a.length > 1 ? 's' : '') + ' n° ' + a.map(function(x){ return x.num; }).join(', ')} : {cls: 'ok', txt: txt};
-  }
+  function etatSource(e){ return etatSourceDe(S.doc, S.an, S.liste, S.mode, e.id); }
   /* boîte en limite de propriété (souhait 10, décision D5) : parcelle de l'installation (VCroquis.geo.parcelleInstallation), prise parmi les
      limites du fond affiché, et distance de la boîte à son bord : {ligne, d, cote, douteux, proj, seg}. null pour un autre objet, sans fond
      affiché (fond masqué, calque décoché) ou sans parcelle de l'installation. Rien n'est gardé : la mesure suit le plan */
