@@ -67,10 +67,21 @@
 //   et de cases différentes : la case.
 // x3 : le même plan (deux destinations de même clé, une autre) dessiné dans quatre ordres (objets et tracés) : même an.exu, mêmes rejets ;
 //   un plan sans destination n'a pas de clé an.exu (garde).
+// x4 (m126, décisions D8 et D9) : le symbole d'une destination est un hexagone vert de rayon 2,1, blanc dedans, qui porte l'abréviation.
+//   « Étang » (Ét) et « Fossé » (Fo), chacun au bout d'une descente : blocs VEDE_EXUTOIRE_ET et VEDE_EXUTOIRE_FO du DXF (hexagone et
+//   abréviation ; INSERT sur VEDE-SYMBOLES, couleur 3) ; au plan PDF, deux lignes de légende, chacune avec son hexagone et son
+//   abréviation, et « étang » en page 2 ; à l'écran, hexagone et abréviations en vert. Nom « Étang <b> & "x" » et abréviation « <& » :
+//   écrits tels quels à l'écran et au PDF, en CP1252 au DXF (bloc VEDE_EXUTOIRE___) ; l'abréviation échappée en HTML (symboleSvg). Le
+//   nom n'entre pas dans le symbole : son échappement en HTML se vérifie dans la fiche de la descente (navigateur/constat-boite.js, cas 14).
+//   Abréviations « Ét » et « Et » : VEDE_EXUTOIRE_ET puis VEDE_EXUTOIRE_ET_2. Sans nom ni abréviation : « Autre destination (Au) »,
+//   VEDE_EXUTOIRE_AU. Noms longs : la ligne de légende finit à 287 mm au plus (filets du cartouche) ; 40 majuscules en taille réduite
+//   (5,5 pt au moins), nom entier ; 40 « W » en 5,5 pt, nom coupé (« … »), abréviation gardée ; témoin : « Étang (Ét) » en 7,2 pt.
 // x5 : avant-projet qui garde l'étang aux EP non conformes : préconisation au tableau du plan PDF, « Reste après travaux : Descente EP : rejet
 //   dans l'étang » ; témoin : le rejet supprimé par le projet, plus rien ne reste ; au dossier (reconcilier), ep-exu créée en catégorie
 //   « autre », sur la ligne « Gouttière(s) avant », non conforme, case gestEP.
 // Échouent sur ebd5589 (type « exutoire » absent : bout libre) : x1, x2, x3 et x5, sauf la garde de x3 et le témoin de x5.
+// Échouent sur 4a55a83 (cercle par défaut sans texte, bloc VEDE_EXUTOIRE, légende « Autre destination », symboleSvg sans p) : les onze
+//   cas de x4. « étang » en page 2 et l'étiquette (le nom écrit tel quel) y étaient déjà justes.
 // usage : node tests/vm/rejets.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rendus, rapport, melange} = require('./charger.js');
@@ -562,6 +573,89 @@ function destOrdre(){
   const an0 = V.analyser(copie(versPuits('descente')), 'edl');
   R.ok(!('exu' in an0), 'x3 garde : un plan sans destination n\'a pas de clé an.exu (' + Object.keys(an0).join(', ') + ')');
 }
+/* x4 (m126, décisions D8 et D9) : symbole, légende du plan PDF, écran et DXF d'une destination ; ses textes libres (nom, abréviation) sont
+   intacts à l'écran et au PDF, en CP1252 au DXF ; l'abréviation est échappée en HTML (symboleSvg, où le nom n'entre pas) ; la ligne de
+   légende d'un nom long reste dans le cartouche */
+const rayons = q => { const r = []; for (let i = 0; i + 1 < q.pts.length; i += 2) r.push(Math.hypot(q.pts[i], q.pts[i + 1])); return r; };
+/* bloc du DXF résumé : polylignes (fermées ou non) et cercles, nombre de sommets, textes */
+function resumeBloc(texte, nom){
+  const b = blocDxf(texte, nom); if (!b) return 'bloc ' + nom + ' absent';
+  return b.filter(q => q.type === 'POLYLINE' || q.type === 'CIRCLE').map(q => q.type + (q.type === 'POLYLINE' && (+q.c['70'] & 1) ? ' fermée' : '')).join(', ')
+    + ' (' + b.filter(q => q.type === 'VERTEX').length + ' sommets) ; textes ' + JSON.stringify(b.filter(q => q.type === 'TEXT').map(q => q.c['1']));
+}
+const HEX = t => 'POLYLINE fermée (6 sommets) ; textes ' + JSON.stringify([t]);
+/* INSERT des destinations, de gauche à droite : bloc, calque, couleur */
+const insDest = x => x.ents.filter(q => q.type === 'INSERT' && /^VEDE_EXUTOIRE/.test(q.c['2'])).sort((a, b) => +a.c['10'] - +b.c['10']).map(q => q.c['2'] + ' ' + q.cal + ' ' + q.c['62']);
+/* côtés verts de l'écran dont les deux bouts sont à la même distance du point c : distances */
+const autour = (tr, c) => tr.filter(q => q.coul === VERT).map(q => [Math.hypot(q.a.x - c[0], q.a.y - c[1]), Math.hypot(q.b.x - c[0], q.b.y - c[1])])
+  .filter(r => r[0] > 1e-3 && Math.abs(r[0] - r[1]) < 1e-6);
+async function destRendu(){
+  const FOS = {nom: 'Fossé', ab: 'Fo', art: 'le', ep: 'conforme', cst: 'MILIEU'};
+  /* symbole : hexagone vert, blanc dedans, de rayon 2,1, qui porte l'abréviation en vert gras */
+  const P = sur(() => V.primitives({k: 'pt', t: 'exutoire', p: etang('nc')}, V.RES.EP.rgb, 0)), L = Array.isArray(P) ? P : [];
+  const hx = L.filter(q => q.k === 'p'), tx = L.filter(q => q.k === 't');
+  R.ok(V.rayonSymbole('exutoire') === 2.1 && L.length === 2 && hx.length === 1 && hx[0].f === true && hx[0].pts.length === 12 && rayons(hx[0]).every(r => Math.abs(r - 2.1) < 1e-9)
+    && String(hx[0].trait) === EPC && String(hx[0].fond) === '255,255,255' && hx[0].ep > 0 && tx.length === 1 && tx[0].s === 'Ét' && String(tx[0].coul) === EPC && tx[0].gras === true,
+    'x4 symbole : hexagone vert de rayon 2,1, blanc dedans, qui porte l\'abréviation « Ét » en vert gras (rayon ' + V.rayonSymbole('exutoire') + ' ; '
+    + (Array.isArray(P) ? P.map(q => q.k + (q.pts ? ' ' + q.pts.length / 2 + ' sommets, rayon ' + [...new Set(rayons(q).map(r => r.toFixed(3)))].join('/') : '') + (q.r ? ' r ' + q.r : '')
+      + (q.s != null ? ' « ' + q.s + ' »' : '')).join(' | ') : P) + ')');
+  /* « Étang » (Ét) et « Fossé » (Fo), chacun au bout d'une descente */
+  const d = doc({o: [['S1', 'descente', 0, 10], ['E', 'exutoire', 0, 4, etang('nc')], ['S2', 'descente', 8, 10], ['F', 'exutoire', 8, 4, FOS]],
+    l: [['t1', 'tr', '', '', ['S1', 'E']], ['t2', 'tr', '', '', ['S2', 'F']]]});
+  const x = dxf(d), bE = resumeBloc(x.texte, 'VEDE_EXUTOIRE_ET'), bF = resumeBloc(x.texte, 'VEDE_EXUTOIRE_FO'), iD = insDest(x);
+  R.ok(bE === HEX('Ét') && bF === HEX('Fo') && x.blocs.indexOf('VEDE_EXUTOIRE') < 0 && vu(iD) === vu(['VEDE_EXUTOIRE_ET VEDE-SYMBOLES 3', 'VEDE_EXUTOIRE_FO VEDE-SYMBOLES 3']),
+    'x4 DXF : blocs VEDE_EXUTOIRE_ET et VEDE_EXUTOIRE_FO (hexagone et abréviation), aucun bloc VEDE_EXUTOIRE ; INSERT sur VEDE-SYMBOLES en couleur 3 ('
+    + bE + ' ; ' + bF + ' ; blocs ' + x.blocs.join(', ') + ' ; INSERT ' + (iD.join(', ') || 'aucun') + ')');
+  const p = await pdf(d, {mode: 'edl'}), lg = p.txt.filter(s => /^(Étang|Fossé|Autre destination)( \(|$)/.test(s));
+  /* échantillons de la légende (cartouche, à droite du cadre du plan) : abréviation et hexagone vert */
+  const ech = p.pos.filter(q => q.x > 216 && q.x < 232 && /^(Ét|Fo|Au)$/.test(q.t)).map(q => q.t).sort();
+  const hexL = p.formes.filter(f => f.ferme && f.pts.length === 6 && f.coul === EPC && f.pts.every(q => q.x > 216 && q.x < 232)).length;
+  const rej = p.txt.filter(s => /^(étang|fossé)\b/.test(s));
+  R.ok(!p.err.length && vu(lg) === vu(['Étang (Ét)', 'Fossé (Fo)']) && vu(ech) === vu(['Fo', 'Ét']) && hexL === 2 && rej.some(s => /^étang\b/.test(s)),
+    'x4 plan PDF : deux lignes de légende, « Étang (Ét) » et « Fossé (Fo) », chacune avec son hexagone vert et son abréviation ; « étang » au « Rejet constaté » de la page 2 ('
+    + (p.err.join(' | ') || vu(lg) + ' ; échantillons ' + vu(ech) + ', ' + hexL + ' hexagones ; page 2 ' + vu(rej)) + ')');
+  const ec = sur(() => dessiner(d, 20, [4, 7])), sE = typeof ec === 'string' ? [] : autour(ec.traits, [0, 4]);
+  const txE = typeof ec === 'string' ? ec : ec.textes.filter(q => /^(Ét|Fo|Au)$/.test(q.t)).map(q => q.t + ' ' + q.coul).sort();
+  R.ok(sE.length === 6 && sE.every(r => Math.abs(r[0] - sE[0][0]) < 1e-6) && vu(txE) === vu(['Fo ' + VERT, 'Ét ' + VERT]),
+    'x4 écran : hexagone vert (six côtés aux bouts à égale distance du centre) et abréviations en vert (' + sE.length + ' côtés ; ' + vu(txE) + ')');
+  /* textes libres : nom « Étang <b> & "x" », abréviation « <& » ; étiquette affichée */
+  const N = 'Étang <b> & "x"', pe = {nom: N, ab: '<&', art: 'l\'', ep: 'conforme', cst: 'autre'};
+  const svg = sur(() => V.symboleSvg('exutoire', 40, pe)), tsv = String((String(svg).match(/<text[^>]*>([^<]*)<\/text>/) || [])[1]);
+  R.ok(tsv === '&lt;&amp;' && String(svg).indexOf('<&') < 0, 'x4 HTML : l\'abréviation « <& » échappée dans le symbole (symboleSvg : ' + JSON.stringify(tsv) + ')');
+  const d2 = versDest('descente', pe); d2.el.find(q => q.id === 'E').lab = null;
+  const e2 = sur(() => dessiner(d2, 20, [0, 7])), t2 = typeof e2 === 'string' ? e2 : e2.textes.map(q => q.t).filter(t => t === N || t === '<&').sort();
+  const p2 = await pdf(d2, {mode: 'edl'}), l2 = p2.txt.filter(s => s.indexOf(N) === 0 || s === '<&'), n2 = t => l2.filter(s => s === t).length;
+  const x2 = dxf(d2), brut = Buffer.from(V.ecrireDxf(copie(d2))), b2 = resumeBloc(x2.texte, 'VEDE_EXUTOIRE___'), et2 = x2.ents.filter(q => q.type === 'TEXT' && q.c['1'] === N).map(q => q.cal);
+  R.ok(vu(t2) === vu(['<&', N]), 'x4 écran : nom et abréviation écrits tels quels (' + vu(t2) + ')');
+  R.ok(!p2.err.length && n2(N) >= 1 && n2(N + ' (<&)') === 1 && n2('<&') === 2 && l2.length === n2(N) + 3,
+    'x4 plan PDF : nom (étiquette, avec son halo), « ' + N + ' (<&) » (légende) et « <& » (plan et légende), intacts ('
+    + (p2.err.join(' | ') || vu(l2)) + ')');
+  R.ok(vu(et2) === vu(['VEDE-ETIQUETTES']) && b2 === HEX('<&') && brut.includes(Buffer.from(N, 'latin1')) && !brut.includes(Buffer.from('É', 'utf8')),
+    'x4 DXF : étiquette « ' + N + ' » intacte, en CP1252 (É en un octet) ; bloc VEDE_EXUTOIRE___ qui porte « <& » (' + vu(et2) + ' ; ' + b2 + ')');
+  /* abréviations « Ét » et « Et » : le même nom de bloc une fois réduit à A-Z, 0-9 et _ */
+  const d3 = doc({o: [['S1', 'descente', 0, 10], ['E1', 'exutoire', 0, 4, etang('conforme')], ['S2', 'descente', 8, 10], ['E2', 'exutoire', 8, 4, Object.assign(etang('conforme'), {ab: 'Et'})]],
+    l: [['t1', 'tr', '', '', ['S1', 'E1']], ['t2', 'tr', '', '', ['S2', 'E2']]]});
+  const x3 = dxf(d3), i3 = insDest(x3), b31 = resumeBloc(x3.texte, 'VEDE_EXUTOIRE_ET'), b32 = resumeBloc(x3.texte, 'VEDE_EXUTOIRE_ET_2');
+  R.ok(b31 === HEX('Ét') && b32 === HEX('Et') && vu(i3) === vu(['VEDE_EXUTOIRE_ET VEDE-SYMBOLES 3', 'VEDE_EXUTOIRE_ET_2 VEDE-SYMBOLES 3']),
+    'x4 DXF, abréviations « Ét » et « Et » : VEDE_EXUTOIRE_ET puis VEDE_EXUTOIRE_ET_2, chacun son texte (' + b31 + ' ; ' + b32 + ' ; INSERT ' + (i3.join(', ') || 'aucun') + ')');
+  /* sans nom ni abréviation : les replis (« Autre destination », « Au ») */
+  const d4 = versDest('descente', {}), p4 = await pdf(d4, {mode: 'edl'}), x4 = dxf(d4), i4 = insDest(x4);
+  const l4 = p4.txt.filter(s => /^Autre destination\b/.test(s)), b4 = resumeBloc(x4.texte, 'VEDE_EXUTOIRE_AU');
+  R.ok(!p4.err.length && vu(l4) === vu(['Autre destination (Au)']) && b4 === HEX('Au') && vu(i4) === vu(['VEDE_EXUTOIRE_AU VEDE-SYMBOLES 3']) && x4.blocs.indexOf('VEDE_EXUTOIRE') < 0,
+    'x4 destination sans nom ni abréviation : « Autre destination (Au) » à la légende, bloc VEDE_EXUTOIRE_AU (' + (p4.err.join(' | ') || vu(l4)) + ' ; ' + b4 + ' ; INSERT '
+    + (i4.join(', ') || 'aucun') + ')');
+  /* noms longs : la ligne de légende reste dans le cartouche (de 216 à 290 mm ; libellés à 229 mm, filets jusqu'à 287 mm). 40 majuscules :
+     taille réduite (5,5 pt au moins), nom entier ; 40 « W » : 5,5 pt, nom coupé (« … »), abréviation gardée ; témoin : « Étang (Ét) » en 7,2 pt */
+  const LONG = 'FOSSÉ DE LA ROUTE DE VILLE-EXEMPLE OUEST', d5 = doc({o: [['S1', 'descente', 0, 10], ['E1', 'exutoire', 0, 4, {nom: LONG, ab: 'FRV', art: 'le', ep: 'conforme', cst: 'autre'}],
+    ['S2', 'descente', 8, 10], ['E2', 'exutoire', 8, 4, {nom: 'W'.repeat(40), art: 'le', ep: 'conforme', cst: 'autre'}], ['S3', 'descente', 16, 10], ['E3', 'exutoire', 16, 4, etang('conforme')]],
+    l: [['t1', 'tr', '', '', ['S1', 'E1']], ['t2', 'tr', '', '', ['S2', 'E2']], ['t3', 'tr', '', '', ['S3', 'E3']]]});
+  const p5 = await pdf(d5, {mode: 'edl'}), col = p5.pos.filter(q => Math.abs(q.x - 229) < 1e-6), dans = q => !!q && q.x + q.w <= 287 + 1e-9;
+  const lA = col.find(q => q.t.indexOf('FOSSÉ') === 0), lB = col.find(q => q.t.indexOf('WW') === 0), lE = col.find(q => q.t === 'Étang (Ét)');
+  R.ok(LONG.length === 40 && !p5.err.length && dans(lA) && lA.t === LONG + ' (FRV)' && lA.pt < 7.2 && lA.pt >= 5.5 && dans(lB) && /^W+… \(WW\)$/.test(lB.t) && lB.pt === 5.5 && !!lE && lE.pt === 7.2,
+    'x4 plan PDF, noms longs : lignes de légende dans le cartouche (fin à 287 mm au plus) ; 40 majuscules en taille réduite (5,5 pt au moins), nom entier ; 40 « W » en 5,5 pt, '
+    + 'nom coupé (« … »), « (WW) » gardé ; témoin : « Étang (Ét) » en 7,2 pt (' + (p5.err.join(' | ') || [lA, lB, lE].map(q => q ? JSON.stringify(q.t) + ' en ' + +q.pt.toFixed(2) + ' pt, fin à '
+    + (q.x + q.w).toFixed(1) + ' mm' : 'absent').join(' ; ')) + ')');
+}
 /* x5 : avant-projet qui garde l'étang aux EP non conformes (aucun travaux) ; témoin : le tronçon vers l'étang « à supprimer » et un tronçon
    « projet » vers une boîte EP « projet » ; au dossier (reconcilier) : ep-exu créée, en catégorie « autre », sur la ligne « Gouttière(s) avant » */
 async function destProjet(){
@@ -617,6 +711,7 @@ async function sansType(){
     await destConstat();
     destPlusieurs();
     destOrdre();
+    await destRendu();
     await destProjet();
     await sansType();
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }

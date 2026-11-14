@@ -4361,6 +4361,14 @@ function planValide(pl, visIds){
   pl.el = pl.el.filter(function(e){
     if (!e || typeof e !== 'object' || typeof e.id !== 'string' || ['pt', 'ln', 'tx'].indexOf(e.k) < 0) return false;
     if (e.p && typeof e.p === 'object' && e.p.a != null) e.p.a = vcNombre(e.p.a) ? e.p.a % 360 : 0;
+    /* champs libres (m126, décision D3) : réparés, jamais refusés. Une destination reçoit les replis que le module lit déjà (nom coupé à
+       40 caractères ou « Autre destination », abréviation, article, EP « à arbitrer », case « autre ») ; un p.drain d'une autre sorte que
+       collecte ou infiltration est retiré. Rien ne change à l'analyse ; aucun champ n'est ajouté aux autres objets. La réparation se fait
+       dès que le module est chargé (balise fixe), même croquis désactivé : sans effet visible, la lecture donne les mêmes replis */
+    if (e.p && typeof e.p === 'object' && !Array.isArray(e.p)){
+      if (Object.prototype.hasOwnProperty.call(e.p, 'drain') && e.p.drain !== 'collecte' && e.p.drain !== 'infiltration') delete e.p.drain;
+      if (e.k === 'pt' && window.VCroquis && typeof window.VCroquis.estDest === 'function' && window.VCroquis.estDest(e.t)) Object.assign(e.p, window.VCroquis.destDe(e));
+    }
     if (e.k === 'ln') return Array.isArray(e.v) && e.v.length >= 2 && e.v.every(function(q){ return q && vcBorne(q.x, 1e7) && vcBorne(q.y, 1e7); });
     return vcBorne(e.x, 1e7) && vcBorne(e.y, 1e7);
   });

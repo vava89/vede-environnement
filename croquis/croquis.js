@@ -828,6 +828,8 @@ function destDe(o){
   var own = function(t, k){ return typeof k === 'string' && Object.prototype.hasOwnProperty.call(t, k); };
   return {nom: nom, ab: ab, art: sans ? 'l\'' : (p.art === 'la' || p.art === 'l\'' ? p.art : 'le'), ep: own(DEST_EP, p.ep) ? p.ep : 'arbitrer', cst: own(DEST_CST, p.cst) ? p.cst : 'autre'};
 }
+/* type d'une destination (« Autre destination », code X) : ses champs se lisent par destDe (m126 : symbole, légende, DXF, réparation au chargement) */
+function estDest(t){ var ty = Object.prototype.hasOwnProperty.call(T, t) ? T[t] : null, x = ty && ty.exu && exuDe(ty.exu); return !!(x && x.dest); }
 /* clé du rejet d'une destination (décision D5) : code, nom normalisé (majuscules, sans accents, espaces réduits), jugement des EP et case
    ('X:ETANG:arbitrer:autre') ; ni ab ni art n'y entrent. Elle ne se découpe pas : un nom peut contenir « : » */
 function nomCle(nom){ return norm(nom).toUpperCase().replace(/\s+/g, ' ').trim(); }
@@ -864,7 +866,7 @@ function libsRejets(nets, an){
     return lib + ' (' + (distincts('ep') ? DEST_EP[d.ep] : distincts('cst') ? DEST_CST[d.cst] : DEST_EP[d.ep] + ', ' + DEST_CST[d.cst]) + ')';
   });
 }
-VC.EXU = EXU; VC.libExu = libExu; VC.destDe = destDe;
+VC.EXU = EXU; VC.libExu = libExu; VC.destDe = destDe; VC.estDest = estDest;
 /* Codes de l'application (constat) ; caméra et déclaré s'y ajoutent */
 var METH = [['visuel', 'Visuel', 'V'], ['eau', 'Eau', 'E'], ['fluo', 'Colorant', 'Fl'], ['fumee', 'Fumée', 'Fu'], ['reso', 'Résonance', 'R'], ['camera', 'Caméra', 'Ca'], ['declare', 'Déclaré', 'D']];
 var NIV = [['ss', 'Sous-sol'], ['rdc', 'RDC'], ['etage', 'Étage']];
@@ -2101,7 +2103,7 @@ VC.texteEtiquette = texteEtiquette; VC.resLigne = resLigne; VC.texteLimite = tex
 
 /* ---------- Symboles : primitives en millimètres papier, y en haut, centrées sur l'objet ---------- */
 var BLANC = [255, 255, 255];
-function rayonSymbole(t){ var f = (T[t] || {forme: 'app'}).forme; return {app: 1.9, app2: 2.3, descente: 1.25, grille: 1.6, caniveau: 2.7, siphon: 1.5, regard: 1.7, boite: 1.9, te: 1.4, clapet: 1.3, fosse: 2.6, point: .7, puisard: 2.1, puits: 2.1, infiltration: 2.1, gargouille: 1.9, regpub: 1.7, test: 2, zone: 1}[f] || 1.6; }
+function rayonSymbole(t){ var f = (T[t] || {forme: 'app'}).forme; return {app: 1.9, app2: 2.3, descente: 1.25, grille: 1.6, caniveau: 2.7, siphon: 1.5, regard: 1.7, boite: 1.9, te: 1.4, clapet: 1.3, fosse: 2.6, point: .7, puisard: 2.1, puits: 2.1, infiltration: 2.1, exutoire: 2.1, gargouille: 1.9, regpub: 1.7, test: 2, zone: 1}[f] || 1.6; }
 function couleurPt(e, an){
   var ty = T[e.t] || {};
   if (e.p && e.p.st === 'projet') return RES.PRJ.rgb;
@@ -2143,6 +2145,13 @@ function primitives(e, rgb, angPlan){
     case 'infiltration':
       cercle(2.1, {fond: BLANC, masque: true}); poly([0, 2, 0, .4], false, {trait: rgb, ep: .3});
       [[1.8, .4], [1.15, -.5], [.5, -1.4]].forEach(function(b){ poly([-b[0], b[1], b[0], b[1]], false, {trait: rgb, ep: .3}); }); break;
+    /* destination (m126, décision D8) : hexagone de rayon 2,1, blanc dedans, qui porte l'abréviation de l'objet (p.ab, lue par destDe),
+       comme « MN » sur le rejet en milieu naturel */
+    case 'exutoire': {
+      var hx = []; for (var hi = 0; hi < 6; hi++) hx.push(2.1 * Math.cos(hi * Math.PI / 3), 2.1 * Math.sin(hi * Math.PI / 3));
+      poly(hx, true, {trait: rgb, fond: BLANC, ep: ep});
+      var ad = destDe(e).ab; texte(ad, ad.length > 2 ? 1.3 : 1.65, {coul: rgb, gras: true}); break;
+    }
     case 'gargouille': poly([-1.7, -.8, .5, -.8, 1.8, 0, .5, .8, -1.7, .8], true, {trait: rgb, fond: BLANC, ep: ep}); break;
     case 'regpub': cercle(1.7, {trait: rgb, fond: BLANC, ep: .3}); cercle(.5, {fond: rgb}); break;
     case 'test': poly([0, 0, 0, 3.4], false, {trait: rgb, ep: .25}); poly([0, 3.4, 2.2, 2.8, 0, 2.2], true, {trait: rgb, fond: rgb, ep: .15}); break;
@@ -2771,8 +2780,9 @@ var ICO = {
 function ico(n, s){ return '<svg viewBox="0 0 24 24" width="' + (s || 22) + '" height="' + (s || 22) + '" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICO[n] || '') + '</svg>'; }
 VC.ico = ico;
 /* Aperçu d'un symbole du catalogue en SVG (palette, légende) */
-function symboleSvg(t, taille){
-  var e = {k: 'pt', t: t, p: defautsPt(t)}, ty = T[t] || {}, rgb = ty.role === 'source' ? RES[ty.nat].rgb : ty.role === 'note' ? RES.ANN.rgb : ty.exu ? RES.EP.rgb : (t === 'regard_pub' ? RES.EU.rgb : [70, 76, 84]);
+/* p : champs de l'objet (fiche ; plus tard, modèle de la palette) : une destination montre son abréviation ; sans p, ceux du type */
+function symboleSvg(t, taille, p){
+  var e = {k: 'pt', t: t, p: p || defautsPt(t)}, ty = T[t] || {}, rgb = ty.role === 'source' ? RES[ty.nat].rgb : ty.role === 'note' ? RES.ANN.rgb : ty.exu ? RES.EP.rgb : (t === 'regard_pub' ? RES.EU.rgb : [70, 76, 84]);
   var k = 4.2, s = taille || 34, c = s / 2, h = '';
   if (t === 'zone') return '<svg viewBox="0 0 ' + s + ' ' + s + '" width="' + s + '" height="' + s + '" aria-hidden="true"><circle cx="' + c + '" cy="' + c + '" r="' + (c - 3) + '" fill="rgba(212,101,10,.12)" stroke="' + rgbCss(rgb) + '" stroke-width="1.6" stroke-dasharray="4 3"/></svg>';
   primitives(e, rgb, 0).forEach(function(q){
@@ -5198,7 +5208,7 @@ function editeur(racine, opts){
     } else if (e.k === 'pt'){
       ty = T[e.t];
       var fam = FAMILLES.filter(function(f){ return f.types.indexOf(e.t) >= 0; })[0], et = ty.role === 'source' ? etatSource(e) : null, res = S.an.resPt[e.id];
-      h += '<div class="vc-ftete">' + symboleSvg(e.t, 40) + '<div><strong>' + esc(ty.lib) + '</strong>' + (et ? '<span class="vc-etat ' + et.cls + '">' + esc(et.txt) + '</span>' : ty.regard || ty.role === 'passage' ? '<span class="vc-etat ' + (/^(EU|EP|UN)$/.test(res) ? 'ok' : 'att') + '">' + (/^(EU|EP|UN)$/.test(res) ? 'Réseau ' + libRes(res) + (ty.boite && RES[e.p.res] ? '' : ' déduit') : res === 'MIX' ? 'Plusieurs réseaux' : 'Réseau à préciser') + '</span>' : '') + '</div></div>';
+      h += '<div class="vc-ftete">' + symboleSvg(e.t, 40, e.p) + '<div><strong>' + esc(ty.lib) + '</strong>' + (et ? '<span class="vc-etat ' + et.cls + '">' + esc(et.txt) + '</span>' : ty.regard || ty.role === 'passage' ? '<span class="vc-etat ' + (/^(EU|EP|UN)$/.test(res) ? 'ok' : 'att') + '">' + (/^(EU|EP|UN)$/.test(res) ? 'Réseau ' + libRes(res) + (ty.boite && RES[e.p.res] ? '' : ' déduit') : res === 'MIX' ? 'Plusieurs réseaux' : 'Réseau à préciser') + '</span>' : '') + '</div></div>';
       /* rappel du type, sous l'en-tête (puits : un puits perdu se dessine en puisard ; m120, décision du 13 nov. 2026) */
       if (ty.rappel) h += '<p class="vc-muet">' + esc(ty.rappel) + '</p>';
       /* source EP qu'aucun tracé ne tient (m118 ; D10) : « Rejet au sol » pose d'un toucher une infiltration à 1 m et le tronçon qui l'y relie */
@@ -6235,7 +6245,7 @@ function pdfPlan(doc, fond, o){
   leg.forEach(function(it){
     var cy = y + hRow / 2 - .4;
     if (it.k === 'ln'){ var c = (RES[it.res] || RES.INC).rgb; pdf.setDrawColor(c[0], c[1], c[2]); pdf.setLineWidth(it.col ? .7 : .45); pdf.setLineDashPattern(it.st === 'projet' ? [3, 1.8] : it.st === 'presume' || (it.res === 'INC' && it.st !== 'supprimer') ? [1.6, 1.2] : [], 0); pdf.line(X + 3, cy, X + 11, cy); pdf.setLineDashPattern([], 0); if (it.st === 'supprimer'){ pdf.setLineWidth(.3); [5, 7.5, 10].forEach(function(dx){ pdf.line(X + dx - .8, cy + 1.1, X + dx + .4, cy - 1.1); }); } }
-    else if (it.k === 'pt'){ primsPdf(pdf, primitives({k: 'pt', t: it.t, p: defautsPt(it.t)}, it.rgb, 0), X + 7, cy, Math.min(1, (hRow - .6) / (2 * rayonSymbole(it.t)))); }
+    else if (it.k === 'pt'){ primsPdf(pdf, primitives({k: 'pt', t: it.t, p: it.p || defautsPt(it.t)}, it.rgb, 0), X + 7, cy, Math.min(1, (hRow - .6) / (2 * rayonSymbole(it.t)))); }
     else if (it.k === 'bulle'){ pdf.setDrawColor(212, 101, 10); pdf.setFillColor(255, 255, 255); pdf.setLineWidth(.25); pdf.circle(X + 7, cy, 1.7, 'FD'); textePdf(pdf, '1', X + 7, cy, 1.8, 0, {gras: true, coul: [212, 101, 10]}); }
     else if (it.k === 'fleche'){ pdf.setFillColor(80, 80, 80); pdf.triangle(X + 9, cy, X + 6, cy - 1.2, X + 6, cy + 1.2, 'F'); }
     else if (it.k === 'drain'){
@@ -6250,7 +6260,17 @@ function pdfPlan(doc, fond, o){
       [5, 7, 9].forEach(function(dx){ pdf.line(X + dx, cy - 1.2, X + dx, cy + 1.2); });
       pdf.line(X + 3, cy, X + 11, cy); polyPdf(pdf, [{x: X + 9.8, y: cy - .7}, {x: X + 11, y: cy}, {x: X + 9.8, y: cy + .7}], 'S', false);
     }
-    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7.2); pdf.setTextColor(30, 30, 30); pdf.text(pdfTxt(it.lib), X + 13, cy + 1);
+    /* libellé en 7,2 pt, jusqu'à X + W - 3 comme les filets du cartouche. Plus long (nom d'une destination, m126) : taille réduite jusqu'à
+       5,5 pt, puis nom coupé (« … »), abréviation gardée. Les libellés fixes tiennent tous en 7,2 pt */
+    var lib = pdfTxt(it.lib), suf = it.p ? pdfTxt(it.lib.slice(it.p.nom.length)) : '', lw = W - 16, fs = 7.2;
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(fs); pdf.setTextColor(30, 30, 30);
+    while (pdf.getTextWidth(lib) > lw && fs > 5.5){ fs = Math.max(5.5, fs - .25); pdf.setFontSize(fs); }
+    if (pdf.getTextWidth(lib) > lw){
+      var nm = lib.slice(0, lib.length - suf.length);
+      while (nm.length > 1 && pdf.getTextWidth(nm + '…' + suf) > lw) nm = nm.slice(0, -1);
+      lib = nm.replace(/\s+$/, '') + '…' + suf;
+    }
+    pdf.text(lib, X + 13, cy + 1);
     y += hRow;
   });
   var nota = 'Équipements déclarés par le propriétaire et accessibles visuellement. Chaque écoulement est établi par la méthode indiquée en page 2.';
@@ -6278,6 +6298,13 @@ function legende(doc, an, mode, ext, oL){
       /* drain (m121) : sa sorte, s'il est dessiné ; il garde aussi la ligne de son réseau */
       var dr = drainDe(e); if (dr && e.v.length >= 2) st[dr] = 1;
       if (/^(EU|EP|UN|INC|MIX|PRJ)$/.test(r) && !vus['l' + r]){ vus['l' + r] = 1; out.push({k: 'ln', res: r, lib: r === 'PRJ' ? 'Canalisation projetée' : r === 'INC' ? 'Réseau non déterminé' : r === 'MIX' ? 'Plusieurs réseaux atteints' : 'Canalisation ' + libRes(r) + (r === 'UN' ? '' : ' (' + RES[r].nom + ')'), o: 1}); }
+      return;
+    }
+    /* destination (m126, décision D8) : une ligne par nom et abréviation, « Étang (Ét) », comme « Rejet en milieu naturel (MN) » ; son
+       échantillon porte l'abréviation (it.p) ; ni le jugement des EP ni la case du constat n'y paraissent */
+    if (e.k === 'pt' && estDest(e.t)){
+      var dd = destDe(e), kd = 'dest\n' + dd.nom + '\n' + dd.ab;
+      if (!vus[kd]){ vus[kd] = 1; out.push({k: 'pt', t: e.t, p: dd, rgb: couleurPt(Object.assign({}, e, {p: Object.assign({}, e.p, {st: 'existant'})}), an), lib: dd.nom + (dd.ab !== dd.nom ? ' (' + dd.ab + ')' : ''), o: 3}); }
       return;
     }
     if (e.k === 'pt' && e.t !== 'jonction' && T[e.t] && !vus[e.t]){ vus[e.t] = 1; out.push({k: 'pt', t: e.t, rgb: couleurPt(Object.assign({}, e, {p: Object.assign({}, e.p, {st: 'existant'})}), an), lib: T[e.t].lib + (T[e.t].ab && T[e.t].ab !== T[e.t].lib ? ' (' + T[e.t].ab + ')' : ''), o: 3}); }
@@ -6424,11 +6451,27 @@ function ecrireDxf(doc, an, liste){
   g(0, 'ENDSEC');
   /* blocs : un par type de symbole utilisé, en millimètres papier, couleur « du bloc » */
   /* objet d'un type inconnu (croquis d'une version plus récente) : bloc neutre VEDE_OBJET (un cercle) */
-  var types = {}; doc.el.forEach(function(e){ if (e.k === 'pt' && e.t !== 'zone') types[T[e.t] ? e.t : 'objet'] = true; });
+  /* destination (m126, décision D9) : un bloc par abréviation, VEDE_EXUTOIRE_ + l'abréviation réduite à A-Z, 0-9 et _ (« Ét » :
+     VEDE_EXUTOIRE_ET), 31 caractères au plus (R12) ; deux abréviations qui donnent le même nom : _2, _3… dans l'ordre du dessin */
+  var blocs = [], nomBloc = Object.create(null), pris = Object.create(null);
+  function cleBloc(e){ return estDest(e.t) ? 'dest\n' + destDe(e).ab : T[e.t] ? e.t : 'objet'; }
+  doc.el.forEach(function(e){
+    if (e.k !== 'pt' || e.t === 'zone') return;
+    var c = cleBloc(e);
+    if (!(c in nomBloc)){ nomBloc[c] = ''; blocs.push({cle: c, t: T[e.t] ? e.t : 'objet', p: estDest(e.t) ? destDe(e) : null}); }
+  });
+  blocs.forEach(function(b){ if (!b.p){ nomBloc[b.cle] = 'VEDE_' + b.t.toUpperCase(); pris[nomBloc[b.cle]] = 1; } });
+  blocs.forEach(function(b){
+    if (!b.p) return;
+    var base = ('VEDE_EXUTOIRE_' + norm(b.p.ab).toUpperCase().replace(/[^A-Z0-9_]/g, '_')).slice(0, 31), n = base, i = 1, suf;
+    while (pris[n]){ suf = '_' + (++i); n = base.slice(0, 31 - suf.length) + suf; }
+    pris[n] = 1; nomBloc[b.cle] = n;
+  });
   g(0, 'SECTION'); g(2, 'BLOCKS');
-  Object.keys(types).forEach(function(t){
-    g(0, 'BLOCK'); g(8, '0'); g(2, 'VEDE_' + t.toUpperCase()); g(70, 0); g(10, '0.0'); g(20, '0.0'); g(30, '0.0'); g(3, 'VEDE_' + t.toUpperCase());
-    primitives({k: 'pt', t: t, p: defautsPt(t)}, [0, 0, 0], 0).forEach(function(q){
+  blocs.forEach(function(b){
+    var t = b.t, nb = nomBloc[b.cle];
+    g(0, 'BLOCK'); g(8, '0'); g(2, nb); g(70, 0); g(10, '0.0'); g(20, '0.0'); g(30, '0.0'); g(3, nb);
+    primitives({k: 'pt', t: t, p: b.p || defautsPt(t)}, [0, 0, 0], 0).forEach(function(q){
       /* masque (infiltration au sol) : il cache le bout du tuyau sur le plan ; dans le bloc, il deviendrait un disque plein */
       if (q.masque) return;
       if (q.k === 'c'){
@@ -6507,7 +6550,7 @@ function ecrireDxf(doc, an, liste){
     if (e.k !== 'pt') return;
     if (e.t === 'zone'){ g(0, 'CIRCLE'); g(8, 'VEDE-ANNOTATIONS'); g(10, X(e.x)); g(20, Y(e.y)); g(30, '0.0'); g(40, f((num(e.p.r) || 1.5) / u)); return; }
     var rgb = couleurPt(e, an), aci = 7; Object.keys(RES).forEach(function(k){ if (RES[k].rgb === rgb) aci = RES[k].aci; });
-    g(0, 'INSERT'); g(8, e.p.st === 'projet' ? 'VEDE-PROJET' : e.p.st === 'supprimer' ? 'VEDE-A-SUPPRIMER' : 'VEDE-SYMBOLES'); g(62, aci); g(2, 'VEDE_' + (T[e.t] ? e.t : 'objet').toUpperCase());
+    g(0, 'INSERT'); g(8, e.p.st === 'projet' ? 'VEDE-PROJET' : e.p.st === 'supprimer' ? 'VEDE-A-SUPPRIMER' : 'VEDE-SYMBOLES'); g(62, aci); g(2, nomBloc[cleBloc(e)]);
     g(10, X(e.x)); g(20, Y(e.y)); g(30, '0.0'); g(41, f(mu)); g(42, f(mu)); g(43, f(mu)); g(50, f((T[e.t] || {}).oriente ? (e.p.a || 0) : rotDeg));
   });
   doc.el.forEach(function(e){
