@@ -1,10 +1,10 @@
 # Conception du lot « Rejets » (v1.7.1, souhaits 2, 3, 4)
 
 Établie le 8 nov. 2026 sur 52cd3c8 (code de la v1.7.0), point de départ de m116 ; révisée les 13 et 14 nov. (puits NC ; réponses et consignes du 13
-nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m125 (envoyés : 8f9094d, ab926ec, 6df324c,
-a5a5d05, 7a6c041, b562636, bd16bb9, d036ee1, 65c4685, f9633c6) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du
-code : `carte-*.md` (8 nov. ; le puits y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js, IX =
-index.html ; vm/ et navigateur/ sont sous tests/.
+nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m126 (envoyés : 8f9094d, ab926ec, 6df324c,
+a5a5d05, 7a6c041, b562636, bd16bb9, d036ee1, 65c4685, f9633c6, 419d752) les décalent : chercher par nom de fonction ; tests cités par nom de cas.
+Détail du code : `carte-*.md` (8 nov. ; le puits y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js,
+IX = index.html ; vm/ et navigateur/ sont sous tests/.
 
 ## Réponses de l'utilisateur (7 et 13 nov. 2026)
 - Décision du 13 nov., mot pour mot : « Un rejet EP dans un puits est une non conformité. » (`.claude/etat-travaux.md`, l. 8 ; CLAUDE.md, l. 17).
@@ -341,9 +341,10 @@ index.html ; vm/ et navigateur/ sont sous tests/.
 ## Découpage (m116 à m129 ; quatorze correctifs, batterie verte après chacun)
 Ordre : le commun, sans changement visible (m116) ; l'infiltration (m117, m118) ; l'arbitrage, règle générale, juste après m118 (m119) ; le puits
 (m120) ; les drains (m121 à m124) ; les destinations (m125 à m128), la palette après l'analyse et le rendu ; les cas limites des drains, après les
-réponses à Q6 et Q7 (m129). m116 à m125 sont envoyés : leur fiche ne change plus. Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js
-reste vert partout ; tests/LISEZMOI.md suit chaque test ajouté. Dès m117, poser un objet nouveau demande des tablettes à jour (D11). Après m129 : 14
-correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
+réponses à Q6 et Q7 (m129). m116 à m126 sont envoyés : leur fiche ne change plus (celles de m116 à m123 renvoient au message de leur commit pour les
+tests et la garde). Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js reste vert partout ; tests/LISEZMOI.md suit chaque test ajouté.
+Dès m117, poser un objet nouveau demande des tablettes à jour (D11). Après m129 : 14 correctifs depuis la fusion de la v1.7.0, 6 de libres avant la
+suivante.
 
 - **m116 Table commune des exutoires et suivi des cases EP du constat**, avant tout type nouveau (D1, D7).
   - Fichiers : CJ : EXU, codeExu, resTrace, libExu et leurs lecteurs (D1), règles EU, raccInfo, constatDeduit, panneau ; codeExu vient ici, pour que
@@ -352,15 +353,7 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     canevas factice, enveloppe jsPDF et lecture du DXF de vm/escalier.js (l. 310-328, 367-385, 458) déplacés dans vm/charger.js [p], le canevas
     relevant aussi fillText et fillStyle.
   - Pour l'utilisateur : rien.
-  - Test :
-    - vm/rejets.js a1 : V.EXU porte INF, GARG et MILIEU, avec les libellés d'EXU_LIB mot pour mot ;
-    - a2 : une ligne ZZ ajoutée à V.EXU et un type d'essai qui la porte suffisent : tuyau EP (resPiece et resPt 'EP'), « Rejet : » tiré de la table,
-      eu-zz pour un WC relié ;
-    - a3 : le même type avec exu 'ZZ:ESSAI' (clé imitée) : mêmes résultats ; descente → regard (tampon béton, sans cunette) → type d'essai : regard
-      EP, seule anomalie « Regard EP : tampon béton » en réserve, ni « contredit » ni « sortielibre » (sans codeExu : tampon et cunette NC) ;
-    - navigateur/constat-boite.js cas 9 (l. 233-248) : un croqAuto avec recup {infil:true, x:1} est restauré en {infil:true} ; clés « boite, crees,
-      plan, puisard, recup, refus, rows ».
-  - Garde : compat.js à 245/245 avant et après le changement du code ; différentiel de D11 sans écart.
+  - Tests et garde : dans le message du commit 8f9094d.
   - Risques : un libellé changé d'une lettre change l'empreinte de l'analyse ; ordre des règles EU (eu-ep d'abord, CJ:1321) ; pièges de D1 et D5 (a3).
 - **m117 Infiltration au sol : type, règle, constat, rendu** (souhait 3, 1re partie du cadrage, l. 138 ; D2, D6 à D9).
   - Fichiers (CJ) : def et FAMILLES, EXU.SOL et eu-sol, REGLES_LIGNE, primitives, rayonSymbole, angleSymbole, blocs DXF (masque sauté), note du
@@ -368,16 +361,7 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
   - Pour l'utilisateur : « Infiltration au sol » dans la palette Équipements, après Puisard ; symbole et tuyau verts. Un WC relié est NC (« WC : rejet
     au sol (infiltration) »). Une descente reliée est conforme sur le plan ; au constat, elle coche « Infiltration diffuse », raccordement et
     conformité restant à cocher à la main, comme pour un puisard.
-  - Test :
-    - vm/regles.js : descente vers l'infiltration (et 's=ok:SOL', a [], c 'conformes') ; WC vers l'infiltration (et 's=ok:SOL', a [['eu-sol:s', true,
-      'WC : rejet au sol (infiltration)']], c 'non_conformes') ; descente vers une infiltration et un puisard (état multiple) ; par un regard au
-      tampon béton (D6) : descente, a [['tampon:R', false, 'Regard EP : tampon béton']], c 'reserves' ; WC, la même réserve et eu-sol, c
-      'non_conformes' ;
-    - vm/rejets.js : r1 primitives (un trait sur chacune hors masque), rayon 2,1 ; r2 vue tournée de 0,5 rad : symbole droit à l'écran, au PDF et à
-      l'aperçu de pose (navigateur/rejets.js n1, créé ici, tests/tout.sh:19, espion d'accroches.js:590-595), INSERT à rotDeg ; r3 bloc
-      VEDE_INFILTRATION sans disque plein, INSERT sur VEDE-SYMBOLES en couleur 3, tuyau sur VEDE-EP, étiquette verte ; r4 légende « Infiltration au
-      sol » une fois, « infiltration au sol » en page 2 (colonne « Rejet constaté ») ; r5 constatDeduit : case infil en EP, MILIEU non conforme en
-      EU ; garde r6 : sans le type (delete V.TYPES.infiltration), écran, PDF et DXF sans exception, bloc VEDE_OBJET.
+  - Tests et garde : dans le message du commit ab926ec.
   - Risques : étiquette longue et ligne de légende de plus (débordement du cadre) [p] ; eu-sol doit paraître au contrôle de l'avant-projet (CJ:5914,
     cat 'inversion').
 - **m118 Bouton « Rejet au sol »** (souhait 3, 2e partie du cadrage : le raccourci ; D10).
@@ -386,10 +370,7 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     option, ni `drains` en m124). LISEZMOI.txt (CROQUIS DE TERRAIN).
   - Pour l'utilisateur : la fiche d'une descente (grille, siphon de sol…) non reliée propose « Rejet au sol » : infiltration et tuyau posés d'un
     toucher ; « Annuler » retire les deux.
-  - Test : navigateur/rejets.js b1 : descente à 0,5 m d'une façade du fond de démonstration (VCroquis.demoDxf()) ; après le bouton, infiltration à 1 m
-    ± 0,05 de la descente et plus loin du bâti qu'elle ; tronçon sans réseau attaché aux deux, pièce 'EP' ; état ok:SOL ; sans le type (comme une
-    v1.7.0) : descente sansexu, pas « Réseau EP départemental (présumé) » ; une annulation rend le JSON d'avant ; pas de bouton sur un WC ni sur une
-    descente reliée. b2 : descente à 0,5 m d'un regard : l'infiltration tombe à plus de 0,6 m de tout objet [p].
+  - Tests et garde : dans le message du commit 6df324c.
   - Risques : pose sur un bâti ou un objet (D10) ; générateur partagé avec compat.js (l. 91) : sans l'option, mêmes 30 croquis.
 - **m119 Arbitrage : une anomalie à arbitrer n'est jamais comptée conforme** (consigne du 13 nov., Q1 ; D6, D7, D12). Fait : a5a5d05, 14 nov.
   - Fichiers : CJ conclusion et CONCL ('boite', 'tampon', 'arbitrer', 'plusieurs'), etatAnomalie, ligneArbitrer et etatSourceDe (nouvelles),
@@ -402,9 +383,7 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     ressaisi ; « Oui » à « Conforme » pour cette ligne donne un rappel. Une boîte manquante ou un tampon absent ne jouent que sur la conclusion.
     Un constat signé ne change pas (signé pendant un arbitrage, il paraît « changé depuis la signature » une fois l'anomalie retenue ou écartée) ;
     croquis désactivé ou absent : comme en v1.5.1.
-  - Tests : vm/regles.js (« sans boîte » : 'boite'), vm/analyse.js (k4, k5), vm/rejets.js z1 à z9, navigateur/dossier.js 49 à 58.
-  - Garde : compat.js 245/245 sans régénération ; aléatoire 8000 contre la version d'avant : aucune exception, 665 écarts, tous de la règle
-    (656 conclusions : 625 'conformes' et 11 'reserves' vers 'boite', 20 'conformes' vers 'plusieurs' ; 9 lignes marquées : 2 ep-fosse, 7 fosse:F).
+  - Tests et garde : dans le message du commit a5a5d05.
   - Risques : textes [p] ; résumé du croquis calculé après coup : la conclusion proposée se vide à son retour (vcConstatApres) [p] ; une ligne ou
     une conclusion déclarée conforme à la main le reste (rappel seulement) ; sans équipement analysé ni anomalie retenue, une anomalie à arbitrer
     laisse « sans objet », comme avant, jamais « Conformes » [p, à signaler] ; un constat signé pendant un arbitrage imprime ensuite la conclusion
@@ -420,9 +399,7 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     rejet en milieu naturel » ; en EP, « non » tant que l'anomalie est NC au dossier, « oui » si elle y devient une réserve ou est écartée, jamais
     « oui » à arbitrer ; le panneau Constat dit pourquoi. Aide et fiche : un puits perdu se dessine en Puisard. Avant-projet : un rejet que le projet
     garde reste dans « Reste après travaux ».
-  - Tests : vm/regles.js (4 cas), vm/rejets.js q1 à q3, navigateur/dossier.js 59 et 60, navigateur/rejets.js p1 et p2.
-  - Garde : compat.js 245/245 sans régénération ; aléatoire 8000 contre la version d'avant : avec --sans=puits, aucun écart ; avec le puits, aucune
-    exception et 673 écarts, tous sur les 764 croquis qui en ont un.
+  - Tests et garde : dans le message du commit 7a6c041.
   - Risques : symbole proche de celui du puisard sur l'A4 (0,25 mm de blanc entre les traits, contre 0,75) [p, à signaler] ; code MILIEU en EP [p] ;
     un nom qui contient « puits » est refusé à une destination (m127, D3) ; un fichier fait à la main qui en garde un suit sa fiche ; ep-puits hors du
     futur barème des Réglages, ou montrée verrouillée [p].
@@ -435,9 +412,7 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     des deux côtés, aux mêmes places à l'écran, au DXF et au PDF jusqu'au 1/500 (au-delà, une dent tous les 2 mm sur le papier) ; le pas ne repart pas
     à un regard. Légende : « Drain », « Drain d'infiltration ». DXF : VEDE-DRAINS (3) s'il sert ; un drain projet ou à supprimer reste sur son calque,
     dents en trait plein. Jusqu'à m122 et m123, il s'analyse comme un tronçon.
-  - Tests : vm/drain.js d1 à d5 (36 cas, 8 passent avant) ; navigateur/drain.js f1 (12 cas, 3 avant).
-  - Garde : compat.js 245/245 sans régénération ; aléatoire 8000 contre la version d'avant : aucune exception, aucun écart ; sonde de rendu sans drain
-    (écran, PDF, DXF) : 217 comparaisons, aucun écart.
+  - Tests et garde : dans le message du commit b562636.
   - Risques : fiche du tronçon plus haute [p] ; légende qui peut déborder du cadre [p] ; à l'écran, pas sans minimum en pixels [p] ; gris 8 du drain
     d'infiltration au DXF jusqu'à m122 (3, D9) ; peigne et hachures sur un drain « à supprimer ».
 - **m122 Drains (2) : drain d'infiltration, exutoire linéaire, étiquette** (consigne du 13 nov. ; D1, D4, D5, D7 à D10). Fait : bd16bb9, 14 nov.
@@ -448,10 +423,7 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     sol », case « Infiltration diffuse ») ; un WC est NC (eu-sol) ; bouts libres sans contrôle ; vert, étiquette « Dispersion dans le sol », couleur 3
     au DXF ; fiche « Dispersion dans le sol », sans puces de sens ; un regard tenu est EP, une boîte de branchement tenue garde INC. Ce que le drain
     tient ou prolonge (puits, boîte, trop-plein) reste vu : deux exutoires, « multiple » (Q7).
-  - Tests : vm/drain.js d6 à d9 (d8 : cinq cas « multiple » ; 2e descente au puits du drain : ep-puits NC), d2 à d4, g1, g2 : 63 cas, 33 passent
-    avant ; navigateur/drain.js : 14 cas, 13 avant.
-  - Garde : compat.js 245/245 sans régénération ; aléatoire 8000 contre avant : aucun écart ; sondes, 2 000 tirages : aucune exception, aucun écart
-    hors des sources qui atteignent un drain, aucun exutoire perdu ni NC disparue.
+  - Tests et garde : dans le message du commit bd16bb9.
   - Risques : « multiple » qu'aucun sens vrai ne lève ; WC relié par le drain au réseau EU : « multiple », pas NC (Q7) ; « Tronçon EU : le dessin le
     relie à réseau EP » vers SOL, PUITS, DISP (mineur reporté, depuis m117) ; p.res 'EP' fait à la main ignoré [p] ; v1.7.0 : tronçon sans exutoire.
 - **m123 Drains (3) : drain de collecte, source linéaire, constat** (Q3 b, Q4 b ; D4, D6, D7). Fait : d036ee1, 14 nov.
@@ -463,10 +435,7 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     tracé (EP présumé, sans message ; « Déduit » : exutoire non dessiné) ; règles d'une source EP (puisard, sol, drain d'infiltration : conformes ;
     EU, puits : NC ; deux exutoires : « multiple ») ; un point « Drain » du plan affiché sur un sommet compte seul ; « Drain EP : le dessin le relie à
     réseau EU ».
-  - Tests : vm/drain.js d10 à d15, g1 repris (fixe() seul), d5 (légende de la page 1) : 90 cas, 64 passent avant ; vm/constat.js : 23 cas, 21 avant ;
-    navigateur/drain.js f2 : 21 cas, 17 avant.
-  - Garde : compat.js 245/245 sans régénération ; aléatoire 8000 contre avant : aucun écart ; sonde, 400 tirages (1 354 tronçons en drain de
-    collecte) : aucune exception, aucun écart sur les sources ponctuelles ni sur les pièces.
+  - Tests et garde : dans le message du commit d036ee1.
   - Risques : bout amont d'un drain orienté sans son eau [p] ; aucun drain tiré n'a de nœud au milieu (d14 seul couvre la relecture ; m124) ; un drain
     au réseau « EU » indiqué : NC (présumé).
 - **m124 Drains (4) : outils, générateur, documentation** (souhait 4, 2e et 3e parties du cadrage ; D10). Fait : 65c4685, 14 nov.
@@ -496,17 +465,22 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
   - Risques et [p] : « Puits » jugé conforme dans un fichier fait à la main reste conforme (D3 ; test de regles.js ; à soumettre) ; ep-exu à arbitrer
     puis retenue : préconisation sans « Suppression du rejet… » ; ab de 2 ou 3 caractères, sinon les deux premiers du nom ; nom coupé à 40 ; an.exu
     garde les champs du premier objet de chaque clé.
-- **m126 Destinations (2) : symbole, PDF, DXF, textes libres, réparation au chargement** (souhait 2, 3e partie du cadrage ; D3, D8, D9).
-  - Fichiers : CJ primitives (forme 'exutoire'), symboleSvg, légende (clé nom et ab ; it.p jusqu'à l'échantillon, CJ:5827), blocs et INSERT,
-    échappement (esc à l'écran, pdfTxt au PDF, dxfTxtSortie au DXF). IX planValide (IX:4286-4314) écrit dans p.nom, p.ab, p.art, p.ep et p.cst les
-    replis de D3, et retire un p.drain invalide [p].
-  - Pour l'utilisateur : rien avant m127.
-  - Test : vm/rejets.js x4 : « Étang » (Ét) et « Fossé » (Fo) : blocs VEDE_EXUTOIRE_ET et VEDE_EXUTOIRE_FO (échoue avant : VEDE_OBJET), deux lignes de
-    légende, « étang » en page 2 ; nom « Étang <b> & "x" » échappé en HTML, intact au PDF et au DXF (CP1252) ; ab « Ét » et « Et » : VEDE_EXUTOIRE_ET
-    et VEDE_EXUTOIRE_ET_2 ; sans nom ni ab : « Autre destination (Au) », VEDE_EXUTOIRE_AU. navigateur/constat-boite.js, cas 11 nouveau : une
-    sauvegarde dont le plan porte deux destinations aux champs faux (ep 'x', cst 7, noms de 300 caractères et blanc) et un tronçon à p.drain 'oui' est
-    restaurée sans erreur, champs réparés (ep 'arbitrer', cst 'autre', nom coupé à 40 ou « Autre destination »), p.drain retiré.
-  - Risques : un échappement oublié dans l'un des trois rendus ; planValide répare au lieu de refuser [p].
+- **m126 Destinations (2) : symbole, PDF, DXF, textes libres, réparation au chargement** (souhait 2, 3e partie du cadrage ; D3, D8, D9). Fait :
+  419d752, 14 nov.
+  - Fichiers (CJ) : estDest (VCroquis.estDest) ; rayonSymbole et primitives (forme 'exutoire' : hexagone de rayon 2,1, sommets à 0°, 60°…, abréviation
+    de destDe en 1,65, ou 1,3 pour trois caractères) ; symboleSvg(t, taille, p), ficheHtml (e.p) ; legende (clé nom et abréviation, it.p) ; pdfPlan
+    (échantillon par it.p ; libellé en 7,2 pt jusqu'à 287 mm, sinon réduit jusqu'à 5,5 pt, puis nom coupé par « … », abréviation gardée) ; ecrireDxf
+    (cleBloc, nomBloc : noms VEDE_<TYPE> réservés d'abord, puis VEDE_EXUTOIRE_ + abréviation réduite, _2, _3 dans l'ordre du dessin). IX planValide
+    (replis de destDe écrits dans e.p ; p.drain inconnu retiré ; dès que le module est chargé, même croquis désactivé). vm/charger.js (largeur w et
+    taille pt des textes du PDF).
+  - Pour l'utilisateur : rien avant m127, sauf pour un fichier fait à la main.
+  - Tests : vm/rejets.js x4, 105 cas (94 avant) ; navigateur/constat-boite.js, cas 14, 70 cas (65 avant).
+  - Garde : compat 245/245 sans régénération ; aléatoire 8000 contre avant : aucun écart ; sonde m126/sonde-dest.js, 8000 tirages (2 855 plans, 4 279
+    destinations) : symbole, ligne de légende, bloc et étiquette pour chacune, 963 PDF sans erreur (115 lignes réduites, 46 coupées) ; planValide :
+    8 000 croquis sans destination rendus tels quels, aucun écart d'analyse ni de DXF après réparation, constats signés inchangés.
+  - Risques et [p] : réparation écrite pour de bon (Q8) ; abréviation sans caractère imprimable : hexagone vide, « Nom () » à la légende, « ?? » au
+    DXF (refus à la saisie en m127) ; « %% » d'un nom passe au DXF (codes d'AutoCAD), comme pour les textes libres ; « Étang (Ét) » et « étang (ét) »
+    font deux lignes de légende.
 - **m127 Destinations (3) : palette et fiche** (souhait 2, 2e partie du cadrage, côté éditeur ; D10).
   - Fichiers (CJ) : FAMILLES 'equ' ('exutoire' après 'puits'), choisirOutil (S.outil.modele), poserObjet, pose par cotes (entrerCotes, poserParCotes,
     aperçu, aides), ficheHtml (CJ:4831 : les cinq champs, nom qui contient « puits » refusé), changement de type (D10).
@@ -521,6 +495,8 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     « Étang » à l'aide et au panneau.
   - Risques : le sélecteur « Type » des exutoires propose « Autre destination » (CJ:4840) ; les tests choisissent un outil par son type (C.outil), pas
     par son rang [p].
+  - Note de m126 [p] : la fiche refuse un nom ou une abréviation sans caractère que le PDF sait écrire (pdfTxt les vide : émoji, « Ω » seul), comme un
+    nom vide. Un nom long en capitales est déjà traité au PDF (légende réduite puis coupée, m126) ; il reste entier à l'étiquette.
 - **m128 Destinations (4) : modèles de la tablette, documentation** (souhait 2, 2e et 4e parties du cadrage : Réglages, LISEZMOI, générateur ; D3, D10
   à D12).
   - Fichiers : IX : CROQ_DEF (IX:3143), croqCfgLire et croqCfgEcrire (IX:3146-3147) gardent `exutoires` ; vcEditeur (IX:3353) et ed.ouvrir (IX:3416)
@@ -537,6 +513,8 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     m3 sauvegarde restaurée sur un profil neuf, sans modèles : même analyse, même constat.
   - Garde : un croquis du lot ouvert sur une copie de 22df7f2 (v1.6.3) : plan PDF et fiche, pour la consigne de D11 [p].
   - Risques : croqCfgEcrire n'écrit aujourd'hui que {actif, aides} (IX:3147 ; retour en arrière : D11).
+  - Note de m126 (Q8 b, sauf avis contraire) : planValide ne remplace que les champs d'une destination ou un p.drain qui ne sont pas du texte ; une
+    valeur inconnue est gardée, lue par les replis de destDe et sorteDrain ; ajuster le cas 14 de navigateur/constat-boite.js.
 - **m129 Drains (5) : cas limites des drains** (Q6, Q7 ; D4, D5, D10) : Q6, (b), recommandée, sauf avis contraire (avec (c), sans objet) ; Q7, (a),
   sauf avis contraire.
   - Fichiers (CJ) : libresDe ; avec (a), controles (aide du sansexu). croquis/LISEZMOI.txt.
@@ -568,3 +546,9 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
   une bifurcation avant le drain reste « multiple » ; (b) garder « multiple » ; (c) le drain arrête l'eau (un trop-plein vers le réseau EU passe
   inaperçu).
   Recommandation : (a), en m129 sauf avis contraire ; l'étendre au puisard déroge à la v1.5.1 (accord de l'utilisateur).
+- Q8 Réparation d'une sauvegarde (m126, D11). À la restauration, planValide écrit pour de bon les replis de D3 dans une destination aux champs
+  inconnus (nom coupé à 40 caractères ou « Autre destination », EP « à arbitrer », case « autre ») et retire un p.drain inconnu. Une tablette pas à
+  jour qui restaure la sauvegarde d'une tablette plus récente perdrait une valeur qu'elle ne connaît pas (un article, une case…).
+  Choix : (a) garder ; (b) ne remplacer que les champs qui ne sont pas du texte et garder une valeur inconnue, lue par les replis de destDe et
+  sorteDrain (comme un objet d'un type inconnu est gardé).
+  Recommandation : (b), soumise le 14 nov., en m128 sauf avis contraire (cas 14 de navigateur/constat-boite.js à ajuster).
