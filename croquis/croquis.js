@@ -877,7 +877,10 @@ function defautsLn(t, o){
   if (t === 'col') return {res: o.res || 'EU', gest: o.gest || 'D', diam: '', st: 'existant'};
   if (t === 'lim') return {st: 'existant'};
   if (t === 'esc') return {larg: '1,00', n: '4', cote: 'g', monte: 'fin', st: 'existant'};
-  return {res: o.res || '', st: o.st || 'existant', diam: '', mat: '', pose: '', long: '', sens: 0, obs: ''};
+  var p = {res: o.res || '', st: o.st || 'existant', diam: '', mat: '', pose: '', long: '', sens: 0, obs: ''};
+  /* drain (m121) : seulement 'collecte' ou 'infiltration', sur un tronçon ; un tronçon sans drain garde exactement ses clés */
+  if (t === 'tr' && sorteDrain(o.drain)) p.drain = o.drain;
+  return p;
 }
 VC.defautsPt = defautsPt; VC.defautsLn = defautsLn;
 VC.geo.escalier = escalier;
@@ -924,8 +927,16 @@ function estCanalisation(t){ return t === 'tr' || t === 'col'; }
 function estComplement(t){ return t === 'lim' || t === 'esc'; }
 /* ordre du dessin des tracés : complément, escalier et tracé inconnu dessous, puis collecteur, puis tronçon */
 function rangTrace(t){ return t === 'col' ? 1 : t === 'tr' ? 2 : 0; }
-/* nom d'un tracé dans les messages de l'éditeur */
-function nomTrace(t){ return t === 'col' ? 'Collecteur' : t === 'lim' ? 'Trait' : t === 'esc' ? 'Escalier' : 'Tronçon'; }
+/* Drains (m121) : un drain est un tronçon qui porte p.drain, 'collecte' (il recueille l'eau du sol) ou 'infiltration' (il la disperse dans
+   le sol) ; toute autre valeur est ignorée. sorteDrain : la valeur si elle est l'une des deux, sinon '' ; drainDe : celle d'un élément. */
+function sorteDrain(v){ return v === 'collecte' || v === 'infiltration' ? v : ''; }
+function drainDe(e){ return e && e.k === 'ln' && e.t === 'tr' && e.p ? sorteDrain(e.p.drain) : ''; }
+/* nom d'un tracé dans les messages et la fiche de l'éditeur ; p (facultatif) : ses propriétés, pour le nom d'un drain */
+function nomTrace(t, p){
+  var d = t === 'tr' && p ? sorteDrain(p.drain) : '';
+  return d === 'collecte' ? 'Drain' : d === 'infiltration' ? 'Drain d\'infiltration' : t === 'col' ? 'Collecteur' : t === 'lim' ? 'Trait' : t === 'esc' ? 'Escalier' : 'Tronçon';
+}
+VC.drainDe = drainDe; VC.nomTrace = nomTrace;
 /* géométrie d'un escalier (deux sommets) : VC.geo.escalier, ou null (valeurs illisibles : rien n'est dessiné) */
 function geoEscalier(e, idx){
   var P = lignePts(e, idx || {}), p = e.p || {};
@@ -2206,6 +2217,25 @@ function hachures(ctx, pts, pas, long){
     reste = d - L;
   }
 }
+/* peigne d'un drain (m121) : une dent de longueur long tous les pas, la première à pas / 2 du départ, la suite reportée d'un segment au
+   suivant ; à droite du tracé en suivant ses sommets (basY : y vers le bas, écran et papier ; sinon y vers le haut, croquis et DXF), ou des
+   deux côtés (deux : drain d'infiltration). Rend les dents, [[a, b], …] ; chaque dent garde en i le rang du sommet qui finit son segment ;
+   un segment nul ou démesuré (plus de 20 000 pas) est sauté. Le peigne se calcule sur le tracé entier, puis se dessine pièce par pièce
+   (dentsPiece) : le pas ne repart pas à un regard, et une pièce courte garde ses dents. */
+function dentsPeigne(pts, pas, long, deux, basY){
+  var out = []; if (!(pas > 0) || !(long > 0) || !isFinite(pas) || !isFinite(long)) return out;
+  var reste = pas / 2, sg = basY ? 1 : -1;
+  for (var i = 1; i < pts.length; i++){
+    var a = pts[i - 1], b = pts[i], L = Math.hypot(b.x - a.x, b.y - a.y); if (!L || !isFinite(L) || L / pas > 20000) continue;
+    var ux = (b.x - a.x) / L, uy = (b.y - a.y) / L, nx = -uy * sg * long, ny = ux * sg * long, d = reste;
+    while (d <= L){ var x = a.x + ux * d, y = a.y + uy * d, q = [deux ? {x: x - nx, y: y - ny} : {x: x, y: y}, {x: x + nx, y: y + ny}]; q.i = i; out.push(q); d += pas; }
+    reste = d - L;
+  }
+  return out;
+}
+/* dents d'une pièce p (segments des sommets p.i0 à p.i1 du tracé) ; sans pièce, toutes */
+function dentsPiece(D, p){ return p ? D.filter(function(q){ return q.i > p.i0 && q.i <= p.i1; }) : D; }
+VC.dentsPeigne = dentsPeigne;
 function milieuChemin(pts){
   var L = 0, i; for (i = 1; i < pts.length; i++) L += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
   var h = L / 2;
@@ -2265,7 +2295,9 @@ function dessinerCroquis(ctx, doc, an, vue, dpr, o){
     var morceaux = (parLigne[e.id] || []).map(function(p){ return {pts: W.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
     if (!morceaux.length || e.t !== 'tr') morceaux = [{pts: W, res: resLigne(e, an)}];
     /* complément du fond et tracé d'un type inconnu : trait neutre, fin, gris, plein */
-    var neutre = !estCanalisation(e.t), larg = e.t === 'col' ? px(.9, 3, 14) : neutre ? px(.3, 1.2, 5) : px(.5, 2, 9);
+    var neutre = !estCanalisation(e.t), larg = e.t === 'col' ? px(.9, 3, 14) : neutre ? px(.3, 1.2, 5) : px(.5, 2, 9), drain = drainDe(e);
+    /* drain (m121) : peigne du tracé entier, une dent de 0,4 m par mètre réel, à droite (collecte) ou des deux côtés (infiltration) */
+    var dents = drain ? dentsPeigne(W, vue.s, .4 * vue.s, drain === 'infiltration', true) : null;
     morceaux.forEach(function(m){
       if (m.pts.length < 2) return;
       var res = neutre ? 'LIM' : st === 'projet' ? 'PRJ' : m.res, col = rgbCss((RES[res] || RES.INC).rgb);
@@ -2273,6 +2305,11 @@ function dessinerCroquis(ctx, doc, an, vue, dpr, o){
       var dash = neutre ? [] : st === 'projet' ? [px(4, 10), px(2.5, 6)] : st === 'presume' || res === 'INC' ? [px(2.2, 6), px(1.8, 5)] : [];
       ctx.setLineDash(dash); trace(ctx, m.pts); ctx.stroke(); ctx.setLineDash([]);
       if (st === 'supprimer' && !neutre){ ctx.beginPath(); hachures(ctx, m.pts, px(3, 12), px(2.2, 9)); ctx.lineWidth = Math.max(1.2, larg * .6); ctx.stroke(); }
+      /* drain : les dents de cette pièce, de la couleur de son trait */
+      if (dents){
+        ctx.beginPath(); dentsPiece(dents, m.p).forEach(function(q){ ctx.moveTo(q[0].x, q[0].y); ctx.lineTo(q[1].x, q[1].y); });
+        ctx.lineWidth = Math.max(1.2, larg * .6); ctx.stroke();
+      }
       if (m.p && an.sensPiece[m.p.id] && o.fleches !== false){
         var c = milieuChemin(m.pts), sg = an.sensPiece[m.p.id];
         if (c && c.L > 36){ var ux = c.ux * sg, uy = c.uy * sg, a = px(1.6, 6, 13); ctx.beginPath(); ctx.moveTo(c.x - ux * a - uy * a * .6, c.y - uy * a + ux * a * .6); ctx.lineTo(c.x, c.y); ctx.lineTo(c.x - ux * a + uy * a * .6, c.y - uy * a - ux * a * .6); ctx.lineWidth = Math.max(1.5, larg * .7); ctx.stroke(); }
@@ -5066,9 +5103,12 @@ function editeur(racine, opts){
         /* tracé d'un type inconnu (croquis d'une version plus récente) : trait neutre, aucun champ, gardé tel quel */
         h += '<div class="vc-ftete">' + traitSvg('LIM', '', 40) + '<div><strong>Tracé</strong><span class="vc-etat att">Type inconnu de cette version : gardé tel quel</span></div></div>';
       } else {
-        var dd = RES[e.p.res] ? '' : ' déduit', cls = rl === 'INC' || rl === 'MIX' ? 'att' : 'ok';
-        h += '<div class="vc-ftete">' + traitSvg(e.p.st === 'projet' ? 'PRJ' : rl, e.p.st, 40) + '<div><strong>Tronçon</strong><span class="vc-etat ' + cls + '">' + esc(rl === 'INC' ? 'Réseau à préciser' : rl === 'MIX' ? 'Plusieurs réseaux atteints' : rl === 'PRJ' ? 'Projet' : 'Réseau ' + libRes(rl) + dd) + ' · ' + frNum(Math.round(L * 10) / 10) + ' m sur le plan</span></div></div>';
-        h += champ('Réseau', chipsHtml('res', [['', 'Déduit'], ['EU', 'EU'], ['EP', 'EP'], ['UN', 'Unitaire']], e.p.res || '', {garder: true}), 'à indiquer seulement si le dessin ne va pas jusqu\'à l\'exutoire');
+        var dd = RES[e.p.res] ? '' : ' déduit', cls = rl === 'INC' || rl === 'MIX' ? 'att' : 'ok', dr = drainDe(e);
+        h += '<div class="vc-ftete">' + traitSvg(e.p.st === 'projet' ? 'PRJ' : rl, e.p.st, 40) + '<div><strong>' + esc(nomTrace(e.t, e.p)) + '</strong><span class="vc-etat ' + cls + '">' + esc(rl === 'INC' ? 'Réseau à préciser' : rl === 'MIX' ? 'Plusieurs réseaux atteints' : rl === 'PRJ' ? 'Projet' : 'Réseau ' + libRes(rl) + dd) + ' · ' + frNum(Math.round(L * 10) / 10) + ' m sur le plan</span></div></div>';
+        /* drain (m121) : « Collecte » met EP à un tronçon sans réseau ; « Infiltration » le laisse sans réseau (il disperse dans le sol) et
+           masque les puces Réseau ; « Non » retire le drain et garde le réseau */
+        h += champ('Drain', chipsHtml('drain', [['', 'Non'], ['collecte', 'Collecte'], ['infiltration', 'Infiltration']], dr, {a: 'drain', label: 'Drain'}), 'collecte : recueille l\'eau du sol ; infiltration : la disperse dans le sol');
+        if (dr !== 'infiltration') h += champ('Réseau', chipsHtml('res', [['', 'Déduit'], ['EU', 'EU'], ['EP', 'EP'], ['UN', 'Unitaire']], e.p.res || '', {garder: true}), 'à indiquer seulement si le dessin ne va pas jusqu\'à l\'exutoire');
         h += champ('Statut', chipsHtml('st', STATUT, e.p.st || 'existant', {garder: true}));
         h += champ('Diamètre', chipsHtml('diam', DIAM.map(function(d){ return [d, 'Ø' + d]; }), e.p.diam) + saisie('diam', e.p.diam, {num: true, ph: 'autre diamètre (mm)', lab: 'Diamètre'}));
         h += champ('Matériau', chipsHtml('mat', MAT, e.p.mat));
@@ -5322,6 +5362,15 @@ function editeur(racine, opts){
     if (a === 'limMesure' && e){ reprendreLimite(e); return; }
     if (a === 'limPlacer' && e){ placerLimite(e); return; }
     if (a === 'rejetSol' && e){ rejetAuSol(e); return; }
+    /* puces « Drain » du tronçon (m121) : un pas d'annulation, aucun objet posé ni retiré ; « Collecte » met EP à un tronçon sans réseau et
+       garde EU ou unitaire ; « Infiltration » met p.res '' ; « Non » retire p.drain et garde p.res ; la puce déjà choisie ne change rien */
+    if (a === 'drain' && e && e.k === 'ln' && e.t === 'tr'){
+      var dv = sorteDrain(b.dataset.v); if (drainDe(e) === dv && (dv || !('drain' in e.p))) return;
+      instantane();
+      if (!dv) delete e.p.drain;
+      else { e.p.drain = dv; if (dv === 'infiltration') e.p.res = ''; else if (e.p.res !== 'EU' && e.p.res !== 'EP' && e.p.res !== 'UN') e.p.res = 'EP'; }
+      apresProp(e); return;
+    }
     if (a === 'tailleTexte' && e){ var tt = parseFloat(b.dataset.v) || 2.5; if ((num(e.taille) || 2.5) === tt) return; instantane(); e.taille = tt; changement(); return; }
     if (a === 'etiqOnOff' && e){ instantane(); if (e.lab && e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); else e.lab = {off: true}; changement(); return; }
     if (a === 'etiqReplacer' && e){ instantane(); e.lab = null; e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); changement(); return; }
@@ -5902,7 +5951,10 @@ function pdfPlan(doc, fond, o){
     var morceaux = (parLigne[e.id] || []).map(function(p){ return {pts: W.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
     if (!morceaux.length || e.t !== 'tr') morceaux = [{pts: W, res: resLigne(e, an)}];
     /* complément du fond et tracé d'un type inconnu : trait neutre, fin, gris, plein */
-    var neutre = !estCanalisation(e.t), larg = e.t === 'col' ? .7 : neutre ? .25 : .45;
+    var neutre = !estCanalisation(e.t), larg = e.t === 'col' ? .7 : neutre ? .25 : .45, drain = drainDe(e);
+    /* drain (m121) : peigne du tracé entier, une dent de 0,4 m par mètre réel, à droite (collecte) ou des deux côtés (infiltration) ; sur
+       le papier, au moins 0,8 mm tous les 2 mm, sinon il se perd dans le trait au-delà du 1/500 */
+    var dents = drain ? dentsPeigne(W, Math.max(1 / m, 2), Math.max(.4 / m, .8), drain === 'infiltration', true) : null;
     morceaux.forEach(function(mc){
       if (mc.pts.length < 2) return;
       var res = neutre ? 'LIM' : st === 'projet' ? 'PRJ' : mc.res, c = (RES[res] || RES.INC).rgb;
@@ -5913,6 +5965,8 @@ function pdfPlan(doc, fond, o){
         pdf.setLineWidth(.3); var reste = 1.5;
         for (var i = 1; i < mc.pts.length; i++){ var A = mc.pts[i - 1], B = mc.pts[i], L = Math.hypot(B.x - A.x, B.y - A.y); if (!L || !isFinite(L) || L > 5000) continue; var ux = (B.x - A.x) / L, uy = (B.y - A.y) / L, d = reste; while (d <= L){ var x = A.x + ux * d, y = A.y + uy * d; pdf.line(x - (uy - ux * .6) * 1.1, y + (ux + uy * .6) * 1.1, x + (uy - ux * .6) * 1.1, y - (ux + uy * .6) * 1.1); d += 3; } reste = d - L; }
       }
+      /* drain : les dents de cette pièce, de la couleur de son trait */
+      if (dents){ pdf.setLineWidth(.3); dentsPiece(dents, mc.p).forEach(function(q){ pdf.line(q[0].x, q[0].y, q[1].x, q[1].y); }); }
       if (mc.p && an.sensPiece[mc.p.id]){
         var mi = milieuChemin(mc.pts), sg = an.sensPiece[mc.p.id];
         if (mi && mi.L > 6){ var ux2 = mi.ux * sg, uy2 = mi.uy * sg, s = 1.3; pdf.setFillColor(c[0], c[1], c[2]); pdf.triangle(mi.x + ux2 * s, mi.y + uy2 * s, mi.x - ux2 * s - uy2 * s * .7, mi.y - uy2 * s + ux2 * s * .7, mi.x - ux2 * s + uy2 * s * .7, mi.y - uy2 * s - ux2 * s * .7, 'F'); }
@@ -6009,6 +6063,11 @@ function pdfPlan(doc, fond, o){
     else if (it.k === 'pt'){ primsPdf(pdf, primitives({k: 'pt', t: it.t, p: defautsPt(it.t)}, it.rgb, 0), X + 7, cy, Math.min(1, (hRow - .6) / (2 * rayonSymbole(it.t)))); }
     else if (it.k === 'bulle'){ pdf.setDrawColor(212, 101, 10); pdf.setFillColor(255, 255, 255); pdf.setLineWidth(.25); pdf.circle(X + 7, cy, 1.7, 'FD'); textePdf(pdf, '1', X + 7, cy, 1.8, 0, {gras: true, coul: [212, 101, 10]}); }
     else if (it.k === 'fleche'){ pdf.setFillColor(80, 80, 80); pdf.triangle(X + 9, cy, X + 6, cy - 1.2, X + 6, cy + 1.2, 'F'); }
+    else if (it.k === 'drain'){
+      /* échantillon d'un drain (m121) : trait gris de 8 mm et 3 dents de 1,2 mm, d'un côté (collecte) ou des deux (infiltration) */
+      var gd = RES.INC.rgb, ld = [{x: X + 3, y: cy}, {x: X + 11, y: cy}]; pdf.setDrawColor(gd[0], gd[1], gd[2]); pdf.setLineWidth(.45); pdf.setLineDashPattern([], 0); pdf.line(X + 3, cy, X + 11, cy);
+      pdf.setLineWidth(.3); dentsPeigne(ld, 2.5, 1.2, it.drain === 'infiltration', true).forEach(function(q){ pdf.line(q[0].x, q[0].y, q[1].x, q[1].y); });
+    }
     else if (it.k === 'esc'){
       /* échantillon : escalier de 8 × 2,4 mm, 4 marches, flèche vers la droite */
       var g = RES.LIM.rgb; pdf.setDrawColor(g[0], g[1], g[2]); pdf.setLineWidth(.25); pdf.setLineDashPattern([], 0);
@@ -6041,6 +6100,8 @@ function legende(doc, an, mode, ext, oL){
       if (!estCanalisation(e.t)) return;
       var r = e.p.st === 'projet' ? 'PRJ' : resLigne(e, an);
       if (e.p.st === 'presume') st.presume = 1; if (e.p.st === 'supprimer' && mode === 'avp') st.supprimer = 1;
+      /* drain (m121) : sa sorte, s'il est dessiné ; il garde aussi la ligne de son réseau */
+      var dr = drainDe(e); if (dr && e.v.length >= 2) st[dr] = 1;
       if (/^(EU|EP|UN|INC|MIX|PRJ)$/.test(r) && !vus['l' + r]){ vus['l' + r] = 1; out.push({k: 'ln', res: r, lib: r === 'PRJ' ? 'Canalisation projetée' : r === 'INC' ? 'Réseau non déterminé' : r === 'MIX' ? 'Plusieurs réseaux atteints' : 'Canalisation ' + libRes(r) + (r === 'UN' ? '' : ' (' + RES[r].nom + ')'), o: 1}); }
       return;
     }
@@ -6048,6 +6109,8 @@ function legende(doc, an, mode, ext, oL){
   });
   if (st.presume) out.push({k: 'ln', res: 'INC', st: 'presume', lib: 'Tracé présumé (tirets)', o: 2});
   if (st.supprimer) out.push({k: 'ln', res: 'INC', st: 'supprimer', lib: 'Tracé barré : à supprimer', o: 2});
+  if (st.collecte) out.push({k: 'drain', drain: 'collecte', lib: 'Drain', o: 2});
+  if (st.infiltration) out.push({k: 'drain', drain: 'infiltration', lib: 'Drain d\'infiltration', o: 2});
   if (an.pieces.some(function(p){ return an.sensPiece[p.id]; })) out.push({k: 'fleche', lib: 'Sens d\'écoulement', o: 4});
   if (anomaliesDoc(doc, an, ext, oL).some(function(a){ return a.num && a.objId; })) out.push({k: 'bulle', lib: mode === 'avp' ? 'Préconisation, voir la page 2' : 'Anomalie, voir la page 2', o: 5});
   out.sort(function(a, b){ return a.o - b.o; });
@@ -6158,6 +6221,8 @@ function ecrireDxf(doc, an, liste){
   var CAL = {'VEDE-EU': 1, 'VEDE-EP': 3, 'VEDE-UNITAIRE': 6, 'VEDE-RESEAU-A-PRECISER': 8, 'VEDE-PROJET': 5, 'VEDE-A-SUPPRIMER': 8, 'VEDE-COLLECTEURS': 7, 'VEDE-SYMBOLES': 7, 'VEDE-ETIQUETTES': 7, 'VEDE-ANOMALIES': 30, 'VEDE-ANNOTATIONS': 30, 'VEDE-COMPLEMENT-FOND': 7, 'VEDE-ECOULEMENT': 8};
   /* calque des escaliers (gris 8), déclaré seulement s'il sert */
   if (doc.el.some(function(e){ return e.k === 'ln' && e.t === 'esc' && !!geoEscalier(e, idx); })) CAL['VEDE-ESCALIERS'] = 8;
+  /* calque des drains (vert 3, m121), déclaré seulement s'il sert : un drain « projet » ou « à supprimer » reste sur le calque de son statut */
+  if (doc.el.some(function(e){ var st = e.p && e.p.st; return !!drainDe(e) && e.v.length >= 2 && st !== 'projet' && st !== 'supprimer'; })) CAL['VEDE-DRAINS'] = 3;
   function calRes(r){ return r === 'EU' ? 'VEDE-EU' : r === 'EP' ? 'VEDE-EP' : r === 'UN' ? 'VEDE-UNITAIRE' : r === 'PRJ' ? 'VEDE-PROJET' : 'VEDE-RESEAU-A-PRECISER'; }
   /* en-tête */
   g(0, 'SECTION'); g(2, 'HEADER');
@@ -6216,7 +6281,10 @@ function ecrireDxf(doc, an, liste){
     P.forEach(function(p){ g(0, 'VERTEX'); g(8, cal); g(10, X(p.x)); g(20, Y(p.y)); g(30, '0.0'); });
     g(0, 'SEQEND'); g(8, cal);
   }
-  function ligne(a, b, cal){ g(0, 'LINE'); g(8, cal); g(10, X(a.x)); g(20, Y(a.y)); g(30, '0.0'); g(11, X(b.x)); g(21, Y(b.y)); g(31, '0.0'); }
+  function ligne(a, b, cal, col, lt){ g(0, 'LINE'); g(8, cal); if (col != null) g(62, col); if (lt) g(6, lt); g(10, X(a.x)); g(20, Y(a.y)); g(30, '0.0'); g(11, X(b.x)); g(21, Y(b.y)); g(31, '0.0'); }
+  /* dents d'un drain (m121) : une LINE par dent (D : dentsPeigne, en mètres du croquis) ; lt : type de ligne, CONTINUOUS sur le calque du
+     projet, qui est en tirets */
+  function dentsDxf(D, cal, col, lt){ D.forEach(function(q){ ligne(q[0], q[1], cal, col, lt); }); }
   function texte(s, x, y, h, cal, col, ang){
     String(s).split('\n').forEach(function(l, i, A){
       var dy = ((A.length - 1) / 2 - i) * h * 1.6, p = depuisPlan(0, dy, rot), px = x + p.x, py = y + p.y;
@@ -6238,12 +6306,17 @@ function ecrireDxf(doc, an, liste){
     if (e.t === 'col'){ poly(P, 'VEDE-COLLECTEURS', {col: (RES[e.p.res] || RES.EU).aci, larg: .6 * m}); return; }
     /* tracé d'un type inconnu : trait neutre sur le calque 0 */
     if (!estCanalisation(e.t)){ poly(P, '0'); return; }
-    if (st === 'projet'){ poly(P, 'VEDE-PROJET', {lt: 'VEDE_PROJET'}); return; }
+    /* drain (m121) : sur VEDE-DRAINS, chaque pièce de la couleur de son réseau, avec ses dents ; le statut prime (projet, à supprimer).
+       Peigne du tracé entier : une dent de 0,4 m par mètre, à droite (collecte) ou des deux côtés (infiltration), aux mêmes places qu'à
+       l'écran (et qu'au PDF jusqu'au 1/500) */
+    var drain = drainDe(e), dents = drain ? dentsPeigne(P, 1, .4, drain === 'infiltration', false) : [];
+    if (st === 'projet'){ poly(P, 'VEDE-PROJET', {lt: 'VEDE_PROJET'}); dentsDxf(dents, 'VEDE-PROJET', null, 'CONTINUOUS'); return; }
     var ms = (parLigne[e.id] || []).map(function(p){ return {pts: P.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
     if (!ms.length) ms = [{pts: P, res: resLigne(e, an)}];
     ms.forEach(function(mc){
-      var cal = st === 'supprimer' ? 'VEDE-A-SUPPRIMER' : calRes(mc.res);
-      poly(mc.pts, cal, {lt: st === 'presume' || mc.res === 'INC' ? 'VEDE_PRESUME' : null, col: st === 'supprimer' ? (RES[mc.res] || RES.INC).aci : null});
+      var cal = st === 'supprimer' ? 'VEDE-A-SUPPRIMER' : drain ? 'VEDE-DRAINS' : calRes(mc.res), aci = (RES[mc.res] || RES.INC).aci;
+      poly(mc.pts, cal, {lt: st === 'presume' || mc.res === 'INC' ? 'VEDE_PRESUME' : null, col: st === 'supprimer' || drain ? aci : null});
+      if (mc.pts.length >= 2) dentsDxf(dentsPiece(dents, mc.p), cal, aci);
       if (mc.p && an.sensPiece[mc.p.id]){
         var mi = milieuChemin(mc.pts), sg = an.sensPiece[mc.p.id];
         if (mi && mi.L > 1.5 * m * 4){ var ux = mi.ux * sg, uy = mi.uy * sg, s = 1.3 * m;

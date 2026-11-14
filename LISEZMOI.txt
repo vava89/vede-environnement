@@ -67,10 +67,16 @@ CROQUIS DE TERRAIN (facultatif)
   affiché, à 3 m au plus ; sinon vers le bas de l'écran). Elle n'est posée
   ni dans un bâti ou un trait de complément fermé, ni sur un mur ou un
   trait, ni contre un autre objet ; si aucune place ne convient, elle va
-  1 m sous la source. « Annuler » retire les deux. Dans la fiche de la
-  boîte de branchement, on indique sa position par rapport à la limite de
-  propriété (côté intérieur ou extérieur, distance en mètres) ; l'étiquette
-  du plan la reprend, par exemple « à 0,80 m de la limite, intérieur ».
+  1 m sous la source. « Annuler » retire les deux. Dans la fiche d'un
+  tronçon, les puces « Drain » (Non, Collecte, Infiltration) en font un
+  drain : « Collecte » le met en eaux pluviales s'il n'a pas de réseau,
+  « Infiltration » (épandage, tranchée drainante) retire son réseau. Le
+  plan le dessine avec un peigne, des dents d'un côté pour la collecte,
+  des deux côtés pour l'infiltration, et la légende du PDF dit « Drain »
+  ou « Drain d'infiltration ». Dans la fiche de la boîte de branchement,
+  on indique sa position par rapport à la limite de propriété (côté
+  intérieur ou extérieur, distance en mètres) ; l'étiquette du plan la
+  reprend, par exemple « à 0,80 m de la limite, intérieur ».
   Avec le fond de plan, la fiche mesure la boîte dans la parcelle de
   l'installation : la parcelle fermée qui contient le plus d'objets
   existants dessinés (sans elle, en cas d'égalité par exemple, rien

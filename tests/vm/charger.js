@@ -27,17 +27,19 @@ function charger(o){
 }
 
 /* Croquis fictif décrit en abrégé.
-   o : [id, type, x, y, propriétés] ; l : [id, 'tr' | 'col', réseau, statut, sommets, sens] ; un sommet est l'id d'un objet (raccordé)
-   ou [x, y] (libre). Propriétés par défaut d'un objet : existant, sans observation, essai à l'eau, visitable, côté avant, tampon fonte. */
+   o : [id, type, x, y, propriétés] ; l : [id, 'tr' | 'col', réseau, statut, sommets, sens, propriétés] ; un sommet est l'id d'un objet
+   (raccordé) ou [x, y] (libre). Propriétés par défaut d'un objet : existant, sans observation, essai à l'eau, visitable, côté avant, tampon
+   fonte. Les propriétés d'un tracé (7e champ, facultatif, m121 : par exemple {drain: 'collecte'}) s'ajoutent à celles qu'il reçoit ici. */
 function doc(spec){
   const el = [], pos = {};
   (spec.o || []).forEach(([n, t, x, y, p]) => {
     const e = {id: n, k: 'pt', t, x, y, p: Object.assign({st: 'existant', obs: '', meth: ['eau'], visitable: 'oui', cote: 'avant', tampon: 'fonte'}, p || {}), lab: {off: true}};
     el.push(e); pos[n] = e;
   });
-  (spec.l || []).forEach(([n, t, res, st, v, sens]) => {
+  (spec.l || []).forEach(([n, t, res, st, v, sens, props]) => {
+    const p = t === 'col' ? {res: res || 'EU', gest: 'D', st: st || 'existant'} : {res: res || '', st: st || 'existant', sens: sens || 0, obs: ''};
     el.push({id: n, k: 'ln', t, v: v.map(q => typeof q === 'string' ? {x: pos[q].x, y: pos[q].y, a: q} : {x: q[0], y: q[1], a: null}),
-      p: t === 'col' ? {res: res || 'EU', gest: 'D', st: st || 'existant'} : {res: res || '', st: st || 'existant', sens: sens || 0, obs: ''}, lab: {off: true}});
+      p: Object.assign(p, props || {}), lab: {off: true}});
   });
   return {format: 'vede-croquis', v: 1, id: 'd', nom: 'Croquis fictif', numero: 'F-1', adresse: '12 rue Fictive', commune: 'Ville-Exemple',
     date: '2026-11-01', technicien: 'Nom Fictif', fondId: null, reseauId: null, origine: {x: 0, y: 0}, u: 1, rot: 0, echelle: 0, vue: null,
@@ -67,7 +69,8 @@ const copie = x => JSON.parse(JSON.stringify(x));
      traits ramenés en mètres du croquis, textes ;
    - pdf(doc, o) : plan PDF (V.pdfPlan) relevé par une enveloppe de la bibliothèque : textes, place des textes (pos), traits
      (couleur/épaisseur, dans l'ordre), formes (couleur, fermée ou non, sommets en mm) ; err : les exceptions ;
-   - dxf(doc) : DXF (V.ecrireDxf ; latin1, paires code/valeur) : calques et leur couleur, blocs, entités, étendue, texte entier. */
+   - dxf(doc) : DXF (V.ecrireDxf ; latin1, paires code/valeur) : calques et leur couleur, blocs, entités (codes de groupe dans c, ceux
+     d'une polyligne compris : m121), étendue, texte entier. */
 function rendus(ch){
   const V = ch.V, ctx = ch.ctx;
   function canevas(){
@@ -124,7 +127,7 @@ function rendus(ch){
       if (q.sec === 'TABLES' && q.type === 'LAYER') out.calques[q.c['2']] = +q.c['62'];
       if (q.sec === 'BLOCKS' && q.type === 'BLOCK') out.blocs.push(q.c['2']);
       if (q.sec !== 'ENTITIES') return;
-      if (q.type === 'POLYLINE'){ pl = {type: 'POLYLINE', cal: q.c['8'], ferme: (+q.c['70'] & 1) === 1, sommets: []}; out.ents.push(pl); return; }
+      if (q.type === 'POLYLINE'){ pl = {type: 'POLYLINE', cal: q.c['8'], c: q.c, ferme: (+q.c['70'] & 1) === 1, sommets: []}; out.ents.push(pl); return; }
       if (q.type === 'VERTEX'){ if (pl) pl.sommets.push({x: +q.c['10'], y: +q.c['20']}); return; }
       if (q.type === 'SEQEND'){ pl = null; return; }
       out.ents.push({type: q.type, cal: q.c['8'], c: q.c, a: {x: +q.c['10'], y: +q.c['20']}, b: {x: +q.c['11'], y: +q.c['21']}});
