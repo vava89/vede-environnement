@@ -1,10 +1,10 @@
 # Conception du lot « Rejets » (v1.7.1, souhaits 2, 3, 4)
 
 Établie le 8 nov. 2026 sur 52cd3c8 (code de la v1.7.0), point de départ de m116 ; révisée les 13 et 14 nov. (puits NC ; réponses et consignes du 13
-nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m123 (envoyés : 8f9094d, ab926ec, 6df324c,
-a5a5d05, 7a6c041, b562636, bd16bb9, d036ee1) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du code : `carte-*.md`
-(8 nov. ; le puits y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js, IX = index.html ; vm/ et
-navigateur/ sont sous tests/.
+nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m124 (envoyés : 8f9094d, ab926ec, 6df324c,
+a5a5d05, 7a6c041, b562636, bd16bb9, d036ee1, 65c4685) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du code :
+`carte-*.md` (8 nov. ; le puits y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js, IX =
+index.html ; vm/ et navigateur/ sont sous tests/.
 
 ## Réponses de l'utilisateur (7 et 13 nov. 2026)
 - Décision du 13 nov., mot pour mot : « Un rejet EP dans un puits est une non conformité. » (`.claude/etat-travaux.md`, l. 8 ; CLAUDE.md, l. 17).
@@ -341,7 +341,7 @@ navigateur/ sont sous tests/.
 ## Découpage (m116 à m129 ; quatorze correctifs, batterie verte après chacun)
 Ordre : le commun, sans changement visible (m116) ; l'infiltration (m117, m118) ; l'arbitrage, règle générale, juste après m118 (m119) ; le puits
 (m120) ; les drains (m121 à m124) ; les destinations (m125 à m128), la palette après l'analyse et le rendu ; les cas limites des drains, après les
-réponses à Q6 et Q7 (m129). m116 à m123 sont envoyés : leur fiche ne change plus. Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js
+réponses à Q6 et Q7 (m129). m116 à m124 sont envoyés : leur fiche ne change plus. Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js
 reste vert partout ; tests/LISEZMOI.md suit chaque test ajouté. Dès m117, poser un objet nouveau demande des tablettes à jour (D11). Après m129 : 14
 correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
 
@@ -469,17 +469,16 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     collecte) : aucune exception, aucun écart sur les sources ponctuelles ni sur les pièces.
   - Risques : bout amont d'un drain orienté sans son eau [p] ; aucun drain tiré n'a de nœud au milieu (d14 seul couvre la relecture ; m124) ; un drain
     au réseau « EU » indiqué : NC (présumé).
-- **m124 Drains (4) : outils, générateur, documentation** (souhait 4, 2e et 3e parties du cadrage ; D10).
-  - Fichiers : CJ OUTILS_LN, PALETTES.tr, drainSvg, aide, terminerTrace et ajouterPointTrace (toast, prolongation), fa.lp. vm/generateur.js : option
-    `drains` (sans tirage de plus quand elle manque), passée par aleatoire.js. LISEZMOI.txt (mode d'emploi des drains, consigne de D11).
-  - Pour l'utilisateur : deux outils « Drain » et « Drain d'infiltration » dans la palette Tracés, après « Projet » ; « Drain ajouté » en fin de
-    tracé ; aucun point posé avec le drain.
-  - Test (navigateur/drain.js) : o1 « Drain » et « Drain d'infiltration » juste après « Projet », « Complément du fond » et « Escalier » toujours
-    voisins (échoue avant : outils absents) ; o2 drain entre deux points libres : p.drain 'collecte', p.res 'EP', aucun objet ajouté, toast « Drain
-    ajouté », une ligne « Autres : Drain », une annulation rend le JSON d'avant ; o3 drain d'infiltration depuis une descente : p.res '', étiquette
-    « Dispersion dans le sol » placée, descente ok:DISP ; o4 tracé trop court : ni tracé ni pas d'annulation ; drain prolongeant un Tronçon EP : deux
-    lignes. vm/aleatoire.js 8000 avec `drains` : aucune exception ; sans l'option, mêmes 30 croquis (compat.js:91).
-  - Risques : flèche à l'envers d'un tuyau tracé depuis son exutoire (défaut connu, hors lot) : p.sens d'un drain de collecte [p].
+- **m124 Drains (4) : outils, générateur, documentation** (souhait 4, 2e et 3e parties du cadrage ; D10). Fait : 65c4685, 14 nov.
+  - Fichiers (CJ) : OUTILS_LN (drain, drainInf), PALETTES.tr, drainSvg, nomGeste (messages du geste), msgFin et msgFinSous (fa.lp), prolongation (même
+    p.drain), toast de fin. vm/generateur.js : option drains, sur une suite de tirages à part ; vm/aleatoire.js (--sans=drains, comptageDrains). Les
+    trois LISEZMOI ; commentaires de vm/compat.js.
+  - Pour l'utilisateur : « Drain » et « Drain d'infiltration » juste après « Projet » ; « Drain ajouté : réseau EP », « Drain d'infiltration ajouté :
+    dispersion dans le sol » ; aucun point posé ; prolongation seulement entre tuyaux de la même sorte (sinon un raccord).
+  - Tests : navigateur/drain.js o1 à o4 (41 cas, 22 sur 28 avant) ; aléatoire 8000 avec drains : aucune exception, 16 062 drains comptés, aucun écart
+    de comptage ; sans drains, contre avant : aucun écart ; compat 245/245.
+  - Risques : toast « dispersion dans le sol » même si le drain d'infiltration atteint un autre exutoire [p] ; un Tronçon tracé au bout d'un drain
+    part d'un raccord (avant : il le prolongeait) [p] ; un drain tracé a p.sens 0 [p].
 - **m125 Destinations (1) : modèle, analyse, règles, constat**, hors palette (souhait 2, 1re partie du cadrage, l. 116 ; D3, D5 à D7).
   - Fichiers (CJ) : def('exutoire'), hors de FAMILLES pour l'instant (ni palette, ni sélecteur « Type », CJ:4840) ; defautsPt ; destDe ; terminal et
     an.exu ; libExu ; eu-exu et ep-exu ; REGLES_LIGNE ; controles (CJ:1379, 1382) ; raccInfo, constatDeduit ; conclusion et CONCL ('exu', avant
