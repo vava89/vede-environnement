@@ -798,7 +798,11 @@ var EXU = {
      2026) ; EU non conforme, comme l'infiltration au sol ; au constat, la case « Infiltration diffuse » */
   DISP: {lib: 'dispersion dans le sol', res: 'EP',
     eu: {cle: 'eu-sol', obs: 'rejet au sol (infiltration)', preco: 'Suppression du rejet au sol et raccordement au branchement EU', nc: true, codes: ['suppMilieu'], cat: 'inversion'},
-    cEU: {code: 'MILIEU', lib: 'Drain d\'infiltration : rejet au sol (milieu naturel)'}, cEP: {code: '', lib: 'Drain d\'infiltration (dispersion dans le sol)', recup: 'infil'}}
+    cEU: {code: 'MILIEU', lib: 'Drain d\'infiltration : rejet au sol (milieu naturel)'}, cEP: {code: '', lib: 'Drain d\'infiltration (dispersion dans le sol)', recup: 'infil'}},
+  /* autre destination (m125, décisions D3, D5 à D7) : un étang, un fossé… que l'opérateur nomme et juge dans sa fiche. Son rejet est une clé
+     « X:NOM:ep:cst » (terminal) ; ses textes, ses règles et sa place au constat viennent de ses champs (an.exu[clé], ligneDest) : cette
+     ligne ne donne que le réseau (EP) et le repère dest. Aucune règle ne compare un rejet à 'X' */
+  X: {lib: 'autre destination', res: 'EP', dest: true}
 };
 /* code d'un rejet : la partie avant le premier « : », sinon le rejet entier */
 function codeExu(res){ var s = res == null ? '' : String(res), i = s.indexOf(':'); return i >= 0 ? s.slice(0, i) : s; }
@@ -806,10 +810,61 @@ function codeExu(res){ var s = res == null ? '' : String(res), i = s.indexOf(':'
 function exuDe(res){ var k = codeExu(res); return Object.prototype.hasOwnProperty.call(EXU, k) ? EXU[k] : null; }
 /* réseau du tracé (couleur, calque, contrôles) : celui de la ligne de la table, sinon le rejet tel quel */
 function resTrace(res){ var x = exuDe(res); return x ? x.res : res; }
-/* libellé du rejet : celui du réseau, sinon celui de la ligne de la table, sinon le rejet tel quel (an : l'analyse, pour une destination
-   ajoutée) */
-function libExu(res, an){ if (Object.prototype.hasOwnProperty.call(EXU_LIB, res)) return EXU_LIB[res]; var x = exuDe(res); return x ? x.lib : res; }
-VC.EXU = EXU; VC.libExu = libExu;
+/* Autre destination (m125, décision D3) : champs de l'objet o, avec leurs replis, pour tous les lecteurs (clé, an.exu, textes) :
+   - nom : 40 caractères au plus ; absent, autre qu'un texte ou blanc : « Autre destination », article « l' » ;
+   - ab : 2 ou 3 caractères ; sinon (absent, 1 caractère, plus de 3), les deux premiers du nom ;
+   - art : 'le', 'la' ou « l' », sinon 'le' (pour les textes, jamais pour la clé) ;
+   - ep, jugement des EP : 'conforme', 'reserve', 'nc' ou 'arbitrer', sinon 'arbitrer' ; jamais d'après le nom ;
+   - cst, case du constat en EP : 'MILIEU', 'GARG', 'puisard', 'recup', 'infil' ou 'autre', sinon 'autre'. */
+/* valeurs permises du jugement et de la case, avec leurs libellés, qui distinguent deux destinations de même nom (libsRejets ; cases des
+   ouvrages : ceux de RECUP_LIB) */
+var DEST_EP = {conforme: 'conforme', reserve: 'réserve', nc: 'non conforme', arbitrer: 'à arbitrer'};
+var DEST_CST = {MILIEU: 'milieu naturel', GARG: 'gargouille', puisard: 'puisard', recup: 'récupérateur', infil: 'infiltration diffuse', autre: 'indéterminé/autres'};
+function destDe(o){
+  var p = (o && o.p) || {}, net = function(x){ return typeof x === 'string' ? x.replace(/\s+/g, ' ').trim() : ''; };
+  var nom = net(p.nom).slice(0, 40).trim(), sans = !nom, ab;
+  if (sans) nom = 'Autre destination';
+  ab = net(p.ab); if (ab.length < 2 || ab.length > 3) ab = nom.slice(0, 2);
+  var own = function(t, k){ return typeof k === 'string' && Object.prototype.hasOwnProperty.call(t, k); };
+  return {nom: nom, ab: ab, art: sans ? 'l\'' : (p.art === 'la' || p.art === 'l\'' ? p.art : 'le'), ep: own(DEST_EP, p.ep) ? p.ep : 'arbitrer', cst: own(DEST_CST, p.cst) ? p.cst : 'autre'};
+}
+/* clé du rejet d'une destination (décision D5) : code, nom normalisé (majuscules, sans accents, espaces réduits), jugement des EP et case
+   ('X:ETANG:arbitrer:autre') ; ni ab ni art n'y entrent. Elle ne se découpe pas : un nom peut contenir « : » */
+function nomCle(nom){ return norm(nom).toUpperCase().replace(/\s+/g, ' ').trim(); }
+function cleDest(code, d){ return code + ':' + nomCle(d.nom) + ':' + d.ep + ':' + d.cst; }
+/* ligne d'une destination d (destDe), de la forme de celles de la table (décisions D6 et D7) : textes avec son article et son nom (initiale
+   en minuscule, sauf un sigle) ; source EU : toujours non conforme ; source EP : selon son jugement, aucune anomalie si conforme (réserve,
+   non conforme, ou non conforme à arbitrer : arbitrer) ; au constat, en EU le milieu naturel, en EP la case choisie */
+function ligneDest(d){
+  var nom = /^.[A-ZÀ-ÖØ-Ý]/.test(d.nom) ? d.nom : d.nom.charAt(0).toLowerCase() + d.nom.slice(1), Nom = d.nom.charAt(0).toUpperCase() + d.nom.slice(1);
+  var dans = 'rejet dans ' + (d.art === 'l\'' ? 'l\'' : d.art + ' ') + nom;
+  return {lib: nom, res: 'EP', dest: true,
+    eu: {cle: 'eu-exu', obs: dans, preco: 'Suppression du ' + dans + ' et raccordement au branchement EU', nc: true, codes: ['raccEUsep'], cat: 'inversion'},
+    ep: d.ep === 'conforme' ? null : {cle: 'ep-exu', obs: dans, preco: (d.ep === 'nc' ? 'Suppression du ' + dans + ' ; r' : 'R') + 'accordement au branchement EP ou gestion à la parcelle',
+      nc: d.ep !== 'reserve', codes: ['gestEP'], cat: 'autre', arbitrer: d.ep === 'arbitrer'},
+    cEU: {code: 'MILIEU', lib: Nom + ' : rejet en milieu naturel'},
+    cEP: d.cst === 'MILIEU' || d.cst === 'GARG' ? {code: d.cst} : {code: '', lib: Nom + ' (rejet des EP)', recup: d.cst}};
+}
+/* ligne d'un rejet : celle de la table ; pour une destination, celle de ses champs (an.exu[clé] ; sans l'analyse qui la porte, celle d'une
+   destination sans champ, à arbitrer) ; null pour un réseau ou un code inconnu */
+function ligneExu(res, an){
+  var x = exuDe(res); if (!x || !x.dest) return x;
+  return ligneDest(an && an.exu && Object.prototype.hasOwnProperty.call(an.exu, res) ? an.exu[res] : destDe(null));
+}
+/* libellé du rejet : celui du réseau, sinon celui de la ligne du rejet (an : l'analyse, pour une destination ajoutée), sinon le rejet tel quel */
+function libExu(res, an){ if (Object.prototype.hasOwnProperty.call(EXU_LIB, res)) return EXU_LIB[res]; var x = ligneExu(res, an); return x ? x.lib : res; }
+/* libellés des rejets d'une source reliée à plusieurs (contrôle « relié à plusieurs réseaux ») : deux destinations de même nom se
+   distinguent par leur jugement des EP, à défaut par leur case du constat (décision D5) */
+function libsRejets(nets, an){
+  var ds = nets.map(function(x){ var l = ligneExu(x, an); return l && l.dest ? (an && an.exu && an.exu[x]) || destDe(null) : null; });
+  return nets.map(function(x, i){
+    var d = ds[i], lib = libExu(x, an); if (!d) return lib;
+    var m = ds.filter(function(e){ return e && nomCle(e.nom) === nomCle(d.nom); }); if (m.length < 2) return lib;
+    var distincts = function(k){ return m.every(function(e, j){ return m.every(function(f, n){ return j === n || e[k] !== f[k]; }); }); };
+    return lib + ' (' + (distincts('ep') ? DEST_EP[d.ep] : distincts('cst') ? DEST_CST[d.cst] : DEST_EP[d.ep] + ', ' + DEST_CST[d.cst]) + ')';
+  });
+}
+VC.EXU = EXU; VC.libExu = libExu; VC.destDe = destDe;
 /* Codes de l'application (constat) ; caméra et déclaré s'y ajoutent */
 var METH = [['visuel', 'Visuel', 'V'], ['eau', 'Eau', 'E'], ['fluo', 'Colorant', 'Fl'], ['fumee', 'Fumée', 'Fu'], ['reso', 'Résonance', 'R'], ['camera', 'Caméra', 'Ca'], ['declare', 'Déclaré', 'D']];
 var NIV = [['ss', 'Sous-sol'], ['rdc', 'RDC'], ['etage', 'Étage']];
@@ -854,6 +909,9 @@ def('gargouille', {fam: 'exu', lib: 'Gargouille', g: 'f', role: 'exutoire', form
 def('milieu', {fam: 'exu', lib: 'Rejet en milieu naturel', ab: 'MN', role: 'exutoire', forme: 'app', exu: 'MILIEU'});
 /* puits (m120) : rejet non conforme, en EU comme en EP ; rappel : la phrase de l'aide de l'outil et de la fiche (décision D3) */
 def('puits', {fam: 'exu', lib: 'Puits', role: 'exutoire', forme: 'puits', exu: 'PUITS', rappel: 'Un puits perdu (qui infiltre les eaux) se dessine en Puisard.'});
+/* autre destination (m125, décision D3) : étang, fossé… ; nom, ab, art, ep et cst dans p (destDe). Hors de FAMILLES jusqu'à m127 (ni palette,
+   ni sélecteur « Type ») : seul un croquis qui la porte déjà la montre */
+def('exutoire', {fam: 'exu', lib: 'Autre destination', g: 'f', role: 'exutoire', forme: 'exutoire', exu: 'X'});
 def('regard_pub', {fam: 'pub', lib: 'Regard public', role: 'passage', forme: 'regpub', regard: true});
 def('test', {fam: 'ann', lib: 'Point de test', role: 'note', forme: 'test'});
 def('zone', {fam: 'ann', lib: 'Zone suspecte', g: 'f', role: 'note', forme: 'zone'});
@@ -875,6 +933,8 @@ function defautsPt(t){
   if (t === 'test'){ p.meth = []; p.resultat = ''; }
   if (t === 'zone') p.r = 1.5;
   if (ty.oriente) p.a = 0;
+  /* autre destination (m125) : champs d'une destination sans nom ni jugement (destDe) */
+  if (ty.exu && exuDe(ty.exu) && exuDe(ty.exu).dest) Object.assign(p, destDe(null));
   return p;
 }
 function defautsLn(t, o){
@@ -999,6 +1059,15 @@ function analyser(doc, mode){
   mode = mode || 'edl';
   var idx = indexDoc(doc), objs = {}, lignes = {}, adj = {}, pieces = [];
   doc.el.forEach(function(e){ if (!actif(e, mode)) return; if (e.k === 'pt' && T[e.t]) objs[e.id] = e; else if (e.k === 'ln' && (e.t === 'tr' || e.t === 'col')) lignes[e.id] = e; });
+  /* autres destinations (m125, décision D5) : clé du rejet de chaque objet (terminal) ; an.exu : clé → champs (destDe) du premier objet de
+     cette clé dans l'ordre des identifiants, pas du dessin. La table n'existe que si le plan porte une destination : un ancien croquis ne
+     reçoit aucune clé nouvelle */
+  var cleX = {}, exuX = null;
+  Object.keys(objs).sort().forEach(function(id){
+    var o = objs[id], x = exuDe(T[o.t].exu); if (!T[o.t].exu || !x || !x.dest) return;
+    var d = destDe(o), k = cleDest(codeExu(T[o.t].exu), d); cleX[id] = k;
+    if (!exuX) exuX = {}; if (!Object.prototype.hasOwnProperty.call(exuX, k)) exuX[k] = d;
+  });
   function lier(n, p){ (adj[n] = adj[n] || []).push(p); }
   /* pièces d'un nœud, sans les liens du drain de collecte qu'on analyse (m123 : ils ne sont pas des tuyaux) */
   function nbPieces(n){ return (adj[n] || []).filter(function(p){ return !p.virt; }).length; }
@@ -1040,7 +1109,7 @@ function analyser(doc, mode){
     /* drain d'infiltration (m122) : rejet « dispersion dans le sol », quel que soit p.res */
     if (n.indexOf('D:') === 0){ var ld = lignes[n.slice(2)]; return ld ? {res: 'DISP', via: 'drain', id: ld.id} : null; }
     var o = objs[n], ty = o && T[o.t]; if (!ty) return null;
-    if (ty.exu) return {res: ty.exu, via: o.t, id: o.id};
+    if (ty.exu) return {res: cleX[o.id] || ty.exu, via: o.t, id: o.id};
     if (ty.boite && /^(EU|EP|UN)$/.test(o.p.res || '')) return {res: o.p.res, via: 'boite', id: o.id, boite: true};
     return null;
   }
@@ -1390,6 +1459,7 @@ function analyser(doc, mode){
      le sien ; pas la boîte de branchement : son réseau est celui du branchement public, que l'opérateur indique (« réseau à indiquer ») */
   Object.keys(lignes).forEach(function(id){ var l = lignes[id]; if (drainDe(l) === 'infiltration' && l.v.length >= 2) l.v.forEach(function(v){ if (v.a && objs[v.a] && !T[objs[v.a].t].boite && resPt[v.a] === 'INC') resPt[v.a] = 'EP'; }); });
   var an = {mode: mode, objs: objs, lignes: lignes, pieces: pieces, adj: adj, resObj: resObj, resPiece: resPiece, sensPiece: sensPiece, sensSource: sensSource, resPt: resPt, boites: boites, dist: dist};
+  if (exuX) an.exu = exuX;
   /* après l'avant-projet : l'état des lieux sert de référence (numéros d'anomalie, réseau des tracés à supprimer) */
   if (mode === 'avp') an.ref = analyser(doc, 'edl');
   an.anomalies = reglesAnomalies(doc, an);
@@ -1418,17 +1488,21 @@ function reglesAnomalies(doc, an){
   Object.keys(an.resObj).forEach(function(id){
     var o = srcObj(an, id), ty = T[o.t], r = an.resObj[id], lib = libObj(o);
     if (r.etat === 'ok'){
+      /* ligne du rejet : table des exutoires, ou champs d'une autre destination (m125) */
+      var xl = ligneExu(r.res, an);
       if (ty.nat === 'EU'){
         if (r.res === 'EP') ajoute({cle: 'eu-ep:' + id, objId: id, reseau: 'EU', obs: lib + ' : rejet au réseau EP' + (r.presume ? ' (présumé)' : ''), preco: 'Déconnexion du réseau EP et raccordement au branchement EU', nc: true, codes: ['sepEU', 'raccEUsep'], cat: 'inversion'});
-        /* exutoire de la table (puisard, gargouille, milieu naturel…) : la règle EU de sa ligne */
-        else if (exuDe(r.res) && exuDe(r.res).eu){ var re = exuDe(r.res).eu;
+        /* exutoire de la table (puisard, gargouille, milieu naturel…) ou autre destination : la règle EU de sa ligne */
+        else if (xl && xl.eu){ var re = xl.eu;
           ajoute({cle: re.cle + ':' + id, objId: id, reseau: 'EU', obs: lib + ' : ' + re.obs, preco: re.preco, nc: re.nc, codes: re.codes.slice(), cat: re.cat}); }
       } else if (ty.nat === 'EP' && r.res === 'EU'){
         ajoute({cle: 'ep-eu:' + id, objId: id, reseau: 'EP', obs: lib + ' : rejet au réseau EU' + (r.presume ? ' (présumé)' : ''), preco: 'Déconnexion des EP du réseau EU ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['decoEP', 'raccEPep'], cat: 'inversion'});
-      } else if (ty.nat === 'EP' && exuDe(r.res) && exuDe(r.res).ep){
-        /* exutoire de la table à règle EP fixe (puits : non conforme, décision du 13 nov. 2026) : la règle EP de sa ligne, comme la règle EU */
-        var rp = exuDe(r.res).ep;
-        ajoute({cle: rp.cle + ':' + id, objId: id, reseau: 'EP', obs: lib + ' : ' + rp.obs, preco: rp.preco, nc: rp.nc, codes: rp.codes.slice(), cat: rp.cat});
+      } else if (ty.nat === 'EP' && xl && xl.ep){
+        /* exutoire de la table à règle EP fixe (puits : non conforme, décision du 13 nov. 2026), ou autre destination aux EP non conformes,
+           en réserve ou à arbitrer (m125 : arbitrer, comme sansboite) : la règle EP de sa ligne, comme la règle EU */
+        var rp = xl.ep, aEP = {cle: rp.cle + ':' + id, objId: id, reseau: 'EP', obs: lib + ' : ' + rp.obs, preco: rp.preco, nc: rp.nc, codes: rp.codes.slice(), cat: rp.cat};
+        if (rp.arbitrer) aEP.arbitrer = true;
+        ajoute(aEP);
       }
       if (ty.nat === 'EU' && r.fosse && an.objs[r.fosse]) ajoute({cle: 'fosse:' + r.fosse, objId: r.fosse, reseau: 'EU', obs: 'Fosse septique : eaux usées traversant la fosse', preco: 'Suppression de la fosse septique et raccordement direct au branchement EU', nc: true, codes: ['suppFosse'], cat: 'autre'});
       /* fosse évitée seulement vers une extrémité libre qui peut être une arrivée : à arbitrer (douteuse : pas de conformité proposée) */
@@ -1480,9 +1554,12 @@ function controles(doc, an){
     if (r){
       if (r.etat === 'nonrelie') c(id, 'manque', lib + ' : non relié au réseau sur le dessin', 'relie');
       else if (r.etat === 'sansexu') c(id, 'manque', lib + ' : exutoire non dessiné' + (r.conflit ? ', tronçons ' + listeEt(r.conflit.map(libRes)) + ' réunis vers la même extrémité libre (indiquer le réseau du tronçon commun, ou le sens du tracé d\'une arrivée)' : r.ambigu ? ', extrémités libres de réseaux ' + listeEt(r.ambigu.map(libRes)) + (r.ambiguArrivee ? ' (prolonger le tracé, ou indiquer le sens du tracé d\'une arrivée)' : ' (prolonger le tracé jusqu\'à l\'exutoire)') : ' (prolonger le tracé ou indiquer le réseau du tronçon)'), 'exu');
-      else if (r.etat === 'multiple') c(id, 'manque', lib + ' : relié à plusieurs réseaux (' + r.nets.map(function(x){ return libExu(x, an); }).join(', ') + ') : indiquer le sens d\'écoulement d\'un tronçon', 'multi');
+      else if (r.etat === 'multiple') c(id, 'manque', lib + ' : relié à plusieurs réseaux (' + libsRejets(r.nets, an).join(', ') + ') : indiquer le sens d\'écoulement d\'un tronçon', 'multi');
       if (r.etat === 'ok' && r.sortiesLibres){ var pl = r.sortiesLibres.length > 1;
         c(id, 'manque', lib + (pl ? ' : sorties ' : ' : sortie ') + listeEt(r.sortiesLibres.map(libRes)) + (pl ? ' laissées libres à côté de l\'exutoire dessiné (les passer « À supprimer », les prolonger, ou indiquer le sens du tracé d\'une arrivée)' : ' laissée libre à côté de l\'exutoire dessiné (la passer « À supprimer », la prolonger, ou indiquer le sens du tracé d\'une arrivée)'), 'sortielibre'); }
+      /* rejet des EP dans une autre destination resté à arbitrer (m125, décision D6) : comme la fosse, retenir ou écarter l'anomalie */
+      var xr = r.etat === 'ok' ? ligneExu(r.res, an) : null;
+      if (xr && xr.dest && xr.ep && etatAnomalie(doc, an, xr.ep.cle + ':' + id) === 'arbitrer') c(id, 'manque', lib + ' : ' + xr.ep.obs + ' à arbitrer (retenir ou écarter l\'anomalie)', 'exuarbitrer');
       if (r.etat === 'ok' && fosseArbitrage(doc, an, id) === 'arbitrer') c(id, 'manque', lib + ' : fosse septique évitée seulement vers une extrémité laissée libre qui peut être une arrivée (indiquer le sens du tracé de l\'arrivée ou dessiner l\'exutoire, sinon retenir ou écarter l\'anomalie de la fosse)', 'fossedouteuse');
     }
   }
@@ -1556,7 +1633,7 @@ function conclusion(liste, an){
      branchement manquante et regard sans tampon (à arbitrer d'office) sont nommés. Cela remplace « Conformes » et « Conformes avec
      réserves » seulement : sans appareil sur le plan ni anomalie retenue, rien n'est proposé, comme avant */
   var arb = liste.filter(function(a){ return a.st === 'arbitrer'; }), nb = Object.keys(an.resObj).length;
-  if (arb.length && (ret.length || nb)) return arb.length > 1 ? 'plusieurs' : /^sansboite:/.test(arb[0].cle) ? 'boite' : /^sanstampon:/.test(arb[0].cle) ? 'tampon' : 'arbitrer';
+  if (arb.length && (ret.length || nb)) return arb.length > 1 ? 'plusieurs' : /^ep-exu:/.test(arb[0].cle) ? 'exu' : /^sansboite:/.test(arb[0].cle) ? 'boite' : /^sanstampon:/.test(arb[0].cle) ? 'tampon' : 'arbitrer';
   if (ret.length) return 'reserves';
   return nb ? 'conformes' : '';
 }
@@ -1567,7 +1644,7 @@ VC.anomaliesDoc = anomaliesDoc; VC.conclusion = conclusion;
    {id, reseau, observation, preconisation, localisation, installation, nc, photos, brouillon, croquis?: {cle, objId, auto: {obs, preco, reseau, nc, installation}}}.
    Une anomalie du dessin retenue devient un enregistrement relié par sa clé ; le croquis garde les décisions et la place des bulles.
    Un enregistrement resté tel que le croquis l'a créé suit le dessin ; dès qu'il est modifié (texte, photo, localisation…), c'est lui qui fait foi. */
-var REGLES_LIGNE = /^(eu-ep|eu-inf|eu-sol|eu-garg|eu-milieu|eu-puits|ep-eu|ep-fosse|ep-puits|dep-nv):/;
+var REGLES_LIGNE = /^(eu-ep|eu-inf|eu-sol|eu-garg|eu-milieu|eu-puits|eu-exu|ep-eu|ep-fosse|ep-puits|ep-exu|dep-nv):/;
 /* non-conformité ou réserve : l'application remplace cette règle par la sienne (anomNC) */
 VC.ncAnomalie = function(r){
   if (r.nc === true || r.nc === false) return r.nc;
@@ -1794,7 +1871,7 @@ VC.reconcilier = reconcilier; VC.ecarterAnomalie = ecarterAnomalie; VC.recIntact
 var CONCL = {conformes: 'Conformes', non_conformes: 'Non conformes', reserves: 'Conformes avec réserves', incomplet: 'À compléter : un équipement n\'a pas de rejet établi',
   fosse: 'À compléter : fosse septique à arbitrer (une extrémité laissée libre peut être une arrivée)',
   croquis: 'À compléter : le croquis retient une anomalie absente de la liste du dossier (rouvrir le croquis)',
-  boite: 'À compléter : absence de boîte de branchement à arbitrer', tampon: 'À compléter : regard sans tampon à arbitrer',
+  exu: 'À compléter : rejet des eaux pluviales à arbitrer', boite: 'À compléter : absence de boîte de branchement à arbitrer', tampon: 'À compléter : regard sans tampon à arbitrer',
   arbitrer: 'À compléter : une anomalie reste à arbitrer', plusieurs: 'À compléter : plusieurs anomalies restent à arbitrer'};
 VC.CONCL = CONCL;
 
@@ -1844,8 +1921,11 @@ var RECUP_LIB = [['puisard', 'puisard'], ['recup', 'récupérateur'], ['infil', 
    arbL : une anomalie de sa ligne reste à arbitrer (ligneArbitrer) : code, libellé et case gardés, mais pas de conformité (ok true devient null ;
    ok false reste, m119).
    etEP : état de l'anomalie de la règle EP fixe de l'exutoire (puits, m120 ; etatAnomalie) : absente ou écartée, la ligne EP est conforme ;
-   sinon (retenue, à arbitrer), ok null : le dossier la juge par l'anomalie (« non » si elle est NC, « oui » si on en fait une réserve) */
-function raccInfo(r, groupe, arb, arbL, etEP){
+   sinon (retenue, à arbitrer), ok null : le dossier la juge par l'anomalie (« non » si elle est NC ; si on en fait une réserve, « oui » quand
+   la ligne a un code du formulaire, milieu naturel ou gargouille, sinon la conformité reste à cocher à la main) ;
+   de même pour l'anomalie EP d'une autre destination (m125, décision D7 : jamais d'après son jugement).
+   an : l'analyse, qui porte les champs d'une autre destination (an.exu) */
+function raccInfo(r, groupe, arb, arbL, etEP, an){
   if (!r || r.etat !== 'ok') return {code: '', lib: '', ok: null};
   var conf = function(ok){ return ok && arbL ? null : ok; };
   if (r.fosse || arb === 'retenue') return {code: 'FOSSE', lib: RACC_LIB.FOSSE, ok: false};
@@ -1854,7 +1934,7 @@ function raccInfo(r, groupe, arb, arbL, etEP){
   var res = r.res, ep = groupe !== 'EU';
   /* exutoire de la table : sa place au constat, conforme en EP (sauf règle EP fixe : d'après son anomalie), non conforme en EU ; recup : la
      case des ouvrages de récupération des EP (puisard : aussi l'ancienne marque) */
-  var xe = exuDe(res);
+  var xe = ligneExu(res, an);
   if (xe){
     var okx = ep && xe.ep ? (!etEP || etEP === 'ecartee' ? true : null) : ep;
     var pl = ep ? xe.cEP : xe.cEU, out = {code: pl.code, lib: pl.lib || RACC_LIB[pl.code] || '', ok: conf(okx)};
@@ -1882,9 +1962,9 @@ function constatDeduit(doc, an){
   }
   Object.keys(an.resObj).forEach(function(id){
     /* exutoire à règle EP fixe (puits) : l'état de l'anomalie de cette règle pour cette source (décision D7, m120) */
-    var rs = an.resObj[id], xe = rs && rs.etat === 'ok' ? exuDe(rs.res) : null, etEP = xe && xe.ep ? etatAnomalie(doc, an, xe.ep.cle + ':' + id) : '';
+    var rs = an.resObj[id], xe = rs && rs.etat === 'ok' ? ligneExu(rs.res, an) : null, etEP = xe && xe.ep ? etatAnomalie(doc, an, xe.ep.cle + ':' + id) : '';
     /* un drain de collecte compté (m123) se lit comme un point « Drain » : ligne « Autres : Drain », méthodes de son tracé */
-    var o = srcObj(an, id), row = ligne(o), arbL = ligneArbitrer(doc, an, id), ri = raccInfo(rs, row ? row.groupe : T[o.t].nat || 'EP', fosseArbitrage(doc, an, id), arbL, etEP);
+    var o = srcObj(an, id), row = ligne(o), arbL = ligneArbitrer(doc, an, id), ri = raccInfo(rs, row ? row.groupe : T[o.t].nat || 'EP', fosseArbitrage(doc, an, id), arbL, etEP, an);
     if (ri.recup) recup[ri.recup] = true;
     if (!row){ sansCote.push(id); return; }
     row.objets.push(id); row.codes.push(ri.code); row.oks.push(ri.ok);
@@ -1997,6 +2077,8 @@ function texteEtiquette(e, an){
     if (e.t === 'test') return 'Test' + ((e.p.meth || []).length ? ' ' + methLib(e.p.meth) : '') + (e.p.resultat ? ' : ' + e.p.resultat : '');
     if (e.t === 'zone') return e.p.obs || 'Zone suspecte';
     if (e.t === 'pr' && e.p.fn) return pre + 'Poste de relevage (' + e.p.fn + ')';
+    /* autre destination (m125) : son nom (destDe : « Autre destination » sans nom) */
+    if (ty.exu && exuDe(ty.exu) && exuDe(ty.exu).dest) return pre + destDe(e).nom;
     return pre + ty.lib;
   }
   if (e.k === 'ln'){
@@ -5289,17 +5371,26 @@ function editeur(racine, opts){
     if (ouv.length) h += '<p><strong>' + (ouv.length > 1 ? 'Ouvrages' : 'Ouvrage') + ' de récupération des EP :</strong> ' + esc(ouv.join(', ')) + '</p>';
     if (cd.sansCote.length) h += '<p class="vc-muet">' + (cd.sansCote.length > 1 ? cd.sansCote.length + ' descentes EP sans façade indiquée ne sont comptées' : 'Une descente EP sans façade indiquée n\'est comptée') + ' ni en façade avant ni en façade arrière.</p>';
     if (cd.rows.some(function(r){ return r.nb && !r.raccord && r.libs.length; })) h += '<p class="vc-muet">Un raccordement sans code du formulaire (réseau privé, puisard, infiltration ou autre destination des EP) reste à cocher à la main dans le constat.</p>';
-    /* ligne EP sans conformité parce que son rejet a une règle EP fixe (puits, m120) dont l'anomalie est retenue ou à arbitrer : le constat
-       de l'application la juge par cette anomalie (décision D7) ; la case « Conf. » reste vide, la phrase dit pourquoi */
-    var fixes = [];
+    /* ligne EP sans conformité parce que son rejet a une règle EP (puits, m120 ; autre destination, m125) dont l'anomalie est retenue ou à arbitrer : le constat
+       de l'application la juge par cette anomalie (décision D7) ; la case « Conf. » reste vide, la phrase dit pourquoi. Une réserve ne donne « oui »
+       que si la ligne a un code que le constat juge (raccOk de l'application : milieu naturel, gargouille) ; sans code (case des ouvrages de
+       récupération des EP, la case par défaut d'une autre destination, ou rejets différents sur la ligne), la conformité reste à cocher à la main */
+    var fixes = [], aMain = [];
     rows.forEach(function(r){
       if (r.groupe === 'EU' || r.conforme) return;
+      var l = /^(EP|UN)_|^GARG$|^MILIEU$/.test(r.raccord) ? fixes : aMain;
       r.objets.forEach(function(id){
-        var rs = S.an.resObj[id], xe = rs && rs.etat === 'ok' ? exuDe(rs.res) : null, et = xe && xe.ep ? etatAnomalie(S.doc, S.an, xe.ep.cle + ':' + id) : '';
-        if ((et === 'retenue' || et === 'arbitrer') && fixes.indexOf(xe.ep.obs) < 0) fixes.push(xe.ep.obs);
+        var rs = S.an.resObj[id], xe = rs && rs.etat === 'ok' ? ligneExu(rs.res, S.an) : null, et = xe && xe.ep ? etatAnomalie(S.doc, S.an, xe.ep.cle + ':' + id) : '';
+        if ((et === 'retenue' || et === 'arbitrer') && l.indexOf(xe.ep.obs) < 0) l.push(xe.ep.obs);
       });
     });
-    if (fixes.length){ var fx = fixes.join(' ; '); h += '<p class="vc-muet">' + esc(fx.charAt(0).toUpperCase() + fx.slice(1)) + ' : au constat, la ligne EP suit son anomalie. « Non » si elle reste non conforme, « oui » si le dossier en fait une réserve.</p>'; }
+    /* un même rejet sur une ligne avec code et sur une ligne sans : la phrase prudente seule */
+    fixes = fixes.filter(function(x){ return aMain.indexOf(x) < 0; });
+    [[fixes, '« Non » si elle reste non conforme, « oui » si le dossier en fait une réserve.'], [aMain, '« Non » si elle reste non conforme ; sinon, la conformité reste à cocher à la main.']].forEach(function(q){
+      if (!q[0].length) return;
+      var fx = q[0].join(' ; ');
+      h += '<p class="vc-muet">' + esc(fx.charAt(0).toUpperCase() + fx.slice(1)) + ' : au constat, la ligne EP suit son anomalie. ' + q[1] + '</p>';
+    });
     h += '<p><strong>Conclusion proposée :</strong> ' + esc(CONCL[conclusion(S.liste, S.an)] || '—') + '</p>';
     return h;
   }
@@ -6240,8 +6331,9 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL, conclC){
   var O = [212, 101, 10];
   if (mode === 'avp'){
     /* le dessin du projet doit corriger les raccordements ; les défauts d'ouvrage (tampon, cunette, accès) le sont par la préconisation.
-       Un rejet des EP dans un puits (catégorie « autre ») est un raccordement : il reste à corriger sur le dessin (m120) */
-    var apres = anomaliesDoc(doc, analyser(doc, 'avp'), ext, oL).filter(function(a){ return (a.st === 'retenue' || a.st === 'horsdossier') && a.auto && (a.cat === 'inversion' || /^(fosse|ep-puits):/.test(a.cle)); });
+       Un rejet des EP dans un puits (catégorie « autre ») est un raccordement : il reste à corriger sur le dessin (m120) ; de même le rejet
+       des EP dans une autre destination, non conforme ou en réserve (m125) */
+    var apres = anomaliesDoc(doc, analyser(doc, 'avp'), ext, oL).filter(function(a){ return (a.st === 'retenue' || a.st === 'horsdossier') && a.auto && (a.cat === 'inversion' || /^(fosse|ep-puits|ep-exu):/.test(a.cle)); });
     var edlL = anomaliesDoc(doc, analyser(doc, 'edl'), ext, oL), edl = edlL.filter(function(a){ return a.st === 'retenue'; });
     y = tableauPdf(pdf, y, [{t: 'N°', w: 10}, {t: 'Préconisation', w: 120}, {t: 'Anomalie traitée', w: 120}, {t: 'Réseau', w: 26}],
       edl.map(function(a){ return {cells: [String(a.num), a.preco || 'à définir', a.obs, a.reseau], coul: [O], gras: [true, true]}; }), 'Préconisations');

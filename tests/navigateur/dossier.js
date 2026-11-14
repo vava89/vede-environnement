@@ -48,6 +48,18 @@
 //     l'anomalie créée au dossier va sur la ligne « Gouttière(s) avant », « non », case gestEP cochée, préconisation « Suppression du rejet
 //     dans le puits ; … » (59) ; réserve choisie au dossier : la ligne devient « oui », « Conformes avec réserves », sans rappel « non
 //     conforme sur le croquis » (60). Échouent sur 7df0996 (type « puits » absent : aucune anomalie, ligne sans raccordement).
+// 61 et 62 (m125, décisions D6 et D7) : descente avant reliée à une autre destination, un étang aux EP non conformes, à la case MILIEU du
+//     constat (objet écrit dans le croquis : l'outil arrive en m127) : l'anomalie ep-exu créée au dossier va sur la ligne « Gouttière(s)
+//     avant », « non », case gestEP cochée, préconisation « Suppression du rejet dans l'étang ; … » (61) ; réserve choisie au dossier : la
+//     ligne devient « oui », « Conformes avec réserves », sans rappel « non conforme sur le croquis » (62). Échouent sur ebd5589 (type
+//     « exutoire » absent : aucune anomalie, ligne sans raccordement).
+// 61, 63 à 65 (relecture de m125) : le panneau Constat de l'éditeur ne promet « oui » pour une réserve que si la ligne a un code du
+//     formulaire (milieu naturel, gargouille) : étang à la case MILIEU, la phrase le promet (61, et 62 le vérifie) ; étang à la case
+//     « autre » (la case par défaut d'une autre destination), EP non conformes puis réserve choisie au dossier (63), ou EP en réserve dans
+//     sa fiche (64) : ligne sans raccordement ni conformité, la phrase dit « à cocher à la main », sans promettre « oui » ; deux descentes
+//     avant vers un puits et un puisard (ligne sans code), une descente arrière vers le puits (ligne MILIEU) : la phrase prudente seule ;
+//     réserves choisies au dossier : ligne avant vide, ligne arrière « oui » (65). 63 à 65 échouent sur la première version de m125 (la
+//     phrase promet « oui »).
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -106,8 +118,9 @@ async function lavabo(){
 
 /* Constat d'un dossier : dessin (objets [id, type, x, y, propriétés], tracés [id, de, à]) injecté, croquis fermé, constat repris du croquis, puis
    prep (code : T, v, c le constat, a la première anomalie du dossier), enfin l'affichage du constat ; apres : le croquis rouvert et refermé, le
-   constat affiché de nouveau. Rend les lignes actives du constat, les écarts affichés, le texte du bloc du croquis et l'installation de a. */
-async function constatVu(nom, objs, traces, prep, apres){
+   constat affiché de nouveau. Rend les lignes actives du constat, les écarts affichés, le texte du bloc du croquis et l'installation de a.
+   panneau (relecture de m125) : les phrases du panneau Constat de l'éditeur, lues avant la fermeture du croquis, rendues dans notes. */
+async function constatVu(nom, objs, traces, prep, apres, panneau){
   const A = await C.ouvrir(), p = A.p;
   try {
     await C.etudeEtDossier(p); await C.ouvrirCroquis(p, {fond: false});
@@ -115,6 +128,8 @@ async function constatVu(nom, objs, traces, prep, apres){
     traces.forEach(([id, a, b]) => els.push(C.L(id, 'tr', [a, b], I)));
     await C.injecter(p, {el: els});
     await p.evaluate(() => { const S = window.__vcEd.etat; S.doc.rev = (S.doc.rev || 0) + 1; window.__vcEd.enregistrer(); }); await C.pause(p, 500);
+    const notes = panneau ? await p.evaluate(() => { const ed = window.__vcEd; ed.ouvrirPanneau('constat');
+      const n = [...document.querySelectorAll('.vc-panneau .vc-pcorps p.vc-muet')].map(x => x.textContent.trim()); ed.ouvrirPanneau(null); return n; }) : null;
     await C.fermerCroquis(p); await C.pause(p, 600);
     await p.evaluate(async src => { const T = window.__VT, v = T.S.visites[0]; v.statut = 'visitee'; T.constatDepuisCroquis(v, await T.vcResume(v), false);
       (new Function('T', 'v', 'c', 'a', src))(T, v, v.constat, T.S.anoms.find(x => x.visiteId === v.id)); T.VC_RESUMES.delete(v.id); await T.flushSaves(); }, prep);
@@ -134,6 +149,7 @@ async function constatVu(nom, objs, traces, prep, apres){
     if (apres){ await p.evaluate(() => { location.hash = '#/e/' + window.__VT.S.visites[0].etudeId + '/v/' + window.__VT.S.visites[0].id; }); await p.waitForSelector('[data-act="vc-ouvrir"]');
       await C.ouvrirCroquis(p, {dejaCommence: true}); await p.waitForSelector('#modal-root .vc'); await C.pause(p, 500); await C.fermerCroquis(p); await C.pause(p, 600);
       e = {avant: e, apres: await etat()}; }
+    if (notes) e.notes = notes;
     return e;
   } finally { R.ok(!A.erreurs.length, nom + ' : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
@@ -180,6 +196,46 @@ async function puits(){
   e = await constatVu('60', O, L, 'if (a) a.nc = false;');
   R.ok(e.rows === 'gout_av ×1 MILIEU' && e.conf === 'gout_av "oui"' && e.auto === 'reserves' && e.nc === false && !ncC(e).length,
     '60 réserve choisie au dossier : ligne « oui », « Conformes avec réserves », aucun rappel « non conforme sur le croquis » (' + vu(e) + ')');
+  /* 65 (relecture de m125) : deux descentes avant, vers le puits et vers un puisard (ligne sans code du formulaire : rejets différents), une
+     descente arrière vers le puits (ligne MILIEU) : le panneau Constat de l'éditeur n'a que la phrase prudente, sans promettre « oui » ;
+     réserves choisies au dossier : ligne avant sans conformité, ligne arrière « oui » */
+  const O3 = [['d', 'descente', 0, 0, {cote: 'avant', visitable: 'oui'}], ['d2', 'descente', 4, 0, {cote: 'avant', visitable: 'oui'}],
+    ['d3', 'descente', -4, 0, {cote: 'arriere', visitable: 'oui'}], ['W', 'puits', 0, -5], ['P', 'puisard', 4, -5]];
+  const MAIN = 'Rejet dans un puits : au constat, la ligne EP suit son anomalie. « Non » si elle reste non conforme ; sinon, la conformité reste à cocher à la main.';
+  e = await constatVu('65', O3, [['Lw', 'd', 'W'], ['Lp', 'd2', 'P'], ['L3', 'd3', 'W']], 'T.S.anoms.filter(x => x.visiteId === v.id).forEach(x => { x.nc = false; });', false, true);
+  R.ok(e.rows === 'gout_av ×2 -, gout_ar ×1 MILIEU' && e.conf === 'gout_av "", gout_ar "oui"' && e.auto === 'reserves' && (e.notes || []).indexOf(MAIN) >= 0
+    && !(e.notes || []).some(t => /« oui »/.test(t)), '65 descentes avant vers le puits et un puisard, arrière vers le puits : le panneau dit « à cocher à la main », sans promettre « oui » ;'
+    + ' réserves au dossier : ligne avant vide, ligne arrière « oui » (' + JSON.stringify({rows: e.rows, conf: e.conf, auto: e.auto, notes: e.notes}) + ')');
+}
+/* Autre destination (m125, décisions D6 et D7) : descente avant reliée à un étang aux EP non conformes, à la case MILIEU du constat. L'anomalie
+   ep-exu est créée au dossier sur la ligne « Gouttière(s) avant » : ligne « non », case gestEP, sa préconisation (61). Réserve choisie au
+   dossier : la ligne devient « oui », conclusion « reserves », sans rappel « non conforme sur le croquis » (62). Panneau Constat de l'éditeur
+   (relecture de m125) : à la case MILIEU, la phrase promet « oui » pour une réserve (61) ; à la case « autre », la case par défaut, la ligne
+   n'a pas de code du formulaire : une réserve, choisie au dossier (63) ou dans la fiche (64), n'y donne jamais « oui », la phrase ne le promet pas */
+async function destination(){
+  const E0 = {nom: 'Étang', ab: 'Ét', art: 'l\'', ep: 'nc', cst: 'MILIEU'};
+  const O = [['d', 'descente', 0, 0, {cote: 'avant', visitable: 'oui'}], ['E', 'exutoire', 0, -5, E0]], L = [['Le', 'd', 'E']];
+  const PRE = 'Suppression du rejet dans l\'étang ; raccordement au branchement EP ou gestion à la parcelle';
+  const ncC = x => x.ecarts.filter(t => /non conforme sur le croquis de terrain/.test(t)), vu = x => JSON.stringify({rows: x.rows, conf: x.conf, auto: x.auto, inst: x.inst,
+    nc: x.nc, precos: x.precos, preco: x.preco, ecarts: x.ecarts, notes: x.notes});
+  const DIT = 'Rejet dans l\'étang : au constat, la ligne EP suit son anomalie. « Non » si elle reste non conforme';
+  const OUI = DIT + ', « oui » si le dossier en fait une réserve.', MAIN = DIT + ' ; sinon, la conformité reste à cocher à la main.';
+  const promet = x => (x.notes || []).some(t => /« oui »/.test(t));
+  let e = await constatVu('61', O, L, '', false, true);
+  R.ok(e.rows === 'gout_av ×1 MILIEU' && e.conf === 'gout_av "non"' && e.auto === 'non_conformes' && e.inst === 'gout_av' && e.nc === true && /(^|,)gestEP(,|$)/.test(e.precos)
+    && e.preco === PRE && !ncC(e).length, '61 descente reliée à un étang aux EP non conformes : anomalie au dossier sur la ligne « Gouttière(s) avant », « non », case gestEP, préconisation (' + vu(e) + ')');
+  R.ok((e.notes || []).indexOf(OUI) >= 0 && (e.notes || []).indexOf(MAIN) < 0, '61 panneau Constat de l\'éditeur, étang à la case MILIEU : la phrase promet « oui » si le dossier en fait une réserve ('
+    + JSON.stringify(e.notes) + ')');
+  e = await constatVu('62', O, L, 'if (a) a.nc = false;');
+  R.ok(e.rows === 'gout_av ×1 MILIEU' && e.conf === 'gout_av "oui"' && e.auto === 'reserves' && e.nc === false && !ncC(e).length,
+    '62 réserve choisie au dossier : ligne « oui », « Conformes avec réserves », aucun rappel « non conforme sur le croquis » (' + vu(e) + ')');
+  const autre = q => [O[0], ['E', 'exutoire', 0, -5, Object.assign({}, E0, {cst: 'autre'}, q)]];
+  e = await constatVu('63', autre({}), L, 'if (a) a.nc = false;', false, true);
+  R.ok(e.rows === 'gout_av ×1 -' && e.conf === 'gout_av ""' && e.auto === 'reserves' && e.inst === 'gout_av' && e.nc === false && (e.notes || []).indexOf(MAIN) >= 0 && !promet(e),
+    '63 étang à la case « autre », réserve choisie au dossier : ligne sans raccordement ni conformité ; le panneau dit « à cocher à la main », sans promettre « oui » (' + vu(e) + ')');
+  e = await constatVu('64', autre({ep: 'reserve'}), L, '', false, true);
+  R.ok(e.rows === 'gout_av ×1 -' && e.conf === 'gout_av ""' && e.auto === 'reserves' && e.inst === 'gout_av' && e.nc === false && (e.notes || []).indexOf(MAIN) >= 0 && !promet(e),
+    '64 étang aux EP en réserve dans sa fiche, case « autre » : ligne sans raccordement ni conformité ; le panneau dit « à cocher à la main », sans promettre « oui » (' + vu(e) + ')');
 }
 /* ligne « Autres » saisie à la main pour un appareil que le croquis compte déjà (un lavabo dessiné, sur la ligne « Évier ») : le constat le
    compterait deux fois, un écart le rappelle. Le libellé au pluriel ou précisé (« Lavabos », « Lavabo de la salle d'eau ») passait inaperçu
@@ -555,6 +611,7 @@ async function reglagesAccroches(){
     await depuis162();
     await fosseSurLigne();
     await puits();
+    await destination();
     await autresDouble();
   } catch (e){ R.ok(false, 'exception du test : ' + (e && e.stack || e)); }
   R.fin();

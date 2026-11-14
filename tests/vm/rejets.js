@@ -55,9 +55,25 @@
 //   rejet supprimé par le projet, plus rien ne reste ; au dossier (reconcilier), ep-puits créée en catégorie « autre », sur la ligne
 //   « Gouttière(s) avant », non conforme, case gestEP.
 // Échouent sur 7df0996 (type « puits » absent) : q1 à q3, sauf le témoin de q3.
+// Autre destination (m125, décisions D3, D5 à D7 ; hors palette jusqu'à m127 : objets écrits dans le croquis) :
+// x1 : constat déduit d'une descente vers un étang aux EP non conformes, ep-exu retenue : ligne ok null (le dossier la juge par l'anomalie),
+//   case « autre » des ouvrages EP, « Étang (rejet des EP) », fiche « Rejet : étang · anomalie n° 1 » ; écartée, ou EP conformes : ligne
+//   « oui » ; EP à arbitrer : « exu » (« À compléter : rejet des eaux pluviales à arbitrer »), ok null, ligne marquée « à arbitrer » (m119),
+//   contrôle « manque » qui demande de retenir ou d'écarter l'anomalie, aucun une fois décidée (retenue : NC) ; case MILIEU ou GARG du
+//   constat : son code (milieu naturel : en EP « Milieu naturel », aucune case EP) ; WC vers un étang à case GARG : MILIEU, non conforme,
+//   eu-exu (codes raccEUsep).
+// x2 : descente vers deux étangs identiques (noms égaux une fois normalisés) : un seul exutoire (ok) ; un étang et un puisard : « multiple » ;
+//   deux « Étang » de jugements des EP différents : « relié à plusieurs réseaux (étang (conforme), étang (à arbitrer)) », de mêmes jugements
+//   et de cases différentes : la case.
+// x3 : le même plan (deux destinations de même clé, une autre) dessiné dans quatre ordres (objets et tracés) : même an.exu, mêmes rejets ;
+//   un plan sans destination n'a pas de clé an.exu (garde).
+// x5 : avant-projet qui garde l'étang aux EP non conformes : préconisation au tableau du plan PDF, « Reste après travaux : Descente EP : rejet
+//   dans l'étang » ; témoin : le rejet supprimé par le projet, plus rien ne reste ; au dossier (reconcilier), ep-exu créée en catégorie
+//   « autre », sur la ligne « Gouttière(s) avant », non conforme, case gestEP.
+// Échouent sur ebd5589 (type « exutoire » absent : bout libre) : x1, x2, x3 et x5, sauf la garde de x3 et le témoin de x5.
 // usage : node tests/vm/rejets.js [-v] [--app=<dossier>]
 'use strict';
-const {charger, doc, copie, rendus, rapport} = require('./charger.js');
+const {charger, doc, copie, rendus, rapport, melange} = require('./charger.js');
 const ch = charger({pdf: true}), {V} = ch, R = rapport('rejets'), {canevas, dessiner, pdf, dxf} = rendus(ch);
 /* appel protégé : une exception devient le texte « exception : … » */
 const sur = f => { try { return f(); } catch (e){ return 'exception : ' + e.message; } };
@@ -473,6 +489,99 @@ async function puitsProjet(){
     + (typeof ops === 'string' ? ops : cr.map(q => (q.croquis && q.croquis.cle) + ' ' + q.categorie + ' ' + JSON.stringify(q.installation) + (q.nc ? ' NC' : ' réserve')).join(', ') || 'rien de créé') + ')');
 }
 
+/* ---------- m125 : autre destination (décisions D3, D5 à D7) ---------- */
+/* champs d'une destination : « Étang » (ou le nom n), ab « Ét », article « l' », EP jugées ep, case cst du constat */
+const etang = (ep, cst, n) => ({nom: n || 'Étang', ab: 'Ét', art: 'l\'', ep, cst: cst || 'autre'});
+/* source S (type t) reliée par un tronçon sans réseau à la destination E aux champs p, avec les décisions dec */
+const versDest = (t, p, dec) => decide(doc({o: [['S', t, 0, 10], ['E', 'exutoire', 0, 4, p]], l: [['t1', 'tr', '', '', ['S', 'E']]]}), dec);
+const RET = 'Rejet : étang', ETL = 'Étang (rejet des EP)', PRE_X = 'Suppression du rejet dans l\'étang ; raccordement au branchement EP ou gestion à la parcelle';
+/* contrôles « manque » qui demandent d'arbitrer un rejet */
+const arbRejet = d => V.analyser(copie(d), 'edl').controles.filter(c => c.niveau === 'manque' && / à arbitrer \(retenir ou écarter l'anomalie\)$/.test(c.txt)).map(c => c.txt);
+/* x1 : le type, hors palette ; constat déduit, conclusion, fiche de la source, contrôle de l'arbitrage ; étiquette */
+async function destConstat(){
+  const T = V.TYPES.exutoire, eq = (V.FAMILLES.find(f => f.id === 'equ') || {types: []}).types, dp = sur(() => V.defautsPt('exutoire'));
+  R.ok(!!T && T.fam === 'exu' && T.lib === 'Autre destination' && T.g === 'f' && T.role === 'exutoire' && T.forme === 'exutoire' && T.exu === 'X' && eq.indexOf('exutoire') < 0
+    && vu(dp) === vu({st: 'existant', obs: '', nom: 'Autre destination', ab: 'Au', art: 'l\'', ep: 'arbitrer', cst: 'autre'}),
+    'x1 type « exutoire » (Autre destination, code X), hors de la palette jusqu\'à m127 ; champs par défaut (' + JSON.stringify(T || null) + ' ; ' + vu(dp) + ')');
+  const n = await bilan(versDest('descente', etang('nc')), 'gout_av'), p = await pdf(versDest('descente', etang('nc')), {mode: 'edl'});
+  const rej = p.txt.filter(s => /^étang\b/.test(s)), cle = p.txt.filter(s => /X:|ETANG/.test(s));
+  R.ok(n.st === 'ep-exu:S retenue' && n.c === 'non_conformes' && n.ligne === ' | [null] | ""' && n.libs === ETL && n.recup === '{"autre":true}'
+    && n.etat === 'ko « ' + RET + ' · anomalie n° 1 »' && !p.err.length && rej.join() === 'étang · anomalie n° 1' && !cle.length,
+    'x1 descente vers un étang aux EP non conformes, ep-exu retenue : ligne ok null, case « autre », « ' + ETL + ' », fiche « anomalie n° 1 », « étang » au « Rejet constaté » du plan PDF, jamais la clé ('
+    + vu(n, ['st', 'c', 'ligne', 'libs', 'recup', 'etat']) + ' ; ' + (p.err.join(' | ') || rej.concat(cle).map(s => JSON.stringify(s)).join(', ')) + ')');
+  const e = await bilan(versDest('descente', etang('nc'), {'ep-exu:S': 'ecartee'}), 'gout_av'), k = await bilan(versDest('descente', etang('conforme')), 'gout_av');
+  R.ok(e.st === 'ep-exu:S ecartee' && e.c === 'conformes' && e.ligne === ' | [true] | "oui"' && e.recup === '{"autre":true}' && e.etat === 'ok « ' + RET + ' »'
+    && k.st === '' && k.c === 'conformes' && k.ligne === ' | [true] | "oui"' && k.libs === ETL && k.recup === '{"autre":true}' && k.etat === 'ok « ' + RET + ' »',
+    'x1 anomalie écartée, ou EP conformes : « conformes », ligne « oui » (' + vu(e, ['st', 'c', 'ligne', 'recup', 'etat']) + ' ; ' + vu(k, ['st', 'c', 'ligne', 'libs', 'recup', 'etat']) + ')');
+  const a = await bilan(versDest('descente', etang('arbitrer')), 'gout_av'), m = arbRejet(versDest('descente', etang('arbitrer')));
+  R.ok(a.st === 'ep-exu:S arbitrer' && a.c === 'exu' && a.plan === CP + 'À compléter : rejet des eaux pluviales à arbitrer' && a.ligne === ' | [null] | "" | à arbitrer'
+    && a.etat === 'att « ' + RET + ' · anomalie à arbitrer »' && m.join(' ; ') === 'Descente EP : rejet dans l\'étang à arbitrer (retenir ou écarter l\'anomalie)',
+    'x1 EP à arbitrer : « exu », ligne ok null marquée « à arbitrer », fiche en attente, contrôle « manque » (' + vu(a, ['st', 'c', 'plan', 'ligne', 'etat']) + ' ; ' + (m.join(' ; ') || 'aucun contrôle') + ')');
+  const r = await bilan(versDest('descente', etang('arbitrer'), {'ep-exu:S': 'retenue'}), 'gout_av');
+  const mr = arbRejet(versDest('descente', etang('arbitrer'), {'ep-exu:S': 'retenue'})), me = arbRejet(versDest('descente', etang('arbitrer'), {'ep-exu:S': 'ecartee'}));
+  R.ok(r.st === 'ep-exu:S retenue' && r.c === 'non_conformes' && r.ligne === ' | [null] | ""' && !mr.length && !me.length,
+    'x1 arbitrage décidé : retenue, non conforme, ligne ok null ; aucun contrôle « manque », retenue ou écartée (' + vu(r, ['st', 'c', 'ligne']) + ' ; ' + (mr.concat(me).join(' ; ') || 'aucun contrôle') + ')');
+  const mi = await bilan(versDest('descente', etang('nc', 'MILIEU')), 'gout_av'), g = await bilan(versDest('descente', etang('conforme', 'GARG')), 'gout_av');
+  R.ok(mi.ligne === 'MILIEU | [null] | ""' && mi.libs === 'Milieu naturel' && mi.recup === '{}' && g.ligne === 'GARG | [true] | "oui"' && g.libs === 'Gargouille' && g.recup === '{}',
+    'x1 case MILIEU ou GARG : son code et son libellé, aucune case des ouvrages EP (' + vu(mi, ['ligne', 'libs', 'recup']) + ' ; ' + vu(g, ['ligne', 'libs', 'recup']) + ')');
+  const w = await bilan(versDest('wc', etang('conforme', 'GARG')), 'wc'), aw = V.analyser(copie(versDest('wc', etang('conforme', 'GARG'))), 'edl').anomalies.find(x => x.cle === 'eu-exu:S');
+  R.ok(w.st === 'eu-exu:S retenue' && w.c === 'non_conformes' && w.ligne === 'MILIEU | [false] | "non"' && w.libs === 'Étang : rejet en milieu naturel'
+    && !!aw && aw.obs === 'WC : rejet dans l\'étang' && aw.preco === 'Suppression du rejet dans l\'étang et raccordement au branchement EU' && aw.codes.join() === 'raccEUsep' && aw.cat === 'inversion',
+    'x1 WC vers un étang à case GARG : ligne du WC en MILIEU, non conforme, eu-exu (codes raccEUsep) (' + vu(w, ['st', 'c', 'ligne', 'libs']) + ' ; '
+    + JSON.stringify(aw ? {obs: aw.obs, preco: aw.preco, codes: aw.codes, cat: aw.cat} : null) + ')');
+  const et = q => sur(() => V.texteEtiquette({k: 'pt', t: 'exutoire', p: Object.assign({st: 'existant'}, q)}, null));
+  const ets = [et(etang('nc')), et({}), et(Object.assign(etang('nc'), {st: 'projet'}))];
+  R.ok(vu(ets) === vu(['Étang', 'Autre destination', 'Projet : Étang']), 'x1 étiquette du plan : le nom de la destination, sinon « Autre destination » (' + vu(ets) + ')');
+}
+/* x2 : descente S reliée par le regard R aux exutoires a et b ([id, type, x, y, champs]) : état de S, message « relié à plusieurs réseaux » */
+const fourche = (a, b) => doc({o: [['S', 'descente', 0, 10], ['R', 'regard', 0, 7], a, b],
+  l: [['t1', 'tr', '', '', ['S', 'R']], ['t2', 'tr', '', '', ['R', a[0]]], ['t3', 'tr', '', '', ['R', b[0]]]]});
+const multi = d => { const an = V.analyser(copie(d), 'edl'), r = an.resObj.S, c = an.controles.find(x => /^multi:/.test(x.cle)); return {et: r.etat + (r.res ? ':' + r.res : ''), msg: c ? c.txt : ''}; };
+function destPlusieurs(){
+  const MSG = s => 'Descente EP : relié à plusieurs réseaux (' + s + ') : indiquer le sens d\'écoulement d\'un tronçon';
+  const i = multi(fourche(['E1', 'exutoire', -3, 4, etang('conforme')], ['E2', 'exutoire', 3, 4, etang('conforme', 'autre', ' ÉTANG ')]));
+  R.ok(i.et === 'ok:X:ETANG:conforme:autre' && !i.msg, 'x2 deux étangs identiques (« Étang », « ÉTANG » : même nom une fois normalisé) : un seul exutoire (' + vu(i) + ')');
+  const p = multi(fourche(['E1', 'exutoire', -3, 4, etang('conforme')], ['P', 'puisard', 3, 4]));
+  R.ok(p.et === 'multiple' && p.msg === MSG('étang, puisard (infiltration)'), 'x2 un étang et un puisard : « multiple » (' + vu(p) + ')');
+  const j = multi(fourche(['E1', 'exutoire', -3, 4, etang('conforme')], ['E2', 'exutoire', 3, 4, etang('arbitrer')]));
+  R.ok(j.et === 'multiple' && j.msg === MSG('étang (conforme), étang (à arbitrer)'), 'x2 deux « Étang » de jugements des EP différents : le jugement au message (' + vu(j) + ')');
+  const c = multi(fourche(['E1', 'exutoire', -3, 4, etang('conforme', 'MILIEU')], ['E2', 'exutoire', 3, 4, etang('conforme')]));
+  R.ok(c.et === 'multiple' && c.msg === MSG('étang (milieu naturel), étang (indéterminé/autres)'), 'x2 deux « Étang » de mêmes jugements, cases différentes : la case au message (' + vu(c) + ')');
+}
+/* x3 : deux destinations de même clé (E1 « ETANG », E2 « Étang ») et une autre (F), chacune au bout d'une descente ; dessin dans quatre ordres */
+function destOrdre(){
+  const d = doc({o: [['S1', 'descente', 0, 10], ['E2', 'exutoire', 0, 4, etang('conforme')], ['S2', 'descente', 8, 10], ['E1', 'exutoire', 8, 4, {nom: ' ETANG ', ab: 'ET', art: 'le', ep: 'conforme', cst: 'autre'}],
+    ['S3', 'descente', 16, 10], ['F', 'exutoire', 16, 4, {nom: 'Fossé', ab: 'Fo', art: 'le', ep: 'reserve', cst: 'MILIEU'}]],
+    l: [['t1', 'tr', '', '', ['S1', 'E2']], ['t2', 'tr', '', '', ['S2', 'E1']], ['t3', 'tr', '', '', ['S3', 'F']]]});
+  const ordres = [d, Object.assign({}, d, {el: d.el.slice().reverse()}), Object.assign({}, d, {el: melange(d.el, 2)}), Object.assign({}, d, {el: melange(d.el, 3)})];
+  const vus = ordres.map(x => sur(() => { const an = V.analyser(copie(x), 'edl'); return JSON.stringify(an.exu) + ' | ' + ['S1', 'S2', 'S3'].map(id => id + '=' + (an.resObj[id] || {}).res).join(' '); }));
+  const ATT = JSON.stringify({'X:ETANG:conforme:autre': {nom: 'ETANG', ab: 'ET', art: 'le', ep: 'conforme', cst: 'autre'}, 'X:FOSSE:reserve:MILIEU': {nom: 'Fossé', ab: 'Fo', art: 'le', ep: 'reserve', cst: 'MILIEU'}})
+    + ' | S1=X:ETANG:conforme:autre S2=X:ETANG:conforme:autre S3=X:FOSSE:reserve:MILIEU';
+  R.ok(vus.every(v => v === ATT), 'x3 quatre ordres du dessin : même an.exu (dans l\'ordre des identifiants, champs du premier objet de chaque clé), mêmes rejets ('
+    + [...new Set(vus)].join(' // ') + ')');
+  const an0 = V.analyser(copie(versPuits('descente')), 'edl');
+  R.ok(!('exu' in an0), 'x3 garde : un plan sans destination n\'a pas de clé an.exu (' + Object.keys(an0).join(', ') + ')');
+}
+/* x5 : avant-projet qui garde l'étang aux EP non conformes (aucun travaux) ; témoin : le tronçon vers l'étang « à supprimer » et un tronçon
+   « projet » vers une boîte EP « projet » ; au dossier (reconcilier) : ep-exu créée, en catégorie « autre », sur la ligne « Gouttière(s) avant » */
+async function destProjet(){
+  const ctl = t => t.filter(s => /^(Reste après travaux|Après travaux)/.test(s));
+  const a = await pdf(versDest('descente', etang('nc')), {mode: 'avp'}), pr = a.txt.filter(s => /^Suppression du rejet dans l'étang/.test(s));
+  R.ok(!a.err.length && ctl(a.txt).indexOf('Reste après travaux : Descente EP : rejet dans l\'étang') >= 0 && pr.length === 1,
+    'x5 avant-projet qui garde l\'étang : préconisation au tableau, « Reste après travaux : Descente EP : rejet dans l\'étang » (' + (a.err.join(' | ') || pr.concat(ctl(a.txt)).join(' ; ') || 'rien') + ')');
+  const dT = doc({o: [['S', 'descente', 0, 10], ['E', 'exutoire', 0, 4, etang('nc')], ['B', 'boite', 6, 4, {res: 'EP', st: 'projet'}]],
+    l: [['t1', 'tr', '', 'supprimer', ['S', 'E']], ['t2', 'tr', '', 'projet', ['S', 'B']]]});
+  const t = await pdf(dT, {mode: 'avp'});
+  R.ok(!t.err.length && ctl(t.txt).join(' ; ') === 'Après travaux, le dessin ne fait plus apparaître d\'anomalie de raccordement.',
+    'x5 témoin, rejet dans l\'étang supprimé par le projet : plus rien ne reste (' + (t.err.join(' | ') || ctl(t.txt).join(' ; ') || 'rien') + ')');
+  const ops = sur(() => V.reconcilier(versDest('descente', etang('nc')), null, [])), cr = typeof ops === 'string' ? [] : ops.creer;
+  const c = cr.find(q => q.croquis && q.croquis.cle === 'ep-exu:S');
+  R.ok(!!c && c.categorie === 'autre' && c.installation === 'gout_av' && c.nc === true && c.reseau === 'EP' && c.observation === 'Descente EP : rejet dans l\'étang'
+    && c.preconisation === PRE_X && c.croquis.codes.join() === 'gestEP' && c.croquis.auto.installation === 'gout_av',
+    'x5 dossier : ep-exu créée, catégorie « autre », ligne « Gouttière(s) avant », non conforme, case gestEP ('
+    + (typeof ops === 'string' ? ops : cr.map(q => (q.croquis && q.croquis.cle) + ' ' + q.categorie + ' ' + JSON.stringify(q.installation) + (q.nc ? ' NC' : ' réserve')).join(', ') || 'rien de créé') + ')');
+}
+
 /* r6 (garde) : type absent, comme dans une version qui ne le connaît pas ; remis après */
 async function sansType(){
   const T0 = V.TYPES.infiltration;
@@ -505,6 +614,10 @@ async function sansType(){
     await puitsConstat();
     await puitsRendu();
     await puitsProjet();
+    await destConstat();
+    destPlusieurs();
+    destOrdre();
+    await destProjet();
     await sansType();
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }
   R.fin();
