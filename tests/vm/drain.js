@@ -1,8 +1,9 @@
-// Drains, 1re et 2e parties (décisions D4, D7, D8 et D9 de la conception « Rejets » ; m121, m122), sans navigateur. Un drain est un tronçon qui
-// porte p.drain : 'collecte' (il recueille l'eau du sol) ou 'infiltration' (il la disperse dans le sol). Le drain de collecte s'analyse comme un
-// tronçon jusqu'à m123. Depuis m122, le drain d'infiltration est un exutoire linéaire : l'eau qui l'atteint est dispersée dans le sol.
+// Drains, 1re à 3e parties (décisions D4, D6, D7, D8 et D9 de la conception « Rejets » ; m121, m122, m123), sans navigateur. Un drain est un
+// tronçon qui porte p.drain : 'collecte' (il recueille l'eau du sol) ou 'infiltration' (il la disperse dans le sol). Depuis m122, le drain
+// d'infiltration est un exutoire linéaire : l'eau qui l'atteint est dispersée dans le sol. Depuis m123, le drain de collecte compte comme une
+// source, à la manière d'un point « Drain » : sa sortie non dessinée prend le réseau de son tracé (EP), et il compte au constat.
 // Croquis fictifs (12 rue Fictive, Ville-Exemple), tracés libres (aucun objet à leurs bouts ; un regard au sommet du milieu pour les cas
-// « coupé par un regard »). Les cas d10 à d13 sont réservés à m123.
+// « coupé par un regard »).
 // d1 : defautsLn('tr', o) recopie o.drain s'il vaut 'collecte' ou 'infiltration', après les autres clés ; toute autre valeur est écartée, et un
 //   tronçon sans drain garde exactement ses clés (res, st, diam, mat, pose, long, sens, obs) ; collecteur, trait et escalier n'en prennent
 //   pas. VCroquis.drainDe lit le drain d'un tronçon ('' pour une autre valeur, pour un autre tracé ou pour un objet).
@@ -20,9 +21,9 @@
 //   pas continu, dents aux mêmes places que celles du même drain en projet ; fond en millimètres (u = 0,001) avec une origine : dents de 400
 //   unités tous les 1 000. Témoins : sans p.drain, polyligne sur VEDE-EP, sans LINE ni VEDE-DRAINS ; un p.drain d'une autre valeur ne change
 //   pas le texte du DXF. Un drain d'infiltration est en couleur 3 (EP, D9 ; m122), bien que la fiche lui retire son réseau (couleur 8 en m121).
-// d5 : légende du plan PDF : « Drain » et « Drain d'infiltration » une fois chacune (deux drains de chaque sorte), après « Canalisation EP
-//   (eaux pluviales) », qui reste ; à gauche de chaque ligne, un échantillon gris : un trait de 8 mm et 3 dents, d'un côté ou des deux.
-//   Témoin : sans drain, ni l'une ni l'autre.
+// d5 : légende du plan PDF (page 1 ; depuis m123, la page 2 nomme aussi chaque drain de collecte) : « Drain » et « Drain d'infiltration » une
+//   fois chacune (deux drains de chaque sorte), après « Canalisation EP (eaux pluviales) », qui reste ; à gauche de chaque ligne, un
+//   échantillon gris : un trait de 8 mm et 3 dents, d'un côté ou des deux. Témoin : sans drain, ni l'une ni l'autre.
 // d6 (m122) : descente → tronçon → drain d'infiltration à bouts libres (raccord au sommet du milieu) : la descente est conforme, « Rejet :
 //   dispersion dans le sol » ; ni « exutoire non dessiné », ni « À compléter », ni « extrémité libre ». Témoin : le même drain sans p.drain,
 //   « sansexu », « incomplet » et l'extrémité libre.
@@ -40,8 +41,32 @@
 //   du tuyau (Ø100), avec ou sans analyse ; resLigne : EP seul, sans analyse et relié ; PRJ en projet ; DXF : polyligne en couleur 3 en trait
 //   plein, étiquette sur VEDE-ETIQUETTES en couleur 3 ; plan PDF : l'étiquette. Témoins : un tronçon et un drain de collecte sans détail
 //   n'ont pas d'étiquette ; le même tracé sans p.drain reste INC, seul sans analyse et relié à une descente.
-// g1 (garde) : un drain de collecte ne change pas l'analyse (résultat par source, anomalies, conclusion, contrôles, sens, constat déduit), en
-//   état des lieux et en avant-projet, sur 40 croquis du générateur dont chaque tronçon devient un drain de collecte (jusqu'à m123).
+// d10 (m123) : drain de collecte seul, « Tronçon EP » à bouts libres : ok, réseau EP présumé, aucune anomalie, « conformes », ni « extrémités
+//   libres » ni rien à compléter ; au constat, une ligne « Autres : Drain », « Réseau EP départemental (présumé) », EP_D, « oui », méthode
+//   « Eau » ; page 2 du plan PDF : le drain parmi les équipements. « Déduit » (sans réseau) : sansexu, « Drain : exutoire non dessiné »,
+//   « incomplet », et, au plan d'avant-projet, « Après travaux : Drain n'a pas d'exutoire dessiné ». Sans méthode : « Drain : méthode de test
+//   à indiquer », seul.
+// d11 : il suit les règles d'une source EP : vers un puisard, ok:INF, « conformes », case puisard ; vers un regard, un « Tronçon EU » et une
+//   boîte EU, « Drain : rejet au réseau EU » non conforme ; relié à un drain d'infiltration (sommet partagé ou tuyau), ok:DISP, « conformes »,
+//   case « Infiltration diffuse » ; quand ce drain d'infiltration atteint aussi une boîte EP, « multiple » (DISP, EP), sans conformité.
+// d12 : un point « Drain » sur un sommet (le 1er, ou celui du milieu) compte, et lui seul : une ligne, s=ok:EP présumé, aucun contrôle.
+// d13 (témoin) : 400 croquis tirés, en état des lieux et en avant-projet (800 analyses) ; deux tronçons sur trois deviennent des drains de
+//   collecte (un sur deux en EP, dans le croquis sans drain aussi) ; un drain sur quatre tient un point « Drain » sur son premier sommet
+//   libre (dans le croquis sans drain aussi). Ce que fixe() relève ne change pas ; chaque drain compté a son résultat, et la ligne « Autres :
+//   Drain » en compte un par drain et par point « Drain » (pas de double compte) ; aucun nœud « dr: » ni lien de drain ne reste.
+// d14 : l'eau d'un drain de collecte sort par chacun de ses nœuds (bouts, regards, raccords), sauf par son bout amont quand son sens est
+//   indiqué. Regard au sommet du milieu relié à une boîte EU (sens 1, -1, ou sans sens), ou raccord à sa place : « Drain : rejet au réseau
+//   EU », NC ; drain orienté vers une boîte EP, regard du milieu vers une boîte EU : « multiple », « incomplet » ; regard du milieu vers un
+//   puits : « Drain : rejet dans un puits », NC ; drain sans sens entre deux boîtes EP ou deux puisards, regard du milieu vers une boîte EU :
+//   « multiple ». Témoin : boîte EU au bout amont d'un drain orienté, non vue (EP présumé, « conformes ») ; au bout aval, NC. Le contrôle
+//   du réseau contredit nomme le drain : « Drain EP : le dessin le relie à réseau EU » (témoin, un tronçon : « Tronçon EP : … »).
+// d15 : une descente et un drain de collecte d'identifiant plus petit vont au même collecteur EP, sans boîte, par deux raccords : « pas de
+//   boîte de branchement » reste à l'entrée de la descente, comme sans le drain (un point source passe avant un drain).
+// g1 (garde) : sur 40 croquis du générateur dont chaque tronçon devient un drain de collecte (état des lieux et avant-projet), aucune
+//   exception (analyse, anomalies, conclusion, contrôles, constat déduit), et ce qui ne change pas reste tel quel (fixe() : résultat des
+//   sources ponctuelles, contrôles et anomalies posés sur un objet, sauf « pas de boîte de branchement », réseau et sens des pièces, réseau
+//   des regards et des objets). Jusqu'à m123, g1 comparait tout le résultat, drains compris : depuis m123, un drain de collecte a son propre
+//   résultat, ses contrôles et ses anomalies, et il compte au constat.
 // g2 (garde, m122) : sur les mêmes croquis, un tronçon sur deux devient un drain d'infiltration sans réseau ; témoin : les mêmes tronçons sans
 //   réseau ni drain. Aucune exception ; seules changent les sources qui atteignent un drain d'infiltration (il y en a). Chacune d'elles
 //   atteint encore chaque exutoire dessiné qu'elle atteint dans le témoin, et devient « multiple » si elle en atteint un. Une conclusion
@@ -52,6 +77,10 @@
 //   (gris), les trois cas d'infiltration de d2 et de d3 et le cas d'infiltration de d4 ; les témoins et g1 y passent. Avant la relecture de
 //   m122 (drain sans liens entre ses sommets), échouaient les cas « multiple » de d8 (sauf le tuyau parti du sommet de la descente), le
 //   puits relié à une 2e descente, la boîte sans réseau et les exutoires gardés de g2.
+// Échouent sur 841fd30 (m122) : d10, d11, d12, d14, d15, et les deux premiers cas de d13 (aucun drain compté) ; le 3e cas de d13, d5 et g1
+//   y passent. Avant la relecture de m123 (drain relié à ses seuls bouts, ou à son seul bout aval s'il est orienté), échouaient les cas de
+//   d14, sauf le drain sans sens relié par un regard du milieu à une boîte EU (bouts libres) et le témoin ; d15 échoue si un drain passe
+//   avant une descente pour la place de « pas de boîte » (ordre des seuls identifiants).
 'use strict';
 const {charger, doc, copie, rendus, rapport} = require('./charger.js');
 const G = require('./generateur.js');
@@ -236,9 +265,11 @@ function echantillon(r, t){
 async function legendeDrains(){
   const d = doc({l: [['A', 'tr', 'EP', '', [[0, 0], [10, 0]], 0, {drain: 'collecte'}], ['B', 'tr', 'EP', '', [[0, 3], [10, 3]], 0, {drain: 'collecte'}],
     ['C', 'tr', '', '', [[0, 6], [10, 6]], 0, {drain: 'infiltration'}], ['D', 'tr', '', '', [[0, 9], [10, 9]], 0, {drain: 'infiltration'}], ['E', 'tr', 'EP', '', [[0, 12], [10, 12]]]]});
-  const r = await pdf(d, {mode: 'edl'}), n = t => r.txt.filter(x => x === t).length, i = t => r.txt.indexOf(t), CEP = 'Canalisation EP (eaux pluviales)';
+  /* la légende est sur la page 1 : la page 2 (dès son titre, avant « Anomalies et préconisations ») nomme chaque drain de collecte (m123) */
+  const r = await pdf(d, {mode: 'edl'}), f2 = r.txt.indexOf('Anomalies et préconisations'), p1 = f2 > 0 ? r.txt.slice(0, f2 - 1) : r.txt;
+  const n = t => p1.filter(x => x === t).length, i = t => p1.indexOf(t), CEP = 'Canalisation EP (eaux pluviales)';
   R.ok(!r.err.length && n('Drain') === 1 && n('Drain d\'infiltration') === 1 && n(CEP) === 1 && i(CEP) < i('Drain') && i('Drain') < i('Drain d\'infiltration'),
-    'd5 légende : « Drain » et « Drain d\'infiltration » une fois chacune, après « ' + CEP + ' » (obtenu ' + n('Drain') + ', ' + n('Drain d\'infiltration') + ', ' + n(CEP)
+    'd5 légende de la page 1 : « Drain » et « Drain d\'infiltration » une fois chacune, après « ' + CEP + ' » (obtenu ' + n('Drain') + ', ' + n('Drain d\'infiltration') + ', ' + n(CEP)
     + ' ; rangs ' + [i(CEP), i('Drain'), i('Drain d\'infiltration')].join(', ') + ')' + (r.err.length ? ' ' + r.err.join(' | ') : ''));
   for (const [t, deux] of [['Drain', false], ['Drain d\'infiltration', true]]){
     const e = echantillon(r, t);
@@ -384,15 +415,195 @@ function resultat(d, mode){
       JSON.stringify({rows: cd.rows, epRecup: cd.epRecup, sansCote: cd.sansCote, methodes: cd.methodes})].join(' | ');
   } catch (e){ return 'exception : ' + e.message; }
 }
-/* g1 : un drain de collecte s'analyse comme un tronçon (jusqu'à m123) */
+/* ce qu'un drain de collecte ne change pas (m123) : le résultat de chaque source ponctuelle ; les contrôles et les anomalies posés sur un
+   objet, sauf « pas de boîte de branchement » (une par collecteur et réseau : un drain peut en atteindre un sans boîte) ; le réseau et le
+   sens de chaque pièce ; le réseau des regards et des objets traversés. L : anomaliesDoc */
+const PARTS = ['sources ponctuelles', 'contrôles des objets', 'anomalies des objets', 'pièces', 'regards et objets'];
+function fixe(an, L){
+  return [Object.keys(an.resObj).filter(id => an.objs[id]).sort().map(id => id + '=' + uneSource(an.resObj[id])).join(' '),
+    an.controles.filter(c => an.objs[c.id]).map(c => c.cle + ':' + c.txt).sort().join(' ; '),
+    L.filter(a => a.objId && an.objs[a.objId] && !/^sansboite:/.test(a.cle)).map(a => a.cle + '@' + a.objId + ':' + a.st + ':' + a.obs).sort().join(','),
+    an.pieces.map(p => p.id + (an.sensPiece[p.id] > 0 ? '>' : an.sensPiece[p.id] < 0 ? '<' : '=') + JSON.stringify(an.resPiece[p.id])).sort().join(' ; '),
+    JSON.stringify(an.resPt)];
+}
+/* première partie qui diffère, et l'endroit */
+function ecartDe(a, b){
+  const i = a.findIndex((x, k) => x !== b[k]); if (i < 0) return '';
+  let j = 0; while (j < a[i].length && a[i][j] === b[i][j]) j++;
+  return PARTS[i] + ' : …' + a[i].slice(Math.max(0, j - 30), j + 50) + '… > …' + b[i].slice(Math.max(0, j - 30), j + 50) + '…';
+}
+const fixeDe = (d, mode) => { const an = V.analyser(copie(d), mode); return fixe(an, V.anomaliesDoc(copie(d), an)); };
+/* g1 : chaque tronçon devient un drain de collecte (réseau gardé) ; depuis m123, il compte comme une source : seul tient ce qui ne change pas
+   (fixe), et aucune exception (analyse, anomalies, conclusion, contrôles, constat déduit) */
 function garde(){
   let n = 0, drains = 0; const ecarts = [];
   for (let g = 1; g <= 40; g++){
     const d = tirage(g), dd = copie(d);
     dd.el.forEach(e => { if (e.k === 'ln' && e.t === 'tr'){ e.p.drain = 'collecte'; drains++; } });
-    ['edl', 'avp'].forEach(mode => { n++; const a = resultat(d, mode), b = resultat(dd, mode); if (a !== b || /^exception/.test(a)) ecarts.push(g + ' ' + mode + ' : ' + (a === b ? a : 'écart')); });
+    ['edl', 'avp'].forEach(mode => { n++;
+      const rb = resultat(dd, mode); if (/^exception/.test(rb)){ ecarts.push(g + ' ' + mode + ' : ' + rb); return; }
+      const e = ecartDe(fixeDe(d, mode), fixeDe(dd, mode)); if (e) ecarts.push(g + ' ' + mode + ' : ' + e); });
   }
-  R.ok(!ecarts.length && n === 80, 'g1 garde : un drain de collecte ne change pas l\'analyse (' + n + ' analyses, ' + drains + ' drains) ; écarts : ' + (ecarts.slice(0, 3).join(' ; ') || 'aucun'));
+  R.ok(!ecarts.length && n === 80, 'g1 garde : un drain de collecte ne change ni les sources ponctuelles, ni les contrôles et anomalies des objets, ni les pièces, ni les regards ('
+    + n + ' analyses, ' + drains + ' drains) ; écarts : ' + (ecarts.slice(0, 3).join(' ; ') || 'aucun'));
+}
+
+/* m123 : drain de collecte, source linéaire (Q3 b, Q4 b ; décisions D4, D6, D7). DC : ses propriétés (méthode « Eau ») */
+const DC = {drain: 'collecte', meth: ['eau']};
+const cdDe = (d, mode) => V.constatDeduit(copie(d), V.analyser(copie(d), mode || 'edl'));
+/* lignes « Autres » du constat qui comptent ; la ligne « Autres : Drain » */
+const autres = cd => cd.rows.filter(r => !r.std && r.nb).map(r => r.label + ' ×' + r.nb);
+const ligneDrain = cd => cd.rows.find(r => r.id === 'autre:Drain');
+const luLigne = r => r ? JSON.stringify({nb: r.nb, codes: r.codes, libs: r.libs, conforme: r.conforme, meth: r.meth}) : 'pas de ligne « Autres : Drain »';
+async function drainCollecte(){
+  /* d10 : drain de collecte seul, EP, bouts libres : sa sortie non dessinée est présumée au réseau EP, sans message ; il compte au constat */
+  const d10 = unTrace(DROIT, 'EP', '', DC), k10 = juge(d10), c10 = cdDe(d10), r10 = ligneDrain(c10);
+  R.ok(k10.et === 'T=ok:EP' && k10.an.resObj.T.presume === true && !k10.a.length && k10.c === 'conformes' && k10.ctl.indexOf('libre:T') < 0 && !k10.manque.length,
+    'd10 drain de collecte seul (EP, bouts libres) : T=ok:EP présumé, aucune anomalie, « conformes », ni « extrémités libres », rien à compléter (obtenu ' + txtJuge(k10) + ')');
+  R.ok(autres(c10).join() === 'Drain ×1' && !!r10 && r10.libs.join(' ; ') === 'Réseau EP départemental (présumé)' && r10.raccord === 'EP_D' && r10.conforme === 'oui' && r10.meth.join() === 'eau',
+    'd10 constat : une ligne « Autres : Drain », « Réseau EP départemental (présumé) », EP_D, conforme « oui », méthode « Eau » (obtenu ' + (autres(c10).join(', ') || 'aucune ligne « Autres »')
+    + ' ; ' + luLigne(r10) + ')');
+  const p10 = await pdf(d10, {mode: 'edl'});
+  R.ok(!p10.err.length && p10.txt.indexOf('réseau EP départemental (présumé)') >= 0 && p10.txt.indexOf('Aucun équipement dessiné.') < 0,
+    'd10 page 2 du plan PDF : le drain parmi les équipements, « réseau EP départemental (présumé) »' + (p10.err.length ? ' (' + p10.err.join(' | ') + ')' : ''));
+  /* « Déduit » (sans réseau) : rien à présumer ; exutoire à dessiner */
+  const d10b = unTrace(DROIT, '', '', DC), k10b = juge(d10b);
+  R.ok(k10b.et === 'T=sansexu' && k10b.c === 'incomplet' && k10b.manque.some(t => /^Drain : exutoire non dessiné/.test(t)) && k10b.ctl.indexOf('libre:T') < 0,
+    'd10 drain de collecte « Déduit », bouts libres : T=sansexu, « Drain : exutoire non dessiné », « incomplet », ni « extrémités libres » (obtenu ' + txtJuge(k10b)
+    + (k10b.manque.length ? ' ; à compléter : ' + k10b.manque.join(' ; ') : '') + ')');
+  const p10b = await pdf(d10b, {mode: 'avp'}), apres = 'Après travaux : Drain n\'a pas d\'exutoire dessiné : raccordement à compléter dans le projet';
+  R.ok(!p10b.err.length && p10b.txt.indexOf(apres) >= 0, 'd10 page 2 du plan PDF d\'avant-projet : « ' + apres + ' »' + (p10b.err.length ? ' (' + p10b.err.join(' | ') + ')' : ''));
+  /* sans méthode : à indiquer, comme pour un point « Drain » */
+  const k10c = juge(unTrace(DROIT, 'EP', '', {drain: 'collecte'}));
+  R.ok(k10c.manque.join(' ; ') === 'Drain : méthode de test à indiquer' && k10c.ctl.indexOf('meth:T') >= 0,
+    'd10 drain de collecte sans méthode : « Drain : méthode de test à indiquer », seul (obtenu ' + (k10c.manque.join(' ; ') || 'rien à compléter') + ')');
+
+  /* d11 : il suit les règles d'une source EP (D6) */
+  const d11a = doc({o: [['P', 'puisard', 10, 0]], l: [['T', 'tr', 'EP', '', [[0, 0], 'P'], 0, DC]]}), k11a = juge(d11a), c11a = cdDe(d11a), r11a = ligneDrain(c11a);
+  R.ok(k11a.et === 'T=ok:INF' && !k11a.a.length && k11a.c === 'conformes' && !!r11a && r11a.nb === 1 && r11a.conforme === 'oui'
+    && r11a.libs.join(' ; ') === 'Puisard (infiltration à la parcelle)' && c11a.epRecup.puisard === true,
+    'd11 drain de collecte vers un puisard : T=ok:INF, « conformes » ; au constat, « Puisard (infiltration à la parcelle) », conforme, case puisard (obtenu ' + txtJuge(k11a)
+    + ' ; ' + luLigne(r11a) + ', ouvrages EP ' + JSON.stringify(c11a.epRecup) + ')');
+  const d11b = doc({o: [['R', 'regard', 10, 0], ['B', 'boite', 20, 0, {res: 'EU'}]], l: [['T', 'tr', 'EP', '', [[0, 0], 'R'], 0, DC], ['L', 'tr', 'EU', '', ['R', 'B']]]});
+  const k11b = juge(d11b), r11b = ligneDrain(cdDe(d11b));
+  R.ok(k11b.et === 'T=ok:EU' && memesA(k11b.a, [['ep-eu:T', true, 'Drain : rejet au réseau EU']]) && k11b.c === 'non_conformes' && !!r11b && r11b.conforme === 'non' && r11b.raccord === 'EU_D',
+    'd11 drain de collecte → regard → Tronçon EU → boîte EU : « Drain : rejet au réseau EU » non conforme, « non_conformes » ; au constat, EU_D, « non » (obtenu ' + txtJuge(k11b)
+    + ' ; ' + luLigne(r11b) + ')');
+  /* relié à un drain d'infiltration : règles de m122 (dispersion dans le sol ; « multiple » avec un autre exutoire) */
+  const DI = 'Drain d\'infiltration (dispersion dans le sol)';
+  [['par un sommet partagé (regard)', doc({o: [['R', 'regard', 10, 0]], l: [['T', 'tr', 'EP', '', [[0, 0], 'R'], 0, DC], ['I', 'tr', '', '', ['R', [20, 0]], 0, INFIL]]})],
+    ['par un tuyau', doc({o: [['K', 'regard', 0, 8], ['J', 'jonction', 0, 0]],
+      l: [['T', 'tr', 'EP', '', [[-6, 8], 'K'], 0, DC], ['L', 'tr', '', '', ['K', 'J']], ['I', 'tr', '', '', [[-5, 0], 'J', [5, 0]], 0, INFIL]]})]
+  ].forEach(([par, d]) => {
+    const k = juge(d), cd = cdDe(d), r = ligneDrain(cd);
+    R.ok(k.et === 'T=ok:DISP' && !k.a.length && k.c === 'conformes' && !!r && r.libs.join(' ; ') === DI && r.conforme === 'oui' && cd.epRecup.infil === true,
+      'd11 drain de collecte relié à un drain d\'infiltration ' + par + ' : T=ok:DISP, « conformes » ; au constat, « ' + DI + ' », case « Infiltration diffuse » (obtenu ' + txtJuge(k)
+      + ' ; ' + luLigne(r) + ')');
+  });
+  const d11d = doc({o: [['R', 'regard', 10, 0], ['J2', 'jonction', 20, 0], ['B', 'boite', 20, -6, {res: 'EP'}]],
+    l: [['T', 'tr', 'EP', '', [[0, 0], 'R'], 0, DC], ['I', 'tr', '', '', ['R', [15, 0], 'J2'], 0, INFIL], ['Q', 'tr', '', '', ['J2', 'B']]]});
+  const k11d = juge(d11d), r11d = ligneDrain(cdDe(d11d));
+  R.ok(multiple(k11d, 'T', 'DISP,EP') && !k11d.a.length && k11d.c === 'incomplet' && !!r11d && r11d.conforme !== 'oui',
+    'd11 le drain d\'infiltration atteint aussi une boîte EP par un tuyau parti de son dernier sommet : T=multiple (DISP,EP), « relié à plusieurs réseaux », « incomplet », '
+    + 'pas de conformité au constat (obtenu ' + txtJuge(k11d) + ' ; ' + luLigne(r11d) + ')');
+
+  /* d12 : un point « Drain » posé sur un sommet du drain de collecte compte, et lui seul : une ligne, pas de double compte */
+  [['au 1er sommet', 0, ['s', [10, 0]]], ['au sommet du milieu', 5, [[0, 0], 's', [10, 0]]]].forEach(([ou, x, v]) => {
+    const d = doc({o: [['s', 'drain', x, 0]], l: [['T', 'tr', 'EP', '', v, 0, {drain: 'collecte'}]]}), k = juge(d), cd = cdDe(d);
+    R.ok(k.et === 's=ok:EP' && k.an.resObj.s.presume === true && !k.a.length && k.c === 'conformes' && !k.ctl.length && autres(cd).join() === 'Drain ×1',
+      'd12 point « Drain » ' + ou + ' du drain de collecte : une seule ligne « Autres : Drain », s=ok:EP présumé, « conformes », aucune aide ni rien à compléter (obtenu '
+      + txtJuge(k) + ' ; lignes « Autres » : ' + (autres(cd).join(', ') || 'aucune') + ')');
+  });
+}
+/* d14 : l'eau qu'un drain de collecte recueille sur toute sa longueur peut sortir par chacun de ses nœuds (bouts, regards, raccords), sauf
+   par son bout amont quand son sens est indiqué. Un regard ou un raccord posé sur un sommet du milieu, d'où part un autre tuyau, est donc vu
+   avec ou sans sens, comme depuis un point « Drain » en tête ; de même quand les deux bouts sont des exutoires (un exutoire n'est pas
+   traversé). BEU : boîte EU ; VERS_B : tuyau du regard R vers elle */
+const BEU = ['B', 'boite', 10, -10, {res: 'EU'}], VERS_B = ['L', 'tr', '', '', ['R', 'B']], EU_T = [['ep-eu:T', true, 'Drain : rejet au réseau EU']];
+function noeudsDrain(){
+  [1, -1, 0].forEach(s => {
+    const k = juge(doc({o: [['R', 'regard', 10, 0], BEU], l: [['T', 'tr', 'EP', '', [[0, 0], 'R', [20, 0]], s, DC], VERS_B]}));
+    R.ok(k.et === 'T=ok:EU' && memesA(k.a, EU_T) && k.c === 'non_conformes',
+      'd14 drain de collecte ' + (s ? 'orienté (sens ' + s + ')' : 'sans sens') + ', regard au sommet du milieu relié à une boîte EU : « Drain : rejet au réseau EU », NC (obtenu '
+      + txtJuge(k) + ')');
+  });
+  const kj = juge(doc({o: [['J', 'jonction', 10, 0], BEU], l: [['T', 'tr', 'EP', '', [[0, 0], 'J', [20, 0]], 1, DC], ['L', 'tr', '', '', ['J', 'B']]]}));
+  R.ok(kj.et === 'T=ok:EU' && memesA(kj.a, EU_T) && kj.c === 'non_conformes',
+    'd14 drain orienté, raccord au sommet du milieu relié à une boîte EU : « Drain : rejet au réseau EU », NC (obtenu ' + txtJuge(kj) + ')');
+  const k2 = juge(doc({o: [['R', 'regard', 10, 0], BEU, ['R2', 'regard', 20, 0], ['B2', 'boite', 30, 0, {res: 'EP'}]],
+    l: [['T', 'tr', 'EP', '', [[0, 0], 'R', 'R2'], 1, DC], VERS_B, ['L2', 'tr', '', '', ['R2', 'B2']]]}));
+  R.ok(multiple(k2, 'T', 'EP,EU') && !k2.a.length && k2.c === 'incomplet',
+    'd14 drain orienté vers une boîte EP, regard au sommet du milieu relié à une boîte EU : T=multiple (EP, EU), « relié à plusieurs réseaux », « incomplet » (obtenu '
+    + txtJuge(k2) + ')');
+  const kp = juge(doc({o: [['R', 'regard', 10, 0], ['P', 'puits', 10, -10]], l: [['T', 'tr', 'EP', '', [[0, 0], 'R', [20, 0]], 1, DC], ['L', 'tr', '', '', ['R', 'P']]]}));
+  R.ok(kp.et === 'T=ok:PUITS' && memesA(kp.a, [['ep-puits:T', true, 'Drain : rejet dans un puits']]) && kp.c === 'non_conformes',
+    'd14 drain orienté, regard au sommet du milieu relié à un puits : « Drain : rejet dans un puits », NC (obtenu ' + txtJuge(kp) + ')');
+  [['entre deux boîtes EP', 'boite', {res: 'EP'}, 'EP,EU'], ['entre deux puisards', 'puisard', {}, 'EU,INF']].forEach(([entre, t, p, nets]) => {
+    const k = juge(doc({o: [['E1', t, 0, 0, p], ['R', 'regard', 10, 0], ['E2', t, 20, 0, p], BEU], l: [['T', 'tr', 'EP', '', ['E1', 'R', 'E2'], 0, DC], VERS_B]}));
+    R.ok(multiple(k, 'T', nets) && !k.a.length && k.c === 'incomplet',
+      'd14 drain sans sens ' + entre + ', regard au sommet du milieu relié à une boîte EU : T=multiple (' + nets.split(',').join(', ') + '), « incomplet » (obtenu '
+      + txtJuge(k) + ')');
+  });
+  /* témoin : la sortie du bout amont n'est pas vue quand le sens est indiqué (l'eau du drain s'en éloigne) ; elle l'est s'il est le bout aval */
+  const amont = s => juge(doc({o: [['R0', 'regard', 0, 0], BEU], l: [['T', 'tr', 'EP', '', ['R0', [10, 0], [20, 0]], s, DC], ['L', 'tr', '', '', ['R0', 'B']]]}));
+  const ka = amont(1), kb = amont(-1);
+  R.ok(ka.et === 'T=ok:EP' && ka.an.resObj.T.presume === true && !ka.a.length && ka.c === 'conformes' && kb.et === 'T=ok:EU' && memesA(kb.a, EU_T),
+    'd14 témoin : boîte EU au bout amont d\'un drain orienté (sens 1) non vue, T=ok:EP présumé, « conformes » ; au bout aval (sens -1), NC (obtenu ' + txtJuge(ka)
+    + ' ; ' + txtJuge(kb) + ')');
+  /* le contrôle « le dessin le relie à » nomme le drain « Drain », comme ses autres contrôles ; un tronçon reste « Tronçon » */
+  const dit = props => V.analyser(copie(doc({o: [['R', 'regard', 10, 0], BEU], l: [['T', 'tr', 'EP', '', [[0, 0], 'R', [20, 0]], 1, props], VERS_B]})), 'edl')
+    .controles.filter(x => /^contredit:/.test(x.cle)).map(x => x.txt).join(' ; ');
+  const dd = dit(DC), dt = dit({});
+  R.ok(dd === 'Drain EP : le dessin le relie à réseau EU' && dt === 'Tronçon EP : le dessin le relie à réseau EU',
+    'd14 contrôle du réseau contredit : « Drain EP : le dessin le relie à réseau EU » ; témoin, un tronçon : « Tronçon EP : … » (obtenu ' + dd + ' ; ' + dt + ')');
+}
+/* d15 : « pas de boîte de branchement » se place à l'entrée d'un point source plutôt qu'à celle d'un drain de collecte, même d'identifiant
+   plus petit : dessiner le drain ne la déplace pas. Une descente z et un drain A vont au même collecteur EP, sans boîte, par deux raccords */
+function boiteDrain(){
+  const sb = avec => { const k = juge(doc({o: [['z', 'descente', 0, 10], ['j1', 'jonction', 0, 0, {}], ['j2', 'jonction', 20, 0, {}]],
+    l: [['C', 'col', 'EP', '', [[-10, 0], 'j1', 'j2', [30, 0]]], ['L1', 'tr', 'EP', '', ['z', 'j1']]].concat(avec ? [['A', 'tr', 'EP', '', [[20, 10], 'j2'], 0, DC]] : [])}));
+    const ra = k.an.resObj.A;
+    return {k, a: !ra ? 'A non compté' : ra.etat + ':' + ra.res + (ra.boite ? ' boîte' : ''), sb: k.L.filter(a => /^sansboite:/.test(a.cle)).map(a => a.cle + '@' + a.objId).join(', ')};
+  };
+  const sans = sb(false), avec = sb(true);
+  R.ok(sans.sb === 'sansboite:C:EP@j1' && avec.a === 'ok:EP' && avec.sb === 'sansboite:C:EP@j1',
+    'd15 descente et drain de collecte A vers le même collecteur EP sans boîte : « pas de boîte » reste à l\'entrée de la descente (j1), avec ou sans le drain '
+    + '(obtenu ' + (sans.sb || 'aucune') + ' sans le drain ; ' + (avec.sb || 'aucune') + ' avec, drain ' + avec.a + ')');
+}
+/* d13 : témoin. 400 croquis tirés, en état des lieux et en avant-projet (800 analyses). Deux tronçons sur trois deviennent des drains de
+   collecte ; un sur deux de ceux-là passe en EP, dans le témoin aussi (les mêmes tronçons, sans p.drain). Un drain sur quatre tient un point
+   « Drain » (du même statut que lui) sur son premier sommet libre, dans le témoin aussi : ce point est une source ponctuelle, que fixe()
+   compare. Aucune exception ; ce qui ne change pas (fixe) ne change pas ; chaque drain compté (sans point « Drain » sur un sommet, actif) a
+   son résultat, et la ligne « Autres : Drain » en compte un par drain et par point « Drain » analysé (pas de double compte) ; aucun nœud
+   'dr:' ne reste (résultats, sens, liens) */
+function temoinCollecte(){
+  let n = 0, drains = 0, comptes = 0, points = 0, poses = 0; const ecarts = [], lignesKo = [], restes = [];
+  for (let g = 1; g <= 400; g++){
+    const d = tirage(g), ids = []; let k = 0;
+    d.el.forEach(e => { if (e.k === 'ln' && e.t === 'tr'){ if ((k + g) % 3){ ids.push(e.id); if (k % 2) e.p.res = 'EP'; } k++; } });
+    ids.filter((id, i) => i % 4 === 0).forEach(id => {
+      const e = d.el.find(x => x.id === id), v = e.v.find(w => !w.a); if (!v) return;
+      d.el.push({id: 'pd' + id, k: 'pt', t: 'drain', x: v.x, y: v.y, p: {st: e.p.st || 'existant', obs: '', meth: ['eau']}, lab: {off: true}}); v.a = 'pd' + id; poses++;
+    });
+    const dd = copie(d); dd.el.forEach(e => { if (ids.indexOf(e.id) >= 0) e.p.drain = 'collecte'; }); drains += ids.length;
+    ['edl', 'avp'].forEach(mode => { n++;
+      const rb = resultat(dd, mode); if (/^exception/.test(rb)){ ecarts.push(g + ' ' + mode + ' : ' + rb); return; }
+      const e = ecartDe(fixeDe(d, mode), fixeDe(dd, mode)); if (e) ecarts.push(g + ' ' + mode + ' : ' + e);
+      const b = V.analyser(copie(dd), mode), L = b.lignes;
+      const att = Object.keys(L).filter(id => V.drainDe(L[id]) === 'collecte' && L[id].v.length >= 2 && !L[id].v.some(v => v.a && b.objs[v.a] && b.objs[v.a].t === 'drain')).sort();
+      const vus = Object.keys(b.resObj).filter(id => !b.objs[id]).sort(), pts = Object.keys(b.resObj).filter(id => b.objs[id] && b.objs[id].t === 'drain').length;
+      comptes += vus.length; points += pts;
+      const rd = ligneDrain(V.constatDeduit(copie(dd), b)), nb = rd ? rd.nb : 0;
+      if (att.join() !== vus.join() || nb !== att.length + pts) lignesKo.push(g + ' ' + mode + ' : ' + att.length + ' drains, ' + vus.length + ' comptés, ' + pts + ' points « Drain », ligne ×' + nb);
+      if (/dr:/.test(JSON.stringify(b.resObj)) || Object.keys(b.sensSource).concat(Object.keys(b.adj)).some(x => /^dr:/.test(x)) || Object.keys(b.adj).some(x => b.adj[x].some(p => p.virt)))
+        restes.push(g + ' ' + mode);
+    });
+  }
+  R.ok(!ecarts.length && n === 800 && comptes > 0, 'd13 témoin : des drains de collecte ne changent ni les sources ponctuelles, ni les contrôles et anomalies des objets, ni les pièces, '
+    + 'ni les regards (' + n + ' analyses, ' + drains + ' drains) ; écarts : ' + (ecarts.slice(0, 3).join(' ; ') || 'aucun') + (ecarts.length > 3 ? ' (' + ecarts.length + ' en tout)' : ''));
+  R.ok(!lignesKo.length && comptes > 0 && points > 0, 'd13 chaque drain compté a son résultat et sa place dans la ligne « Autres : Drain » (' + comptes + ' drains comptés, '
+    + poses + ' points « Drain » posés sur un drain, ' + points + ' analysés) ; écarts : ' + (lignesKo.slice(0, 3).join(' ; ') || 'aucun') + (lignesKo.length > 3 ? ' (' + lignesKo.length + ' en tout)' : ''));
+  R.ok(!restes.length, 'd13 aucun nœud « dr: » ni pièce virtuelle ne reste dans l\'analyse ; restes : ' + (restes.slice(0, 5).join(', ') || 'aucun'));
 }
 /* g2 : un tronçon sur deux devient un drain d'infiltration, sans réseau ; témoin : les mêmes tronçons sans réseau, sans drain. Seules changent les
    sources qui atteignent un drain d'infiltration (D:<id>, rejet DISP) ; aucune exception, ni dans l'analyse, ni dans les anomalies, la
@@ -438,6 +649,10 @@ function gardeInfiltration(){
     reglesDrain();
     avalDrain();
     await constatEtRendu();
+    await drainCollecte();
+    noeudsDrain();
+    boiteDrain();
+    temoinCollecte();
     garde();
     gardeInfiltration();
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }
