@@ -1,8 +1,8 @@
 # Conception du lot « Rejets » (v1.7.1, souhaits 2, 3, 4)
 
 Établie le 8 nov. 2026 sur 52cd3c8 (code de la v1.7.0), point de départ de m116 ; révisée les 13 et 14 nov. (puits NC ; réponses et consignes du 13
-nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116, m117 et m118 (envoyés : 8f9094d, ab926ec,
-6df324c) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du code : `carte-*.md` (8 nov. ; le puits y est encore une
+nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m119 (envoyés : 8f9094d, ab926ec, 6df324c,
+a5a5d05) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du code : `carte-*.md` (8 nov. ; le puits y est encore une
 destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js, IX = index.html ; vm/ et navigateur/ sont sous tests/.
 
 ## Réponses de l'utilisateur (7 et 13 nov. 2026)
@@ -198,9 +198,10 @@ destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croq
     écrire doc.ordre (anomaliesDoc l'écrit, CJ:1422) ni passer par ligneDe (qui appelle constatDeduit, CJ:1591).
   - Arbitrage (m119) : quand une anomalie de la ligne de la source (REGLES_LIGNE, CJ:1452, ou saisie à la main qui la nomme, comme ligneDe, CJ:1589)
     reste à arbitrer, raccInfo garde le code, le libellé et la case (des faits du dessin) ; ok true devient null, ok false reste (une NC retenue
-    suffit) ; le cas de la fosse (CJ:1690) ne change pas. Aujourd'hui, dep-nv mise à arbitrer laisse la descente « oui ». constatDeduit marque la
-    ligne rows[].arbitrer, seulement quand c'est vrai (la sortie « constat » de compat.js ne bouge pas) ; vcResumeCalc le reprend. Une anomalie qui ne
-    nomme pas de ligne (sansboite, sanstampon) ne joue que sur la conclusion.
+    suffit) ; raccInfo ne change pas pour la fosse (CJ:1690). En v1.7.0, dep-nv mise à arbitrer laisse la descente « oui ». constatDeduit marque la
+    ligne rows[].arbitrer, seulement quand c'est vrai (la sortie « constat » de compat.js ne bouge pas), aussi pour une source qui traverse peut-être
+    une fosse douteuse (fosseArbitrage), en EU comme en EP ; vcResumeCalc le reprend. Une anomalie qui ne nomme pas de ligne (sansboite, sanstampon)
+    ne joue que sur la conclusion.
   - Lignes du constat (constatEval, IX:2028-2032) : constat non signé et croquis prêt (vcPret), une ligne marquée arbitrer ne prend jamais « oui »
     d'office : le « oui » de raccOk devient '' ; « non » (NC du dossier ou raccOk false) reste. Le raccordement reste au formulaire : le ressaisir ne
     rend pas la ligne conforme. Déclarée « oui » à la main, elle reçoit un rappel avant signature (constatIssues, rien n'est bloqué) : « Gouttière(s)
@@ -292,6 +293,9 @@ destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croq
     pas l'objet.
   - Garde à valeurs figées (vm/compat.js, 35 croquis, SORTIES l. 28), verte à chaque correctif. m116 y a ajouté la sortie « constat » (rows, epRecup,
     sansCote) : 245/245 (35 × 7). m119 n'y change rien (D6).
+  - Tablette restée en v1.7.0 (m119) : une anomalie à arbitrer y laisse « Conformes » ; un constat signé sur une tablette à jour pendant un
+    arbitrage y paraît changé depuis la signature (conclusion, parfois installations ou anomalies) : il est intact ; n'y pas toucher « Modifier »,
+    qui efface les signatures (LISEZMOI.txt).
   - Différentiel du cadrage (l. 110), en m116 : `node tests/vm/aleatoire.js 8000 --contre=<copie de 52cd3c8>` compare chaque croquis dans les deux
     modes (résultat par source, anomalies, conclusion, contrôles, constat déduit), sans écart attendu. Relancé contre le commit d'avant, générateur
     sans ses options nouvelles, en m117, m119 (écarts attendus : la conclusion, de 'conformes' ou 'reserves' vers un code d'arbitrage, et
@@ -384,30 +388,24 @@ depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     v1.7.0) : descente sansexu, pas « Réseau EP départemental (présumé) » ; une annulation rend le JSON d'avant ; pas de bouton sur un WC ni sur une
     descente reliée. b2 : descente à 0,5 m d'un regard : l'infiltration tombe à plus de 0,6 m de tout objet [p].
   - Risques : pose sur un bâti ou un objet (D10) ; générateur partagé avec compat.js (l. 91) : sans l'option, mêmes 30 croquis.
-- **m119 Arbitrage : une anomalie à arbitrer n'est jamais comptée conforme** (consigne du 13 nov., Q1 ; D6, D7, D12).
-  - Fichiers : CJ conclusion et CONCL ('boite', 'tampon', 'arbitrer', 'plusieurs'), etatAnomalie et ligneArbitrer (nouvelles), raccInfo, constatDeduit
-    (rows[].arbitrer), etatSource ; IX constatEval (lignes, conclusion proposée), constatIssues (deux rappels), vcResumeCalc. Tests : vm/regles.js,
-    vm/analyse.js, vm/rejets.js, navigateur/dossier.js. LISEZMOI.txt (CROQUIS DE TERRAIN).
-  - Pour l'utilisateur : tant qu'une anomalie reste « à arbitrer » (boîte de branchement manquante, regard sans tampon, toute anomalie mise « À
-    arbitrer »), le plan PDF dit « À compléter : … à arbitrer » au lieu de « Conformes » ou « Conformes avec réserves », et la fiche de la source est
-    « en attente » ; au constat, la ligne de la source garde son raccordement mais n'est pas déclarée conforme, et la conclusion proposée reste vide
-    (rappel « Conclusion non précisée ») ; choisir « Conforme » pour la ligne ou « Conformes » pour la conclusion donne un rappel. Un constat signé et
-    le croquis désactivé ne changent pas.
-  - Test : vm/regles.js, cas « WC vers le collecteur EU sans boîte (à arbitrer) » : c 'boite' (échoue sur m118 : 'conformes') ; vm/analyse.js, k4 et
-    k5 : 'boite'. vm/rejets.js : z1 regard sans tampon (sanstampon) : 'tampon' ; z2 dep-nv mise à arbitrer (decisions) : 'arbitrer', ligne de la
-    descente au code 'EP_D', ok null, rows[].arbitrer, etatSource 'att' ; vers un puisard, la case puisard reste ; z3 réserve (tampon béton en EP)
-    mise à arbitrer : 'arbitrer' ; z4 anomalie saisie à la main à arbitrer : 'arbitrer', ligne de son objet à ok null ; z5 NC retenue avec sansboite :
-    'non_conformes' ; sansboite retenue : 'non_conformes', écartée : 'conformes' ; z6 ep-eu retenue et dep-nv à arbitrer : code 'EU_D', ok false ; z7
-    deux anomalies à arbitrer : 'plusieurs'. navigateur/dossier.js, cas nouveau : sansboite à arbitrer, constat sans conclusion proposée, rappels
-    « Conclusion non précisée » et « à arbitrer » ; dep-nv à arbitrer, raccordement ressaisi : la ligne n'est pas « oui » ; « Conforme » choisi pour
-    la ligne, puis « Conformes » pour la conclusion : les deux rappels ; constat signé avant : conclusion et signature intactes, pas « Le dossier a
-    changé » ; signé pendant l'arbitrage, puis sansboite écartée : le plan dit « Conclusion proposée : Conformes » ; croquis désactivé :
-    « Conformes », comme en v1.5.1 (rien n'y est à arbitrer).
-  - Garde : compat.js à 245/245 sans régénération ; différentiel : écarts sur la conclusion (environ 6 %, sonde `sonde-arbitrage-aleatoire.js`) et sur
-    rows[].arbitrer.
-  - Risques : textes [p] ; résumé du croquis asynchrone : la conclusion proposée se vide à son retour (vcConstatApres) [p] ; une ligne ou une
-    conclusion déclarée conforme à la main le reste (rappel seulement) ; un constat signé pendant un arbitrage imprime ensuite la conclusion que
-    propose le dessin (D7) [p].
+- **m119 Arbitrage : une anomalie à arbitrer n'est jamais comptée conforme** (consigne du 13 nov., Q1 ; D6, D7, D12). Fait : a5a5d05, 14 nov.
+  - Fichiers : CJ conclusion et CONCL ('boite', 'tampon', 'arbitrer', 'plusieurs'), etatAnomalie, ligneArbitrer et etatSourceDe (nouvelles),
+    raccInfo, constatDeduit (rows[].arbitrer) ; IX constatEval, constatIssues (deux rappels), constatFigeCalc (fige.arbitrer), vcResumeCalc,
+    vcArbitrage et vcResumeSiBesoin (nouvelles). LISEZMOI.txt (CROQUIS DE TERRAIN ; tablette restée en v1.7.0).
+  - Pour l'utilisateur : tant qu'une anomalie reste « à arbitrer », le plan PDF dit « À compléter : … à arbitrer » au lieu de « Conformes » ou
+    « Conformes avec réserves », et la conclusion proposée du constat reste vide ; y choisir « Conformes » ou « Conformes avec réserves » donne un
+    rappel. Quand l'anomalie porte sur l'équipement (descente non visitable ou mauvais réseau mis « À arbitrer », fosse peut-être traversée, saisie
+    à la main posée sur lui), sa fiche est aussi « en attente » et sa ligne du constat garde son raccordement sans être déclarée conforme, même
+    ressaisi ; « Oui » à « Conforme » pour cette ligne donne un rappel. Une boîte manquante ou un tampon absent ne jouent que sur la conclusion.
+    Un constat signé ne change pas (signé pendant un arbitrage, il paraît « changé depuis la signature » une fois l'anomalie retenue ou écartée) ;
+    croquis désactivé ou absent : comme en v1.5.1.
+  - Tests : vm/regles.js (« sans boîte » : 'boite'), vm/analyse.js (k4, k5), vm/rejets.js z1 à z9, navigateur/dossier.js 49 à 58.
+  - Garde : compat.js 245/245 sans régénération ; aléatoire 8000 contre la version d'avant : aucune exception, 665 écarts, tous de la règle
+    (656 conclusions : 625 'conformes' et 11 'reserves' vers 'boite', 20 'conformes' vers 'plusieurs' ; 9 lignes marquées : 2 ep-fosse, 7 fosse:F).
+  - Risques : textes [p] ; résumé du croquis calculé après coup : la conclusion proposée se vide à son retour (vcConstatApres) [p] ; une ligne ou
+    une conclusion déclarée conforme à la main le reste (rappel seulement) ; sans équipement analysé ni anomalie retenue, une anomalie à arbitrer
+    laisse « sans objet », comme avant, jamais « Conformes » [p, à signaler] ; un constat signé pendant un arbitrage imprime ensuite la conclusion
+    que propose le dessin (D7) [p].
 - **m120 Puits : type à règle fixe** (Q5.1, Q5.2 ; D1, D3, D6 à D9).
   - Fichiers (CJ) : def('puits') et FAMILLES ; EXU.PUITS (règles EU et EP) ; reglesAnomalies (règle EP lue dans la table) ; REGLES_LIGNE ; raccInfo
     (ok d'après etatAnomalie) ; primitives (forme 'puits'), rayonSymbole ; aide de l'outil et fiche (puits perdu) ; filtre de l'avant-projet

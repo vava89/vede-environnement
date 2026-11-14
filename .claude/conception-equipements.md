@@ -213,8 +213,8 @@ Détail du code : cartes A, B et C (`carte-*.md`). Lot Rejets : `.claude/concept
     dossier restent telles quelles.
 - D10 Points de contact avec le lot Rejets. Ordre : tout le lot Rejets (m119 à m129) d'abord, puis m130 à m135, chacun sur la branche à jour.
   - constatDeduit et lignes « Autres » : m119 (rows[].arbitrer), m122 (dispersion dans le sol), m123 (« Autres : Drain » des drains de
-    collecte, source par srcObj), m125 (case des destinations, raccInfo). m119 doit marquer aussi les lignes « Autres » : il trouve la
-    ligne de la source comme ligneDe, qui ne lit que les lignes std (CJ:1622-1625) [p] ; sinon m132 l'étend (test g6). Ensuite m131 et
+    collecte, source par srcObj), m125 (case des destinations, raccInfo). m119 (a5a5d05) marque déjà les lignes « Autres » : ligneArbitrer
+    lit l'objet (objId), constatDeduit sa ligne(o), vcArbitrage la ligne du constat (vcLigneConstat) ; m132 garde ce chemin (test g6). Ensuite m131 et
     m132 : ligne(o) lit l'objet que srcObj désigne ; libDe ne lit p.nom que d'un type nomLibre (celui d'une destination reste à destDe).
   - Lecteurs de srcObj (m123) : libDe, libNiv et libObj (CJ:1335) reçoivent l'objet qu'il rend (le point « Drain » d'un drain de
     collecte), jamais idxA[id] ni an.objs[id], page 2 du PDF comprise (CJ:6027, 6029, 6045) ; m130 et m131 (tests n3, l4).
@@ -277,7 +277,7 @@ m135 puis m134 attendent la fusion suivante (l'étiquette commune forme un tout)
     « Climatisation » EU et EP → deux lignes, chacune jugée sur son réseau (clé sans la nature : une, l'EP « non ») ; g2 : row 'wc' → WC,
     types ['Urinoir'] ; row d'un autre groupe ignoré ; g3 : sans nom → « Autres : Autre appareil » et contrôle « nom à indiquer » ; g4 :
     « Bidet (RDC) », lettres « Bi », légende « Bidet (Bi) », bloc VEDE_AUTRE_EU_BI, nom à balises échappé ; g5 : autre_ep sur le réseau EU →
-    règle ep-eu ; g6 : « Bidet » conforme, anomalie saisie « Bidet : … » à arbitrer → ligne jamais « oui » (m119, étendu si besoin) ; g7 :
+    règle ep-eu ; g6 : « Bidet » conforme, anomalie saisie « Bidet : … » à arbitrer → ligne jamais « oui » (m119 le fait déjà) ; g7 :
     nomRefuse : « Douche italienne », « WC suspendu », « Puits perdu », « Chaudière », « Lavabos » refusés, « Bidet », « Urinoir » permis.
     navigateur/dossier.js : Chaudière, Attente et ligne saisie « Chaudière et attente », dans les deux ordres de dessin : une ligne liée,
     l'autre créée (échoue avant : liée aux deux, valeur de la dernière) ; « Bidet » et « Bidet suspendu » : deux lignes ; dossier laissé par
