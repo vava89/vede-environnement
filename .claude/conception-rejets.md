@@ -1,9 +1,9 @@
 # Conception du lot « Rejets » (v1.7.1, souhaits 2, 3, 4)
 
 Établie le 8 nov. 2026 sur 52cd3c8 (code de la v1.7.0), point de départ de m116 ; révisée les 13 et 14 nov. (puits NC ; réponses et consignes du 13
-nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m124 (envoyés : 8f9094d, ab926ec, 6df324c,
-a5a5d05, 7a6c041, b562636, bd16bb9, d036ee1, 65c4685) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du code :
-`carte-*.md` (8 nov. ; le puits y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js, IX =
+nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m125 (envoyés : 8f9094d, ab926ec, 6df324c,
+a5a5d05, 7a6c041, b562636, bd16bb9, d036ee1, 65c4685, f9633c6) les décalent : chercher par nom de fonction ; tests cités par nom de cas. Détail du
+code : `carte-*.md` (8 nov. ; le puits y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js, IX =
 index.html ; vm/ et navigateur/ sont sous tests/.
 
 ## Réponses de l'utilisateur (7 et 13 nov. 2026)
@@ -341,7 +341,7 @@ index.html ; vm/ et navigateur/ sont sous tests/.
 ## Découpage (m116 à m129 ; quatorze correctifs, batterie verte après chacun)
 Ordre : le commun, sans changement visible (m116) ; l'infiltration (m117, m118) ; l'arbitrage, règle générale, juste après m118 (m119) ; le puits
 (m120) ; les drains (m121 à m124) ; les destinations (m125 à m128), la palette après l'analyse et le rendu ; les cas limites des drains, après les
-réponses à Q6 et Q7 (m129). m116 à m124 sont envoyés : leur fiche ne change plus. Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js
+réponses à Q6 et Q7 (m129). m116 à m125 sont envoyés : leur fiche ne change plus. Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js
 reste vert partout ; tests/LISEZMOI.md suit chaque test ajouté. Dès m117, poser un objet nouveau demande des tablettes à jour (D11). Après m129 : 14
 correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
 
@@ -479,26 +479,23 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     de comptage ; sans drains, contre avant : aucun écart ; compat 245/245.
   - Risques : toast « dispersion dans le sol » même si le drain d'infiltration atteint un autre exutoire [p] ; un Tronçon tracé au bout d'un drain
     part d'un raccord (avant : il le prolongeait) [p] ; un drain tracé a p.sens 0 [p].
-- **m125 Destinations (1) : modèle, analyse, règles, constat**, hors palette (souhait 2, 1re partie du cadrage, l. 116 ; D3, D5 à D7).
-  - Fichiers (CJ) : def('exutoire'), hors de FAMILLES pour l'instant (ni palette, ni sélecteur « Type », CJ:4840) ; defautsPt ; destDe ; terminal et
-    an.exu ; libExu ; eu-exu et ep-exu ; REGLES_LIGNE ; controles (CJ:1379, 1382) ; raccInfo, constatDeduit ; conclusion et CONCL ('exu', avant
-    'boite') ; texteEtiquette ; filtre de l'avant-projet (ep-exu).
-  - Pour l'utilisateur : rien encore (palette en m127).
-  - Test :
-    - vm/regles.js : descente → étang ('conforme', 'autre') : a [], 'conformes' ; 'reserve' : ep-exu nc false, 'reserves' ; 'nc' : 'non_conformes' ;
-      'arbitrer' : ep-exu nc true, st 'arbitrer', 'exu' (échoue sur m124 : type inconnu, 'incomplet') ; WC → destination sans champ (p {}) : et
-      's=ok:X:AUTRE DESTINATION:arbitrer:autre', « WC : rejet dans l'autre destination », 'non_conformes' ; une descente : ep-exu à arbitrer, 'exu',
-      même nommée « Puits » (fichier fait à la main) ; descente → regard (tampon béton, sans cunette) → étang conforme : « Regard EP : tampon béton »
-      en réserve, 'reserves' (regles.js prend les champs facultatifs mode, pt, pc et sans ; FAM, l. 55, prend 'cunette' ; témoin vert sur m124 : vers
-      un puisard) ; un WC sur ce regard : la même réserve et eu-exu NC ;
-    - vm/rejets.js : x1 constatDeduit, étang 'nc' retenu : ok null, case 'autre', « Étang (rejet des EP) » ; écartée ou 'conforme' : ok true ; à
-      arbitrer : ok null, rows[].arbitrer (m119), contrôle 'manque' (aucun une fois décidée) ; case MILIEU : code MILIEU ; WC vers un étang à case
-      GARG : MILIEU, codes ['raccEUsep'] ; x2 deux étangs identiques : ok ; un étang et un puisard : multiple ; deux « Étang » de jugements
-      différents : le message de D5 ; x3 quatre ordres du dessin, même an.exu ; x5 avant-projet qui garde l'étang NC : ep-exu au tableau du PDF, cat
-      'autre' ;
-    - navigateur/dossier.js, cas nouveau : étang 'nc' à case MILIEU : ligne de la descente « non », gestEP, préconisation « Suppression du rejet dans
-      l'étang ; … » ; réserve choisie au dossier : « oui », sans rappel.
-  - Risques : une règle qui compare r.res à 'X' (D1) ; clé et ordre de an.exu (D5).
+- **m125 Destinations (1) : modèle, analyse, règles, constat**, hors palette (souhait 2, 1re partie du cadrage, l. 116 ; D3, D5 à D7). Fait : f9633c6,
+  14 nov.
+  - Fichiers (CJ) : EXU.X (lib, res 'EP', dest) ; DEST_EP, DEST_CST, destDe (VCroquis.destDe), nomCle, cleDest, ligneDest, ligneExu (ligne d'un
+    rejet : la table, ou les champs de an.exu[clé] ; sans an, une destination sans champ, à arbitrer), libsRejets (message « multiple ») ;
+    def('exutoire') hors de FAMILLES ; defautsPt ; analyser (cleX, an.exu dans l'ordre des identifiants ; terminal) ; reglesAnomalies (eu-exu ;
+    ep-exu, arbitrer pour 'arbitrer') ; controles ('exuarbitrer') ; conclusion et CONCL ('exu') ; REGLES_LIGNE ; raccInfo (6e argument an),
+    constatDeduit ; texteEtiquette ; constatHtml (« oui » promis pour une réserve seulement sur une ligne à code EP_, UN_, GARG ou MILIEU) ;
+    pageTableaux (avant-projet : ep-exu).
+  - Pour l'utilisateur : rien encore (palette en m127), sauf la phrase du panneau Constat pour une ligne sans code (puits et puisard sur la même
+    façade).
+  - Tests : vm/regles.js, 46 cas (34 avant) ; vm/rejets.js x1 à x5, 94 cas (79 avant) ; navigateur/dossier.js 61 à 65, 96 cas (90 avant).
+  - Garde : compat 245/245 sans régénération ; aléatoire 8000 contre avant : aucun écart ; sonde m125/sonde-dest.js, 8000 tirages (2 855 plans à
+    destinations, 3 254 sources) : aucune exception (963 PDF, 3 809 DXF) ; 1 364 sources EU, toutes NC ; EP : 301 conformes, 298 réserves, 290 NC,
+    1 001 à arbitrer, jamais « Conformes » ; jumeaux conformes ↔ exutoire de la table : même conclusion.
+  - Risques et [p] : « Puits » jugé conforme dans un fichier fait à la main reste conforme (D3 ; test de regles.js ; à soumettre) ; ep-exu à arbitrer
+    puis retenue : préconisation sans « Suppression du rejet… » ; ab de 2 ou 3 caractères, sinon les deux premiers du nom ; nom coupé à 40 ; an.exu
+    garde les champs du premier objet de chaque clé.
 - **m126 Destinations (2) : symbole, PDF, DXF, textes libres, réparation au chargement** (souhait 2, 3e partie du cadrage ; D3, D8, D9).
   - Fichiers : CJ primitives (forme 'exutoire'), symboleSvg, légende (clé nom et ab ; it.p jusqu'à l'échantillon, CJ:5827), blocs et INSERT,
     échappement (esc à l'écran, pdfTxt au PDF, dxfTxtSortie au DXF). IX planValide (IX:4286-4314) écrit dans p.nom, p.ab, p.art, p.ep et p.cst les
@@ -530,7 +527,9 @@ correctifs depuis la fusion de la v1.7.0, 6 de libres avant la suivante.
     passent les options `exutoires` et `enregistrerExutoires(liste)`, comme les aides ; croqReglagesHtml (IX:3523-3529) : liste « Destinations
     ajoutées » (modifier, retirer ; D12) ; actions près de IX:3551. CJ : ouvrirPalette (items 'pt:exutoire:<id>'), « + Nouvelle destination » (D10).
     Labo : localStorage 'vcl-exutoires', comme 'vcl-aides' (croquis/index.html:267-268). vm/generateur.js : option `exutoires` avec 'exutoire'.
-    LISEZMOI.txt (texte de D3, consigne de D11), croquis/LISEZMOI.txt (l. 11, 26-29, 51 : règle des autres destinations).
+    LISEZMOI.txt (texte de D3, consigne de D11), croquis/LISEZMOI.txt (l. 11, 26-29, 51 : règle des autres destinations ; l. 45-47, liste
+    des conclusions : ajouter en tête « À compléter : rejet des eaux pluviales à arbitrer », la conclusion 'exu' de m125, qui passe avant
+    'boite' dans conclusion).
   - Pour l'utilisateur : ses destinations (étang, fossé…) restent dans la palette d'un croquis à l'autre ; les Réglages les listent.
   - Test (navigateur/rejets.js) : m1 « + Nouvelle destination » : fiche de départ (nom vide ou qui contient « puits » refusé, « le », « à arbitrer »,
     « autre ») ; « Étang » (Ét, l', NC, autre) enregistrée dans croquisConfig.exutoires (échoue avant : pas d'item), posée depuis la palette rouverte
