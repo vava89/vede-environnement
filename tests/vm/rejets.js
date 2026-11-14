@@ -43,6 +43,18 @@
 // Échouent sur e728d76 par le comportement (conclusion « conformes », ligne conforme ou sans marque) : z1 à z5, z7 et z9, sauf le témoin
 //   de z1 et la seconde vérification de z5 (NC retenue, retenue, écartée). z6 et le témoin « retenue » de z2 (gardes) n'y échouent que
 //   parce que VCroquis.etatSource y est absente. z8 y passe. z9 échoue aussi sur la première version de m119 (ligne du WC sans marque).
+// Puits (m120, décision du 13 nov. 2026 : un rejet EP dans un puits est une non-conformité ; décisions D6 à D9) :
+// q1 : descente vers un puits : ep-puits retenue d'office, « Non conformes », fiche « anomalie n° 1 » ; au constat, ligne en MILIEU, ok null
+//   (le dossier la juge par l'anomalie), aucune case des ouvrages EP ; écartée : « conformes », ligne « oui » ; mise à arbitrer :
+//   « arbitrer », ligne MILIEU gardée, ok null, marquée « à arbitrer » (m119) ; WC vers un puits : eu-puits, ligne MILIEU « non ».
+// q2 : le type (après « Rejet en milieu naturel » dans la palette Équipements, rappel du puits perdu), la ligne PUITS de la table (règles
+//   EU et EP non conformes, cat « inversion » et « autre », place MILIEU), le symbole (deux cercles concentriques verts, rayon 2,1, l'intérieur
+//   loin de celui du puisard) ; DXF : bloc VEDE_PUITS de deux cercles, INSERT sur VEDE-SYMBOLES, tuyau sur VEDE-EP ; écran : tuyau et
+//   étiquette verts ; plan PDF : « Puits » une fois à la légende, « puits · anomalie n° … » au « Rejet constaté » de la page 2.
+// q3 : avant-projet qui garde le puits : préconisation au tableau, « Reste après travaux : Descente EP : rejet dans un puits » ; témoin : le
+//   rejet supprimé par le projet, plus rien ne reste ; au dossier (reconcilier), ep-puits créée en catégorie « autre », sur la ligne
+//   « Gouttière(s) avant », non conforme, case gestEP.
+// Échouent sur 7df0996 (type « puits » absent) : q1 à q3, sauf le témoin de q3.
 // usage : node tests/vm/rejets.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rendus, rapport} = require('./charger.js');
@@ -376,6 +388,91 @@ async function arbitrage(){
     'z9 témoins : fosse retenue, ligne FOSSE « non » ; écartée, EU_D « oui », sans marque ; descente vers la fosse, marquée (' + vu({retenue: o9r.ligne, ecartee: o9e.ligne, descente: [o9d.st, o9d.ligne]}) + ')');
 }
 
+/* ---------- m120 : puits (décision du 13 nov. 2026 : un rejet EP dans un puits est une non-conformité) ---------- */
+/* source S (type t) reliée par un tronçon sans réseau au puits W, avec les décisions dec */
+const versPuits = (t, dec) => decide(doc({o: [['S', t, 0, 10], ['W', 'puits', 0, 4]], l: [['t1', 'tr', '', '', ['S', 'W']]]}), dec);
+const RPU = 'Rejet : puits', PUL = 'Puits : rejet en milieu naturel', PRE_EP = 'Suppression du rejet dans le puits ; raccordement au branchement EP ou gestion à la parcelle';
+/* q1 : constat déduit, conclusion et fiche de la source : ep-puits retenue d'office, écartée, mise à arbitrer ; WC vers un puits */
+async function puitsConstat(){
+  const o = await bilan(versPuits('descente'), 'gout_av');
+  R.ok(o.st === 'ep-puits:S retenue' && o.c === 'non_conformes' && o.plan === CP + 'Non conformes' && o.etat === 'ko « ' + RPU + ' · anomalie n° 1 »',
+    'q1 descente vers un puits : ep-puits retenue d\'office, « Non conformes », fiche « anomalie n° 1 » (' + vu(o, ['st', 'c', 'plan', 'etat']) + ')');
+  R.ok(o.ligne === 'MILIEU | [null] | ""' && o.libs === PUL && o.recup === '{}',
+    'q1 constat : la ligne de la descente en MILIEU, ok null (le dossier la juge par l\'anomalie), aucune case des ouvrages EP (' + vu(o, ['ligne', 'libs', 'recup']) + ')');
+  const e = await bilan(versPuits('descente', {'ep-puits:S': 'ecartee'}), 'gout_av');
+  R.ok(e.st === 'ep-puits:S ecartee' && e.c === 'conformes' && e.ligne === 'MILIEU | [true] | "oui"' && e.etat === 'ok « ' + RPU + ' »',
+    'q1 anomalie écartée dans Contrôles : « conformes », ligne MILIEU « oui », fiche ok (' + vu(e, ['st', 'c', 'ligne', 'etat']) + ')');
+  const a = await bilan(versPuits('descente', {'ep-puits:S': 'arbitrer'}), 'gout_av');
+  R.ok(a.st === 'ep-puits:S arbitrer' && a.c === 'arbitrer' && a.plan === CP + 'À compléter : une anomalie reste à arbitrer' && a.ligne === 'MILIEU | [null] | "" | à arbitrer'
+    && a.etat === 'att « ' + RPU + ' · anomalie à arbitrer »',
+    'q1 mise à arbitrer : « arbitrer », ligne MILIEU gardée, ok null, marquée « à arbitrer » ; fiche en attente (' + vu(a, ['st', 'c', 'plan', 'ligne', 'etat']) + ')');
+  const w = await bilan(versPuits('wc'), 'wc');
+  R.ok(w.st === 'eu-puits:S retenue' && w.c === 'non_conformes' && w.ligne === 'MILIEU | [false] | "non"' && w.libs === PUL,
+    'q1 WC vers un puits : eu-puits retenue, ligne du WC en MILIEU, non conforme (' + vu(w, ['st', 'c', 'ligne', 'libs']) + ')');
+}
+/* q2 : le type, sa place, la ligne PUITS de la table, le symbole ; DXF, couleurs, légende et page 2 du plan PDF */
+async function puitsRendu(){
+  const T = V.TYPES.puits, eq = (V.FAMILLES.find(f => f.id === 'equ') || {types: []}).types, X = V.EXU && V.EXU.PUITS;
+  R.ok(!!T && T.fam === 'exu' && T.lib === 'Puits' && T.role === 'exutoire' && T.forme === 'puits' && T.exu === 'PUITS' && !T.g && !T.droit && !T.oriente
+    && T.rappel === 'Un puits perdu (qui infiltre les eaux) se dessine en Puisard.',
+    'q2 type « puits » : exutoire PUITS, ni droit ni orienté, avec le rappel du puits perdu (' + JSON.stringify(T || null) + ')');
+  R.ok(eq.indexOf('milieu') >= 0 && eq[eq.indexOf('milieu') + 1] === 'puits', 'q2 palette Équipements : juste après « Rejet en milieu naturel » (' + eq.join(', ') + ')');
+  R.ok(!!(X && X.eu && X.ep && X.cEU && X.cEP) && X.lib === 'puits' && X.res === 'EP' && X.eu.cle === 'eu-puits' && X.eu.obs === 'rejet dans un puits' && X.eu.nc === true
+    && X.eu.cat === 'inversion' && X.eu.codes.join() === 'raccEUsep' && X.eu.preco === 'Suppression du rejet dans le puits et raccordement au branchement EU'
+    && X.ep.cle === 'ep-puits' && X.ep.obs === 'rejet dans un puits' && X.ep.nc === true && X.ep.cat === 'autre' && X.ep.codes.join() === 'gestEP' && X.ep.preco === PRE_EP
+    && X.cEU.code === 'MILIEU' && X.cEU.lib === PUL && X.cEP.code === 'MILIEU' && X.cEP.lib === PUL && !X.cEP.recup,
+    'q2 table des exutoires, ligne PUITS : règles EU et EP non conformes, place MILIEU au constat (' + JSON.stringify(X || null) + ')');
+  /* symbole : deux cercles concentriques verts, tracés, l'extérieur blanc dedans (rayon 2,1) ; l'intérieur nettement plus grand que celui
+     du puisard, pour ne pas les confondre */
+  const prim = t => V.primitives({k: 'pt', t, p: {st: 'existant', obs: ''}}, V.RES.EP.rgb, 0), P = prim('puits'), Q = prim('puisard');
+  const cer = P.filter(q => q.k === 'c');
+  R.ok(V.rayonSymbole('puits') === 2.1 && P.length === 2 && cer.length === 2 && cer[0].r === 2.1 && String(cer[0].fond) === '255,255,255' && !cer[1].fond
+    && cer[1].r < 2.1 && Q.length === 2 && cer[1].r - Q[1].r >= .4 && cer.every(q => q.x === 0 && q.y === 0 && String(q.trait) === EPC && q.ep > 0 && !q.masque),
+    'q2 symbole : deux cercles concentriques verts, rayon 2,1, l\'intérieur loin de celui du puisard (rayon ' + V.rayonSymbole('puits') + ' ; '
+    + P.map(q => q.k + ' r ' + q.r + (q.fond ? ' fond ' + q.fond : '') + (q.trait ? ' trait ' + q.trait : '')).join(' | ') + ' ; puisard ' + Q.map(q => q.r).join(', ') + ')');
+  /* DXF : bloc VEDE_PUITS (les deux cercles), INSERT sur VEDE-SYMBOLES en couleur 3, tuyau sur VEDE-EP, étiquette « Puits » en couleur 3 */
+  const d = doc({o: [['D', 'descente', 0, 6, {cote: 'avant'}], ['I', 'puits', 0, 0]], l: [['T1', 'tr', '', '', ['D', 'I']]]});
+  d.el.find(q => q.id === 'I').lab = null;
+  const x = dxf(d), b = blocDxf(x.texte, 'VEDE_PUITS'), ci = (b || []).filter(q => q.type === 'CIRCLE');
+  const ins = x.ents.find(q => q.type === 'INSERT' && q.c['2'] === 'VEDE_PUITS'), tu = x.ents.filter(q => q.type === 'POLYLINE'), tx = x.ents.find(q => q.type === 'TEXT' && q.c['1'] === 'Puits');
+  R.ok(!!b && b.length === 2 && ci.length === 2 && ci.map(q => +q.c['40']).join() === cer.map(q => q.r).join() && !!ins && ins.cal === 'VEDE-SYMBOLES' && +ins.c['62'] === 3
+    && tu.length === 1 && tu[0].cal === 'VEDE-EP' && !!tx && +tx.c['62'] === 3,
+    'q2 DXF : bloc VEDE_PUITS de deux cercles, INSERT sur VEDE-SYMBOLES en couleur 3, tuyau sur VEDE-EP, étiquette « Puits » en couleur 3 ('
+    + (b ? b.map(q => q.type + ('40' in q.c ? ' ' + q.c['40'] : '')).join(', ') : 'bloc absent ; blocs ' + x.blocs.join(', ')) + ' ; ' + (ins ? ins.cal + ' ' + ins.c['62'] : 'INSERT absent')
+    + ' ; ' + tu.map(q => q.cal).join(', ') + ' ; ' + (tx ? tx.cal + ' ' + tx.c['62'] : 'étiquette absente') + ')');
+  const ec = sur(() => dessiner(d, 20, [0, 3]));
+  const tuy = typeof ec === 'string' ? ec : [...new Set(ec.traits.filter(q => Math.abs(q.a.x) < 1e-6 && Math.abs(q.b.x) < 1e-6 && Math.abs(q.a.y - q.b.y) > 1).map(q => q.coul))].join(' ');
+  const et = typeof ec === 'string' ? ec : (ec.textes.find(q => q.t === 'Puits') || {}).coul;
+  R.ok(tuy === VERT && et === '#00813b', 'q2 écran : tuyau et étiquette verts (tuyau ' + tuy + ', étiquette ' + et + ')');
+  /* plan PDF : légende, colonne « Rejet constaté » de la page 2 (WC et descente, chacun son anomalie), jamais le code */
+  const p = await pdf(wcEtDescente('puits'), {mode: 'edl'}), n = p.txt.filter(s => s === 'Puits').length;
+  const rej = p.txt.filter(s => /^puits\b/.test(s)), code = p.txt.filter(s => /\bPUITS\b/.test(s));
+  R.ok(!p.err.length && n === 1 && rej.length === 2 && rej.every(s => /^puits · anomalie n° \d+$/.test(s)) && !code.length,
+    'q2 plan PDF : « Puits » une fois à la légende ; « puits » au « Rejet constaté » de la page 2, pour le WC et la descente, jamais le code ('
+    + (p.err.join(' | ') || n + ' fois ; ' + rej.concat(code).map(s => JSON.stringify(s)).join(', ')) + ')');
+}
+/* q3 : avant-projet qui garde le puits (aucun travaux) : la préconisation au tableau, « Reste après travaux » au contrôle du projet ; témoin :
+   le tronçon vers le puits « à supprimer » et un tronçon « projet » vers une boîte EP « projet » : plus rien ne reste. Au dossier
+   (reconcilier) : ep-puits créée, en catégorie « autre », sur la ligne « Gouttière(s) avant », non conforme */
+async function puitsProjet(){
+  const ctl = t => t.filter(s => /^(Reste après travaux|Après travaux)/.test(s));
+  const a = await pdf(versPuits('descente'), {mode: 'avp'}), pr = a.txt.filter(s => /^Suppression du rejet dans le puits/.test(s));
+  R.ok(!a.err.length && ctl(a.txt).indexOf('Reste après travaux : Descente EP : rejet dans un puits') >= 0 && pr.length === 1,
+    'q3 avant-projet qui garde le puits : préconisation au tableau, « Reste après travaux : Descente EP : rejet dans un puits » ('
+    + (a.err.join(' | ') || pr.concat(ctl(a.txt)).join(' ; ') || 'rien') + ')');
+  const dT = doc({o: [['S', 'descente', 0, 10], ['W', 'puits', 0, 4], ['B', 'boite', 6, 4, {res: 'EP', st: 'projet'}]],
+    l: [['t1', 'tr', '', 'supprimer', ['S', 'W']], ['t2', 'tr', '', 'projet', ['S', 'B']]]});
+  const t = await pdf(dT, {mode: 'avp'});
+  R.ok(!t.err.length && ctl(t.txt).join(' ; ') === 'Après travaux, le dessin ne fait plus apparaître d\'anomalie de raccordement.',
+    'q3 témoin, rejet du puits supprimé par le projet : plus rien ne reste (' + (t.err.join(' | ') || ctl(t.txt).join(' ; ') || 'rien') + ')');
+  const ops = sur(() => V.reconcilier(versPuits('descente'), null, [])), cr = typeof ops === 'string' ? [] : ops.creer;
+  const c = cr.find(q => q.croquis && q.croquis.cle === 'ep-puits:S');
+  R.ok(!!c && c.categorie === 'autre' && c.installation === 'gout_av' && c.nc === true && c.reseau === 'EP' && c.observation === 'Descente EP : rejet dans un puits'
+    && c.preconisation === PRE_EP && c.croquis.codes.join() === 'gestEP' && c.croquis.auto.installation === 'gout_av',
+    'q3 dossier : ep-puits créée, catégorie « autre », ligne « Gouttière(s) avant », non conforme, case gestEP ('
+    + (typeof ops === 'string' ? ops : cr.map(q => (q.croquis && q.croquis.cle) + ' ' + q.categorie + ' ' + JSON.stringify(q.installation) + (q.nc ? ' NC' : ' réserve')).join(', ') || 'rien de créé') + ')');
+}
+
 /* r6 (garde) : type absent, comme dans une version qui ne le connaît pas ; remis après */
 async function sansType(){
   const T0 = V.TYPES.infiltration;
@@ -405,6 +502,9 @@ async function sansType(){
     await planPdf();
     constat();
     await arbitrage();
+    await puitsConstat();
+    await puitsRendu();
+    await puitsProjet();
     await sansType();
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }
   R.fin();

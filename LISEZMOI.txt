@@ -54,7 +54,12 @@ CROQUIS DE TERRAIN (facultatif)
   tablette et sert à tous les dossiers de l'étude.
 - On pose les équipements (WC, évier, descentes…), les regards, la boîte
   de branchement et les collecteurs, puis on les relie par des tronçons.
-  L'application en déduit où chaque eau se rejette. Dans la fiche d'une
+  L'application en déduit où chaque eau se rejette. Un rejet dans un
+  puits se dessine avec l'objet « Puits » (palette Équipements) : il est
+  non conforme, pour les eaux usées comme pour les eaux pluviales, et sa
+  fiche n'a rien à régler ; l'anomalie se retient, se met à arbitrer ou
+  s'écarte dans Contrôles, comme toute autre. Un puits perdu, qui
+  infiltre les eaux, se dessine en « Puisard ». Dans la fiche d'une
   descente, d'une grille, d'un siphon de sol ou d'une autre source d'eaux
   pluviales qu'aucun tronçon ne relie, le bouton « Rejet au sol » pose
   d'un toucher une infiltration au sol à 1 m, et le tronçon qui l'y relie.
@@ -257,19 +262,21 @@ MISE À JOUR DE L'APPLICATION
   télécharge la nouvelle version et l'annonce), puis fermez-la
   complètement et rouvrez-la. Vos données ne sont pas touchées.
 - Mettez à jour toutes les tablettes avant de poser une infiltration au
-  sol, et avant d'échanger une sauvegarde ou un dossier qui en contient
-  (la version se lit au pied du plan PDF). Une tablette restée en
-  v1.7.0, ou plus ancienne, ne connaît pas cet objet : un « Tronçon
-  EP », « Tronçon EU » ou « Tronçon unitaire » qui y mène y est présumé
-  raccordé à ce réseau. Un WC vers une infiltration, non conforme sur
-  une tablette à jour, y reste non conforme tant que le croquis n'y est
-  pas ouvert ; son ouverture retire du dossier les anomalies « rejet au
-  sol » que personne n'a modifiées, et le plan comme le constat y
-  paraissent alors conformes (« À compléter » par un simple
-  « Tronçon » ; par un « Tronçon EP », le WC y reste non conforme, mais
-  comme raccordé aux EP) ; elles reviennent sur une tablette à jour.
-  N'y signez aucun constat de ces dossiers : un constat signé ne change
-  plus.
+  sol ou un puits, et avant d'échanger une sauvegarde ou un dossier qui
+  en contient (la version se lit au pied du plan PDF). Une tablette
+  restée en v1.7.0, ou plus ancienne, ne connaît pas ces objets : un
+  « Tronçon EP », « Tronçon EU » ou « Tronçon unitaire » qui y mène y est
+  présumé raccordé à ce réseau. Une descente ou un WC vers un puits, un
+  WC vers une infiltration, non conformes sur une tablette à jour, y
+  restent non conformes tant que le croquis n'y est pas ouvert ; son
+  ouverture retire du dossier les anomalies « rejet au sol » ou « rejet
+  dans un puits » que personne n'a modifiées, et le plan comme le
+  constat y paraissent alors conformes (« À compléter » par un simple
+  « Tronçon » ; par un « Tronçon EP », un WC y reste non conforme, mais
+  comme raccordé aux EP ; par un « Tronçon EU », une descente y reste
+  non conforme, mais comme raccordée aux EU) ; elles reviennent sur une
+  tablette à jour. N'y signez aucun constat de ces dossiers : un constat
+  signé ne change plus.
 - Une tablette restée en v1.7.0, ou plus ancienne, compte encore une
   anomalie à arbitrer comme conforme : elle y laisse « Conformes ». N'y
   signez pas le constat d'un dossier dont une anomalie reste à arbitrer.

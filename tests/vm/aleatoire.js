@@ -6,16 +6,23 @@
 // --contre=<dossier> (m116 ; décision D11 de .claude/conception-rejets.md) : chaque croquis est aussi analysé, dans ses modes, par la version de ce dossier
 // (par exemple une copie du commit d'avant, faite par git archive) ; résultat par source, anomalies, conclusion, contrôles et constat déduit
 // doivent être les mêmes (correctif sans changement visible).
-// Les exutoires dessinés comptent l'infiltration au sol (option exutoires du générateur, m118).
-// usage : node tests/vm/aleatoire.js [n=1500] [graine=1] [-v] [--app=<dossier>] [--contre=<dossier>]
+// Les exutoires dessinés comptent l'infiltration au sol (option exutoires du générateur, m118) et le puits (m120). Une version qui ne connaît
+// pas un type y voit un bout libre : avec --contre, les croquis qui en ont un y donnent des écarts attendus.
+// --sans=<type>,… (m120) retire ces types des exutoires tirés ; les autres tirages ne changent pas. Contre une version qui ne connaît pas
+// le puits, --sans=puits redonne les croquis du tirage d'avant m120 (aucun écart attendu) ; --sans=infiltration,puits, ceux d'avant m118.
+// usage : node tests/vm/aleatoire.js [n=1500] [graine=1] [-v] [--app=<dossier>] [--contre=<dossier>] [--sans=<type>,…]
 'use strict';
 const {charger, doc, melange, copie, rapport} = require('./charger.js');
 const G = require('./generateur.js');
 const {V} = charger(), R = rapport('aleatoire');
 const optContre = process.argv.find(x => /^--contre=/.test(x)), Vc = optContre ? charger({dir: optContre.slice(9)}).V : null;
 const args = process.argv.slice(2).filter(x => !/^-/.test(x)), N = +(args[0] || 1500), S0 = +(args[1] || 1);
-/* exutoires dessinés : ceux du générateur et l'infiltration au sol (m118) */
-const EXUS = G.EXUTOIRES.concat(['infiltration']);
+/* exutoires dessinés : ceux du générateur, l'infiltration au sol (m118) et le puits (m120), sauf ceux de --sans (m120) ; un type de --sans
+   absent de la liste arrête le test (faute de frappe : le tirage ne serait pas celui qu'on croit) */
+const TOUS = G.EXUTOIRES.concat(['infiltration', 'puits']), optSans = process.argv.find(x => /^--sans=/.test(x));
+const SANS = optSans ? optSans.slice(7).split(',').filter(Boolean) : [], EXUS = TOUS.filter(t => SANS.indexOf(t) < 0);
+SANS.forEach(t => { if (TOUS.indexOf(t) < 0) throw new Error('--sans : « ' + t + ' » n\'est pas un exutoire tiré (' + TOUS.join(', ') + ')'); });
+if (!EXUS.length) throw new Error('--sans : aucun exutoire ne resterait à tirer');
 
 function signature(d, mode, parSommets){
   const an = V.analyser(copie(d), mode), L = V.anomaliesDoc(copie(d), an), c = V.conclusion(L, an);
@@ -113,7 +120,7 @@ for (let it = 0; it < N; it++){
 }
 console.log(JSON.stringify(st));
 Object.keys(ex).forEach(k => ex[k].forEach(t => console.log('[' + k + '] ' + t)));
-R.ok(st.exceptions === 0, 'aucune exception (' + st.analyses + ' analyses de ' + st.croquis + ' croquis)');
+R.ok(st.exceptions === 0, 'aucune exception (' + st.analyses + ' analyses de ' + st.croquis + ' croquis ; exutoires tirés : ' + EXUS.join(', ') + ')');
 R.ok(st.ordreTraces === 0, 'même résultat dans cinq ordres des tracés (' + st.avecFosse + ' croquis avec fosse)');
 R.ok(st.ordreObjets === 0, 'même résultat dans un autre ordre des objets');
 R.ok(st.raccordChange === 0, 'un raccord au milieu d\'un tuyau, d\'où part un tuyau absent de ce plan, ne change rien (' + st.raccordsAuMilieu + ' plans'

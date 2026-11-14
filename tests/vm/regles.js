@@ -8,6 +8,9 @@
 // Arbitrage (m119, consigne du 13 nov. 2026 : une anomalie à arbitrer n'est jamais comptée conforme) : WC vers le collecteur EU sans boîte,
 // anomalie « à arbitrer » d'office : conclusion « boite » (« À compléter : absence de boîte de branchement à arbitrer »), et non plus
 // « conformes ». Ce cas échoue sur e728d76.
+// Puits (m120, décision du 13 nov. 2026 : un rejet EP dans un puits est une non-conformité) : descente non conforme (ep-puits), WC non
+// conforme (eu-puits), et l'un et l'autre par un regard au tampon béton (le regard suit l'exutoire : réserve en EP). Ces quatre cas
+// échouent sur 7df0996 (type inconnu : bout libre).
 // usage : node tests/vm/regles.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rapport} = require('./charger.js');
@@ -33,6 +36,16 @@ const cas = [
   {n: 'WC vers une infiltration au sol par un regard au tampon béton', d: doc({o: [['s', 'wc', 0, 8], ['R', 'regard', 0, 4, {tampon: 'beton'}], ['I', 'infiltration', 0, 0]],
     l: [['L1', 'tr', '', '', ['s', 'R']], ['L2', 'tr', '', '', ['R', 'I']]]}), et: 's=ok:SOL',
     a: [['tampon:R', false, 'Regard EP : tampon béton'], ['eu-sol:s', true, 'WC : rejet au sol (infiltration)']], c: 'non_conformes'},
+  {n: 'descente vers un puits (non conforme)', d: doc({o: [['s', 'descente', 0, 8], ['W', 'puits', 0, 0]], l: [['L', 'tr', '', '', ['s', 'W']]]}),
+    et: 's=ok:PUITS', a: [['ep-puits:s', true, 'Descente EP : rejet dans un puits']], c: 'non_conformes'},
+  {n: 'WC vers un puits', d: doc({o: [['s', 'wc', 0, 8], ['W', 'puits', 0, 0]], l: [['L', 'tr', '', '', ['s', 'W']]]}),
+    et: 's=ok:PUITS', a: [['eu-puits:s', true, 'WC : rejet dans un puits']], c: 'non_conformes'},
+  {n: 'descente vers un puits par un regard au tampon béton (réserve et NC)', d: doc({o: [['s', 'descente', 0, 8], ['R', 'regard', 0, 4, {tampon: 'beton'}], ['W', 'puits', 0, 0]],
+    l: [['L1', 'tr', '', '', ['s', 'R']], ['L2', 'tr', '', '', ['R', 'W']]]}), et: 's=ok:PUITS',
+    a: [['tampon:R', false, 'Regard EP : tampon béton'], ['ep-puits:s', true, 'Descente EP : rejet dans un puits']], c: 'non_conformes'},
+  {n: 'WC vers un puits par un regard au tampon béton', d: doc({o: [['s', 'wc', 0, 8], ['R', 'regard', 0, 4, {tampon: 'beton'}], ['W', 'puits', 0, 0]],
+    l: [['L1', 'tr', '', '', ['s', 'R']], ['L2', 'tr', '', '', ['R', 'W']]]}), et: 's=ok:PUITS',
+    a: [['tampon:R', false, 'Regard EP : tampon béton'], ['eu-puits:s', true, 'WC : rejet dans un puits']], c: 'non_conformes'},
   {n: 'descente non visitable, côté avant', d: vers('descente', 'EP', {visitable: 'non', cote: 'avant'}), et: 's=ok:EP', a: [['dep-nv:s', true, 'Descente EP avant : non visitable']], c: 'non_conformes'},
   {n: 'descente non visitable, côté arrière', d: vers('descente', 'EP', {visitable: 'non', cote: 'arriere'}), et: 's=ok:EP', a: [['dep-nv:s', true, 'Descente EP arrière : non visitable']], c: 'non_conformes'},
   {n: 'descente visitable', d: vers('descente', 'EP'), et: 's=ok:EP', a: [], c: 'conformes'},

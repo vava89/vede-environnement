@@ -44,6 +44,10 @@
 //     prêt (56) ; WC vers une fosse septique peut-être traversée : sa ligne n'est ni « oui » ni « non », même ressaisie, et « Oui » choisi
 //     donne le rappel (57) ; la fosse écartée : « oui » d'office (58, témoin). 49, 50, 51 et 54 à 57 échouent sur e728d76 ; 56 et 57
 //     échouent aussi sur la première version de m119.
+// 59 et 60 (m120, décision du 13 nov. 2026 : un rejet EP dans un puits est une non-conformité) : descente avant reliée à un puits :
+//     l'anomalie créée au dossier va sur la ligne « Gouttière(s) avant », « non », case gestEP cochée, préconisation « Suppression du rejet
+//     dans le puits ; … » (59) ; réserve choisie au dossier : la ligne devient « oui », « Conformes avec réserves », sans rappel « non
+//     conforme sur le croquis » (60). Échouent sur 7df0996 (type « puits » absent : aucune anomalie, ligne sans raccordement).
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -118,8 +122,13 @@ async function constatVu(nom, objs, traces, prep, apres){
       await p.evaluate(() => { const v = window.__VT.S.visites[0]; location.hash = '#/e/' + v.etudeId + '/v/' + v.id + '/constat'; });
       await p.waitForSelector('.croq-fill'); await p.waitForFunction(() => window.__VT.VC_RESUMES.has(window.__VT.S.visites[0].id)); await C.pause(p, 900);
       return p.evaluate(() => { const T = window.__VT, v = T.S.visites[0], a = T.S.anoms.find(x => x.visiteId === v.id), b = document.querySelector('.croq-fill p');
+        /* constat évalué (m120) : conformité des lignes actives, conclusion proposée, préconisations cochées ; nc : nature de l'anomalie
+           selon l'application (anomNC : a.nc n'est écrit que s'il diffère de sa règle) */
+        const E = T.constatEval(v, T.S.anoms.filter(x => x.visiteId === v.id));
         return {rows: (v.constat.rows || []).filter(x => String(x.nb || '').trim()).map(x => x.id + ' ×' + x.nb + ' ' + (x.raccord || '-')).join(', '),
-          ecarts: [...document.querySelectorAll('#croq-ecarts li')].map(x => x.textContent), bloc: b ? b.textContent : '', inst: a ? a.installation : null}; });
+          ecarts: [...document.querySelectorAll('#croq-ecarts li')].map(x => x.textContent), bloc: b ? b.textContent : '', inst: a ? a.installation : null,
+          conf: E.rows.filter(x => String(x.r.nb || '').trim()).map(x => x.r.id + ' ' + JSON.stringify(x.conf)).join(', '), auto: E.auto,
+          precos: Object.keys(E.precos).filter(k => E.precos[k]).join(','), preco: a ? a.preconisation : null, nc: a ? T.anomNC(a) : null}; });
     };
     let e = await etat();
     if (apres){ await p.evaluate(() => { location.hash = '#/e/' + window.__VT.S.visites[0].etudeId + '/v/' + window.__VT.S.visites[0].id; }); await p.waitForSelector('[data-act="vc-ouvrir"]');
@@ -156,6 +165,21 @@ async function fosseSurLigne(){
     + e.rows + ' ; ' + (conf(e)[0] || 'aucun écart de conformité'));
   e = await constatVu('8', [['e1', 'evier', -4, 0], ['e2', 'evier', 4, 0], B], [['L1', 'e1', 'B'], ['L2', 'e2', 'B']], '');
   R.ok(e.rows === 'evier ×2 EU_D' && !conf(e).length && !e.ecarts.length, '8 témoin, deux éviers reliés directement : ' + e.rows + (e.ecarts.length ? ' ; écarts : ' + e.ecarts.join(' | ') : ', aucun écart'));
+}
+/* Puits (m120, décision du 13 nov. 2026 : un rejet EP dans un puits est une non-conformité) : descente avant reliée à un puits. L'anomalie
+   ep-puits est créée au dossier sur la ligne « Gouttière(s) avant » : ligne « non », case gestEP, sa préconisation (59). Réserve choisie au
+   dossier : la ligne devient « oui », conclusion « reserves », sans rappel « non conforme sur le croquis » (60) */
+async function puits(){
+  const O = [['d', 'descente', 0, 0, {cote: 'avant', visitable: 'oui'}], ['W', 'puits', 0, -5]], L = [['Lw', 'd', 'W']];
+  const PRE = 'Suppression du rejet dans le puits ; raccordement au branchement EP ou gestion à la parcelle';
+  const ncC = x => x.ecarts.filter(t => /non conforme sur le croquis de terrain/.test(t)), vu = x => JSON.stringify({rows: x.rows, conf: x.conf, auto: x.auto, inst: x.inst,
+    nc: x.nc, precos: x.precos, preco: x.preco, ecarts: x.ecarts});
+  let e = await constatVu('59', O, L, '');
+  R.ok(e.rows === 'gout_av ×1 MILIEU' && e.conf === 'gout_av "non"' && e.auto === 'non_conformes' && e.inst === 'gout_av' && e.nc === true && /(^|,)gestEP(,|$)/.test(e.precos)
+    && e.preco === PRE && !ncC(e).length, '59 descente reliée à un puits : anomalie au dossier sur la ligne « Gouttière(s) avant », « non », case gestEP, préconisation (' + vu(e) + ')');
+  e = await constatVu('60', O, L, 'if (a) a.nc = false;');
+  R.ok(e.rows === 'gout_av ×1 MILIEU' && e.conf === 'gout_av "oui"' && e.auto === 'reserves' && e.nc === false && !ncC(e).length,
+    '60 réserve choisie au dossier : ligne « oui », « Conformes avec réserves », aucun rappel « non conforme sur le croquis » (' + vu(e) + ')');
 }
 /* ligne « Autres » saisie à la main pour un appareil que le croquis compte déjà (un lavabo dessiné, sur la ligne « Évier ») : le constat le
    compterait deux fois, un écart le rappelle. Le libellé au pluriel ou précisé (« Lavabos », « Lavabo de la salle d'eau ») passait inaperçu
@@ -530,6 +554,7 @@ async function reglagesAccroches(){
     await lavabo();
     await depuis162();
     await fosseSurLigne();
+    await puits();
     await autresDouble();
   } catch (e){ R.ok(false, 'exception du test : ' + (e && e.stack || e)); }
   R.fin();

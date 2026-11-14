@@ -28,6 +28,13 @@
 // l'absence d'erreur dans la console. Sans l'écart des essais à 0,25 m ou moins d'un côté, le coin rentrant de b4 échoue (1,7 cm du
 // mur) ; sans le sens tiré du trait de complément (normale extérieure du trait fermé, sinon à l'opposé de son centre), le trait fermé
 // tracé dans le sens trigonométrique et le U tracé à l'envers de b5 échouent (l'infiltration tombe dans l'extension).
+// Puits (m120, décisions D3 et D6) :
+// p1 : « Puits » est dans la palette Équipements, juste après « Rejet en milieu naturel » ; l'outil choisi, l'aide dit « Touchez le plan pour
+//     poser : Puits. Un puits perdu (qui infiltre les eaux) se dessine en Puisard. » ; la fiche d'un puits posé le rappelle et n'a aucun
+//     jugement à régler. Échoue sur 7df0996 (type « puits » absent), sauf l'absence d'erreur dans la console.
+// p2 (décision D7) : panneau Constat de l'éditeur, descente avant et WC reliés au puits : la case « Conf. » de la descente reste vide, celle
+//     du WC dit « Non », et une phrase dit que la ligne EP suit son anomalie ; anomalie de la descente écartée : « Oui », sans la phrase ;
+//     mise à arbitrer : case vide, avec la phrase. Le premier et le troisième cas échouent sans la phrase (première version de m120).
 // usage : node tests/navigateur/rejets.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -336,8 +343,59 @@ async function rejetPresDunComplement(){
   } finally { await A.fermer(); }
 }
 
+/* --- puits (m120) --- */
+/* p1 : « Puits » dans la palette Équipements, juste après « Rejet en milieu naturel » ; l'aide de l'outil et la fiche d'un puits posé disent
+   qu'un puits perdu se dessine en Puisard ; la fiche n'a aucun jugement à régler */
+async function puits(){
+  const A = await croquisTourne(), p = A.p, RAP = 'Un puits perdu (qui infiltre les eaux) se dessine en Puisard.';
+  try {
+    await p.click('.vc .vc-o[data-pal="equ"]'); await C.pause(p, 200);
+    const items = await p.evaluate(() => Array.from(document.querySelectorAll('.vc .vc-pitem')).map(b => b.dataset.item + '=' + b.textContent.trim()));
+    const i = items.map(s => s.split('=')[0]).indexOf('pt:milieu'), b = await p.$('.vc .vc-pitem[data-item="pt:puits"]');
+    R.ok(i >= 0 && items[i + 1] === 'pt:puits=Puits' && !!b, 'p1 palette Équipements : « Puits » juste après « Rejet en milieu naturel » (' + items.join(', ') + ')');
+    if (b){ await b.click(); await C.pause(p, 200); }
+    const outil = await p.evaluate(() => { const o = window.__vcEd.etat.outil; return o.k + ':' + o.t; }), aide = await texteAide(p);
+    R.ok(outil === 'pt:puits' && aide.indexOf('Touchez le plan pour poser : Puits. ' + RAP) === 0,
+      'p1 outil ' + outil + ' : l\'aide rappelle qu\'un puits perdu se dessine en Puisard (' + JSON.stringify(aide) + ')');
+    /* un puits posé à 3 m devant la façade sud du bâti : sa fiche */
+    await p.evaluate(() => { for (let k = 0; k < 5 && window.__vcEd.fermerNiveau(); k++); });
+    await C.outil(p, {k: 'main'});
+    const q = A.plan(70, -3);
+    await C.injecter(p, {el: [C.P('W', 'puits', q.x, q.y)]}); await vue(A);
+    await fiche(p, 'W');
+    const tp = await textePanneau(p);
+    const champs = await p.evaluate(() => Array.from(document.querySelectorAll('.vc .vc-panneau:not([hidden]) .vc-pcorps .vc-lab')).map(x => x.textContent.trim()));
+    R.ok(tp.indexOf(RAP) >= 0 && !champs.some(t => /conform|jugement|rejet/i.test(t)),
+      'p1 fiche du puits : le rappel du puits perdu, aucun jugement à régler (' + JSON.stringify(tp.slice(0, 160)) + ' ; champs : ' + champs.join(', ') + ')');
+    /* p2 : panneau Constat de l'éditeur, descente avant et WC reliés au puits ; la case « Conf. » de la descente reste vide (le constat la juge
+       par son anomalie, décision D7) et une phrase le dit ; anomalie écartée : « Oui », sans la phrase ; mise à arbitrer : vide, la phrase */
+    const NOTE = 'Rejet dans un puits : au constat, la ligne EP suit son anomalie. « Non » si elle reste non conforme, « oui » si le dossier en fait une réserve.';
+    const qd = A.plan(66, -3), qw = A.plan(74, -3), els = [C.P('W', 'puits', q.x, q.y), C.P('d', 'descente', qd.x, qd.y, {cote: 'avant', visitable: 'oui'}), C.P('w', 'wc', qw.x, qw.y)];
+    els.push(C.L('Ld', 'tr', ['d', 'W'], C.index(els)), C.L('Lw', 'tr', ['w', 'W'], C.index(els)));
+    await C.injecter(p, {el: els}); await vue(A);
+    const constat = st => p.evaluate(st => {
+      const ed = window.__vcEd, S = ed.etat;
+      if (st) { S.doc.decisions['ep-puits:d'] = {st}; ed.synchroniser(); }
+      ed.ouvrirPanneau('constat');
+      const lignes = [...document.querySelectorAll('.vc-panneau .vc-pcorps table.vc-tab tbody tr')].map(tr => [...tr.cells].map(c => c.textContent.trim()))
+        .filter(c => c[1]).map(c => c.slice(0, 4).join(' | '));
+      return {lignes, notes: [...document.querySelectorAll('.vc-panneau .vc-pcorps p.vc-muet')].map(x => x.textContent.trim())};
+    }, st);
+    const lgD = 'EP Gouttière(s) avant | 1 | Puits : rejet en milieu naturel | ', lgW = 'EU WC | 1 | Puits : rejet en milieu naturel | Non';
+    let c = await constat('');
+    R.ok(c.lignes.indexOf(lgD) >= 0 && c.lignes.indexOf(lgW) >= 0 && c.notes.indexOf(NOTE) >= 0,
+      'p2 panneau Constat, rejet retenu : descente sans conformité, WC « Non », la phrase dit pourquoi (' + JSON.stringify(c) + ')');
+    c = await constat('ecartee');
+    R.ok(c.lignes.indexOf(lgD + 'Oui') >= 0 && c.lignes.indexOf(lgW) >= 0 && !c.notes.some(t => /puits/.test(t)),
+      'p2 anomalie de la descente écartée : « Oui », sans la phrase (' + JSON.stringify(c) + ')');
+    c = await constat('arbitrer');
+    R.ok(c.lignes.indexOf(lgD) >= 0 && c.notes.indexOf(NOTE) >= 0, 'p2 anomalie de la descente à arbitrer : sans conformité, la phrase (' + JSON.stringify(c) + ')');
+    R.ok(!A.erreurs.length, 'p1 et p2 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [apercu, boutonRejetSol, rejetPresDunRegard, rejetSansFacade, rejetPresDesMurs, rejetPresDunComplement]){
+  for (const f of [apercu, boutonRejetSol, rejetPresDunRegard, rejetSansFacade, rejetPresDesMurs, rejetPresDunComplement, puits]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();

@@ -770,6 +770,8 @@ var EXU_LIB = {EU: 'réseau EU', EP: 'réseau EP', UN: 'réseau unitaire'};
    - lib : le libellé du rejet (fiche, contrôles, plan PDF) ;
    - res : le réseau de la couleur et du calque (EP) ;
    - eu : la règle d'une source EU qui y aboutit (clé, texte après « <source> : », préconisation, nature, codes, catégorie) ;
+   - ep : la règle fixe d'une source EP qui y aboutit, de la même forme (puits : non conforme, ni la fiche ni les Réglages ne la changent ;
+     décision du 13 nov. 2026) ; sans elle, les EP y sont conformes ;
    - cEU, cEP : la place au constat d'une ligne EU ou EP : code du formulaire, libellé (à défaut, celui de RACC_LIB pour ce code) et, en EP,
      la case des ouvrages de récupération des EP (recup).
    Toute lecture de la table passe par le code (exuDe) : un rejet peut être une clé « CODE:… » (destination ajoutée), jamais lue telle quelle. */
@@ -785,7 +787,13 @@ var EXU = {
     cEU: {code: 'GARG'}, cEP: {code: 'GARG'}},
   MILIEU: {lib: 'milieu naturel', res: 'EP',
     eu: {cle: 'eu-milieu', obs: 'rejet en milieu naturel', preco: 'Suppression du rejet en milieu naturel et raccordement au branchement EU', nc: true, codes: ['suppMilieu'], cat: 'inversion'},
-    cEU: {code: 'MILIEU'}, cEP: {code: 'MILIEU'}}
+    cEU: {code: 'MILIEU'}, cEP: {code: 'MILIEU'}},
+  /* puits (m120) : EU et EP non conformes (décision D6) ; au constat, le milieu naturel (D7) : la conformité d'une ligne EP suit l'anomalie
+     (raccInfo). Un puits perdu, qui infiltre les eaux, se dessine en puisard */
+  PUITS: {lib: 'puits', res: 'EP',
+    eu: {cle: 'eu-puits', obs: 'rejet dans un puits', preco: 'Suppression du rejet dans le puits et raccordement au branchement EU', nc: true, codes: ['raccEUsep'], cat: 'inversion'},
+    ep: {cle: 'ep-puits', obs: 'rejet dans un puits', preco: 'Suppression du rejet dans le puits ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['gestEP'], cat: 'autre'},
+    cEU: {code: 'MILIEU', lib: 'Puits : rejet en milieu naturel'}, cEP: {code: 'MILIEU', lib: 'Puits : rejet en milieu naturel'}}
 };
 /* code d'un rejet : la partie avant le premier « : », sinon le rejet entier */
 function codeExu(res){ var s = res == null ? '' : String(res), i = s.indexOf(':'); return i >= 0 ? s.slice(0, i) : s; }
@@ -839,6 +847,8 @@ def('puisard', {fam: 'exu', lib: 'Puisard', role: 'exutoire', forme: 'puisard', 
 def('infiltration', {fam: 'exu', lib: 'Infiltration au sol', g: 'f', role: 'exutoire', forme: 'infiltration', exu: 'SOL', droit: true});
 def('gargouille', {fam: 'exu', lib: 'Gargouille', g: 'f', role: 'exutoire', forme: 'gargouille', exu: 'GARG', oriente: true, mur: true});
 def('milieu', {fam: 'exu', lib: 'Rejet en milieu naturel', ab: 'MN', role: 'exutoire', forme: 'app', exu: 'MILIEU'});
+/* puits (m120) : rejet non conforme, en EU comme en EP ; rappel : la phrase de l'aide de l'outil et de la fiche (décision D3) */
+def('puits', {fam: 'exu', lib: 'Puits', role: 'exutoire', forme: 'puits', exu: 'PUITS', rappel: 'Un puits perdu (qui infiltre les eaux) se dessine en Puisard.'});
 def('regard_pub', {fam: 'pub', lib: 'Regard public', role: 'passage', forme: 'regpub', regard: true});
 def('test', {fam: 'ann', lib: 'Point de test', role: 'note', forme: 'test'});
 def('zone', {fam: 'ann', lib: 'Zone suspecte', g: 'f', role: 'note', forme: 'zone'});
@@ -846,7 +856,7 @@ var FAMILLES = [
   {id: 'eu', lib: 'Appareils EU', court: 'EU', types: ['wc', 'lavabo', 'douche', 'baignoire', 'sdb', 'evier', 'cuisine', 'lavelinge', 'lavevaisselle', 'chaudiere', 'siphon_garage', 'attente']},
   {id: 'ep', lib: 'Ouvrages EP', court: 'EP', types: ['descente', 'grille', 'caniveau', 'siphon_sol', 'siphon_cour', 'drain', 'tropplein']},
   {id: 'reg', lib: 'Regards', court: 'Regards', types: ['regard', 'boite', 'te']},
-  {id: 'equ', lib: 'Équipements et exutoires', court: 'Équip.', types: ['pr', 'clapet', 'fosse', 'jonction', 'puisard', 'infiltration', 'gargouille', 'milieu']},
+  {id: 'equ', lib: 'Équipements et exutoires', court: 'Équip.', types: ['pr', 'clapet', 'fosse', 'jonction', 'puisard', 'infiltration', 'gargouille', 'milieu', 'puits']},
   {id: 'pub', lib: 'Réseau public', court: 'Public', types: ['regard_pub']},
   {id: 'ann', lib: 'Annotations', court: 'Notes', types: ['test', 'zone']}
 ];
@@ -1357,6 +1367,10 @@ function reglesAnomalies(doc, an){
           ajoute({cle: re.cle + ':' + id, objId: id, reseau: 'EU', obs: lib + ' : ' + re.obs, preco: re.preco, nc: re.nc, codes: re.codes.slice(), cat: re.cat}); }
       } else if (ty.nat === 'EP' && r.res === 'EU'){
         ajoute({cle: 'ep-eu:' + id, objId: id, reseau: 'EP', obs: lib + ' : rejet au réseau EU' + (r.presume ? ' (présumé)' : ''), preco: 'Déconnexion des EP du réseau EU ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['decoEP', 'raccEPep'], cat: 'inversion'});
+      } else if (ty.nat === 'EP' && exuDe(r.res) && exuDe(r.res).ep){
+        /* exutoire de la table à règle EP fixe (puits : non conforme, décision du 13 nov. 2026) : la règle EP de sa ligne, comme la règle EU */
+        var rp = exuDe(r.res).ep;
+        ajoute({cle: rp.cle + ':' + id, objId: id, reseau: 'EP', obs: lib + ' : ' + rp.obs, preco: rp.preco, nc: rp.nc, codes: rp.codes.slice(), cat: rp.cat});
       }
       if (ty.nat === 'EU' && r.fosse && an.objs[r.fosse]) ajoute({cle: 'fosse:' + r.fosse, objId: r.fosse, reseau: 'EU', obs: 'Fosse septique : eaux usées traversant la fosse', preco: 'Suppression de la fosse septique et raccordement direct au branchement EU', nc: true, codes: ['suppFosse'], cat: 'autre'});
       /* fosse évitée seulement vers une extrémité libre qui peut être une arrivée : à arbitrer (douteuse : pas de conformité proposée) */
@@ -1487,7 +1501,7 @@ VC.anomaliesDoc = anomaliesDoc; VC.conclusion = conclusion;
    {id, reseau, observation, preconisation, localisation, installation, nc, photos, brouillon, croquis?: {cle, objId, auto: {obs, preco, reseau, nc, installation}}}.
    Une anomalie du dessin retenue devient un enregistrement relié par sa clé ; le croquis garde les décisions et la place des bulles.
    Un enregistrement resté tel que le croquis l'a créé suit le dessin ; dès qu'il est modifié (texte, photo, localisation…), c'est lui qui fait foi. */
-var REGLES_LIGNE = /^(eu-ep|eu-inf|eu-sol|eu-garg|eu-milieu|ep-eu|ep-fosse|dep-nv):/;
+var REGLES_LIGNE = /^(eu-ep|eu-inf|eu-sol|eu-garg|eu-milieu|eu-puits|ep-eu|ep-fosse|ep-puits|dep-nv):/;
 /* non-conformité ou réserve : l'application remplace cette règle par la sienne (anomNC) */
 VC.ncAnomalie = function(r){
   if (r.nc === true || r.nc === false) return r.nc;
@@ -1762,19 +1776,22 @@ var RACC_LIB = {EU_D: 'Réseau EU départemental', EU_T: 'Réseau EU territorial
 var RECUP_LIB = [['puisard', 'puisard'], ['recup', 'récupérateur'], ['infil', 'infiltration diffuse'], ['autre', 'indéterminé/autres']];
 /* Raccordement d'un équipement pour le constat : code de l'application (vide si le formulaire n'en a pas), libellé, conformité d'après le réseau atteint.
    arbL : une anomalie de sa ligne reste à arbitrer (ligneArbitrer) : code, libellé et case gardés, mais pas de conformité (ok true devient null ;
-   ok false reste, m119) */
-function raccInfo(r, groupe, arb, arbL){
+   ok false reste, m119).
+   etEP : état de l'anomalie de la règle EP fixe de l'exutoire (puits, m120 ; etatAnomalie) : absente ou écartée, la ligne EP est conforme ;
+   sinon (retenue, à arbitrer), ok null : le dossier la juge par l'anomalie (« non » si elle est NC, « oui » si on en fait une réserve) */
+function raccInfo(r, groupe, arb, arbL, etEP){
   if (!r || r.etat !== 'ok') return {code: '', lib: '', ok: null};
   var conf = function(ok){ return ok && arbL ? null : ok; };
   if (r.fosse || arb === 'retenue') return {code: 'FOSSE', lib: RACC_LIB.FOSSE, ok: false};
   /* fosse à arbitrer (fosseArbitrage) : raccordement et conformité laissés à l'opérateur tant qu'il ne l'a ni retenue ni écartée */
   if (arb === 'arbitrer') return {code: '', lib: 'Fosse septique à arbitrer (extrémité laissée libre à orienter)', ok: null};
   var res = r.res, ep = groupe !== 'EU';
-  /* exutoire de la table : sa place au constat, conforme en EP, non conforme en EU ; recup : la case des ouvrages de récupération des EP
-     (puisard : aussi l'ancienne marque) */
+  /* exutoire de la table : sa place au constat, conforme en EP (sauf règle EP fixe : d'après son anomalie), non conforme en EU ; recup : la
+     case des ouvrages de récupération des EP (puisard : aussi l'ancienne marque) */
   var xe = exuDe(res);
   if (xe){
-    var pl = ep ? xe.cEP : xe.cEU, out = {code: pl.code, lib: pl.lib || RACC_LIB[pl.code] || '', ok: conf(ep)};
+    var okx = ep && xe.ep ? (!etEP || etEP === 'ecartee' ? true : null) : ep;
+    var pl = ep ? xe.cEP : xe.cEU, out = {code: pl.code, lib: pl.lib || RACC_LIB[pl.code] || '', ok: conf(okx)};
     if (pl.recup){ out.recup = pl.recup; if (pl.recup === 'puisard') out.puisard = true; }
     return out;
   }
@@ -1798,7 +1815,9 @@ function constatDeduit(doc, an){
     return autres[k];
   }
   Object.keys(an.resObj).forEach(function(id){
-    var o = an.objs[id], row = ligne(o), arbL = ligneArbitrer(doc, an, id), ri = raccInfo(an.resObj[id], row ? row.groupe : T[o.t].nat || 'EP', fosseArbitrage(doc, an, id), arbL);
+    /* exutoire à règle EP fixe (puits) : l'état de l'anomalie de cette règle pour cette source (décision D7, m120) */
+    var rs = an.resObj[id], xe = rs && rs.etat === 'ok' ? exuDe(rs.res) : null, etEP = xe && xe.ep ? etatAnomalie(doc, an, xe.ep.cle + ':' + id) : '';
+    var o = an.objs[id], row = ligne(o), arbL = ligneArbitrer(doc, an, id), ri = raccInfo(rs, row ? row.groupe : T[o.t].nat || 'EP', fosseArbitrage(doc, an, id), arbL, etEP);
     if (ri.recup) recup[ri.recup] = true;
     if (!row){ sansCote.push(id); return; }
     row.objets.push(id); row.codes.push(ri.code); row.oks.push(ri.ok);
@@ -1929,7 +1948,7 @@ VC.texteEtiquette = texteEtiquette; VC.resLigne = resLigne; VC.texteLimite = tex
 
 /* ---------- Symboles : primitives en millimètres papier, y en haut, centrées sur l'objet ---------- */
 var BLANC = [255, 255, 255];
-function rayonSymbole(t){ var f = (T[t] || {forme: 'app'}).forme; return {app: 1.9, app2: 2.3, descente: 1.25, grille: 1.6, caniveau: 2.7, siphon: 1.5, regard: 1.7, boite: 1.9, te: 1.4, clapet: 1.3, fosse: 2.6, point: .7, puisard: 2.1, infiltration: 2.1, gargouille: 1.9, regpub: 1.7, test: 2, zone: 1}[f] || 1.6; }
+function rayonSymbole(t){ var f = (T[t] || {forme: 'app'}).forme; return {app: 1.9, app2: 2.3, descente: 1.25, grille: 1.6, caniveau: 2.7, siphon: 1.5, regard: 1.7, boite: 1.9, te: 1.4, clapet: 1.3, fosse: 2.6, point: .7, puisard: 2.1, puits: 2.1, infiltration: 2.1, gargouille: 1.9, regpub: 1.7, test: 2, zone: 1}[f] || 1.6; }
 function couleurPt(e, an){
   var ty = T[e.t] || {};
   if (e.p && e.p.st === 'projet') return RES.PRJ.rgb;
@@ -1964,6 +1983,9 @@ function primitives(e, rgb, angPlan){
     case 'fosse': rect(5, 3, {trait: rgb, fond: BLANC, ep: .3}); texte('FS', 1.5, {coul: rgb, gras: true}); break;
     case 'point': cercle(.6, {fond: rgb}); break;
     case 'puisard': cercle(2.1, {trait: rgb, fond: BLANC, ep: ep}); cercle(1.1, {trait: rgb, ep: ep}); break;
+    /* puits (m120) : deux cercles comme le puisard, mais le cercle intérieur est grand (1,6 contre 1,1), un anneau étroit ;
+       un puits perdu se dessine en puisard (décision du 13 nov. 2026) */
+    case 'puits': cercle(2.1, {trait: rgb, fond: BLANC, ep: ep}); cercle(1.6, {trait: rgb, ep: ep}); break;
     /* infiltration au sol : un disque blanc sans trait (masque) cache le bout du tuyau, qui va jusqu'au centre ; puis une tige et trois barres */
     case 'infiltration':
       cercle(2.1, {fond: BLANC, masque: true}); poly([0, 2, 0, .4], false, {trait: rgb, ep: .3});
@@ -4794,7 +4816,7 @@ function editeur(racine, opts){
       h = '<span><strong>' + esc(oo.lib) + '</strong> : ' + (n ? n + ' point' + (n > 1 ? 's' : '') + '. ' + (gl ? 'Glissez ou touchez' : 'Touchez') + ' le point suivant' + (oo.t === 'tr' && aideOn('finir') ? ' ; le tronçon se termine sur un objet' : '') + (n >= 2 ? ' ; touchez à nouveau le dernier point pour terminer.' : '.') : (gl ? 'glissez depuis le point de départ, ou touchez-le' : 'touchez le point de départ') + ' (un objet, un tracé ou un point libre)' + (gl ? ' ; deux doigts pour déplacer le plan' : '') + '.') + '</span>'
         + (n ? '<button type="button" class="vc-b vc-bt" data-a="retirerPoint">' + ico('annuler', 18) + 'Point</button><button type="button" class="vc-b vc-bt" data-a="annulerTrace">' + ico('fermer', 18) + 'Abandonner</button>' + (n >= 2 ? '<button type="button" class="vc-b vc-bt vc-prim" data-a="terminerTrace">' + ico('valider', 18) + 'Terminer</button>' : '') : '');
     }
-    else if (o.k === 'pt') h = '<span>Touchez le plan pour poser : <strong>' + esc(T[o.t].lib) + '</strong>' + (T[o.t].role === 'passage' ? ' (posé sur un tracé, il s\'y insère)' : '') + '.</span>'
+    else if (o.k === 'pt') h = '<span>Touchez le plan pour poser : <strong>' + esc(T[o.t].lib) + '</strong>' + (T[o.t].role === 'passage' ? ' (posé sur un tracé, il s\'y insère)' : '') + '.' + (T[o.t].rappel ? ' ' + esc(T[o.t].rappel) : '') + '</span>'
       + '<button type="button" class="vc-b vc-bt" data-a="cotes" title="Poser à une distance mesurée d\'une façade ou d\'une limite">' + ico('cotes', 18) + 'Cotes</button>';
     else if (o.k === 'tx') h = '<span>Touchez le plan à l\'endroit du texte.</span>';
     aide.innerHTML = h; aide.hidden = !h; placerBarres();
@@ -4979,6 +5001,8 @@ function editeur(racine, opts){
       ty = T[e.t];
       var fam = FAMILLES.filter(function(f){ return f.types.indexOf(e.t) >= 0; })[0], et = ty.role === 'source' ? etatSource(e) : null, res = S.an.resPt[e.id];
       h += '<div class="vc-ftete">' + symboleSvg(e.t, 40) + '<div><strong>' + esc(ty.lib) + '</strong>' + (et ? '<span class="vc-etat ' + et.cls + '">' + esc(et.txt) + '</span>' : ty.regard || ty.role === 'passage' ? '<span class="vc-etat ' + (/^(EU|EP|UN)$/.test(res) ? 'ok' : 'att') + '">' + (/^(EU|EP|UN)$/.test(res) ? 'Réseau ' + libRes(res) + (ty.boite && RES[e.p.res] ? '' : ' déduit') : res === 'MIX' ? 'Plusieurs réseaux' : 'Réseau à préciser') + '</span>' : '') + '</div></div>';
+      /* rappel du type, sous l'en-tête (puits : un puits perdu se dessine en puisard ; m120, décision du 13 nov. 2026) */
+      if (ty.rappel) h += '<p class="vc-muet">' + esc(ty.rappel) + '</p>';
       /* source EP qu'aucun tracé ne tient (m118 ; D10) : « Rejet au sol » pose d'un toucher une infiltration à 1 m et le tronçon qui l'y relie */
       if (rejetSolPossible(e)) h += champ('Rejet', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="rejetSol">Rejet au sol</button></div>', 'infiltration au sol à 1 m, reliée par un tronçon');
       if (fam && fam.types.length > 1 && e.t !== 'jonction') h += champ('Type', '<select class="vc-in" data-a="type" aria-label="Type">' + fam.types.filter(function(t){ return t !== 'jonction'; }).map(function(t){ return '<option value="' + t + '"' + (t === e.t ? ' selected' : '') + '>' + esc(T[t].lib) + '</option>'; }).join('') + '</select>');
@@ -5141,6 +5165,17 @@ function editeur(racine, opts){
     if (ouv.length) h += '<p><strong>' + (ouv.length > 1 ? 'Ouvrages' : 'Ouvrage') + ' de récupération des EP :</strong> ' + esc(ouv.join(', ')) + '</p>';
     if (cd.sansCote.length) h += '<p class="vc-muet">' + (cd.sansCote.length > 1 ? cd.sansCote.length + ' descentes EP sans façade indiquée ne sont comptées' : 'Une descente EP sans façade indiquée n\'est comptée') + ' ni en façade avant ni en façade arrière.</p>';
     if (cd.rows.some(function(r){ return r.nb && !r.raccord && r.libs.length; })) h += '<p class="vc-muet">Un raccordement sans code du formulaire (réseau privé, puisard, infiltration ou autre destination des EP) reste à cocher à la main dans le constat.</p>';
+    /* ligne EP sans conformité parce que son rejet a une règle EP fixe (puits, m120) dont l'anomalie est retenue ou à arbitrer : le constat
+       de l'application la juge par cette anomalie (décision D7) ; la case « Conf. » reste vide, la phrase dit pourquoi */
+    var fixes = [];
+    rows.forEach(function(r){
+      if (r.groupe === 'EU' || r.conforme) return;
+      r.objets.forEach(function(id){
+        var rs = S.an.resObj[id], xe = rs && rs.etat === 'ok' ? exuDe(rs.res) : null, et = xe && xe.ep ? etatAnomalie(S.doc, S.an, xe.ep.cle + ':' + id) : '';
+        if ((et === 'retenue' || et === 'arbitrer') && fixes.indexOf(xe.ep.obs) < 0) fixes.push(xe.ep.obs);
+      });
+    });
+    if (fixes.length){ var fx = fixes.join(' ; '); h += '<p class="vc-muet">' + esc(fx.charAt(0).toUpperCase() + fx.slice(1)) + ' : au constat, la ligne EP suit son anomalie. « Non » si elle reste non conforme, « oui » si le dossier en fait une réserve.</p>'; }
     h += '<p><strong>Conclusion proposée :</strong> ' + esc(CONCL[conclusion(S.liste, S.an)] || '—') + '</p>';
     return h;
   }
@@ -6057,8 +6092,9 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL, conclC){
   pdf.text(pdfTxt((mode === 'avp' ? 'Avant-projet' : 'État des lieux') + (doc.numero ? ' · dossier ' + doc.numero : '') + (doc.adresse ? ' · ' + doc.adresse : '') + (doc.commune ? ', ' + doc.commune : '')), 10, y + 4); y += 10;
   var O = [212, 101, 10];
   if (mode === 'avp'){
-    /* le dessin du projet doit corriger les raccordements ; les défauts d'ouvrage (tampon, cunette, accès) le sont par la préconisation */
-    var apres = anomaliesDoc(doc, analyser(doc, 'avp'), ext, oL).filter(function(a){ return (a.st === 'retenue' || a.st === 'horsdossier') && a.auto && (a.cat === 'inversion' || /^fosse:/.test(a.cle)); });
+    /* le dessin du projet doit corriger les raccordements ; les défauts d'ouvrage (tampon, cunette, accès) le sont par la préconisation.
+       Un rejet des EP dans un puits (catégorie « autre ») est un raccordement : il reste à corriger sur le dessin (m120) */
+    var apres = anomaliesDoc(doc, analyser(doc, 'avp'), ext, oL).filter(function(a){ return (a.st === 'retenue' || a.st === 'horsdossier') && a.auto && (a.cat === 'inversion' || /^(fosse|ep-puits):/.test(a.cle)); });
     var edlL = anomaliesDoc(doc, analyser(doc, 'edl'), ext, oL), edl = edlL.filter(function(a){ return a.st === 'retenue'; });
     y = tableauPdf(pdf, y, [{t: 'N°', w: 10}, {t: 'Préconisation', w: 120}, {t: 'Anomalie traitée', w: 120}, {t: 'Réseau', w: 26}],
       edl.map(function(a){ return {cells: [String(a.num), a.preco || 'à définir', a.obs, a.reseau], coul: [O], gras: [true, true]}; }), 'Préconisations');
