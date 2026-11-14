@@ -897,7 +897,9 @@ async function casLimites(){
     /* a : un caniveau posé par cotes (angle du côté), tourné de 15° dans sa fiche, puis mesuré et déplacé : son angle ne change pas */
     const ca = await poserObjetParCotes(A, 'caniveau', 'ep', [69, 2.5], [['coin', 'Coin gauche'], ['d', '4'], ['e', '1,5'], ['cote', 'Devant']]);
     const b15 = ca && await p.$(PANNEAU + 'button[data-a="orienter"][data-v="15"]');
-    if (b15){ await b15.click(); await C.pause(p, 250); }
+    /* attendre la fin de la garde du second toucher (600 ms après la pose, à moins de 48 px du toucher d'avant) : depuis m118, la fiche du
+       caniveau, qu'aucun tronçon ne tient, commence par « Rejet au sol », et le bouton « 15° » tombe sous le toucher qui a posé l'objet */
+    if (b15){ await C.pause(p, 650); await b15.click(); await C.pause(p, 250); }
     const ca1 = ca && await objet(p, ca.id);
     if (ca1 && await boutonTexte(p, MESURER)){
       await toucherPlan(p, A.plan(70, 4)); await saisir(p, 'd', '5');

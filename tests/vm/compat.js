@@ -7,7 +7,8 @@
 // zone, étiquette personnalisée, étiquette déplacée ou masquée, anomalie saisie à la main, échelle, origine et rotation données), puis le même
 // dans un fond en millimètres et en miles (u = 0,001 et 1609,344 : le DXF divise par u et règle ses décimales sur u) ; un croquis fixe des
 // types que les autres ne posent pas (salle de bain, baignoire, cuisine, lave-vaisselle, chaudière, attente, drain, caniveau et clapet
-// orientés) ; 30 croquis du générateur (vm/generateur.js, graines 1 à 30, réglages d'aleatoire.js, étiquettes placées d'office).
+// orientés) ; 30 croquis du générateur (vm/generateur.js, graines 1 à 30, réglages d'aleatoire.js sans son option exutoires, étiquettes
+// placées d'office).
 // Dans vm/compat.json, par croquis : une empreinte sha256 (16 premiers caractères) du croquis d'entrée (« entree ») et une par sortie.
 // La garde passe sur 52cd3c8 (ses cinq premières sorties aussi sur 1e27c7b) et doit passer après chaque correctif.
 // usage : node tests/vm/compat.js [-v] [--app=<dossier>] [--detail=<dossier>] [--regenerer[=<origine>]]
@@ -88,7 +89,8 @@ function types(){
   return d;
 }
 
-/* Croquis du générateur (réglages d'aleatoire.js), étiquettes placées d'office par le module */
+/* Croquis du générateur (réglages d'aleatoire.js, sans son option exutoires : puisard, milieu naturel et gargouille seulement, d'où les
+   mêmes 30 croquis qu'avant m118), étiquettes placées d'office par le module */
 function genere(g){
   const avp = g % 3 === 0, d = doc(Gen.gen(g, {avp, pLoop: (g % 10) / 10, maxN: 2 + g % 7, maxS: 1 + g % 4, maxC: g % 3}));
   d.el.forEach(e => { e.lab = null; });

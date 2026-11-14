@@ -54,7 +54,15 @@ CROQUIS DE TERRAIN (facultatif)
   tablette et sert à tous les dossiers de l'étude.
 - On pose les équipements (WC, évier, descentes…), les regards, la boîte
   de branchement et les collecteurs, puis on les relie par des tronçons.
-  L'application en déduit où chaque eau se rejette. Dans la fiche de la
+  L'application en déduit où chaque eau se rejette. Dans la fiche d'une
+  descente, d'une grille, d'un siphon de sol ou d'une autre source d'eaux
+  pluviales qu'aucun tronçon ne relie, le bouton « Rejet au sol » pose
+  d'un toucher une infiltration au sol à 1 m, et le tronçon qui l'y relie.
+  L'infiltration va à l'opposé de la façade la plus proche (façade du fond
+  affiché, à 3 m au plus ; sinon vers le bas de l'écran). Elle n'est posée
+  ni dans un bâti ou un trait de complément fermé, ni sur un mur ou un
+  trait, ni contre un autre objet ; si aucune place ne convient, elle va
+  1 m sous la source. « Annuler » retire les deux. Dans la fiche de la
   boîte de branchement, on indique sa position par rapport à la limite de
   propriété (côté intérieur ou extérieur, distance en mètres) ; l'étiquette
   du plan la reprend, par exemple « à 0,80 m de la limite, intérieur ».

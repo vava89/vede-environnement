@@ -6,6 +6,7 @@
 // --contre=<dossier> (m116 ; décision D11 de .claude/conception-rejets.md) : chaque croquis est aussi analysé, dans ses modes, par la version de ce dossier
 // (par exemple une copie du commit d'avant, faite par git archive) ; résultat par source, anomalies, conclusion, contrôles et constat déduit
 // doivent être les mêmes (correctif sans changement visible).
+// Les exutoires dessinés comptent l'infiltration au sol (option exutoires du générateur, m118).
 // usage : node tests/vm/aleatoire.js [n=1500] [graine=1] [-v] [--app=<dossier>] [--contre=<dossier>]
 'use strict';
 const {charger, doc, melange, copie, rapport} = require('./charger.js');
@@ -13,6 +14,8 @@ const G = require('./generateur.js');
 const {V} = charger(), R = rapport('aleatoire');
 const optContre = process.argv.find(x => /^--contre=/.test(x)), Vc = optContre ? charger({dir: optContre.slice(9)}).V : null;
 const args = process.argv.slice(2).filter(x => !/^-/.test(x)), N = +(args[0] || 1500), S0 = +(args[1] || 1);
+/* exutoires dessinés : ceux du générateur et l'infiltration au sol (m118) */
+const EXUS = G.EXUTOIRES.concat(['infiltration']);
 
 function signature(d, mode, parSommets){
   const an = V.analyser(copie(d), mode), L = V.anomaliesDoc(copie(d), an), c = V.conclusion(L, an);
@@ -80,7 +83,7 @@ function ecart(a, b){
 const note = (k, t) => { (ex[k] = ex[k] || []); if (ex[k].length < 3) ex[k].push(t); };
 for (let it = 0; it < N; it++){
   const graine = S0 + it, avp = graine % 3 === 0;
-  const spec = G.gen(graine, {avp, pLoop: (graine % 10) / 10, maxN: 2 + graine % 7, maxS: 1 + graine % 4, maxC: graine % 3});
+  const spec = G.gen(graine, {avp, pLoop: (graine % 10) / 10, maxN: 2 + graine % 7, maxS: 1 + graine % 4, maxC: graine % 3, exutoires: EXUS});
   const d = doc(spec), fosse = spec.o.some(o => o[1] === 'fosse'); st.croquis++; if (fosse) st.avecFosse++;
   const lns = d.el.filter(e => e.k === 'ln'), pts = d.el.filter(e => e.k !== 'ln');
   const ordres = [d.el, pts.concat(lns.slice().reverse()), pts.concat(melange(lns, graine)), pts.concat(melange(lns, graine + 1)), pts.concat(melange(lns, graine + 2))];

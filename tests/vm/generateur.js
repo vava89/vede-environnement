@@ -14,9 +14,10 @@ const PASSAGES = ['regard', 'regard', 'regard', 'boite', 'fosse', 'jonction', 't
 const EXUTOIRES = ['puisard', 'milieu', 'gargouille'];
 
 /* o : maxS (sources), maxN (regards et équipements), maxC (collecteurs), pLoop (part de tuyaux en plus), pRes (part de tuyaux au réseau
-   indiqué), pSens (part de tuyaux orientés), avp (statuts « Projet » et « À supprimer »), passages (types du milieu). */
+   indiqué), pSens (part de tuyaux orientés), avp (statuts « Projet » et « À supprimer »), passages (types du milieu), exutoires (types
+   des exutoires dessinés ; sans elle, EXUTOIRES : mêmes tirages, mêmes croquis qu'avant m118). */
 function gen(graine, o){
-  o = Object.assign({maxS: 3, maxN: 5, maxC: 2, pLoop: 0.5, pRes: 0.4, pSens: 0.25, avp: false, passages: PASSAGES}, o || {});
+  o = Object.assign({maxS: 3, maxN: 5, maxC: 2, pLoop: 0.5, pRes: 0.4, pSens: 0.25, avp: false, passages: PASSAGES, exutoires: EXUTOIRES}, o || {});
   const rnd = mkRnd(graine * 7919 + 17), pick = a => a[Math.floor(rnd() * a.length)], ent = (a, b) => a + Math.floor(rnd() * (b - a + 1));
   const objs = [], lignes = [], noeuds = [];
   let nl = 0;
@@ -35,7 +36,7 @@ function gen(graine, o){
   }
   /* exutoires */
   const exus = [];
-  if (rnd() < 0.35){ const k = ent(1, 2); for (let i = 0; i < k; i++) exus.push(obj('x' + i, pick(EXUTOIRES), 10 + 3 * i, 2, {})); }
+  if (rnd() < 0.35){ const k = ent(1, 2); for (let i = 0; i < k; i++) exus.push(obj('x' + i, pick(o.exutoires), 10 + 3 * i, 2, {})); }
   /* regards et équipements, du bas (indice 0) vers le haut */
   const nN = ent(0, o.maxN);
   for (let i = 0; i < nN; i++){

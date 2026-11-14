@@ -2961,8 +2961,8 @@ function editeur(racine, opts){
     R = Math.min(R, 120);
     var out = dansGrille(aretesFond(), p, R, []);
     /* traits « Complément du fond » du croquis (lignes de référence 'complement'), sauf le trait sauf : hors du cache, ils changent à
-       chaque dessin ; chacun [x0, y0, x1, y1, null] */
-    (lignesRef(S.doc, null, null, ['complement']) || []).forEach(function(r){ if (r.src.id === sauf) return; var P = r.P; for (var k = 1; k < P.length; k++) out.push([P[k - 1].x, P[k - 1].y, P[k].x, P[k].y, null]); });
+       chaque dessin ; chacun [x0, y0, x1, y1, null, id du trait, rang de son premier sommet] */
+    (lignesRef(S.doc, null, null, ['complement']) || []).forEach(function(r){ if (r.src.id === sauf) return; var P = r.P; for (var k = 1; k < P.length; k++) out.push([P[k - 1].x, P[k - 1].y, P[k].x, P[k].y, null, r.src.id, k - 1]); });
     return out;
   }
   /* cibles des nouveaux accrochages (m112, m113) : côtés du bâti et traits de complément (segsPres), plus ceux des limites de parcelle si
@@ -4197,6 +4197,61 @@ function editeur(racine, opts){
     changement(); rendreVisible(o.id);
     vibrer();
   }
+  /* --- « Rejet au sol » (m118 ; décision D10 de la conception du lot « Rejets ») ---
+     une source d'eaux pluviales (descente, grille, caniveau, siphons de sol et de cour, drain, trop-plein) qu'aucun tracé ne tient : sa
+     fiche propose le bouton */
+  function rejetSolPossible(e){
+    var ty = e && e.k === 'pt' && T[e.t];
+    if (!ty || ty.role !== 'source' || ty.nat !== 'EP' || !T.infiltration) return false;
+    return !S.doc.el.some(function(l){ return l.k === 'ln' && (l.v || []).some(function(v){ return v.a === e.id; }); });
+  }
+  /* sens du rejet (radians) : à l'opposé de la façade ar (areteProche), perpendiculaire à elle, comme la gargouille. La ligne de ar (refs :
+     bâti du fond affiché et traits de complément) : si elle est un des bâtis bat, la normale extérieure de son côté ; sinon le côté où est
+     la source ; source sur le trait : à l'opposé du centre des points de la ligne (calcul de la gargouille) */
+  function sensRejet(s, ar, refs, bat){
+    var sg = ar.s, a = ar.ang + Math.PI / 2;
+    /* ligne du côté sg : une polyligne du fond par son rang dans fond.L (sg[4] : la polyligne), un trait de complément par son id */
+    function sienne(l){ return !!l.src && sg[5] != null && (sg[4] ? l.src.i === sg[5] : l.src.id === sg[5]); }
+    var lf = bat.filter(sienne)[0], n = lf ? normaleExt(lf, sg[6]) : null;
+    if (n) return Math.atan2(n.y, n.x);
+    var k = Math.cos(a) * (s.x - ar.x) + Math.sin(a) * (s.y - ar.y);
+    if (Math.abs(k) > .01) return k > 0 ? a : a + Math.PI;
+    var lo = refs.filter(sienne)[0], P = lo ? lo.P : [], cx = 0, cy = 0;
+    P.forEach(function(q){ cx += q.x; cy += q.y; });
+    return P.length && Math.cos(a) * (s.x - cx / P.length) + Math.sin(a) * (s.y - cy / P.length) < 0 ? a + Math.PI : a;
+  }
+  /* le bouton : une infiltration au sol à 1 m de la source e, et un tronçon sans réseau (p.res '') attaché aux deux. Essais dans le sens du
+     rejet, puis à ±30°, ±60°, ±90° de lui ; sans façade à 3 m ou moins (bâti du fond affiché, trait de complément), le sens est le bas de
+     la vue. Un essai est écarté :
+     - dans un bâti : polygone fermé du fond affiché, ou trait de complément fermé, sauf celui qui entoure la source (une limite, par exemple) ;
+     - à 0,25 m ou moins d'un côté de bâti ou d'un trait de complément : sur le mur ou tout contre lui (le bord compte comme dehors) ;
+     - à 0,6 m ou moins d'un objet.
+     Si tous le sont : 1 m sous la source, vers le bas de la vue. L'infiltration et le tronçon prennent le statut de la source ; un seul pas
+     d'annulation ; l'infiltration est choisie à la fin */
+  function rejetAuSol(e){
+    if (!rejetSolPossible(e)) return;
+    var refs = refsCotes(['bati', 'complement']);
+    var bat = refs.filter(function(l){ return l.ferme && l.aire !== 0 && !(l.nat === 'complement' && dansPolygone(e, l.P) === true); });
+    function libre(q){
+      if (bat.some(function(l){ return dansPolygone(q, l.P) === true; })) return false;
+      if (segsPres(q, .25).some(function(sg){ return projSeg(q, {x: sg[0], y: sg[1]}, {x: sg[2], y: sg[3]}).d <= .25; })) return false;
+      return !S.doc.el.some(function(o){ return o.k === 'pt' && Math.hypot(o.x - q.x, o.y - q.y) <= .6; });
+    }
+    var rot = S.doc.rot || 0, bas = Math.atan2(-Math.cos(rot), Math.sin(rot)), ar = areteProche(e, 3), a0 = ar ? sensRejet(e, ar, refs, bat) : bas;
+    var essais = [0, 30, -30, 60, -60, 90, -90].map(function(d){ return a0 + d * Math.PI / 180; }).concat([bas])
+      .map(function(a){ return {x: e.x + Math.cos(a), y: e.y + Math.sin(a)}; });
+    var q = essais.filter(libre)[0] || essais[essais.length - 1], st = (e.p && e.p.st) || 'existant';
+    instantane();
+    var o = {id: uid(), k: 'pt', t: 'infiltration', x: q.x, y: q.y, p: defautsPt('infiltration'), lab: null};
+    o.p.st = st;
+    var l = {id: uid(), k: 'ln', t: 'tr', v: [{x: e.x, y: e.y, a: e.id}, {x: o.x, y: o.y, a: o.id}], p: defautsLn('tr', {st: st}), lab: null};
+    S.doc.el.push(o, l);
+    analyse();
+    if (!T.infiltration.sansEtiquette) o.lab = placerEtiquette(S.doc, S.an, o, E(), idx()) || null;
+    if (texteEtiquette(l, S.an)) l.lab = placerEtiquette(S.doc, S.an, l, E(), idx());
+    S.sel = {id: o.id, sommet: null}; S.panneau = 'fiche';
+    changement(); rendreVisible(o.id);
+  }
   /* --- pose par cotes (m101 ; convention 11.1 de la conception du lot « Outils de dessin ») ---
      S.cotes = {etape, pour: {t}, cands, k, w0, ref, c, essai, refus, t0} ; null hors du mode.
      Étape 'cote' : le technicien touche la façade ou la limite de référence (cands : les lignes sous le doigt, k : celle retenue, w0 : le
@@ -4885,6 +4940,8 @@ function editeur(racine, opts){
       ty = T[e.t];
       var fam = FAMILLES.filter(function(f){ return f.types.indexOf(e.t) >= 0; })[0], et = ty.role === 'source' ? etatSource(e) : null, res = S.an.resPt[e.id];
       h += '<div class="vc-ftete">' + symboleSvg(e.t, 40) + '<div><strong>' + esc(ty.lib) + '</strong>' + (et ? '<span class="vc-etat ' + et.cls + '">' + esc(et.txt) + '</span>' : ty.regard || ty.role === 'passage' ? '<span class="vc-etat ' + (/^(EU|EP|UN)$/.test(res) ? 'ok' : 'att') + '">' + (/^(EU|EP|UN)$/.test(res) ? 'Réseau ' + libRes(res) + (ty.boite && RES[e.p.res] ? '' : ' déduit') : res === 'MIX' ? 'Plusieurs réseaux' : 'Réseau à préciser') + '</span>' : '') + '</div></div>';
+      /* source EP qu'aucun tracé ne tient (m118 ; D10) : « Rejet au sol » pose d'un toucher une infiltration à 1 m et le tronçon qui l'y relie */
+      if (rejetSolPossible(e)) h += champ('Rejet', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="rejetSol">Rejet au sol</button></div>', 'infiltration au sol à 1 m, reliée par un tronçon');
       if (fam && fam.types.length > 1 && e.t !== 'jonction') h += champ('Type', '<select class="vc-in" data-a="type" aria-label="Type">' + fam.types.filter(function(t){ return t !== 'jonction'; }).map(function(t){ return '<option value="' + t + '"' + (t === e.t ? ' selected' : '') + '>' + esc(T[t].lib) + '</option>'; }).join('') + '</select>');
       if (ty.role === 'source' || e.t === 'test') h += champ('Méthode de test', chipsHtml('meth', METH.map(function(m){ return [m[0], m[1]]; }), e.p.meth || [], {label: 'Méthode de test'}), ty.role === 'source' ? 'comment l\'écoulement a été établi' : '');
       if (e.t === 'descente'){ h += champ('Façade', chipsHtml('cote', [['avant', 'Avant'], ['arriere', 'Arrière']], e.p.cote)); h += champ('Visitable', chipsHtml('visitable', OUI_NON, e.p.visitable)); }
@@ -5190,6 +5247,7 @@ function editeur(racine, opts){
     /* boîte en limite : mesure reprise du plan, ou boîte placée d'après la distance et le côté saisis (limitePlan revérifie la boîte) */
     if (a === 'limMesure' && e){ reprendreLimite(e); return; }
     if (a === 'limPlacer' && e){ placerLimite(e); return; }
+    if (a === 'rejetSol' && e){ rejetAuSol(e); return; }
     if (a === 'tailleTexte' && e){ var tt = parseFloat(b.dataset.v) || 2.5; if ((num(e.taille) || 2.5) === tt) return; instantane(); e.taille = tt; changement(); return; }
     if (a === 'etiqOnOff' && e){ instantane(); if (e.lab && e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); else e.lab = {off: true}; changement(); return; }
     if (a === 'etiqReplacer' && e){ instantane(); e.lab = null; e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); changement(); return; }
