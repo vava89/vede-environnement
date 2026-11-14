@@ -15,9 +15,10 @@ const EXUTOIRES = ['puisard', 'milieu', 'gargouille'];
 
 /* o : maxS (sources), maxN (regards et équipements), maxC (collecteurs), pLoop (part de tuyaux en plus), pRes (part de tuyaux au réseau
    indiqué), pSens (part de tuyaux orientés), avp (statuts « Projet » et « À supprimer »), passages (types du milieu), exutoires (types
-   des exutoires dessinés ; sans elle, EXUTOIRES : mêmes tirages, mêmes croquis qu'avant m118). */
+   des exutoires dessinés ; sans elle, EXUTOIRES : mêmes tirages, mêmes croquis qu'avant m118), drains (m124 : des drains ; sans elle, aucun
+   tirage de plus : mêmes croquis qu'avant m124). */
 function gen(graine, o){
-  o = Object.assign({maxS: 3, maxN: 5, maxC: 2, pLoop: 0.5, pRes: 0.4, pSens: 0.25, avp: false, passages: PASSAGES, exutoires: EXUTOIRES}, o || {});
+  o = Object.assign({maxS: 3, maxN: 5, maxC: 2, pLoop: 0.5, pRes: 0.4, pSens: 0.25, avp: false, passages: PASSAGES, exutoires: EXUTOIRES, drains: false}, o || {});
   const rnd = mkRnd(graine * 7919 + 17), pick = a => a[Math.floor(rnd() * a.length)], ent = (a, b) => a + Math.floor(rnd() * (b - a + 1));
   const objs = [], lignes = [], noeuds = [];
   let nl = 0;
@@ -26,7 +27,8 @@ function gen(graine, o){
   const stL = () => o.avp && rnd() < 0.3 ? pick(['projet', 'projet', 'supprimer']) : '';
   const stO = () => o.avp && rnd() < 0.12 ? pick(['projet', 'supprimer']) : undefined;
   function obj(n, t, x, y, p){ const pp = Object.assign({}, p || {}), st = stO(); if (st) pp.st = st; objs.push([n, t, x, y, pp]); return n; }
-  function ligne(t, r, v, s, st){ const id = (t === 'col' ? 'C' : 'L') + (++nl); lignes.push([id, t, r, st || '', v, s || 0]); return id; }
+  /* props (7e champ, facultatif) : propriétés en plus du tracé, par exemple {drain: 'collecte'} */
+  function ligne(t, r, v, s, st, props){ const id = (t === 'col' ? 'C' : 'L') + (++nl), l = [id, t, r, st || '', v, s || 0]; if (props) l.push(props); lignes.push(l); return id; }
   /* collecteurs (en bas), chacun avec des raccords ou regards publics posés dessus */
   const nC = ent(0, o.maxC), attaches = [];
   for (let c = 0; c < nC; c++){
@@ -75,12 +77,47 @@ function gen(graine, o){
     else if (u < 0.8) ligne('tr', res(), [[ent(-12, 12), 4 + 2.5 * i], noeuds[i]], sens(), stL());
     else ligne('tr', res(), [noeuds[i], [ent(-12, 12), 2.5 * i]], sens(), stL());
   }
+  if (o.drains) drains(graine, o, objs, lignes, noeuds, attaches, exus, ligne);
   return {o: objs, l: lignes};
 }
+/* Drains (m124, option drains) : une suite de tirages à part, tirée après le reste du croquis, qui ne change donc rien au reste. Des
+   tronçons tirés deviennent des drains (sommets et sens gardés) : de collecte, le plus souvent en EP, ou d'infiltration, le plus souvent
+   sans réseau. Des drains neufs passent par un nœud du milieu : un regard ou un équipement déjà tiré, ou un raccord neuf d'où part un
+   tuyau vers l'aval (nœud plus bas, collecteur, exutoire ou extrémité libre) ; d'autres sont libres. Ils sont orientés ou non (sens du
+   tracé, ou à l'envers), avec les statuts de l'avant-projet. Un point « Drain » est parfois posé sur le premier sommet libre d'un drain
+   de collecte : un bout, ou un coude au milieu du drain (le point compte alors à la place du drain). */
+function drains(graine, o, objs, lignes, noeuds, attaches, exus, ligne){
+  const r = mkRnd(graine * 104729 + 3), pick = a => a[Math.floor(r() * a.length)], ent = (a, b) => a + Math.floor(r() * (b - a + 1));
+  const pos = id => objs.find(q => q[0] === id);
+  const sorte = () => r() < 0.6 ? 'collecte' : 'infiltration';
+  const res = s => s === 'collecte' ? (r() < 0.6 ? 'EP' : pick(['', '', 'EU', 'UN'])) : (r() < 0.7 ? '' : pick(['EP', 'EU']));
+  const sens = () => r() < 0.4 ? (r() < 0.5 ? 1 : -1) : 0;
+  const stL = () => o.avp && r() < 0.3 ? pick(['projet', 'projet', 'supprimer']) : '';
+  lignes.forEach(l => { if (l[1] === 'tr' && r() < 0.25){ const s = sorte(); l[2] = res(s); l[6] = Object.assign({}, l[6] || {}, {drain: s}); } });
+  const aval = (x, y) => {
+    const choix = noeuds.filter(n => pos(n)[3] < y).concat(attaches, exus);
+    return !choix.length || r() < 0.25 ? [x + ent(-3, 3), y - ent(2, 4)] : pick(choix);
+  };
+  const nM = ent(0, 2);
+  for (let k = 0; k < nM; k++){
+    const s = sorte(); let m, x, y;
+    if (noeuds.length && r() < 0.6){ m = pick(noeuds); x = pos(m)[2]; y = pos(m)[3]; }
+    else { x = ent(-10, 10); y = ent(1, 12) + 0.5; m = 'Jd' + k; objs.push([m, 'jonction', x, y, {}]); ligne('tr', r() < 0.5 ? 'EP' : '', [m, aval(x, y)], sens(), stL()); }
+    const v = [[x - ent(2, 4), y + ent(0, 2) / 2], m, [x + ent(2, 4), y + ent(0, 2) / 2]];
+    ligne('tr', res(s), r() < 0.5 ? v : v.reverse(), sens(), stL(), {drain: s});
+  }
+  if (r() < 0.5){ const s = sorte(), x = ent(-12, 8), y = ent(0, 14); ligne('tr', res(s), [[x, y], [x + ent(2, 5), y + ent(-2, 2)]], sens(), stL(), {drain: s}); }
+  /* point « Drain » : sur le premier sommet libre, un bout ou un coude (tronçon tiré parti d'un nœud, puis coudé) */
+  lignes.forEach(l => {
+    if (!(l[6] && l[6].drain === 'collecte') || r() >= 0.15) return;
+    const i = l[4].findIndex(q => typeof q !== 'string'); if (i < 0) return;
+    const id = 'pd' + l[0], q = l[4][i]; objs.push([id, 'drain', q[0], q[1], l[3] ? {st: l[3]} : {}]); l[4][i] = id;
+  });
+}
 
-/* Résumé lisible d'un croquis généré, pour les messages. */
+/* Résumé lisible d'un croquis généré, pour les messages ; un drain est marqué (drain collecte) ou (drain infiltration). */
 function fmt(spec){
-  return spec.o.map(o => o[0] + ':' + o[1] + (o[4] && o[4].st ? '[' + o[4].st + ']' : '')).join(' ') + ' ; ' + spec.l.map(l => l[0] + (l[1] === 'col' ? '(col ' + l[2] + ')' : (l[2] ? '[' + l[2] + ']' : '') + (l[5] ? (l[5] > 0 ? '>' : '<') : '') + (l[3] ? '{' + l[3] + '}' : '')) + '=' + l[4].map(q => typeof q === 'string' ? q : '·').join('-')).join(' ');
+  return spec.o.map(o => o[0] + ':' + o[1] + (o[4] && o[4].st ? '[' + o[4].st + ']' : '')).join(' ') + ' ; ' + spec.l.map(l => l[0] + (l[1] === 'col' ? '(col ' + l[2] + ')' : (l[2] ? '[' + l[2] + ']' : '') + (l[5] ? (l[5] > 0 ? '>' : '<') : '') + (l[3] ? '{' + l[3] + '}' : '') + (l[6] && l[6].drain ? '(drain ' + l[6].drain + ')' : '')) + '=' + l[4].map(q => typeof q === 'string' ? q : '·').join('-')).join(' ');
 }
 
 module.exports = {mkRnd, gen, fmt, SOURCES, PASSAGES, EXUTOIRES};

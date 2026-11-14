@@ -1,5 +1,6 @@
-// Drains dans la fiche du tronçon, dans Chromium (décisions D4, D7 et D10 de la conception « Rejets » ; m121 à m123). Données fictives : fond de
-// VCroquis.demoDxf() (12 rue Fictive, Ville-Exemple), croquis vidé, deux tronçons libres (T sans réseau, U unitaire).
+// Drains dans la fiche du tronçon, et outils « Drain » et « Drain d'infiltration », dans Chromium (décisions D4, D7 et D10 de la conception
+// « Rejets » ; m121 à m124). Données fictives : fond de VCroquis.demoDxf() (12 rue Fictive, Ville-Exemple), croquis vidé ; pour f1, deux
+// tronçons libres (T sans réseau, U unitaire).
 // f1 : la fiche de T a les puces « Drain » (Non, Collecte, Infiltration), « Non » choisie. « Collecte » : p.drain 'collecte' et p.res 'EP', en un
 //   pas d'annulation, en-tête « Drain » ; Réseau EU, puis Déduit : p.drain reste ; « Infiltration » (après Réseau EU et « Sens du tracé ») :
 //   p.drain 'infiltration' et p.res '', en un pas, plus de puces Réseau, en-tête « Drain d'infiltration » ; depuis m122, la tête dit
@@ -19,6 +20,24 @@
 //   erreur dans la console.
 //   Échoue sur 841fd30 : pas de puces de méthode ni de contrôle sur le drain de collecte (les témoins y passent). Avant la relecture de
 //   m123, seul échouait le cas du point « Projet » sur l'état des lieux : pas de puces, mais le contrôle, qu'on ne pouvait pas lever.
+// o1 à o4 (m124, décision D10) : outils « Drain » et « Drain d'infiltration », croquis vidé.
+// o1 palette « Tracés » : les deux outils juste après « Projet », les autres dans le même ordre (« Complément du fond » et « Escalier »
+//   toujours voisins) ; pictogrammes à peigne (deux chemins), du vert du « Tronçon EP », différents ; choisis : barre d'aide « Drain : … ».
+// o2 drain entre deux points libres : p.drain 'collecte', p.res 'EP', aucun objet ajouté, un pas d'annulation ; toast « Drain ajouté » ;
+//   barre d'aide « le drain se termine sur un objet » ; second toucher d'habitude : « Drain déjà terminé » ; une ligne « Autres : Drain »
+//   au constat déduit ; « Annuler » rend le dessin d'avant (JSON).
+// o3 drain d'infiltration depuis une descente : p.res '', étiquette « Dispersion dans le sol » placée, descente ok:DISP, toast « Drain
+//   d'infiltration ajouté ».
+// o4 tracé trop court (second toucher sur le départ ; deux points confondus, terminerTrace) : ni tracé ni pas d'annulation. Les messages
+//   du geste nomment le drain : « Drain abandonné », « Drain d'infiltration abandonné », « Départ du drain posé » (double toucher), « Le
+//   drain reviendrait sur le tuyau qu'il prolonge », « Le drain d'infiltration suivrait le tracé de départ » (témoin : « Tronçon
+//   abandonné » avec l'outil Tronçon). Depuis le bout libre d'un tuyau, prolongation seulement entre tuyaux du même p.drain : drain au
+//   bout d'un Tronçon EP, drain d'infiltration au bout d'un drain de collecte, Tronçon au bout d'un drain de collecte ou d'infiltration :
+//   deux lignes reliées par un raccord ; témoins prolongés : Tronçon EP au bout d'un Tronçon EP, drain au bout d'un drain de collecte.
+//   Aucune erreur dans la console.
+//   Échoue sur f7c2589 : outils absents (o1 ; exceptions dans o2 à o4). Sans la condition du même p.drain, seuls les trois contrôles
+//   des deux lignes échouent (le drain prolonge le Tronçon EP : « Tronçon ajouté ») ; avec les messages du geste d'avant la relecture
+//   (« Tronçon abandonné »…), seul celui des messages.
 'use strict';
 const C = require('./commun.js');
 const R = C.rapport('drain');
@@ -136,8 +155,165 @@ async function methodes(){
   } finally { await A.fermer(); }
 }
 
+/* m124 : outils « Drain » et « Drain d'infiltration » de la palette « Tracés » (décision D10) */
+const texteAide = p => p.evaluate(() => { const a = document.querySelector('.vc .vc-aide'); return a && !a.hidden ? a.textContent.replace(/\s+/g, ' ').trim() : ''; });
+const toastVu = p => p.evaluate(() => { const t = document.querySelector('.vc .vc-toast'); return t && t.classList.contains('on') ? t.textContent : ''; });
+const effacerToast = p => p.evaluate(() => { const t = document.querySelector('.vc .vc-toast'); if (t){ t.classList.remove('on'); t.textContent = ''; } });
+const etatDessin = p => p.evaluate(() => { const d = window.__vcEd.doc(); return JSON.stringify({el: d.el, decisions: d.decisions, ordre: d.ordre, anomManu: d.anomManu}); });
+/* tracés (copiés) et objets du croquis, pas d'annulation */
+const dessin = p => p.evaluate(() => {
+  const ed = window.__vcEd, d = ed.doc();
+  return {lignes: d.el.filter(e => e.k === 'ln').map(e => JSON.parse(JSON.stringify(e))), objs: d.el.filter(e => e.k === 'pt').map(e => ({id: e.id, t: e.t, auto: !!e.auto, x: e.x, y: e.y})),
+    undo: ed.etat.undo.length};
+});
+const luLignes = d => JSON.stringify(d.lignes.map(l => ({id: l.id, n: l.v.length, a: l.v.map(v => v.a || '-').join('/'), drain: l.p.drain, res: l.p.res})).concat(d.objs.map(o => o.t)));
+/* tracé au doigt avec l'outil id : un toucher à chaque point de pts (coordonnées du croquis), puis un nouveau toucher sur le dernier pour
+   terminer ; rend le toast de fin */
+async function tracer(p, id, pts){
+  await C.outil(p, {k: 'ln', id, pal: 'tr'}); await effacerToast(p);
+  for (const q of pts) await C.toucher(p, q[0], q[1]);
+  const d = pts[pts.length - 1]; await C.toucher(p, d[0], d[1]);
+  return toastVu(p);
+}
+/* o1 : palette « Tracés » : ordre, libellés, pictogrammes ; aide de l'outil choisi */
+async function o1(p){
+  const lirePalette = async () => {
+    await p.click('.vc .vc-o[data-pal="tr"]'); await C.pause(p, 250);
+    return p.evaluate(() => Array.from(document.querySelectorAll('.vc .vc-pitem')).map(b => { const s = b.querySelector('svg');
+      return {it: b.dataset.item, lib: b.textContent.trim(), svg: s ? s.outerHTML : '', n: s ? s.querySelectorAll('path').length : 0}; }));
+  };
+  const pal = await lirePalette(), de = it => pal.find(x => x.it === it) || {};
+  const ATT = ['ln:tr', 'ln:relier', 'ln:trEU', 'ln:trEP', 'ln:trUN', 'ln:trPres', 'ln:trPrj', 'ln:drain', 'ln:drainInf', 'ln:lim', 'ln:esc'];
+  R.ok(pal.map(x => x.it).join() === ATT.join() && de('ln:drain').lib === 'Drain' && de('ln:drainInf').lib === 'Drain d\'infiltration' && de('ln:trPrj').lib.indexOf('Projet') === 0,
+    'o1 palette « Tracés » : « Drain » et « Drain d\'infiltration » juste après « Projet » ; les autres outils dans le même ordre, « Complément du fond » et « Escalier » '
+    + 'toujours voisins (obtenu ' + JSON.stringify(pal.map(x => x.it + ' ' + x.lib)) + ')');
+  const dr = de('ln:drain'), di = de('ln:drainInf'), ep = de('ln:trEP'), vert = (/stroke="([^"]+)"/.exec(ep.svg || '') || [])[1];
+  R.ok(dr.n === 2 && di.n === 2 && dr.svg !== di.svg && dr.svg !== ep.svg && !!vert && dr.svg.indexOf(vert) >= 0 && di.svg.indexOf(vert) >= 0,
+    'o1 pictogrammes : un trait et un peigne (deux chemins), du vert du « Tronçon EP », différents l\'un de l\'autre et de celui du « Tronçon EP » (obtenu '
+    + JSON.stringify({drain: dr.svg, drainInf: di.svg}) + ')');
+  if (!dr.it || !di.it){ R.ok(false, 'o1 outils choisis dans la palette : outils absents'); return; }
+  await p.click('.vc .vc-pitem[data-item="ln:drain"]'); await C.pause(p, 250);
+  const ou1 = await p.evaluate(() => window.__vcEd.etat.outil), a1 = await texteAide(p);
+  await lirePalette(); await p.click('.vc .vc-pitem[data-item="ln:drainInf"]'); await C.pause(p, 250);
+  const ou2 = await p.evaluate(() => window.__vcEd.etat.outil), a2 = await texteAide(p);
+  R.ok(ou1.k === 'ln' && ou1.id === 'drain' && a1.indexOf('Drain : ') === 0 && ou2.k === 'ln' && ou2.id === 'drainInf' && a2.indexOf('Drain d\'infiltration : ') === 0,
+    'o1 outils choisis dans la palette ; barre d\'aide « Drain : … », puis « Drain d\'infiltration : … » (obtenu ' + JSON.stringify([ou1, a1, ou2, a2]) + ')');
+}
+/* o2 : drain entre deux points libres */
+async function o2(p){
+  await C.injecter(p, {el: []}); await C.regler(p, -2, 0, 40);
+  const avant = await etatDessin(p);
+  await C.outil(p, {k: 'ln', id: 'drain', pal: 'tr'}); await effacerToast(p);
+  await C.toucher(p, -4, 0); const aide1 = await texteAide(p);
+  await C.toucher(p, -1, 0); await C.toucher(p, -1, 0);
+  const t1 = await toastVu(p);
+  /* second toucher d'habitude, juste après la fin : ignoré, avec le message de fin */
+  await C.toucher(p, -1, 0); const t2 = await toastVu(p); await C.pause(p, 1100);
+  const d = await dessin(p), l = d.lignes[0];
+  R.ok(d.lignes.length === 1 && !d.objs.length && l.t === 'tr' && l.p.drain === 'collecte' && l.p.res === 'EP' && l.v.length === 2 && !l.v[0].a && !l.v[1].a && d.undo === 1,
+    'o2 drain entre deux points libres : un tracé, p.drain \'collecte\', p.res \'EP\', aucun objet ajouté, en un pas d\'annulation (obtenu ' + luLignes(d) + ', ' + d.undo + ' pas)');
+  R.ok(/^Drain ajouté/.test(t1) && /^Drain : 1 point\./.test(aide1) && aide1.indexOf('le drain se termine sur un objet') > 0,
+    'o2 toast « Drain ajouté » ; barre d\'aide « Drain : 1 point. … le drain se termine sur un objet » (obtenu ' + JSON.stringify([t1, aide1]) + ')');
+  R.ok(/^Drain déjà terminé\./.test(t2), 'o2 second toucher juste après la fin : « Drain déjà terminé. » (obtenu ' + JSON.stringify(t2) + ')');
+  const cd = await p.evaluate(() => { const V = window.VCroquis, c = () => JSON.parse(JSON.stringify(window.__vcEd.doc())), r = V.constatDeduit(c(), V.analyser(c(), 'edl'));
+    return r.rows.filter(x => !x.std && x.nb).map(x => x.label + ' ×' + x.nb); });
+  R.ok(cd.join() === 'Drain ×1', 'o2 constat déduit : une ligne « Autres : Drain » (obtenu ' + (cd.join(', ') || 'aucune ligne « Autres »') + ')');
+  const ok = await annuler(p), apres = await etatDessin(p);
+  R.ok(ok && apres === avant, 'o2 une annulation rend le dessin d\'avant (JSON identique)' + (apres === avant ? '' : ' : ' + apres.slice(0, 200)));
+}
+/* o3 : drain d'infiltration depuis une descente */
+async function o3(p){
+  await C.injecter(p, {el: [C.P('s', 'descente', -4, 0)]}); await C.regler(p, -2, 0, 40);
+  const t = await tracer(p, 'drainInf', [[-4, 0], [-1, 0]]); await C.pause(p, 1100);
+  const r = await p.evaluate(() => {
+    const ed = window.__vcEd, V = window.VCroquis, d = ed.doc(), an = ed.etat.an, l = d.el.find(e => e.k === 'ln'), s = an.resObj.s;
+    return {l: l ? JSON.parse(JSON.stringify(l)) : null, objs: d.el.filter(e => e.k === 'pt').map(e => e.t).join(), etiq: l ? V.texteEtiquette(l, an) : null, s: s ? s.etat + ':' + s.res : '-'};
+  });
+  const l = r.l || {p: {}, v: []};
+  R.ok(!!r.l && l.p.drain === 'infiltration' && l.p.res === '' && l.v.length === 2 && l.v[0].a === 's' && !l.v[1].a && r.objs === 'descente',
+    'o3 drain d\'infiltration depuis une descente : p.drain \'infiltration\', p.res \'\', parti de la descente, aucun objet ajouté (obtenu ' + JSON.stringify(r) + ')');
+  R.ok(!!l.lab && !l.lab.off && r.etiq === 'Dispersion dans le sol', 'o3 étiquette « Dispersion dans le sol » placée (obtenu ' + JSON.stringify([l.lab, r.etiq]) + ')');
+  R.ok(r.s === 'ok:DISP', 'o3 descente ok:DISP (obtenu ' + r.s + ')');
+  R.ok(/^Drain d'infiltration ajouté/.test(t), 'o3 toast « Drain d\'infiltration ajouté » (obtenu ' + JSON.stringify(t) + ')');
+}
+/* o4 : tracé trop court ; prolongation, seulement entre tuyaux du même p.drain */
+async function o4(p){
+  await C.injecter(p, {el: []}); await C.regler(p, -2, 0, 40);
+  const j0 = await etatDessin(p);
+  /* au doigt : second toucher sur le départ (le tracé est abandonné) */
+  await C.outil(p, {k: 'ln', id: 'drain', pal: 'tr'}); await effacerToast(p); await C.toucher(p, -3, 0); await C.toucher(p, -3, 0);
+  const g = await p.evaluate(() => ({brouillon: !!window.__vcEd.etat.brouillon, undo: window.__vcEd.etat.undo.length})), j1 = await etatDessin(p), tAb = await toastVu(p);
+  /* deux points confondus, fin par terminerTrace */
+  await effacerToast(p);
+  const z = await p.evaluate(() => {
+    const ed = window.__vcEd, S = ed.etat, u = S.undo.length, q = {x: 2, y: 2, snap: null, aide: null, doigt: null};
+    let err = null; try { ed.choisirOutil({k: 'ln', id: 'drain', pal: 'tr'}); S.brouillon = {outil: 'drain', pts: [q, Object.assign({}, q)]}; ed.terminerTrace(); } catch (e){ err = e.message; }
+    return {err, n: ed.doc().el.length, pas: S.undo.length - u, brouillon: !!S.brouillon};
+  });
+  const tz = await toastVu(p), j2 = await etatDessin(p);
+  R.ok(!g.brouillon && !g.undo && j1 === j0 && !z.err && z.n === 0 && z.pas === 0 && !z.brouillon && j2 === j0 && tz.indexOf('ajouté') < 0,
+    'o4 tracé trop court (second toucher sur le départ ; deux points confondus, terminerTrace) : ni tracé ni pas d\'annulation, sans exception ni toast de fin (obtenu '
+    + JSON.stringify([g, z, tz]) + ')');
+  /* messages du geste (relecture de m124) : ils nomment le drain ; témoin : « Tronçon » avec l'outil Tronçon. Un toucher par point de pts,
+     le premier suivi de ms (60 : double toucher) */
+  const geste = async (outil, el, pts, ms) => {
+    await C.injecter(p, {el}); await C.regler(p, -2, 0, 40); await C.outil(p, {k: 'ln', id: outil, pal: 'tr'}); await effacerToast(p);
+    for (let k = 0; k < pts.length; k++) await C.toucher(p, pts[k][0], pts[k][1], k ? null : ms);
+    return toastVu(p);
+  };
+  const msg = {abandon: tAb, abandonInf: await geste('drainInf', [], [[-3, 0], [-3, 0]]), temoin: await geste('tr', [], [[-3, 0], [-3, 0]]),
+    depart: await geste('drain', [], [[-3, 0], [-3, 0]], 60),
+    revient: await geste('drain', [C.L('A', 'tr', [[-6, 0], [-3, 0]], {}, {res: 'EP', drain: 'collecte'})], [[-3, 0], [-1, 2], [-5, 0]]),
+    suit: await geste('drainInf', [C.L('A', 'tr', [[-6, 0], [-1, 0]], {}, {res: 'EP'})], [[-5, 0], [-3, 0]])};
+  R.ok(/^Drain abandonné/.test(msg.abandon) && /^Drain d'infiltration abandonné/.test(msg.abandonInf) && /^Tronçon abandonné/.test(msg.temoin)
+    && /^Départ du drain posé : /.test(msg.depart) && /^Le drain reviendrait sur le tuyau qu'il prolonge : /.test(msg.revient)
+    && /^Le drain d'infiltration suivrait le tracé de départ : /.test(msg.suit),
+    'o4 messages du geste : « Drain abandonné », « Drain d\'infiltration abandonné », « Départ du drain posé » (double toucher), « Le drain '
+    + 'reviendrait sur le tuyau qu\'il prolonge », « Le drain d\'infiltration suivrait le tracé de départ » ; témoin : « Tronçon abandonné » avec '
+    + 'l\'outil Tronçon (obtenu ' + JSON.stringify(msg) + ')');
+  /* depuis le bout libre d'un tuyau A (de -6 à -3 m) : prolongé s'il a le même p.drain, sinon un nouveau tuyau part d'un raccord posé sur ce bout */
+  const cas = async (pa, outil) => {
+    await C.injecter(p, {el: [C.L('A', 'tr', [[-6, 0], [-3, 0]], {}, pa)]}); await C.regler(p, -2, 0, 40);
+    const t = await tracer(p, outil, [[-3, 0], [0, 0]]); await C.pause(p, 1100);
+    return {t, d: await dessin(p)};
+  };
+  const deux = (k, att) => { const d = k.d, A = d.lignes.find(l => l.id === 'A'), N = d.lignes.find(l => l.id !== 'A'), j = d.objs[0];
+    return d.lignes.length === 2 && d.objs.length === 1 && j.t === 'jonction' && j.auto && !!A && A.v.length === 2 && sorteDe(A) === att.a && !!N && N.v.length === 2
+      && N.v[0].a === j.id && A.v[1].a === j.id && sorteDe(N) === att.n && N.p.res === att.res; };
+  const une = (k, att) => { const d = k.d, A = d.lignes[0];
+    return d.lignes.length === 1 && !d.objs.length && A.id === 'A' && A.v.length === 3 && sorteDe(A) === att && Math.hypot(A.v[2].x, A.v[2].y) < 0.05; };
+  const b = await cas({res: 'EP'}, 'drain');
+  R.ok(deux(b, {a: '', n: 'collecte', res: 'EP'}) && /^Drain ajouté/.test(b.t),
+    'o4 drain depuis le bout libre d\'un Tronçon EP : deux lignes, reliées par un raccord ; le Tronçon EP inchangé, sans drain ; le nouveau, drain de collecte EP ; toast « Drain ajouté » (obtenu '
+    + luLignes(b.d) + ', ' + JSON.stringify(b.t) + ')');
+  const c = await cas({res: 'EP'}, 'trEP');
+  R.ok(une(c, ''), 'o4 témoin : Tronçon EP depuis le bout libre d\'un Tronçon EP : prolongé, une seule ligne (obtenu ' + luLignes(c.d) + ')');
+  const dd = await cas({res: 'EP', drain: 'collecte'}, 'drain');
+  R.ok(une(dd, 'collecte') && /^Drain ajouté/.test(dd.t), 'o4 drain depuis le bout libre d\'un drain de collecte : prolongé, une seule ligne, toujours drain de collecte (obtenu '
+    + luLignes(dd.d) + ', ' + JSON.stringify(dd.t) + ')');
+  const e = await cas({res: 'EP', drain: 'collecte'}, 'drainInf');
+  R.ok(deux(e, {a: 'collecte', n: 'infiltration', res: ''}), 'o4 drain d\'infiltration depuis le bout libre d\'un drain de collecte : deux lignes, reliées par un raccord (obtenu '
+    + luLignes(e.d) + ')');
+  /* l'autre sens (relecture de m124) : un Tronçon ne prolonge pas non plus un drain */
+  const f = await cas({res: 'EP', drain: 'collecte'}, 'tr'), h = await cas({res: '', drain: 'infiltration'}, 'tr');
+  R.ok(deux(f, {a: 'collecte', n: '', res: ''}) && /^Tronçon ajouté/.test(f.t) && deux(h, {a: 'infiltration', n: '', res: ''}) && /^Tronçon ajouté/.test(h.t),
+    'o4 Tronçon depuis le bout libre d\'un drain de collecte, puis d\'un drain d\'infiltration : deux lignes, reliées par un raccord ; le drain garde ses deux '
+    + 'sommets ; toast « Tronçon ajouté » (obtenu ' + luLignes(f.d) + ', ' + JSON.stringify(f.t) + ', ' + luLignes(h.d) + ', ' + JSON.stringify(h.t) + ')');
+}
+const sorteDe = l => l.p.drain === 'collecte' || l.p.drain === 'infiltration' ? l.p.drain : '';
+async function outils(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p); await C.ouvrirCroquis(p);
+    for (const f of [o1, o2, o3, o4]){
+      try { await f(p); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
+    }
+    R.ok(!A.erreurs.length, 'o aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [puces, methodes]){
+  for (const f of [puces, methodes, outils]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();

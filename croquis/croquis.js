@@ -2711,6 +2711,14 @@ function escalierSvg(taille){
   return '<svg viewBox="0 0 34 34" width="' + s + '" height="' + s + '" aria-hidden="true"><g fill="none" stroke="' + col + '" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     + '<rect x="5" y="10" width="24" height="14"/><path d="M11 10V24M17 10V24M23 10V24"/><path d="M5 17H29M25.5 14.5L29 17L25.5 19.5"/></g></svg>';
 }
+/* pictogramme d'un drain (m124) : le trait vert d'un tuyau EP et son peigne, trois dents comme sur le plan (une dent tous les tiers, de
+   0,4 fois ce pas) : à droite du tracé pour un drain de collecte, des deux côtés pour un drain d'infiltration */
+function drainSvg(drain, taille){
+  var s = taille || 34, col = rgbCss(RES.EP.rgb), a = {x: 4, y: s - 8}, b = {x: s - 4, y: 8}, pas = Math.hypot(b.x - a.x, b.y - a.y) / 3;
+  var d = dentsPeigne([a, b], pas, pas * .4, drain === 'infiltration', true).map(function(q){ return 'M' + q[0].x.toFixed(1) + ' ' + q[0].y.toFixed(1) + 'L' + q[1].x.toFixed(1) + ' ' + q[1].y.toFixed(1); }).join('');
+  return '<svg viewBox="0 0 ' + s + ' ' + s + '" width="' + s + '" height="' + s + '" aria-hidden="true"><path d="M' + a.x + ' ' + a.y + 'L' + b.x + ' ' + b.y + '" stroke="' + col + '" stroke-width="3" stroke-linecap="round" fill="none"/>'
+    + '<path d="' + d + '" stroke="' + col + '" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
+}
 VC.symboleSvg = symboleSvg; VC.traitSvg = traitSvg;
 
 /* ---------- Éditeur tactile ---------- */
@@ -2721,6 +2729,10 @@ var OUTILS_LN = {
   trUN: {k: 'ln', t: 'tr', p: {res: 'UN'}, lib: 'Tronçon unitaire', res: 'UN'},
   trPres: {k: 'ln', t: 'tr', p: {st: 'presume'}, lib: 'Tronçon présumé', res: 'INC', st: 'presume'},
   trPrj: {k: 'ln', t: 'tr', p: {st: 'projet'}, lib: 'Projet', sous: 'avant-projet', res: 'PRJ', st: 'projet'},
+  /* drains (m124, décision D10) : le drain de collecte est un tuyau EP (Q3 b, comme « Tronçon EP ») ; le drain d'infiltration n'a pas de
+     réseau (D4), son aperçu est vert par le res 'EP' de l'outil. Aucun point n'est posé avec le drain */
+  drain: {k: 'ln', t: 'tr', p: {drain: 'collecte', res: 'EP'}, lib: 'Drain', res: 'EP'},
+  drainInf: {k: 'ln', t: 'tr', p: {drain: 'infiltration', res: ''}, lib: 'Drain d\'infiltration', res: 'EP'},
   colEU: {k: 'ln', t: 'col', p: {res: 'EU'}, lib: 'Collecteur EU', res: 'EU', col: true},
   colEP: {k: 'ln', t: 'col', p: {res: 'EP'}, lib: 'Collecteur EP', res: 'EP', col: true},
   colUN: {k: 'ln', t: 'col', p: {res: 'UN'}, lib: 'Collecteur unitaire', res: 'UN', col: true},
@@ -2758,7 +2770,7 @@ var LIB_ACCROCHE = {parallele: '∥ bâti', angle: 'équerre', coin: 'coin du b�
 var ACCROCHES = ['bati', 'parallele', 'angles', 'accMilieu', 'accPerp', 'accParcelle', 'accProl', 'accInter'];
 VC.ACCROCHES = ACCROCHES;
 var PALETTES = {
-  tr: {lib: 'Tracés', court: 'Tracé', ico: 'tr', items: ['ln:tr', 'ln:relier', 'ln:trEU', 'ln:trEP', 'ln:trUN', 'ln:trPres', 'ln:trPrj', 'ln:lim', 'ln:esc']},
+  tr: {lib: 'Tracés', court: 'Tracé', ico: 'tr', items: ['ln:tr', 'ln:relier', 'ln:trEU', 'ln:trEP', 'ln:trUN', 'ln:trPres', 'ln:trPrj', 'ln:drain', 'ln:drainInf', 'ln:lim', 'ln:esc']},
   eu: {lib: 'Appareils EU', court: 'EU', ico: 'eu', items: FAMILLES[0].types.map(function(t){ return 'pt:' + t; })},
   ep: {lib: 'Ouvrages EP', court: 'EP', ico: 'ep', items: FAMILLES[1].types.map(function(t){ return 'pt:' + t; })},
   reg: {lib: 'Regards', court: 'Regards', ico: 'reg', items: FAMILLES[2].types.map(function(t){ return 'pt:' + t; })},
@@ -3905,15 +3917,16 @@ function editeur(racine, opts){
         }
         var habituel = lui || (!autre && (dl <= 18 || (double && (!un || attache(at)))));
         /* au départ, hors du geste habituel, un point sur le tracé de départ (même collecteur, même tuyau, ou tracé qui porte l'objet de départ),
-           ou un objet que porte ce tracé, est refusé */
-        if (un && !habituel && attache(at) && sp && memeTrace(at, sp)){ S.dernierTap = null; toast(at.type === 'obj' && sp.type === 'obj' ? msgRelies(at, sp, 'touchez le point suivant ailleurs.') : 'Le tronçon suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return; }
+           ou un objet que porte ce tracé, est refusé. Les messages nomment le drain (m124) */
+        var nomG = nomGeste(OUTILS_LN[o.id]);
+        if (un && !habituel && attache(at) && sp && memeTrace(at, sp)){ S.dernierTap = null; toast(at.type === 'obj' && sp.type === 'obj' ? msgRelies(at, sp, 'touchez le point suivant ailleurs.') : 'Le ' + nomG.toLowerCase() + ' suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return; }
         /* ensuite, un tuyau prolongé ne revient pas sur lui-même (un point de son tracé, ou un objet qu'il porte) : il se refermerait en boucle */
-        if (!un && !habituel && b2.prolonge && attache(at) && surProlonge(at, b2.prolonge.id)){ S.dernierTap = null; toast('Le tronçon reviendrait sur le tuyau qu\'il prolonge : touchez son point suivant ailleurs.', 3500); return; }
+        if (!un && !habituel && b2.prolonge && attache(at) && surProlonge(at, b2.prolonge.id)){ S.dernierTap = null; toast('Le ' + nomG.toLowerCase() + ' reviendrait sur le tuyau qu\'il prolonge : touchez son point suivant ailleurs.', 3500); return; }
         if (habituel){
           if (un){
             var escT = OUTILS_LN[o.id].t === 'esc'; S.dernierTap = null;
-            if (double){ toast(escT ? 'Départ de l\'escalier posé : touchez la fin.' : 'Départ du tronçon posé : touchez le point suivant.', 2500); return; }
-            annulerTrace(); toast(escT ? 'Escalier abandonné' : 'Tronçon abandonné'); return;
+            if (double){ toast(escT ? 'Départ de l\'escalier posé : touchez la fin.' : 'Départ du ' + nomG.toLowerCase() + ' posé : touchez le point suivant.', 2500); return; }
+            annulerTrace(); toast(escT ? 'Escalier abandonné' : nomG + ' abandonné'); return;
           }
           /* fin par le geste habituel : comme après une fin automatique, le second toucher qui suit (double toucher) ne prolonge pas le tronçon fini */
           terminerGarde(sp || pl, {x: x, y: y}); return;
@@ -4001,10 +4014,11 @@ function editeur(racine, opts){
     var oo = OUTILS_LN[S.outil.id], b2 = S.brouillon, at = attache(a2) && !estComplement(oo.t);
     if (!b2){
       S.brouillon = b2 = {outil: S.outil.id, pts: []};
-      /* prolongation : extrémité libre d'un tuyau du statut que dessine l'outil (existant, présumé, projet) et d'un réseau qu'il ne contredit
-         pas (Tronçon, ou Tronçon EU sur un tuyau EU) ; sinon le nouveau tuyau part d'un raccord posé sur cette extrémité et garde ce que
-         l'outil indique (tuyau projeté au bout d'un tuyau existant, branche « Tronçon EP » au bout du tuyau « Tronçon EU » d'un WC) */
-      if (a2.type === 'som' && !a2.a && oo.t === 'tr'){ var l0 = el(a2.ligne); if (l0 && l0.t === 'tr' && (a2.i === 0 || a2.i === l0.v.length - 1) && ((l0.p && l0.p.st) || 'existant') === ((oo.p && oo.p.st) || 'existant') && (!(oo.p && oo.p.res) || oo.p.res === (l0.p && l0.p.res))) b2.prolonge = {id: l0.id, debut: a2.i === 0}; }
+      /* prolongation : extrémité libre d'un tuyau du statut que dessine l'outil (existant, présumé, projet), d'un réseau qu'il ne contredit
+         pas (Tronçon, ou Tronçon EU sur un tuyau EU) et du même drain (m124 : aucun, collecte ou infiltration) ; sinon le nouveau tuyau part
+         d'un raccord posé sur cette extrémité et garde ce que l'outil indique (tuyau projeté au bout d'un tuyau existant, branche « Tronçon
+         EP » au bout du tuyau « Tronçon EU » d'un WC, drain au bout d'un Tronçon EP) */
+      if (a2.type === 'som' && !a2.a && oo.t === 'tr'){ var l0 = el(a2.ligne); if (l0 && l0.t === 'tr' && (a2.i === 0 || a2.i === l0.v.length - 1) && ((l0.p && l0.p.st) || 'existant') === ((oo.p && oo.p.st) || 'existant') && (!(oo.p && oo.p.res) || oo.p.res === (l0.p && l0.p.res)) && sorteDrain(oo.p && oo.p.drain) === drainDe(l0)) b2.prolonge = {id: l0.id, debut: a2.i === 0}; }
     }
     /* doigt : là où le doigt a posé le point (le point lui-même peut avoir été redressé ou accroché plus loin) ; surBati : posé sur le bâti,
        pour le sens d'un escalier (surLeBati). Ces champs restent dans le brouillon : seules les coordonnées vont dans le croquis */
@@ -4025,20 +4039,23 @@ function editeur(racine, opts){
     var fa = S.finAuto, lf = fa && S.sel && el(S.sel.id);
     if (fa && !(lf && lf.k === 'ln' && lf.v.length)){ S.finAuto = null; fa = null; }
     if (fa){
-      fa.ligne = lf.id; fa.lt = lf.t;
+      fa.ligne = lf.id; fa.lt = lf.t; fa.lp = lf.p;
       if (!fa.id){ var v0 = lf.v[0], v1 = lf.v[lf.v.length - 1], vf = Math.hypot(v0.x - a2.x, v0.y - a2.y) < Math.hypot(v1.x - a2.x, v1.y - a2.y) ? v0 : v1; if (vf.a) fa.id = vf.a; }
       var sf2 = S.vue.ecran(a2.x, a2.y); fa.gx = sf2.x - sf.x; fa.gy = sf2.y - sf.y;
     }
   }
+  /* nom du tracé en cours dans les messages du geste (départ, abandon, tracé refusé) : « Drain » ou « Drain d'infiltration » avec les
+     outils de drain (m124) ; « Tronçon » avec les autres outils, comme avant */
+  function nomGeste(oo){ return oo && oo.t === 'tr' && sorteDrain(oo.p && oo.p.drain) ? nomTrace(oo.t, oo.p) : 'Tronçon'; }
   function msgFin(fa){
-    var t = fa && fa.lt, quoi = nomTrace(t);
+    var t = fa && fa.lt, quoi = nomTrace(t, fa && fa.lp);
     if (fa && fa.id) return quoi + ' déjà terminé sur cet objet. Pour en partir, touchez-le de nouveau, ou glissez depuis lui.';
     return quoi + ' déjà terminé.' + (t === 'col' || estComplement(t) ? '' : ' Pour le prolonger, touchez de nouveau son extrémité.');
   }
   /* même explication pour un toucher ignoré sur la fiche ou une barre qui vient de se placer sous le doigt après la fin : l'objet ou
      l'extrémité de fin est dessous, il faut fermer la fiche pour les toucher */
   function msgFinSous(fa, fiche, bouton){
-    var t = fa && fa.lt, quoi = nomTrace(t), deb = quoi + ' déjà terminé' + (fa && fa.id ? ' sur cet objet' : '') + ' : ';
+    var t = fa && fa.lt, quoi = nomTrace(t, fa && fa.lp), deb = quoi + ' déjà terminé' + (fa && fa.id ? ' sur cet objet' : '') + ' : ';
     var suite = fa && fa.id ? ' ; pour partir de l\'objet, fermez la fiche puis touchez-le.' : t === 'col' || estComplement(t) ? '.' : ' ; pour le prolonger, fermez la fiche puis touchez son extrémité.';
     if (!fiche) return deb + (bouton ? 'ce bouton vient de se placer sous le doigt (fiche ouverte), touchez-le de nouveau pour vous en servir.' : 'cette barre vient de se placer sous le doigt (fiche ouverte)' + suite);
     return deb + 'sa fiche vient de s\'ouvrir sous le doigt, touchez-la de nouveau pour la modifier' + suite;
@@ -4177,13 +4194,14 @@ function editeur(racine, opts){
       redessiner(); return;
     }
     /* au départ, un tronçon qui suivrait le tracé de départ (même collecteur, même tuyau, tracé qui porte l'objet de départ, ou objet que porte
-       ce tracé) est refusé, comme au toucher ; le départ posé par ce glissé est retiré */
+       ce tracé) est refusé, comme au toucher ; le départ posé par ce glissé est retiré. Les messages nomment le drain (m124) */
+    var leG = 'Le ' + nomGeste(oo).toLowerCase();
     if (un && attache(a) && p0.snap && memeTrace(a, p0.snap)){
       if (g.cree) S.brouillon = null; S.dernierTap = null; majAide(); redessiner();
-      toast(a.type === 'obj' && p0.snap.type === 'obj' ? msgRelies(a, p0.snap, g.cree ? 'glissez jusqu\'à un autre point.' : 'touchez le point suivant ailleurs.') : g.cree ? 'Le tronçon suivrait le tracé de départ : glissez jusqu\'à un point hors de ce tracé.' : 'Le tronçon suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return;
+      toast(a.type === 'obj' && p0.snap.type === 'obj' ? msgRelies(a, p0.snap, g.cree ? 'glissez jusqu\'à un autre point.' : 'touchez le point suivant ailleurs.') : g.cree ? leG + ' suivrait le tracé de départ : glissez jusqu\'à un point hors de ce tracé.' : leG + ' suivrait le tracé de départ : touchez son point suivant ailleurs.', 3500); return;
     }
     /* ensuite, un tuyau prolongé ne revient pas sur lui-même (un point de son tracé, ou un objet qu'il porte) : il se refermerait en boucle */
-    if (!un && b0.prolonge && attache(a) && surProlonge(a, b0.prolonge.id)){ S.dernierTap = null; redessiner(); toast('Le tronçon reviendrait sur le tuyau qu\'il prolonge : glissez jusqu\'à un point hors de ce tuyau.', 3500); return; }
+    if (!un && b0.prolonge && attache(a) && surProlonge(a, b0.prolonge.id)){ S.dernierTap = null; redessiner(); toast(leG + ' reviendrait sur le tuyau qu\'il prolonge : glissez jusqu\'à un point hors de ce tuyau.', 3500); return; }
     ajouterPointTrace(a, {x: p.x, y: p.y});
   }
   /* --- outil Relier : deux objets, un tronçon droit ou en L d'équerre avec le bâti --- */
@@ -4822,8 +4840,9 @@ function editeur(racine, opts){
     if (auto === 'discret'){ changement({garderPanneau: true}); majAide(); return; }
     S.sel = {id: l.id, sommet: null}; S.panneau = 'fiche';
     changement(); rendreVisible(l.id); majAide();
-    var r = l.t === 'tr' ? resLigne(l, S.an) : null;
-    toast(nomTrace(l.t) + ' ajouté' + (r ? (r === 'INC' ? ' : réseau à préciser' : r === 'MIX' ? ' : plusieurs réseaux atteints' : ' : réseau ' + libRes(r) + (RES[l.p.res] ? '' : ' déduit')) : '') + ' · ' + frNum(Math.round(longueur(lignePts(l, idx())) * 10) / 10) + ' m');
+    /* drain (m124) : « Drain ajouté », « Drain d'infiltration ajouté » ; un drain d'infiltration disperse dans le sol, comme le dit la tête de sa fiche */
+    var r = l.t === 'tr' ? resLigne(l, S.an) : null, disp = r && r !== 'PRJ' && drainDe(l) === 'infiltration';
+    toast(nomTrace(l.t, l.p) + ' ajouté' + (r ? (disp ? ' : dispersion dans le sol' : r === 'INC' ? ' : réseau à préciser' : r === 'MIX' ? ' : plusieurs réseaux atteints' : ' : réseau ' + libRes(r) + (RES[l.p.res] ? '' : ' déduit')) : '') + ' · ' + frNum(Math.round(longueur(lignePts(l, idx())) * 10) / 10) + ' m');
   }
   function annulerTrace(){ S.brouillon = null; majAide(); redessiner(); }
   /* « Abandonner » du tracé en cours, dans la barre d'aide. Avec l'outil Escalier, « Cotes » prend aussitôt sa place (m108) : ce bouton
@@ -4878,7 +4897,7 @@ function editeur(racine, opts){
     pal.innerHTML = '<h3>' + esc(P.lib) + '</h3><div class="vc-pgrille">' + P.items.map(function(it){
       var q = it.split(':'), lib, sous = '', svg, actif = false;
       if (q[0] === 'pt'){ lib = T[q[1]].lib; svg = symboleSvg(q[1], 38); actif = S.outil.k === 'pt' && S.outil.t === q[1]; }
-      else if (q[0] === 'ln'){ var oo = OUTILS_LN[q[1]]; lib = oo.lib; sous = oo.sous || ''; svg = oo.relier ? '<span class="vc-ptx">' + ico('relier', 30) + '</span>' : oo.t === 'esc' ? escalierSvg(38) : traitSvg(oo.res, oo.st, 38); actif = S.outil.k === 'ln' && S.outil.id === q[1]; }
+      else if (q[0] === 'ln'){ var oo = OUTILS_LN[q[1]]; lib = oo.lib; sous = oo.sous || ''; svg = oo.relier ? '<span class="vc-ptx">' + ico('relier', 30) + '</span>' : oo.t === 'esc' ? escalierSvg(38) : sorteDrain(oo.p && oo.p.drain) ? drainSvg(oo.p.drain, 38) : traitSvg(oo.res, oo.st, 38); actif = S.outil.k === 'ln' && S.outil.id === q[1]; }
       else { lib = 'Texte libre'; svg = '<span class="vc-ptx">' + ico('texte', 30) + '</span>'; actif = S.outil.k === 'tx'; }
       return '<button type="button" class="vc-pitem" data-item="' + it + '" aria-pressed="' + actif + '">' + svg + '<span>' + esc(lib) + (sous ? '<small>' + esc(sous) + '</small>' : '') + '</span></button>';
     }).join('') + '</div>';
@@ -4910,7 +4929,7 @@ function editeur(racine, opts){
     }
     else if (o.k === 'ln'){
       var oo = OUTILS_LN[o.id], n = S.brouillon ? S.brouillon.pts.length : 0, gl = aideOn('glisser');
-      h = '<span><strong>' + esc(oo.lib) + '</strong> : ' + (n ? n + ' point' + (n > 1 ? 's' : '') + '. ' + (gl ? 'Glissez ou touchez' : 'Touchez') + ' le point suivant' + (oo.t === 'tr' && aideOn('finir') ? ' ; le tronçon se termine sur un objet' : '') + (n >= 2 ? ' ; touchez à nouveau le dernier point pour terminer.' : '.') : (gl ? 'glissez depuis le point de départ, ou touchez-le' : 'touchez le point de départ') + ' (un objet, un tracé ou un point libre)' + (gl ? ' ; deux doigts pour déplacer le plan' : '') + '.') + '</span>'
+      h = '<span><strong>' + esc(oo.lib) + '</strong> : ' + (n ? n + ' point' + (n > 1 ? 's' : '') + '. ' + (gl ? 'Glissez ou touchez' : 'Touchez') + ' le point suivant' + (oo.t === 'tr' && aideOn('finir') ? ' ; le ' + nomTrace(oo.t, oo.p).toLowerCase() + ' se termine sur un objet' : '') + (n >= 2 ? ' ; touchez à nouveau le dernier point pour terminer.' : '.') : (gl ? 'glissez depuis le point de départ, ou touchez-le' : 'touchez le point de départ') + ' (un objet, un tracé ou un point libre)' + (gl ? ' ; deux doigts pour déplacer le plan' : '') + '.') + '</span>'
         + (n ? '<button type="button" class="vc-b vc-bt" data-a="retirerPoint">' + ico('annuler', 18) + 'Point</button><button type="button" class="vc-b vc-bt" data-a="annulerTrace">' + ico('fermer', 18) + 'Abandonner</button>' + (n >= 2 ? '<button type="button" class="vc-b vc-bt vc-prim" data-a="terminerTrace">' + ico('valider', 18) + 'Terminer</button>' : '') : '');
     }
     else if (o.k === 'pt') h = '<span>Touchez le plan pour poser : <strong>' + esc(T[o.t].lib) + '</strong>' + (T[o.t].role === 'passage' ? ' (posé sur un tracé, il s\'y insère)' : '') + '.' + (T[o.t].rappel ? ' ' + esc(T[o.t].rappel) : '') + '</span>'

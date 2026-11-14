@@ -89,6 +89,16 @@ CROQUIS DE TERRAIN (facultatif)
   (à compléter). Sa fiche a les puces « Méthode de test ». Un point
   « Drain » posé sur un de ses sommets compte seul, s'il figure sur le
   plan affiché (un point « Projet » ne figure pas sur l'état des lieux).
+  Les outils « Drain » et « Drain d'infiltration » de la palette
+  « Tracés », juste après « Projet », tracent un drain comme un tronçon,
+  sans poser de point « Drain » : « Drain » un drain de collecte en eaux
+  pluviales, « Drain d'infiltration » un drain sans réseau, qui reçoit
+  aussitôt son étiquette « Dispersion dans le sol ». La fin du tracé
+  l'annonce (« Drain ajouté », « Drain d'infiltration ajouté »). Un
+  tracé ne prolonge le bout libre d'un tuyau que s'il est de la même
+  sorte (tronçon, drain de collecte ou drain d'infiltration) : un drain
+  tracé depuis le bout d'un « Tronçon EP » forme un second tracé, relié
+  au premier par un raccord.
   Dans la fiche de la boîte de branchement, on indique sa position par
   rapport à la limite de propriété (côté intérieur ou extérieur, distance
   en mètres) ; l'étiquette du plan la reprend, par exemple « à 0,80 m de
@@ -288,20 +298,22 @@ MISE À JOUR DE L'APPLICATION
   d'échanger une sauvegarde ou un dossier qui en contient (la version se
   lit au pied du plan PDF). Une tablette restée en v1.7.0, ou plus
   ancienne, ne connaît pas ces objets : un « Tronçon EP », « Tronçon EU »
-  ou « Tronçon unitaire » qui y mène y est présumé raccordé à ce réseau ;
-  un drain d'infiltration y est un simple tronçon, sans exutoire ; un
-  drain de collecte n'y est qu'un tronçon, sans ligne au constat. Une
-  descente ou un WC vers un puits, un WC vers une infiltration ou un
+  ou « Tronçon unitaire » qui y mène y est présumé raccordé à ce réseau.
+  Une descente ou un WC vers un puits, un WC vers une infiltration ou un
   drain d'infiltration, non conformes sur une tablette à jour, y restent
   non conformes tant que le croquis n'y est pas ouvert ; son ouverture
   retire du dossier les anomalies « rejet au sol » ou « rejet dans un
   puits » que personne n'a modifiées, et le plan comme le constat y
-  paraissent alors conformes (« À compléter » par un simple « Tronçon »
-  ou par un drain d'infiltration ; par un « Tronçon EP », un WC y reste
-  non conforme, mais comme raccordé aux EP ; par un « Tronçon EU », une
-  descente y reste non conforme, mais comme raccordée aux EU) ; elles
-  reviennent sur une tablette à jour. N'y signez aucun constat de ces
-  dossiers : un constat signé ne change plus.
+  paraissent alors conformes (« À compléter » par un simple
+  « Tronçon » ; par un « Tronçon EP », un WC y reste non conforme, mais
+  comme raccordé aux EP ; par un « Tronçon EU », une descente y reste
+  non conforme, mais comme raccordée aux EU) ; elles reviennent sur une
+  tablette à jour. Un drain y est un simple tuyau : un drain
+  d'infiltration, comme le bouton « Rejet au sol », y donne
+  « À compléter » ; un drain de collecte n'y compte pas au constat, et
+  un équipement qui y est relié y est présumé raccordé au réseau EP. N'y
+  signez aucun constat de ces dossiers : un constat signé ne change
+  plus.
 - Une tablette restée en v1.7.0, ou plus ancienne, compte encore une
   anomalie à arbitrer comme conforme : elle y laisse « Conformes ». N'y
   signez pas le constat d'un dossier dont une anomalie reste à arbitrer.
