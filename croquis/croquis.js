@@ -972,7 +972,8 @@ def('tropplein', {fam: 'ep', lib: 'Trop-plein', ab: 'TP', nat: 'EP', role: 'sour
 /* autres appareils (m132, souhait 7 ; décisions D1 à D5) : appareil EU ou ouvrage EP que le catalogue n'a pas (bidet, urinoir, avaloir de
    terrasse…), nommé par l'opérateur. Dans p : nom (libDe), ab (lettres du symbole, abObj) et row (ligne du formulaire du constat, du même
    réseau ; sinon une ligne « Autres » à son nom), tous facultatifs. Nature fixée par le type : les règles des sources s'appliquent telles
-   quelles. Hors des familles : ni palette ni sélecteur « Type » (m133) */
+   quelles. m133 : en dernier de la palette Appareils EU ou Ouvrages EP, et du sélecteur « Type » de leur famille ; leur fiche commence par
+   le nom (autreHtml) */
 def('autre_eu', {fam: 'eu', lib: 'Autre appareil', ab: '?', nat: 'EU', role: 'source', forme: 'app', nomLibre: true});
 def('autre_ep', {fam: 'ep', lib: 'Autre ouvrage EP', ab: '?', nat: 'EP', role: 'source', forme: 'app', nomLibre: true});
 def('regard', {fam: 'reg', lib: 'Regard', nat: null, role: 'passage', forme: 'regard', regard: true});
@@ -994,9 +995,10 @@ def('exutoire', {fam: 'exu', lib: 'Autre destination', g: 'f', role: 'exutoire',
 def('regard_pub', {fam: 'pub', lib: 'Regard public', role: 'passage', forme: 'regpub', regard: true});
 def('test', {fam: 'ann', lib: 'Point de test', role: 'note', forme: 'test'});
 def('zone', {fam: 'ann', lib: 'Zone suspecte', g: 'f', role: 'note', forme: 'zone'});
+/* familles des palettes et du sélecteur Type de la fiche ; m133 : « Autre appareil » et « Autre ouvrage EP » en dernier de la leur */
 var FAMILLES = [
-  {id: 'eu', lib: 'Appareils EU', court: 'EU', types: ['wc', 'lavabo', 'douche', 'baignoire', 'sdb', 'evier', 'cuisine', 'lavelinge', 'lavevaisselle', 'chaudiere', 'siphon_garage', 'attente']},
-  {id: 'ep', lib: 'Ouvrages EP', court: 'EP', types: ['descente', 'grille', 'caniveau', 'siphon_sol', 'siphon_cour', 'drain', 'tropplein']},
+  {id: 'eu', lib: 'Appareils EU', court: 'EU', types: ['wc', 'lavabo', 'douche', 'baignoire', 'sdb', 'evier', 'cuisine', 'lavelinge', 'lavevaisselle', 'chaudiere', 'siphon_garage', 'attente', 'autre_eu']},
+  {id: 'ep', lib: 'Ouvrages EP', court: 'EP', types: ['descente', 'grille', 'caniveau', 'siphon_sol', 'siphon_cour', 'drain', 'tropplein', 'autre_ep']},
   {id: 'reg', lib: 'Regards', court: 'Regards', types: ['regard', 'boite', 'te']},
   {id: 'equ', lib: 'Équipements et exutoires', court: 'Équip.', types: ['pr', 'clapet', 'fosse', 'jonction', 'puisard', 'infiltration', 'gargouille', 'milieu', 'puits', 'exutoire']},
   {id: 'pub', lib: 'Réseau public', court: 'Public', types: ['regard_pub']},
@@ -1681,6 +1683,19 @@ function nomRefuse(nom){
   return n + ' : posez ' + (f ? 'une ' : 'un ') + tt.lib + (rl && rl !== tt.lib ? ', compté' + (f ? 'e' : '') + ' en ' + rl : '') + '.';
 }
 VC.nomRefuse = nomRefuse;
+/* noms proposés par la fiche d'un autre appareil (m133 ; D2), avant ceux déjà employés dans le croquis pour le même type ; aucun n'est
+   refusé par nomRefuse */
+var NOMS_AUTRES = {EU: ['Bidet', 'Urinoir', 'Ballon d\'eau chaude', 'Fontaine', 'Climatisation (condensats)', 'Adoucisseur', 'Piscine (vidange)'],
+  EP: ['Évacuation de balcon', 'Avaloir de terrasse', 'Cour anglaise']};
+VC.NOMS_AUTRES = NOMS_AUTRES;
+/* ligne du formulaire où compter un autre appareil (m133) : p.row, si c'est une ligne du formulaire de son réseau (comme constatDeduit) ;
+   '' sinon (sa ligne « Autres ») */
+function rowAutre(e){
+  var ty = e && Object.prototype.hasOwnProperty.call(T, e.t) ? T[e.t] : null, rw = e && e.p && typeof e.p.row === 'string' ? e.p.row : '';
+  if (!ty || !ty.nomLibre || !rw) return '';
+  for (var i = 0; i < ROWS_STD.length; i++) if (ROWS_STD[i][0] === rw && ROWS_STD[i][1] === ty.nat) return rw;
+  return '';
+}
 function libObj(o){ return libDe(o); }
 /* Niveau d'une source (souhait 15, m130 ; décisions D1 et D2) : p.niv garde ses trois codes ('ss', 'rdc', 'etage') ; p.etage précise
    l'étage, '1' à '99' ou 'combles', et ne se lit que si niv vaut 'etage'. etageDe : cette valeur, '' si elle manque ou est illisible.
@@ -2036,20 +2051,26 @@ function reconcilier(doc, an, ext, o){
   if (!an || an.mode !== 'edl') an = analyser(doc, 'edl');
   var forcer = {}; (o.forcer || []).forEach(function(id){ forcer[id] = true; });
   if (!doc.sauvegardes || typeof doc.sauvegardes !== 'object' || Array.isArray(doc.sauvegardes)) doc.sauvegardes = {};
-  var R = integEdl(doc, an, ext, forcer), ops = {creer: [], maj: [], retirer: [], doc: false}, lignes = null, parId = {};
+  var R = integEdl(doc, an, ext, forcer), ops = {creer: [], maj: [], retirer: [], doc: false, autres: {}}, lignes = null, autresG = null, parId = {};
   ext.forEach(function(r){ parId[r.id] = r; });
   /* ligne du constat de l'équipement en cause (WC, gouttières avant…) : l'anomalie rend cette ligne non conforme. Une anomalie posée à la
      main sur un objet (bibliothèque ou saisie libre) va sur la ligne de cet objet, un lavabo sur « Évier » : le mot « lavabo » de son texte
-     ne la range pas en salle de bain */
+     ne la range pas en salle de bain. m133 (M2) : un autre appareil compté en « Autres » rend null : l'identifiant de cette ligne au constat,
+     l'application seule le connaît (vcApparier) ; ops.autres[id de l'enregistrement] nomme alors la ligne du croquis (id de constatDeduit),
+     et l'application y range l'anomalie (vcRangerAutres, index.html) */
   function ligneDe(a){
     if (!a.objId || !(REGLES_LIGNE.test(a.cle) || a.manu)) return '';
-    if (!lignes){ lignes = {}; constatDeduit(doc, an).rows.forEach(function(r){ if (r.std) r.objets.forEach(function(id){ lignes[id] = r.id; }); }); }
-    return lignes[a.objId] || '';
+    if (!lignes){
+      lignes = {}; autresG = {};
+      constatDeduit(doc, an).rows.forEach(function(r){ r.objets.forEach(function(id){
+        if (r.std) lignes[id] = r.id; else if (idxD[id] && T[idxD[id].t] && T[idxD[id].t].nomLibre) autresG[id] = r.id; }); });
+    }
+    return lignes[a.objId] || (autresG[a.objId] ? null : '');
   }
   var idxD = indexDoc(doc), sauv = doc.sauvegardes || {};
   R.liste.forEach(function(a){
     if (a.creer){
-      var inst = ligneDe(a), sv = sauv[a.cle], c = {reseau: a.reseau, observation: a.obs, preconisation: a.preco || '', nc: !!a.nc, installation: inst, categorie: a.cat || 'autre',
+      var li0 = ligneDe(a), inst = li0 === null ? '' : li0, sv = sauv[a.cle], c = {reseau: a.reseau, observation: a.obs, preconisation: a.preco || '', nc: !!a.nc, installation: inst, categorie: a.cat || 'autre',
         croquis: {cle: a.cle, objId: a.objId || null, codes: (a.codes || []).slice(), auto: {obs: a.r0.obs, preco: a.r0.preco, reseau: a.r0.reseau, nc: a.r0.nc, installation: inst}}};
       if (sv){
         /* retenue de nouveau (ou retrait annulé) : l'anomalie revient telle qu'elle était dans le dossier */
@@ -2100,7 +2121,15 @@ function reconcilier(doc, an, ext, o){
         if (au.nc !== a.r0.nc){ nAu.nc = a.r0.nc; n++; }
         if (jugeN && VC.ncAnomalie({reseau: resN, observation: ch.observation != null ? ch.observation : r.observation}) !== a.r0.nc){ ch.nc = a.r0.nc; n++; }
       }
-      suit('installation', 'installation', ligneDe(a), r.installation || '');
+      /* autre appareil compté en « Autres » (m133, M2) : installation laissée à l'application, qui en suit la valeur notée comme ici. Une
+         ligne du formulaire notée ici (l'appareil y était compté, p.row) revient d'abord à vide, comme avant m133, si personne n'y a
+         touché : l'anomalie n'y reste pas en attendant l'application, qui ne range rien sans constat */
+      var li = ligneDe(a);
+      if (li === null){
+        ops.autres[r.id] = autresG[a.objId];
+        if (ROWS_STD.some(function(s){ return s[0] === au.installation; })) suit('installation', 'installation', '', r.installation || '');
+      }
+      else suit('installation', 'installation', li, r.installation || '');
     }
     var codes = (a.codes || []).slice(), codesChange = JSON.stringify(r.croquis.codes || []) !== JSON.stringify(codes);
     /* anomalie gardée reprise par la règle (croquis refait) : elle en prend la clé */
@@ -4976,12 +5005,24 @@ function editeur(racine, opts){
     var ty = T[t] || {}, d = m && estDest(t) ? destDe({p: m}) : null;
     return d && d.nom !== ty.lib ? {lib: d.nom, g: d.art === 'la' ? 'f' : ''} : {lib: ty.lib || '', g: ty.g};
   }
+  /* objet existant déplacé ou mesuré par cotes (m133 ; M4 de la relecture de m132) : {lib, g, sujet}. lib, pour l'aide : son libellé, comme
+     l'en-tête de sa fiche (libDe : « Bidet », « WC + lave-mains ») ; une destination, son nom, comme à la pose (nomPose : « Mare ») ; celui
+     du type si l'objet n'existe plus. sujet, pour le panneau : le genre d'un nom libre n'est pas connu, le participe s'accorde au type,
+     nommé avant lui (« Autre appareil « Fontaine » déplacé ») ; sinon lib, accordé au genre g */
+  function libPour(pour){
+    var o = pour.id ? el(pour.id) : null, ty;
+    if (!o || o.k !== 'pt'){ ty = T[pour.t] || {}; return {lib: ty.lib || '', g: ty.g}; }
+    if (estDest(o.t)) return nomPose(o.t, o.p);
+    ty = T[o.t] || {};
+    var lib = libDe(o), nm = ty.nomLibre ? nomLibre(o.p) : '';
+    return {lib: lib, g: ty.g, sujet: nm ? ty.lib + ' « ' + nm + ' »' : lib};
+  }
   function aideCotes(){
     var C = S.cotes, r = C.ref, nb = C.cands ? C.cands.length : 0, h, id = C.pour.id, mes = id && C.pour.mesure, dep = !!C.pour.esc;
     var nat = r ? '<strong>' + esc(NAT_COTES[r.nat] || '') + '</strong>' + (nb > 1 ? ' (' + (C.k + 1) + ' sur ' + nb + ')' : '') : '';
     var autre = '<button type="button" class="vc-b vc-bt" data-a="cotesAutre">' + ico('retour', 18) + 'Autre trait</button>';
     var titre = mes ? 'Mesurer depuis une façade' : id ? 'Déplacer par cotes' : 'Pose par cotes';
-    if (C.etape === 'cote') h = '<span><strong>' + (dep ? 'Départ de l\'escalier par cotes' : titre) + '</strong>' + (dep ? '' : ' (' + esc(id ? (T[C.pour.t] || {}).lib || '' : nomPose(C.pour.t, C.pour.modele).lib) + ')')
+    if (C.etape === 'cote') h = '<span><strong>' + (dep ? 'Départ de l\'escalier par cotes' : titre) + '</strong>' + (dep ? '' : ' (' + esc(id ? libPour(C.pour).lib : nomPose(C.pour.t, C.pour.modele).lib) + ')')
       + '. Touchez la façade ou la limite de référence.</span>';
     else if (C.etape === 'endroit') h = '<span>' + nat + '. Touchez ' + (dep ? 'l\'endroit du départ' : (id ? 'le nouvel endroit' : 'l\'endroit') + ' de l\'objet') + (nb > 1 ? ' ; touchez de nouveau le même point du trait pour la ligne suivante' : '') + '.</span>' + autre;
     else h = '<span>' + nat + ' : réglez les cotes dans le panneau, puis « ' + (id ? 'Déplacer' : dep ? 'Poser le départ' : 'Poser') + ' »'
@@ -4992,10 +5033,10 @@ function editeur(racine, opts){
     var C = S.cotes, r = C.ref, c = C.c, prol = c.mode === 'prol', g = coinGauche(r) || 'A';
     var cotes = prol ? [['droite', 'Droite'], ['gauche', 'Gauche']] : r.nat === 'limite' && r.dedans ? [['derriere', 'Intérieur'], ['devant', 'Extérieur']] : [['devant', 'Devant'], ['derriere', 'Derrière']];
     /* objet existant (m102) : « mesuré » ou « déplacé », et « Déplacer » à la place de « Poser » ; départ d'un escalier (m108) : « Poser le départ » */
-    var dep = !!C.pour.esc, id = C.pour.id, ty = dep ? {lib: 'Départ de l\'escalier'} : id ? T[C.pour.t] || {} : nomPose(C.pour.t, C.pour.modele), verbe = id ? (C.pour.mesure ? ' mesuré' : ' déplacé') : ' posé';
+    var dep = !!C.pour.esc, id = C.pour.id, ty = dep ? {lib: 'Départ de l\'escalier'} : id ? libPour(C.pour) : nomPose(C.pour.t, C.pour.modele), verbe = id ? (C.pour.mesure ? ' mesuré' : ' déplacé') : ' posé';
     var ok = id ? '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesDeplacer">' + ico('valider', 18) + 'Déplacer</button>'
       : '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesPoser">' + ico('valider', 18) + (dep ? 'Poser le départ' : 'Poser') + '</button>';
-    return '<p class="vc-muet">' + esc(ty.lib || '') + verbe + (ty.g === 'f' ? 'e' : '') + ' depuis : <strong>' + esc(NAT_COTES[r.nat] || '') + '</strong> (côté de '
+    return '<p class="vc-muet">' + esc(ty.sujet || ty.lib || '') + verbe + (ty.g === 'f' ? 'e' : '') + ' depuis : <strong>' + esc(NAT_COTES[r.nat] || '') + '</strong> (côté de '
         + frNum(Math.hypot(r.B.x - r.A.x, r.B.y - r.A.y), 2) + ' m).</p>'
       + champ('Mode', chipsHtml('mode', [['prol', 'Prolongement'], ['long', 'Le long']], c.mode, {a: 'cotes', label: 'Mode'}))
       + champ('Coin', chipsHtml('coin', [[g, 'Coin gauche'], [g === 'A' ? 'B' : 'A', 'Coin droit']], c.coin, {a: 'cotes', label: 'Coin'}), 'vus du dehors, face au trait')
@@ -5578,6 +5619,23 @@ function editeur(racine, opts){
     var bp = pcorps.querySelector('button[data-a="limPlacer"]'), bm = pcorps.querySelector('button[data-a="limMesure"]'), d = num(v);
     if (bp && bm) bp.disabled = bm.disabled || d == null || d < 0 || (e.p.limCote !== 'int' && e.p.limCote !== 'ext');
   }
+  /* fiche d'un autre appareil (m133 ; D2 et D4 de .claude/conception-equipements.md), en tête : le nom, saisi (enregistré en quittant le
+     champ) ou touché parmi les noms proposés (ceux du cadrage, puis ceux déjà employés pour ce type par les autres objets du croquis, dans
+     l'ordre du dessin, sans doublon ni nom refusé [p]) ; l'abréviation (vide : tirée du nom, montrée en texte indicatif) ; le réseau (EU |
+     EP : l'autre générique, changerType) ; la ligne du constat qui le compte : « Autres : <nom> », ou une ligne du formulaire du même
+     réseau (p.row), libellée sans ses parenthèses [p] */
+  function autreHtml(e, ty){
+    var nm = nomLibre(e.p), vus = {}, noms = [], lignes = [['', 'Autres : ' + libDe(e)]];
+    function proposer(x){ var c = norm(x).replace(/\s+/g, ' ').trim(); if (!c || vus[c] || nomRefuse(x)) return; vus[c] = true; noms.push([x, x]); }
+    (NOMS_AUTRES[ty.nat] || []).forEach(proposer);
+    S.doc.el.forEach(function(o){ if (o.k === 'pt' && o.t === e.t && o.id !== e.id) proposer(nomLibre(o.p)); });
+    ROWS_STD.forEach(function(r){ if (r[1] === ty.nat) lignes.push([r[0], r[2].replace(/\s+\([^)]*\)/g, '')]); });
+    var ab = typeof e.p.ab === 'string' ? e.p.ab.replace(/\s+/g, ' ').trim() : '', ph = abObj({t: e.t, p: Object.assign({}, e.p, {ab: ''})}), sorte = ty.nat === 'EP' ? 'l\'ouvrage' : 'l\'appareil';
+    return champ('Nom', saisie('nom', nm, {lab: 'Nom de ' + sorte, max: 40}) + chipsHtml('nom', noms, nm, {a: 'autreNom', label: 'Noms proposés'}), 'celui de ' + sorte + ' vu sur place, 40 caractères au plus')
+      + champ('Abréviation', saisie('ab', ab, {lab: 'Abréviation du symbole', max: 3, ph: ph}), '1 à 3 caractères, dans le symbole ; vide : tirée du nom')
+      + champ('Réseau', chipsHtml('t', [['autre_eu', 'EU'], ['autre_ep', 'EP']], e.t, {a: 'autreNat', label: 'Réseau'}))
+      + champ('Compté au constat', chipsHtml('row', lignes, rowAutre(e), {garder: true, label: 'Compté au constat'}));
+  }
   function ficheHtml(e){
     var h = '', ty, I = idx();
     if (e.k === 'pt' && !T[e.t]){
@@ -5589,6 +5647,8 @@ function editeur(racine, opts){
       h += '<div class="vc-ftete">' + symboleSvg(e.t, 40, e.p) + '<div><strong>' + esc(libDe(e)) + '</strong>' + (et ? '<span class="vc-etat ' + et.cls + '">' + esc(et.txt) + '</span>' : ty.regard || ty.role === 'passage' ? '<span class="vc-etat ' + (/^(EU|EP|UN)$/.test(res) ? 'ok' : 'att') + '">' + (/^(EU|EP|UN)$/.test(res) ? 'Réseau ' + libRes(res) + (ty.boite && RES[e.p.res] ? '' : ' déduit') : res === 'MIX' ? 'Plusieurs réseaux' : 'Réseau à préciser') + '</span>' : '') + '</div></div>';
       /* rappel du type, sous l'en-tête (puits : un puits perdu se dessine en puisard ; m120, décision du 13 nov. 2026) */
       if (ty.rappel) h += '<p class="vc-muet">' + esc(ty.rappel) + '</p>';
+      /* autre appareil (m133) : nom, abréviation, réseau et ligne du constat, en tête de la fiche */
+      if (ty.nomLibre) h += autreHtml(e, ty);
       /* source EP qu'aucun tracé ne tient (m118 ; D10) : « Rejet au sol » pose d'un toucher une infiltration à 1 m et le tronçon qui l'y relie */
       if (rejetSolPossible(e)) h += champ('Rejet', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="rejetSol">Rejet au sol</button></div>', 'infiltration au sol à 1 m, reliée par un tronçon');
       if (fam && fam.types.length > 1 && e.t !== 'jonction') h += champ('Type', '<select class="vc-in" data-a="type" aria-label="Type">' + fam.types.filter(function(t){ return t !== 'jonction'; }).map(function(t){ return '<option value="' + t + '"' + (t === e.t ? ' selected' : '') + '>' + esc(T[t].lib) + '</option>'; }).join('') + '</select>');
@@ -5888,6 +5948,12 @@ function editeur(racine, opts){
     var vk = k === 'niv' ? valNiv(e.p) : String(e.p[k] == null ? '' : e.p[k]);
     pcorps.querySelectorAll('[data-a="prop"][data-k="' + k + '"]').forEach(function(c){ if (!c.dataset.multi) c.setAttribute('aria-pressed', String(vk === c.dataset.v)); });
     var et = pcorps.querySelector('input[data-k="etiq"]'); if (et){ var auto = texteEtiquette(Object.assign({}, e, {p: Object.assign({}, e.p, {etiq: ''})}), S.an); et.placeholder = auto || 'pas d\'étiquette automatique'; }
+    /* autre appareil (m133) : puces des noms proposés et texte indicatif de l'abréviation, d'après le nom enregistré */
+    if ((T[e.t] || {}).nomLibre){
+      var nm = nomLibre(e.p), ia = pcorps.querySelector('input[data-k="ab"]');
+      pcorps.querySelectorAll('[data-a="autreNom"]').forEach(function(c){ c.setAttribute('aria-pressed', String(c.dataset.v === nm)); });
+      if (ia) ia.placeholder = abObj({t: e.t, p: Object.assign({}, e.p, {ab: ''})});
+    }
   }
   function majPanneau(){
     /* saisie en cours : enregistrée avant que la fiche change ou se ferme (toucher sur le plan, « retour ») ; sans cela le champ disparaît
@@ -5929,8 +5995,10 @@ function editeur(racine, opts){
     if (a === 'cotesObjet' && e){ entrerCotes(e.id, b.dataset.v === 'mesurer'); return; }
     if (a === 'prop' && e){
       var k = b.dataset.k, v = b.dataset.v;
-      /* puce déjà choisie (réseau, statut, gestionnaire, sens) : rien ne change, pas de pas d'annulation */
-      if (!b.dataset.multi && (k === 'sens' ? (parseInt(v, 10) || 0) === (e.p.sens || 0) : b.dataset.garder && e.p[k] === v)){ pucePressee = null; return; }
+      /* puce déjà choisie (réseau, statut, gestionnaire, sens ; ligne du constat d'un autre appareil, m133 : celle que montre la fiche,
+         rowAutre) : rien ne change, pas de pas d'annulation */
+      var vk = k === 'row' && (T[e.t] || {}).nomLibre ? rowAutre(e) : e.p[k];
+      if (!b.dataset.multi && (k === 'sens' ? (parseInt(v, 10) || 0) === (e.p.sens || 0) : b.dataset.garder && vk === v)){ pucePressee = null; return; }
       instantane();
       if (b.dataset.multi){ var arr = (e.p[k] || []).slice(), i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); e.p[k] = arr; }
       else if (k === 'sens') e.p.sens = parseInt(v, 10) || 0;
@@ -5954,6 +6022,21 @@ function editeur(racine, opts){
         if (valNiv(en.p) === vn) return;
         instantane(); poserNiv(en.p, vn); apresProp(en);
       }, {texte: 'Numéro de l\'étage, de 1 à 99 : 1 pour le 1er, 5 pour le 5e.', num: true});
+      return;
+    }
+    /* autre appareil (m133 ; D2) : nom touché parmi ceux proposés, un pas d'annulation ; le nom déjà choisi ne change rien [p] ; un nom
+       refusé (aucun n'est proposé, garde) : toast, rien ne change */
+    if (a === 'autreNom' && e && (T[e.t] || {}).nomLibre){
+      var vN = String(b.dataset.v || '').replace(/\s+/g, ' ').trim().slice(0, 40).trim(), rN = nomRefuse(vN);
+      if (rN){ toast(rN, 4000); return; }
+      if (!vN || nomLibre(e.p) === vN) return;
+      instantane(); e.p.nom = vN; apresProp(e); return;
+    }
+    /* réseau d'un autre appareil (m133 ; D2) : EU ou EP, l'autre générique (changerType : nom et abréviation suivent, la ligne du formulaire
+       est vidée) ; le réseau déjà choisi ne change rien */
+    if (a === 'autreNat' && e){
+      var vT = b.dataset.v;
+      if (vT !== e.t && Object.prototype.hasOwnProperty.call(T, vT) && T[vT].nomLibre && (T[e.t] || {}).nomLibre) changerType(e, vT);
       return;
     }
     /* autre destination (m127 ; D10) : article, jugement des EP, case du constat ; la puce déjà choisie ne change rien. Seul ce champ est
@@ -6130,6 +6213,10 @@ function editeur(racine, opts){
     Object.keys(nv).forEach(function(k){ if (ancien[k] !== undefined) nv[k] = Array.isArray(ancien[k]) ? ancien[k].slice() : ancien[k]; });
     var gardes = {a: 1, meth: 1, niv: 1, obs: 1, st: 1, etiq: 1, etage: 1};
     Object.keys(ancien).forEach(function(k){ var x = ancien[k]; if (!(k in nv) && !gardes[k] && x != null && x !== '' && !(Array.isArray(x) && !x.length)) perdus.push(k); });
+    /* m133 : d'un autre appareil à l'autre (EU ↔ EP), nom et abréviation suivent ; la ligne du formulaire, d'un autre réseau, est vidée et
+       comptée dans le toast */
+    var t0 = T[e.t], t1 = T[v];
+    if (t0 && t1 && t0.nomLibre && t1.nomLibre && t0.nat !== t1.nat && ancien.row != null && ancien.row !== ''){ nv.row = ''; perdus.push('row'); }
     e.t = v; e.p = Object.assign(nv, {meth: ancien.meth || [], niv: ancien.niv || '', obs: ancien.obs || '', st: ancien.st || 'existant', etiq: ancien.etiq || ''});
     if (ancien.etage != null && ancien.etage !== '') e.p.etage = ancien.etage;
     /* une zone suspecte ne tient aucun tuyau : un point de test qui reliait deux tuyaux laisse un raccord à sa place, comme à l'ouverture */
@@ -6143,6 +6230,17 @@ function editeur(racine, opts){
     /* l'élément que décrit la fiche affichée (le choix a pu changer : saisie enregistrée au moment où la fiche change) */
     var a = b.dataset.a, fid = pan.dataset.id, e = fid ? el(fid) : S.sel && el(S.sel.id), v = b.value;
     if (a === 'cotesNum'){ saisieCotes(b, true); return; }
+    /* autre appareil (m133 ; D2) : nom (espaces réduits, 40 caractères au plus) et abréviation (1 à 3 caractères, dont un au moins que le PDF
+       sait écrire ; vide : tirée du nom). Un nom refusé (nomRefuse : le toast nomme l'objet à poser) ou une abréviation illisible font un
+       toast et rendent la valeur affichée ; rien ne change. Un nom refusé venu d'un fichier reste tel quel tant qu'on ne le retouche pas */
+    if (a === 'propTxt' && e && (b.dataset.k === 'nom' || b.dataset.k === 'ab') && (T[e.t] || {}).nomLibre){
+      var kA = b.dataset.k, sA = String(v == null ? '' : v).replace(/\s+/g, ' ').trim(), avA = kA === 'nom' ? nomLibre(e.p) : typeof e.p.ab === 'string' ? e.p.ab.replace(/\s+/g, ' ').trim() : '';
+      if (kA === 'nom') sA = sA.slice(0, 40).trim();
+      var refA = kA === 'nom' ? nomRefuse(sA) : sA && (sA.length > 3 || !pdfTxt(sA).trim()) ? 'Abréviation : 1 à 3 caractères que le PDF sait écrire ; vide, elle est tirée du nom' : '';
+      if (refA){ toast(refA, 4000); b.value = avA; return; }
+      if (sA === avA){ b.value = sA; return; }
+      instantane(); e.p[kA] = sA; apresProp(e, {garderPanneau: true}); rafraichirFiche(e, kA); majPanneauBientot(); return;
+    }
     if (a === 'propTxt' && e){
       /* nombres ; la distance à la limite de propriété ne peut pas être négative (0 : en limite) */
       var k = b.dataset.k; if (k === 'prof' || k === 'long' || k === 'diam' || k === 'limDist'){ v = String(v).trim(); if (v && (num(v) == null || k === 'limDist' && num(v) < 0)){ toast('Nombre attendu, par exemple 0,80'); b.value = e.p[k] || ''; if (k === 'limDist') etatPlacer(e, b.value); return; } }

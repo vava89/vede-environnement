@@ -237,7 +237,17 @@ CROQUIS DE TERRAIN (facultatif)
   un WC, sans évier. Un lave-mains raccordé à part se dessine en
   Lavabo et compte comme un évier ; l'aide de la puce le rappelle :
   « Lave-mains intégré au WC ; raccordé à part : dessinez un
-  Lavabo. » « Reprendre du croquis » remplit aussi la section Boîte
+  Lavabo. » Un équipement que la palette n'a pas se dessine avec « Autre
+  appareil » (en dernier de la palette Appareils EU) ou « Autre ouvrage
+  EP » (en dernier de la palette Ouvrages EP). Posé au toucher, il ouvre
+  sa fiche sur le Nom : puces Bidet, Urinoir, Ballon d'eau chaude… en EU,
+  Évacuation de balcon, Avaloir de terrasse, Cour anglaise en EP, puis les
+  noms déjà donnés dans le croquis. Un nom qui désigne un objet de la
+  palette est refusé : le message dit quel objet poser. Il compte sur la
+  ligne « Autres : <son nom> » (une ligne par nom et par réseau), ou sur
+  la ligne du formulaire choisie dans sa fiche (« Compté au constat ») ;
+  ses anomalies vont sur sa ligne.
+  « Reprendre du croquis » remplit aussi la section Boîte
   de branchement, réseau par réseau, quand le croquis porte une seule
   boîte existante (ni « projet » ni « à supprimer ») sur ce réseau :
   distance à la limite et côté (« 0,80 m intérieur », « en limite »),
@@ -410,6 +420,29 @@ MISE À JOUR DE L'APPLICATION
   elle aussi à l'ouverture du croquis. Le WC y compte comme sur une
   tablette à jour (un WC, sans évier) ; seul y manque le rappel d'une
   ligne « Autres : Lave-mains » saisie à côté.
+- Mettez aussi à jour toutes les tablettes avant de poser un « Autre
+  appareil » ou un « Autre ouvrage EP », et avant d'échanger une
+  sauvegarde ou un dossier qui en contient. Une tablette restée en
+  v1.7.0 ne les connaît pas : elle les garde tels quels, dessinés en
+  neutre (symbole d'appareil), sans nom ni étiquette, au plan PDF et au
+  DXF aussi ; leur fiche y dit « Type inconnu de cette version : gardé
+  tel quel ». Elle ne les compte pas au constat et ne les juge pas :
+  leurs tuyaux y ont une « extrémité libre, non reliée à un objet » ; un
+  urinoir relié aux EP ou une évacuation de balcon reliée aux EU, non
+  conformes sur une tablette à jour, n'y donnent aucune anomalie, et le
+  plan comme le constat peuvent y paraître conformes. Dès l'ouverture du
+  Constat, ou à la fermeture du croquis, elle retire du constat leurs
+  lignes « Autres » reprises du croquis que personne n'a modifiées, et
+  une ligne du formulaire choisie dans leur fiche (« Compté au
+  constat ») y baisse d'autant ; l'ouverture du croquis y retire du
+  dossier leurs anomalies que personne n'a modifiées. Sur une tablette à
+  jour, les anomalies reviennent à l'ouverture du croquis, la ligne du
+  formulaire à l'ouverture du Constat, les lignes « Autres » seulement
+  par « Reprendre du croquis » ; d'ici là, le Constat les rappelle. En
+  v1.6.3, ou plus ancienne, le plan PDF et le DXF d'un croquis qui en
+  contient ne sortent pas (message d'erreur), et leur fiche ne s'ouvre
+  pas dans le croquis. N'y signez aucun constat de ces dossiers : un
+  constat signé ne change plus.
 - Une tablette restée en v1.7.0, ou plus ancienne, compte encore une
   anomalie à arbitrer comme conforme : elle y laisse « Conformes ». N'y
   signez pas le constat d'un dossier dont une anomalie reste à arbitrer.

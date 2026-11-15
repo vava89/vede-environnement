@@ -77,6 +77,18 @@
 //     l'attente prend la ligne, la chaudière n'en a pas ; la ligne saisie reste marquée à arbitrer, ni « oui » ni « non », sans croix sous
 //     « Oui » au PDF du constat, et un constat signé avant m132 pendant cet arbitrage ne se dit pas changé depuis ; dans les deux ordres du
 //     dessin. Passent sur 9ad0840 ; échouent sur la première version de m132 (« oui » d'office, croix sous « Oui », « anomalies à arbitrer »).
+// 77 à 80 (m133 ; M2 de la relecture de m132) : « Bidet » et « Bidet suspendu » reliés à la boîte EU, non-conformité saisie dans le
+//     croquis sur le bidet suspendu. Constat repris du croquis : l'anomalie est rangée sur la ligne « Autres : Bidet suspendu »
+//     (installation et valeur notée du croquis), rien « à reporter », aucun rappel ; cette ligne « non », avec l'anomalie, la ligne
+//     « Bidet » « oui », conclusion « Non conformes » ; au PDF du constat, croix sous « Non » pour « Autres : Bidet suspendu », sous « Oui »
+//     pour « Autres : Bidet » (77) ; garde : constat signé, l'anomalie remise sans ligne n'est pas rangée (77) ; croquis rouvert puis
+//     refermé : l'anomalie reste sur sa ligne, rien « à reporter » (78) ; constat jamais repris, sans ligne « Autres » : rappel « Bidet
+//     suspendu : une anomalie du croquis de terrain n'est rangée sur aucune ligne du constat ; … », aucun pour le bidet (79) ; puis
+//     « Reprendre du croquis » : lignes créées, l'anomalie rangée, plus de rappel (80). 77 à 80 échouent sur 53fe487 (l'anomalie n'est
+//     rangée sur aucune ligne : les deux lignes « oui », croix sous « Oui » pour les deux, aucun rappel) ; la garde de 77 y passe.
+// 81 et 82 (relecture de m133, M3) : même constat jamais repris, mais le technicien a mis l'anomalie sur « Aucune » : aucun rappel ne
+//     promet que « Reprendre du croquis » l'y range (81) ; après la reprise, lignes créées, l'anomalie reste sur « Aucune » (82, garde).
+//     81 échoue avant la relecture de m133 (rappel « … n'est rangée sur aucune ligne du constat ; … l'y range »).
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -790,6 +802,84 @@ async function autresAvantReprise(){
   }
 }
 
+/* 77 à 82 (m133 ; M2 de la relecture de m132, M3 de celle de m133) : « Bidet » et « Bidet suspendu » reliés à la boîte EU, anomalie
+   saisie dans le croquis sur le bidet suspendu, retenue (non conforme). Reportée dans le dossier, elle est rangée sur la ligne « Autres :
+   Bidet suspendu » que vcApparier lie à sa ligne du croquis (a.installation), notée dans croquis.auto.installation (ce n'est pas une
+   retouche, rien n'est « à reporter ») */
+const BIDETS = [['b1', 'autre_eu', -3, 0, {nom: 'Bidet'}], ['b2', 'autre_eu', 3, 0, {nom: 'Bidet suspendu'}], ['B', 'boite', 0, -4, {res: 'EU'}]];
+const BIDETS_TR = [['T1', 'b1', 'B'], ['T2', 'b2', 'B']];
+const BIDETS_ANOM = [{id: 'M1', objId: 'b2', reseau: 'EU', obs: 'Bidet suspendu : fuite au raccord', preco: 'Réparation du raccord', nc: true, st: 'retenue'}];
+const SANS_LIGNE = 'Bidet suspendu : une anomalie du croquis de terrain n\'est rangée sur aucune ligne du constat ; « Reprendre du croquis » crée la ligne et l\'y range.';
+/* état relevé : ligne de l'anomalie et sa valeur notée, ligne « Autres : Bidet suspendu » du constat, conformité des deux lignes et leurs
+   croix au PDF du constat, anomalies « à reporter » ; garde : constat signé, l'anomalie remise sans ligne n'est pas rangée */
+const finBidets = p => p.evaluate(async () => {
+  const T = window.__VT, v = T.S.visites[0], c = v.constat || {rows: []}, L = T.S.anoms.filter(a => a.visiteId === v.id), a = L[0], E = T.constatEval(v, L);
+  const lig = lab => (c.rows || []).find(r => !r.std && r.label === lab) || null, bs = lig('Bidet suspendu');
+  const conf = lab => { const x = E.rows.find(q => !q.r.std && q.r.label === lab); return x ? JSON.stringify(x.conf) + ' anomalies ' + x.anoms.length : 'absente'; };
+  const J0 = window.jspdf.jsPDF, rec = [];
+  const W = function(){ const d = new J0(...arguments), ot = d.text;
+    d.text = function(t, x, y){ let pg = 0; try { pg = d.internal.getCurrentPageInfo().pageNumber; } catch (e){}
+      rec.push({t: [].concat(t).join(' '), x, y, pg}); return ot.apply(d, arguments); };
+    return d; };
+  W.API = J0.API; window.jspdf.jsPDF = W;
+  try { await T.constatPdfBlob(v); } finally { window.jspdf.jsPDF = J0; }
+  const croix = t => { const r0 = rec.find(r => r.t === t), hd = h => r0 ? rec.filter(r => r.pg === r0.pg && r.t === h && r.y < r0.y).pop() : null, oui = hd('Oui'), non = hd('Non');
+    if (!r0 || !oui || !non) return 'rangée ou en-têtes absents';
+    return rec.filter(r => r.pg === r0.pg && r.t === 'X' && Math.abs(r.y - r0.y) < 4).map(r => Math.abs(r.x - oui.x) < 3 ? 'Oui' : Math.abs(r.x - non.x) < 3 ? 'Non' : 'raccordement').join(', ') || 'aucune'; };
+  const res = T.VC_RESUMES.get(v.id), out = {n: L.length, inst: a ? a.installation : null, auto: a && a.croquis && a.croquis.auto ? a.croquis.auto.installation : null,
+    ligne: bs ? bs.id : null, bs: conf('Bidet suspendu'), bi: conf('Bidet'), pdfBs: croix('Autres : Bidet suspendu'), pdfBi: croix('Autres : Bidet'), concl: E.auto,
+    aReporter: res ? res.aReporter : null};
+  /* garde : constat signé (simulé), anomalie remise sans ligne : la reprise ne la range pas */
+  if (a && a.croquis && a.croquis.auto && res){
+    const i0 = a.installation, au0 = a.croquis.auto.installation; a.installation = ''; a.croquis.auto.installation = ''; c.signeLe = '2026-11-15T10:00:00.000Z';
+    let nS = null; try { nS = T.constatDepuisCroquis(v, res, false); } catch (e){ nS = 'exception ' + e.message; }
+    out.signe = {n: nS, inst: a.installation};
+    delete c.signeLe; a.installation = i0; a.croquis.auto.installation = au0;
+  }
+  return out;
+});
+async function autresAnomalie(){
+  /* 77 : constat repris du croquis */
+  let e = await constatVu('77', BIDETS, BIDETS_TR, '', false, false, {anomManu: BIDETS_ANOM, fin: finBidets}), F = e.fin || {};
+  const dit = 'Bidet et Bidet suspendu dessinés, anomalie retenue sur le bidet suspendu';
+  R.ok(F.n === 1 && !!F.ligne && F.inst === F.ligne && F.auto === F.ligne && F.aReporter === 0 && !e.ecarts.some(x => /ne suit pas encore|n'est rangée sur aucune ligne/.test(x)),
+    '77 ' + dit + ', constat repris du croquis : l\'anomalie est rangée sur la ligne « Autres : Bidet suspendu », valeur notée (ni retouche ni « à reporter ») (obtenu '
+    + JSON.stringify({n: F.n, inst: F.inst, auto: F.auto, ligne: F.ligne, aReporter: F.aReporter, ecarts: e.ecarts}) + ')');
+  R.ok(F.bs === '"non" anomalies 1' && F.bi === '"oui" anomalies 0' && F.concl === 'non_conformes', '77 ' + dit + ' : ligne « Bidet suspendu » non conforme, avec l\'anomalie ; '
+    + 'ligne « Bidet » conforme (obtenu ' + JSON.stringify({bs: F.bs, bi: F.bi, concl: F.concl}) + ')');
+  const cx = t => String(t || '').split(', ');
+  R.ok(cx(F.pdfBs).indexOf('Non') >= 0 && cx(F.pdfBs).indexOf('Oui') < 0 && cx(F.pdfBi).indexOf('Oui') >= 0 && cx(F.pdfBi).indexOf('Non') < 0, '77 ' + dit + ' : PDF du constat, '
+    + 'croix sous « Non » pour « Autres : Bidet suspendu », sous « Oui » pour « Autres : Bidet » (croix : ' + JSON.stringify({bs: F.pdfBs, bi: F.pdfBi}) + ')');
+  R.ok(!!F.signe && F.signe.n === 0 && F.signe.inst === '', '77 garde : constat signé, l\'anomalie remise sans ligne n\'est pas rangée (obtenu ' + JSON.stringify(F.signe) + ')');
+
+  /* 78 : croquis rouvert puis refermé : rien ne change */
+  e = await constatVu('78', BIDETS, BIDETS_TR, '', true, false, {anomManu: BIDETS_ANOM, fin: finBidets}); F = e.fin || {};
+  R.ok(!!F.ligne && F.inst === F.ligne && F.auto === F.ligne && F.aReporter === 0 && e.apres && e.apres.inst === e.avant.inst && F.bs === '"non" anomalies 1' && F.bi === '"oui" anomalies 0'
+    && !e.apres.ecarts.some(x => /ne suit pas encore|n'est rangée sur aucune ligne/.test(x)), '78 ' + dit + ', croquis rouvert puis refermé : l\'anomalie reste sur sa ligne, rien « à reporter » '
+    + '(obtenu ' + JSON.stringify({inst: F.inst, auto: F.auto, ligne: F.ligne, aReporter: F.aReporter, bs: F.bs, bi: F.bi, ecarts: e.apres && e.apres.ecarts}) + ')');
+
+  /* 79 et 80 : constat sans ces lignes, jamais repris du croquis : rappel ; « Reprendre du croquis » crée les lignes et y range l'anomalie */
+  const prep = "c.rows = c.rows.filter(r => r.std); c.rows.forEach(r => { r.nb = ''; r.raccord = ''; r.methodes = []; }); delete c.croqAuto;"
+    + " a.installation = ''; a.croquis = Object.assign({}, a.croquis, {auto: Object.assign({}, a.croquis.auto, {installation: ''})});";
+  e = await constatVu('79', BIDETS, BIDETS_TR, prep, false, false, {anomManu: BIDETS_ANOM, fin: finBidets, reprise: true}); F = e.fin || {};
+  const av = e.avant || {}, ap = e.apres || {};
+  R.ok(av.inst === '' && (av.ecarts || []).indexOf(SANS_LIGNE) >= 0 && !(av.ecarts || []).some(x => /^Bidet : une anomalie/.test(x)), '79 ' + dit + ', constat jamais repris, '
+    + 'sans ligne « Autres » : rappel « ' + SANS_LIGNE + ' », aucun pour le bidet (obtenu ' + JSON.stringify({inst: av.inst, ecarts: av.ecarts}) + ')');
+  R.ok(!!F.ligne && F.inst === F.ligne && F.auto === F.ligne && F.bs === '"non" anomalies 1' && F.bi === '"oui" anomalies 0' && (ap.ecarts || []).indexOf(SANS_LIGNE) < 0,
+    '80 puis « Reprendre du croquis » : lignes créées, l\'anomalie rangée sur « Autres : Bidet suspendu », non conforme ; « Bidet » conforme ; plus de rappel (obtenu '
+    + JSON.stringify({inst: F.inst, auto: F.auto, ligne: F.ligne, bs: F.bs, bi: F.bi, ecarts: ap.ecarts}) + ')');
+
+  /* 81 et 82 (relecture de m133, M3) : le même constat, mais l'anomalie mise sur « Aucune » par le technicien (la valeur notée reste
+     vide) : la reprise ne la range pas, aucun rappel ne le promet */
+  const prepAucune = prep.replace("a.installation = '';", "a.installation = 'aucune';");
+  e = await constatVu('81', BIDETS, BIDETS_TR, prepAucune, false, false, {anomManu: BIDETS_ANOM, fin: finBidets, reprise: true}); F = e.fin || {};
+  const av81 = e.avant || {}, ap81 = e.apres || {}, rappel = x => (x.ecarts || []).some(t => /sur aucune ligne du constat/.test(t));
+  R.ok(prepAucune !== prep && av81.inst === 'aucune' && !rappel(av81), '81 ' + dit + ', constat jamais repris, l\'anomalie mise sur « Aucune » par le technicien : '
+    + 'aucun rappel « … n\'est rangée sur aucune ligne du constat ; « Reprendre du croquis » … l\'y range » (obtenu ' + JSON.stringify({inst: av81.inst, ecarts: av81.ecarts}) + ')');
+  R.ok(!!F.ligne && F.inst === 'aucune' && F.auto === '' && !rappel(ap81), '82 puis « Reprendre du croquis » : lignes créées, l\'anomalie reste sur « Aucune », '
+    + 'le choix du technicien (obtenu ' + JSON.stringify({inst: F.inst, auto: F.auto, ligne: F.ligne, ecarts: ap81.ecarts}) + ')');
+}
+
 (async () => {
   try {
     await reglagesAides();
@@ -814,6 +904,7 @@ async function autresAvantReprise(){
     await autresRestaures();
     await autresPdf();
     await autresAvantReprise();
+    await autresAnomalie();
   } catch (e){ R.ok(false, 'exception du test : ' + (e && e.stack || e)); }
   R.fin();
 })();

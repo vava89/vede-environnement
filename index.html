@@ -3642,9 +3642,11 @@ function vcResumeCalc(v, doc){
   var rc = {}; EP_RECUP.forEach(function(q){ if (q[0] !== 'puisard' && cd.epRecup && cd.epRecup[q[0]]) rc[q[0]] = true; });
   if (Object.keys(rc).length) r.recup = rc;
   /* anomalies du dossier restées intactes que le dessin d'aujourd'hui met à jour (texte, réseau, nature, ligne du constat), par exemple un
-     dossier commencé avant une mise à jour qui range autrement un lavabo : l'éditeur les reporte à son ouverture */
+     dossier commencé avant une mise à jour qui range autrement un lavabo : l'éditeur les reporte à son ouverture. m133 (M2) : autresAnom, les
+     anomalies d'un autre appareil compté en « Autres » ({id de l'anomalie : id de la ligne du croquis}), que vcRangerAutres range */
   try { var dc = JSON.parse(JSON.stringify(doc)), ops = V.reconcilier(dc, null, anomsOf(v.id), {});
-    r.aReporter = (ops.maj || []).filter(function(m){ return ['observation', 'preconisation', 'reseau', 'nc', 'installation'].some(function(k){ return m.champs && m.champs[k] !== undefined; }); }).length; } catch(e){ r.aReporter = 0; }
+    r.aReporter = (ops.maj || []).filter(function(m){ return ['observation', 'preconisation', 'reseau', 'nc', 'installation'].some(function(k){ return m.champs && m.champs[k] !== undefined; }); }).length;
+    r.autresAnom = ops.autres && typeof ops.autres === 'object' ? ops.autres : {}; } catch(e){ r.aReporter = 0; r.autresAnom = {}; }
   try { var La = V.anomaliesDoc(doc, an, anomsOf(v.id), {telQuel: true}); r.arbitrer = La.filter(function(a){ return a.st === 'arbitrer'; }).length; r.horsdossier = La.filter(function(a){ return a.st === 'horsdossier'; }).length; } catch(e){ r.arbitrer = 0; r.horsdossier = 0; }
   /* boîte de branchement par réseau : nombre de boîtes existantes, distance à la limite et profondeur s'il n'y en a qu'une (VCroquis.boitesConstat) */
   try { r.boite = V.boitesConstat(doc, an); } catch(e){ r.boite = null; }
@@ -3754,9 +3756,35 @@ function vcProvenance(c){
 var VC_BOITE_CHAMPS = ['distEU', 'distEP', 'profEU', 'profEP'];
 /* suivi (fermeture du croquis, ouverture du constat) : seulement les champs déjà posés par le croquis, sans ajouter de ligne ; la boîte de
    branchement seulement si « Reprendre du croquis » l'a déjà reprise (P.boite). Constat signé, visite non effectuée, croquis désactivé : rien. */
+/* anomalie dont la ligne suit encore le croquis : installation égale à la valeur notée par le croquis. Seule celle-là est rangée, ou
+   rappelée par vcEcarts ; une ligne choisie par le technicien, « Aucune » comprise, reste la sienne (relecture de m133, M3) */
+function vcAutreSuit(a){ var au = a && a.croquis && a.croquis.auto; return !!au && typeof au === 'object' && (a.installation || '') === au.installation; }
+/* m133 (M2 de la relecture de m132) : anomalie d'un autre appareil compté en « Autres » (bidet, urinoir…), rangée sur la ligne du constat
+   que vcApparier lie à la ligne du croquis de cet appareil (res.autresAnom, que donne VCroquis.reconcilier) ; sans ligne liée, sur aucune
+   (vcEcarts le rappelle). La valeur écrite est notée dans croquis.auto.installation, comme celles que l'éditeur écrit : ni retouche, ni
+   « à reporter ». Une ligne choisie par le technicien (installation autre que la valeur notée) reste la sienne ; un constat signé n'est
+   jamais modifié, ses anomalies non plus. Rend le nombre d'anomalies rangées */
+function vcRangerAutres(v, c, res){
+  var A = res && res.autresAnom; if (!c || c.signeLe || !A || typeof A !== 'object') return 0;
+  var lien = null, n = 0;
+  anomsOf(v.id).forEach(function(a){
+    var s = Object.prototype.hasOwnProperty.call(A, a.id) ? A[a.id] : null, cr = a.croquis, au = cr && cr.auto && typeof cr.auto === 'object' ? cr.auto : null;
+    if (typeof s !== 'string' || !au) return;
+    if (!lien) lien = vcApparier(c, res);
+    var r = Object.prototype.hasOwnProperty.call(lien, s) ? lien[s] : null, val = r && !r.std ? r.id : '';
+    /* comme l'éditeur (reconcilier, suit) : la ligne suit le croquis tant qu'elle est celle qui a été notée */
+    if (!vcAutreSuit(a) || val === au.installation) return;
+    a.installation = val; a.croquis = Object.assign({}, cr, {auto: Object.assign({}, au, {installation: val})});
+    a.updatedAt = nowISO(); saveLater('anomalies', a); n++;
+  });
+  if (n) touchEtude();
+  return n;
+}
 function constatDepuisCroquis(v, res, suivi){
   if (!res || !vcPret() || (v.constat && v.constat.signeLe) || constatNonEffectue(v)) return 0;
-  if (suivi && !(v.constat && v.constat.croqAuto)) return 0;
+  /* constat jamais repris du croquis : le croquis n'y touche pas ; les anomalies des autres appareils vont quand même sur leur ligne, s'il
+     en a une (m133) */
+  if (suivi && !(v.constat && v.constat.croqAuto)) return v.constat ? vcRangerAutres(v, v.constat, res) : 0;
   var neuf = !v.constat, c = constatOf(v), P = vcProvenance(c), n = 0, vus = {}, boiteNeuve = false;
   /* valeurs reprises d'un autre croquis (supprimé puis recommencé) : elles restent, comme saisies par le technicien */
   if (res.plan && P.plan !== res.plan){ P.rows = {}; P.crees = {}; delete P.puisard; delete P.recup; if (P.boite) P.boite = {}; }
@@ -3823,11 +3851,13 @@ function constatDepuisCroquis(v, res, suivi){
       });
     });
   }
+  /* anomalies des autres appareils (m133) : rangées sur leur ligne, celle que cet appel vient de créer comprise ; comptées dans le total */
+  var k = vcRangerAutres(v, c, res);
   if (n) constatTouch(v);
   /* « Reprendre du croquis » sans rien à reprendre : la provenance de la boîte, créée ici, est enregistrée quand même (sans changer la date
      du dossier), sinon le suivi l'ignorerait après un rechargement ; un constat créé par cet appel n'est pas enregistré pour autant */
   else if (boiteNeuve && !neuf) saveLater('visites', v);
-  return n;
+  return n + k;
 }
 /* boîte de branchement : forme comparable d'une distance à la limite ou d'une profondeur, pour les écarts seulement (le texte saisi ne change
    pas) : minuscules, sans accents, espaces réduits ; nombre à deux décimales (virgule ou point, « m » ou « cm » facultatif) ; côté « int » ou
@@ -3861,13 +3891,23 @@ function vcEcarts(v, c){
   var conf = {}; try { constatEval(v, anomsOf(v.id)).rows.forEach(function(x){ conf[x.r.id] = x.conf; }); } catch(e){}
   /* m132 : même appariement que la reprise (vcApparier), sans poser de lien : deux lignes du croquis ne se comparent plus à la même ligne */
   var lien = vcApparier(c, res);
+  /* m133 (M2) : anomalies d'un autre appareil compté en « Autres » qui ne sont rangées sur aucune ligne, faute de la ligne de l'appareil au
+     constat (vcRangerAutres n'a rien pour elles) ; seulement celles que la reprise y rangera (vcAutreSuit) : une anomalie que le technicien
+     a mise sur « Aucune » n'est pas rappelée */
+  var LA = anomsOf(v.id).filter(function(a){ return !a.brouillon; }), AA = res.autresAnom && typeof res.autresAnom === 'object' ? res.autresAnom : {};
+  function sansLigne(s, lab){
+    var k = LA.filter(function(a){ return AA[a.id] === s.id && vcAutreSuit(a) && !anomRows(c, a).length; }).length;
+    if (k) out.push(lab + ' : ' + (k > 1 ? k + ' anomalies du croquis de terrain ne sont rangées' : 'une anomalie du croquis de terrain n\'est rangée') + ' sur aucune ligne du constat ; '
+      + '« Reprendre du croquis » crée la ligne et ' + (k > 1 ? 'les y range.' : 'l\'y range.'));
+  }
   res.rows.forEach(function(s){
     /* ligne « Autres » que le technicien a retirée du constat : son choix */
     if (!s.std && refus[s.id]) return;
     var r = lien[s.id] || null, vals = vcValeurs(s), lab = r ? r.label : s.label, dbl = vcAutresDouble(c, s);
     /* appareil de la même sorte aussi compté en « Autres » : à vérifier, sans rien retirer ni remplir à la place du technicien */
     var aussi = dbl ? ' ; « ' + dbl.label + ' » (' + (String(dbl.nb == null ? '' : dbl.nb).trim() || '0') + ') figure aussi au constat, en « Autres » : vérifiez qu\'il n\'est pas compté deux fois' : '';
-    if (!r || !rowActive(r)){ out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + (r && String(r.nb == null ? '' : r.nb).trim() === '0' ? '0' : 'nombre non renseigné') + ' au constat' + aussi + '.'); return; }
+    if (!r || !rowActive(r)){ out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + (r && String(r.nb == null ? '' : r.nb).trim() === '0' ? '0' : 'nombre non renseigné') + ' au constat' + aussi + '.');
+      if (!r && !s.std) sansLigne(s, lab); return; }
     if (String(r.nb).trim() !== vals.nb) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + String(r.nb).trim() + ' au constat' + aussi + '.');
     else if (dbl) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain' + aussi + '.');
     if (vals.raccord && r.raccord && r.raccord !== vals.raccord) out.push(lab + ' : raccordement « ' + raccLabel(vals.raccord) + ' » sur le croquis de terrain, « ' + raccLabel(r.raccord) + ' » au constat.');

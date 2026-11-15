@@ -80,6 +80,20 @@
 //   ligne et une seule, celle de son row valide ou sa ligne « Autres » ; ni ses textes ni sa ligne ne disent « Autre destination ».
 // g1 à g8 échouent sur 9ad0840 (type inconnu : aucune ligne, aucun contrôle, aucune étiquette, aucun générique analysé ; VCroquis.abObj
 // et nomRefuse absentes) ; la première version de m132 acceptait les trois noms à signes typographiques de g7 (relecture, M1).
+// m133, autres appareils (2e partie) :
+// g9 (M2 de la relecture de m132) : « Bidet », « Bidet suspendu », un urinoir compté en WC (row « wc »), une chaudière et un « Avaloir de
+//   terrasse », reliés à la boîte EU ; anomalies saisies dans le croquis sur le bidet suspendu, l'urinoir et la chaudière.
+//   VCroquis.reconcilier n'écrit aucune installation pour un générique compté en « Autres » (création : vide, comme avant ; l'urinoir sur
+//   « wc ») ; rangées ensuite par l'application (identifiants fictifs du constat), la synchro suivante n'y touche pas, et ops.autres nomme
+//   la ligne déduite de chacune (« autre:EU:bidet suspendu », « autre:EP:avaloir de terrasse »), rien pour l'urinoir ni la chaudière ;
+//   bidet suspendu compté en WC : l'anomalie va sur « wc », sans ops.autres ; revenu en « Autres » : la ligne « wc » notée revient à
+//   vide, ops.autres nomme la ligne, la synchro suivante ne change rien (M1 de la relecture de m133) ; témoin : une installation
+//   retouchée à la main (« evier ») reste, et ops.autres nomme aussi sa ligne.
+// g10 : VCroquis.NOMS_AUTRES, les noms proposés par la fiche, sont ceux du cadrage, dans cet ordre (Bidet… Piscine (vidange) en EU ;
+//   Évacuation de balcon, Avaloir de terrasse, Cour anglaise en EP) ; nomRefuse n'en refuse aucun.
+// g9 et g10 échouent sur 53fe487 (la synchro remet l'installation à vide, ops.autres absent, NOMS_AUTRES absent) ; y passent la création,
+// le bidet compté en WC, la ligne retouchée du témoin de g9 et « aucun nom refusé » de g10. Le retour en « Autres » échoue avant la
+// relecture de m133 (l'anomalie reste sur la ligne « wc »).
 // usage : node tests/vm/equipements.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rendus, rapport} = require('./charger.js');
@@ -553,6 +567,63 @@ function g8(){
     + (mal.length ? ' (' + mal.length + ' : ' + mal.slice(0, 3).join(' | ') + ')' : ''));
 }
 
+/* g9 (m133, M2) : anomalie d'un générique compté en « Autres ». VCroquis.reconcilier ne connaît pas l'identifiant de la ligne « Autres » du
+   constat (l'application le donne, vcApparier) : il nomme la ligne déduite dans ops.autres et n'écrit rien dans installation, sauf pour
+   ramener à vide une ligne du formulaire qu'il y avait notée (relecture de m133, M1 : sans constat, l'application ne range rien) */
+function g9(){
+  const d = deuxReseaux([['G1', 'autre_eu', {nom: 'Bidet'}, 'Bu'], ['G2', 'autre_eu', {nom: 'Bidet suspendu'}, 'Bu'], ['U', 'autre_eu', {nom: 'Urinoir', row: 'wc'}, 'Bu'],
+    ['K', 'chaudiere', {}, 'Bu'], ['P', 'autre_ep', {nom: 'Avaloir de terrasse'}, 'Bu']]);
+  d.anomManu = [['M1', 'G2', 'Bidet suspendu : fuite au raccord'], ['M2', 'U', 'Urinoir : fuite au raccord'], ['M3', 'K', 'Chaudière : fuite au raccord']]
+    .map(([id, objId, obs]) => ({id, objId, reseau: 'EU', obs: obs + ' (anomalie fictive)', preco: '', nc: true, st: 'retenue'}));
+  const ext = [], rec = cle => ext.find(r => r.croquis && r.croquis.cle === cle) || {}, pt = id => d.el.find(e => e.id === id);
+  let k = 0, ops = null;
+  const synchro = () => { ops = V.reconcilier(d, null, ext);
+    ops.retirer.forEach(id => { const i = ext.findIndex(r => r.id === id); if (i >= 0) ext.splice(i, 1); });
+    ops.maj.forEach(m => { const r = ext.find(x => x.id === m.id); if (r) Object.assign(r, m.champs); });
+    ops.creer.forEach(c => { ext.push(Object.assign({id: c.id || ('r' + (++k)), createdAt: c.createdAt || '2026-11-02'}, c)); }); return ops; };
+  const vu = cle => { const r = rec(cle); return JSON.stringify([r.installation, r.croquis && r.croquis.auto && r.croquis.auto.installation]); };
+  const autres = () => ops && ops.autres && typeof ops.autres === 'object' ? ops.autres : null;
+  const majInst = () => (ops.maj || []).filter(m => m.champs && m.champs.installation !== undefined).map(m => ext.find(r => r.id === m.id).croquis.cle + ' → ' + JSON.stringify(m.champs.installation));
+  synchro();
+  /* création : rien d'écrit pour les génériques comptés en « Autres » (garde : comme avant) ; l'urinoir de row « wc » sur « wc » */
+  R.ok(vu('M1') === '["",""]' && vu('ep-eu:P') === '["",""]' && vu('M2') === '["wc","wc"]' && vu('M3') === '["",""]', 'g9 création : « Bidet suspendu » et « Avaloir de terrasse » '
+    + 'sans ligne (installation et auto vides), « Urinoir » de row « wc » sur « wc », chaudière sans ligne (obtenu ' + ['M1', 'ep-eu:P', 'M2', 'M3'].map(vu).join(' ') + ')');
+  /* l'application range les deux premières sur leur ligne « Autres » (identifiants fictifs du constat) : la synchro suivante n'y touche pas */
+  for (const [cle, li] of [['M1', 'c1'], ['ep-eu:P', 'c2']]){ const r = rec(cle); r.installation = li; r.croquis = Object.assign({}, r.croquis, {auto: Object.assign({}, r.croquis.auto, {installation: li})}); }
+  synchro();
+  const a1 = autres();
+  R.ok(!majInst().length && !ops.maj.length && !ops.creer.length && !ops.retirer.length, 'g9 rangées par l\'application : la synchro suivante ne change rien (obtenu '
+    + JSON.stringify({maj: majInst(), nMaj: ops.maj.length, creer: ops.creer.length, retirer: ops.retirer.length}) + ')');
+  R.ok(!!a1 && a1[rec('M1').id] === 'autre:EU:bidet suspendu' && a1[rec('ep-eu:P').id] === 'autre:EP:avaloir de terrasse' && Object.keys(a1).length === 2,
+    'g9 ops.autres : « autre:EU:bidet suspendu » et « autre:EP:avaloir de terrasse », rien pour l\'urinoir (wc) ni la chaudière (obtenu ' + JSON.stringify(a1) + ')');
+  /* le générique passe sur la ligne « WC » (row) : l'anomalie suit, sans ops.autres ; puis revient en « Autres », synchro sans constat ni
+     application (relecture de m133, M1) : la ligne « wc », notée par le croquis, revient à vide, comme avant m133 (sinon la ligne WC
+     garderait l'anomalie d'un appareil qu'elle ne compte plus), et ops.autres la nomme ; la synchro suivante ne change plus rien */
+  pt('G2').p.row = 'wc'; synchro();
+  const a2 = autres() || {};
+  R.ok(vu('M1') === '["wc","wc"]' && !(rec('M1').id in a2), 'g9 « Bidet suspendu » compté en WC : l\'anomalie va sur « wc », sans ops.autres (obtenu ' + vu('M1') + ' ' + JSON.stringify(a2) + ')');
+  pt('G2').p.row = ''; synchro();
+  const a3 = autres() || {}, m3 = majInst();
+  R.ok(vu('M1') === '["",""]' && m3.length === 1 && m3[0] === 'M1 → ""' && a3[rec('M1').id] === 'autre:EU:bidet suspendu', 'g9 revenu en « Autres » : la ligne « wc » '
+    + 'notée revient à vide, ops.autres « autre:EU:bidet suspendu » (obtenu ' + vu('M1') + ' ' + JSON.stringify(m3) + ' ' + JSON.stringify(a3) + ')');
+  synchro();
+  R.ok(vu('M1') === '["",""]' && !majInst().length && (autres() || {})[rec('M1').id] === 'autre:EU:bidet suspendu', 'g9 revenu en « Autres », synchro suivante : '
+    + 'rien ne change (obtenu ' + vu('M1') + ' ' + JSON.stringify(majInst()) + ')');
+  /* témoin : l'urinoir revient en « Autres » alors que le technicien a mis son anomalie sur une autre ligne (« evier ») que celle notée par
+     le croquis (« wc ») : sa ligne reste (garde, comme avant m133) ; ops.autres la nomme quand même, l'application vérifie la retouche */
+  const W = rec('M2'); W.installation = 'evier'; pt('U').p.row = ''; synchro();
+  R.ok(rec('M2').installation === 'evier' && !majInst().length, 'g9 témoin : ligne retouchée (« evier ») gardée (obtenu ' + vu('M2') + ')');
+  R.ok((autres() || {})[W.id] === 'autre:EU:urinoir', 'g9 témoin : ops.autres nomme aussi l\'anomalie retouchée (« autre:EU:urinoir ») (obtenu ' + JSON.stringify(autres()) + ')');
+}
+
+/* g10 (m133) : noms proposés par la fiche (VCroquis.NOMS_AUTRES) : ceux du cadrage, dans cet ordre ; aucun n'est refusé par la fiche */
+function g10(){
+  const N = V.NOMS_AUTRES || null, att = {EU: ['Bidet', 'Urinoir', 'Ballon d\'eau chaude', 'Fontaine', 'Climatisation (condensats)', 'Adoucisseur', 'Piscine (vidange)'],
+    EP: ['Évacuation de balcon', 'Avaloir de terrasse', 'Cour anglaise']};
+  R.ok(JSON.stringify(N) === JSON.stringify(att), 'g10 noms proposés : ' + att.EU.join(', ') + ' (EU) ; ' + att.EP.join(', ') + ' (EP) (obtenu ' + JSON.stringify(N) + ')');
+  const mal = [].concat(att.EU, att.EP).filter(n => nomRefuse(n) !== '');
+  R.ok(!mal.length, 'g10 aucun nom proposé n\'est refusé (nomRefuse)' + (mal.length ? ' (refusés : ' + JSON.stringify(mal.map(n => [n, nomRefuse(n)])) + ')' : ''));
+}
 (async () => {
   try {
     etiquettes();
@@ -566,7 +637,7 @@ function g8(){
     constatLm();
     await page2Lm();
     await gardeLm();
-    for (const g of [g1, g1bis, g2, g3, g4, g5, g6, g7, g8]){
+    for (const g of [g1, g1bis, g2, g3, g4, g5, g6, g7, g8, g9, g10]){
       try { await g(); } catch (e){ R.ok(false, g.name + ' : exception : ' + (e && e.stack || e).toString().split('\n').slice(0, 3).join(' | ')); }
     }
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }

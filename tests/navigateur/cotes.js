@@ -87,6 +87,15 @@
 // e24 (m115) : trait « Complément du fond » de (66 ; 22) à (74 ; 22) : départ posé par cotes le long du trait (décalage 0, à 1 m du coin),
 //     fin à 2,5 m : aide « facade », montée vers le départ, comme le départ touché au même point (règle de m112) ; témoin : la même pose le
 //     long de la limite nord de la parcelle, montée vers la fin. Échoue sur 52f0b00 (par cotes : aucune aide, montée vers la fin).
+// q1 à q5 (m133 ; M4 de la relecture de m132 ; M2, M4 et M7 de celle de m133) : l'aide nomme l'objet par son libellé (libDe), comme
+//     l'en-tête de sa fiche ; le panneau aussi, mais un nom libre, dont le genre n'est pas connu, suit le type, auquel s'accorde le
+//     participe. Un autre appareil nommé « Bidet » : « Déplacer par cotes (Bidet). », puis la façade sud et un endroit : « Autre appareil
+//     « Bidet » déplacé depuis : Façade » (q1) ; un WC à lave-mains intégré : « Déplacer par cotes (WC + lave-mains). », « WC + lave-mains
+//     déplacé depuis : Façade » (q2) ; « Mesurer depuis une façade (Bidet). », « Autre appareil « Bidet » mesuré depuis : Façade » (q3) ;
+//     un nom féminin : « Déplacer par cotes (Fontaine). », « Autre appareil « Fontaine » déplacé depuis : Façade » (q4) ; une destination
+//     nommée « Mare », article « la », comme à sa pose : « Déplacer par cotes (Mare). », « Mare déplacée depuis : Façade » (q5). Échouent
+//     sur 53fe487 (« Autre appareil », « WC », « Autre destination ») ; q1, q3, q4 et q5 avant la relecture de m133 (« Bidet déplacé »,
+//     « Fontaine déplacé », « Autre destination »).
 // usage : node tests/navigateur/cotes.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -1206,8 +1215,35 @@ async function departEscalier(){
   } finally { await A.fermer(); }
 }
 
+/* q1 à q5 (m133 ; M4 ; M2, M4 et M7 de la relecture de m133) : libellé de l'objet dans l'aide et le panneau du mode « Cotes » */
+async function libellesObjets(){
+  const A = await croquisDemo(), p = A.p;
+  try {
+    const qb = A.plan(68, 9), qw = A.plan(72, 9), qf = A.plan(70, 11), qm = A.plan(62, 9);
+    await p.evaluate(([qb, qw, qf, qm]) => { const ed = window.__vcEd, S = ed.etat, V = window.VCroquis;
+      S.doc.el.push({id: 'qb', k: 'pt', t: 'autre_eu', x: qb.x, y: qb.y, p: Object.assign(V.defautsPt('autre_eu'), {nom: 'Bidet'}), lab: {off: true}});
+      S.doc.el.push({id: 'qw', k: 'pt', t: 'wc', x: qw.x, y: qw.y, p: Object.assign(V.defautsPt('wc'), {lm: 'oui'}), lab: {off: true}});
+      S.doc.el.push({id: 'qf', k: 'pt', t: 'autre_eu', x: qf.x, y: qf.y, p: Object.assign(V.defautsPt('autre_eu'), {nom: 'Fontaine'}), lab: {off: true}});
+      S.doc.el.push({id: 'qm', k: 'pt', t: 'exutoire', x: qm.x, y: qm.y, p: Object.assign(V.defautsPt('exutoire'), {nom: 'Mare', art: 'la'}), lab: {off: true}});
+      S.undo = []; S.redo = []; ed.synchroniser(); ed.redessiner(); }, [qb, qw, qf, qm]);
+    const AP = n => 'Autre appareil « ' + n + ' »';
+    for (const [k, id, lib, sujet, bout, verbe] of [['q1', 'qb', 'Bidet', AP('Bidet'), DEPLACER, 'déplacé'], ['q2', 'qw', 'WC + lave-mains', 'WC + lave-mains', DEPLACER, 'déplacé'],
+      ['q3', 'qb', 'Bidet', AP('Bidet'), MESURER, 'mesuré'], ['q4', 'qf', 'Fontaine', AP('Fontaine'), DEPLACER, 'déplacé'], ['q5', 'qm', 'Mare', 'Mare', DEPLACER, 'déplacée']]){
+      if (!await depuisFiche(A, id, bout)){ R.ok(false, k + ' : fiche de l\'objet sans bouton « ' + bout + ' »'); continue; }
+      const a1 = await texteAide(p);
+      await toucherPlan(p, A.plan(70, 4));
+      if (bout === DEPLACER) await toucherPlan(p, A.plan(69.13, 2.07));
+      const f = await panneau(p), att = sujet + ' ' + verbe + ' depuis : Façade';
+      R.ok(a1.indexOf(bout + ' (' + lib + '). Touchez la façade ou la limite de référence') === 0 && !!f && f.texte.indexOf(att) >= 0, k + ' : aide « ' + bout + ' (' + lib + ') », '
+        + 'puis panneau « ' + att + ' » (aide ' + JSON.stringify(a1) + ', panneau ' + JSON.stringify(f ? f.texte.slice(0, 60) : null) + ')');
+      await toutFermer(p);
+    }
+    erreurs(A, 'q1 à q5');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [prolongement, poses, valeursEtSorties, superposees, geometrie, mesureEtDeplacement, casLimites, departEscalier]){
+  for (const f of [prolongement, poses, valeursEtSorties, superposees, geometrie, mesureEtDeplacement, casLimites, departEscalier, libellesObjets]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();

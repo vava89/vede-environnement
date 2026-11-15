@@ -24,6 +24,21 @@
 //      la puce ni l'aide ; WC + lave-mains → Lavabo par le sélecteur Type : clé lm effacée, avec le toast « Type changé : une caractéristique
 //      ne s'applique plus et est effacée · « Annuler » les rétablit » ; « Annuler » rend le WC + lave-mains ; aucune erreur dans la console.
 // l6 échoue sur 824fabf (ni puce ni aide ; le toast du changement de type y paraît déjà).
+// m133, autres appareils, palette et fiche (souhait 7 ; décisions D7, D2 et D10) :
+// e2 : « Autre appareil » est le dernier item de la palette Appareils EU ; posé au toucher, il est sans nom, en un pas, et sa fiche
+//      s'ouvre sur le champ Nom, en tête et vide, sans focus ni dialogue ; puces des noms proposés : ceux du cadrage, puis « Bidet
+//      suspendu », déjà donné à un autre objet du croquis, mais pas « Lavabo », nom refusé venu d'un fichier ; puces EU | EP ;
+//      « Compté au constat » : « Autres : Autre appareil » pressée, puis les lignes EU du formulaire ; texte indicatif de l'abréviation
+//      « ? » (sans nom). Puce « Bidet » : nom écrit en un pas, en-tête « Bidet », puce pressée, « Autres : Bidet », texte indicatif « Bi » ;
+//      étiquette « Bidet », posée et dessinée ; un second toucher sur la puce pressée ne fait rien. Noms tapés « Lavabo », « Douche
+//      italienne », « Puits perdu » : refusés avec le toast qui nomme l'objet à poser, « Bidet » rendu, aucun pas. Abréviation « BD » en
+//      un pas (lettres du symbole) ; « Ω », illisible au PDF, refusée avec un toast, « BD » rendue. « Compté au constat » WC : row « wc »
+//      en un pas, puce pressée ; un second toucher ne fait rien. EU → EP : un pas, nom et abréviation gardés, row vidé, toast « Type
+//      changé : … », puces des noms EP ; « Annuler » rend l'appareil EU compté en WC. « Lavabo » venu d'un fichier : lu tel quel (en-tête,
+//      champ, étiquette) ; « Vasque » tapé : refusé, « Lavabo » rendu. « Autre ouvrage EP », dernier item des Ouvrages EP, posé seul :
+//      fiche sur le nom, puces EP, bouton « Rejet au sol » ; « Rigole » tapé, puis un autre ouvrage EP posé : « Rigole » proposé après les
+//      noms du cadrage, « Bidet » (EU) non ; aucune erreur dans la console.
+// e2 échoue sur 53fe487 (« Autre appareil » absent de la palette ; les contrôles suivants ne sont pas lancés).
 // usage : node tests/navigateur/equipements.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -267,8 +282,146 @@ async function laveMains(){
   } finally { await A.fermer(); }
 }
 
+/* m133 : autres appareils, palette et fiche (souhait 7 ; D2, D7) */
+const FICHE = '.vc .vc-panneau:not([hidden]) .vc-pcorps ';
+const TOAST_LAV = 'Lavabo : se dessine en Lavabo, compté Évier ; le lave-mains d\'un WC est sa puce « + lave-mains ».';
+const TOAST_DOU = 'Douche italienne : posez une Douche, comptée en Salle de bain.';
+const TOAST_PUI = 'Pour un puits, posez l\'objet Puits (EP non conformes) ; pour un puits perdu, un Puisard.';
+const SUGG_EU = ['Bidet', 'Urinoir', 'Ballon d\'eau chaude', 'Fontaine', 'Climatisation (condensats)', 'Adoucisseur', 'Piscine (vidange)'];
+const SUGG_EP = ['Évacuation de balcon', 'Avaloir de terrasse', 'Cour anglaise'];
+const LIGNES_EU = 'wc/WC | lavelinge/Lave-linge | evier/Évier | sdb/Salle de bain | cuisine/Cuisine | siphon/Siphon de garage';
+const LIGNES_EP = 'gout_av/Gouttière(s) avant | gout_ar/Gouttière(s) arrière | grilles/Grilles | siphon_sol/Siphon de sol';
+/* fiche ouverte : en-tête, clé et libellé du premier champ, nom affiché et s'il a le focus, abréviation et son texte indicatif, puces des
+   noms proposés, du réseau et de « Compté au constat » (valeur/libellé/pressée), bouton « Rejet au sol », dialogue ouvert */
+const ficheAutre = p => p.evaluate(F => {
+  const c = document.querySelector(F); if (!c) return null;
+  const q = s => c.querySelector(s), ch = Array.from(c.querySelectorAll('.vc-champ')), nom = q('input[data-k="nom"]'), ab = q('input[data-k="ab"]'), t = q('.vc-ftete strong');
+  const pu = s => Array.from(c.querySelectorAll('button.vc-chip' + s)).map(b => b.dataset.v + '/' + b.textContent + '/' + b.getAttribute('aria-pressed'));
+  const k0 = ch.length ? ch[0].querySelector('[data-k]') : null, l0 = ch.length ? ch[0].querySelector('.vc-lab') : null;
+  return {tete: t ? t.textContent : '', premier: k0 ? k0.dataset.k : '', lib0: l0 ? l0.textContent : '', nom: nom ? nom.value : null,
+    focus: !!nom && document.activeElement === nom, ab: ab ? ab.value : null, abPh: ab ? ab.getAttribute('placeholder') : null,
+    noms: pu('[data-a="autreNom"]'), nat: pu('[data-a="autreNat"]'), row: pu('[data-k="row"]'), rejet: !!q('button[data-a="rejetSol"]'),
+    dialogue: !!document.querySelector('.vc .vc-modal')};
+}, FICHE);
+async function saisir(p, k, v){
+  const i = await p.$(FICHE + 'input[data-k="' + k + '"]'); if (!i) return null;
+  await i.fill(v); await i.evaluate(x => x.blur()); await C.pause(p, 300);
+  return p.evaluate(s => { const i = document.querySelector(s); return i ? i.value : null; }, FICHE + 'input[data-k="' + k + '"]');
+}
+async function cliquer(p, s){ const b = await p.$(FICHE + s); if (!b) return false; await b.click(); await C.pause(p, 300); return true; }
+/* objet posé par la palette pal, item it, au point (x, y) du plan : le nouvel élément, ou null */
+async function poser(p, pal, it, x, y){
+  if (await p.evaluate(k => window.__vcEd.etat.palette !== k, pal)){ await p.click('.vc .vc-o[data-pal="' + pal + '"]'); await C.pause(p, 200); }
+  /* items : data-item=libellé (texte de l'item, sans les lettres du symbole ni le sous-titre) */
+  const items = await p.evaluate(() => Array.from(document.querySelectorAll('.vc .vc-pitem')).map(b => { const s = b.querySelector(':scope > span');
+    return b.dataset.item + '=' + (s && s.firstChild ? s.firstChild.textContent.trim() : ''); }));
+  const b = await p.$('.vc .vc-pitem[data-item="' + it + '"]'); if (!b) return {items, o: null};
+  await b.click(); await C.pause(p, 200);
+  const ids = (await C.docCroquis(p)).el.map(e => e.id);
+  await C.toucherCv(p, await C.ecranCv(p, x, y), 600);
+  const nv = (await C.docCroquis(p)).el.filter(e => ids.indexOf(e.id) < 0);
+  return {items, o: nv.length === 1 ? nv[0] : null};
+}
+const texteEtq = (p, id) => p.evaluate(id => { const S = window.__vcEd.etat, e = S.doc.el.find(x => x.id === id); return e ? window.VCroquis.texteEtiquette(e, S.an) : null; }, id);
+const brief = e => e ? JSON.stringify({t: e.t, nom: e.p.nom, ab: e.p.ab, row: e.p.row}) : 'absent';
+
+async function autresAppareils(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy;
+    /* venus d'un fichier : un nom refusé (« Lavabo », lu tel quel) et un nom déjà employé (« Bidet suspendu ») */
+    await C.injecter(p, {el: [C.P('F1', 'autre_eu', cx - 5, cy - 4, {meth: [], niv: '', nom: 'Lavabo', ab: '', row: ''}),
+      C.P('F2', 'autre_eu', cx + 5, cy - 4, {meth: [], niv: '', nom: 'Bidet suspendu', ab: '', row: ''})]});
+    await C.regler(p, cx, cy, 40);
+
+    /* palette Appareils EU : « Autre appareil » en dernier ; pose au toucher : fiche ouverte sur le nom, sans dialogue ni clavier d'office */
+    const u0 = await nUndo(p), r = await poser(p, 'eu', 'pt:autre_eu', cx, cy), o = r.o;
+    R.ok(r.items[r.items.length - 1] === 'pt:autre_eu=Autre appareil', 'e2 palette Appareils EU : « Autre appareil » en dernier (' + r.items.join(', ') + ')');
+    if (!o){ R.ok(false, 'e2 « Autre appareil » posé au toucher (' + (r.items.indexOf('pt:autre_eu=Autre appareil') < 0 ? 'outil absent de la palette' : 'aucun objet posé') + ')'); erreurs(A, 'e2'); return; }
+    let f = await ficheAutre(p);
+    R.ok(o.t === 'autre_eu' && o.p.nom === '' && await nUndo(p) === u0 + 1 && !!f && f.tete === 'Autre appareil' && f.premier === 'nom' && /^Nom\b/.test(f.lib0)
+      && f.nom === '' && !f.focus && !f.dialogue, 'e2 pose : un autre appareil sans nom, en un pas ; fiche « Autre appareil » ouverte, le champ Nom en tête, vide, '
+      + 'sans focus ni dialogue (' + brief(o) + ', ' + JSON.stringify(f && {tete: f.tete, premier: f.premier, lib0: f.lib0, nom: f.nom, focus: f.focus, dialogue: f.dialogue}) + ')');
+    const nomsAttendus = SUGG_EU.concat(['Bidet suspendu']).map(x => x + '/' + x + '/false').join(' | ');
+    R.ok(f.noms.join(' | ') === nomsAttendus, 'e2 noms proposés : ceux du cadrage, puis « Bidet suspendu », déjà employé ; pas « Lavabo », nom refusé venu d\'un fichier ('
+      + f.noms.join(' | ') + ')');
+    R.ok(f.nat.join(' | ') === 'autre_eu/EU/true | autre_ep/EP/false' && f.row.join(' | ') === '/Autres : Autre appareil/true | ' + LIGNES_EU.split(' | ').map(x => x + '/false').join(' | ')
+      && f.abPh === '?', 'e2 puces EU | EP, « Compté au constat » : « Autres : Autre appareil » pressée, puis les lignes EU du formulaire ; texte indicatif de '
+      + 'l\'abréviation « ? » (' + JSON.stringify({nat: f.nat, row: f.row, abPh: f.abPh}) + ')');
+
+    /* puce « Bidet » : nom, en-tête, étiquette dessinée, « Autres : Bidet », texte indicatif de l'abréviation « Bi » ; second toucher : rien */
+    let u = await nUndo(p), ok = await cliquer(p, 'button.vc-chip[data-a="autreNom"][data-v="Bidet"]'), e = await elDoc(p, o.id), u1 = await nUndo(p);
+    f = await ficheAutre(p);
+    const etq = await texteEtq(p, o.id), tx = await textesEcran(p);
+    R.ok(ok && e.p.nom === 'Bidet' && u1 === u + 1 && f.tete === 'Bidet' && f.nom === 'Bidet' && f.noms[0] === 'Bidet/Bidet/true' && f.row[0] === '/Autres : Bidet/true'
+      && f.abPh === 'Bi', 'e2 puce « Bidet » : nom écrit en un pas, en-tête « Bidet », puce pressée, « Autres : Bidet », texte indicatif « Bi » (' + brief(e)
+      + ', pas ' + (u1 - u) + ', ' + JSON.stringify({tete: f.tete, nom: f.nom, nom0: f.noms[0], row0: f.row[0], abPh: f.abPh}) + ')');
+    R.ok(etq === 'Bidet' && !!(e.lab && !e.lab.off) && tx.indexOf('Bidet') >= 0, 'e2 étiquette « Bidet », posée et dessinée à l\'écran (texte ' + JSON.stringify(etq)
+      + ', lab ' + JSON.stringify(e.lab) + ', textes ' + JSON.stringify(tx.filter(t => /idet|utre/.test(t))) + ')');
+    ok = await cliquer(p, 'button.vc-chip[data-a="autreNom"][data-v="Bidet"]'); e = await elDoc(p, o.id); f = await ficheAutre(p);
+    R.ok(ok && e.p.nom === 'Bidet' && await nUndo(p) === u1 && f.noms[0] === 'Bidet/Bidet/true', 'e2 second toucher sur « Bidet » : la puce reste pressée, aucun pas ('
+      + brief(e) + ', ' + f.noms[0] + ')');
+
+    /* noms refusés au clavier : toast qui nomme l'objet à poser, nom rendu, aucun pas */
+    for (const [nm, msg] of [['Lavabo', TOAST_LAV], ['Douche italienne', TOAST_DOU], ['Puits perdu', TOAST_PUI]]){
+      await effacerToast(p); u = await nUndo(p);
+      const val = await saisir(p, 'nom', nm), t = await toastVu(p); e = await elDoc(p, o.id);
+      R.ok(t === msg && val === 'Bidet' && e.p.nom === 'Bidet' && await nUndo(p) === u, 'e2 nom « ' + nm + ' » refusé : toast « ' + msg + ' », nom « Bidet » rendu, aucun pas (toast '
+        + JSON.stringify(t) + ', champ ' + JSON.stringify(val) + ', ' + brief(e) + ')');
+    }
+
+    /* abréviation « BD » : un pas, symbole « BD » ; illisible au PDF : refusée */
+    u = await nUndo(p); let vAb = await saisir(p, 'ab', 'BD'); e = await elDoc(p, o.id);
+    let abO = await p.evaluate(id => window.VCroquis.abObj(window.__vcEd.etat.doc.el.find(x => x.id === id)), o.id);
+    R.ok(vAb === 'BD' && e.p.ab === 'BD' && abO === 'BD' && await nUndo(p) === u + 1, 'e2 abréviation « BD » en un pas, lettres du symbole « BD » (' + brief(e) + ', abObj ' + JSON.stringify(abO) + ')');
+    await effacerToast(p); u = await nUndo(p); vAb = await saisir(p, 'ab', 'Ω'); e = await elDoc(p, o.id); let t = await toastVu(p);
+    R.ok(vAb === 'BD' && e.p.ab === 'BD' && !!t && await nUndo(p) === u, 'e2 abréviation « Ω », illisible au PDF : refusée avec un toast, « BD » rendue (' + brief(e) + ', toast ' + JSON.stringify(t) + ')');
+
+    /* « Compté au constat » : WC ; second toucher : la puce reste pressée ; le constat déduit le compte en WC */
+    u = await nUndo(p); ok = await cliquer(p, 'button.vc-chip[data-k="row"][data-v="wc"]'); e = await elDoc(p, o.id); u1 = await nUndo(p); f = await ficheAutre(p);
+    const lig = await p.evaluate(id => { const S = window.__vcEd.etat, r = window.VCroquis.constatDeduit(S.doc, S.an).rows;
+      return {wc: (r.find(x => x.id === 'wc') || {objets: []}).objets.indexOf(id) >= 0, autres: r.filter(x => !x.std && x.objets.indexOf(id) >= 0).map(x => x.label)}; }, o.id);
+    R.ok(ok && e.p.row === 'wc' && u1 === u + 1 && f.row.join(' | ') === '/Autres : Bidet/false | ' + LIGNES_EU.split(' | ').map(x => x + '/' + (x.split('/')[0] === 'wc')).join(' | ')
+      && lig.wc && !lig.autres.length, 'e2 « Compté au constat » WC : row « wc » en un pas, puce pressée, le bidet compté en WC (' + brief(e) + ', pas ' + (u1 - u) + ', '
+      + f.row.join(' | ') + ', ' + JSON.stringify(lig) + ')');
+    ok = await cliquer(p, 'button.vc-chip[data-k="row"][data-v="wc"]'); e = await elDoc(p, o.id); f = await ficheAutre(p);
+    R.ok(ok && e.p.row === 'wc' && await nUndo(p) === u1 && f.row[1] === 'wc/WC/true', 'e2 second toucher sur « WC » : la puce reste pressée, aucun pas (' + brief(e) + ', ' + f.row[1] + ')');
+
+    /* EU → EP par les puces : un pas, nom et abréviation gardés, row vidé, compté dans le toast ; « Annuler » rend l'appareil EU compté en WC */
+    await effacerToast(p); u = await nUndo(p);
+    ok = await cliquer(p, 'button.vc-chip[data-a="autreNat"][data-v="autre_ep"]'); t = await toastVu(p); e = await elDoc(p, o.id); f = await ficheAutre(p);
+    R.ok(ok && e.t === 'autre_ep' && e.p.nom === 'Bidet' && e.p.ab === 'BD' && e.p.row === '' && t === TOAST_TYPE && await nUndo(p) === u + 1
+      && f.nat.join(' | ') === 'autre_eu/EU/false | autre_ep/EP/true' && f.row.join(' | ') === '/Autres : Bidet/true | ' + LIGNES_EP.split(' | ').map(x => x + '/false').join(' | ')
+      && f.noms.join(' | ') === SUGG_EP.map(x => x + '/' + x + '/false').join(' | '), 'e2 EU → EP : un pas, nom et abréviation gardés, row vidé, toast « ' + TOAST_TYPE + ' » ; puces EP '
+      + '(' + brief(e) + ', toast ' + JSON.stringify(t) + ', ' + JSON.stringify({nat: f.nat, row: f.row, noms: f.noms}) + ')');
+    await annuler(p); e = await elDoc(p, o.id);
+    R.ok(e.t === 'autre_eu' && e.p.row === 'wc' && e.p.nom === 'Bidet', 'e2 « Annuler » rend l\'appareil EU compté en WC (' + brief(e) + ')');
+
+    /* nom refusé venu d'un fichier : lu tel quel (en-tête, étiquette) ; refusé dès qu'on le retouche */
+    await choisir(p, 'F1'); f = await ficheAutre(p); const etq1 = await texteEtq(p, 'F1');
+    await effacerToast(p); u = await nUndo(p); const val1 = await saisir(p, 'nom', 'Vasque'); t = await toastVu(p); e = await elDoc(p, 'F1');
+    R.ok(f.tete === 'Lavabo' && f.nom === 'Lavabo' && etq1 === 'Lavabo' && e.p.nom === 'Lavabo' && val1 === 'Lavabo' && /^Vasque : se dessine en Lavabo, compté Évier/.test(t)
+      && await nUndo(p) === u, 'e2 « Lavabo » venu d\'un fichier : lu tel quel (en-tête, champ, étiquette) ; « Vasque » saisi : refusé avec un toast, « Lavabo » rendu ('
+      + JSON.stringify({tete: f.tete, nom: f.nom, etq: etq1, champ: val1, toast: t}) + ')');
+
+    /* palette Ouvrages EP : « Autre ouvrage EP » en dernier ; seul, sa fiche propose « Rejet au sol » ; un nom saisi est proposé au suivant */
+    const r2 = await poser(p, 'ep', 'pt:autre_ep', cx, cy + 4), o2 = r2.o;
+    f = o2 ? await ficheAutre(p) : null;
+    R.ok(r2.items[r2.items.length - 1] === 'pt:autre_ep=Autre ouvrage EP' && !!o2 && o2.t === 'autre_ep' && !!f && f.tete === 'Autre ouvrage EP' && f.premier === 'nom' && f.rejet
+      && f.noms.join(' | ') === SUGG_EP.map(x => x + '/' + x + '/false').join(' | '), 'e2 « Autre ouvrage EP », en dernier des Ouvrages EP, posé seul : fiche sur le nom, '
+      + 'puces EP, bouton « Rejet au sol » (' + r2.items.join(', ') + ' ; ' + brief(o2) + ', ' + JSON.stringify(f && {tete: f.tete, premier: f.premier, rejet: f.rejet, noms: f.noms}) + ')');
+    if (o2){
+      const val2 = await saisir(p, 'nom', 'Rigole'); e = await elDoc(p, o2.id);
+      const r3 = await poser(p, 'ep', 'pt:autre_ep', cx - 4, cy + 4); f = r3.o ? await ficheAutre(p) : null;
+      R.ok(val2 === 'Rigole' && e.p.nom === 'Rigole' && !!f && f.noms.join(' | ') === SUGG_EP.concat(['Rigole']).map(x => x + '/' + x + '/false').join(' | '),
+        'e2 « Rigole » saisi, puis un autre ouvrage EP posé : « Rigole » proposé après ceux du cadrage, « Bidet » (EU) non (' + brief(e) + ', ' + JSON.stringify(f && f.noms) + ')');
+    }
+    erreurs(A, 'e2');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [niveaux, laveMains]){
+  for (const f of [niveaux, laveMains, autresAppareils]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();
