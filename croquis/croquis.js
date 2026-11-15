@@ -916,6 +916,10 @@ function ligneExu(res, an){
 }
 /* libellé du rejet : celui du réseau, sinon celui de la ligne du rejet (an : l'analyse, pour une destination ajoutée), sinon le rejet tel quel */
 function libExu(res, an){ if (Object.prototype.hasOwnProperty.call(EXU_LIB, res)) return EXU_LIB[res]; var x = ligneExu(res, an); return x ? x.lib : res; }
+/* rejets d'une source établie : le sien, puis chaque exutoire que son drain d'infiltration atteint au-delà de lui (m129, Q7 a : r.apres) */
+function rejetsDe(r){ return [{res: r.res, gest: r.gest, presume: r.presume}].concat((r.apres || []).map(function(x){ return {res: x.res, gest: x.gest, presume: false}; })); }
+/* à la suite du rejet (fiche, page 2 du plan PDF) : « et, au-delà du drain, réseau EP départemental » (m129) */
+function auDelaTxt(r, an){ return r.apres && r.apres.length ? ' et, au-delà du drain, ' + listeEt(r.apres.map(function(x){ return libExu(x.res, an) + (/^(EU|EP|UN)$/.test(x.res) && x.gest ? ' ' + GEST_LIB[x.gest] : ''); })) : ''; }
 /* libellés des rejets d'une source reliée à plusieurs (contrôle « relié à plusieurs réseaux ») : deux destinations de même nom se
    distinguent par leur jugement des EP, à défaut par leur case du constat (décision D5) */
 function libsRejets(nets, an){
@@ -1159,10 +1163,19 @@ function analyser(doc, mode){
        segments ne sont pas des pièces et ses bouts libres ne sont pas des nœuds (aucun exutoire n'est attendu après lui). Comme celles du
        collecteur (col), ces pièces ne sont pas des tuyaux : leur réseau ne compte pas. Ses sommets tenus se suivent aussi par des liens de
        même sorte : ce qu'il tient (puits, boîte, puisard) et un tuyau qui part d'un de ses sommets restent vus de toute source qui
-       l'atteint, par n'importe quel sommet (deux exutoires : « multiple »). Ces liens n'ont pas de sens : l'analyse ne lit pas son p.sens */
+       l'atteint, par n'importe quel sommet. Ces liens (lien) n'ont pas de sens : l'analyse ne lit pas son p.sens. Ce qu'une source n'atteint que
+       par eux est au-delà du drain (m129, Q7 a) : elle disperse dans le sol, et chaque exutoire ainsi atteint compte avec son jugement ; elle
+       n'est « multiple » que si elle atteint un autre exutoire avant le drain. Un exutoire tenu n'est pas traversé : un lien le saute aussi,
+       vers le sommet tenu suivant (et ainsi de suite), sinon il cacherait ce que le drain tient plus loin (une boîte EP devant un puits).
+       Un ouvrage traversé (regard, fosse, raccord) n'est pas sauté : il garde sa place sur le chemin de l'eau */
     if (drainDe(l) === 'infiltration'){
       att.forEach(function(i){ var p = {id: id + ':d' + i, l: l, a: noeud(l, i), b: 'D:' + id, col: true, i0: i, i1: i, sens: 0}; lier(p.a, p); lier(p.b, p); });
-      for (var k = 0; k + 1 < att.length; k++){ var q = {id: id + ':e' + att[k], l: l, a: noeud(l, att[k]), b: noeud(l, att[k + 1]), col: true, i0: att[k], i1: att[k + 1], sens: 0}; lier(q.a, q); lier(q.b, q); }
+      for (var k = 0; k + 1 < att.length; k++){
+        for (var m = k + 1; m < att.length && (m === k + 1 || terminal(noeud(l, att[m - 1]))); m++){
+          var q = {id: id + ':e' + att[k] + (m > k + 1 ? '-' + att[m] : ''), l: l, a: noeud(l, att[k]), b: noeud(l, att[m]), col: true, lien: true, i0: att[k], i1: att[m], sens: 0};
+          lier(q.a, q); lier(q.b, q);
+        }
+      }
       return;
     }
     var b = att.slice(); if (b[0] !== 0) b.unshift(0); if (b[b.length - 1] !== l.v.length - 1) b.push(l.v.length - 1);
@@ -1181,7 +1194,7 @@ function analyser(doc, mode){
     return null;
   }
   /* Parcours en largeur : les départs terminaux sont atteints sans être traversés, sauf o.traverserDepart ; o.terminal remplace la règle des exutoires ;
-     o.sauf : nœuds à ne pas atteindre.
+     o.sauf : nœuds à ne pas atteindre ; o.sansLiens : sans les liens entre les sommets d'un drain d'infiltration (m129).
      Les parents gardés permettent de suivre le chemin de l'eau jusqu'à chaque exutoire atteint, sans les branches voisines. */
   function parcours(departs, o){
     o = o || {}; var estTerm = o.terminal || terminal;
@@ -1194,6 +1207,7 @@ function analyser(doc, mode){
     while (file.length){
       var n = file.shift();
       (adj[n] || []).forEach(function(p){
+        if (o.sansLiens && p.lien) return;
         var autre = p.a === n ? p.b : p.a;
         if (p.sens === 1 && p.b === n && p.a !== n) return;
         if (p.sens === -1 && p.a === n && p.b !== n) return;
@@ -1410,12 +1424,31 @@ function analyser(doc, mode){
   var resObj = {}, srcs = [];
   Object.keys(objs).forEach(function(id){ if (T[objs[id].t].role === 'source') srcs.push(id); });
   Object.keys(lignes).forEach(function(id){ if (drainSource(lignes[id], objs)) srcs.push(id); });
-  srcs.forEach(function(id){
+  /* m129 (Q6 b, décision du 13 nov. 2026) : un drain de collecte dont la sortie n'est pas dessinée disperse dans le sol l'eau des
+     équipements qui l'atteignent. Son bout libre (ses seules pièces, drain indiqué ni EU ni unitaire : boutDispersant) coupe le chemin,
+     après tout tronçon indiqué qui y mène : l'eau d'un équipement (source qui n'est ni un drain de collecte compté ni un point « Drain »)
+     y prend « dispersion dans le sol » quand chaque extrémité libre qui lui donne un réseau est un tel bout. Le drain suit le même tuyau :
+     un drain (tracé compté ou point « Drain ») qu'un tel équipement atteint (dispA) disperse de même vers les bouts des drains où cet
+     équipement disperse (dispE), et porte l'étiquette « Dispersion dans le sol » (an.drainsDisp ; un point « Drain » la donne au drain qui
+     le tient). Un drain qu'aucun équipement n'atteint, ou dont la sortie est dessinée, ne change pas. Les équipements sont donc analysés
+     avant les points « Drain », puis les drains de collecte comptés ; les résultats restent rangés dans l'ordre des sources */
+  var dispE = {}, dispA = {}, drainsDisp = {};
+  /* drain source : un drain de collecte compté, ou un point « Drain », même posé hors du drain et relié par un tuyau [p] : il suit le
+     drain (dispersion dans le sol seulement là où un équipement disperse), sinon il garde le réseau présumé */
+  function estDrainSrc(id){ return !objs[id] || objs[id].t === 'drain'; }
+  function drainsDuBout(nd){
+    var ls = []; (adj[nd] || []).forEach(function(p){ if (!p.virt && ls.indexOf(p.l) < 0) ls.push(p.l); });
+    return ls.length && ls.every(function(l){ return drainDe(l) === 'collecte' && !/^(EU|UN)$/.test(l.p.res || ''); }) ? ls : null;
+  }
+  function boutDispersant(nd, id){ var ls = drainsDuBout(nd); return !!ls && (!estDrainSrc(id) || ls.every(function(l){ return dispE[l.id]; })); }
+  function suitDrain(id){ return !estDrainSrc(id) || !!dispA[id] || (!!objs[id] && Object.keys(tenuPar[id] || {}).some(function(k){ return dispA[k]; })); }
+  srcs.filter(function(id){ return !estDrainSrc(id); }).concat(srcs.filter(function(id){ return !!objs[id] && objs[id].t === 'drain'; }), srcs.filter(function(id){ return !objs[id]; })).forEach(function(id){
     var ld = !objs[id] && lignes[id], s = ld ? 'dr:' + id : id, virt = [];
     if (ld){ resVers = {};
       pieces.filter(function(q){ return q.l === ld; }).reduce(function(t, q){ return t.concat(ld.p.sens === 1 ? [q.i1] : ld.p.sens === -1 ? [q.i0] : [q.i0, q.i1]); }, []).forEach(function(i){ var x = noeud(ld, i); if (virt.some(function(q){ return q.b === x; })) return;
         var p = {id: s + ':' + i, l: ld, a: s, b: x, i0: i, i1: i, sens: 1, virt: true}; virt.push(p); lier(s, p); lier(x, p); }); }
     var r = parcours([s]), pr = predsDe(r, s), nets = [], gests = {}, fosse = null, fosseDouteuse = null, boite = null, entree = {}, presume = false, cfl = null, amb = null, ambArr = false;
+    var apres = [], disp = [], parBoutsDisp = false, drs = null;
     /* exutoires du plus proche au plus lointain (à égalité, dans un ordre fixe) ; boîte sur chaque plus court chemin ; regard où le
        branchement arrive sur le collecteur (celui d'un plus court chemin sans boîte, s'il y en a) ; fosse septique (fosseDe) */
     r.term.sort(function(a, b){ return a.dist - b.dist || (a.noeud < b.noeud ? -1 : a.noeud > b.noeud ? 1 : 0); });
@@ -1425,6 +1458,21 @@ function analyser(doc, mode){
       if (t.col){ var ps = (pr[t.noeud] || []).map(function(q){ return q.n; }).sort(), sb = ps.filter(function(u){ return !boiteSur(pr, s, u); }); entree[t.id] = sb[0] || ps[0] || id; }
     });
     if (r.term.length){ fosse = fosseDe(s, r, pr, r.term.map(function(t){ return t.noeud; })); if (!ld) noterSens(pr, r.term.map(function(t){ return t.noeud; })); }
+    /* m129 (Q7 a) : drain d'infiltration qui atteint aussi un autre exutoire (ouvrage qu'il tient, tuyau parti d'un de ses sommets) : les
+       exutoires que la source atteint sans ses liens sont avant lui ; s'il est le seul, elle disperse dans le sol (le drain compte pour un)
+       et chaque exutoire atteint au-delà garde sa règle et sa case du constat (apres) ; si elle en atteint un autre avant lui
+       (bifurcation), elle est « multiple » avec ces seuls exutoires, dans l'ordre de tous. La fosse, la boîte et le sens de l'eau restent ceux de tous.
+       Deux autres destinations ou plus au-delà du drain : « multiple », comme avant m129 (décision D5 : deux destinations font « multiple ») ;
+       leurs anomalies auraient la même clé (ep-exu, eu-exu : une par source), et seule la première compterait */
+    if (nets.length > 1 && Object.keys(r.pieces).some(function(k){ return r.pieces[k].lien; })){
+      var r0 = parcours([s], {sansLiens: true}), av = {}, nav = [];
+      r0.term.sort(function(a, b){ return a.dist - b.dist || (a.noeud < b.noeud ? -1 : a.noeud > b.noeud ? 1 : 0); });
+      r0.term.forEach(function(t){ av[t.noeud] = true; if (nav.indexOf(t.res) < 0) nav.push(t.res); });
+      if (nav.length === 1 && nav[0] === 'DISP'){
+        r.term.forEach(function(t){ if (!av[t.noeud] && t.res !== 'DISP' && !apres.some(function(x){ return x.res === t.res; })) apres.push({res: t.res, gest: gests[t.res]}); });
+        if (apres.filter(function(x){ return codeExu(x.res) === 'X'; }).length > 1) apres = []; else nets = ['DISP'];
+      } else if (nav.length > 1) nets = nets.filter(function(n){ return nav.indexOf(n) >= 0; });
+    }
     /* sans exutoire dessiné : réseau présumé d'après les tronçons indiqués sur le chemin vers une extrémité libre : pour chaque extrémité, le
        tronçon indiqué le plus proche d'elle (tuyau « Tronçon EU » du WC arrivé sur une branche « Tronçon EP » laissée libre : EP), s'il
        est aussi le plus proche de chaque autre extrémité au-delà de lui : le tronc qu'une extrémité partage avec d'autres (le tuyau de
@@ -1440,17 +1488,21 @@ function analyser(doc, mode){
     if (!nets.length){
       var ex = {}, versLibres = [], conflit = {};
       versLibres = libresDe(r, pr, s);
-      versLibres.forEach(function(ch){ if (ch.res) ex[ch.res] = true; });
+      /* m129 (Q6 b) : bouts libres de drains de collecte où l'eau disperse dans le sol (boutDispersant), s'ils portent seuls un réseau */
+      disp = versLibres.filter(function(ch){ return boutDispersant(ch.nodes[0], id); });
+      parBoutsDisp = disp.length > 0 && suitDrain(id) && versLibres.every(function(ch){ return !ch.res || disp.indexOf(ch) >= 0; });
+      if (!parBoutsDisp) versLibres.forEach(function(ch){ if (ch.res) ex[ch.res] = true; });
       var exl = Object.keys(ex);
       if (exl.length > 1){ amb = ['EU', 'EP', 'UN'].filter(function(k){ return ex[k]; });
         ambArr = versLibres.some(function(ch){ return ch.res && arriveePossible(ch); }); }
       if (exl.length === 1) versLibres.forEach(function(ch){ if (ch.res !== exl[0]) return; var rv = reseauxVers(ch.nodes[0]); if (rv.length > 1) rv.forEach(function(k){ conflit[k] = true; }); });
       if (exl.length === 1 && Object.keys(conflit).length) cfl = ['EU', 'EP', 'UN'].filter(function(k){ return conflit[k]; });
-      if (exl.length === 1 && !cfl){
-        nets = exl; presume = true; gests[exl[0]] = (doc.gest && doc.gest[exl[0]]) || 'D';
+      if (parBoutsDisp || (exl.length === 1 && !cfl)){
+        if (parBoutsDisp){ nets = ['DISP']; gests.DISP = (doc.gest && doc.gest.DISP) || 'D'; }
+        else { nets = exl; presume = true; gests[exl[0]] = (doc.gest && doc.gest[exl[0]]) || 'D'; }
         /* fosse septique ou boîte de l'exutoire présumé : comme pour un exutoire dessiné, vers chaque extrémité libre qui porte ce réseau ; une
            autre extrémité libre peut être une arrivée (fosse en amont du regard, son entrée venant de la maison, appareils non dessinés) */
-        var porte = versLibres.filter(function(ch){ return ch.res === exl[0]; });
+        var porte = parBoutsDisp ? disp : versLibres.filter(function(ch){ return ch.res === exl[0]; });
         fosse = fosseDe(s, r, pr, porte.map(function(ch){ return ch.nodes[0]; })); if (!ld) noterSens(pr, porte.map(function(ch){ return ch.nodes[0]; }));
         /* fosse évitée seulement vers des extrémités libres qui peuvent être des arrivées (entrée de la maison laissée libre) : l'eau la traverse
            si ce sont des arrivées. L'analyse ne le sait pas : la fosse est « à arbitrer » et aucune conformité n'est proposée tant que
@@ -1465,21 +1517,38 @@ function analyser(doc, mode){
           .sort(function(a, b){ return (r.dist[b] - r.dist[a]) || (a < b ? -1 : a > b ? 1 : 0); })[0] || null;
       }
       /* sans réseau établi, une seule extrémité libre : l'eau y va (sens de ses pièces, pour un clapet posé dessus) */
-      if (!presume && versLibres.length === 1 && !ld) noterSens(pr, [versLibres[0].nodes[0]]);
+      if (!presume && !parBoutsDisp && versLibres.length === 1 && !ld) noterSens(pr, [versLibres[0].nodes[0]]);
+    }
+    /* m129 : drains où l'eau de l'équipement disperse (dispE) et drains qu'elle atteint (dispA) ; drain qui disperse : son étiquette, s'il
+       est lui-même un de ces drains (drs) : pas celui dont la sortie est dessinée vers un autre drain, qui disperse (il en suit le rejet) */
+    if (parBoutsDisp){
+      drs = []; disp.forEach(function(ch){ drainsDuBout(ch.nodes[0]).forEach(function(l){ if (drs.indexOf(l.id) < 0) drs.push(l.id); }); }); drs.sort();
+      if (!estDrainSrc(id)){
+        drs.forEach(function(k){ dispE[k] = true; });
+        Object.keys(r.pieces).forEach(function(k){ var l = r.pieces[k].l; if (drainDe(l) === 'collecte') dispA[l.id] = true; });
+        Object.keys(r.vus).forEach(function(n){ if (objs[n] && objs[n].t === 'drain') dispA[n] = true; });
+      } else (ld ? [id] : Object.keys(tenuPar[id] || {}).filter(function(k){ return drainDe(lignes[k]) === 'collecte'; }))
+        .filter(function(k){ return drs.indexOf(k) >= 0; }).forEach(function(k){ drainsDisp[k] = true; });
     }
     /* avant-projet, exutoire dessiné : une extrémité libre qui porte un autre réseau indiqué (ancienne sortie gardée à côté du raccordement,
-       ou arrivée non orientée) laisse les réseaux mêlés après travaux : relevée pour les Contrôles et le contrôle de l'avant-projet */
+       ou arrivée non orientée) laisse les réseaux mêlés après travaux : relevée pour les Contrôles et le contrôle de l'avant-projet. Pas pour
+       une source qui disperse au bout libre d'un drain de collecte (parBoutsDisp, m129) : elle n'a aucun exutoire dessiné, et chaque bout
+       libre qui porte un réseau est un bout où l'eau disperse, son exutoire même (au réseau « Déduit », il prend celui du tronçon qui y mène) */
     var sortiesLibres = null;
-    if (mode === 'avp' && nets.length && !presume){
-      var dessines = nets.map(function(k){ return resTrace(k); }), la = {};
+    if (mode === 'avp' && nets.length && !presume && !parBoutsDisp){
+      var dessines = nets.concat(apres.map(function(x){ return x.res; })).map(function(k){ return resTrace(k); }), la = {};
       libresDe(r, pr, s).forEach(function(ch){ if (ch.res && dessines.indexOf(ch.res) < 0 && !virt.some(function(p){ return p.b === ch.nodes[0]; })) la[ch.res] = true; });
       sortiesLibres = ['EU', 'EP', 'UN'].filter(function(k){ return la[k]; }); if (!sortiesLibres.length) sortiesLibres = null;
     }
     var etat = !Object.keys(r.pieces).length ? 'nonrelie' : !nets.length ? 'sansexu' : nets.length > 1 ? 'multiple' : 'ok';
     resObj[id] = {etat: etat, res: nets.length === 1 ? nets[0] : null, nets: nets, gest: nets.length === 1 ? gests[nets[0]] : null, presume: presume, conflit: cfl, ambigu: amb, ambiguArrivee: ambArr, fosse: fosse, fosseDouteuse: fosseDouteuse, boite: boite, term: r.term, entree: entree, sortiesLibres: sortiesLibres};
+    if (apres.length) resObj[id].apres = apres;
+    if (drs) resObj[id].drains = drs;
     virt.forEach(function(p){ [p.a, p.b].forEach(function(x){ adj[x] = adj[x].filter(function(q){ return q !== p; }); if (!adj[x].length) delete adj[x]; }); });
   });
   resVers = {};
+  /* résultats dans l'ordre des sources, quel que soit l'ordre d'analyse (m129) */
+  var ro = resObj; resObj = {}; srcs.forEach(function(id){ resObj[id] = ro[id]; });
   /* Réseau de chaque pièce (couleur), regards traversés, flèches d'écoulement */
   var resPiece = {}, resNoeud = {};
   pieces.forEach(function(p){
@@ -1527,6 +1596,7 @@ function analyser(doc, mode){
   Object.keys(lignes).forEach(function(id){ var l = lignes[id]; if (drainDe(l) === 'infiltration' && l.v.length >= 2) l.v.forEach(function(v){ if (v.a && objs[v.a] && !T[objs[v.a].t].boite && resPt[v.a] === 'INC') resPt[v.a] = 'EP'; }); });
   var an = {mode: mode, objs: objs, lignes: lignes, pieces: pieces, adj: adj, resObj: resObj, resPiece: resPiece, sensPiece: sensPiece, sensSource: sensSource, resPt: resPt, boites: boites, dist: dist};
   if (exuX) an.exu = exuX;
+  if (Object.keys(drainsDisp).length) an.drainsDisp = drainsDisp;
   /* après l'avant-projet : l'état des lieux sert de référence (numéros d'anomalie, réseau des tracés à supprimer) */
   if (mode === 'avp') an.ref = analyser(doc, 'edl');
   an.anomalies = reglesAnomalies(doc, an);
@@ -1555,15 +1625,17 @@ function reglesAnomalies(doc, an){
   Object.keys(an.resObj).forEach(function(id){
     var o = srcObj(an, id), ty = T[o.t], r = an.resObj[id], lib = libObj(o);
     if (r.etat === 'ok'){
-      /* ligne du rejet : table des exutoires, ou champs d'une autre destination (m125) */
-      var xl = ligneExu(r.res, an);
+      /* ligne de chaque rejet : table des exutoires, ou champs d'une autre destination (m125) ; aussi chaque exutoire que le drain
+         d'infiltration atteint au-delà de lui (m129, Q7 a) */
+      rejetsDe(r).forEach(function(rj){
+      var xl = ligneExu(rj.res, an);
       if (ty.nat === 'EU'){
-        if (r.res === 'EP') ajoute({cle: 'eu-ep:' + id, objId: id, reseau: 'EU', obs: lib + ' : rejet au réseau EP' + (r.presume ? ' (présumé)' : ''), preco: 'Déconnexion du réseau EP et raccordement au branchement EU', nc: true, codes: ['sepEU', 'raccEUsep'], cat: 'inversion'});
+        if (rj.res === 'EP') ajoute({cle: 'eu-ep:' + id, objId: id, reseau: 'EU', obs: lib + ' : rejet au réseau EP' + (rj.presume ? ' (présumé)' : ''), preco: 'Déconnexion du réseau EP et raccordement au branchement EU', nc: true, codes: ['sepEU', 'raccEUsep'], cat: 'inversion'});
         /* exutoire de la table (puisard, gargouille, milieu naturel…) ou autre destination : la règle EU de sa ligne */
         else if (xl && xl.eu){ var re = xl.eu;
           ajoute({cle: re.cle + ':' + id, objId: id, reseau: 'EU', obs: lib + ' : ' + re.obs, preco: re.preco, nc: re.nc, codes: re.codes.slice(), cat: re.cat}); }
-      } else if (ty.nat === 'EP' && r.res === 'EU'){
-        ajoute({cle: 'ep-eu:' + id, objId: id, reseau: 'EP', obs: lib + ' : rejet au réseau EU' + (r.presume ? ' (présumé)' : ''), preco: 'Déconnexion des EP du réseau EU ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['decoEP', 'raccEPep'], cat: 'inversion'});
+      } else if (ty.nat === 'EP' && rj.res === 'EU'){
+        ajoute({cle: 'ep-eu:' + id, objId: id, reseau: 'EP', obs: lib + ' : rejet au réseau EU' + (rj.presume ? ' (présumé)' : ''), preco: 'Déconnexion des EP du réseau EU ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['decoEP', 'raccEPep'], cat: 'inversion'});
       } else if (ty.nat === 'EP' && xl && xl.ep){
         /* exutoire de la table à règle EP fixe (puits : non conforme, décision du 13 nov. 2026), ou autre destination aux EP non conformes,
            en réserve ou à arbitrer (m125 : arbitrer, comme sansboite) : la règle EP de sa ligne, comme la règle EU */
@@ -1571,6 +1643,7 @@ function reglesAnomalies(doc, an){
         if (rp.arbitrer) aEP.arbitrer = true;
         ajoute(aEP);
       }
+      });
       if (ty.nat === 'EU' && r.fosse && an.objs[r.fosse]) ajoute({cle: 'fosse:' + r.fosse, objId: r.fosse, reseau: 'EU', obs: 'Fosse septique : eaux usées traversant la fosse', preco: 'Suppression de la fosse septique et raccordement direct au branchement EU', nc: true, codes: ['suppFosse'], cat: 'autre'});
       /* fosse évitée seulement vers une extrémité libre qui peut être une arrivée : à arbitrer (douteuse : pas de conformité proposée) */
       if (ty.nat === 'EU' && !r.fosse && r.fosseDouteuse && an.objs[r.fosseDouteuse]) ajoute({cle: 'fosse:' + r.fosseDouteuse, objId: r.fosseDouteuse, reseau: 'EU', obs: 'Fosse septique : eaux usées traversant la fosse', preco: 'Suppression de la fosse septique et raccordement direct au branchement EU', nc: true, codes: ['suppFosse'], cat: 'autre', arbitrer: true, douteuse: true});
@@ -1625,8 +1698,8 @@ function controles(doc, an){
       if (r.etat === 'ok' && r.sortiesLibres){ var pl = r.sortiesLibres.length > 1;
         c(id, 'manque', lib + (pl ? ' : sorties ' : ' : sortie ') + listeEt(r.sortiesLibres.map(libRes)) + (pl ? ' laissées libres à côté de l\'exutoire dessiné (les passer « À supprimer », les prolonger, ou indiquer le sens du tracé d\'une arrivée)' : ' laissée libre à côté de l\'exutoire dessiné (la passer « À supprimer », la prolonger, ou indiquer le sens du tracé d\'une arrivée)'), 'sortielibre'); }
       /* rejet des EP dans une autre destination resté à arbitrer (m125, décision D6) : comme la fosse, retenir ou écarter l'anomalie */
-      var xr = r.etat === 'ok' ? ligneExu(r.res, an) : null;
-      if (xr && xr.dest && xr.ep && etatAnomalie(doc, an, xr.ep.cle + ':' + id) === 'arbitrer') c(id, 'manque', lib + ' : ' + xr.ep.obs + ' à arbitrer (retenir ou écarter l\'anomalie)', 'exuarbitrer');
+      var xr = null; if (r.etat === 'ok') rejetsDe(r).forEach(function(rj){ var x = ligneExu(rj.res, an); if (!xr && x && x.dest && x.ep && etatAnomalie(doc, an, x.ep.cle + ':' + id) === 'arbitrer') xr = x; });
+      if (xr) c(id, 'manque', lib + ' : ' + xr.ep.obs + ' à arbitrer (retenir ou écarter l\'anomalie)', 'exuarbitrer');
       if (r.etat === 'ok' && fosseArbitrage(doc, an, id) === 'arbitrer') c(id, 'manque', lib + ' : fosse septique évitée seulement vers une extrémité laissée libre qui peut être une arrivée (indiquer le sens du tracé de l\'arrivée ou dessiner l\'exutoire, sinon retenir ou écarter l\'anomalie de la fosse)', 'fossedouteuse');
     }
   }
@@ -1992,7 +2065,7 @@ function etatSourceDe(doc, an, liste, mode, id){
   if (r.etat === 'nonrelie') return {cls: 'ko', txt: 'Non relié : tracez un tronçon depuis cet objet'};
   if (r.etat === 'sansexu') return {cls: 'att', txt: r.conflit ? 'Exutoire non dessiné : tronçons ' + listeEt(r.conflit.map(libRes)) + ' réunis vers la même extrémité libre, indiquez le réseau du tronçon commun, ou le sens du tracé d\'une arrivée' : r.ambigu ? 'Exutoire non dessiné : extrémités libres de réseaux ' + listeEt(r.ambigu.map(libRes)) + (r.ambiguArrivee ? ', prolongez le tracé ou indiquez le sens du tracé d\'une arrivée' : ', prolongez le tracé jusqu\'à l\'exutoire') : 'Exutoire non dessiné : prolongez le tracé ou indiquez le réseau du tronçon'};
   if (r.etat === 'multiple') return {cls: 'ko', txt: 'Relié à plusieurs réseaux : indiquez le sens d\'écoulement'};
-  var txt = 'Rejet : ' + libExu(r.res, an) + (/^(EU|EP|UN)$/.test(r.res) && r.gest ? ' ' + GEST_LIB[r.gest] : '') + (r.presume ? ' (d\'après le tronçon)' : '');
+  var txt = 'Rejet : ' + libExu(r.res, an) + (/^(EU|EP|UN)$/.test(r.res) && r.gest ? ' ' + GEST_LIB[r.gest] : '') + (r.presume ? ' (d\'après le tronçon)' : '') + auDelaTxt(r, an);
   if (fosseArbitrage(doc, an, id) === 'arbitrer' && !a.length) return {cls: 'att', txt: txt + ' · fosse septique à arbitrer : une extrémité laissée libre peut être une arrivée'};
   /* une anomalie de la source reste à arbitrer : en attente, jamais « ok » (m119) */
   var aa = liste.filter(function(x){ return x.objId === id && x.st === 'arbitrer'; });
@@ -2055,7 +2128,14 @@ function constatDeduit(doc, an){
     var rs = an.resObj[id], xe = rs && rs.etat === 'ok' ? ligneExu(rs.res, an) : null, etEP = xe && xe.ep ? etatAnomalie(doc, an, xe.ep.cle + ':' + id) : '';
     /* un drain de collecte compté (m123) se lit comme un point « Drain » : ligne « Autres : Drain », méthodes de son tracé */
     var o = srcObj(an, id), row = ligne(o), arbL = ligneArbitrer(doc, an, id), ri = raccInfo(rs, row ? row.groupe : T[o.t].nat || 'EP', fosseArbitrage(doc, an, id), arbL, etEP, an);
+    /* m129 (Q7 a) : chaque exutoire que le drain d'infiltration atteint au-delà de lui compte aussi sur la ligne (code, conformité, case des
+       ouvrages EP), sauf quand la fosse septique fait le raccordement (retenue ou à arbitrer) */
+    var ra = rs && rs.etat === 'ok' && rs.apres && ri.code !== 'FOSSE' && fosseArbitrage(doc, an, id) !== 'arbitrer' ? rs.apres.map(function(x){
+      var xa = ligneExu(x.res, an), ea = xa && xa.ep ? etatAnomalie(doc, an, xa.ep.cle + ':' + id) : '';
+      return raccInfo({etat: 'ok', res: x.res, gest: x.gest, presume: false}, row ? row.groupe : T[o.t].nat || 'EP', '', arbL, ea, an);
+    }) : [];
     if (ri.recup) recup[ri.recup] = true;
+    ra.forEach(function(x){ if (x.recup) recup[x.recup] = true; });
     if (!row){ sansCote.push(id); return; }
     row.objets.push(id); row.codes.push(ri.code); row.oks.push(ri.ok);
     /* ligne marquée seulement quand une anomalie y reste à arbitrer : l'application ne la déclare pas conforme (m119) */
@@ -2063,6 +2143,7 @@ function constatDeduit(doc, an){
     if (ri.lib && row.libs.indexOf(ri.lib) < 0) row.libs.push(ri.lib);
     /* raccordements non conformes de la ligne (fosse septique, mauvais réseau…) : rappelés si le constat la dit conforme */
     if (ri.ok === false && ri.lib && row.non.indexOf(ri.lib) < 0) row.non.push(ri.lib);
+    ra.forEach(function(x){ row.codes.push(x.code); row.oks.push(x.ok); if (x.lib && row.libs.indexOf(x.lib) < 0) row.libs.push(x.lib); if (x.ok === false && x.lib && row.non.indexOf(x.lib) < 0) row.non.push(x.lib); });
     if (row.types.indexOf(T[o.t].lib) < 0) row.types.push(T[o.t].lib);
     (o.p.meth || []).forEach(function(m){ if (row.meth.indexOf(m) < 0) row.meth.push(m); });
   });
@@ -2181,6 +2262,8 @@ function texteEtiquette(e, an){
     var st = e.p.st === 'presume' ? ' (présumé)' : e.p.st === 'supprimer' && avp ? ' à supprimer' : '';
     /* drain d'infiltration (m122) : toujours une étiquette, « Dispersion dans le sol », suivie des détails du tuyau */
     if (drainDe(e) === 'infiltration') return ((e.p.st === 'projet' ? 'Projet : ' : '') + 'Dispersion dans le sol' + (det.length ? ' ' + det.join(' ') : '') + st).trim();
+    /* drain de collecte dont la sortie n'est pas dessinée et qu'atteint un équipement (m129, Q6 b : an.drainsDisp) : de même, avec l'analyse */
+    if (drainDe(e) === 'collecte' && an && an.drainsDisp && an.drainsDisp[e.id]) return ((e.p.st === 'projet' ? 'Projet : ' : '') + 'Dispersion dans le sol' + (det.length ? ' ' + det.join(' ') : '') + st).trim();
     var nom = e.p.st === 'projet' ? 'Projet' + (RES[e.p.res] && e.p.res !== 'PRJ' ? ' ' + libRes(e.p.res) : '') : (/^(EU|EP|UN)$/.test(r) ? libRes(r) : '');
     if (!det.length && !st && e.p.st !== 'projet') return '';
     return (nom + (det.length ? ' ' + det.join(' ') : '') + st).trim();
@@ -5563,8 +5646,10 @@ function editeur(racine, opts){
       if (r.groupe === 'EU' || r.conforme) return;
       var l = /^(EP|UN)_|^GARG$|^MILIEU$/.test(r.raccord) ? fixes : aMain;
       r.objets.forEach(function(id){
-        var rs = S.an.resObj[id], xe = rs && rs.etat === 'ok' ? ligneExu(rs.res, S.an) : null, et = xe && xe.ep ? etatAnomalie(S.doc, S.an, xe.ep.cle + ':' + id) : '';
-        if ((et === 'retenue' || et === 'arbitrer') && l.indexOf(xe.ep.obs) < 0) l.push(xe.ep.obs);
+        var rs = S.an.resObj[id]; if (!rs || rs.etat !== 'ok') return;
+        /* m129 : aussi chaque exutoire que le drain d'infiltration atteint au-delà de lui */
+        rejetsDe(rs).forEach(function(rj){ var xe = ligneExu(rj.res, S.an), et = xe && xe.ep ? etatAnomalie(S.doc, S.an, xe.ep.cle + ':' + id) : '';
+          if ((et === 'retenue' || et === 'arbitrer') && l.indexOf(xe.ep.obs) < 0) l.push(xe.ep.obs); });
       });
     });
     /* un même rejet sur une ligne avec code et sur une ligne sans : la phrase prudente seule */
@@ -6611,7 +6696,7 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL, conclC){
   var sources = doc.el.filter(function(e){ return an.resObj[e.id] && (e.k === 'pt' ? T[e.t] && T[e.t].role === 'source' : drainDe(e) === 'collecte'); });
   y = tableauPdf(pdf, y, [{t: 'Équipement', w: 62}, {t: 'Niveau', w: 22}, {t: 'Rejet constaté', w: 74}, {t: 'Méthode de contrôle', w: 58}, {t: 'Observation', w: 60}],
     sources.length ? sources.map(function(e0){
-      var e = e0.k === 'pt' ? e0 : srcObj(an, e0.id), r = an.resObj[e.id], rej = r.etat === 'ok' ? libExu(r.res, an) + (/^(EU|EP|UN)$/.test(r.res) && r.gest ? ' ' + GEST_LIB[r.gest] : '') + (r.presume ? ' (présumé)' : '') : r.etat === 'nonrelie' ? 'non relevé' : r.etat === 'multiple' ? 'à préciser' : 'exutoire non relevé';
+      var e = e0.k === 'pt' ? e0 : srcObj(an, e0.id), r = an.resObj[e.id], rej = r.etat === 'ok' ? libExu(r.res, an) + (/^(EU|EP|UN)$/.test(r.res) && r.gest ? ' ' + GEST_LIB[r.gest] : '') + (r.presume ? ' (présumé)' : '') + auDelaTxt(r, an) : r.etat === 'nonrelie' ? 'non relevé' : r.etat === 'multiple' ? 'à préciser' : 'exutoire non relevé';
       var nums = ret.filter(function(a){ return a.objId === e.id; }).map(function(a){ return a.num; }), hdObj = hors.some(function(a){ return a.objId === e.id; });
       return {cells: [libEquipement(e), NIV_LIB[e.p.niv] || '', rej + (nums.length ? ' · anomalie n° ' + nums.join(', ') : '') + (hdObj ? ' · anomalie à reprendre' : ''), methLib(e.p.meth) || 'non indiquée', e.p.obs || ''], coul: [null, null, nums.length || hdObj ? [180, 35, 24] : null]};
     }) : [{cells: ['Aucun équipement dessiné.', '', '', '', '']}], 'Équipements, rejets et méthodes de contrôle');

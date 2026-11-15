@@ -16,13 +16,16 @@
 // tirés (ci-dessous) comme de simples tronçons. Contre la version d'avant m128 (qui connaît l'autre destination depuis m125), les
 // croquis avec « exutoire » ne donnent aucun écart non plus : seule l'abréviation illisible au PDF change (repli de destDe), qui
 // n'entre ni dans l'analyse, ni dans les anomalies, ni dans le constat.
+// Contre 00f4ac5 (m128), les écarts attendus viennent de m129 : sources reliées au bout libre d'un drain de collecte (Q6 b), sources
+// qu'un drain d'infiltration mène aussi à un autre exutoire (Q7 a), et ces drains eux-mêmes ; avec --sans=drains, aucun écart.
 // Les croquis ont aussi des drains (option drains du générateur, m124) : des tronçons tirés deviennent des drains de collecte ou
 // d'infiltration, d'autres passent par un regard, un équipement ou un raccord neuf (nœud du milieu), orientés ou non, ou sont libres ; un
 // point « Drain » est parfois posé sur le premier sommet libre d'un drain de collecte (un bout, ou un coude au milieu du drain : ce point
 // n'est pas compté comme un nœud du milieu). Ils comptent comme m121 à m123 le disent : un drain de collecte
 // actif, d'au moins deux sommets, sans point « Drain » sur un sommet, a son résultat ; un drain d'infiltration n'en a pas ; la ligne
 // « Autres : Drain » du constat en compte un par drain compté et par point « Drain » analysé ; une source n'atteint la dispersion dans le
-// sol (DISP) que s'il y a un drain d'infiltration ; aucun nœud « dr: » ni pièce virtuelle ne reste. Échoue sur f7c2589 (le générateur
+// sol (DISP) que par un drain d'infiltration ou, depuis m129, par le bout libre d'un drain de collecte (r.drains) ; ce qu'un drain
+// d'infiltration atteint au-delà de lui (r.apres, m129) est un exutoire dessiné qu'elle atteint ; aucun nœud « dr: » ni pièce virtuelle ne reste. Échoue sur f7c2589 (le générateur
 // ne tire aucun drain). --sans=drains retire l'option : mêmes croquis qu'avant m124 (aucun tirage de plus).
 // usage : node tests/vm/aleatoire.js [n=1500] [graine=1] [-v] [--app=<dossier>] [--contre=<dossier>] [--sans=<type>|drains,…]
 'use strict';
@@ -85,7 +88,14 @@ function comptageDrains(d, mode){
   if (inf.some(id => an.resObj[id])) ko.push('drain d\'infiltration compté comme une source');
   const rd = V.constatDeduit(copie(d), an).rows.find(r => r.id === 'autre:Drain'), nb = rd ? rd.nb : 0;
   if (nb !== att.length + pts) ko.push('ligne « Autres : Drain » ×' + nb + ', au lieu de ×' + (att.length + pts));
-  if (Object.keys(an.resObj).some(id => (an.resObj[id].nets || []).indexOf('DISP') >= 0) && !inf.some(id => L[id].v.length >= 2)) ko.push('DISP sans drain d\'infiltration');
+  /* m129 : la dispersion dans le sol vient d'un drain d'infiltration, ou du bout libre d'un drain de collecte (r.drains : drains de collecte
+     actifs, ni EU ni unitaires) ; ce qu'un drain d'infiltration atteint au-delà de lui (r.apres) est un exutoire dessiné atteint */
+  Object.keys(an.resObj).forEach(id => { const r = an.resObj[id];
+    if ((r.nets || []).indexOf('DISP') >= 0 && !(r.drains ? r.res === 'DISP' && !r.presume && r.drains.length > 0
+      && r.drains.every(k => L[k] && V.drainDe(L[k]) === 'collecte' && !/^(EU|UN)$/.test(L[k].p.res || '')) : inf.some(k => L[k].v.length >= 2))) ko.push('DISP sans drain d\'infiltration ni bout de drain de collecte : ' + id);
+    if (r.apres && !(r.res === 'DISP' && r.term.some(t => t.res === 'DISP') && r.apres.length > 0 && r.apres.every(x => x.res !== 'DISP' && r.term.some(t => t.res === x.res))))
+      ko.push('au-delà du drain sans drain d\'infiltration ni exutoire dessiné : ' + id);
+  });
   if (/dr:/.test(JSON.stringify(an.resObj)) || Object.keys(an.sensSource).concat(Object.keys(an.adj)).some(x => /^dr:/.test(x)) || Object.keys(an.adj).some(x => an.adj[x].some(p => p.virt)))
     ko.push('nœud « dr: » ou pièce virtuelle restés');
   return {ko, comptes: att.length, points: pts};

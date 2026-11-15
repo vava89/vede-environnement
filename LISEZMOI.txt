@@ -103,17 +103,38 @@ CROQUIS DE TERRAIN (facultatif)
   conforme (« Rejet : dispersion dans le sol » ; au constat, la case
   « Infiltration diffuse »), un WC non conforme (« rejet au sol ») ; ses
   bouts libres n'attendent pas d'exutoire. Il est vert, avec l'étiquette
-  « Dispersion dans le sol ». Un drain d'infiltration relié aussi à un
-  puits, un puisard ou un réseau : relié à plusieurs réseaux, à
-  compléter. Un drain de collecte compte au constat comme un équipement
-  (ligne « Autres : Drain »), sans point à poser : l'eau qu'il recueille
-  part de chacun de ses bouts, regards et raccords (vers l'aval si son
-  sens est indiqué) et suit les règles des eaux pluviales ; sa sortie non
-  dessinée est présumée au réseau de son tracé (le plus souvent les eaux
-  pluviales), sans message ; au réseau « Déduit », elle est à dessiner
-  (à compléter). Sa fiche a les puces « Méthode de test ». Un point
-  « Drain » posé sur un de ses sommets compte seul, s'il figure sur le
-  plan affiché (un point « Projet » ne figure pas sur l'état des lieux).
+  « Dispersion dans le sol ». Ce que le drain d'infiltration atteint
+  au-delà de lui (trop-plein parti du drain vers une boîte de
+  branchement, puits, puisard ou infiltration posés sur le drain) est un
+  rejet de plus, jugé selon sa règle : la source disperse dans le sol et,
+  au-delà du drain, va au réseau EP, dans un puisard ou une infiltration
+  (conforme), au réseau EU ou dans un puits (non conforme) ; la fiche le
+  dit (« Rejet : dispersion dans le sol et, au-delà du drain, réseau EP
+  départemental »), et la page 2 du plan PDF aussi. Chaque exutoire posé
+  sur le drain compte, même derrière un autre (une boîte EP, puis un
+  puits plus loin sur le drain : non conforme). Si la source atteint un
+  autre exutoire avant le drain, ou deux autres destinations au-delà de
+  lui, elle est reliée à plusieurs réseaux, à compléter. Un drain de
+  collecte compte au constat comme un équipement (ligne « Autres :
+  Drain »), sans point à poser : l'eau qu'il recueille part de chacun de
+  ses bouts, regards et raccords (vers l'aval si son sens est indiqué) et
+  suit les règles des eaux pluviales ; sa sortie non dessinée est
+  présumée au réseau de son tracé (le plus souvent les eaux pluviales),
+  sans message ; au réseau « Déduit », elle est à dessiner (à compléter).
+  Un équipement relié à un drain de collecte dont la sortie n'est pas
+  dessinée disperse dans le sol, comme au drain d'infiltration : une
+  descente est conforme (« Rejet : dispersion dans le sol », case
+  « Infiltration diffuse »), un WC non conforme (« rejet au sol ») ; les
+  drains qu'il atteint suivent le même rejet, au constat aussi, et celui
+  dont le bout libre disperse porte l'étiquette « Dispersion dans le
+  sol ». Un drain indiqué EU ou unitaire garde son réseau présumé, et un
+  équipement qui atteint aussi le bout libre d'un autre tuyau au réseau
+  indiqué (un « Tronçon EP », par exemple) garde le réseau présumé. Sa
+  fiche a les puces « Méthode de test ». Un point « Drain » posé sur un
+  de ses sommets compte seul, s'il figure sur le plan affiché (un point
+  « Projet » ne figure pas sur l'état des lieux). Un point « Drain » qui
+  y est relié par un tronçon suit le drain : il ne disperse dans le sol
+  que si un équipement y disperse aussi.
   Les outils « Drain » et « Drain d'infiltration » de la palette
   « Tracés », juste après « Projet », tracent un drain comme un tronçon,
   sans poser de point « Drain » : « Drain » un drain de collecte en eaux
@@ -336,14 +357,29 @@ MISE À JOUR DE L'APPLICATION
   EU », une descente y reste non conforme, mais comme raccordée aux
   EU) ; elles reviennent sur une tablette à jour. Un drain y est un
   simple tuyau : un drain d'infiltration, comme le bouton « Rejet au
-  sol », y donne « À compléter » ; un drain de collecte n'y compte pas
-  au constat, et un équipement qui y est relié y est présumé raccordé au
-  réseau EP. En v1.6.3, ou plus ancienne, le plan PDF d'un croquis qui
-  contient une infiltration, un puits ou une autre destination ne sort
-  pas (message « Plan PDF : » suivi d'une erreur), et leur fiche ne
-  s'ouvre pas dans le croquis ; la fiche et le constat du dossier
-  sortent, comme le plan PDF d'un croquis qui n'a que des drains. N'y
-  signez aucun constat de ces dossiers : un constat signé ne change plus.
+  sol », y donne « À compléter » ; un drain de collecte n'y compte pas au
+  constat, et un équipement relié à son bout libre, qui disperse dans le
+  sol sur une tablette à jour, y prend le réseau indiqué du drain, à
+  défaut celui du tronçon qui l'y relie (sinon « À compléter »). Au
+  réseau EP (celui que donnent la puce « Collecte » et l'outil
+  « Drain »), une descente (case « Infiltration diffuse » sur une
+  tablette à jour) y paraît raccordée aux EP (présumé), et un WC, « rejet
+  au sol » sur une tablette à jour, y devient « rejet au réseau EP
+  (présumé) » à l'ouverture du croquis. Au réseau « Déduit », par un
+  « Tronçon EU », une descente, conforme sur une tablette à jour, y
+  paraît non conforme, et un WC, non conforme sur une tablette à jour, y
+  paraît conforme à l'ouverture du croquis. Une source qu'un drain
+  d'infiltration mène aussi à une boîte de branchement y est jugée sur la
+  première boîte qu'elle atteint, sans « dispersion dans le sol » ni
+  « Infiltration diffuse » au constat : même conformité, sauf si le drain
+  atteint plus loin un autre exutoire (une boîte EP, puis une boîte EU :
+  conforme en v1.7.0, non conforme sur une tablette à jour). En v1.6.3,
+  ou plus ancienne, le plan PDF d'un croquis qui contient une
+  infiltration, un puits ou une autre destination ne sort pas (message
+  « Plan PDF : » suivi d'une erreur), et leur fiche ne s'ouvre pas dans
+  le croquis ; la fiche et le constat du dossier sortent, comme le plan
+  PDF d'un croquis qui n'a que des drains. N'y signez aucun constat de
+  ces dossiers : un constat signé ne change plus.
 - Une tablette remise en v1.7.0, ou plus ancienne, garde les
   destinations ajoutées (« + Nouvelle destination ») sans les proposer,
   puis les efface dès qu'un réglage du croquis y change (une aide au
