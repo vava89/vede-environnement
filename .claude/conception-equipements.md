@@ -240,20 +240,25 @@ Détail du code : cartes A, B et C (`carte-*.md`). Lot Rejets : `.claude/concept
 Chaque correctif est livrable seul et garde la batterie verte (`sh tests/tout.sh --navigateur`) ; garde commune : compat 245/245 et
 différentiel sans écart. Les tests nouveaux vont dans tests/vm/equipements.js et tests/navigateur/equipements.js, créés en m130 et ajoutés à
 tests/tout.sh (l. 14 et 19) et à tests/LISEZMOI.md. Le lot tient en six numéros ; s'il en manque (lot Rejets plus long, correctif scindé),
-m135 puis m134 attendent la fusion suivante (l'étiquette commune forme un tout), ou la fusion se fait après m133.
-- **m130 Niveau d'étage précis** (souhait 15 ; D1, D2, D5, D7).
-  - But : « 1er étage » sur l'étiquette et au tableau, d'un toucher.
-  - Fichiers : CJ libNiv ; texteEtiquette ; pageTableaux ; ficheHtml (Niveau) ; clic 'prop' ; rafraichirFiche ; changerType (extrait).
-    croquis/LISEZMOI.txt (fiche) ; LISEZMOI.txt (consigne).
-  - Pour l'utilisateur : puces 1er, 2e, 3e, Combles, Autre… ; « WC (1er étage) » sur le plan, « 1er étage » au tableau ; le niveau reste
-    quand le type change.
-  - Test : vm/equipements.js n1 : WC {niv 'etage', etage '1'} → « WC (1er étage) » (échoue avant : « WC (étage) ») ; n2 : lavabo de niv
-    'zz' → « Lavabo » (avant : « Lavabo (undefined) ») ; n3 : colonne Niveau « 2e étage », « combles », « étage » ; drain de collecte
-    (srcObj) : « Drain », Niveau vide, aucun « undefined » ; n4 : analyse et constat identiques avec et sans etage.
-    navigateur/equipements.js e1 : puce « 2e » pressée, second toucher qui vide, « Autre… » 5 → « 5e », « abc » refusé ; Lavabo → Évier par
-    le sélecteur Type : etage gardé, aucun toast.
-  - Risques : étiquettes plus longues (collisions au 1/200) ; branche 'prop' partagée avec 'sens'.
-  - Lot Rejets : changerType reprend le code de m127.
+m135 puis m134 attendent la fusion suivante (l'étiquette commune forme un tout), ou la fusion se fait après m133. m130 est envoyé :
+sa fiche dit ce qui a été fait.
+- **m130 Niveau d'étage précis** (souhait 15 ; D1, D2, D5, D7). Fait : 609b9f1, 15 nov.
+  - Fichiers : CJ : NIV (les puces), etageDe, libNiv (VC.libNiv), valNiv, poserNiv, texteEtiquette, pageTableaux, demander (option num), chipsHtml
+    (option apres), nivHtml, ficheHtml, rafraichirFiche, branche 'prop', action nivAutre, changerType (extraite du gestionnaire a === 'type').
+    LISEZMOI.txt (consigne de MISE À JOUR), croquis/LISEZMOI.txt, tests/LISEZMOI.md, tests/tout.sh.
+  - Pour l'utilisateur : puces Sous-sol | RDC | 1er | 2e | 3e | Combles | Autre… (1 à 99, clavier numérique ; tout autre texte refusé avec un
+    message) ; « 5e » en puce choisie au-delà du 3e, « Étage (à préciser) » pour un ancien 'etage' sans numéro ; second toucher : niveau vidé ;
+    « WC (1er étage) » sur le plan (écran, PDF, DXF), « 1er étage » au tableau de la page 2 ; un code inconnu ne montre plus « (undefined) » ; le
+    niveau et l'étage restent quand le type change.
+  - Tests : vm/equipements.js n1 à n4 (44 contrôles, 19 sur ee7b979 ; n4 est une garde) ; navigateur/equipements.js e1 (28 contrôles, 2 sur ee7b979).
+    Garde : compat 245/245 sans régénération ; aléatoire 8000 contre ee7b979 : aucune exception, aucun écart ; sonde v1.7.0 (b08133d) : « WC (étage) »
+    à l'écran, au PDF et au DXF, « étage » au tableau, aucune exception ; batterie complète verte (17 min).
+  - Relecture : aucun défaut bloquant ni majeur. M1, M2, M4, M5, M6 appliqués (M4 : une valeur de puce écrite à la main dans niv, 'etage:2', ne presse
+    aucune puce, de même que libNiv n'en écrit aucun niveau) ; M3 écartée (rouvrir « Autre… » après un refus : D7 dit « toast sinon »).
+  - Risques et [p] : un numéro illisible donne « étage » (la carte C proposait '') ; la puce en plus se place entre 3e et Combles ; dialogue
+    « Étage », aide « Numéro de l'étage, de 1 à 99 : 1 pour le 1er, 5 pour le 5e. » ; changerType garde tout etage non vide, même illisible, même vers
+    un type qui n'est pas une source, comme niv ; étiquettes plus longues (collisions au 1/200, non mesurées) ; en v1.7.0, une autre puce du niveau
+    laisse l'étage, que « Étage » fait revenir (lu sur b08133d, non remesuré).
 - **m131 WC + lave-mains** (souhait 18 ; D2, D4, D5, D7).
   - But : un WC à lave-mains intégré, dit sur le plan, compté WC seul.
   - Fichiers : CJ libDe ; libObj ; texteEtiquette ; libEquipement ; en-tête de fiche ; constatDeduit (types) ; ficheHtml (puce, aide) ;
