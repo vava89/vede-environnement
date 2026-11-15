@@ -937,7 +937,9 @@ VC.DEST_EP = DEST_EP; VC.DEST_CST = DEST_CST; VC.DEST_ARTS = DEST_ARTS; VC.DEST_
 VC.champDest = champDest; VC.destSaisie = destSaisie; VC.modelesDe = modelesDe; VC.artDevant = artDevant;
 /* Codes de l'application (constat) ; caméra et déclaré s'y ajoutent */
 var METH = [['visuel', 'Visuel', 'V'], ['eau', 'Eau', 'E'], ['fluo', 'Colorant', 'Fl'], ['fumee', 'Fumée', 'Fu'], ['reso', 'Résonance', 'R'], ['camera', 'Caméra', 'Ca'], ['declare', 'Déclaré', 'D']];
-var NIV = [['ss', 'Sous-sol'], ['rdc', 'RDC'], ['etage', 'Étage']];
+/* puces du Niveau de la fiche (m130 ; D7) : p.niv garde ses trois codes ('ss', 'rdc', 'etage'), l'étage précis se lit en valeur composée
+   'etage:1'…, 'etage:combles' (valNiv, poserNiv) */
+var NIV = [['ss', 'Sous-sol'], ['rdc', 'RDC'], ['etage:1', '1er'], ['etage:2', '2e'], ['etage:3', '3e'], ['etage:combles', 'Combles']];
 var TAMPON = [['beton', 'Béton'], ['fonte', 'Fonte'], ['hydrau', 'Hydraulique'], ['absent', 'Absent']];
 var DIAM = ['100', '125', '150', '160', '200', '300'];
 var MAT = [['PVC', 'PVC'], ['fonte', 'Fonte'], ['gres', 'Grès'], ['beton', 'Béton'], ['fibro', 'Fibrociment'], ['PEHD', 'PEHD']];
@@ -1606,6 +1608,36 @@ function analyser(doc, mode){
 VC.analyser = analyser;
 
 function libObj(o){ var ty = T[o.t] || {lib: o.t}; return ty.lib; }
+/* Niveau d'une source (souhait 15, m130 ; décisions D1 et D2) : p.niv garde ses trois codes ('ss', 'rdc', 'etage') ; p.etage précise
+   l'étage, '1' à '99' ou 'combles', et ne se lit que si niv vaut 'etage'. etageDe : cette valeur, '' si elle manque ou est illisible.
+   libNiv : « sous-sol », « RDC », « 1er étage », « 2e étage »…, « combles », « étage » (étage sans numéro, ou au numéro illisible) ;
+   '' sans niveau ou pour un code inconnu. Ni l'analyse, ni le constat, ni le texte des anomalies ne lisent le niveau. Un drain de collecte
+   se lit par l'objet que rend srcObj (sans niveau) */
+function etageDe(p){
+  var x = p ? p.etage : null;
+  return x === 'combles' || (typeof x === 'string' && /^[1-9][0-9]?$/.test(x)) ? x : '';
+}
+function libNiv(e){
+  var p = (e && e.p) || {}, n;
+  if (p.niv !== 'etage') return typeof p.niv === 'string' && Object.prototype.hasOwnProperty.call(NIV_LIB, p.niv) ? NIV_LIB[p.niv] : '';
+  n = etageDe(p);
+  return n === 'combles' ? 'combles' : n === '1' ? '1er étage' : n ? n + 'e étage' : NIV_LIB.etage;
+}
+VC.libNiv = libNiv;
+/* valeur des puces du Niveau (NIV ; m130, D7) : valNiv la lit dans p ('etage' : étage sans numéro lisible ; '' pour un code inconnu, même
+   écrit comme une valeur de puce, 'etage:2' d'un fichier fait à la main : aucune puce pressée, comme libNiv n'écrit aucun niveau) ;
+   poserNiv écrit niv et etage ensemble : Sous-sol, RDC et le second toucher (v vide) retirent etage, qui n'est jamais écrit vide */
+function valNiv(p){
+  var n = p ? p.niv : '', x;
+  if (n !== 'etage') return n === 'ss' || n === 'rdc' ? n : '';
+  x = etageDe(p); return x ? 'etage:' + x : 'etage';
+}
+function poserNiv(p, v){
+  var m = /^etage:(.+)$/.exec(v || '');
+  if (m){ p.niv = 'etage'; p.etage = m[1]; return; }
+  p.niv = v || '';
+  if (v !== 'etage') delete p.etage;
+}
 function libRes(r){ return r === 'UN' ? 'unitaire' : r; }
 function listeEt(a){ return a.length > 1 ? a.slice(0, -1).join(', ') + ' et ' + a[a.length - 1] : a.join(''); }
 /* Anomalies déduites : clé stable = règle + objet ; texte « Objet : constat » ; préconisation et codes du constat de l'application */
@@ -2235,7 +2267,8 @@ function texteEtiquette(e, an){
     if (ty.role === 'source'){
       var s = ty.lib;
       if (e.t === 'descente'){ s = 'Descente EP' + (e.p.cote === 'arriere' ? ' arrière' : e.p.cote === 'avant' ? ' avant' : ''); if (e.p.visitable === 'non') s += '\nnon visitable'; }
-      if (e.p.niv) s += ' (' + NIV_LIB[e.p.niv] + ')';
+      /* niveau (m130 ; D5) : « (1er étage) », « (RDC) »… ; rien pour un code inconnu */
+      var nv = libNiv(e); if (nv) s += ' (' + nv + ')';
       if (s === ty.ab && !pre) return '';
       return pre + s;
     }
@@ -5285,7 +5318,7 @@ function editeur(racine, opts){
     o = o || {};
     var d = document.createElement('div'); d.className = 'vc-modal';
     d.innerHTML = '<div class="vc-mboite" role="dialog" aria-modal="true" aria-label="' + esc(titre) + '"><h3>' + esc(titre) + '</h3>' + (o.texte ? '<p>' + esc(o.texte) + '</p>' : '')
-      + (o.confirmer ? '' : (o.long ? '<textarea rows="3"></textarea>' : '<input type="text" autocomplete="off">'))
+      + (o.confirmer ? '' : (o.long ? '<textarea rows="3"></textarea>' : '<input type="text" autocomplete="off"' + (o.num ? ' inputmode="numeric"' : '') + '>'))
       + '<div class="vc-mact"><button type="button" class="vc-b vc-bt" data-r="0">Annuler</button>' + (o.autre ? '<button type="button" class="vc-b vc-bt" data-r="2">' + esc(o.autre) + '</button>' : '')
       + '<button type="button" class="vc-b vc-bt vc-prim' + (o.danger ? ' vc-danger' : '') + '" data-r="1">' + esc(o.ok || 'Valider') + '</button></div></div>';
     R.appendChild(d);
@@ -5394,7 +5427,15 @@ function editeur(racine, opts){
       var on = multi ? val.indexOf(op[0]) >= 0 : String(val) === String(op[0]);
       /* o.propose : valeur proposée d'après le plan, puce en pointillé tant qu'elle n'est pas choisie (rien n'est écrit) */
       return '<button type="button" class="vc-chip' + (o.cls ? ' ' + o.cls : '') + (!on && o.propose != null && String(o.propose) === String(op[0]) ? ' vc-propose' : '') + '" data-a="' + (o.a || 'prop') + '" data-k="' + k + '" data-v="' + esc(op[0]) + '"' + (multi ? ' data-multi="1"' : '') + (o.garder ? ' data-garder="1"' : '') + ' aria-pressed="' + on + '">' + esc(op[1]) + '</button>';
-    }).join('') + '</div>';
+    }).join('') + (o.apres || '') + '</div>';
+  }
+  /* Niveau (m130 ; D7) : Sous-sol | RDC | 1er | 2e | 3e | Combles | Autre… ; un étage au-delà du 3e paraît en puce pressée (« 5e »), un
+     ancien 'etage' sans numéro en puce pressée « Étage (à préciser) », dans ce cas seulement ; « Autre… » demande le numéro (action nivAutre) */
+  function nivHtml(p){
+    var v = valNiv(p), ops = NIV.slice(), m = /^etage:([0-9]+)$/.exec(v);
+    if (m && +m[1] > 3) ops.splice(5, 0, [v, m[1] + 'e']);
+    else if (v === 'etage') ops.splice(5, 0, ['etage', 'Étage (à préciser)']);
+    return chipsHtml('niv', ops, v, {label: 'Niveau', apres: '<button type="button" class="vc-chip" data-a="nivAutre" aria-haspopup="dialog">Autre…</button>'});
   }
   function champ(lib, html, aide){ return '<div class="vc-champ"><div class="vc-lab">' + lib + (aide ? ' <small>' + aide + '</small>' : '') + '</div>' + html + '</div>'; }
   function saisie(k, val, o){ o = o || {}; return '<input class="vc-in" type="text"' + (o.num ? ' inputmode="decimal"' : '') + ' data-a="' + (o.a || 'propTxt') + '" data-k="' + k + '" value="' + esc(val == null ? '' : val) + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + (o.lab ? ' aria-label="' + esc(o.lab) + '"' : '') + (o.max ? ' maxlength="' + o.max + '"' : '') + '>'; }
@@ -5472,7 +5513,7 @@ function editeur(racine, opts){
       }
       if (ty.role === 'source' || e.t === 'test') h += champ('Méthode de test', chipsHtml('meth', METH.map(function(m){ return [m[0], m[1]]; }), e.p.meth || [], {label: 'Méthode de test'}), ty.role === 'source' ? 'comment l\'écoulement a été établi' : '');
       if (e.t === 'descente'){ h += champ('Façade', chipsHtml('cote', [['avant', 'Avant'], ['arriere', 'Arrière']], e.p.cote)); h += champ('Visitable', chipsHtml('visitable', OUI_NON, e.p.visitable)); }
-      if (ty.role === 'source') h += champ('Niveau', chipsHtml('niv', NIV, e.p.niv));
+      if (ty.role === 'source') h += champ('Niveau', nivHtml(e.p));
       if (ty.boite || e.t === 'regard_pub') h += champ('Réseau', chipsHtml('res', [['EU', 'EU'], ['EP', 'EP'], ['UN', 'Unitaire']], e.p.res), RES[e.p.res] ? '' : 'déduit du dessin tant qu\'il n\'est pas indiqué');
       /* boîte en limite de propriété (souhait 10) : côté et distance, facultatifs, repris sur l'étiquette (texteLimite). Mesure lue sur le
          plan (limitePlan) : ligne « Sur le plan », côté proposé en pointillé tant que le technicien n'en a choisi aucun (sûr seulement),
@@ -5747,7 +5788,9 @@ function editeur(racine, opts){
   pcorps.addEventListener('pointerdown', function(ev){ var c = ev.target.closest && ev.target.closest('[data-a="prop"]'); pucePressee = c ? {el: c, on: c.getAttribute('aria-pressed') === 'true', t: Date.now()} : null; }, true);
   /* en attendant, les puces de la caractéristique saisie et le texte proposé pour l'étiquette suivent la valeur enregistrée */
   function rafraichirFiche(e, k){
-    pcorps.querySelectorAll('[data-a="prop"][data-k="' + k + '"]').forEach(function(c){ if (!c.dataset.multi) c.setAttribute('aria-pressed', String(String(e.p[k] == null ? '' : e.p[k]) === c.dataset.v)); });
+    /* Niveau (m130) : valeur composée des puces (valNiv) */
+    var vk = k === 'niv' ? valNiv(e.p) : String(e.p[k] == null ? '' : e.p[k]);
+    pcorps.querySelectorAll('[data-a="prop"][data-k="' + k + '"]').forEach(function(c){ if (!c.dataset.multi) c.setAttribute('aria-pressed', String(vk === c.dataset.v)); });
     var et = pcorps.querySelector('input[data-k="etiq"]'); if (et){ var auto = texteEtiquette(Object.assign({}, e, {p: Object.assign({}, e.p, {etiq: ''})}), S.an); et.placeholder = auto || 'pas d\'étiquette automatique'; }
   }
   function majPanneau(){
@@ -5795,9 +5838,25 @@ function editeur(racine, opts){
       instantane();
       if (b.dataset.multi){ var arr = (e.p[k] || []).slice(), i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); e.p[k] = arr; }
       else if (k === 'sens') e.p.sens = parseInt(v, 10) || 0;
+      /* Niveau (m130 ; D7) : valeur composée lue par valNiv ; second toucher sur la puce pressée : niv et etage vidés */
+      else if (k === 'niv'){ var pn = pucePressee, cour = valNiv(e.p), mn = pn && pn.el === b && Date.now() - pn.t < 2000 ? pn.on : cour === v; poserNiv(e.p, mn && cour === v ? '' : v); }
       else if (b.dataset.garder) e.p[k] = v;
       else { var pp = pucePressee, montree = pp && pp.el === b && Date.now() - pp.t < 2000 ? pp.on : e.p[k] === v; e.p[k] = montree && e.p[k] === v ? '' : v; }
       pucePressee = null; apresProp(e); return;
+    }
+    /* « Autre… » du Niveau (m130 ; D7) : numéro de 1 à 99 (« 05 » vaut 5), toast sinon et rien ne change ; le même étage ne fait aucun pas
+       d'annulation */
+    if (a === 'nivAutre' && e){
+      var idn = e.id, n0 = e.p.niv === 'etage' ? etageDe(e.p) : '';
+      demander('Étage', n0 === 'combles' ? '' : n0, function(txt){
+        var en = el(idn), s = String(txt == null ? '' : txt).trim(), vn;
+        if (!en) return;
+        if (!/^[0-9]{1,2}$/.test(s) || +s < 1){ toast('Numéro d\'étage attendu, de 1 à 99'); return; }
+        vn = 'etage:' + (+s);
+        if (valNiv(en.p) === vn) return;
+        instantane(); poserNiv(en.p, vn); apresProp(en);
+      }, {texte: 'Numéro de l\'étage, de 1 à 99 : 1 pour le 1er, 5 pour le 5e.', num: true});
+      return;
     }
     /* autre destination (m127 ; D10) : article, jugement des EP, case du constat ; la puce déjà choisie ne change rien. Seul ce champ est
        écrit, avec le nom pour un article quand il manque (sans nom, l'article reste « l' ») : les autres champs gardent leur valeur, même
@@ -5963,6 +6022,23 @@ function editeur(racine, opts){
     if (!e.lab && texteEtiquette(e, S.an)){ analyse(); e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); }
     changement(o);
   }
+  /* changement de type par le sélecteur Type de la fiche (extrait du gestionnaire en m130) : un pas d'annulation ; les champs du nouveau type
+     reprennent la valeur qu'ils avaient ; meth, niv, obs, st et etiq sont gardés ; a suit le nouveau type (repris s'il est orienté, sinon
+     effacé), sans toast ; tout autre champ non vide est effacé, avec un toast. m130 : p.etage, compagnon de niv, est gardé lui aussi quand
+     il a une valeur (aucune clé vide écrite) et n'entre pas dans le toast */
+  function changerType(e, v){
+    instantane(); var ancien = e.p, nv = defautsPt(v), perdus = [];
+    Object.keys(nv).forEach(function(k){ if (ancien[k] !== undefined) nv[k] = Array.isArray(ancien[k]) ? ancien[k].slice() : ancien[k]; });
+    var gardes = {a: 1, meth: 1, niv: 1, obs: 1, st: 1, etiq: 1, etage: 1};
+    Object.keys(ancien).forEach(function(k){ var x = ancien[k]; if (!(k in nv) && !gardes[k] && x != null && x !== '' && !(Array.isArray(x) && !x.length)) perdus.push(k); });
+    e.t = v; e.p = Object.assign(nv, {meth: ancien.meth || [], niv: ancien.niv || '', obs: ancien.obs || '', st: ancien.st || 'existant', etiq: ancien.etiq || ''});
+    if (ancien.etage != null && ancien.etage !== '') e.p.etage = ancien.etage;
+    /* une zone suspecte ne tient aucun tuyau : un point de test qui reliait deux tuyaux laisse un raccord à sa place, comme à l'ouverture */
+    if (v === 'zone') libererZones(S.doc, e.id);
+    if (e.lab && !e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx());
+    changement();
+    if (perdus.length) toast('Type changé : ' + (perdus.length > 1 ? perdus.length + ' caractéristiques ne s\'appliquent plus et sont effacées' : 'une caractéristique ne s\'applique plus et est effacée') + ' · « Annuler » les rétablit', 5000);
+  }
   pcorps.addEventListener('change', function(ev){
     var b = ev.target.closest('[data-a]'); if (!b) return;
     /* l'élément que décrit la fiche affichée (le choix a pu changer : saisie enregistrée au moment où la fiche change) */
@@ -5998,19 +6074,7 @@ function editeur(racine, opts){
     }
     if (a === 'texteLibre' && e){ if (!String(v).trim()){ toast('Le texte est vide'); b.value = e.txt; return; } instantane(); e.txt = String(v).trim(); changement({garderPanneau: true}); majPanneauBientot(); return; }
     if (a === 'escNum' && e && e.t === 'esc'){ saisieEscalier(b, e); return; }
-    if (a === 'type' && e){
-      instantane(); var ancien = e.p, nv = defautsPt(v), perdus = [];
-      Object.keys(nv).forEach(function(k){ if (ancien[k] !== undefined) nv[k] = Array.isArray(ancien[k]) ? ancien[k].slice() : ancien[k]; });
-      var gardes = {a: 1, meth: 1, niv: 1, obs: 1, st: 1, etiq: 1};
-      Object.keys(ancien).forEach(function(k){ var x = ancien[k]; if (!(k in nv) && !gardes[k] && x != null && x !== '' && !(Array.isArray(x) && !x.length)) perdus.push(k); });
-      e.t = v; e.p = Object.assign(nv, {meth: ancien.meth || [], niv: ancien.niv || '', obs: ancien.obs || '', st: ancien.st || 'existant', etiq: ancien.etiq || ''});
-      /* une zone suspecte ne tient aucun tuyau : un point de test qui reliait deux tuyaux laisse un raccord à sa place, comme à l'ouverture */
-      if (v === 'zone') libererZones(S.doc, e.id);
-      if (e.lab && !e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx());
-      changement();
-      if (perdus.length) toast('Type changé : ' + (perdus.length > 1 ? perdus.length + ' caractéristiques ne s\'appliquent plus et sont effacées' : 'une caractéristique ne s\'applique plus et est effacée') + ' · « Annuler » les rétablit', 5000);
-      return;
-    }
+    if (a === 'type' && e){ changerType(e, v); return; }
     if (a === 'recTxt'){
       var champ = b.dataset.k === 'preco' ? 'preconisation' : 'observation', ch = {};
       if (champ === 'observation' && !String(v).trim()){ toast('L\'observation ne peut pas être vide'); majPanneauBientot(); return; }
@@ -6698,7 +6762,7 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL, conclC){
     sources.length ? sources.map(function(e0){
       var e = e0.k === 'pt' ? e0 : srcObj(an, e0.id), r = an.resObj[e.id], rej = r.etat === 'ok' ? libExu(r.res, an) + (/^(EU|EP|UN)$/.test(r.res) && r.gest ? ' ' + GEST_LIB[r.gest] : '') + (r.presume ? ' (présumé)' : '') + auDelaTxt(r, an) : r.etat === 'nonrelie' ? 'non relevé' : r.etat === 'multiple' ? 'à préciser' : 'exutoire non relevé';
       var nums = ret.filter(function(a){ return a.objId === e.id; }).map(function(a){ return a.num; }), hdObj = hors.some(function(a){ return a.objId === e.id; });
-      return {cells: [libEquipement(e), NIV_LIB[e.p.niv] || '', rej + (nums.length ? ' · anomalie n° ' + nums.join(', ') : '') + (hdObj ? ' · anomalie à reprendre' : ''), methLib(e.p.meth) || 'non indiquée', e.p.obs || ''], coul: [null, null, nums.length || hdObj ? [180, 35, 24] : null]};
+      return {cells: [libEquipement(e), libNiv(e), rej + (nums.length ? ' · anomalie n° ' + nums.join(', ') : '') + (hdObj ? ' · anomalie à reprendre' : ''), methLib(e.p.meth) || 'non indiquée', e.p.obs || ''], coul: [null, null, nums.length || hdObj ? [180, 35, 24] : null]};
     }) : [{cells: ['Aucun équipement dessiné.', '', '', '', '']}], 'Équipements, rejets et méthodes de contrôle');
   /* la conclusion que le technicien a choisie dans le constat du dossier, ou celle qu'atteste le constat signé (conclusionConstat de pdfPlan,
      donnée par l'hôte), sinon celle que le dessin propose (décision du 7 novembre 2026) */

@@ -385,6 +385,15 @@ MISE À JOUR DE L'APPLICATION
   puis les efface dès qu'un réglage du croquis y change (une aide au
   dessin, le croquis activé ou désactivé) : à saisir de nouveau sur la
   tablette à jour. Les destinations déjà posées n'en changent pas.
+- Mettez aussi à jour toutes les tablettes avant d'indiquer un étage
+  précis (puces 1er, 2e, 3e, Combles et « Autre… » du niveau d'un
+  équipement). Une tablette restée en v1.7.0, ou plus ancienne, l'écrit
+  « étage » : « WC (étage) » sur le plan, « étage » au tableau des
+  équipements du plan PDF. Changer le type de l'équipement y efface
+  l'étage, avec le message « Type changé ». Ses puces du niveau ne
+  l'effacent pas : si l'on y choisit de nouveau « Étage », l'ancien
+  numéro revient sur une tablette à jour ; vérifiez-le. L'analyse, les
+  anomalies et le constat ne changent pas avec l'étage.
 - Une tablette restée en v1.7.0, ou plus ancienne, compte encore une
   anomalie à arbitrer comme conforme : elle y laisse « Conformes ». N'y
   signez pas le constat d'un dossier dont une anomalie reste à arbitrer.
