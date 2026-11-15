@@ -1607,7 +1607,19 @@ function analyser(doc, mode){
 }
 VC.analyser = analyser;
 
-function libObj(o){ var ty = T[o.t] || {lib: o.t}; return ty.lib; }
+/* Libellé d'un objet (m131 ; décision D2) : celui de son type ; un WC à lave-mains intégré (p.lm 'oui', lu sur un WC seulement ; D1) :
+   « WC + lave-mains » ; un type inconnu : son code, même s'il porte le nom d'une propriété des objets du langage (« toString »), comme
+   estDest. Un drain de collecte se lit par l'objet que rend srcObj (« Drain »). Le lisent les anomalies et les contrôles (libObj),
+   l'étiquette, la page 2 du plan PDF, l'en-tête de la fiche et le constat ; le symbole, le bloc du DXF et la légende gardent le libellé
+   du type (« WC ») */
+function libDe(e){
+  var ty = e && Object.prototype.hasOwnProperty.call(T, e.t) ? T[e.t] : null;
+  if (!ty) return e ? e.t : '';
+  if (e.t === 'wc' && e.p && e.p.lm === 'oui') return 'WC + lave-mains';
+  return ty.lib;
+}
+VC.libDe = libDe;
+function libObj(o){ return libDe(o); }
 /* Niveau d'une source (souhait 15, m130 ; décisions D1 et D2) : p.niv garde ses trois codes ('ss', 'rdc', 'etage') ; p.etage précise
    l'étage, '1' à '99' ou 'combles', et ne se lit que si niv vaut 'etage'. etageDe : cette valeur, '' si elle manque ou est illisible.
    libNiv : « sous-sol », « RDC », « 1er étage », « 2e étage »…, « combles », « étage » (étage sans numéro, ou au numéro illisible) ;
@@ -2176,7 +2188,9 @@ function constatDeduit(doc, an){
     /* raccordements non conformes de la ligne (fosse septique, mauvais réseau…) : rappelés si le constat la dit conforme */
     if (ri.ok === false && ri.lib && row.non.indexOf(ri.lib) < 0) row.non.push(ri.lib);
     ra.forEach(function(x){ row.codes.push(x.code); row.oks.push(x.ok); if (x.lib && row.libs.indexOf(x.lib) < 0) row.libs.push(x.lib); if (x.ok === false && x.lib && row.non.indexOf(x.lib) < 0) row.non.push(x.lib); });
-    if (row.types.indexOf(T[o.t].lib) < 0) row.types.push(T[o.t].lib);
+    /* types de la ligne, que l'application lit pour rappeler un double compte avec une ligne « Autres » (vcAutresDouble) : un WC à
+       lave-mains intégré (m131 ; D4) reste sur la ligne « WC » et y donne « WC » et « Lave-mains » */
+    (o.t === 'wc' && o.p && o.p.lm === 'oui' ? [T[o.t].lib, 'Lave-mains'] : [libDe(o)]).forEach(function(x){ if (row.types.indexOf(x) < 0) row.types.push(x); });
     (o.p.meth || []).forEach(function(m){ if (row.meth.indexOf(m) < 0) row.meth.push(m); });
   });
   rows.forEach(function(r){
@@ -2265,7 +2279,9 @@ function texteEtiquette(e, an){
     var res = an && (an.resPt[e.id] || (an.ref && an.ref.resPt[e.id])), lr = /^(EU|EP|UN)$/.test(res) ? ' ' + libRes(res) : '';
     var pre = e.p.st === 'projet' ? 'Projet : ' : e.p.st === 'supprimer' && avp ? 'À supprimer : ' : '';
     if (ty.role === 'source'){
-      var s = ty.lib;
+      /* libellé de l'objet (m131 ; D5) : « WC + lave-mains » s'affiche même sans niveau (ce n'est pas l'abréviation du type), suivi du
+         niveau s'il y en a un */
+      var s = libDe(e);
       if (e.t === 'descente'){ s = 'Descente EP' + (e.p.cote === 'arriere' ? ' arrière' : e.p.cote === 'avant' ? ' avant' : ''); if (e.p.visitable === 'non') s += '\nnon visitable'; }
       /* niveau (m130 ; D5) : « (1er étage) », « (RDC) »… ; rien pour un code inconnu */
       var nv = libNiv(e); if (nv) s += ' (' + nv + ')';
@@ -5494,7 +5510,7 @@ function editeur(racine, opts){
     } else if (e.k === 'pt'){
       ty = T[e.t];
       var fam = FAMILLES.filter(function(f){ return f.types.indexOf(e.t) >= 0; })[0], et = ty.role === 'source' ? etatSource(e) : null, res = S.an.resPt[e.id];
-      h += '<div class="vc-ftete">' + symboleSvg(e.t, 40, e.p) + '<div><strong>' + esc(ty.lib) + '</strong>' + (et ? '<span class="vc-etat ' + et.cls + '">' + esc(et.txt) + '</span>' : ty.regard || ty.role === 'passage' ? '<span class="vc-etat ' + (/^(EU|EP|UN)$/.test(res) ? 'ok' : 'att') + '">' + (/^(EU|EP|UN)$/.test(res) ? 'Réseau ' + libRes(res) + (ty.boite && RES[e.p.res] ? '' : ' déduit') : res === 'MIX' ? 'Plusieurs réseaux' : 'Réseau à préciser') + '</span>' : '') + '</div></div>';
+      h += '<div class="vc-ftete">' + symboleSvg(e.t, 40, e.p) + '<div><strong>' + esc(libDe(e)) + '</strong>' + (et ? '<span class="vc-etat ' + et.cls + '">' + esc(et.txt) + '</span>' : ty.regard || ty.role === 'passage' ? '<span class="vc-etat ' + (/^(EU|EP|UN)$/.test(res) ? 'ok' : 'att') + '">' + (/^(EU|EP|UN)$/.test(res) ? 'Réseau ' + libRes(res) + (ty.boite && RES[e.p.res] ? '' : ' déduit') : res === 'MIX' ? 'Plusieurs réseaux' : 'Réseau à préciser') + '</span>' : '') + '</div></div>';
       /* rappel du type, sous l'en-tête (puits : un puits perdu se dessine en puisard ; m120, décision du 13 nov. 2026) */
       if (ty.rappel) h += '<p class="vc-muet">' + esc(ty.rappel) + '</p>';
       /* source EP qu'aucun tracé ne tient (m118 ; D10) : « Rejet au sol » pose d'un toucher une infiltration à 1 m et le tronçon qui l'y relie */
@@ -5514,6 +5530,10 @@ function editeur(racine, opts){
       if (ty.role === 'source' || e.t === 'test') h += champ('Méthode de test', chipsHtml('meth', METH.map(function(m){ return [m[0], m[1]]; }), e.p.meth || [], {label: 'Méthode de test'}), ty.role === 'source' ? 'comment l\'écoulement a été établi' : '');
       if (e.t === 'descente'){ h += champ('Façade', chipsHtml('cote', [['avant', 'Avant'], ['arriere', 'Arrière']], e.p.cote)); h += champ('Visitable', chipsHtml('visitable', OUI_NON, e.p.visitable)); }
       if (ty.role === 'source') h += champ('Niveau', nivHtml(e.p));
+      /* lave-mains intégré au WC (m131 ; D1, D7) : puce « + lave-mains », fiche du WC seulement, l'aide sous la puce ; un second toucher
+         l'enlève (clé lm retirée) */
+      if (e.t === 'wc') h += champ('Lave-mains', chipsHtml('lm', [['oui', '+ lave-mains']], e.p.lm === 'oui' ? 'oui' : '', {label: 'Lave-mains'})
+        + '<p class="vc-muet">Lave-mains intégré au WC ; raccordé à part : dessinez un Lavabo.</p>');
       if (ty.boite || e.t === 'regard_pub') h += champ('Réseau', chipsHtml('res', [['EU', 'EU'], ['EP', 'EP'], ['UN', 'Unitaire']], e.p.res), RES[e.p.res] ? '' : 'déduit du dessin tant qu\'il n\'est pas indiqué');
       /* boîte en limite de propriété (souhait 10) : côté et distance, facultatifs, repris sur l'étiquette (texteLimite). Mesure lue sur le
          plan (limitePlan) : ligne « Sur le plan », côté proposé en pointillé tant que le technicien n'en a choisi aucun (sûr seulement),
@@ -5840,6 +5860,8 @@ function editeur(racine, opts){
       else if (k === 'sens') e.p.sens = parseInt(v, 10) || 0;
       /* Niveau (m130 ; D7) : valeur composée lue par valNiv ; second toucher sur la puce pressée : niv et etage vidés */
       else if (k === 'niv'){ var pn = pucePressee, cour = valNiv(e.p), mn = pn && pn.el === b && Date.now() - pn.t < 2000 ? pn.on : cour === v; poserNiv(e.p, mn && cour === v ? '' : v); }
+      /* lave-mains du WC (m131 ; D7) : 'oui' ; second toucher sur la puce pressée : la clé lm est retirée, jamais une valeur vide écrite */
+      else if (k === 'lm'){ var pl = pucePressee, ml = pl && pl.el === b && Date.now() - pl.t < 2000 ? pl.on : e.p.lm === v; if (ml && e.p.lm === v) delete e.p.lm; else e.p.lm = v; }
       else if (b.dataset.garder) e.p[k] = v;
       else { var pp = pucePressee, montree = pp && pp.el === b && Date.now() - pp.t < 2000 ? pp.on : e.p[k] === v; e.p[k] = montree && e.p[k] === v ? '' : v; }
       pucePressee = null; apresProp(e); return;
@@ -6025,7 +6047,8 @@ function editeur(racine, opts){
   /* changement de type par le sélecteur Type de la fiche (extrait du gestionnaire en m130) : un pas d'annulation ; les champs du nouveau type
      reprennent la valeur qu'ils avaient ; meth, niv, obs, st et etiq sont gardés ; a suit le nouveau type (repris s'il est orienté, sinon
      effacé), sans toast ; tout autre champ non vide est effacé, avec un toast. m130 : p.etage, compagnon de niv, est gardé lui aussi quand
-     il a une valeur (aucune clé vide écrite) et n'entre pas dans le toast */
+     il a une valeur (aucune clé vide écrite) et n'entre pas dans le toast. m131 : p.lm, le lave-mains du WC, n'est pas gardé : effacé
+     hors du WC, avec ce toast (« Annuler » le rend) */
   function changerType(e, v){
     instantane(); var ancien = e.p, nv = defautsPt(v), perdus = [];
     Object.keys(nv).forEach(function(k){ if (ancien[k] !== undefined) nv[k] = Array.isArray(ancien[k]) ? ancien[k].slice() : ancien[k]; });
@@ -6720,8 +6743,9 @@ function tableauPdf(pdf, y, cols, lignes, titre){
   });
   return y + 6;
 }
+/* libellé d'un équipement à la page 2 du plan PDF : libDe (m131 : « WC + lave-mains »), la descente avec sa façade et « visitable » */
 function libEquipement(e){
-  var ty = T[e.t]; if (e.t !== 'descente') return ty.lib;
+  if (e.t !== 'descente') return libDe(e);
   return 'Descente EP' + (e.p.cote === 'arriere' ? ' arrière' : e.p.cote === 'avant' ? ' avant' : '') + (e.p.visitable === 'non' ? ', non visitable' : e.p.visitable === 'oui' ? ', visitable' : '');
 }
 /* ligne des plans PDF hors de l'éditeur quand le dessin retient n anomalies que la liste du dossier n'a pas encore (croquis à rouvrir) */

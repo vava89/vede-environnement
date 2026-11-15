@@ -232,7 +232,12 @@ CROQUIS DE TERRAIN (facultatif)
   dessinées, sans remplacer ce qui a été saisi. Chaque objet dessiné compte
   pour une installation : une salle de bain ou une cuisine se dessine d'un
   seul objet (son lavabo, son évier, son lave-vaisselle y sont compris) ;
-  un lavabo seul compte comme un évier. Il remplit aussi la section Boîte
+  un lavabo seul compte comme un évier. Un WC à lave-mains intégré
+  (puce « + lave-mains » de la fiche du WC, sous le Niveau) compte
+  un WC, sans évier. Un lave-mains raccordé à part se dessine en
+  Lavabo et compte comme un évier ; l'aide de la puce le rappelle :
+  « Lave-mains intégré au WC ; raccordé à part : dessinez un
+  Lavabo. » « Reprendre du croquis » remplit aussi la section Boîte
   de branchement, réseau par réseau, quand le croquis porte une seule
   boîte existante (ni « projet » ni « à supprimer ») sur ce réseau :
   distance à la limite et côté (« 0,80 m intérieur », « en limite »),
@@ -394,6 +399,17 @@ MISE À JOUR DE L'APPLICATION
   l'effacent pas : si l'on y choisit de nouveau « Étage », l'ancien
   numéro revient sur une tablette à jour ; vérifiez-le. L'analyse, les
   anomalies et le constat ne changent pas avec l'étage.
+- Mettez aussi à jour toutes les tablettes avant de toucher la puce
+  « + lave-mains » d'un WC. Une tablette restée en v1.7.0, ou plus
+  ancienne, l'appelle « WC » (fiche, plan, tableau des équipements
+  du plan PDF). Sans niveau, il n'y porte pas d'étiquette, sauf en
+  projet (« Projet : WC ») ou, au plan d'avant-projet, à supprimer
+  (« À supprimer : WC »). À l'ouverture du croquis, elle réécrit
+  « WC : … » le texte de ses anomalies restées telles que le croquis
+  les a écrites ; une tablette à jour leur rend « WC + lave-mains : … »,
+  elle aussi à l'ouverture du croquis. Le WC y compte comme sur une
+  tablette à jour (un WC, sans évier) ; seul y manque le rappel d'une
+  ligne « Autres : Lave-mains » saisie à côté.
 - Une tablette restée en v1.7.0, ou plus ancienne, compte encore une
   anomalie à arbitrer comme conforme : elle y laisse « Conformes ». N'y
   signez pas le constat d'un dossier dont une anomalie reste à arbitrer.

@@ -16,6 +16,14 @@
 //      Lavabo → Évier par le sélecteur Type : niv et etage gardés, aucun toast ; « Annuler » rend le lavabo et son étage ; sans étage, aucune
 //      clé etage n'est écrite ; un WC au 7e changé en lavabo garde son étage ; aucune erreur dans la console.
 // e1 échoue sur ee7b979 (puces Sous-sol | RDC | Étage, ni « Autre… » ni p.etage ; le changement de type efface etage avec un toast).
+// m131, WC à lave-mains intégré (souhait 18 ; décisions D1, D5 et D7) :
+// l6 : la fiche du WC a, juste après le Niveau, une puce « + lave-mains » non pressée et l'aide « Lave-mains intégré au WC ; raccordé à
+//      part : dessinez un Lavabo. », l'en-tête « WC » et une étiquette sans texte indicatif ; la puce écrit p.lm 'oui' en un pas
+//      d'annulation, elle est pressée, l'en-tête et le texte indicatif de l'étiquette deviennent « WC + lave-mains », l'étiquette est posée
+//      et dessinée à l'écran ; un second toucher retire la clé lm (jamais une valeur vide) en un pas, « Annuler » la rend ; un lavabo n'a ni
+//      la puce ni l'aide ; WC + lave-mains → Lavabo par le sélecteur Type : clé lm effacée, avec le toast « Type changé : une caractéristique
+//      ne s'applique plus et est effacée · « Annuler » les rétablit » ; « Annuler » rend le WC + lave-mains ; aucune erreur dans la console.
+// l6 échoue sur 824fabf (ni puce ni aide ; le toast du changement de type y paraît déjà).
 // usage : node tests/navigateur/equipements.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -197,8 +205,70 @@ async function niveaux(){
   } finally { await A.fermer(); }
 }
 
+/* m131 : WC à lave-mains intégré (souhait 18 ; D1, D5, D7) */
+const LM = 'WC + lave-mains', AIDE_LM = 'Lave-mains intégré au WC ; raccordé à part : dessinez un Lavabo.';
+const TOAST_TYPE = 'Type changé : une caractéristique ne s\'applique plus et est effacée · « Annuler » les rétablit';
+const lmDe = e => e ? e.t + ('lm' in e.p ? ' lm ' + JSON.stringify(e.p.lm) : ' sans clé lm') : 'absent';
+/* fiche ouverte : titre de l'en-tête, puces du lave-mains (valeur/libellé/pressée), champ du lave-mains juste après celui du Niveau, son
+   texte (libellé, puce et aide), texte indicatif du champ Étiquette */
+const ficheLm = p => p.evaluate(() => {
+  const c = document.querySelector('.vc .vc-pcorps'); if (!c) return {tete: '', puces: '', apresNiv: false, aide: '', ph: null};
+  const b = Array.from(c.querySelectorAll('button.vc-chip[data-a="prop"][data-k="lm"]')), ch = Array.from(c.querySelectorAll('.vc-champ'));
+  const iNiv = ch.findIndex(x => x.querySelector('[data-k="niv"]')), iLm = ch.findIndex(x => x.querySelector('[data-k="lm"]')), et = c.querySelector('input[data-k="etiq"]');
+  const t = c.querySelector('.vc-ftete strong');
+  return {tete: t ? t.textContent : '', puces: b.map(x => x.dataset.v + '/' + x.textContent + '/' + x.getAttribute('aria-pressed')).join(' | '),
+    apresNiv: iNiv >= 0 && iLm === iNiv + 1, aide: iLm >= 0 ? ch[iLm].textContent : '', ph: et ? et.getAttribute('placeholder') : null};
+});
+
+async function laveMains(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy;
+    const W = C.P('W', 'wc', cx, cy); W.lab = null;
+    await C.injecter(p, {el: [W, C.P('La', 'lavabo', cx + 5, cy), C.P('W2', 'wc', cx - 5, cy, {lm: 'oui'})]});
+    await C.regler(p, cx, cy, 40);
+    await choisir(p, 'W');
+    let f = await ficheLm(p);
+    R.ok(f.tete === 'WC' && f.puces === 'oui/+ lave-mains/false' && f.apresNiv && f.aide.indexOf(AIDE_LM) >= 0 && f.ph === 'pas d\'étiquette automatique',
+      'l6 fiche du WC : en-tête « WC », puce « + lave-mains » non pressée, juste après le Niveau, aide « ' + AIDE_LM + ' » (obtenu ' + JSON.stringify(f) + ')');
+
+    /* toucher : lm 'oui' en un pas, l'en-tête et l'étiquette disent le lave-mains, l'étiquette est posée sur le plan */
+    let u = await nUndo(p), ok = await toucherPuce(p, 'lm', 'oui'), e = await elDoc(p, 'W'), u1 = await nUndo(p);
+    f = await ficheLm(p);
+    const tx = await textesEcran(p);
+    R.ok(ok && e.p.lm === 'oui' && u1 === u + 1 && f.puces === 'oui/+ lave-mains/true' && f.tete === LM && f.ph === LM,
+      'l6 « + lave-mains » : lm « oui » en un pas, puce pressée, en-tête et texte indicatif de l\'étiquette « ' + LM + ' » (' + (ok ? '' : 'puce absente, ') + lmDe(e)
+      + ', pas ' + (u1 - u) + ', ' + JSON.stringify(f) + ')');
+    R.ok(!!(e && e.lab && !e.lab.off) && tx.indexOf(LM) >= 0, 'l6 étiquette « ' + LM + ' » posée et dessinée à l\'écran (lab ' + JSON.stringify(e && e.lab) + ', textes '
+      + JSON.stringify(tx.filter(t => /WC|lave/.test(t))) + ')');
+
+    /* second toucher : la clé lm est retirée, jamais une valeur vide écrite ; « Annuler » la rend */
+    ok = await toucherPuce(p, 'lm', 'oui'); e = await elDoc(p, 'W'); const u2 = await nUndo(p); f = await ficheLm(p);
+    R.ok(ok && !('lm' in e.p) && u2 === u1 + 1 && f.puces === 'oui/+ lave-mains/false' && f.tete === 'WC',
+      'l6 second toucher : clé lm retirée en un pas, puce relâchée, en-tête « WC » (' + lmDe(e) + ', pas ' + (u2 - u1) + ', ' + JSON.stringify(f) + ')');
+    await annuler(p); e = await elDoc(p, 'W');
+    R.ok(e.p.lm === 'oui', 'l6 « Annuler » rend le lave-mains (' + lmDe(e) + ')');
+
+    /* lavabo : pas de puce */
+    await choisir(p, 'La'); f = await ficheLm(p);
+    R.ok(f.tete === 'Lavabo' && !f.puces && f.aide === '', 'l6 fiche du lavabo : ni puce « + lave-mains » ni aide (obtenu ' + JSON.stringify(f) + ')');
+
+    /* WC + lave-mains → Lavabo par le sélecteur Type : lm effacé, avec le toast d'aujourd'hui ; « Annuler » rend le WC + lave-mains */
+    await choisir(p, 'W2'); f = await ficheLm(p); await effacerToast(p);
+    const s = await p.$('.vc .vc-pcorps select[data-a="type"]');
+    if (!s){ R.ok(false, 'l6 choix du type absent de la fiche du WC'); return; }
+    await s.selectOption('lavabo'); await C.pause(p, 300);
+    const msg = await toastVu(p); e = await elDoc(p, 'W2');
+    R.ok(f.tete === LM && f.puces === 'oui/+ lave-mains/true' && e.t === 'lavabo' && !('lm' in e.p) && msg === TOAST_TYPE,
+      'l6 WC + lave-mains → Lavabo par le sélecteur Type : clé lm effacée, toast « ' + TOAST_TYPE + ' » (fiche avant ' + JSON.stringify(f) + ' ; ' + lmDe(e) + ', toast ' + JSON.stringify(msg) + ')');
+    await annuler(p); e = await elDoc(p, 'W2'); await choisir(p, 'W2'); f = await ficheLm(p);
+    R.ok(e.t === 'wc' && e.p.lm === 'oui' && f.tete === LM && f.puces === 'oui/+ lave-mains/true', 'l6 « Annuler » rend le WC + lave-mains (' + lmDe(e) + ', ' + JSON.stringify(f) + ')');
+    erreurs(A, 'l6');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [niveaux]){
+  for (const f of [niveaux, laveMains]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();

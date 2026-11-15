@@ -20,6 +20,29 @@
 //   anomalies et leur texte, ni la conclusion, ni le constat déduit : mêmes sorties avec et sans p.etage (et avec un étage laissé sur un
 //   niveau RDC) ; aucun texte d'anomalie ni de contrôle ne nomme l'étage.
 // n1 à n3 échouent sur ee7b979 (« WC (étage) », « Lavabo (undefined) », « étage » au tableau ; VCroquis.libNiv absente) ; n4 y passe.
+// m131, WC à lave-mains intégré (souhait 18 ; décisions D1 à D5 et D10) : p.lm 'oui', lu sur un WC seulement (une autre valeur, ou un autre
+// type : comme avant). VCroquis.libDe(e) donne le libellé d'un objet : « WC + lave-mains » pour ce WC, sinon le libellé du type, le code
+// d'un type inconnu ; les anomalies et les contrôles (libObj), l'étiquette, la page 2 du plan PDF, l'en-tête de la fiche et le constat le lisent.
+// l1 : étiquette : « WC + lave-mains » sans niveau, « WC + lave-mains (1er étage) », « (RDC) », « Projet : WC + lave-mains », « À
+//   supprimer : WC + lave-mains » en avant-projet (sans ce préfixe en état des lieux), niveau inconnu « zz » sans parenthèses, l'étiquette
+//   personnalisée l'emporte ; témoins : WC sans lave-mains, ou de lm 'non', '', 'Oui', true : pas d'étiquette (« WC (1er étage) » au 1er) ;
+//   lm sur un lavabo ou une douche : ignoré ; VCroquis.libDe : « WC + lave-mains », « WC » (sans p, lm 'non'), « Lavabo », le code d'un
+//   type inconnu (« zz », et 'toString', 'constructor', noms de propriétés des objets du langage), '' pour {t: ''} ; « WC + lave-mains » et
+//   « WC + lave-mains (1er étage) » aussi à l'écran, au plan PDF et au DXF.
+// l2 : anomalies et contrôles : « WC + lave-mains : rejet au réseau EP », sans le niveau même au 1er étage ; témoin « WC : rejet au réseau
+//   EP » ; contrôle « WC + lave-mains : méthode de test à indiquer » ; anomalie du dossier restée intacte (VCroquis.reconcilier, comme
+//   vm/copie.js) : son texte suit le lave-mains enlevé puis remis ; retouchée par le technicien : gardée telle quelle (témoin).
+// l3 : constat déduit : un WC + lave-mains compte 1 sur la ligne « WC », « Évier » 0, aucune ligne « Autres », row.types ['WC',
+//   'Lave-mains'] ; sans lave-mains, mêmes lignes hors types (['WC']) ; deux WC dont un à lave-mains : « WC » 2 ; lm écrit sur un lavabo :
+//   ignoré (« Évier » 1, types ['Lavabo']).
+// l4 : page 2 du plan PDF, colonne Équipement : « WC + lave-mains » (Niveau « 1er étage »), « WC », « Lavabo », drain de collecte « Drain »
+//   (garde) ; VCroquis.libDe sur l'objet que rend srcObj : « Drain » pour le drain de collecte ; avant-projet : « Après travaux : WC +
+//   lave-mains n'est plus relié… » ; aucun « undefined ».
+// l5 (garde) : symbole (VCroquis.primitives, symboleSvg), plan PDF (mêmes textes hors « WC + lave-mains » du tableau, mêmes traits, légende
+//   « WC »), DXF identique (bloc VEDE_WC), écran, analyse, anomalies, conclusion et constat (hors row.types) : les mêmes avec et sans
+//   lave-mains, aux textes « WC + lave-mains » près.
+// l1 à l4 échouent sur 824fabf (pas d'étiquette, « WC : rejet au réseau EP », types ['WC'], « WC » au tableau, VCroquis.libDe absente) ;
+//   l5 y passe.
 // usage : node tests/vm/equipements.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rendus, rapport} = require('./charger.js');
@@ -166,6 +189,149 @@ function garde(){
     + JSON.stringify(obs.slice(0, 4)) + ')');
 }
 
+/* m131 : WC à lave-mains intégré (souhait 18 ; décisions D1 à D5 et D10) : p.lm 'oui', lu sur un WC seulement. VCroquis.libDe(e) : libellé de
+   l'objet, « WC + lave-mains » pour ce WC, sinon celui du type */
+const LM = 'WC + lave-mains';
+const libDe = e => typeof V.libDe === 'function' ? sur(() => V.libDe(e)) : 'VCroquis.libDe absente';
+
+/* l1 : étiquette d'un WC + lave-mains (texteEtiquette seul, puis à l'écran, au plan PDF et au DXF) ; VCroquis.libDe */
+function etiquettesLm(){
+  const cas = [
+    ['sans niveau', 'wc', {lm: 'oui'}, 'edl', LM],
+    ['1er étage', 'wc', {lm: 'oui', niv: 'etage', etage: '1'}, 'edl', LM + ' (1er étage)'],
+    ['RDC', 'wc', {lm: 'oui', niv: 'rdc'}, 'edl', LM + ' (RDC)'],
+    ['« Projet »', 'wc', {lm: 'oui', st: 'projet'}, 'edl', 'Projet : ' + LM],
+    ['« À supprimer », avant-projet', 'wc', {lm: 'oui', st: 'supprimer'}, 'avp', 'À supprimer : ' + LM],
+    ['« À supprimer », état des lieux', 'wc', {lm: 'oui', st: 'supprimer'}, 'edl', LM],
+    ['niveau inconnu « zz »', 'wc', {lm: 'oui', niv: 'zz'}, 'edl', LM],
+    ['étiquette personnalisée', 'wc', {lm: 'oui', etiq: 'WC du bas'}, 'edl', 'WC du bas'],
+    ['témoin : sans lave-mains', 'wc', {}, 'edl', ''],
+    ['témoin : sans lave-mains, 1er étage', 'wc', {niv: 'etage', etage: '1'}, 'edl', 'WC (1er étage)'],
+    ['témoin : lm « non »', 'wc', {lm: 'non'}, 'edl', ''],
+    ['témoin : lm vide', 'wc', {lm: ''}, 'edl', ''],
+    ['témoin : lm « Oui »', 'wc', {lm: 'Oui'}, 'edl', ''],
+    ['témoin : lm écrit true', 'wc', {lm: true}, 'edl', ''],
+    ['témoin : lm sur un lavabo', 'lavabo', {lm: 'oui'}, 'edl', 'Lavabo'],
+    ['témoin : lm sur une douche au 1er étage', 'douche', {lm: 'oui', niv: 'etage', etage: '1'}, 'edl', V.TYPES.douche.lib + ' (1er étage)'],
+  ];
+  const d = rangee(cas.map((c, i) => ['o' + i, c[1], c[2]]));
+  cas.forEach(([n, , , mode, att], i) => { const vu = etiquette(d, 'o' + i, mode); R.ok(vu === att, 'l1 ' + n + ' → ' + JSON.stringify(att) + ' (obtenu ' + JSON.stringify(vu) + ')'); });
+  for (const [n, e, att] of [['WC lm « oui »', {t: 'wc', p: {lm: 'oui'}}, LM], ['WC sans p', {t: 'wc'}, 'WC'], ['WC lm « non »', {t: 'wc', p: {lm: 'non'}}, 'WC'],
+    ['lavabo lm « oui »', {t: 'lavabo', p: {lm: 'oui'}}, 'Lavabo'], ['type inconnu « zz »', {t: 'zz', p: {lm: 'oui'}}, 'zz'], ['type vide (sommet relié à rien)', {t: ''}, ''],
+    /* code qui est le nom d'une propriété des objets du langage : son code, comme un type inconnu, et non undefined */
+    ['type inconnu « toString »', {t: 'toString', p: {}}, 'toString'], ['type inconnu « constructor »', {t: 'constructor'}, 'constructor']]){
+    const vu = libDe(e); R.ok(vu === att, 'l1 VCroquis.libDe, ' + n + ' → ' + JSON.stringify(att) + ' (obtenu ' + JSON.stringify(vu) + ')');
+  }
+}
+async function etiquettesLmRendues(){
+  const d = rangee([['W', 'wc', {lm: 'oui'}], ['W1', 'wc', {lm: 'oui', niv: 'etage', etage: '1'}], ['W0', 'wc', {}]]), r = await troisRendus(d);
+  for (const [n, liste] of [['à l\'écran', r.ecran], ['au plan PDF', r.plan], ['au DXF', r.dxf]]){
+    const manque = [LM, LM + ' (1er étage)'].filter(t => liste.indexOf(t) < 0);
+    R.ok(!manque.length && !r.err.length, 'l1 ' + n + ' : « ' + LM + ' » et « ' + LM + ' (1er étage) »' + (manque.length ? ' (absents : ' + JSON.stringify(manque)
+      + ' ; textes : ' + JSON.stringify(liste.filter(t => /WC|lave/.test(t)).slice(0, 6)) + ')' : '') + (r.err.length ? ' ' + r.err.join(' | ') : ''));
+  }
+}
+
+/* l2 : anomalies et contrôles : libellé de l'objet, jamais le niveau ; anomalie du dossier restée intacte : elle suit le lave-mains */
+function anomaliesLm(){
+  const d = doc({o: [['W', 'wc', 0, 8, {lm: 'oui'}], ['W1', 'wc', 3, 8, {lm: 'oui', niv: 'etage', etage: '1'}], ['W0', 'wc', 6, 8, {}],
+    ['Wm', 'wc', 9, 8, {lm: 'oui', meth: []}], ['Bp', 'boite', 0, 2, {res: 'EP'}]],
+    l: [['tW', 'tr', '', '', ['W', 'Bp']], ['t1', 'tr', '', '', ['W1', 'Bp']], ['t0', 'tr', '', '', ['W0', 'Bp']], ['tm', 'tr', '', '', ['Wm', 'Bp']]]});
+  const dA = copie(d), an = V.analyser(dA, 'edl'), L = V.anomaliesDoc(dA, an), obs = id => (L.find(a => a.cle === 'eu-ep:' + id) || {}).obs;
+  for (const [n, id, att] of [['WC + lave-mains', 'W', LM + ' : rejet au réseau EP'], ['WC + lave-mains au 1er étage : sans le niveau', 'W1', LM + ' : rejet au réseau EP'],
+    ['témoin : WC seul', 'W0', 'WC : rejet au réseau EP']]) R.ok(obs(id) === att, 'l2 ' + n + ' → « ' + att + ' » (obtenu ' + JSON.stringify(obs(id)) + ')');
+  const ctl = an.controles.filter(c => c.id === 'Wm').map(c => c.txt), tout = L.map(a => a.obs).concat(an.controles.map(c => c.txt)).join(' | ');
+  R.ok(ctl.indexOf(LM + ' : méthode de test à indiquer') >= 0, 'l2 contrôle : « ' + LM + ' : méthode de test à indiquer » (obtenu ' + JSON.stringify(ctl) + ')');
+  R.ok(L.length >= 4 && !/étage|1er|\(RDC\)/.test(tout), 'l2 ' + L.length + ' anomalies : aucun texte d\'anomalie ni de contrôle ne nomme le niveau (' + JSON.stringify(L.map(a => a.obs).slice(0, 4)) + ')');
+  /* dossier synchronisé comme par l'application (vm/copie.js) : intacte, l'anomalie suit le lave-mains enlevé puis remis ; retouchée, elle
+     reste telle quelle (témoin) */
+  const dR = doc({o: [['W', 'wc', 0, 8, {lm: 'oui'}], ['Wt', 'wc', 3, 8, {lm: 'oui'}], ['Bp', 'boite', 0, 2, {res: 'EP'}]],
+    l: [['tW', 'tr', '', '', ['W', 'Bp']], ['tt', 'tr', '', '', ['Wt', 'Bp']]]});
+  const ext = [], rec = id => ext.find(r => r.croquis && r.croquis.cle === 'eu-ep:' + id) || {}, pt = id => dR.el.find(e => e.id === id);
+  let k = 0;
+  const synchro = () => { const ops = V.reconcilier(dR, null, ext);
+    ops.retirer.forEach(id => { const i = ext.findIndex(r => r.id === id); if (i >= 0) ext.splice(i, 1); });
+    ops.maj.forEach(m => { const r = ext.find(x => x.id === m.id); if (r) Object.assign(r, m.champs); });
+    ops.creer.forEach(c => { ext.push(Object.assign({id: c.id || ('r' + (++k)), createdAt: c.createdAt || '2026-11-02'}, c)); }); };
+  const RETOUCHE = 'WC du bas : rejet au réseau EP, vu sur place';
+  synchro(); const o1 = rec('W').observation; rec('Wt').observation = RETOUCHE;
+  delete pt('W').p.lm; delete pt('Wt').p.lm; synchro(); const o2 = rec('W').observation, t2 = rec('Wt').observation;
+  pt('W').p.lm = 'oui'; synchro(); const o3 = rec('W').observation;
+  R.ok(o1 === LM + ' : rejet au réseau EP' && o2 === 'WC : rejet au réseau EP' && o3 === o1, 'l2 anomalie du dossier intacte : « ' + LM + ' : … », puis « WC : … » le lave-mains enlevé, '
+    + 'puis « ' + LM + ' : … » remis (obtenu ' + JSON.stringify([o1, o2, o3]) + ')');
+  R.ok(t2 === RETOUCHE, 'l2 anomalie retouchée par le technicien : gardée telle quelle, le lave-mains enlevé (témoin ; obtenu ' + JSON.stringify(t2) + ')');
+}
+
+/* l3 : constat déduit : un WC + lave-mains compte un WC (ligne « WC »), « Évier » à 0 ; row.types reçoit « WC » et « Lave-mains » */
+function constatLm(){
+  const base = (objs, liens) => doc({o: objs.concat([['Bu', 'boite', 0, 2, {res: 'EU'}], ['Rp', 'regard_pub', 0, -2, {res: 'EU'}]]),
+    l: liens.concat([['tU', 'tr', '', '', ['Bu', 'Rp']], ['C', 'col', 'EU', '', [[-6, -2], 'Rp', [12, -2]]]])});
+  const cst = d => { const c = copie(d); return V.constatDeduit(c, V.analyser(c, 'edl')); }, ligne = (cd, id) => cd.rows.find(r => r.id === id) || {};
+  const vue = cd => cd.rows.filter(r => r.nb).map(r => r.id + ' ×' + r.nb + ' ' + JSON.stringify(r.types)).join(', ');
+  const sansTypes = cd => canon(cd.rows.map(r => Object.assign({}, r, {types: null})), new Set(), []);
+  const d1 = base([['W', 'wc', 0, 8, {lm: 'oui'}]], [['tW', 'tr', '', '', ['W', 'Bu']]]), c1 = cst(d1), w1 = ligne(c1, 'wc');
+  R.ok(w1.nb === 1 && ligne(c1, 'evier').nb === 0 && JSON.stringify(w1.types) === '["WC","Lave-mains"]' && !c1.rows.some(r => !r.std && r.nb),
+    'l3 WC + lave-mains : ligne « WC » 1, « Évier » 0, aucune ligne « Autres », types ["WC","Lave-mains"] (obtenu ' + vue(c1) + ')');
+  const d0 = copie(d1); delete d0.el.find(e => e.id === 'W').p.lm; const c0 = cst(d0);
+  R.ok(sansTypes(c0) === sansTypes(c1) && JSON.stringify(ligne(c0, 'wc').types) === '["WC"]' && ligne(c1, 'wc').conforme === 'oui',
+    'l3 sans lave-mains : mêmes lignes (nombre, raccordement, conformité « oui », méthodes), hors types ["WC"] (obtenu ' + vue(c0) + ')');
+  const d2 = base([['W', 'wc', 0, 8, {lm: 'oui'}], ['W2', 'wc', 3, 8, {}]], [['tW', 'tr', '', '', ['W', 'Bu']], ['t2', 'tr', '', '', ['W2', 'Bu']]]), c2 = cst(d2), w2 = ligne(c2, 'wc');
+  R.ok(w2.nb === 2 && ligne(c2, 'evier').nb === 0 && JSON.stringify(w2.types) === '["WC","Lave-mains"]', 'l3 deux WC, l\'un à lave-mains : « WC » 2, « Évier » 0 (obtenu ' + vue(c2) + ')');
+  const d3 = base([['L', 'lavabo', 0, 8, {lm: 'oui'}]], [['tL', 'tr', '', '', ['L', 'Bu']]]), c3 = cst(d3), e3 = ligne(c3, 'evier');
+  R.ok(e3.nb === 1 && JSON.stringify(e3.types) === '["Lavabo"]' && ligne(c3, 'wc').nb === 0, 'l3 lm écrit sur un lavabo : ignoré, « Évier » 1, types ["Lavabo"] (obtenu ' + vue(c3) + ')');
+}
+
+/* l4 : page 2 du plan PDF (libEquipement) ; drain de collecte lu par l'objet que rend srcObj (garde) ; avant-projet */
+async function page2Lm(){
+  const d = doc({o: [['W', 'wc', 0, 6, {lm: 'oui', niv: 'etage', etage: '1'}], ['W0', 'wc', 3, 6, {}], ['L', 'lavabo', 6, 6, {lm: 'oui'}]],
+    l: [['Dc', 'tr', 'EP', '', [[0, -4], [12, -4]], 0, {drain: 'collecte', meth: ['eau']}]]});
+  const p = await pdf(d, {mode: 'edl'}), tab = tableauEquipements(p.txt);
+  if (!tab){ R.ok(false, 'l4 page 2 du plan PDF : tableau « ' + TITRE_EQ + ' » absent' + (p.err.length ? ' (' + p.err.join(' | ') + ')' : '')); return; }
+  const att = [[LM, '1er étage'], ['WC', ''], ['Lavabo', ''], ['Drain', '']], vu = tab.map(r => [r[0], r[1]]);
+  R.ok(JSON.stringify(vu) === JSON.stringify(att) && !p.err.length, 'l4 colonnes Équipement et Niveau : ' + att.map(a => a[0] + ' « ' + a[1] + ' »').join(', ')
+    + ' (obtenu ' + vu.map(a => a[0] + ' « ' + a[1] + ' »').join(', ') + ')' + (p.err.length ? ' ' + p.err.join(' | ') : ''));
+  const mal = p.txt.filter(t => /undefined|function|\[native/.test(t));
+  R.ok(!mal.length, 'l4 aucun « undefined » dans le plan PDF' + (mal.length ? ' (obtenu ' + JSON.stringify(mal.slice(0, 4)) + ')' : ''));
+  const an = V.analyser(copie(d), 'edl'), libs = ['Dc', 'W', 'W0'].map(id => libDe(sur(() => V.srcObj(an, id))));
+  R.ok(JSON.stringify(libs) === JSON.stringify(['Drain', LM, 'WC']), 'l4 VCroquis.libDe sur l\'objet que rend srcObj : drain de collecte « Drain », « ' + LM + ' », « WC » (obtenu ' + JSON.stringify(libs) + ')');
+  /* avant-projet : le tuyau du WC est à supprimer, sans raccordement de projet */
+  const dA = doc({o: [['W', 'wc', 0, 8, {lm: 'oui'}], ['Bu', 'boite', 0, 2, {res: 'EU'}]], l: [['tW', 'tr', '', 'supprimer', ['W', 'Bu']]]});
+  const pa = await pdf(dA, {mode: 'avp'}), lignes = pa.txt.filter(t => /^Après travaux : /.test(t)), malA = pa.txt.filter(t => /undefined/.test(t));
+  R.ok(lignes.some(t => t.indexOf('Après travaux : ' + LM + ' n\'est plus relié') === 0) && !malA.length && !pa.err.length, 'l4 avant-projet : « Après travaux : ' + LM
+    + ' n\'est plus relié… » (obtenu ' + JSON.stringify(lignes) + ')' + (pa.err.length ? ' ' + pa.err.join(' | ') : ''));
+}
+
+/* l5 (garde) : le lave-mains ne change que des textes : ni le symbole (écran, fiche, plan PDF, DXF et son bloc VEDE_WC), ni la légende
+   « WC », ni l'analyse, les anomalies, la conclusion et le constat, aux textes « WC + lave-mains » et à row.types près */
+async function gardeLm(){
+  const pt = p => ({id: 'W', k: 'pt', t: 'wc', x: 0, y: 0, p: Object.assign({st: 'existant', obs: '', meth: ['eau']}, p), lab: {off: true}});
+  const prim = e => sur(() => JSON.stringify(V.primitives(e, [20, 20, 20], 0))), svg = p => sur(() => V.symboleSvg('wc', 40, p));
+  const pr0 = prim(pt({})), pr1 = prim(pt({lm: 'oui'})), sv0 = svg(pt({}).p), sv1 = svg(pt({lm: 'oui'}).p);
+  R.ok(pr0 === pr1 && !/^exception/.test(pr0), 'l5 symbole du WC (VCroquis.primitives) : identique avec et sans lave-mains' + (pr0 === pr1 ? '' : ' (' + pr0.slice(0, 120) + ' ; ' + pr1.slice(0, 120) + ')'));
+  R.ok(sv0 === sv1 && /<svg/.test(sv0), 'l5 symbole de la fiche (VCroquis.symboleSvg) : identique avec et sans lave-mains');
+  /* croquis sans étiquettes (lab off) : WC vers une boîte EP (anomalie), WC au RDC vers la boîte EU ; avec : les deux à lave-mains */
+  const sans = doc({o: [['W', 'wc', 0, 8, {}], ['W2', 'wc', 6, 8, {niv: 'rdc'}], ['Bp', 'boite', 0, 2, {res: 'EP'}], ['Bu', 'boite', 6, 2, {res: 'EU'}],
+    ['Rp', 'regard_pub', 6, -2, {res: 'EU'}]], l: [['tW', 'tr', '', '', ['W', 'Bp']], ['t2', 'tr', '', '', ['W2', 'Bu']], ['tU', 'tr', '', '', ['Bu', 'Rp']],
+    ['C', 'col', 'EU', '', [[-6, -2], 'Rp', [12, -2]]]]});
+  const avec = copie(sans), sansLm = s => String(s).split(LM).join('WC');
+  avec.el.forEach(e => { if (e.t === 'wc') e.p.lm = 'oui'; });
+  const pS = await pdf(sans, {mode: 'edl'}), pA = await pdf(avec, {mode: 'edl'}), fin = pA.txt.indexOf(TITRE_EQ), p1 = pA.txt.slice(0, fin < 0 ? 0 : fin);
+  R.ok(JSON.stringify(pA.txt.map(sansLm)) === JSON.stringify(pS.txt) && !pA.err.length, 'l5 plan PDF : mêmes textes avec et sans lave-mains, hors « ' + LM + ' »');
+  R.ok(JSON.stringify(pA.formes) === JSON.stringify(pS.formes) && JSON.stringify(pA.traits) === JSON.stringify(pS.traits), 'l5 plan PDF : mêmes traits (symboles, tracés, légende, tableaux)');
+  R.ok(fin > 0 && p1.indexOf('WC') >= 0 && p1.indexOf(LM) < 0, 'l5 plan PDF, page 1 : légende « WC », aucun « ' + LM + ' » (étiquettes masquées)');
+  const xS = sur(() => dxf(sans)), xA = sur(() => dxf(avec)), ins = x => x.ents ? x.ents.filter(q => q.type === 'INSERT' && q.c['2'] === 'VEDE_WC').length : 0;
+  R.ok(xS.texte === xA.texte && xA.blocs.indexOf('VEDE_WC') >= 0 && ins(xA) === 2, 'l5 DXF identique avec et sans lave-mains : bloc VEDE_WC, deux INSERT VEDE_WC (obtenu ' + ins(xA) + ')');
+  const eS = sur(() => dessiner(sans, 40, [3, 6])), eA = sur(() => dessiner(avec, 40, [3, 6]));
+  R.ok(JSON.stringify(eS.traits) === JSON.stringify(eA.traits) && JSON.stringify(eS.textes) === JSON.stringify(eA.textes), 'l5 écran : mêmes traits et mêmes textes (étiquettes masquées)');
+  const a = sur(() => sorties(sans)), b = sur(() => sorties(avec));
+  if (typeof a === 'string' || typeof b === 'string'){ R.ok(false, 'l5 sorties : ' + (typeof a === 'string' ? a : b)); return; }
+  ['analyse-edl', 'analyse-avp', 'textes-edl', 'textes-avp'].forEach(k => R.ok(sansLm(b[k]) === a[k], 'l5 ' + k + ' : identique avec et sans lave-mains, aux textes « ' + LM + ' » près'
+    + (sansLm(b[k]) === a[k] ? '' : ' (sans : ' + a[k].slice(0, 160) + ' ; avec : ' + b[k].slice(0, 160) + ')')));
+  const dC0 = copie(sans), dC1 = copie(avec), c0 = V.constatDeduit(dC0, V.analyser(dC0, 'edl')), c1 = V.constatDeduit(dC1, V.analyser(dC1, 'edl'));
+  const hors = cd => canon({rows: cd.rows.map(r => Object.assign({}, r, {types: null})), epRecup: cd.epRecup, sansCote: cd.sansCote, methodes: cd.methodes}, new Set(), []);
+  R.ok(hors(c0) === hors(c1), 'l5 constat déduit : identique avec et sans lave-mains, hors row.types');
+}
+
 (async () => {
   try {
     etiquettes();
@@ -173,6 +339,12 @@ function garde(){
     await codeInconnu();
     await colonneNiveau();
     garde();
+    etiquettesLm();
+    await etiquettesLmRendues();
+    anomaliesLm();
+    constatLm();
+    await page2Lm();
+    await gardeLm();
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }
   R.fin();
 })();

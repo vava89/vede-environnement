@@ -60,6 +60,9 @@
 //     avant vers un puits et un puisard (ligne sans code), une descente arrière vers le puits (ligne MILIEU) : la phrase prudente seule ;
 //     réserves choisies au dossier : ligne avant vide, ligne arrière « oui » (65). 63 à 65 échouent sur la première version de m125 (la
 //     phrase promet « oui »).
+// 66 à 68 (m131, décision D4) : WC à lave-mains intégré relié à une boîte EU : ligne « WC » ×1, aucun évier ; une ligne « Autres :
+//     Lave-mains » saisie à la main est rappelée comme un double compte possible (66, échoue sur 824fabf), « Autres : Lavabo du WC » aussi,
+//     comme avant (67) ; « Autres : Lavabo » ne l'est pas (68, témoin).
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -247,6 +250,20 @@ async function autresDouble(){
     const e = await constatVu(n, objs, tr, "c.rows.push({id: 'au1', groupe: 'EU', label: " + JSON.stringify(lab) + ", std: false, nb: '1', raccord: '', conforme: '', methodes: []});");
     R.ok(dbl(e).length === att && (!att || new RegExp('« ' + lab.replace(/[()]/g, '\\$&') + ' » \\(1\\)').test(dbl(e)[0])), n + ' « Autres : ' + lab + ' » saisi à la main, lavabo dessiné : '
       + (dbl(e)[0] || 'aucun double compte rappelé') + (att ? '' : ' (témoin)'));
+  }
+}
+
+/* WC à lave-mains intégré (m131 ; D4) : compté sur la ligne « WC », sans évier ; le résumé du croquis donne à cette ligne les types « WC » et
+   « Lave-mains ». Une ligne « Autres : Lave-mains » saisie à la main à côté est rappelée comme un double compte (66, échoue sur 824fabf) ;
+   « Autres : Lavabo du WC » l'était déjà, par le mot « WC » (67) ; « Autres : Lavabo » ne l'est pas, aucun lavabo n'est dessiné (68, témoin) */
+async function laveMains(){
+  const objs = [['w', 'wc', 0, 0, {lm: 'oui'}], ['B', 'boite', 0, -4, {res: 'EU'}]], tr = [['Bw', 'w', 'B']];
+  const dbl = x => x.ecarts.filter(t => /figure aussi au constat, en « Autres »/.test(t));
+  for (const [n, lab, att] of [['66', 'Lave-mains', 1], ['67', 'Lavabo du WC', 1], ['68', 'Lavabo', 0]]){
+    const e = await constatVu(n, objs, tr, "c.rows.push({id: 'au1', groupe: 'EU', label: " + JSON.stringify(lab) + ", std: false, nb: '1', raccord: '', conforme: '', methodes: []});");
+    const lignes = e.rows.split(', '), wc = lignes.some(x => /^wc ×1 /.test(x)) && !lignes.some(x => /^evier /.test(x));
+    R.ok(wc && dbl(e).length === att && (!att || new RegExp('« ' + lab + ' » \\(1\\)').test(dbl(e)[0])), n + ' « Autres : ' + lab + ' » saisi à la main, WC + lave-mains dessiné : '
+      + (dbl(e)[0] || 'aucun double compte rappelé') + (att ? '' : ' (témoin)') + ' ; lignes ' + e.rows);
   }
 }
 
@@ -613,6 +630,7 @@ async function reglagesAccroches(){
     await puits();
     await destination();
     await autresDouble();
+    await laveMains();
   } catch (e){ R.ok(false, 'exception du test : ' + (e && e.stack || e)); }
   R.fin();
 })();
