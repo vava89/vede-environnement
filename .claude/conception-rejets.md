@@ -1,9 +1,9 @@
 # Conception du lot « Rejets » (v1.7.1, souhaits 2, 3, 4)
 
 Établie le 8 nov. 2026 sur 52cd3c8 (code de la v1.7.0), point de départ de m116 ; révisée les 13 et 14 nov. (puits NC ; réponses et consignes du 13
-nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m127 (envoyés : 8f9094d, ab926ec, 6df324c,
-a5a5d05, 7a6c041, b562636, bd16bb9, d036ee1, 65c4685, f9633c6, 419d752, 27fb4c5) les décalent : chercher par nom de fonction ; tests cités par nom de
-cas. Détail du code : `carte-*.md` (8 nov. ; le puits y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ =
+nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m128 (envoyés : 8f9094d, ab926ec, 6df324c,
+a5a5d05, 7a6c041, b562636, bd16bb9, d036ee1, 65c4685, f9633c6, 419d752, 27fb4c5, 7b4f489) les décalent : chercher par nom de fonction ; tests cités
+par nom de cas. Détail du code : `carte-*.md` (8 nov. ; le puits y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ =
 croquis/croquis.js, IX = index.html ; vm/ et navigateur/ sont sous tests/.
 
 ## Réponses de l'utilisateur (7 et 13 nov. 2026)
@@ -341,7 +341,7 @@ croquis/croquis.js, IX = index.html ; vm/ et navigateur/ sont sous tests/.
 ## Découpage (m116 à m129 ; quatorze correctifs, batterie verte après chacun)
 Ordre : le commun, sans changement visible (m116) ; l'infiltration (m117, m118) ; l'arbitrage, règle générale, juste après m118 (m119) ; le puits
 (m120) ; les drains (m121 à m124) ; les destinations (m125 à m128), la palette après l'analyse et le rendu ; les cas limites des drains, après les
-réponses à Q6 et Q7 (m129). m116 à m127 sont envoyés : leur fiche ne change plus (celles de m116 à m123 renvoient au message de leur commit pour les
+réponses à Q6 et Q7 (m129). m116 à m128 sont envoyés : leur fiche ne change plus (celles de m116 à m123 renvoient au message de leur commit pour les
 tests et la garde). Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js reste vert partout ; tests/LISEZMOI.md suit chaque test ajouté.
 Dès m117, poser un objet nouveau demande des tablettes à jour (D11). Après m129 : 14 correctifs depuis la fusion de la v1.7.0, 6 de libres avant la
 suivante.
@@ -511,25 +511,25 @@ suivante.
     conforme » (la règle du dossier lit le texte, a5) ; une réserve écrite par le jugement reste quand le réseau passe en EU au dossier (une nature
     écrite prime, comme en m126) ; une copie de retrait au texte retouché « … tampon béton fissuré » est recréée non conforme (avant : réserve
     écrite).
-- **m128 Destinations (4) : modèles de la tablette, documentation** (souhait 2, 2e et 4e parties du cadrage : Réglages, LISEZMOI, générateur ; D3, D10
-  à D12).
-  - Fichiers : IX : CROQ_DEF (IX:3143), croqCfgLire et croqCfgEcrire (IX:3146-3147) gardent `exutoires` ; vcEditeur (IX:3353) et ed.ouvrir (IX:3416)
-    passent les options `exutoires` et `enregistrerExutoires(liste)`, comme les aides ; croqReglagesHtml (IX:3523-3529) : liste « Destinations
-    ajoutées » (modifier, retirer ; D12) ; actions près de IX:3551. CJ : ouvrirPalette (items 'pt:exutoire:<id>'), « + Nouvelle destination » (D10).
-    Labo : localStorage 'vcl-exutoires', comme 'vcl-aides' (croquis/index.html:267-268). vm/generateur.js : option `exutoires` avec 'exutoire'.
-    LISEZMOI.txt et croquis/LISEZMOI.txt : les destinations ajoutées seulement (texte de D3 : « + Nouvelle destination », liste des Réglages,
-    'vcl-exutoires' du labo) ; m127 y a écrit l'objet, sa fiche, la règle, la conclusion « À compléter : rejet des eaux pluviales à arbitrer » et la
-    consigne de D11, que l'essai de la garde vérifie pour « ou plus ancienne ».
-  - Pour l'utilisateur : ses destinations (étang, fossé…) restent dans la palette d'un croquis à l'autre ; les Réglages les listent.
-  - Test (navigateur/rejets.js) : m1 « + Nouvelle destination » : fiche de départ (nom vide ou qui contient « puits » refusé, « le », « à arbitrer »,
-    « autre ») ; « Étang » (Ét, l', NC, autre) enregistrée dans croquisConfig.exutoires (échoue avant : pas d'item), posée depuis la palette rouverte
-    sans recharger puis par « Cotes », gardée au rechargement ; m2 modèle changé dans les Réglages : l'objet déjà posé ne change pas (même analyse) ;
-    m3 sauvegarde restaurée sur un profil neuf, sans modèles : même analyse, même constat.
-  - Garde : un croquis du lot ouvert sur une copie de 22df7f2 (v1.6.3) : plan PDF et fiche, pour la consigne de D11 [p].
-  - Risques : croqCfgEcrire n'écrit aujourd'hui que {actif, aides} (IX:3147 ; retour en arrière : D11).
-  - Note de m126 (Q8 b, sauf avis contraire) : planValide ne remplace que les champs d'une destination ou un p.drain qui ne sont pas du texte ; une
-    valeur inconnue est gardée, lue par les replis de destDe et sorteDrain ; ajuster le cas 14 de navigateur/constat-boite.js ; m127 a écarté le même
-    repli dans destDe (une abréviation illisible au PDF y reste, la fiche n'en écrit plus) : à décider ici avec Q8.
+- **m128 Destinations (4) : modèles de la tablette, documentation** (souhait 2, 2e et 4e parties du cadrage ; D3, D10 à D12 ; Q8 b). Fait : 7b4f489,
+  15 nov.
+  - Fichiers : IX : CROQ_DEF, croqCfgLire, croqCfgEcrire (exutoires) ; vcEditeur (enregistrerExutoires), vcOuvrir (option exutoires) ;
+    croqReglagesHtml (« Destinations ajoutées »), vcExuModifier, vcExuRetirer ; planValide (vcPasTexte : Q8 b). CJ : champDest, destSaisie, modelesDe,
+    DEST_ARTS, DEST_EPS, DEST_CSTS (exportés, avec artDevant) ; ouvrirPalette ('pt:exutoire:<id>', 'nv:exutoire'), modeleExu, nouvelleDestination,
+    S.exutoires, S.outil.mid ; destDe (abréviation illisible au PDF) ; toast au-dessus des fenêtres. Labo : 'vcl-exutoires'. vm/generateur.js et
+    vm/aleatoire.js : type 'exutoire'. Les trois LISEZMOI.
+  - Pour l'utilisateur : « + Nouvelle destination » : fiche courte, mêmes refus que la fiche ; « Enregistrer » ajoute la destination à la palette de
+    la tablette et arme sa pose ; Réglages, « Destinations ajoutées » : « Modifier », « Retirer », sans toucher un objet posé ; hors sauvegarde.
+  - Tests : navigateur/rejets.js m1 à m3 (84 cas, 66 avant) ; navigateur/constat-boite.js, cas 14 ajusté (13 vérifications, 6 fausses avant) ;
+    vm/rejets.js x4 (147 cas, 145 avant). Garde : compat 245/245 ; aléatoire 8000 sans et avec 'exutoire' contre avant : aucune exception, aucun écart
+    (669 destinations, dont 139 abréviations illisibles) ; mêmes tirages sans 'exutoire' (32 000) ; v1.6.3 : plan PDF du croquis du lot refusé
+    (« reading 'lib' »), fiches de l'infiltration, du puits et des destinations refusées dans le croquis, fiche et constat du dossier sortis (consigne
+    de D11 complétée).
+  - Relecture : aucun défaut bloquant ni majeur ; six mineurs corrigés (article dans « Modifier » ; repli lisible de l'abréviation d'un nom qui
+    commence par un émoji ; notice de l'hôte ; refus du nom dans LISEZMOI.txt).
+  - Risques et [p] : doublons de nom acceptés ; un modèle invalide ou un champ inconnu est perdu à la première écriture de la liste (modelesDe) ; une
+    tablette remise en v1.7.0 efface les modèles au premier changement d'un réglage du croquis ; l'objet posé ne garde pas l'identifiant du modèle ;
+    un ancien article rechoisi à la main après un nouveau nom est réglé à l'enregistrement ; v1.6.0 à v1.6.2 et v1.7.0 lues, pas essayées.
 - **m129 Drains (5) : cas limites des drains** (Q6, Q7 ; D4, D5, D10) : Q6, (b), recommandée, sauf avis contraire (avec (c), sans objet) ; Q7, (a),
   sauf avis contraire.
   - Fichiers (CJ) : libresDe ; avec (a), controles (aide du sansexu). croquis/LISEZMOI.txt.
@@ -566,4 +566,4 @@ suivante.
   jour qui restaure la sauvegarde d'une tablette plus récente perdrait une valeur qu'elle ne connaît pas (un article, une case…).
   Choix : (a) garder ; (b) ne remplacer que les champs qui ne sont pas du texte et garder une valeur inconnue, lue par les replis de destDe et
   sorteDrain (comme un objet d'un type inconnu est gardé).
-  Recommandation : (b), soumise le 14 nov., en m128 sauf avis contraire (cas 14 de navigateur/constat-boite.js à ajuster).
+  Recommandation : (b), soumise le 14 nov., codée en m128 (7b4f489) sauf avis contraire.
