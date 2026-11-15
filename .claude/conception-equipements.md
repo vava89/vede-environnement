@@ -133,7 +133,7 @@ Détail du code : cartes A, B et C (`carte-*.md`). Lot Rejets : `.claude/concept
     « Replacer les étiquettes » CJ:5322, « Replacer » CJ:5253) : à Séparer, son étiquette est replacée.
   - Texte du porteur, deux lignes (boiteTexte CJ:2063, écran CJ:2231, PDF CJ:5702 et DXF CJ:6146 coupent déjà au saut de ligne) :
     ligne 1 = préfixe, titre et niveau commun (« Salle de bain (1er étage) ») ; titre d'office « Salle de bain » si le groupe a une douche,
-    une baignoire ou une salle de bain, sinon aucun [p] ; ligne 2 = la liste (« douche, lavabo, WC + lave-mains ») : porteur, puis ordre du
+    une baignoire ou une salle de bain, sinon aucun [p] ; ligne 2 = la liste (« douche, WC + lave-mains, lavabo ») : porteur, puis ordre du
     catalogue, puis id ; initiale en minuscule sauf sigle [p] ; un nom égal au titre n'est pas répété ; niveau après chaque nom s'ils
     diffèrent ; au-delà de quatre appareils, leurs abréviations [p]. Sans titre : une seule ligne, niveau commun à la fin.
   - Inchangés : le trait de rappel, unique, vers le porteur ; le DXF hors les TEXT du porteur ; légende, page 2, analyse, anomalies et
@@ -243,7 +243,7 @@ Détail du code : cartes A, B et C (`carte-*.md`). Lot Rejets : `.claude/concept
 Chaque correctif est livrable seul et garde la batterie verte (`sh tests/tout.sh --navigateur`) ; garde commune : compat 245/245 et
 différentiel sans écart. Les tests nouveaux vont dans tests/vm/equipements.js et tests/navigateur/equipements.js, créés en m130 et ajoutés à
 tests/tout.sh (l. 14 et 19) et à tests/LISEZMOI.md. Le lot tient en six numéros ; s'il en manque (lot Rejets plus long, correctif scindé),
-m135 puis m134 attendent la fusion suivante (l'étiquette commune forme un tout), ou la fusion se fait après m133. m130 à m133 sont
+m135 puis m134 attendent la fusion suivante (l'étiquette commune forme un tout), ou la fusion se fait après m133. m130 à m134 sont
 envoyés : leurs fiches disent ce qui a été fait.
 - **m130 Niveau d'étage précis** (souhait 15 ; D1, D2, D5, D7). Fait : 609b9f1, 15 nov.
   - Fichiers : CJ : NIV (les puces), etageDe, libNiv (VC.libNiv), valNiv, poserNiv, texteEtiquette, pageTableaux, demander (option num), chipsHtml
@@ -352,17 +352,37 @@ envoyés : leurs fiches disent ce qui a été fait.
     trop-plein) restent rangées par leur texte (anomRows), avec le défaut de M2 quand deux lignes « Autres » se ressemblent (hors périmètre) ; une
     tablette en v1.7.0 retire à la réouverture les anomalies des génériques non retouchées (documenté) ; la puce « Lavabo » d'AUTRES_SUGG reste (E2
     sans accord).
-- **m134 Étiquette commune (1) : texte, plan, PDF, DXF** (souhait 8 ; D6).
-  - But : une étiquette pour les appareils d'une pièce, sans changer le compte.
-  - Fichiers : CJ groupeEtiquette(e, an), texteEtiquette, obstaclesPlan, changerType (etiqAvec, etiqTitre). vm/generateur.js : option
-    `champs`.
-  - Pour l'utilisateur : rien dans l'éditeur ; un croquis qui en contient s'imprime avec l'étiquette commune.
-  - Test : vm c1 : douche porteur, lavabo, WC lm au 1er → « Salle de bain (1er étage)\ndouche, lavabo, WC + lave-mains » (échoue avant :
-    « Douche (1er étage) ») ; c2 : membres '' et hors des obstacles, même avec p.etiq ; c3 : autre statut ou EP → étiquette propre ; c4 :
-    groupe « Projet » défait sur l'état des lieux ; c5 : niveaux différents, plus de quatre appareils ; c6 : analyse, anomalies et constat
-    de même empreinte (canon) avec et sans etiqAvec ; DXF : TEXT du porteur seul.
-  - Risques : collisions au 1/200 ; malentendu sur le compte (la fiche du porteur le dit).
-  - Lot Rejets : texteEtiquette après m122 et m125.
+- **m134 Étiquette commune (1) : texte, plan, PDF, DXF** (souhait 8 ; D6). Fait : ae619ef, 15 nov.
+  - Fichiers : CJ : TITRES_ETIQ, aCle, lienEtiq, sourceEU, stEtiq, porteurEtiq, rangCatalogue, groupeEtiquette (VC.groupeEtiquette), minusculeEtiq,
+    texteGroupe, texteEtiquette, obstaclesPlan (commentaire ; VC.obstaclesPlan exportée pour les tests), changerType (etiqAvec et etiqTitre gardés).
+    tests/vm/generateur.js (option champs), vm/aleatoire.js (étiquettes dans la signature, --sans=champs), vm/compat.js (commentaires),
+    vm/equipements.js c1 à c7, navigateur/equipements.js c8, tests/LISEZMOI.md. Inchangés : LISEZMOI.txt et croquis/LISEZMOI.txt (m135 : aucun groupe
+    ne se crée avant).
+  - Pour l'utilisateur : rien dans l'éditeur ; un croquis qui porte des liens (p.etiqAvec, p.etiqTitre) montre l'étiquette commune à l'écran, au plan
+    PDF et au DXF : « Salle de bain (1er étage) » puis « douche, WC + lave-mains, lavabo » ; ses membres n'ont plus d'étiquette, même personnalisée,
+    ni trait de rappel ; le compte ne change pas.
+  - Tests : vm/equipements.js c1 à c7 (89 contrôles, 236 en tout ; 54 échouent sur 344c7b2 : aucun groupe, VCroquis.groupeEtiquette et obstaclesPlan
+    absentes ; y passent les témoins de c3, sauf la chaîne et le statut absent, les groupes défaits de c4, les gardes de c6, l'étiquette personnalisée
+    et l'ordre de c1, le porteur retiré de c2 ; c6 est une garde : analyse, textes, constat, plan PDF aux étiquettes masquées, page 2 et DXF hors les
+    TEXT du groupe identiques avec et sans liens) ; navigateur/equipements.js c8 (7 contrôles, 64 en tout ; 5 échouent sur 344c7b2 : chacun son
+    étiquette à l'écran et au plan PDF, le changement de type efface lien et titre avec un toast ; y passent « Annuler » et la console). Garde :
+    compat 245/245 sans régénération ; aléatoire 8000 contre 344c7b2 : aucune exception, aucun écart, étiquettes comprises ; aléatoire 8000 avec les
+    champs : aucune exception, 4 675 liens, 908 porteurs et 1 021 membres ; sonde v1.7.0 (b08133d) : aucune exception, chacun garde son étiquette (8
+    rendus, 150 croquis du générateur) ; batterie complète verte (19 min).
+  - Relecture : aucun défaut bloquant ni majeur, rien à contre-vérifier. M1 appliquée (deux objets nommés comme le titre se lisaient comme un seul :
+    seul le premier est omis) ; M8 appliquée (c8 lit aussi le plan PDF, par __vcEd.sortie('pdfEdl')) ; M2 et M7 (ordre de la liste) : règle de D6
+    gardée, [p] ; M3 (fiche d'un membre : texte indicatif « pas d'étiquette automatique », champ Étiquette et puces Affichée/Replacer sans effet ;
+    fiche du porteur : ses deux lignes bout à bout dans le texte indicatif), M4 (porteur qui garde un etiqAvec orphelin) et M6 (porteur non replacé
+    quand son texte s'allonge) renvoyées à m135 ; M5 écartée (groupe recalculé sans cache : +5 ms par dessin et +6 % au placement à 300 objets, rien
+    de net à 100 ; un cache par analyse risquerait un groupe périmé) ; M9 : [p] consignées ici.
+  - Risques et [p] : ordre de la liste « douche, WC + lave-mains, lavabo » (règle de D6 : porteur, catalogue, id ; l'exemple de D6, qui disait
+    « douche, lavabo, WC + lave-mains », est corrigé) ; statut absent = « existant » ; sigle reconnu à sa 2e lettre en capitale (« WC », « PAC ») ; un
+    nom égal au titre n'est omis qu'avec un niveau commun, et le premier seulement ; au-delà de quatre appareils, comptés après cette omission, leurs
+    lettres (abObj), le nom sans lettres (siphon de garage), « ? » pour un autre appareil sans nom ; etiqTitre illisible : titre d'office, 'aucun' :
+    pas de titre ; groupe sans titre : une ligne, niveau commun à la fin ; un porteur qui a lui-même un lien n'est plus porteur (lavabo → WC →
+    douche : le WC rejoint la douche, le lavabo garde son étiquette) ; changerType garde lien et titre quel que soit le type, sans toast ; l'e.lab
+    d'un membre peut rester vide (changement de type, « Replacer les étiquettes ») : Séparer (m135) la replace ; c6 ne compare pas l'en-tête du DXF
+    ($EXTMIN, $EXTMAX) ; collisions au 1/200 non mesurées.
 - **m135 Étiquette commune (2) : mode « Réunir » et fiches** (souhait 8 ; D7).
   - But : réunir et séparer au doigt.
   - Fichiers : CJ S.reunir, tapPlan (CJ:3624), halos de la surcouche (CJ:2801), majAide (CJ:4727), ficheHtml, supprimerSel (CJ:4858),
