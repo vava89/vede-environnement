@@ -214,7 +214,10 @@ Détail du code : cartes A, B et C (`carte-*.md`). Lot Rejets : `.claude/concept
 - D10 Points de contact avec le lot Rejets. Ordre : tout le lot Rejets (m119 à m129) d'abord, puis m130 à m135, chacun sur la branche à jour.
   - constatDeduit et lignes « Autres » : m119 (rows[].arbitrer), m122 (dispersion dans le sol), m123 (« Autres : Drain » des drains de
     collecte, source par srcObj), m125 (case des destinations, raccInfo). m119 (a5a5d05) marque déjà les lignes « Autres » : ligneArbitrer
-    lit l'objet (objId), constatDeduit sa ligne(o), vcArbitrage la ligne du constat (vcLigneConstat) ; m132 garde ce chemin (test g6). Ensuite m131 et
+    lit l'objet (objId), constatDeduit sa ligne(o), vcArbitrage la ligne du constat (vcLigneConstat) ; m132 garde ce chemin (test g6), sauf
+    un écart vu en relecture : vcArbitrage lit vcApparier, avec repli sur la ressemblance d'avant (vcRessemble, corps de vcLigneConstat) pour
+    une ligne du croquis sans ligne liée ; sinon une ligne saisie pour deux appareils, prise par celui qui n'a rien à arbitrer, serait « oui »
+    d'office (dossier.js 75 et 76). Ensuite m131 et
     m132 : ligne(o) lit l'objet que srcObj désigne ; libDe ne lit p.nom que d'un type nomLibre (celui d'une destination reste à destDe).
   - Lecteurs de srcObj (m123) : libDe, libNiv et libObj (CJ:1335) reçoivent l'objet qu'il rend (le point « Drain » d'un drain de
     collecte), jamais idxA[id] ni an.objs[id], page 2 du PDF comprise (CJ:6027, 6029, 6045) ; m130 et m131 (tests n3, l4).
@@ -240,7 +243,7 @@ Détail du code : cartes A, B et C (`carte-*.md`). Lot Rejets : `.claude/concept
 Chaque correctif est livrable seul et garde la batterie verte (`sh tests/tout.sh --navigateur`) ; garde commune : compat 245/245 et
 différentiel sans écart. Les tests nouveaux vont dans tests/vm/equipements.js et tests/navigateur/equipements.js, créés en m130 et ajoutés à
 tests/tout.sh (l. 14 et 19) et à tests/LISEZMOI.md. Le lot tient en six numéros ; s'il en manque (lot Rejets plus long, correctif scindé),
-m135 puis m134 attendent la fusion suivante (l'étiquette commune forme un tout), ou la fusion se fait après m133. m130 et m131 sont
+m135 puis m134 attendent la fusion suivante (l'étiquette commune forme un tout), ou la fusion se fait après m133. m130 à m132 sont
 envoyés : leurs fiches disent ce qui a été fait.
 - **m130 Niveau d'étage précis** (souhait 15 ; D1, D2, D5, D7). Fait : 609b9f1, 15 nov.
   - Fichiers : CJ : NIV (les puces), etageDe, libNiv (VC.libNiv), valNiv, poserNiv, texteEtiquette, pageTableaux, demander (option num), chipsHtml
@@ -282,27 +285,37 @@ envoyés : leurs fiches disent ce qui a été fait.
     prévient ; restent « WC » : sélecteur Type, palette, panneau Cotes et nom de pose ; seule la chaîne 'oui' compte, sur un WC ; le générateur ne
     tire pas p.lm (prévu en m134) ; les anomalies du croquis gardent leur installation (ligneDe : ligne WC), une anomalie saisie à la main est rangée
     par ses mots (anomRows) ; libDe(undefined) rend ''.
-- **m132 Autres appareils (1) : type, constat, rendu**, hors palette, comme la destination de m125 (souhait 7 ; D1 à D5).
-  - But : compter, juger et imprimer un appareil nommé par l'opérateur.
-  - Fichiers : CJ def, defautsPt, libDe et abDe, nomRefuse, controles, constatDeduit (clé avec la nature, row), primitives, legende,
-    pageTableaux, ecrireDxf. IX vcApparier, lue par constatDepuisCroquis et vcEcarts ; puce « Lavabo » selon E2. vm/generateur.js :
-    option `sources`.
-  - Pour l'utilisateur : rien dans l'éditeur ; un croquis qui en contient (tablette à jour, tests) est compté, dessiné et imprimé ; deux
-    lignes « Autres » proches ne s'écrasent plus.
-  - Test : vm g1 : deux « Bidet » et un « bidet » → « Autres : Bidet » nb 3 (échoue avant : type inconnu, aucune ligne) ; g1 bis :
-    « Climatisation » EU et EP → deux lignes, chacune jugée sur son réseau (clé sans la nature : une, l'EP « non ») ; g2 : row 'wc' → WC,
-    types ['Urinoir'] ; row d'un autre groupe ignoré ; g3 : sans nom → « Autres : Autre appareil » et contrôle « nom à indiquer » ; g4 :
-    « Bidet (RDC) », lettres « Bi », légende « Bidet (Bi) », bloc VEDE_AUTRE_EU_BI, nom à balises échappé ; g5 : autre_ep sur le réseau EU →
-    règle ep-eu ; g6 : « Bidet » conforme, anomalie saisie « Bidet : … » à arbitrer → ligne jamais « oui » (m119 le fait déjà) ; g7 :
-    nomRefuse : « Douche italienne », « WC suspendu », « Puits perdu », « Chaudière », « Lavabos » refusés, « Bidet », « Urinoir » permis.
-    navigateur/dossier.js : Chaudière, Attente et ligne saisie « Chaudière et attente », dans les deux ordres de dessin : une ligne liée,
-    l'autre créée (échoue avant : liée aux deux, valeur de la dernière) ; « Bidet » et « Bidet suspendu » : deux lignes ; dossier laissé par
-    la v1.7.0, simulé (« Autres : Bidet » retirée, WC 1) : rappel de vcEcarts, ligne remise par « Reprendre du croquis » ; restauration d'un
-    « Autre appareil » sans nom, ab « ABCD », nom de 300 caractères : nom '' gardé, aucune « Autre destination » ; PDF du constat à 20
-    lignes : la table tient sur la page [p].
-  - Risques : légende plus longue ; au-delà de 14 lignes, police 8 et lignes plus basses au PDF (IX:2976-2995) [p] ; renommer un générique
-    déjà repris retire la ligne créée et en crée une autre, sauf retouche ; dossiers anciens (D4).
-  - Lot Rejets : après m123, m125 et m126 ; g6 après m119.
+- **m132 Autres appareils (1) : type, constat, rendu** (souhait 7 ; D1 à D5, D10). Fait : 7969137, 15 nov.
+  - Fichiers : CJ : def autre_eu et autre_ep (nomLibre, ab '?', hors de FAMILLES), defautsPt (nom, ab et row vides), nomLibre, libDe (branche
+    nomLibre), abObj (VC.abObj), nomRefuse (VC.nomRefuse, NOM_MOTS ; REFUS_PUITS partagé avec champDest), controles, constatDeduit (row ; clé 'autre:'
+    + nature + ':' + nom normalisé), texteEtiquette, primitives, legende, ecrireDxf. IX : vcApparier (nouvelle), vcRessemble (corps de vcLigneConstat,
+    retirée), vcArbitrage, constatDepuisCroquis, vcEcarts, commentaire de vcAutresDouble. tests/vm/generateur.js (option sources, GENERIQUES,
+    genTire), tests/vm/aleatoire.js (--sans=generiques), tests/LISEZMOI.md. Inchangés : pageTableaux (la page 2 lit libDe depuis m131), AUTRES_SUGG
+    (E2), LISEZMOI.txt et croquis/LISEZMOI.txt (rien dans l'éditeur avant m133).
+  - Pour l'utilisateur : rien dans l'éditeur (palette et fiche en m133). Un croquis qui contient un « Autre appareil » (EU) ou un « Autre ouvrage
+    EP », venu d'un fichier ou des tests, le compte sur la ligne « Autres : <nom> » de son réseau (deux « Bidet » et un « bidet » : une ligne, nb 3 ;
+    « Climatisation » en EU et en EP : deux lignes) ou sur la ligne du formulaire que nomme p.row (« Urinoir » → WC, types ["Urinoir"]) ; il est jugé
+    par les règles de son réseau (« Avaloir de terrasse : rejet au réseau EU »), dessiné avec ses lettres (« Bi »), nommé à l'étiquette (« Bidet
+    (RDC) »), à la légende (« Bidet (Bi) »), au tableau de la page 2 et au DXF (bloc VEDE_AUTRE_EU_BI) ; sans nom : « Autre appareil », contrôle « nom
+    à indiquer ». À la reprise, deux lignes « Autres » proches ne s'écrasent plus (Chaudière, Attente et ligne saisie « Chaudière et attente » : une
+    ligne liée, l'autre créée ; « Bidet » et « Bidet suspendu » : deux lignes).
+  - Tests : vm/equipements.js g1 à g8 (137 contrôles en tout, 98 après m131 ; 37 échouent sur 9ad0840, tous en g1 à g8 : type inconnu, VC.abObj et
+    VC.nomRefuse absentes) ; navigateur/dossier.js 69 à 76 (127 contrôles en tout ; 69 à 74 échouent sur 9ad0840 ; 74 : PDF du constat à dix lignes
+    « Autres », chaque libellé dans sa case ; 75 et 76, dans les deux ordres du dessin, passent sur 9ad0840 et échouaient sur la 1re version de m132 :
+    ils gardent le défaut C1). Garde : compat 245/245 sans régénération ; aléatoire 8000 contre 9ad0840 (graines 1 et 777) : aucune exception, aucun
+    écart ; aléatoire 20000 sans contre : aucune exception, 4771 génériques tirés ; sans l'option sources, le générateur rend les mêmes croquis
+    qu'avant ; la v1.7.0 (b08133d) lit 167 croquis à génériques sans exception (aucun générique compté) ; batterie complète verte (18 min).
+  - Relecture : un défaut bloquant, vu par les deux relecteurs et confirmé (C1, C2) : vcArbitrage ne lisait que vcApparier ; une ligne saisie
+    « Chaudière et attente », prise par l'attente, n'était plus marquée quand la chaudière restait à arbitrer (« Conforme : Oui » au PDF ; un constat
+    signé avant m132 se disait changé) ; corrigé par le repli sur vcRessemble (dossier.js 75 et 76 ; note à D10). M1 (apostrophe typographique et
+    traits d'union Unicode dans nomRefuse) et M5 (g8 donnée pour une garde) appliquées ; M3 gardée [p] ; M2 et M4 reportées en m133 (sa fiche).
+  - Risques et [p] : abObj(e) au lieu de abDe(e) (abDe reste celle des destinations) ; un nom qui n'est pas du texte (nombre venu d'un fichier) compte
+    comme absent, comme destDe, et non String(p.nom) comme l'écrit D2 (M3) ; nomRefuse retire le s final de chaque mot et refuse aussi lave-mains,
+    vasque, salle d'eau, bac à laver, puits (REFUS_PUITS) et les noms d'office ; elle n'est appelée qu'à partir de m133 : un nom refusé venu d'un
+    fichier est lu tel quel ; légende : une ligne par type, nom normalisé et lettres ; DXF : un bloc par type et lettres (« Bi » puis « bi » : _BI et
+    _BI_2) ; vcApparier suit l'ordre des id : une ligne saisie très générale va à la première ligne du croquis ; vcArbitrage s'écarte de la lettre de
+    D10 (repli) ; renommer un générique déjà repris retire sa ligne créée et en crée une autre, sauf retouche ; longueur de la légende du plan PDF non
+    mesurée ; le générateur ne tire les génériques que sans --contre ; la puce « Lavabo » d'AUTRES_SUGG reste (E2 sans accord).
 - **m133 Autres appareils (2) : palette et fiche** (souhait 7 ; D7).
   - But : poser et nommer l'appareil au doigt.
   - Fichiers : CJ FAMILLES[0] et [1], ficheHtml (nom, suggestions, abréviation, EU | EP, « Compté au constat »), propTxt (CJ:5377),
@@ -314,6 +327,12 @@ envoyés : leurs fiches disent ce qui a été fait.
     toast ; « Compté au constat » WC ; « Autre ouvrage EP » seul : bouton « Rejet au sol ».
   - Risques : rang des outils (les tests choisissent par type) ; saisie au clavier sur tablette.
   - Lot Rejets : palette après m127.
+  - Reporté de m132 (relecture), à faire avant que la palette ne rende le cas courant. M2 : une anomalie d'un générique compté en « Autres » est
+    rangée par son texte (anomRows) ; avec « Bidet » et « Bidet suspendu », elle n'est rangée sur aucune ligne, qui reste « Oui » d'office au PDF ;
+    correctif proposé, sans toucher anomRows (D9) : au report d'une anomalie du croquis dans le dossier (index.html), a.installation reçoit l'id de la
+    ligne « Autres » que vcApparier lie à sa ligne du croquis ; à défaut, vcEcarts la rappelle ; test fondé sur la sonde de la relecture (deux
+    génériques proches, une anomalie sur l'un : sa ligne « non » au PDF, l'autre « oui »). M4 : « Déplacer par cotes (…) » et « … placé depuis »
+    lisent T[t].lib : libDe(e) quand l'objet existe (le WC + lave-mains de m131 en profite).
 - **m134 Étiquette commune (1) : texte, plan, PDF, DXF** (souhait 8 ; D6).
   - But : une étiquette pour les appareils d'une pièce, sans changer le compte.
   - Fichiers : CJ groupeEtiquette(e, an), texteEtiquette, obstaclesPlan, changerType (etiqAvec, etiqTitre). vm/generateur.js : option
