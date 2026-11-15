@@ -1,10 +1,10 @@
 # Conception du lot « Rejets » (v1.7.1, souhaits 2, 3, 4)
 
 Établie le 8 nov. 2026 sur 52cd3c8 (code de la v1.7.0), point de départ de m116 ; révisée les 13 et 14 nov. (puits NC ; réponses et consignes du 13
-nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m126 (envoyés : 8f9094d, ab926ec, 6df324c,
-a5a5d05, 7a6c041, b562636, bd16bb9, d036ee1, 65c4685, f9633c6, 419d752) les décalent : chercher par nom de fonction ; tests cités par nom de cas.
-Détail du code : `carte-*.md` (8 nov. ; le puits y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ = croquis/croquis.js,
-IX = index.html ; vm/ et navigateur/ sont sous tests/.
+nov. ; relectures). Lignes citées : celles de 52cd3c8 (0e56c7b n'y change que le numéro 1.7.1) ; m116 à m127 (envoyés : 8f9094d, ab926ec, 6df324c,
+a5a5d05, 7a6c041, b562636, bd16bb9, d036ee1, 65c4685, f9633c6, 419d752, 27fb4c5) les décalent : chercher par nom de fonction ; tests cités par nom de
+cas. Détail du code : `carte-*.md` (8 nov. ; le puits y est encore une destination). [p] = présomption à signaler à l'utilisateur. CJ =
+croquis/croquis.js, IX = index.html ; vm/ et navigateur/ sont sous tests/.
 
 ## Réponses de l'utilisateur (7 et 13 nov. 2026)
 - Décision du 13 nov., mot pour mot : « Un rejet EP dans un puits est une non conformité. » (`.claude/etat-travaux.md`, l. 8 ; CLAUDE.md, l. 17).
@@ -341,7 +341,7 @@ IX = index.html ; vm/ et navigateur/ sont sous tests/.
 ## Découpage (m116 à m129 ; quatorze correctifs, batterie verte après chacun)
 Ordre : le commun, sans changement visible (m116) ; l'infiltration (m117, m118) ; l'arbitrage, règle générale, juste après m118 (m119) ; le puits
 (m120) ; les drains (m121 à m124) ; les destinations (m125 à m128), la palette après l'analyse et le rendu ; les cas limites des drains, après les
-réponses à Q6 et Q7 (m129). m116 à m126 sont envoyés : leur fiche ne change plus (celles de m116 à m123 renvoient au message de leur commit pour les
+réponses à Q6 et Q7 (m129). m116 à m127 sont envoyés : leur fiche ne change plus (celles de m116 à m123 renvoient au message de leur commit pour les
 tests et la garde). Chaque test nouveau échoue sur le commit d'avant ; vm/compat.js reste vert partout ; tests/LISEZMOI.md suit chaque test ajouté.
 Dès m117, poser un objet nouveau demande des tablettes à jour (D11). Après m129 : 14 correctifs depuis la fusion de la v1.7.0, 6 de libres avant la
 suivante.
@@ -481,31 +481,45 @@ suivante.
   - Risques et [p] : réparation écrite pour de bon (Q8) ; abréviation sans caractère imprimable : hexagone vide, « Nom () » à la légende, « ?? » au
     DXF (refus à la saisie en m127) ; « %% » d'un nom passe au DXF (codes d'AutoCAD), comme pour les textes libres ; « Étang (Ét) » et « étang (ét) »
     font deux lignes de légende.
-- **m127 Destinations (3) : palette et fiche** (souhait 2, 2e partie du cadrage, côté éditeur ; D10).
-  - Fichiers (CJ) : FAMILLES 'equ' ('exutoire' après 'puits'), choisirOutil (S.outil.modele), poserObjet, pose par cotes (entrerCotes, poserParCotes,
-    aperçu, aides), ficheHtml (CJ:4831 : les cinq champs, nom qui contient « puits » refusé), changement de type (D10).
-  - Pour l'utilisateur : « Autre destination » dans la palette Équipements, après « Puits ». La fiche règle nom, abréviation, article, jugement des EP
-    (« à arbitrer » au départ) et case du constat ; les EU y sont toujours non conformes. Une case autre que Milieu naturel ou Gargouille laisse,
-    comme l'infiltration, le raccordement à cocher.
-  - Test : navigateur/rejets.js p1 : poser « Autre destination », y relier une descente : ep-exu à arbitrer, fiche de la descente en 'att', « À
-    compléter : rejet des eaux pluviales à arbitrer » (échoue avant : pas d'item) ; nom « Étang », article « l' », jugement « Non conforme » :
-    « Descente EP : rejet dans l'étang » retenue NC ; « Conforme » : plus d'anomalie, une annulation la rend ; nom vidé ou « Puits du jardin » :
-    refusé, toast du puits ; un WC relié : « WC : rejet dans l'étang ». p2 : outil choisi avec un modèle « Étang » à arbitrer (C.outil,
-    navigateur/commun.js:105), posé par « Cotes » sur le fond de démonstration (comme navigateur/cotes.js) : nom, abréviation et jugement gardés,
-    « Étang » à l'aide et au panneau.
-  - Risques : le sélecteur « Type » des exutoires propose « Autre destination » (CJ:4840) ; les tests choisissent un outil par son type (C.outil), pas
-    par son rang [p].
-  - Note de m126 [p] : la fiche refuse un nom ou une abréviation sans caractère que le PDF sait écrire (pdfTxt les vide : émoji, « Ω » seul), comme un
-    nom vide. Un nom long en capitales est déjà traité au PDF (légende réduite puis coupée, m126) ; il reste entier à l'étiquette.
+- **m127 Destinations (3) : palette et fiche** (souhait 2, 2e partie du cadrage, côté éditeur ; D10). Fait : 27fb4c5, 15 nov.
+  - Fichiers (CJ) : FAMILLES 'equ' ('exutoire' après 'puits') ; defautsPt(t, m) (champs du modèle de l'outil, S.outil.modele), poserObjet, tapPlan,
+    entrerCotes (S.cotes.pour), poserParCotes et l'aperçu ; nomPose (aide de l'outil, aideCotes, cotesHtml) ; saisie (option max) ; ficheHtml (cinq
+    champs) ; actions 'dest' et 'destTxt' ; abDe, artDevant, oublierJugement ; ncJugee, integEdl et reconcilier (correction de la relecture).
+    LISEZMOI.txt (l'objet, sa fiche, la consigne de D11), croquis/LISEZMOI.txt (règle, conclusion « À compléter : rejet des eaux pluviales à
+    arbitrer »), tests/LISEZMOI.md ; tests/vm/copie.js (t et e).
+  - Pour l'utilisateur : « Autre destination » juste après « Puits » ; fiche à cinq champs (nom, abréviation, article, jugement des EP, « À arbitrer »
+    au départ, case du constat) ; refus par un toast, sans rien écrire : nom vide, qui contient « puits » ou « puit », ou illisible au PDF ;
+    abréviation hors de 2 ou 3 caractères, ou illisible ; jugement changé : décisions de Contrôles sur les rejets des EP qui y aboutissent retirées
+    dans le même pas ; « Type » : vers une destination, champs par défaut ; vers un autre type, champs effacés avec le toast d'aujourd'hui.
+  - Tests : vm/rejets.js x1 repris, modèle de la pose, x6, x7 (145 cas, 123 avant) ; navigateur/rejets.js a1 à a5 (66 cas, 47 avant) ; vm/copie.js t
+    et e ajustés (7 cas, 5 avant).
+  - Garde : compat 245/245 sans régénération ; aléatoire 8000 contre avant : aucune exception, aucun écart (10 666 analyses) ; sondes : seule la
+    palette Équipements change (« Autre destination » en dernier) ; sur 37 fiches, seuls le sélecteur « Type » des équipements et la fiche de la
+    destination changent ; vérification ciblée de la correction (integEdl, reconcilier) : un défaut majeur trouvé (un tampon béton dont le texte
+    retouché nomme un défaut passait en réserve écrite quand le regard devenait EP), corrigé : le dessin n'impose au dossier qu'un jugement
+    (ncJugee) ; la correction relue par deux relecteurs (un défaut dit majeur, une réserve gardée, revenue ou réécrite sur un enregistrement passé en
+    EU au dossier, ramené à un mineur par la contre-vérification : la réécriture corrigée, la réserve gardée comme en m126 ; trois mineurs d'ordre des
+    gestes corrigés) ; gestes tirés au hasard sur la nature, contre m126 : seuls des écarts voulus.
+  - Relecture : défaut bloquant corrigé : « Réserve » choisie après « Non conforme » laissait l'anomalie non conforme au dossier ; le dessin y écrit
+    maintenant un jugement (ncJugee : une nature que la règle du dossier ne donne pas sur le texte du dessin, jamais une réserve hors EP), en place
+    (reconcilier, aussi quand l'enregistrement revient en EP) comme à la recréation d'une copie (integEdl) ; une nature écrite qui suivait le dessin
+    est effacée (null : la règle) quand il passe à une nature qui n'est pas un jugement. Écartés : le même repli dans destDe (il changerait le rendu
+    de m125 et m126 ; avec Q8 en m128) ; « le » proposé en pointillé (un champ de plus ; à la place, un toast et l'aide de la ligne Article).
+  - Risques et [p] : « puit » refusé comme mot ; article réglé par la première lettre du nom (h, y, chiffre : inchangé) ; l'abréviation qui suivait le
+    nom suit le nouveau ; textes retouchés gardés quand le jugement change ; nature : sous « Réserve », un texte de rejet retouché qui nomme un défaut
+    (« cassé ») garde la réserve (le jugement prime) ; un texte de rejet retouché qui mentionne un « tampon béton » reste en réserve après « Non
+    conforme » (la règle du dossier lit le texte, a5) ; une réserve écrite par le jugement reste quand le réseau passe en EU au dossier (une nature
+    écrite prime, comme en m126) ; une copie de retrait au texte retouché « … tampon béton fissuré » est recréée non conforme (avant : réserve
+    écrite).
 - **m128 Destinations (4) : modèles de la tablette, documentation** (souhait 2, 2e et 4e parties du cadrage : Réglages, LISEZMOI, générateur ; D3, D10
   à D12).
   - Fichiers : IX : CROQ_DEF (IX:3143), croqCfgLire et croqCfgEcrire (IX:3146-3147) gardent `exutoires` ; vcEditeur (IX:3353) et ed.ouvrir (IX:3416)
     passent les options `exutoires` et `enregistrerExutoires(liste)`, comme les aides ; croqReglagesHtml (IX:3523-3529) : liste « Destinations
     ajoutées » (modifier, retirer ; D12) ; actions près de IX:3551. CJ : ouvrirPalette (items 'pt:exutoire:<id>'), « + Nouvelle destination » (D10).
     Labo : localStorage 'vcl-exutoires', comme 'vcl-aides' (croquis/index.html:267-268). vm/generateur.js : option `exutoires` avec 'exutoire'.
-    LISEZMOI.txt (texte de D3, consigne de D11), croquis/LISEZMOI.txt (l. 11, 26-29, 51 : règle des autres destinations ; l. 45-47, liste
-    des conclusions : ajouter en tête « À compléter : rejet des eaux pluviales à arbitrer », la conclusion 'exu' de m125, qui passe avant
-    'boite' dans conclusion).
+    LISEZMOI.txt et croquis/LISEZMOI.txt : les destinations ajoutées seulement (texte de D3 : « + Nouvelle destination », liste des Réglages,
+    'vcl-exutoires' du labo) ; m127 y a écrit l'objet, sa fiche, la règle, la conclusion « À compléter : rejet des eaux pluviales à arbitrer » et la
+    consigne de D11, que l'essai de la garde vérifie pour « ou plus ancienne ».
   - Pour l'utilisateur : ses destinations (étang, fossé…) restent dans la palette d'un croquis à l'autre ; les Réglages les listent.
   - Test (navigateur/rejets.js) : m1 « + Nouvelle destination » : fiche de départ (nom vide ou qui contient « puits » refusé, « le », « à arbitrer »,
     « autre ») ; « Étang » (Ét, l', NC, autre) enregistrée dans croquisConfig.exutoires (échoue avant : pas d'item), posée depuis la palette rouverte
@@ -514,7 +528,8 @@ suivante.
   - Garde : un croquis du lot ouvert sur une copie de 22df7f2 (v1.6.3) : plan PDF et fiche, pour la consigne de D11 [p].
   - Risques : croqCfgEcrire n'écrit aujourd'hui que {actif, aides} (IX:3147 ; retour en arrière : D11).
   - Note de m126 (Q8 b, sauf avis contraire) : planValide ne remplace que les champs d'une destination ou un p.drain qui ne sont pas du texte ; une
-    valeur inconnue est gardée, lue par les replis de destDe et sorteDrain ; ajuster le cas 14 de navigateur/constat-boite.js.
+    valeur inconnue est gardée, lue par les replis de destDe et sorteDrain ; ajuster le cas 14 de navigateur/constat-boite.js ; m127 a écarté le même
+    repli dans destDe (une abréviation illisible au PDF y reste, la fiche n'en écrit plus) : à décider ici avec Q8.
 - **m129 Drains (5) : cas limites des drains** (Q6, Q7 ; D4, D5, D10) : Q6, (b), recommandée, sauf avis contraire (avec (c), sans objet) ; Q7, (a),
   sauf avis contraire.
   - Fichiers (CJ) : libresDe ; avec (a), controles (aide du sansexu). croquis/LISEZMOI.txt.
