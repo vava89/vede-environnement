@@ -834,6 +834,14 @@ function estDest(t){ var ty = Object.prototype.hasOwnProperty.call(T, t) ? T[t] 
    ('X:ETANG:arbitrer:autre') ; ni ab ni art n'y entrent. Elle ne se découpe pas : un nom peut contenir « : » */
 function nomCle(nom){ return norm(nom).toUpperCase().replace(/\s+/g, ' ').trim(); }
 function cleDest(code, d){ return code + ':' + nomCle(d.nom) + ':' + d.ep + ':' + d.cst; }
+/* fiche d'une destination (m127). Abréviation tirée d'un nom : ses deux premiers caractères que le PDF sait écrire, espaces ôtés (« 💧 Mare »
+   donne « Ma »). Article après un nouveau nom : « l' » devant une voyelle ; « le » au lieu de « l' » devant une consonne (le genre ne se
+   devine pas : repli de destDe) ; sinon, celui d'avant (h ou y : la haie, l'herbage ; chiffre, signe) [p] */
+function abDe(nom){ return pdfTxt(nom).replace(/\s+/g, '').slice(0, 2); }
+function artDevant(art, nom){
+  var c = norm(nom).charAt(0);
+  return /[aeiouœæ]/.test(c) ? 'l\'' : art === 'l\'' && /[bcdfgjklmnpqrstvwxz]/.test(c) ? 'le' : art;
+}
 /* ligne d'une destination d (destDe), de la forme de celles de la table (décisions D6 et D7) : textes avec son article et son nom (initiale
    en minuscule, sauf un sigle) ; source EU : toujours non conforme ; source EP : selon son jugement, aucune anomalie si conforme (réserve,
    non conforme, ou non conforme à arbitrer : arbitrer) ; au constat, en EU le milieu naturel, en EP la case choisie */
@@ -911,8 +919,8 @@ def('gargouille', {fam: 'exu', lib: 'Gargouille', g: 'f', role: 'exutoire', form
 def('milieu', {fam: 'exu', lib: 'Rejet en milieu naturel', ab: 'MN', role: 'exutoire', forme: 'app', exu: 'MILIEU'});
 /* puits (m120) : rejet non conforme, en EU comme en EP ; rappel : la phrase de l'aide de l'outil et de la fiche (décision D3) */
 def('puits', {fam: 'exu', lib: 'Puits', role: 'exutoire', forme: 'puits', exu: 'PUITS', rappel: 'Un puits perdu (qui infiltre les eaux) se dessine en Puisard.'});
-/* autre destination (m125, décision D3) : étang, fossé… ; nom, ab, art, ep et cst dans p (destDe). Hors de FAMILLES jusqu'à m127 (ni palette,
-   ni sélecteur « Type ») : seul un croquis qui la porte déjà la montre */
+/* autre destination (m125, décision D3) : étang, fossé… ; nom, ab, art, ep et cst dans p (destDe), réglés dans sa fiche (m127) ; dans la
+   palette Équipements et le sélecteur « Type », après le puits (m127, D10) */
 def('exutoire', {fam: 'exu', lib: 'Autre destination', g: 'f', role: 'exutoire', forme: 'exutoire', exu: 'X'});
 def('regard_pub', {fam: 'pub', lib: 'Regard public', role: 'passage', forme: 'regpub', regard: true});
 def('test', {fam: 'ann', lib: 'Point de test', role: 'note', forme: 'test'});
@@ -921,12 +929,12 @@ var FAMILLES = [
   {id: 'eu', lib: 'Appareils EU', court: 'EU', types: ['wc', 'lavabo', 'douche', 'baignoire', 'sdb', 'evier', 'cuisine', 'lavelinge', 'lavevaisselle', 'chaudiere', 'siphon_garage', 'attente']},
   {id: 'ep', lib: 'Ouvrages EP', court: 'EP', types: ['descente', 'grille', 'caniveau', 'siphon_sol', 'siphon_cour', 'drain', 'tropplein']},
   {id: 'reg', lib: 'Regards', court: 'Regards', types: ['regard', 'boite', 'te']},
-  {id: 'equ', lib: 'Équipements et exutoires', court: 'Équip.', types: ['pr', 'clapet', 'fosse', 'jonction', 'puisard', 'infiltration', 'gargouille', 'milieu', 'puits']},
+  {id: 'equ', lib: 'Équipements et exutoires', court: 'Équip.', types: ['pr', 'clapet', 'fosse', 'jonction', 'puisard', 'infiltration', 'gargouille', 'milieu', 'puits', 'exutoire']},
   {id: 'pub', lib: 'Réseau public', court: 'Public', types: ['regard_pub']},
   {id: 'ann', lib: 'Annotations', court: 'Notes', types: ['test', 'zone']}
 ];
 VC.RES = RES; VC.METH = METH; VC.TYPES = T; VC.FAMILLES = FAMILLES;
-function defautsPt(t){
+function defautsPt(t, m){
   var ty = T[t] || {}, p = {st: 'existant', obs: ''};
   if (ty.role === 'source'){ p.meth = []; p.niv = ''; }
   if (t === 'descente'){ p.visitable = ''; p.cote = ''; }
@@ -935,8 +943,9 @@ function defautsPt(t){
   if (t === 'test'){ p.meth = []; p.resultat = ''; }
   if (t === 'zone') p.r = 1.5;
   if (ty.oriente) p.a = 0;
-  /* autre destination (m125) : champs d'une destination sans nom ni jugement (destDe) */
-  if (ty.exu && exuDe(ty.exu) && exuDe(ty.exu).dest) Object.assign(p, destDe(null));
+  /* autre destination (m125) : champs d'une destination sans nom ni jugement (destDe) ; m : modèle de la pose (m127, D10), ses cinq champs
+     lus par destDe, rien d'autre (ni statut ni observation) ; sans effet sur un autre type */
+  if (ty.exu && exuDe(ty.exu) && exuDe(ty.exu).dest) Object.assign(p, destDe(m ? {p: m} : null));
   return p;
 }
 function defautsLn(t, o){
@@ -1677,6 +1686,9 @@ function reglesInteg(doc, an, idx){
   });
   return out;
 }
+/* nature du dessin d (obs, reseau, nc) qui est un jugement : la règle de l'application ne la donne pas sur le texte du dessin (jugement des
+   EP d'une destination : m127) ; jamais une réserve hors EP (res : réseau de l'enregistrement) */
+function ncJugee(d, res){ return VC.ncAnomalie({reseau: d.reseau, observation: d.obs}) !== !!d.nc && (!!d.nc || res === 'EP'); }
 /* État voulu sur l'état des lieux : liste numérotée comme le dossier, enregistrements à retirer */
 function integEdl(doc, an, ext, forcer, telQuel){
   forcer = forcer || {};
@@ -1712,9 +1724,18 @@ function integEdl(doc, an, ext, forcer, telQuel){
         it.obs = apres('obs') ? vt.obs : ret.obs && sv.observation != null ? String(sv.observation) : a.obs;
         it.preco = apres('preco') ? vt.preco : ret.preco && sv.preconisation != null ? String(sv.preconisation) : a.preco || '';
         if (ret.reseau && (sv.reseau === 'EU' || sv.reseau === 'EP')) it.reseau = sv.reseau;
-        /* nature : retouchée depuis, retouchée dans la copie, celle du dessin d'aujourd'hui si la copie avait celle du dessin d'alors, sinon la
-           règle de l'application (rien n'est écrit à la recréation) */
-        if (apres('nc')) it.nc = !!vt.nc; else if (typeof sv.nc === 'boolean') it.nc = ret.nc ? sv.nc : !!a.nc; else { it.nc = VC.ncAnomalie({reseau: it.reseau, observation: it.obs}); it.ncLibre = true; }
+        /* nature : retouchée depuis, retouchée dans la copie, ou celle de la copie si le dessin n'en a pas changé. Sinon (copie sans nature
+           écrite, ou avec celle du dessin d'alors, qui a changé), comme en place (reconcilier) : celle du dessin d'aujourd'hui si c'est un
+           jugement (ncJugee : jugement des EP d'une destination, m127), sinon la règle de l'application, sur le texte et le réseau retenus
+           (texte « … tampon béton » : réserve ; un tampon béton passé en EP dont le texte nomme un défaut reste non conforme). Rien n'est
+           écrit à la recréation quand cette règle donne la nature retenue (ncLibre) */
+        if (apres('nc')) it.nc = !!vt.nc;
+        else if (typeof sv.nc === 'boolean' && (ret.nc || sv.nc === !!a.nc)) it.nc = sv.nc;
+        else {
+          var nL = VC.ncAnomalie({reseau: it.reseau, observation: it.obs});
+          it.nc = ncJugee(a, it.reseau) ? !!a.nc : nL;
+          if (it.nc === nL) it.ncLibre = true;
+        }
       }
       else if (a.manu){ it.obs = a.obs; it.preco = a.preco; it.nc = a.nc; }
       else { it.obs = d.obs || a.obs; it.preco = d.preco != null && d.preco !== '' ? d.preco : a.preco; it.nc = d.nc != null ? d.nc : a.nc; }
@@ -1799,7 +1820,8 @@ function reconcilier(doc, an, ext, o){
         ['id', 'createdAt', 'localisation', 'photoNonRequise', 'categorie'].forEach(function(k){ if (sv[k] != null) c[k] = sv[k]; });
         /* ligne du constat : celle de la copie si le technicien l'avait changée, sinon celle du dessin d'aujourd'hui */
         if (sv.installation != null && ret.installation) c.installation = sv.installation;
-        /* nature : celle de la copie ou retouchée depuis ; laissée à la règle de l'application si elle l'était (rien d'écrit) */
+        /* nature : celle de la copie, retouchée depuis, ou celle du dessin d'aujourd'hui (integEdl) ; laissée à la règle de l'application
+           quand celle-ci la donne (ncLibre : rien d'écrit) */
         c.nc = a.ncLibre ? null : !!a.nc;
         /* valeurs du dessin notées : celles de la copie pour ce qui avait été retouché (la retouche reste reconnue), celles d'aujourd'hui
            pour le reste (elles suivront le dessin) */
@@ -1829,8 +1851,18 @@ function reconcilier(doc, an, ext, o){
       suit('observation', 'obs', a.r0.obs, r.observation || '');
       suit('preconisation', 'preco', a.r0.preco, r.preconisation || '');
       suit('reseau', 'reseau', a.r0.reseau, r.reseau);
-      /* nature laissée à la règle de l'application (r.nc absent) : elle suit le réseau et le texte, rien à écrire */
-      if (r.nc != null) suit('nc', 'nc', a.r0.nc, r.nc); else if (au.nc !== a.r0.nc){ nAu.nc = a.r0.nc; n++; }
+      /* nature laissée à la règle de l'application (r.nc absent) : elle suit le réseau et le texte, sauf un jugement du dessin (ncJugee :
+         jugement des EP d'une destination, m127) que cette règle ne donne pas sur l'enregistrement : il y est écrit, comme à la création
+         (vcAppliquer), que le dessin vienne d'en changer ou non (enregistrement revenu en EP). Une nature écrite égale à celle du dessin noté
+         suit le dessin quand il en change : écrite si c'est un jugement, sinon effacée (null : la règle, comme à la recréation d'une copie ;
+         texte « … tampon béton » : réserve ; un tampon béton passé en EP dont le texte nomme un défaut reste non conforme) ; une nature
+         retouchée reste la sienne */
+      var resN = ch.reseau || r.reseau, jugeN = ncJugee(a.r0, resN);
+      if (r.nc != null){ if (r.nc === au.nc && a.r0.nc !== au.nc){ ch.nc = jugeN ? a.r0.nc : null; nAu.nc = a.r0.nc; n++; } }
+      else {
+        if (au.nc !== a.r0.nc){ nAu.nc = a.r0.nc; n++; }
+        if (jugeN && VC.ncAnomalie({reseau: resN, observation: ch.observation != null ? ch.observation : r.observation}) !== a.r0.nc){ ch.nc = a.r0.nc; n++; }
+      }
       suit('installation', 'installation', ligneDe(a), r.installation || '');
     }
     var codes = (a.codes || []).slice(), codesChange = JSON.stringify(r.croquis.codes || []) !== JSON.stringify(codes);
@@ -3953,7 +3985,7 @@ function editeur(racine, opts){
          repart de ce toucher (triple toucher) */
       var dp = S.dernierePose;
       if (dp && tq - dp.t < 700 && Math.hypot(x - dp.x, y - dp.y) < 24 && dp.vue === cleVue() && el(dp.id)){ choisirPose(dp.id); return; }
-      poserObjet(o.t, x, y); return;
+      poserObjet(o.t, x, y, o.modele); return;
     }
     if (o.k === 'tx'){ poserTexte(x, y); return; }
     if (o.k === 'ln'){
@@ -4372,9 +4404,10 @@ function editeur(racine, opts){
     });
     return sf;
   }
-  function poserObjet(t, x, y){
+  /* m : modèle de l'outil (destination, m127 ; D10), copié par defautsPt */
+  function poserObjet(t, x, y, m){
     instantane();
-    var w = S.vue.monde(x, y), o = {id: uid(), k: 'pt', t: t, x: w.x, y: w.y, p: defautsPt(t), lab: null};
+    var w = S.vue.monde(x, y), o = {id: uid(), k: 'pt', t: t, x: w.x, y: w.y, p: defautsPt(t, m), lab: null};
     if (T[t].oriente) o.p.a = Math.round(((S.doc.rot || 0) * 180 / Math.PI) * 10) / 10;
     /* accroche aux seuls tracés : le symbole sous le doigt est déjà choisi (tapPlan) ; au-delà, l'objet se pose sur le tuyau ou l'extrémité
        libre la plus proche, même tout près d'un objet voisin (comme au lâcher d'un glissé) */
@@ -4560,7 +4593,8 @@ function editeur(racine, opts){
     if (!refsCotes().length){ toast('Aucune ligne de référence affichée : ni façade, ni limite de parcelle, ni complément.', 4000); return; }
     quitterSaisie();
     S.aligner = null; S.relier = null; S.placer = null; S.apercu = null;
-    S.cotes = {etape: 'cote', pour: depEsc ? {esc: true} : id ? {id: id, t: o.t, mesure: !!mesure} : {t: o.t}, cands: null, k: 0, w0: null, ref: null, c: null, essai: null, refus: 0, t0: Date.now()};
+    /* pose : le modèle de l'outil (destination, m127 ; D10), pour « Poser », l'aperçu et les aides */
+    S.cotes = {etape: 'cote', pour: depEsc ? {esc: true} : id ? {id: id, t: o.t, mesure: !!mesure} : o.modele ? {t: o.t, modele: o.modele} : {t: o.t}, cands: null, k: 0, w0: null, ref: null, c: null, essai: null, refus: 0, t0: Date.now()};
     if (S.sel || S.panneau){ S.sel = null; S.panneau = null; majPanneau(); }
     fermerPalette(); fermerAccroches(); majAide(); redessiner();
   }
@@ -4670,12 +4704,18 @@ function editeur(racine, opts){
     var w = directionCotes(r, c), O = c.coin === 'A' ? r.A : r.B, L = Math.hypot(r.B.x - r.A.x, r.B.y - r.A.y);
     return w ? {O: {x: O.x, y: O.y}, w: w, facade: c.mode === 'long' && (r.nat === 'bati' || r.nat === 'complement') && c.e < 0.005 && c.d <= L + 0.005} : null;
   }
+  /* ce que pose l'outil, pour les aides et le panneau « Cotes » : {lib, g} du type ; une destination armée d'un modèle (m127, D10) porte son
+     nom, au féminin (« posée ») avec l'article « la » [p] */
+  function nomPose(t, m){
+    var ty = T[t] || {}, d = m && estDest(t) ? destDe({p: m}) : null;
+    return d && d.nom !== ty.lib ? {lib: d.nom, g: d.art === 'la' ? 'f' : ''} : {lib: ty.lib || '', g: ty.g};
+  }
   function aideCotes(){
     var C = S.cotes, r = C.ref, nb = C.cands ? C.cands.length : 0, h, id = C.pour.id, mes = id && C.pour.mesure, dep = !!C.pour.esc;
     var nat = r ? '<strong>' + esc(NAT_COTES[r.nat] || '') + '</strong>' + (nb > 1 ? ' (' + (C.k + 1) + ' sur ' + nb + ')' : '') : '';
     var autre = '<button type="button" class="vc-b vc-bt" data-a="cotesAutre">' + ico('retour', 18) + 'Autre trait</button>';
     var titre = mes ? 'Mesurer depuis une façade' : id ? 'Déplacer par cotes' : 'Pose par cotes';
-    if (C.etape === 'cote') h = '<span><strong>' + (dep ? 'Départ de l\'escalier par cotes' : titre) + '</strong>' + (dep ? '' : ' (' + esc((T[C.pour.t] || {}).lib || '') + ')')
+    if (C.etape === 'cote') h = '<span><strong>' + (dep ? 'Départ de l\'escalier par cotes' : titre) + '</strong>' + (dep ? '' : ' (' + esc(id ? (T[C.pour.t] || {}).lib || '' : nomPose(C.pour.t, C.pour.modele).lib) + ')')
       + '. Touchez la façade ou la limite de référence.</span>';
     else if (C.etape === 'endroit') h = '<span>' + nat + '. Touchez ' + (dep ? 'l\'endroit du départ' : (id ? 'le nouvel endroit' : 'l\'endroit') + ' de l\'objet') + (nb > 1 ? ' ; touchez de nouveau le même point du trait pour la ligne suivante' : '') + '.</span>' + autre;
     else h = '<span>' + nat + ' : réglez les cotes dans le panneau, puis « ' + (id ? 'Déplacer' : dep ? 'Poser le départ' : 'Poser') + ' »'
@@ -4686,7 +4726,7 @@ function editeur(racine, opts){
     var C = S.cotes, r = C.ref, c = C.c, prol = c.mode === 'prol', g = coinGauche(r) || 'A';
     var cotes = prol ? [['droite', 'Droite'], ['gauche', 'Gauche']] : r.nat === 'limite' && r.dedans ? [['derriere', 'Intérieur'], ['devant', 'Extérieur']] : [['devant', 'Devant'], ['derriere', 'Derrière']];
     /* objet existant (m102) : « mesuré » ou « déplacé », et « Déplacer » à la place de « Poser » ; départ d'un escalier (m108) : « Poser le départ » */
-    var dep = !!C.pour.esc, ty = dep ? {lib: 'Départ de l\'escalier'} : T[C.pour.t] || {}, id = C.pour.id, verbe = id ? (C.pour.mesure ? ' mesuré' : ' déplacé') : ' posé';
+    var dep = !!C.pour.esc, id = C.pour.id, ty = dep ? {lib: 'Départ de l\'escalier'} : id ? T[C.pour.t] || {} : nomPose(C.pour.t, C.pour.modele), verbe = id ? (C.pour.mesure ? ' mesuré' : ' déplacé') : ' posé';
     var ok = id ? '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesDeplacer">' + ico('valider', 18) + 'Déplacer</button>'
       : '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesPoser">' + ico('valider', 18) + (dep ? 'Poser le départ' : 'Poser') + '</button>';
     return '<p class="vc-muet">' + esc(ty.lib || '') + verbe + (ty.g === 'f' ? 'e' : '') + ' depuis : <strong>' + esc(NAT_COTES[r.nat] || '') + '</strong> (côté de '
@@ -4743,7 +4783,7 @@ function editeur(racine, opts){
     var t = C.pour.t, P = placer(C.ref, C.c);
     if (!T[t] || !P){ toast('Position incalculable : vérifiez les cotes.'); return; }
     instantane();
-    var o = {id: uid(), k: 'pt', t: t, x: P.x, y: P.y, p: defautsPt(t), lab: null}, ang = angleCotes(t, C.ref);
+    var o = {id: uid(), k: 'pt', t: t, x: P.x, y: P.y, p: defautsPt(t, C.pour.modele), lab: null}, ang = angleCotes(t, C.ref);
     if (ang != null) o.p.a = ang;
     S.doc.el.push(o);
     analyse();
@@ -4818,7 +4858,7 @@ function editeur(racine, opts){
         ctx.restore(); return;
       }
       /* objet existant (m102) : son symbole, avec son angle et sa couleur ; sinon celui de l'outil, avec les valeurs de la pose */
-      var o = C.pour.id ? el(C.pour.id) : null, ty = o ? o.t : C.pour.t, e = o || {k: 'pt', t: ty, p: defautsPt(ty)}, ang = o ? (o.p && o.p.a) || 0 : angleCotes(ty, r);
+      var o = C.pour.id ? el(C.pour.id) : null, ty = o ? o.t : C.pour.t, e = o || {k: 'pt', t: ty, p: defautsPt(ty, C.pour.modele)}, ang = o ? (o.p && o.p.a) || 0 : angleCotes(ty, r);
       ctx.globalAlpha = .55;
       if (ty === 'zone'){ ctx.beginPath(); ctx.arc(eP.x, eP.y, Math.max(10, (num(e.p.r) || 1.5) * S.vue.s), 0, 2 * Math.PI); ctx.setLineDash([5, 4]); ctx.strokeStyle = rgbCss(RES.ANN.rgb); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); }
       else dessinerPrims(ctx, primitives(e, couleurPt(e, o ? S.an : null), angleSymbole(ty, ang, S.doc.rot || 0)), eP.x, eP.y, Math.max(S.vue.s * E() / 1000, (ty === 'jonction' ? 4 : 8.5) / rayonSymbole(ty)));
@@ -4977,6 +5017,7 @@ function editeur(racine, opts){
   function choisirOutil(o){
     fermerMenu();
     if (S.brouillon && S.brouillon.pts.length >= 2) terminerTrace(); else S.brouillon = null;
+    /* l'outil est gardé tel quel : pour une destination, avec son modèle (o.modele, m127 ; D10), que les deux poses copient */
     S.outil = o; S.aligner = null; S.relier = null; S.apercu = null; S.placer = null;
     /* un autre outil met fin à la pose par cotes (m101), panneau « Cotes » compris */
     if (S.cotes){ S.cotes = null; if (S.panneau === 'cotes'){ S.panneau = null; majPanneau(); } }
@@ -5024,7 +5065,7 @@ function editeur(racine, opts){
       h = '<span><strong>' + esc(oo.lib) + '</strong> : ' + (n ? n + ' point' + (n > 1 ? 's' : '') + '. ' + (gl ? 'Glissez ou touchez' : 'Touchez') + ' le point suivant' + (oo.t === 'tr' && aideOn('finir') ? ' ; le ' + nomTrace(oo.t, oo.p).toLowerCase() + ' se termine sur un objet' : '') + (n >= 2 ? ' ; touchez à nouveau le dernier point pour terminer.' : '.') : (gl ? 'glissez depuis le point de départ, ou touchez-le' : 'touchez le point de départ') + ' (un objet, un tracé ou un point libre)' + (gl ? ' ; deux doigts pour déplacer le plan' : '') + '.') + '</span>'
         + (n ? '<button type="button" class="vc-b vc-bt" data-a="retirerPoint">' + ico('annuler', 18) + 'Point</button><button type="button" class="vc-b vc-bt" data-a="annulerTrace">' + ico('fermer', 18) + 'Abandonner</button>' + (n >= 2 ? '<button type="button" class="vc-b vc-bt vc-prim" data-a="terminerTrace">' + ico('valider', 18) + 'Terminer</button>' : '') : '');
     }
-    else if (o.k === 'pt') h = '<span>Touchez le plan pour poser : <strong>' + esc(T[o.t].lib) + '</strong>' + (T[o.t].role === 'passage' ? ' (posé sur un tracé, il s\'y insère)' : '') + '.' + (T[o.t].rappel ? ' ' + esc(T[o.t].rappel) : '') + '</span>'
+    else if (o.k === 'pt') h = '<span>Touchez le plan pour poser : <strong>' + esc(nomPose(o.t, o.modele).lib) + '</strong>' + (T[o.t].role === 'passage' ? ' (posé sur un tracé, il s\'y insère)' : '') + '.' + (T[o.t].rappel ? ' ' + esc(T[o.t].rappel) : '') + '</span>'
       + '<button type="button" class="vc-b vc-bt" data-a="cotes" title="Poser à une distance mesurée d\'une façade ou d\'une limite">' + ico('cotes', 18) + 'Cotes</button>';
     else if (o.k === 'tx') h = '<span>Touchez le plan à l\'endroit du texte.</span>';
     aide.innerHTML = h; aide.hidden = !h; placerBarres();
@@ -5152,7 +5193,7 @@ function editeur(racine, opts){
     }).join('') + '</div>';
   }
   function champ(lib, html, aide){ return '<div class="vc-champ"><div class="vc-lab">' + lib + (aide ? ' <small>' + aide + '</small>' : '') + '</div>' + html + '</div>'; }
-  function saisie(k, val, o){ o = o || {}; return '<input class="vc-in" type="text"' + (o.num ? ' inputmode="decimal"' : '') + ' data-a="' + (o.a || 'propTxt') + '" data-k="' + k + '" value="' + esc(val == null ? '' : val) + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + (o.lab ? ' aria-label="' + esc(o.lab) + '"' : '') + '>'; }
+  function saisie(k, val, o){ o = o || {}; return '<input class="vc-in" type="text"' + (o.num ? ' inputmode="decimal"' : '') + ' data-a="' + (o.a || 'propTxt') + '" data-k="' + k + '" value="' + esc(val == null ? '' : val) + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + (o.lab ? ' aria-label="' + esc(o.lab) + '"' : '') + (o.max ? ' maxlength="' + o.max + '"' : '') + '>'; }
   function zone(k, val, o){ o = o || {}; return '<textarea class="vc-in" rows="2" data-a="' + (o.a || 'propTxt') + '" data-k="' + k + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + (o.lab ? ' aria-label="' + esc(o.lab) + '"' : '') + '>' + esc(val || '') + '</textarea>'; }
   var OUI_NON = [['oui', 'Oui'], ['non', 'Non']];
   function etatSource(e){ return etatSourceDe(S.doc, S.an, S.liste, S.mode, e.id); }
@@ -5214,6 +5255,18 @@ function editeur(racine, opts){
       /* source EP qu'aucun tracé ne tient (m118 ; D10) : « Rejet au sol » pose d'un toucher une infiltration à 1 m et le tronçon qui l'y relie */
       if (rejetSolPossible(e)) h += champ('Rejet', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="rejetSol">Rejet au sol</button></div>', 'infiltration au sol à 1 m, reliée par un tronçon');
       if (fam && fam.types.length > 1 && e.t !== 'jonction') h += champ('Type', '<select class="vc-in" data-a="type" aria-label="Type">' + fam.types.filter(function(t){ return t !== 'jonction'; }).map(function(t){ return '<option value="' + t + '"' + (t === e.t ? ' selected' : '') + '>' + esc(T[t].lib) + '</option>'; }).join('') + '</select>');
+      /* autre destination (m127 ; D3, D10) : ses cinq champs, aux valeurs que lisent les règles (destDe), un pas d'annulation chacun ; le nom
+         et l'abréviation s'enregistrent en quittant le champ (destTxt), les puces aussitôt (dest) */
+      if (estDest(e.t)){
+        var dd = destDe(e);
+        h += champ('Nom', saisie('nom', dd.nom, {a: 'destTxt', lab: 'Nom de la destination', max: 40}), 'étang, fossé, mare… (40 caractères au plus)');
+        h += champ('Abréviation', saisie('ab', dd.ab, {a: 'destTxt', lab: 'Abréviation du symbole', max: 3}), '2 ou 3 caractères, dans le symbole');
+        h += champ('Article', chipsHtml('art', [['le', 'le'], ['la', 'la'], ['l\'', 'l\'']], dd.art, {a: 'dest', label: 'Article'}), esc(ligneDest(dd).eu.obs));
+        h += champ('Jugement des EP', chipsHtml('ep', [['conforme', 'Conforme'], ['reserve', 'Réserve'], ['nc', 'Non conforme'], ['arbitrer', 'À arbitrer']], dd.ep, {a: 'dest', label: 'Jugement des EP'}),
+          'les EU y sont toujours non conformes ; le changer efface les décisions de Contrôles sur les rejets des EP');
+        h += champ('Case du constat', chipsHtml('cst', [['MILIEU', 'Milieu naturel'], ['GARG', 'Gargouille'], ['puisard', 'Puisard'], ['recup', 'Récupérateur'], ['infil', 'Infiltration diffuse'], ['autre', 'Indéterminé/Autres']],
+          dd.cst, {a: 'dest', label: 'Case du constat'}), 'en EP ; hors milieu naturel et gargouille, le raccordement reste à cocher, comme pour l\'infiltration');
+      }
       if (ty.role === 'source' || e.t === 'test') h += champ('Méthode de test', chipsHtml('meth', METH.map(function(m){ return [m[0], m[1]]; }), e.p.meth || [], {label: 'Méthode de test'}), ty.role === 'source' ? 'comment l\'écoulement a été établi' : '');
       if (e.t === 'descente'){ h += champ('Façade', chipsHtml('cote', [['avant', 'Avant'], ['arriere', 'Arrière']], e.p.cote)); h += champ('Visitable', chipsHtml('visitable', OUI_NON, e.p.visitable)); }
       if (ty.role === 'source') h += champ('Niveau', chipsHtml('niv', NIV, e.p.niv));
@@ -5541,6 +5594,18 @@ function editeur(racine, opts){
       else { var pp = pucePressee, montree = pp && pp.el === b && Date.now() - pp.t < 2000 ? pp.on : e.p[k] === v; e.p[k] = montree && e.p[k] === v ? '' : v; }
       pucePressee = null; apresProp(e); return;
     }
+    /* autre destination (m127 ; D10) : article, jugement des EP, case du constat ; la puce déjà choisie ne change rien. Seul ce champ est
+       écrit, avec le nom pour un article quand il manque (sans nom, l'article reste « l' ») : les autres champs gardent leur valeur, même
+       inconnue de cette version (Q8 b). Le jugement changé retire, dans le même pas d'annulation, les décisions du croquis sur les rejets
+       des EP qui y aboutissent (oublierJugement) */
+    if (a === 'dest' && e && estDest(e.t)){
+      var kD = b.dataset.k, vD = b.dataset.v, dD = destDe(e);
+      if (!/^(art|ep|cst)$/.test(kD) || dD[kD] === vD) return;
+      instantane(); e.p[kD] = vD;
+      if (kD === 'art' && destDe(e).art !== vD) e.p.nom = dD.nom;
+      if (kD === 'ep') oublierJugement(e.id);
+      apresProp(e); return;
+    }
     if (a === 'orienter' && e){ instantane(); e.p.a = (((e.p.a || 0) + parseFloat(b.dataset.v)) % 360 + 360) % 360; changement(); return; }
     if (a === 'rayon' && e){ var r0 = num(e.p.r) || 1.5, nr = clamp(r0 + parseFloat(b.dataset.v), .5, 30); if (nr === r0) return; instantane(); e.p.r = nr; changement(); return; }
     /* boîte en limite : mesure reprise du plan, ou boîte placée d'après la distance et le côté saisis (limitePlan revérifie la boîte) */
@@ -5672,6 +5737,22 @@ function editeur(racine, opts){
     }
     apresProp(e, {garderPanneau: true}); majPanneauBientot();
   }
+  /* jugement des EP de la destination id changé (D10) : les décisions du croquis (écartée, nature) des rejets des EP (ep-exu) des sources qui
+     y aboutissent, dans l'état des lieux comme dans l'avant-projet, sont retirées [p] : sinon un rejet écarté quand il était à arbitrer le
+     resterait, non conforme. Textes retouchés et bulles restent ; une nature choisie au dossier aussi (l'enregistrement fait foi) */
+  function oublierJugement(id){
+    var dec = S.doc.decisions || {};
+    ['edl', 'avp'].forEach(function(m){
+      var an = analyser(S.doc, m);
+      Object.keys(an.resObj).forEach(function(src){
+        var cle = 'ep-exu:' + src, d = dec[cle];
+        if (!d || typeof d !== 'object' || !(an.resObj[src].term || []).some(function(t){ return t.id === id; })) return;
+        delete d.st; delete d.nc;
+        if (d.surCopie && typeof d.surCopie === 'object'){ delete d.surCopie.nc; if (!Object.keys(d.surCopie).length) delete d.surCopie; }
+        if (!Object.keys(d).length) delete dec[cle];
+      });
+    });
+  }
   function apresProp(e, o){
     if (e.p.st === '') e.p.st = 'existant';
     if (!e.lab && texteEtiquette(e, S.an)){ analyse(); e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); }
@@ -5686,6 +5767,34 @@ function editeur(racine, opts){
       /* nombres ; la distance à la limite de propriété ne peut pas être négative (0 : en limite) */
       var k = b.dataset.k; if (k === 'prof' || k === 'long' || k === 'diam' || k === 'limDist'){ v = String(v).trim(); if (v && (num(v) == null || k === 'limDist' && num(v) < 0)){ toast('Nombre attendu, par exemple 0,80'); b.value = e.p[k] || ''; if (k === 'limDist') etatPlacer(e, b.value); return; } }
       if ((e.p[k] || '') === v) return; instantane(); e.p[k] = v; apresProp(e, {garderPanneau: true}); rafraichirFiche(e, k); majPanneauBientot(); return;
+    }
+    /* autre destination (m127 ; D3) : nom (40 caractères au plus) et abréviation (2 ou 3). Est refusé un nom vide, qui contient « puits »
+       (ou « puit », la faute courante, comme mot [p]) une fois normalisé comme la clé (casse, accents, espaces), ou dont le PDF ne sait pas
+       écrire deux caractères (pdfTxt les vide : émoji, « Ω »). Est refusée une abréviation d'une autre longueur ou illisible au PDF. Le refus
+       fait un toast et rend la valeur affichée ; rien ne change. L'abréviation vidée est tirée du nom (abDe) ; celle qui l'était suit le
+       nouveau nom [p]. L'article se règle sur la première lettre du nouveau nom (artDevant) ; « le » mis à la place de « l' » est signalé.
+       Seuls les champs changés sont écrits (Q8 b) */
+    if (a === 'destTxt' && e && estDest(e.t)){
+      var kT = b.dataset.k, d0 = destDe(e), sT = String(v).replace(/\s+/g, ' ').trim(), refus = '', LONG = 'Abréviation de 2 ou 3 caractères, par exemple Ét';
+      if (kT === 'nom'){
+        sT = sT.slice(0, 40).trim();
+        refus = !sT ? 'Le nom ne peut pas être vide' : /PUIT(S|\b)/.test(nomCle(sT)) ? 'Pour un puits, posez l\'objet Puits (EP non conformes) ; pour un puits perdu, un Puisard.'
+          : abDe(sT).length < 2 ? 'Nom illisible au PDF : employez au moins deux lettres latines ou chiffres' : '';
+      } else if (kT === 'ab'){
+        if (!sT){ sT = abDe(d0.nom); if (sT.length < 2) refus = LONG; }
+        else refus = sT.length < 2 || sT.length > 3 ? LONG : !pdfTxt(sT).trim() ? 'Abréviation illisible au PDF : employez des lettres latines ou des chiffres' : '';
+      } else return;
+      if (refus){ toast(refus, 4000); b.value = d0[kT]; return; }
+      if (d0[kT] === sT){ b.value = sT; return; }
+      instantane(); e.p[kT] = sT;
+      var artT = kT === 'nom' ? artDevant(d0.art, sT) : d0.art;
+      if (kT === 'nom'){
+        if (d0.ab === abDe(d0.nom) || d0.ab === d0.nom.slice(0, 2)) e.p.ab = abDe(sT);
+        if (destDe(e).art !== artT) e.p.art = artT;
+      }
+      apresProp(e, {garderPanneau: true});
+      if (d0.art === 'l\'' && artT === 'le') toast('Article « le » : touchez « la » s\'il le faut', 4000);
+      majPanneauBientot(); return;
     }
     if (a === 'texteLibre' && e){ if (!String(v).trim()){ toast('Le texte est vide'); b.value = e.txt; return; } instantane(); e.txt = String(v).trim(); changement({garderPanneau: true}); majPanneauBientot(); return; }
     if (a === 'escNum' && e && e.t === 'esc'){ saisieEscalier(b, e); return; }

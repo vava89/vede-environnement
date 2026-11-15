@@ -2,12 +2,14 @@
 // usage : node tests/vm/copie.js [-v] [--app=<dossier>]
 // Le dossier est simulé : les opérations de reconcilier (créer, mettre à jour, retirer) sont appliquées à une liste d'enregistrements.
 // t : tampon béton d'un regard non relié (EU, NC), « fonte », puis regard relié au collecteur EP et « béton » : « Regard EP : tampon béton »,
-//     EP, réserve (avant : l'ancien texte, EU, NC, gardés jusqu'à la retouche suivante) ;
+//     EP, nature laissée à la règle (null : rien d'écrit, réserve en EP ; m127 : la nature de la copie, celle du dessin d'alors, n'est pas
+//     un jugement) (avant : l'ancien texte, EU, NC, gardés jusqu'à la retouche suivante) ;
 // d : descente avant non visitable, « visitable », puis arrière et non visitable : texte et ligne du constat de l'arrière ;
 // w : WC « Tronçon EU » vers un regard et une sortie « Tronçon EP » laissée libre (présumé), sortie effacée puis tracée jusqu'au collecteur
 //     EP : « WC : rejet au réseau EP » sans « (présumé) » ;
 // e : témoin : observation retouchée dans le dossier, anomalie écartée, regard relié au collecteur EP, retenue de nouveau : la retouche
-//     revient (réseau et nature suivent le dessin) ; f : témoin sans copie (création ordinaire).
+//     revient, le réseau suit le dessin, la nature est laissée à la règle (null, m127 : sur le texte retouché, « … fissuré » : non conforme
+//     dans l'application) ; f : témoin sans copie (création ordinaire).
 'use strict';
 const {charger, rapport} = require('./charger.js');
 const {V} = charger(), R = rapport('copie');
@@ -34,7 +36,7 @@ function verifier(nom, r, attendu, apres){
   d.el[0].p.tampon = 'fonte'; synchro(d, ext);
   d.el.push(pt('j', 'jonction', 0, 0, {})); d.el.push(ln(d, 'b', 'tr', '', ['r1', 'j'])); d.el.push(ln(d, 'C', 'col', 'EP', [[-10, 0], 'j', [10, 0]]));
   d.el[0].p.tampon = 'beton'; synchro(d, ext);
-  const r = rec(ext, 'tampon:r1'); verifier('t tampon béton revenu (regard relié au collecteur EP)', r, {obs: 'Regard EP : tampon béton', reseau: 'EP', nc: false, inst: ''});
+  const r = rec(ext, 'tampon:r1'); verifier('t tampon béton revenu (regard relié au collecteur EP)', r, {obs: 'Regard EP : tampon béton', reseau: 'EP', nc: null, inst: ''});
   const s2 = vu(r); synchro(d, ext); verifier('t idem après une synchronisation de plus (inchangé)', rec(ext, 'tampon:r1'), JSON.parse(s2));
 })();
 /* d : descente non visitable */
@@ -62,7 +64,7 @@ function verifier(nom, r, attendu, apres){
   d.decisions['tampon:r1'] = {st: 'ecartee'}; synchro(d, ext);
   d.el.push(pt('j', 'jonction', 0, 0, {})); d.el.push(ln(d, 'b', 'tr', '', ['r1', 'j'])); d.el.push(ln(d, 'C', 'col', 'EP', [[-10, 0], 'j', [10, 0]]));
   delete d.decisions['tampon:r1']; synchro(d, ext);
-  const r = rec(ext, 'tampon:r1'); verifier('e observation retouchée revenue telle quelle, réseau et nature du dessin d\'aujourd\'hui', r, {obs: 'Regard : tampon béton fissuré (vu sur place)', reseau: 'EP', nc: false, inst: ''}, 'même enregistrement : ' + (r && r.id === r0.id));
+  const r = rec(ext, 'tampon:r1'); verifier('e observation retouchée revenue telle quelle, réseau du dessin d\'aujourd\'hui, nature laissée à la règle', r, {obs: 'Regard : tampon béton fissuré (vu sur place)', reseau: 'EP', nc: null, inst: ''}, 'même enregistrement : ' + (r && r.id === r0.id));
   const s2 = vu(rec(ext, 'tampon:r1')); synchro(d, ext); verifier('e idem après une synchronisation de plus (retouche gardée)', rec(ext, 'tampon:r1'), JSON.parse(s2));
 })();
 /* f : témoin sans copie */

@@ -55,7 +55,7 @@
 //   rejet supprimé par le projet, plus rien ne reste ; au dossier (reconcilier), ep-puits créée en catégorie « autre », sur la ligne
 //   « Gouttière(s) avant », non conforme, case gestEP.
 // Échouent sur 7df0996 (type « puits » absent) : q1 à q3, sauf le témoin de q3.
-// Autre destination (m125, décisions D3, D5 à D7 ; hors palette jusqu'à m127 : objets écrits dans le croquis) :
+// Autre destination (m125, décisions D3, D5 à D7 ; objets écrits dans le croquis ; dans la palette Équipements depuis m127, juste après « Puits ») :
 // x1 : constat déduit d'une descente vers un étang aux EP non conformes, ep-exu retenue : ligne ok null (le dossier la juge par l'anomalie),
 //   case « autre » des ouvrages EP, « Étang (rejet des EP) », fiche « Rejet : étang · anomalie n° 1 » ; écartée, ou EP conformes : ligne
 //   « oui » ; EP à arbitrer : « exu » (« À compléter : rejet des eaux pluviales à arbitrer »), ok null, ligne marquée « à arbitrer » (m119),
@@ -79,11 +79,36 @@
 // x5 : avant-projet qui garde l'étang aux EP non conformes : préconisation au tableau du plan PDF, « Reste après travaux : Descente EP : rejet
 //   dans l'étang » ; témoin : le rejet supprimé par le projet, plus rien ne reste ; au dossier (reconcilier), ep-exu créée en catégorie
 //   « autre », sur la ligne « Gouttière(s) avant », non conforme, case gestEP.
+// x6 (m127, D3 : le jugement suit la fiche) : nature au dossier du rejet d'une descente dans l'étang quand le jugement des EP change. Le
+//   dossier est simulé comme par vcAppliquer : à la création, la nature n'est écrite que si elle diffère de la règle de l'application (ici
+//   VCroquis.ncAnomalie, qui juge un « rejet » non conforme, comme anomNC) ou de celle du dessin (croquis.auto.nc). « Non conforme » puis
+//   « Réserve » ; « Non conforme », « Conforme » (anomalie retirée, gardée en copie), puis « Réserve » ; « Non conforme », « À arbitrer »,
+//   puis « Réserve » : le dossier dit « réserve » et la conclusion « reserves ». Témoins : « Réserve » d'abord, puis « Non conforme » ou un
+//   retour ; copie dont le texte retouché au dossier faisait une réserve : elle revient en réserve.
+// x6 échoue sur 9f2b32d (jugement changé à la main) et sur la première version de m127 : le dossier restait non conforme, sauf les témoins.
+// x7 (m127) : même dossier simulé, sous la règle de l'application (norm, NC_MOTIFS et anomNC lus dans index.html, qu'elle installe dans
+//   VCroquis.ncAnomalie) ; nature au dessin / au dossier après chaque geste. Le dessin n'impose au dossier qu'un jugement (une nature que
+//   cette règle ne donne pas sur le texte du dessin), jamais une réserve hors EP : il l'écrit quand il en change et quand l'enregistrement
+//   revient en EP ; une nature écrite qui suivait le dessin est effacée (la règle) quand il passe à une nature qui n'est pas un jugement ;
+//   une nature écrite reste quand le réseau change au dossier. Tampon béton d'un regard dont le texte, retouché au dossier ou au croquis,
+//   nomme un défaut (« fissuré », « cassé »), puis regard passé en EP (en place, « non conforme » écrit au dossier, aller et retour EP, EU,
+//   EP, par une copie écartée puis retenue) : non conforme. Rejet dans l'étang passé en EU au dossier, puis « Réserve » (en place, par une
+//   copie), ou « Réserve » (écrite ou à la création), EU au dossier, « Non conforme », « Réserve » : non conforme ; revenu en EP au dossier
+//   (en place, par une copie, après « Conforme », puis aller et retour du jugement) : réserve. Texte du rejet retouché au dossier en réserve
+//   (« … tampon béton »), avant ou après « Réserve », puis « Non conforme » (en place, copie gardée sous l'un ou l'autre jugement, passage
+//   par « À arbitrer », aller et retour ; ou au croquis pendant que l'anomalie est écartée, retenue de sa copie) : la réserve de ce texte ;
+//   « Réserve », puis texte rendu « … rejet dans l'étang » : réserve.
+//   Témoins : le même par « À arbitrer » seulement ; copie d'une nature écrite au dossier, dessin inchangé : elle la garde ; « Réserve »
+//   puis « Non conforme », à texte égal ou reformulé (« … dans l'étang communal »), en place et par une copie : le dossier suit le jugement.
+// x7 échoue sur la deuxième version de m127 (le dessin imposait toute nature changée), sauf les témoins ; sur la troisième (une nature
+//   écrite qui suivait le dessin en prenait toute nature, le jugement n'était écrit qu'au changement du dessin), les treize cas ajoutés
+//   ensuite hors témoins ; sur 419d752 (m126), ces treize cas et les trois témoins du jugement suivi (le dossier restait non conforme).
 // Échouent sur ebd5589 (type « exutoire » absent : bout libre) : x1, x2, x3 et x5, sauf la garde de x3 et le témoin de x5.
 // Échouent sur 4a55a83 (cercle par défaut sans texte, bloc VEDE_EXUTOIRE, légende « Autre destination », symboleSvg sans p) : les onze
 //   cas de x4. « étang » en page 2 et l'étiquette (le nom écrit tel quel) y étaient déjà justes.
 // usage : node tests/vm/rejets.js [-v] [--app=<dossier>]
 'use strict';
+const fs = require('fs'), path = require('path');
 const {charger, doc, copie, rendus, rapport, melange} = require('./charger.js');
 const ch = charger({pdf: true}), {V} = ch, R = rapport('rejets'), {canevas, dessiner, pdf, dxf} = rendus(ch);
 /* appel protégé : une exception devient le texte « exception : … » */
@@ -508,12 +533,19 @@ const versDest = (t, p, dec) => decide(doc({o: [['S', t, 0, 10], ['E', 'exutoire
 const RET = 'Rejet : étang', ETL = 'Étang (rejet des EP)', PRE_X = 'Suppression du rejet dans l\'étang ; raccordement au branchement EP ou gestion à la parcelle';
 /* contrôles « manque » qui demandent d'arbitrer un rejet */
 const arbRejet = d => V.analyser(copie(d), 'edl').controles.filter(c => c.niveau === 'manque' && / à arbitrer \(retenir ou écarter l'anomalie\)$/.test(c.txt)).map(c => c.txt);
-/* x1 : le type, hors palette ; constat déduit, conclusion, fiche de la source, contrôle de l'arbitrage ; étiquette */
+/* x1 : le type, dans la palette après le puits (m127) ; constat déduit, conclusion, fiche de la source, contrôle de l'arbitrage ; étiquette */
 async function destConstat(){
   const T = V.TYPES.exutoire, eq = (V.FAMILLES.find(f => f.id === 'equ') || {types: []}).types, dp = sur(() => V.defautsPt('exutoire'));
-  R.ok(!!T && T.fam === 'exu' && T.lib === 'Autre destination' && T.g === 'f' && T.role === 'exutoire' && T.forme === 'exutoire' && T.exu === 'X' && eq.indexOf('exutoire') < 0
+  R.ok(!!T && T.fam === 'exu' && T.lib === 'Autre destination' && T.g === 'f' && T.role === 'exutoire' && T.forme === 'exutoire' && T.exu === 'X' && eq.indexOf('puits') >= 0 && eq[eq.indexOf('puits') + 1] === 'exutoire'
     && vu(dp) === vu({st: 'existant', obs: '', nom: 'Autre destination', ab: 'Au', art: 'l\'', ep: 'arbitrer', cst: 'autre'}),
-    'x1 type « exutoire » (Autre destination, code X), hors de la palette jusqu\'à m127 ; champs par défaut (' + JSON.stringify(T || null) + ' ; ' + vu(dp) + ')');
+    'x1 type « exutoire » (Autre destination, code X), dans la palette Équipements juste après « Puits » (m127) ; champs par défaut (' + JSON.stringify(T || null) + ' ; ' + eq.join(', ') + ' ; ' + vu(dp) + ')');
+  /* modèle d'une pose (m127, D10) : ses cinq champs, nettoyés comme destDe les lit, rien d'autre ; sans effet sur un autre type */
+  const dm = sur(() => V.defautsPt('exutoire', {nom: '  Mare  du bas ', ab: 'Ma', art: 'la', ep: 'reserve', cst: 'recup', st: 'projet', obs: 'x'}));
+  const dz = sur(() => V.defautsPt('exutoire', {nom: 'Étang', ep: 'oui', cst: 'lac'})), dq = sur(() => V.defautsPt('puisard', etang('nc')));
+  R.ok(vu(dm) === vu({st: 'existant', obs: '', nom: 'Mare du bas', ab: 'Ma', art: 'la', ep: 'reserve', cst: 'recup'})
+    && vu(dz) === vu({st: 'existant', obs: '', nom: 'Étang', ab: 'Ét', art: 'le', ep: 'arbitrer', cst: 'autre'}) && vu(dq) === vu(V.defautsPt('puisard')),
+    'x1 modèle de la pose (m127) : ses cinq champs, nettoyés, sans son statut ni son observation ; replis de destDe ; sans effet sur un puisard ('
+    + vu(dm) + ' ; ' + vu(dz) + ' ; ' + vu(dq) + ')');
   const n = await bilan(versDest('descente', etang('nc')), 'gout_av'), p = await pdf(versDest('descente', etang('nc')), {mode: 'edl'});
   const rej = p.txt.filter(s => /^étang\b/.test(s)), cle = p.txt.filter(s => /X:|ETANG/.test(s));
   R.ok(n.st === 'ep-exu:S retenue' && n.c === 'non_conformes' && n.ligne === ' | [null] | ""' && n.libs === ETL && n.recup === '{"autre":true}'
@@ -676,6 +708,187 @@ async function destProjet(){
     + (typeof ops === 'string' ? ops : cr.map(q => (q.croquis && q.croquis.cle) + ' ' + q.categorie + ' ' + JSON.stringify(q.installation) + (q.nc ? ' NC' : ' réserve')).join(', ') || 'rien de créé') + ')');
 }
 
+/* x6 (m127) : dossier simulé comme par vcAppliquer ; la nature d'un enregistrement est la sienne, sinon la règle de l'application */
+function dossierSimule(){
+  const ext = [], nature = r => r.nc === true || r.nc === false ? r.nc : V.ncAnomalie({reseau: r.reseau, observation: r.observation});
+  let k = 0;
+  const synchro = d => {
+    const ops = V.reconcilier(d, null, ext);
+    ops.retirer.forEach(id => { const i = ext.findIndex(r => r.id === id); if (i >= 0) ext.splice(i, 1); });
+    ops.maj.forEach(m => { const r = ext.find(x => x.id === m.id); if (r) Object.assign(r, m.champs); });
+    ops.creer.forEach(c => {
+      const r = {id: c.id || 'r' + (++k), createdAt: c.createdAt || '2026-11-02', reseau: c.reseau, observation: c.observation, preconisation: c.preconisation,
+        localisation: c.localisation || '', installation: c.installation || '', photos: [], brouillon: false, croquis: c.croquis};
+      /* nature écrite seulement si elle diffère de la règle de l'application ou de celle du dessin (vcAppliquer) */
+      if ((c.nc === true || c.nc === false) && (c.nc !== nature(r) || (c.croquis && c.croquis.auto && typeof c.croquis.auto.nc === 'boolean' && c.nc !== c.croquis.auto.nc))) r.nc = c.nc;
+      ext.push(r);
+    });
+  };
+  return {ext, nature, synchro};
+}
+/* x6 : jugements successifs de l'étang (décisions de Contrôles retirées à chaque changement, comme dans la fiche) ; avant chaque jugement,
+   avant(D, d) peut retoucher le dossier ou décider. Rend, après chaque jugement : jugement, anomalie du dessin / nature au dossier, conclusion */
+function jugements(eps, avant){
+  const d = versDest('descente', etang('arbitrer')), E = d.el.find(e => e.id === 'E'), D = dossierSimule(), vus = [];
+  D.synchro(d);
+  eps.forEach((ep, i) => {
+    if (avant) avant(i, D, d);
+    if (ep){ E.p.ep = ep; delete d.decisions['ep-exu:S']; }
+    D.synchro(d);
+    const an = V.analyser(copie(d), 'edl'), a = an.anomalies.find(x => x.cle === 'ep-exu:S'), r = D.ext.find(x => x.croquis && x.croquis.cle === 'ep-exu:S');
+    vus.push((ep || 'décision') + ' ' + (a ? (a.arbitrer ? 'arbitrer' : a.nc ? 'NC' : 'réserve') : 'aucune') + '/' + (r ? (D.nature(r) ? 'NC' : 'réserve') : 'aucune')
+      + ' ' + V.conclusion(V.anomaliesDoc(d, an, D.ext), an));
+  });
+  return vus.join(', ');
+}
+function destNature(){
+  const cas = [
+    ['« Non conforme » puis « Réserve »', ['nc', 'reserve'], 'nc NC/NC non_conformes, reserve réserve/réserve reserves'],
+    ['« Non conforme », « Conforme », « Réserve »', ['nc', 'conforme', 'reserve'], 'nc NC/NC non_conformes, conforme aucune/aucune conformes, reserve réserve/réserve reserves'],
+    ['« Non conforme », « À arbitrer », « Réserve »', ['nc', 'arbitrer', 'reserve'], 'nc NC/NC non_conformes, arbitrer arbitrer/aucune exu, reserve réserve/réserve reserves'],
+    ['aller et retour', ['nc', 'reserve', 'nc', 'reserve'], 'nc NC/NC non_conformes, reserve réserve/réserve reserves, nc NC/NC non_conformes, reserve réserve/réserve reserves']];
+  cas.forEach(c => {
+    const vu = sur(() => jugements(c[1]));
+    R.ok(vu === c[2], 'x6 ' + c[0] + ' : le dossier suit le jugement de la fiche, conclusion « reserves » (' + vu + ')');
+  });
+  const tem = [
+    ['« Réserve » d\'abord, puis « Non conforme » et retour', ['reserve', 'nc', 'reserve'], 'reserve réserve/réserve reserves, nc NC/NC non_conformes, reserve réserve/réserve reserves'],
+    ['« Réserve », « Conforme », « Non conforme »', ['reserve', 'conforme', 'nc'], 'reserve réserve/réserve reserves, conforme aucune/aucune conformes, nc NC/NC non_conformes'],
+    ['« Non conforme », « Conforme », « Non conforme »', ['nc', 'conforme', 'nc'], 'nc NC/NC non_conformes, conforme aucune/aucune conformes, nc NC/NC non_conformes']];
+  tem.forEach(c => {
+    const vu = sur(() => jugements(c[1]));
+    R.ok(vu === c[2], 'x6 témoin, ' + c[0] + ' (' + vu + ')');
+  });
+  /* copie retouchée : au dossier, le texte retouché fait une réserve (sans « rejet », avec un tampon béton) ; l'anomalie écartée part en
+     copie ; « À arbitrer », puis « Non conforme » la retient de nouveau : elle revient avec ce texte, en réserve, sans nature écrite (la
+     nature suit toujours ce texte : le dessin ne la remplace pas) */
+  const TXT = 'Descente EP vers l\'étang, tampon béton';
+  let D0 = null;
+  const vu = sur(() => jugements(['nc', '', 'arbitrer', 'nc'], (i, D, d) => {
+    D0 = D; if (i === 1){ D.ext.find(x => x.croquis && x.croquis.cle === 'ep-exu:S').observation = TXT; d.decisions['ep-exu:S'] = {st: 'ecartee'}; }
+  }));
+  const r = D0 && D0.ext.find(q => q.croquis && q.croquis.cle === 'ep-exu:S'), vr = r ? r.observation + ' / nc ' + r.nc : 'absente';
+  R.ok(vu === 'nc NC/NC non_conformes, décision NC/aucune conformes, arbitrer arbitrer/aucune exu, nc NC/réserve reserves' && vr === TXT + ' / nc undefined',
+    'x6 témoin, copie au texte retouché (réserve d\'après ce texte), écartée, puis « À arbitrer » et « Non conforme » : elle revient avec son texte, en réserve, '
+    + 'sans nature écrite (' + vu + ' ; ' + vr + ')');
+}
+
+/* x7 (m127) : règle de nature de l'application (norm, NC_MOTIFS et anomNC d'index.html), comme l'application l'installe */
+function regleApp(){
+  const L = fs.readFileSync(path.join(ch.dir, 'index.html'), 'utf8').split('\n'), at = re => L.findIndex(l => re.test(l));
+  const iN = at(/^function norm\(s\)/), iM = at(/^var NC_MOTIFS = /), iF = at(/^function anomNC\(a\)\{/);
+  let fin = iF; while (fin >= 0 && fin < L.length && L[fin] !== '}') fin++;
+  if (iN < 0 || iM < 0 || iF < 0 || fin >= L.length) throw new Error('norm, NC_MOTIFS ou anomNC introuvable dans index.html');
+  return new Function([L[iN], L[iM]].concat(L.slice(iF, fin + 1), ['return anomNC;']).join('\n'))();
+}
+/* x7 : WC S (descente en EP) → regard R au tampon béton → boîte B : anomalie tampon:R, non conforme en EU, réserve en EP */
+const versRegard = ep => doc({o: [['S', ep ? 'descente' : 'wc', 0, 10], ['R', 'regard', 0, 6, {tampon: 'beton'}], ['B', 'boite', 0, 2, {res: ep ? 'EP' : 'EU'}]],
+  l: [['t1', 'tr', '', '', ['S', 'R']], ['t2', 'tr', '', '', ['R', 'B']]]});
+/* x7 : gestes g(d, D, cle) : texte, réseau ou nature retouchés au dossier ; au croquis, anomalie écartée, retenue, ou texte retouché hors
+   du dossier (il prime sur la copie, comme noterRetouche) ; regard passé en EP ou en EU ; jugement des EP de l'étang (décisions du rejet
+   retirées, comme oublierJugement) */
+const recX = (D, cle) => D.ext.find(x => x.croquis && x.croquis.cle === cle);
+const G7 = {
+  txt: t => (d, D, cle) => { recX(D, cle).observation = t; },
+  res: x => (d, D, cle) => { recX(D, cle).reseau = x; },
+  ncDos: v => (d, D, cle) => { recX(D, cle).nc = v; },
+  txtC: t => (d, D, cle) => {
+    const x = d.decisions[cle] = d.decisions[cle] || {}, sv = (d.sauvegardes || {})[cle];
+    x.obs = t; if (sv) x.surCopie = Object.assign({}, x.surCopie, {obs: sv.seq || 0});
+  },
+  ecarter: (d, D, cle) => { d.decisions[cle] = Object.assign(d.decisions[cle] || {}, {st: 'ecartee'}); },
+  retenir: (d, D, cle) => { (d.decisions[cle] = d.decisions[cle] || {}).st = 'retenue'; },
+  enEP: d => { d.el.find(e => e.id === 'S').t = 'descente'; d.el.find(e => e.id === 'B').p.res = 'EP'; },
+  enEU: d => { d.el.find(e => e.id === 'S').t = 'wc'; d.el.find(e => e.id === 'B').p.res = 'EU'; },
+  juge: ep => d => {
+    d.el.find(e => e.id === 'E').p.ep = ep;
+    const x = d.decisions['ep-exu:S']; if (x){ delete x.st; delete x.nc; if (!Object.keys(x).length) delete d.decisions['ep-exu:S']; }
+  }
+};
+/* x7 : rend, au départ puis après chaque geste, la nature de l'anomalie cle au dessin / au dossier (« aucune » : hors du dossier) */
+function suiteNature(d, cle, gestes){
+  const D = dossierSimule(), vus = [], lire = () => {
+    const a = V.analyser(copie(d), 'edl').anomalies.find(x => x.cle === cle), r = recX(D, cle);
+    vus.push((a ? (a.arbitrer ? 'arbitrer' : a.nc ? 'NC' : 'réserve') : 'aucune') + '/' + (r ? (D.nature(r) ? 'NC' : 'réserve') : 'aucune'));
+  };
+  D.synchro(d); lire();
+  gestes.forEach(g => { g(d, D, cle); D.synchro(d); lire(); });
+  return vus.join(', ');
+}
+function natureJugee(){
+  const n0 = V.ncAnomalie, regle = sur(regleApp);
+  if (typeof regle !== 'function'){ R.ok(false, 'x7 règle de l\'application lue dans index.html (' + regle + ')'); return; }
+  const {txt, res, ncDos, txtC, ecarter, retenir, enEP, enEU, juge} = G7, TB = 'Descente EP vers l\'étang, tampon béton', COM = 'Descente EP : rejet dans l\'étang communal';
+  const REJ = 'Descente EP : rejet dans l\'étang', reg = ep => [versRegard(ep), 'tampon:R'], rej = ep => [versDest('descente', etang(ep || 'nc')), 'ep-exu:S'];
+  const cas = [
+    /* un tampon béton passé en EP dont le texte nomme un défaut reste non conforme */
+    ['regard : « … fissuré » au dossier, puis EP', reg(false), [txt('Regard EU : tampon béton fissuré'), enEP], 'NC/NC, NC/NC, réserve/NC'],
+    ['regard : « … fissuré » au dossier, « non conforme » écrit au dossier, puis EP', reg(false), [txt('Regard EU : tampon béton fissuré'), ncDos(true), enEP],
+      'NC/NC, NC/NC, NC/NC, réserve/NC'],
+    ['regard : « … cassé » au dossier, puis EP', reg(false), [txt('Regard EU : tampon béton cassé'), enEP], 'NC/NC, NC/NC, réserve/NC'],
+    ['regard EP : « … cassé » au dossier, EU, puis EP', reg(true), [txt('Regard EP : tampon béton cassé'), enEU, enEP], 'réserve/réserve, réserve/NC, NC/NC, réserve/NC'],
+    ['regard : « … fissuré » au dossier, écartée, EP, retenue', reg(false), [txt('Regard EU : tampon béton fissuré'), ecarter, enEP, retenir],
+      'NC/NC, NC/NC, NC/aucune, réserve/aucune, réserve/NC'],
+    ['regard : « … cassé » au dossier, écartée, EP, retenue', reg(false), [txt('Regard EU : tampon béton cassé'), ecarter, enEP, retenir],
+      'NC/NC, NC/NC, NC/aucune, réserve/aucune, réserve/NC'],
+    ['regard EP : écartée, « … cassé » au croquis, retenue', reg(true), [ecarter, txtC('Regard EP : tampon béton cassé'), retenir],
+      'réserve/réserve, réserve/aucune, réserve/aucune, réserve/NC'],
+    ['regard : écartée, « … fissuré » au croquis, EP, retenue', reg(false), [ecarter, txtC('Regard : tampon béton fissuré'), enEP, retenir],
+      'NC/NC, NC/aucune, NC/aucune, réserve/aucune, réserve/NC'],
+    /* le dessin n'écrit jamais une réserve hors EP (une nature écrite en EP y reste quand le réseau change au dossier) ; revenu en EP,
+       l'enregistrement reçoit le jugement */
+    ['rejet : réseau EU au dossier, « Réserve »', rej(), [res('EU'), juge('reserve')], 'NC/NC, NC/NC, réserve/NC'],
+    ['rejet : réseau EU au dossier, écartée, « Réserve », retenue', rej(), [res('EU'), ecarter, juge('reserve'), retenir], 'NC/NC, NC/NC, NC/aucune, réserve/NC, réserve/NC'],
+    ['rejet : « Réserve », réseau EU au dossier, « Non conforme », « Réserve »', rej(), [juge('reserve'), res('EU'), juge('nc'), juge('reserve')],
+      'NC/NC, réserve/réserve, réserve/réserve, NC/NC, réserve/NC'],
+    ['rejet créé sous « Réserve », réseau EU au dossier, « Non conforme », « Réserve »', rej('reserve'), [res('EU'), juge('nc'), juge('reserve')],
+      'réserve/réserve, réserve/réserve, NC/NC, réserve/NC'],
+    ['rejet : réseau EU au dossier, « Réserve », réseau EP au dossier', rej(), [res('EU'), juge('reserve'), res('EP')], 'NC/NC, NC/NC, réserve/NC, réserve/réserve'],
+    ['rejet : réseau EU au dossier, écartée, « Réserve » (retenue de sa copie), réseau EP au dossier', rej(), [res('EU'), ecarter, juge('reserve'), res('EP')],
+      'NC/NC, NC/NC, NC/aucune, réserve/NC, réserve/réserve'],
+    ['rejet : réseau EU au dossier, « Conforme » (gardée), « Réserve », réseau EP au dossier', rej(), [res('EU'), juge('conforme'), juge('reserve'), res('EP')],
+      'NC/NC, NC/NC, aucune/NC, réserve/NC, réserve/réserve'],
+    ['rejet : réseau EU au dossier, « Réserve », réseau EP au dossier, « Non conforme », « Réserve »', rej(), [res('EU'), juge('reserve'), res('EP'), juge('nc'), juge('reserve')],
+      'NC/NC, NC/NC, réserve/NC, réserve/réserve, NC/NC, réserve/réserve'],
+    /* texte du rejet retouché au dossier, qui fait une réserve : la nature de ce texte, par tous les chemins et dans les deux ordres */
+    ['rejet : texte en réserve, « Réserve », « Non conforme »', rej(), [txt(TB), juge('reserve'), juge('nc')], 'NC/NC, NC/réserve, réserve/réserve, NC/réserve'],
+    ['rejet : « Réserve », texte en réserve, « Non conforme »', rej(), [juge('reserve'), txt(TB), juge('nc')], 'NC/NC, réserve/réserve, réserve/réserve, NC/réserve'],
+    ['rejet : « Réserve », texte en réserve, écartée (copie sous « Réserve »), « Non conforme »', rej(), [juge('reserve'), txt(TB), ecarter, juge('nc')],
+      'NC/NC, réserve/réserve, réserve/réserve, réserve/aucune, NC/réserve'],
+    ['rejet : « Réserve », texte en réserve, « À arbitrer », « Non conforme »', rej(), [juge('reserve'), txt(TB), juge('arbitrer'), juge('nc')],
+      'NC/NC, réserve/réserve, réserve/réserve, arbitrer/aucune, NC/réserve'],
+    ['rejet créé sous « Réserve », texte en réserve, « Non conforme », « Réserve », « Non conforme »', rej('reserve'), [txt(TB), juge('nc'), juge('reserve'), juge('nc')],
+      'réserve/réserve, réserve/réserve, NC/réserve, réserve/réserve, NC/réserve'],
+    /* de même pour un texte retouché au croquis pendant que l'anomalie est écartée (il prime sur la copie) */
+    ['rejet créé sous « Réserve », écartée, texte en réserve au croquis, « Non conforme » (retenue de sa copie)', rej('reserve'), [ecarter, txtC(TB), juge('nc')],
+      'réserve/réserve, réserve/aucune, réserve/aucune, NC/réserve'],
+    ['rejet : texte en réserve, écartée (copie sous « Non conforme »), « Réserve », « Non conforme », retenue', rej(),
+      [txt(TB), ecarter, juge('reserve'), juge('nc'), retenir], 'NC/NC, NC/réserve, NC/aucune, réserve/réserve, NC/réserve, NC/réserve'],
+    ['rejet : texte en réserve, « Réserve », écartée (copie sous « Réserve »), « Non conforme », retenue', rej(),
+      [txt(TB), juge('reserve'), ecarter, juge('nc'), retenir], 'NC/NC, NC/réserve, réserve/réserve, réserve/aucune, NC/réserve, NC/réserve'],
+    ['rejet : texte en réserve, « Réserve », « À arbitrer », « Non conforme »', rej(), [txt(TB), juge('reserve'), juge('arbitrer'), juge('nc')],
+      'NC/NC, NC/réserve, réserve/réserve, arbitrer/aucune, NC/réserve'],
+    ['témoin, rejet : texte en réserve, « À arbitrer », « Non conforme »', rej(), [txt(TB), juge('arbitrer'), juge('nc')], 'NC/NC, NC/réserve, arbitrer/aucune, NC/réserve'],
+    ['témoin, rejet : texte en réserve, « non conforme » écrit au dossier, écartée, retenue (sa copie garde sa nature)', rej(), [txt(TB), ncDos(true), ecarter, retenir],
+      'NC/NC, NC/réserve, NC/NC, NC/aucune, NC/NC'],
+    /* un jugement que la règle ne donne pas sur le texte de l'enregistrement y est écrit, avant comme après la retouche du texte */
+    ['rejet : texte en réserve, « Réserve », texte rendu « Descente EP : rejet dans l\'étang »', rej(), [txt(TB), juge('reserve'), txt(REJ)],
+      'NC/NC, NC/réserve, réserve/réserve, réserve/réserve'],
+    /* témoins : le dossier suit le jugement, à texte égal ou reformulé sans autre défaut */
+    ['témoin, rejet : « Réserve », « Non conforme »', rej(), [juge('reserve'), juge('nc')], 'NC/NC, réserve/réserve, NC/NC'],
+    ['témoin, rejet : « … dans l\'étang communal » au dossier, « Réserve », « Non conforme »', rej(), [txt(COM), juge('reserve'), juge('nc')],
+      'NC/NC, NC/NC, réserve/réserve, NC/NC'],
+    ['témoin, rejet : « … dans l\'étang communal » au dossier, écartée, « Réserve », retenue', rej(), [txt(COM), ecarter, juge('reserve'), retenir],
+      'NC/NC, NC/NC, NC/aucune, réserve/réserve, réserve/réserve']];
+  V.ncAnomalie = regle;
+  try {
+    cas.forEach(([lib, [d, cle], gestes, att]) => {
+      const vu = sur(() => suiteNature(d, cle, gestes));
+      R.ok(vu === att, 'x7 ' + lib + ' : ' + att.split('/').pop() + ' au dossier (dessin/dossier : ' + vu + ')');
+    });
+  } finally { V.ncAnomalie = n0; }
+}
+
 /* r6 (garde) : type absent, comme dans une version qui ne le connaît pas ; remis après */
 async function sansType(){
   const T0 = V.TYPES.infiltration;
@@ -713,6 +926,8 @@ async function sansType(){
     destOrdre();
     await destRendu();
     await destProjet();
+    destNature();
+    natureJugee();
     await sansType();
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }
   R.fin();

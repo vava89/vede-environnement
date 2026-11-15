@@ -49,7 +49,7 @@
 //     dans le puits ; … » (59) ; réserve choisie au dossier : la ligne devient « oui », « Conformes avec réserves », sans rappel « non
 //     conforme sur le croquis » (60). Échouent sur 7df0996 (type « puits » absent : aucune anomalie, ligne sans raccordement).
 // 61 et 62 (m125, décisions D6 et D7) : descente avant reliée à une autre destination, un étang aux EP non conformes, à la case MILIEU du
-//     constat (objet écrit dans le croquis : l'outil arrive en m127) : l'anomalie ep-exu créée au dossier va sur la ligne « Gouttière(s)
+//     constat (objet écrit dans le croquis, comme le pose l'outil de m127) : l'anomalie ep-exu créée au dossier va sur la ligne « Gouttière(s)
 //     avant », « non », case gestEP cochée, préconisation « Suppression du rejet dans l'étang ; … » (61) ; réserve choisie au dossier : la
 //     ligne devient « oui », « Conformes avec réserves », sans rappel « non conforme sur le croquis » (62). Échouent sur ebd5589 (type
 //     « exutoire » absent : aucune anomalie, ligne sans raccordement).

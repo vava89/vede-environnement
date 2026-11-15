@@ -35,6 +35,52 @@
 // p2 (décision D7) : panneau Constat de l'éditeur, descente avant et WC reliés au puits : la case « Conf. » de la descente reste vide, celle
 //     du WC dit « Non », et une phrase dit que la ligne EP suit son anomalie ; anomalie de la descente écartée : « Oui », sans la phrase ;
 //     mise à arbitrer : case vide, avec la phrase. Le premier et le troisième cas échouent sans la phrase (première version de m120).
+// Autre destination (m127, décision D10) :
+// a1 : « Autre destination » est dans la palette Équipements, juste après « Puits » ; l'outil choisi par son bouton, l'aide dit « Touchez le
+//     plan pour poser : Autre destination. » ; posée au toucher, sa fiche s'ouvre : sélecteur « Type » puis cinq champs, nom « Autre
+//     destination », abréviation « Au », article « l' », jugement des EP « à arbitrer », case « autre » ; l'aide du jugement dit que le
+//     changer efface les décisions de Contrôles « sur les rejets des EP ». Une descente reliée : ep-exu à arbitrer, fiche de la descente en
+//     « att » (« Rejet : autre destination · anomalie à arbitrer »), conclusion « À compléter : rejet des eaux pluviales à arbitrer ». Nom
+//     « Étang » (l'abréviation tirée du nom le suit : « Ét » [p]), article « le » puis « l' » (l'aide de l'article le dit), jugement « Non
+//     conforme » : « Descente EP : rejet dans l'étang » retenue NC ; « Conforme » : plus d'anomalie, la même puce de nouveau n'ajoute aucun
+//     pas d'annulation, une annulation rend l'anomalie. Rejet écarté dans Contrôles, nature « réserve » et texte retouchés : le jugement « À
+//     arbitrer » retire la décision et la nature, garde le texte, et « Annuler » les rend. Nom vidé ou blanc, qui contient « puits » (« Puits
+//     du jardin », « PUITS », « le puîts », « Étangpuits », espace insécable, tréma) ou « puit » comme mot (« Puit du jardin », « puit » [p]),
+//     sans deux caractères lisibles au PDF (un émoji ou « Ω » seul, « A », un émoji, « Ω » et « A ») ; abréviation d'un caractère ou illisible
+//     au PDF : refusés avec leur toast, la valeur affichée est rendue, ni le dessin, ni les décisions, ni l'historique ne changent.
+//     Abréviation de trois caractères acceptée ; vidée : celle tirée du nom. Un WC relié : « WC : rejet dans l'étang », retenue NC ; sa fiche
+//     n'a aucun des cinq champs. « Type » : changée en puisard, la destination perd ses cinq champs, avec le toast du changement de type ;
+//     changée de nouveau en destination, elle reçoit ceux par défaut ; deux annulations rendent l'étang. Renommages : « Mare » met « le » au
+//     lieu de « l' », avec le toast « Article « le » : touchez « la » s'il le faut », en un pas d'annulation (« Annuler » rend l'étang) ;
+//     « la » choisi ; « Ancienne mare » et « Herbage » (devant un h, l'article ne change pas [p]) : « l' » ; « Fossé » : « le », avec le
+//     toast ; l'abréviation suit le nom, tirée de ses caractères lisibles au PDF (« Ma » pour un émoji suivi de « Mare », vidée aussi) ;
+//     « Puisard du fond » est accepté. Puces : seul le champ touché est écrit (« les » et « xx », inconnus de cette version, restent) ; sans
+//     nom, l'article choisi écrit aussi le nom. Aucune erreur dans la console.
+// a2 : outil armé d'un modèle « Étang » à arbitrer (choisirOutil, comme le fera la palette de m128) : l'outil le garde ; l'aide dit
+//     « Touchez le plan pour poser : Étang. » ; « Cotes » : « Pose par cotes (Étang) », puis la façade sud et un endroit : « Étang posé
+//     depuis : Façade », l'aperçu écrit « Ét » ; « Poser » : la destination garde nom, abréviation et jugement du modèle, sa fiche les montre.
+//     Modèle « Mare » (la, réserve, récupérateur) : « Mare posée depuis : Façade » ; posée au toucher, elle garde ses cinq champs, l'outil
+//     son modèle. L'outil choisi ensuite par la palette n'en a pas : « Autre destination » aux champs par défaut. Aucune erreur dans la console.
+// a3 (application entière, mode intégré ; le jugement suit la fiche, D3) : trois étangs « Non conforme », chacun relié à sa descente :
+//     l'anomalie entre au dossier sans nature écrite (la règle de l'application, sur « rejet », la dit non conforme). « Réserve » depuis
+//     « Non conforme », par « Conforme » et par « À arbitrer » (l'anomalie quitte le dossier, puis revient de sa copie) : au dossier la
+//     nature écrite « réserve » (anomNC faux), au croquis « retenue réserve », la conclusion du constat « reserves » ; aller et retour par
+//     « Non conforme » ; croquis fermé, puis rouvert : de même. Aucune erreur dans la console.
+// a4 (m127) : regard au tampon béton relié au WC, au dossier sans nature écrite, non conforme ; « Regard EU : tampon béton fissuré »
+//     saisi dans sa fiche, puis le regard passe en EP (la source devient une descente, la boîte une boîte EP) : le texte nomme un défaut,
+//     l'anomalie reste non conforme au dossier (sans nature écrite) et au croquis, la conclusion du constat « non_conformes » ; croquis
+//     fermé : de même. Aucune erreur dans la console.
+// a5 (m127) : étang « Non conforme » relié à sa descente ; « Réserve » : nature écrite « réserve » au dossier ; le texte du rejet rendu
+//     « Descente EP vers l'étang, tampon béton » dans la fiche de la descente (la règle de l'application le dit en réserve), puis « Non
+//     conforme » : la nature écrite est effacée, la réserve du texte reste au dossier et au croquis, la conclusion « reserves » ; croquis
+//     fermé : de même. Aucune erreur dans la console.
+// a1, a2 et a3 échouent sur 9f2b32d (ni bouton dans la palette, ni champ dans la fiche, ni modèle à la pose), sauf, dans a1, la descente
+// reliée à la destination par défaut (règle de m125), dans a3, l'entrée au dossier, et l'absence d'erreur dans la console ; a4 y passe, a5
+// aussi, sauf « Réserve », que le dossier ne suivait pas (47/66). Sur la première version de m127 (nombres d'avant a5) : a3 échoue (le
+// dossier restait non conforme : 60/63 avec la fiche corrigée) ; dans a1, l'aide du jugement, les refus de « puit » et de « A », les
+// renommages et les puces échouent (avec a3 : 53/63). Sur la deuxième : a4 échoue (le regard passé en EP devenait une réserve écrite au
+// dossier, conclusion « reserves »), et a5 (« Non conforme » écrivait la non-conformité au dossier : true/NC, conclusion « non_conformes ») :
+// 64/66. Sur la troisième : a5 seul échoue, de même (65/66).
 // usage : node tests/navigateur/rejets.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -394,8 +440,348 @@ async function puits(){
   } finally { await A.fermer(); }
 }
 
+/* --- autre destination (m127, décision D10) : palette, poses, fiche --- */
+const PUITS_T = 'Pour un puits, posez l\'objet Puits (EP non conformes) ; pour un puits perdu, un Puisard.';
+const VIDE_T = 'Le nom ne peut pas être vide', PDFN_T = 'Nom illisible au PDF : employez au moins deux lettres latines ou chiffres';
+const PDFA_T = 'Abréviation illisible au PDF : employez des lettres latines ou des chiffres', LONG_T = 'Abréviation de 2 ou 3 caractères, par exemple Ét';
+const CHAMPS_DEST = 'Type|Nom|Abréviation|Article|Jugement des EP|Case du constat|';
+const AIDE_EP = 'les EU y sont toujours non conformes ; le changer efface les décisions de Contrôles sur les rejets des EP';
+const toastVu = p => p.evaluate(() => { const t = document.querySelector('.vc .vc-toast'); return t && t.classList.contains('on') ? t.textContent : ''; });
+/* toast effacé avant une saisie : il reste affiché quelques secondes, on ne lit ensuite que celui de cette saisie */
+const effacerToast = p => p.evaluate(() => { const t = document.querySelector('.vc .vc-toast'); if (t){ t.classList.remove('on'); t.textContent = ''; } });
+const FICHE = '.vc .vc-panneau:not([hidden]) .vc-pcorps ';
+/* saisie d'un champ de la fiche, enregistrée quand il perd le focus (événement change) ; rend la valeur affichée ensuite (null : pas de champ) */
+async function saisir(p, k, v){
+  const i = await p.$(FICHE + 'input[data-k="' + k + '"]'); if (!i) return null;
+  await i.fill(v); await i.evaluate(x => x.blur()); await C.pause(p, 250);
+  return p.evaluate(s => { const i = document.querySelector(s); return i ? i.value : null; }, FICHE + 'input[data-k="' + k + '"]');
+}
+async function puceDest(p, k, v){ const b = await p.$(FICHE + 'button.vc-chip[data-a="dest"][data-k="' + k + '"][data-v="' + v + '"]'); if (!b) return false; await b.click(); await C.pause(p, 300); return true; }
+/* fiche affichée : libellés des champs (suivis de « | »), valeurs du nom et de l'abréviation, puces pressées des destinations, aides */
+const ficheDest = p => p.evaluate(F => {
+  const c = document.querySelector(F); if (!c) return {champs: '', nom: null, ab: null, puces: '', aides: []};
+  const v = k => { const i = c.querySelector('input[data-k="' + k + '"]'); return i ? i.value : null; };
+  return {champs: Array.from(c.querySelectorAll('.vc-champ > .vc-lab')).map(l => (l.firstChild && l.firstChild.textContent || '').trim() + '|').join(''),
+    nom: v('nom'), ab: v('ab'), puces: Array.from(c.querySelectorAll('button[data-a="dest"][aria-pressed="true"]')).map(b => b.dataset.k + '=' + b.dataset.v).join(' '),
+    aides: Array.from(c.querySelectorAll('.vc-champ > .vc-lab small')).map(s => s.textContent.trim())};
+}, FICHE.trim());
+/* anomalies du croquis (S.liste) d'un objet : clé, état, nature et texte */
+const anomsDe = (p, id) => p.evaluate(id => window.__vcEd.liste().filter(a => a.objId === id).map(a => a.cle + ' ' + a.st + (a.nc ? ' NC' : ' réserve') + ' « ' + a.obs + ' »'), id);
+const champsDe = (p, id) => p.evaluate(id => { const o = window.__vcEd.doc().el.find(e => e.id === id); return o ? o.t + ' ' + ['nom', 'ab', 'art', 'ep', 'cst'].map(k => k + '=' + o.p[k]).join(' ') : 'absente'; }, id);
+const nUndo = p => p.evaluate(() => window.__vcEd.etat.undo.length);
+const annuler = async p => { await p.evaluate(() => window.__vcEd.annuler()); await C.pause(p, 250); };
+/* textes écrits sur le canevas au prochain dessin (fillText) */
+async function textesDessines(p){
+  await p.evaluate(() => {
+    const P = CanvasRenderingContext2D.prototype; window.__txtR = [];
+    if (!P.__txtRejets){ P.__txtRejets = true; const f = P.fillText; P.fillText = function(s){ const T = window.__txtR; if (T && T.length < 4000) T.push(String(s)); return f.apply(this, arguments); }; }
+    window.__vcEd.redessiner();
+  });
+  await C.pause(p, 150);
+  return p.evaluate(() => { const T = window.__txtR || []; window.__txtR = null; return T; });
+}
+/* a1 : palette, pose au toucher, fiche et ses cinq champs, jugements, décisions de Contrôles, refus, WC, changement de type */
+async function destination(){
+  const A = await croquisTourne(), p = A.p;
+  try {
+    await p.click('.vc .vc-o[data-pal="equ"]'); await C.pause(p, 200);
+    const items = await p.evaluate(() => Array.from(document.querySelectorAll('.vc .vc-pitem')).map(b => b.dataset.item + '=' + (b.querySelector(':scope > span') || b).textContent.trim()));
+    const i = items.map(s => s.split('=')[0]).indexOf('pt:puits'), b = await p.$('.vc .vc-pitem[data-item="pt:exutoire"]');
+    R.ok(i >= 0 && items[i + 1] === 'pt:exutoire=Autre destination' && !!b, 'a1 palette Équipements : « Autre destination » juste après « Puits » (' + items.join(', ') + ')');
+    if (b){ await b.click(); await C.pause(p, 200); }
+    else { await C.outil(p, {k: 'pt', t: 'exutoire', pal: 'equ'}); await C.pause(p, 200); }
+    const outil = await p.evaluate(() => { const o = window.__vcEd.etat.outil; return o.k + ':' + o.t + (o.modele ? ' modèle' : ''); }), aide = await texteAide(p);
+    /* pose au toucher, devant la façade sud : la fiche de la destination s'ouvre */
+    const els0 = await elements(p);
+    await toucherPlan(p, A.plan(70, 1.5)); await C.pause(p, 400);
+    const nv = (await elements(p)).filter(e => !els0.some(x => x.id === e.id) && e.t === 'exutoire'), X = nv.length === 1 ? nv[0] : null;
+    const f0 = await ficheDest(p);
+    R.ok(outil === 'pt:exutoire' && aide.indexOf('Touchez le plan pour poser : Autre destination.') === 0 && !!X && f0.champs.indexOf(CHAMPS_DEST) >= 0
+      && f0.nom === 'Autre destination' && f0.ab === 'Au' && f0.puces === 'art=l\' ep=arbitrer cst=autre' && f0.aides.indexOf(AIDE_EP) >= 0,
+      'a1 outil ' + outil + ', posée au toucher : fiche à cinq champs, nom « Autre destination », « Au », « l\' », à arbitrer, case « autre » ; l\'aide du jugement ('
+      + JSON.stringify(aide) + ' ; ' + (X ? JSON.stringify(X.p) : nv.length + ' destination posée') + ' ; ' + JSON.stringify(f0) + ')');
+    if (!X) throw new Error('aucune destination posée');
+    /* une descente reliée : rejet des EP à arbitrer */
+    const qd = A.plan(66, 1.5), qw = A.plan(74, 1.5), els = [X, C.P('d', 'descente', qd.x, qd.y, {cote: 'avant', visitable: 'oui'})];
+    els.push(C.L('Ld', 'tr', ['d', X.id], C.index(els)));
+    await C.injecter(p, {el: els}); await vue(A);
+    await fiche(p, 'd');
+    const etD = await p.evaluate(F => { const s = document.querySelector(F + '.vc-etat'); return s ? s.className + ' « ' + s.textContent.trim() + ' »' : ''; }, FICHE);
+    const concl = await p.evaluate(() => { const S = window.__vcEd.etat, V = window.VCroquis; return V.CONCL[V.conclusion(S.liste, S.an)] || ''; });
+    let an = await anomsDe(p, 'd');
+    R.ok(an.join() === 'ep-exu:d arbitrer NC « Descente EP : rejet dans l\'autre destination »' && /\bvc-etat att\b/.test(etD)
+      && etD.indexOf('« Rejet : autre destination · anomalie à arbitrer »') >= 0 && concl === 'À compléter : rejet des eaux pluviales à arbitrer',
+      'a1 descente reliée : ep-exu à arbitrer, fiche de la descente en « att » (« Rejet : autre destination · anomalie à arbitrer »), conclusion « À compléter : rejet des eaux pluviales à arbitrer » ('
+      + an.join(' ; ') + ' ; ' + etD + ' ; ' + concl + ')');
+    /* nom « Étang » (l'abréviation tirée du nom le suit), article « le » puis « l' », jugement « Non conforme » */
+    await fiche(p, X.id);
+    const vN = await saisir(p, 'nom', '  Étang '), cN = await champsDe(p, X.id), aN = await anomsDe(p, 'd');
+    await puceDest(p, 'art', 'le'); const aLe = await anomsDe(p, 'd'), fLe = await ficheDest(p);
+    await puceDest(p, 'art', 'l\''); const fL = await ficheDest(p);
+    await puceDest(p, 'ep', 'nc'); an = await anomsDe(p, 'd');
+    const fNc = await ficheDest(p);
+    R.ok(vN === 'Étang' && cN === 'exutoire nom=Étang ab=Ét art=l\' ep=arbitrer cst=autre' && aN.join() === 'ep-exu:d arbitrer NC « Descente EP : rejet dans l\'étang »'
+      && aLe.join() === 'ep-exu:d arbitrer NC « Descente EP : rejet dans le étang »' && fLe.aides.indexOf('rejet dans le étang') >= 0 && fL.aides.indexOf('rejet dans l\'étang') >= 0
+      && an.join() === 'ep-exu:d retenue NC « Descente EP : rejet dans l\'étang »' && fNc.puces === 'art=l\' ep=nc cst=autre',
+      'a1 nom « Étang », article « le » puis « l\' », jugement « Non conforme » : « Descente EP : rejet dans l\'étang » retenue NC ('
+      + [JSON.stringify(vN), cN, aN.join(), aLe.join(), JSON.stringify(fL.aides), an.join(), fNc.puces].join(' ; ') + ')');
+    /* « Conforme » : plus d'anomalie ; une annulation la rend ; la puce déjà pressée : aucun pas d'annulation */
+    await puceDest(p, 'ep', 'conforme'); const aC = await anomsDe(p, 'd'), u0 = await nUndo(p);
+    await puceDest(p, 'ep', 'conforme'); const u1 = await nUndo(p);
+    await annuler(p); const aU = await anomsDe(p, 'd'), cU = await champsDe(p, X.id);
+    R.ok(!aC.length && u1 === u0 && aU.join() === 'ep-exu:d retenue NC « Descente EP : rejet dans l\'étang »' && cU === 'exutoire nom=Étang ab=Ét art=l\' ep=nc cst=autre',
+      'a1 « Conforme » : plus d\'anomalie, la même puce n\'ajoute aucun pas ; « Annuler » la rend, retenue NC (' + [aC.join() || 'aucune', u0 + '/' + u1, aU.join(), cU].join(' ; ') + ')');
+    /* rejet écarté dans Contrôles, nature et texte retouchés : un autre jugement retire la décision et la nature, garde le texte ; une annulation les rend */
+    await p.evaluate(() => { const ed = window.__vcEd; ed.etat.doc.decisions['ep-exu:d'] = {st: 'ecartee', nc: false, obs: 'Rejet retouché'}; ed.synchroniser(); });
+    await fiche(p, X.id);
+    const aE = await anomsDe(p, 'd');
+    await puceDest(p, 'ep', 'arbitrer');
+    const aR = await anomsDe(p, 'd'), dR = await p.evaluate(() => JSON.stringify(window.__vcEd.doc().decisions['ep-exu:d'] || null));
+    await annuler(p);
+    const aR2 = await anomsDe(p, 'd'), dR2 = await p.evaluate(() => JSON.stringify(window.__vcEd.doc().decisions['ep-exu:d'] || null)), cR2 = await champsDe(p, X.id);
+    R.ok(/^ep-exu:d ecartee /.test(aE.join()) && aR.join() === 'ep-exu:d arbitrer NC « Descente EP : rejet dans l\'étang »' && dR === '{"obs":"Rejet retouché"}'
+      && aR2.join() === aE.join() && dR2 === '{"st":"ecartee","nc":false,"obs":"Rejet retouché"}' && /ep=nc/.test(cR2),
+      'a1 rejet écarté dans Contrôles, nature « réserve » : jugement « À arbitrer », la décision et la nature retirées, le texte gardé ; « Annuler » les rend ('
+      + [aE.join(), aR.join(), dR, aR2.join(), dR2].join(' ; ') + ')');
+    /* refus : nom vide, qui contient « puits » (toutes casses, accents, espaces), ou que le PDF ne sait pas écrire ; rien ne change */
+    await fiche(p, X.id);
+    const essais = [['nom', '', VIDE_T, 'Étang'], ['nom', '   ', VIDE_T, 'Étang'], ['nom', 'Puits du jardin', PUITS_T, 'Étang'], ['nom', 'PUITS', PUITS_T, 'Étang'],
+      ['nom', ' le puîts ', PUITS_T, 'Étang'], ['nom', 'Étangpuits', PUITS_T, 'Étang'], ['nom', 'Puits perdu', PUITS_T, 'Étang'], ['nom', 'Mare\u00a0aux\u00a0PuÏts ', PUITS_T, 'Étang'],
+      ['nom', 'Puit du jardin', PUITS_T, 'Étang'], ['nom', 'puit', PUITS_T, 'Étang'], ['nom', '\u{1F642}', PDFN_T, 'Étang'], ['nom', 'Ω', PDFN_T, 'Étang'],
+      ['nom', 'A', PDFN_T, 'Étang'], ['nom', '\u{1F642} Ω A', PDFN_T, 'Étang'], ['ab', 'A', LONG_T, 'Ét'], ['ab', 'ΩΩ', PDFA_T, 'Ét']];
+    const rates = [];
+    for (const [k, v, t, aff0] of essais){
+      const e0 = await etatDessin(p), w0 = await nUndo(p); await effacerToast(p);
+      const aff = await saisir(p, k, v), msg = await toastVu(p), e1 = await etatDessin(p), w1 = await nUndo(p);
+      if (!(aff === aff0 && msg === t && e0 === e1 && w0 === w1)) rates.push(k + ' ' + JSON.stringify(v) + ' : affiché ' + JSON.stringify(aff) + ', toast ' + JSON.stringify(msg) + (e0 === e1 ? '' : ', dessin changé') + (w0 === w1 ? '' : ', pas d\'annulation ajouté'));
+    }
+    R.ok(!rates.length, 'a1 nom vide, qui contient « puits » ou « puit » comme mot, sans deux caractères lisibles au PDF, abréviation d\'un caractère ou illisible : refusés avec leur toast, la valeur rendue, rien ne change'
+      + (rates.length ? ' (' + rates.join(' ; ') + ')' : ''));
+    /* abréviation : trois caractères acceptés, vidée : celle tirée du nom */
+    const vA = await saisir(p, 'ab', 'ÉTg'), cA = await champsDe(p, X.id), vA2 = await saisir(p, 'ab', ''), cA2 = await champsDe(p, X.id);
+    R.ok(vA === 'ÉTg' && /ab=ÉTg /.test(cA) && vA2 === 'Ét' && /ab=Ét /.test(cA2), 'a1 abréviation « ÉTg » acceptée ; vidée : « Ét », tirée du nom (' + [vA, cA, vA2, cA2].join(' ; ') + ')');
+    /* un WC relié : rejet dans l'étang, toujours non conforme ; sa fiche n'a aucun des champs d'une destination */
+    const Xn = (await elements(p)).find(e => e.id === X.id), els2 = [Xn, C.P('w', 'wc', qw.x, qw.y)];
+    els2.push(C.L('Lw', 'tr', ['w', X.id], C.index(els2)));
+    await C.injecter(p, {el: els2}); await vue(A);
+    const aW = await anomsDe(p, 'w'); await fiche(p, 'w'); const fW = await ficheDest(p);
+    R.ok(aW.join() === 'eu-exu:w retenue NC « WC : rejet dans l\'étang »' && !/\|(Nom|Abréviation|Article|Jugement des EP|Case du constat)\|/.test('|' + fW.champs),
+      'a1 WC relié : « WC : rejet dans l\'étang », retenue NC ; sa fiche sans les champs d\'une destination (' + aW.join() + ' ; ' + fW.champs + ')');
+    /* « Type » : la destination changée en puisard perd ses cinq champs, avec le toast ; un puisard changé en destination reçoit ceux par défaut */
+    await fiche(p, X.id);
+    const opts = await p.evaluate(F => { const s = document.querySelector(F + 'select[data-a="type"]'); return s ? Array.from(s.options).map(o => o.value + (o.selected ? '*' : '')).join(' ') : ''; }, FICHE);
+    await effacerToast(p);
+    await p.selectOption(FICHE + 'select[data-a="type"]', 'puisard').catch(() => {}); await C.pause(p, 300);
+    const cP = await champsDe(p, X.id), tP = await toastVu(p);
+    await p.selectOption(FICHE + 'select[data-a="type"]', 'exutoire').catch(() => {}); await C.pause(p, 300);
+    const cE = await champsDe(p, X.id), fE = await ficheDest(p);
+    await annuler(p); await annuler(p); const cB = await champsDe(p, X.id);
+    R.ok(/\bexutoire\* /.test(opts + ' ') && /\bpuits\b/.test(opts) && !/jonction/.test(opts) && cP === 'puisard nom=undefined ab=undefined art=undefined ep=undefined cst=undefined'
+      && /^Type changé : 5 caractéristiques ne s'appliquent plus et sont effacées/.test(tP) && cE === 'exutoire nom=Autre destination ab=Au art=l\' ep=arbitrer cst=autre'
+      && fE.nom === 'Autre destination' && cB === 'exutoire nom=Étang ab=Ét art=l\' ep=nc cst=autre',
+      'a1 « Type » : en puisard, les cinq champs effacés, avec le toast ; en destination, ceux par défaut ; deux annulations rendent l\'étang ('
+      + [opts, cP, JSON.stringify(tP), cE, cB].join(' ; ') + ')');
+    /* renommages : l'article se règle sur la première lettre du nouveau nom (« le » au lieu de « l' » devant une consonne, avec un toast ;
+       « l' » devant une voyelle ; devant un h, celui d'avant [p]) ; l'abréviation qui suivait le nom le suit, tirée de ses caractères
+       lisibles au PDF ; un seul pas d'annulation ; « Puisard du fond » est accepté */
+    await fiche(p, X.id);
+    const ren = [], ART_T = 'Article « le » : touchez « la » s\'il le faut';
+    const renommer = async v => {
+      await effacerToast(p); const aff = await saisir(p, 'nom', v), t = await toastVu(p), c = await champsDe(p, X.id), w = await anomsDe(p, 'w');
+      ren.push(aff + ' | ' + c.replace(/^exutoire nom=.*? ab=/, 'ab=') + ' | ' + w.join().replace(/^eu-exu:w retenue NC /, '') + (t ? ' | ' + t : ''));
+    };
+    const u2 = await nUndo(p); await renommer('Mare'); const u3 = await nUndo(p);
+    await annuler(p); const cAn = await champsDe(p, X.id); await fiche(p, X.id);
+    await renommer('Mare'); await puceDest(p, 'art', 'la'); const wLa = (await anomsDe(p, 'w')).join();
+    for (const v of ['Ancienne mare', 'Herbage', 'Fossé', '\u{1F4A7} Mare']) await renommer(v);
+    const vM = await saisir(p, 'ab', 'Mx'), vM2 = await saisir(p, 'ab', ''), pM2 = await p.evaluate(s => window.VCroquis.pdfTxt(s), vM2);
+    await renommer('Puisard du fond');
+    const attR = ['Mare | ab=Ma art=le ep=nc cst=autre | « WC : rejet dans le mare » | ' + ART_T, 'Mare | ab=Ma art=le ep=nc cst=autre | « WC : rejet dans le mare » | ' + ART_T,
+      'Ancienne mare | ab=An art=l\' ep=nc cst=autre | « WC : rejet dans l\'ancienne mare »', 'Herbage | ab=He art=l\' ep=nc cst=autre | « WC : rejet dans l\'herbage »',
+      'Fossé | ab=Fo art=le ep=nc cst=autre | « WC : rejet dans le fossé » | ' + ART_T, '\u{1F4A7} Mare | ab=Ma art=le ep=nc cst=autre | « WC : rejet dans le \u{1F4A7} Mare »',
+      'Puisard du fond | ab=Pu art=le ep=nc cst=autre | « WC : rejet dans le puisard du fond »'];
+    R.ok(ren.join(' ; ') === attR.join(' ; ') && u3 === u2 + 1 && cAn === 'exutoire nom=Étang ab=Ét art=l\' ep=nc cst=autre'
+      && wLa === 'eu-exu:w retenue NC « WC : rejet dans la mare »' && vM === 'Mx' && vM2 === 'Ma' && pM2 === 'Ma',
+      'a1 renommages : « Mare » en « le » avec le toast (un pas, « Annuler » rend l\'étang), « la » choisi ; « Ancienne mare » et « Herbage » en « l\' », « Fossé » en « le » ;'
+      + ' l\'abréviation suit le nom, « Ma » pour « \u{1F4A7} Mare », vidée aussi ; « Puisard du fond » accepté ('
+      + [ren.join(' ; '), u2 + '/' + u3, cAn, wLa, vM, vM2].join(' ; ') + ')');
+    /* puces : seul le champ touché est écrit, une valeur inconnue de cette version reste ; sans nom, l'article écrit aussi le nom (sans nom,
+       l'article est toujours « l' ») */
+    const q9 = A.plan(70, 1.5);
+    await C.injecter(p, {el: [C.P('X9', 'exutoire', q9.x, q9.y, {art: 'les', ep: 'nc', cst: 'xx'})]}); await vue(A);
+    await fiche(p, 'X9'); await puceDest(p, 'ep', 'reserve'); const c9 = await champsDe(p, 'X9');
+    await puceDest(p, 'art', 'la'); const c9b = await champsDe(p, 'X9'), f9 = await ficheDest(p);
+    R.ok(c9 === 'exutoire nom=undefined ab=undefined art=les ep=reserve cst=xx' && c9b === 'exutoire nom=Autre destination ab=undefined art=la ep=reserve cst=xx'
+      && f9.puces === 'art=la ep=reserve cst=autre', 'a1 puces : seul le champ touché est écrit, « les » et « xx » restent ; sans nom, l\'article « la » écrit aussi le nom ('
+      + [c9, c9b, f9.puces].join(' ; ') + ')');
+    R.ok(!A.erreurs.length, 'a1 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+/* a2 : outil armé d'un modèle (comme le fera la palette de m128) : l'aide, la pose par cotes (aide, panneau, aperçu, « Poser ») et la pose au
+   toucher le gardent ; l'outil choisi ensuite par la palette n'en a pas */
+async function destinationModele(){
+  const A = await croquisTourne(), p = A.p, CH = ['nom', 'ab', 'art', 'ep', 'cst'];
+  const ETANG = {nom: 'Étang', ab: 'Ét', art: 'l\'', ep: 'arbitrer', cst: 'autre'}, MARE = {nom: 'Mare', ab: 'Ma', art: 'la', ep: 'reserve', cst: 'recup'};
+  const garde = (o, m) => !!o && o.t === 'exutoire' && CH.every(k => o.p[k] === m[k]);
+  const nouveaux = async els0 => (await elements(p)).filter(e => !els0.some(x => x.id === e.id));
+  try {
+    await C.outil(p, {k: 'pt', t: 'exutoire', pal: 'equ', modele: ETANG}); await C.pause(p, 150);
+    const aide = await texteAide(p), mod = await p.evaluate(() => JSON.stringify(window.__vcEd.etat.outil.modele || null));
+    const okC = await entrerCotes(p), aC = await texteAide(p);
+    await toucherPlan(p, A.plan(70, 4)); await toucherPlan(p, A.plan(63.2, 3.3));
+    const tp = await textePanneau(p), txt = await textesDessines(p);
+    R.ok(mod === JSON.stringify(ETANG) && aide.indexOf('Touchez le plan pour poser : Étang.') === 0 && okC && aC.indexOf('Pose par cotes (Étang).') === 0
+      && /Étang posé depuis : Façade/.test(tp) && txt.indexOf('Ét') >= 0 && txt.indexOf('Au') < 0,
+      'a2 outil armé du modèle « Étang » : l\'outil le garde ; aide, aide des cotes et panneau le nomment, l\'aperçu écrit « Ét » ('
+      + [mod, JSON.stringify(aide), JSON.stringify(aC), JSON.stringify(tp.slice(0, 60)), 'textes ' + txt.filter(s => s.length <= 3).join(' ')].join(' ; ') + ')');
+    let els0 = await elements(p);
+    const poser = await p.$(FICHE + 'button[data-a="cotesPoser"]'); if (poser){ await poser.click(); await C.pause(p, 400); }
+    let nv = await nouveaux(els0), o = nv.length === 1 ? nv[0] : null;
+    const fO = await ficheDest(p);
+    R.ok(garde(o, ETANG) && fO.nom === 'Étang' && fO.ab === 'Ét' && fO.puces === 'art=l\' ep=arbitrer cst=autre',
+      'a2 « Poser » : la destination garde nom, abréviation et jugement du modèle, sa fiche les montre (' + (o ? o.t + ' ' + JSON.stringify(o.p) : nv.length + ' nouvel élément') + ' ; ' + JSON.stringify(fO) + ')');
+    /* modèle « Mare » (la, réserve, récupérateur) : « posée » ; posée au toucher, elle garde ses cinq champs, l'outil son modèle */
+    await C.outil(p, {k: 'pt', t: 'exutoire', pal: 'equ', modele: MARE}); await C.pause(p, 150);
+    const aM = await texteAide(p);
+    await entrerCotes(p); await toucherPlan(p, A.plan(70, 4)); await toucherPlan(p, A.plan(63.2, 3.3));
+    const tM = await textePanneau(p);
+    const stop = await p.$('.vc .vc-aide button[data-a="cotesStop"]'); if (stop){ await stop.click(); await C.pause(p, 250); }
+    els0 = await elements(p);
+    await toucherPlan(p, A.plan(76, 1.5)); await C.pause(p, 400);
+    nv = await nouveaux(els0); o = nv.length === 1 ? nv[0] : null;
+    const mod2 = await p.evaluate(() => JSON.stringify(window.__vcEd.etat.outil.modele || null));
+    R.ok(aM.indexOf('Touchez le plan pour poser : Mare.') === 0 && /Mare posée depuis : Façade/.test(tM) && garde(o, MARE) && mod2 === JSON.stringify(MARE),
+      'a2 modèle « Mare » : « Mare posée depuis : Façade » ; posée au toucher, elle garde ses cinq champs ; l\'outil garde son modèle ('
+      + [JSON.stringify(aM), JSON.stringify(tM.slice(0, 60)), o ? JSON.stringify(o.p) : nv.length + ' nouvel élément', mod2].join(' ; ') + ')');
+    /* l'outil choisi ensuite par la palette : sans modèle, les champs par défaut */
+    await p.evaluate(() => { for (let k = 0; k < 5 && window.__vcEd.fermerNiveau(); k++); });
+    await p.click('.vc .vc-o[data-pal="equ"]'); await C.pause(p, 200);
+    const b = await p.$('.vc .vc-pitem[data-item="pt:exutoire"]'); if (b){ await b.click(); await C.pause(p, 200); }
+    const aP = await texteAide(p), mod3 = await p.evaluate(() => JSON.stringify(window.__vcEd.etat.outil.modele || null));
+    els0 = await elements(p);
+    await toucherPlan(p, A.plan(70, 1.5)); await C.pause(p, 400);
+    nv = await nouveaux(els0); o = nv.length === 1 ? nv[0] : null;
+    R.ok(!!b && mod3 === 'null' && aP.indexOf('Touchez le plan pour poser : Autre destination.') === 0 && garde(o, {nom: 'Autre destination', ab: 'Au', art: 'l\'', ep: 'arbitrer', cst: 'autre'}),
+      'a2 outil choisi ensuite par la palette : sans modèle, « Autre destination » aux champs par défaut (' + [mod3, JSON.stringify(aP), o ? JSON.stringify(o.p) : nv.length + ' nouvel élément'].join(' ; ') + ')');
+    R.ok(!A.erreurs.length, 'a2 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+/* a3 : nature au dossier (mode intégré) du rejet des EP dans une destination dont le jugement change dans la fiche, même texte (m127) */
+async function destinationNature(){
+  const A = await croquisTourne(), p = A.p;
+  try {
+    /* trois étangs « Non conforme », chacun relié à sa descente : l'anomalie entre au dossier sans nature écrite, celle de la règle de
+       l'application (« rejet » : non conforme) */
+    const els = [];
+    for (const k of [1, 2, 3]){
+      const q = A.plan(58 + 6 * k, 3.5), qd = A.plan(58 + 6 * k, 1.5);
+      els.push(C.P('X' + k, 'exutoire', q.x, q.y, {nom: 'Étang', ab: 'Ét', art: 'l\'', ep: 'nc', cst: 'autre'}), C.P('d' + k, 'descente', qd.x, qd.y, {cote: 'avant', visitable: 'oui'}));
+    }
+    for (const k of [1, 2, 3]) els.push(C.L('L' + k, 'tr', ['d' + k, 'X' + k], C.index(els)));
+    await C.injecter(p, {el: els}); await vue(A);
+    /* par anomalie : nature au dossier (écrite, sinon « absent » ; puis celle que lit l'application, anomNC), état et nature dans la liste du
+       croquis (s'il est ouvert) ; conclusion proposée du constat */
+    const natures = () => p.evaluate(() => {
+      const T = window.__VT, ed = window.__vcEd, ouvert = !!T.VC.ctx, v = ouvert ? T.VC.ctx.v : T.S.visites[0], list = T.S.anoms.filter(a => a.visiteId === v.id), r = {};
+      list.forEach(a => { r[(a.croquis && a.croquis.cle) || a.observation] = 'dossier ' + (a.nc == null ? 'absent' : a.nc) + '/' + (T.anomNC(a) ? 'NC' : 'réserve'); });
+      if (ouvert) ed.liste().forEach(a => { r[a.cle] = (r[a.cle] || 'dossier aucun') + ', croquis ' + a.st + (a.nc ? ' NC' : ' réserve'); });
+      return Object.keys(r).sort().map(k => k + ' : ' + r[k]).join(' ; ') + ' ; constat ' + T.constatEval(v, list).auto;
+    });
+    const att = (n, f) => [1, 2, 3].map(k => 'ep-exu:d' + k + ' : ' + (f || ((k > n) ? 'dossier absent/NC, croquis retenue NC' : 'dossier false/réserve, croquis retenue réserve'))).join(' ; ');
+    const n0 = await natures();
+    /* « Réserve » par trois chemins : depuis « Non conforme » ; par « Conforme » (l'anomalie quitte le dossier, puis revient de sa copie) ;
+       par « À arbitrer » (de même) */
+    const chemins = [[1, ['reserve']], [2, ['conforme', 'reserve']], [3, ['arbitrer', 'reserve']]], nk = [];
+    for (const [k, suite] of chemins){ await fiche(p, 'X' + k); for (const v of suite) await puceDest(p, 'ep', v); nk.push(await natures()); }
+    /* aller et retour : « Non conforme » puis « Réserve » */
+    await fiche(p, 'X1'); await puceDest(p, 'ep', 'nc'); const nA = await natures(); await puceDest(p, 'ep', 'reserve'); const nR = await natures();
+    await C.fermerCroquis(p); const nF = await natures();
+    await C.ouvrirCroquis(p, {dejaCommence: true}); await C.pause(p, 400); const nO = await natures();
+    R.ok(n0 === att(0) + ' ; constat non_conformes', 'a3 trois étangs « Non conforme » : l\'anomalie au dossier sans nature écrite, non conforme pour l\'application (' + n0 + ')');
+    R.ok(nk[0] === att(1) + ' ; constat non_conformes' && nk[1] === att(2) + ' ; constat non_conformes' && nk[2] === att(3) + ' ; constat reserves',
+      'a3 « Réserve » depuis « Non conforme », par « Conforme », par « À arbitrer » : nature écrite au dossier (réserve), « retenue réserve » au croquis ; la conclusion « reserves » ('
+      + nk.join(' | ') + ')');
+    R.ok(/^ep-exu:d1 : dossier (true|absent)\/NC, croquis retenue NC ; /.test(nA) && nA.indexOf(att(3).slice(att(3).indexOf(' ; '))) > 0 && / ; constat non_conformes$/.test(nA)
+      && nR === att(3) + ' ; constat reserves', 'a3 aller et retour : « Non conforme » rend la non-conformité, « Réserve » la réserve (' + nA + ' | ' + nR + ')');
+    R.ok(nF === [1, 2, 3].map(k => 'ep-exu:d' + k + ' : dossier false/réserve').join(' ; ') + ' ; constat reserves' && nO === att(3) + ' ; constat reserves',
+      'a3 croquis fermé : le dossier garde les réserves, la conclusion « reserves » ; rouvert : de même au croquis (' + nF + ' | ' + nO + ')');
+    R.ok(!A.erreurs.length, 'a3 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+/* a4 (m127) : regard au tampon béton relié au WC, « … fissuré » saisi dans sa fiche, puis le regard passe en EP (la source devient une
+   descente, la boîte une boîte EP) */
+async function regardNature(){
+  const A = await croquisTourne(), p = A.p;
+  try {
+    const [qw, qr, qb] = [0, 1, 2].map(k => A.plan(62 + 5 * k, 1.5));
+    const els = [C.P('w', 'wc', qw.x, qw.y), C.P('R', 'regard', qr.x, qr.y, {tampon: 'beton'}), C.P('B', 'boite', qb.x, qb.y, {res: 'EU'})], I = C.index(els);
+    els.push(C.L('t1', 'tr', ['w', 'R'], I), C.L('t2', 'tr', ['R', 'B'], I));
+    await C.injecter(p, {el: els}); await vue(A);
+    /* anomalie tampon:R au dossier : texte, réseau, nature écrite (sinon « absent ») / lue par l'application (anomNC) ; conclusion proposée */
+    const nature = () => p.evaluate(() => {
+      const T = window.__VT, v = T.VC.ctx ? T.VC.ctx.v : T.S.visites[0], list = T.S.anoms.filter(a => a.visiteId === v.id), a = list.find(x => x.croquis && x.croquis.cle === 'tampon:R');
+      return (a ? '« ' + a.observation + ' » ' + a.reseau + ' ' + (a.nc == null ? 'absent' : a.nc) + '/' + (T.anomNC(a) ? 'NC' : 'réserve') : 'aucune')
+        + ' ; constat ' + T.constatEval(v, list).auto;
+    });
+    const n0 = await nature(), F = '« Regard EU : tampon béton fissuré »';
+    await fiche(p, 'R');
+    const t = await p.$(FICHE + 'textarea[data-a="recTxt"][data-k="obs"]');
+    if (t){ await t.fill('Regard EU : tampon béton fissuré'); await t.evaluate(x => x.blur()); await C.pause(p, 300); }
+    const n1 = await nature();
+    await p.evaluate(() => {
+      const ed = window.__vcEd, d = ed.doc(), w = d.el.find(e => e.id === 'w');
+      w.t = 'descente'; w.p.cote = 'avant'; w.p.visitable = 'oui'; d.el.find(e => e.id === 'B').p.res = 'EP'; d.rev = (d.rev || 0) + 1; ed.synchroniser(); ed.enregistrer();
+    });
+    await C.pause(p, 400); const n2 = await nature(), lc = (await anomsDe(p, 'R')).join(' ; ');
+    await C.fermerCroquis(p); const n3 = await nature();
+    R.ok(n0 === '« Regard EU : tampon béton » EU absent/NC ; constat non_conformes' && n1 === F + ' EU absent/NC ; constat non_conformes',
+      'a4 regard au tampon béton en EU, « … fissuré » saisi dans sa fiche : non conforme au dossier (' + n0 + ' | ' + n1 + ')');
+    R.ok(n2 === F + ' EP absent/NC ; constat non_conformes' && lc === 'tampon:R retenue NC ' + F && n3 === n2,
+      'a4 le regard passe en EP : le texte nomme un défaut, non conforme au dossier (sans nature écrite) et au croquis, la conclusion '
+      + '« non_conformes » ; de même croquis fermé (' + n2 + ' | ' + lc + ' | ' + n3 + ')');
+    R.ok(!A.erreurs.length, 'a4 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+/* a5 (m127) : étang « Non conforme » relié à sa descente ; « Réserve », puis le texte du rejet retouché dans la fiche de la descente
+   (« … tampon béton » : la règle de l'application le dit en réserve), puis « Non conforme » */
+async function destinationTexte(){
+  const A = await croquisTourne(), p = A.p;
+  try {
+    const q = A.plan(64, 3.5), qd = A.plan(64, 1.5);
+    const els = [C.P('X1', 'exutoire', q.x, q.y, {nom: 'Étang', ab: 'Ét', art: 'l\'', ep: 'nc', cst: 'autre'}), C.P('d1', 'descente', qd.x, qd.y, {cote: 'avant', visitable: 'oui'})];
+    els.push(C.L('L1', 'tr', ['d1', 'X1'], C.index(els)));
+    await C.injecter(p, {el: els}); await vue(A);
+    /* anomalie ep-exu:d1 au dossier : texte, nature écrite (sinon « absent ») / lue par l'application (anomNC) ; état et nature au croquis
+       (s'il est ouvert) ; conclusion proposée du constat */
+    const nature = () => p.evaluate(() => {
+      const T = window.__VT, ed = window.__vcEd, ouvert = !!T.VC.ctx, v = ouvert ? T.VC.ctx.v : T.S.visites[0], list = T.S.anoms.filter(a => a.visiteId === v.id);
+      const a = list.find(x => x.croquis && x.croquis.cle === 'ep-exu:d1'), c = ouvert ? ed.liste().find(x => x.cle === 'ep-exu:d1') : null;
+      return (a ? '« ' + a.observation + ' » ' + (a.nc == null ? 'absent' : a.nc) + '/' + (T.anomNC(a) ? 'NC' : 'réserve') : 'aucune')
+        + (ouvert ? ', croquis ' + (c ? c.st + (c.nc ? ' NC' : ' réserve') : 'aucune') : '') + ' ; constat ' + T.constatEval(v, list).auto;
+    });
+    const n0 = await nature(), TB = 'Descente EP vers l\'étang, tampon béton';
+    await fiche(p, 'X1'); await puceDest(p, 'ep', 'reserve'); const n1 = await nature();
+    await fiche(p, 'd1');
+    const t = await p.$(FICHE + 'textarea[data-a="recTxt"][data-k="obs"]');
+    if (t){ await t.fill(TB); await t.evaluate(x => x.blur()); await C.pause(p, 300); }
+    const n2 = await nature();
+    await fiche(p, 'X1'); await puceDest(p, 'ep', 'nc'); const n3 = await nature();
+    await C.fermerCroquis(p); const n4 = await nature();
+    const d0 = n0.replace(/^« [^»]* » /, '');
+    R.ok(d0 === 'absent/NC, croquis retenue NC ; constat non_conformes' && n1 === n0.replace(d0, 'false/réserve, croquis retenue réserve ; constat reserves')
+      && n2 === '« ' + TB + ' » false/réserve, croquis retenue réserve ; constat reserves',
+      'a5 « Réserve », puis le texte du rejet rendu « … tampon béton » dans la fiche de la descente : réserve écrite au dossier ('
+      + n0 + ' | ' + n1 + ' | ' + n2 + ')');
+    R.ok(n3 === '« ' + TB + ' » absent/réserve, croquis retenue réserve ; constat reserves' && n4 === '« ' + TB + ' » absent/réserve ; constat reserves',
+      'a5 « Non conforme » : la nature écrite est effacée, la réserve du texte retouché reste, au dossier et au croquis, la conclusion '
+      + '« reserves » ; de même croquis fermé (' + n3 + ' | ' + n4 + ')');
+    R.ok(!A.erreurs.length, 'a5 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [apercu, boutonRejetSol, rejetPresDunRegard, rejetSansFacade, rejetPresDesMurs, rejetPresDunComplement, puits]){
+  for (const f of [apercu, boutonRejetSol, rejetPresDunRegard, rejetSansFacade, rejetPresDesMurs, rejetPresDunComplement, puits, destination, destinationModele, destinationNature,
+    regardNature, destinationTexte]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();
