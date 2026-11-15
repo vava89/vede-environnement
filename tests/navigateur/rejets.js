@@ -81,6 +81,27 @@
 // renommages et les puces échouent (avec a3 : 53/63). Sur la deuxième : a4 échoue (le regard passé en EP devenait une réserve écrite au
 // dossier, conclusion « reserves »), et a5 (« Non conforme » écrivait la non-conformité au dossier : true/NC, conclusion « non_conformes ») :
 // 64/66. Sur la troisième : a5 seul échoue, de même (65/66).
+// m1 (m128, décisions D3 et D10) : palette Équipements : « + Nouvelle destination » juste après « Autre destination », en dernier, sans
+//     modèle ; sa fiche courte part d'un nom vide, d'une abréviation vide (tirée du nom), de « le », « à arbitrer » et « autre » ; le nom
+//     vide, puis « Puits du jardin », sont refusés avec le toast de la fiche (elle reste ouverte, rien n'est enregistré, l'outil ne change
+//     pas) ; « Étang » (« Ét » tirée du nom, « l' », « Non conforme », « autre ») est enregistrée dans croquisConfig.exutoires, sous un
+//     identifiant tiré par l'application, et en arme l'outil (« Touchez le plan pour poser : Étang. ») ; palette rouverte : l'item
+//     « Étang », pressé, entre « Autre destination » et « + Nouvelle destination », son symbole écrit « Ét » ; choisi dans la palette, posé
+//     au toucher (sa fiche le montre), puis par « Cotes » (« Étang posé depuis : Façade ») : chaque destination garde ses cinq champs ;
+//     page rechargée : le modèle reste, sous le même identifiant, les destinations posées aussi. Aucune erreur dans la console.
+// m2 (m128, D12) : Étang (NC) créé par « + Nouvelle destination », posé, relié à une descente et à un WC ; Réglages : « Destinations
+//     ajoutées » le liste, « Modifier » le montre ; « Puits » refusé avec le toast de la fiche (la fenêtre reste ouverte) ; Mare
+//     (abréviation vidée : « Ma »), conforme, récupérateur, article laissé tel quel : la fenêtre le montre aussitôt réglé sur le
+//     nouveau nom, « le » au lieu de « l' », comme la fiche courte, et l'enregistre (échoue sur la première version de m128 : la
+//     fenêtre montrait encore « l' » et enregistrait « le ») ; une seconde fois, « la », enregistrée sous le même identifiant ;
+//     croquis rouvert : la destination posée reste l'Étang (NC), même analyse ; la palette propose « Mare », et une destination posée depuis ce modèle en prend les champs ;
+//     « Retirer », confirmé : plus de modèle (« Aucune destination ajoutée »), la palette n'en propose plus, les destinations posées et
+//     l'analyse ne changent pas. Aucune erreur dans la console.
+// m3 (m128, D3) : même Étang relié ; la sauvegarde de l'étude (export complet), restaurée sur un profil neuf, n'y apporte aucun modèle ;
+//     même analyse (la destination garde l'Étang, NC), aucun modèle dans la palette ; même constat (anomalies au dossier, conclusion
+//     proposée, résumé du croquis), avant et après l'ouverture du croquis restauré. Aucune erreur dans la console.
+// m1, m2 et m3 échouent sur b6e3e3c (ni « + Nouvelle destination » dans la palette, ni modèle de la tablette : 0/9 ; m1 s'arrête au
+// rechargement, m2 et m3 sans modèle).
 // usage : node tests/navigateur/rejets.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -779,9 +800,249 @@ async function destinationTexte(){
   } finally { await A.fermer(); }
 }
 
+/* --- destinations ajoutées (m128, décisions D3, D10 à D12) : « + Nouvelle destination », modèles de la tablette, Réglages, sauvegarde --- */
+const NOUV = '.vc .vc-modal.vc-mdest ', CH5 = ['nom', 'ab', 'art', 'ep', 'cst'];
+const ETANG_NC = {nom: 'Étang', ab: 'Ét', art: 'l\'', ep: 'nc', cst: 'autre'}, MARE_C = {nom: 'Mare', ab: 'Ma', art: 'la', ep: 'conforme', cst: 'recup'};
+const cinq = m => m && typeof m === 'object' ? JSON.stringify(CH5.map(k => m[k])) : String(m);
+const fermerTout = p => p.evaluate(() => { for (let k = 0; k < 6 && window.__vcEd.fermerNiveau(); k++); });
+const nouveaux = async (p, els0) => (await elements(p)).filter(e => !els0.some(x => x.id === e.id));
+/* palette Équipements ouverte par son bouton : ses items, data-item=libellé (sans le sous-titre ; l'icône d'un item sans symbole est un
+   span .vc-ptx, écarté) */
+async function itemsEqu(p){
+  if (await p.evaluate(() => window.__vcEd.etat.palette !== 'equ')){ await p.click('.vc .vc-o[data-pal="equ"]'); await C.pause(p, 200); }
+  return p.evaluate(() => Array.from(document.querySelectorAll('.vc .vc-pitem')).map(b => { const s = b.querySelector(':scope > span:not(.vc-ptx)');
+    return b.dataset.item + '=' + (s && s.firstChild ? s.firstChild.textContent : b.textContent).trim(); }));
+}
+/* fiche courte de « + Nouvelle destination » : libellés des champs, nom, abréviation, puces pressées (null : pas de fiche) */
+const ficheNouv = p => p.evaluate(F => {
+  const c = document.querySelector(F); if (!c) return null;
+  const v = k => { const i = c.querySelector('input[data-k="' + k + '"]'); return i ? i.value : null; };
+  return {champs: Array.from(c.querySelectorAll('.vc-champ > .vc-lab')).map(l => (l.firstChild && l.firstChild.textContent || '').trim() + '|').join(''), nom: v('nom'), ab: v('ab'),
+    puces: Array.from(c.querySelectorAll('button[data-a="ndest"][aria-pressed="true"]')).map(b => b.dataset.k + '=' + b.dataset.v).join(' ')};
+}, NOUV.trim());
+/* modèle saisi dans la fiche courte, ouverte d'abord par la palette s'il le faut : nom et abréviation saisis s'ils sont donnés, puces
+   touchées, puis « Enregistrer » ; rend le toast et si la fiche reste ouverte */
+async function nouveauModele(p, m){
+  if (!await p.$(NOUV)){
+    await itemsEqu(p);
+    const b = await p.$('.vc .vc-pitem[data-item="nv:exutoire"]'); if (!b) return {toast: '', ouverte: false, sansBouton: true};
+    await b.click(); await C.pause(p, 300);
+  }
+  if (m.nom != null) await p.fill(NOUV + 'input[data-k="nom"]', m.nom);
+  if (m.ab != null) await p.fill(NOUV + 'input[data-k="ab"]', m.ab);
+  for (const k of ['art', 'ep', 'cst']) if (m[k]){ const b = await p.$(NOUV + 'button[data-a="ndest"][data-k="' + k + '"][data-v="' + m[k] + '"]'); if (b){ await b.click(); await C.pause(p, 120); } }
+  await effacerToast(p);
+  const ok = await p.$(NOUV + 'button[data-r="1"]'); if (ok){ await ok.click(); await C.pause(p, 350); }
+  return {toast: await toastVu(p), ouverte: !!await p.$(NOUV)};
+}
+/* modèles de la tablette, tels que l'application les garde (meta croquisConfig.exutoires) ; 'absent' sans la clé */
+const modelesTablette = p => p.evaluate(async () => { const r = await window.__VT.DB.get('meta', 'croquisConfig'), l = r && r.v ? r.v.exutoires : undefined;
+  return l === undefined ? 'absent' : JSON.parse(JSON.stringify(l)); });
+const sansModele = c => c === 'absent' || c === null || (Array.isArray(c) && !c.length);
+/* m1 : « + Nouvelle destination » : palette, fiche courte, refus, modèle enregistré, poses au toucher et par « Cotes », rechargement */
+async function destinationNouvelle(){
+  const A = await croquisTourne(), p = A.p;
+  try {
+    const it0 = await itemsEqu(p), i0 = it0.map(s => s.split('=')[0]).indexOf('pt:exutoire');
+    R.ok(i0 >= 0 && it0[i0 + 1] === 'nv:exutoire=+ Nouvelle destination' && it0.length === i0 + 2,
+      'm1 palette Équipements : « + Nouvelle destination » juste après « Autre destination », aucun modèle (' + it0.slice(Math.max(0, i0)).join(', ') + ')');
+    const bN = await p.$('.vc .vc-pitem[data-item="nv:exutoire"]'); if (bN){ await bN.click(); await C.pause(p, 300); }
+    const f0 = await ficheNouv(p);
+    R.ok(!!f0 && f0.champs === 'Nom|Abréviation|Article|Jugement des EP|Case du constat|' && f0.nom === '' && f0.ab === '' && f0.puces === 'art=le ep=arbitrer cst=autre',
+      'm1 fiche courte de départ : nom vide, abréviation vide (tirée du nom), « le », « à arbitrer », « autre » (' + JSON.stringify(f0) + ')');
+    /* refus : nom vide, puis nom qui contient « puits » ; la fiche reste ouverte avec la saisie, rien n'est enregistré, l'outil ne change pas */
+    const o0 = await p.evaluate(() => JSON.stringify(window.__vcEd.etat.outil));
+    const r1 = f0 ? await nouveauModele(p, {nom: ''}) : {}, r2 = f0 ? await nouveauModele(p, {nom: 'Puits du jardin'}) : {};
+    const v2 = (await ficheNouv(p) || {}).nom, c0 = await modelesTablette(p), o1 = await p.evaluate(() => JSON.stringify(window.__vcEd.etat.outil));
+    R.ok(!!f0 && r1.toast === VIDE_T && r1.ouverte && r2.toast === PUITS_T && r2.ouverte && v2 === 'Puits du jardin' && sansModele(c0) && o1 === o0,
+      'm1 nom vide, puis « Puits du jardin » : refusés avec le toast de la fiche, la fiche courte reste ouverte, rien n\'est enregistré, l\'outil ne change pas ('
+      + [JSON.stringify(r1.toast), r1.ouverte, JSON.stringify(r2.toast), r2.ouverte, JSON.stringify(v2), JSON.stringify(c0)].join(' ; ') + ')');
+    /* « Étang » : l'abréviation suit le nom (« Ét ») ; « l' », « Non conforme », « autre » ; enregistrée, l'outil armé de ce modèle */
+    if (f0) await p.fill(NOUV + 'input[data-k="nom"]', 'Étang');
+    const fE = await ficheNouv(p) || {}, r3 = f0 ? await nouveauModele(p, {art: 'l\'', ep: 'nc', cst: 'autre'}) : {ouverte: true};
+    const c1 = await modelesTablette(p), M = Array.isArray(c1) && c1.length === 1 ? c1[0] : null, id = M ? M.id : 'aucun';
+    const ou = await p.evaluate(() => { const o = window.__vcEd.etat.outil; return o.k + ':' + o.t + ' ' + JSON.stringify(o.modele || null); }), aide = await texteAide(p);
+    R.ok(fE.ab === 'Ét' && !r3.ouverte && cinq(M) === cinq(ETANG_NC) && /^[A-Za-z0-9_-]+$/.test(id) && Object.keys(M).sort().join() === 'ab,art,cst,ep,id,nom'
+      && ou === 'pt:exutoire ' + JSON.stringify(ETANG_NC) && aide.indexOf('Touchez le plan pour poser : Étang.') === 0,
+      'm1 « Étang » (Ét tirée du nom, l\', NC, autre) enregistrée dans croquisConfig.exutoires, sous un identifiant tiré par l\'application ; l\'outil en est armé ('
+      + [JSON.stringify(fE.ab), JSON.stringify(c1), ou, JSON.stringify(aide)].join(' ; ') + ')');
+    /* palette rouverte, sans recharger : l'item du modèle, pressé, entre « Autre destination » et « + Nouvelle destination » ; son symbole écrit « Ét » */
+    const it1 = await itemsEqu(p), j = it1.indexOf('pt:exutoire=Autre destination');
+    const e1 = await p.evaluate(id => { const b = document.querySelector('.vc .vc-pitem[data-item="pt:exutoire:' + id + '"]'), g = document.querySelector('.vc .vc-pitem[data-item="pt:exutoire"]');
+      return b ? ((b.querySelector('svg text') || {}).textContent || '') + ' ' + b.getAttribute('aria-pressed') + ' ' + (g && g.getAttribute('aria-pressed')) : 'absent'; }, id);
+    R.ok(!!M && j >= 0 && it1[j + 1] === 'pt:exutoire:' + id + '=Étang' && it1[j + 2] === 'nv:exutoire=+ Nouvelle destination' && e1 === 'Ét true false',
+      'm1 palette rouverte sans recharger : « Étang » entre « Autre destination » et « + Nouvelle destination », pressée (l\'outil armé), son symbole écrit « Ét » ('
+      + it1.slice(Math.max(0, j)).join(', ') + ' ; ' + e1 + ')');
+    /* outil Main, puis le modèle choisi dans la palette : posé au toucher, puis par « Cotes » ; chaque destination garde ses cinq champs */
+    await fermerTout(p); await C.outil(p, {k: 'main'}); await C.pause(p, 150);
+    await itemsEqu(p); const bM = await p.$('.vc .vc-pitem[data-item="pt:exutoire:' + id + '"]'); if (bM){ await bM.click(); await C.pause(p, 200); }
+    const ou2 = await p.evaluate(() => { const o = window.__vcEd.etat.outil; return o.k + ':' + o.t + ' ' + JSON.stringify(o.modele || null); });
+    let els0 = await elements(p);
+    await toucherPlan(p, A.plan(64, 1.5)); await C.pause(p, 400);
+    let nv = (await nouveaux(p, els0)).filter(e => e.t === 'exutoire'); const X1 = nv.length === 1 ? nv[0] : null, fX1 = await ficheDest(p);
+    await fermerTout(p);
+    const okC = await entrerCotes(p);
+    await toucherPlan(p, A.plan(70, 4)); await toucherPlan(p, A.plan(63.2, 3.3));
+    const tp = await textePanneau(p);
+    els0 = await elements(p);
+    const poser = await p.$(FICHE + 'button[data-a="cotesPoser"]'); if (poser){ await poser.click(); await C.pause(p, 400); }
+    nv = (await nouveaux(p, els0)).filter(e => e.t === 'exutoire'); const X2 = nv.length === 1 ? nv[0] : null;
+    R.ok(ou2 === 'pt:exutoire ' + JSON.stringify(ETANG_NC) && !!X1 && cinq(X1.p) === cinq(ETANG_NC) && fX1.nom === 'Étang' && fX1.puces === 'art=l\' ep=nc cst=autre'
+      && okC && /Étang posé depuis : Façade/.test(tp) && !!X2 && cinq(X2.p) === cinq(ETANG_NC),
+      'm1 « Étang » choisie dans la palette : posée au toucher (sa fiche la montre), puis par « Cotes » (« Étang posé depuis : Façade ») ; chacune garde ses cinq champs ('
+      + [ou2, X1 ? cinq(X1.p) : 'pas de pose', JSON.stringify(fX1.puces), JSON.stringify(tp.slice(0, 60)), X2 ? cinq(X2.p) : 'pas de pose'].join(' ; ') + ')');
+    /* croquis fermé, page rechargée, croquis rouvert : le modèle reste dans la palette, sous le même identifiant ; les destinations posées
+       gardent leurs champs */
+    await C.fermerCroquis(p);
+    await p.reload(); await p.waitForFunction(() => { const r = window.__VT && window.__VT.S.route; return !!r && r.name === 'visit'; });
+    await p.waitForSelector('[data-act="vc-ouvrir"]'); await C.pause(p, 400);
+    await C.ouvrirCroquis(p, {dejaCommence: true});
+    const it2 = await itemsEqu(p), c2 = await modelesTablette(p), d2 = (await elements(p)).filter(e => e.t === 'exutoire').map(e => cinq(e.p));
+    R.ok(!!M && it2.indexOf('pt:exutoire:' + id + '=Étang') >= 0 && JSON.stringify(c2) === JSON.stringify(c1) && d2.length === 2 && d2.every(x => x === cinq(ETANG_NC)),
+      'm1 page rechargée : « Étang » reste dans la palette et dans croquisConfig.exutoires, sous le même identifiant ; les deux destinations posées gardent leurs champs ('
+      + [it2.filter(s => /^(pt:exutoire|nv:)/.test(s)).join(', '), JSON.stringify(c2), d2.join(' ')].join(' ; ') + ')');
+    R.ok(!A.erreurs.length, 'm1 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+/* modèle « Étang » (NC) créé par « + Nouvelle destination », posé au toucher, puis une descente et un WC reliés à lui ; rend l'identifiant
+   du modèle et celui de la destination posée (null sans modèle) */
+async function etangRelie(A){
+  const p = A.p, r = await nouveauModele(p, {nom: 'Étang', art: 'l\'', ep: 'nc', cst: 'autre'}), c = await modelesTablette(p);
+  const M = Array.isArray(c) && c.length === 1 ? c[0] : null; if (!M || r.ouverte) return null;
+  await fermerTout(p);
+  const els0 = await elements(p); await toucherPlan(p, A.plan(76, 1.5)); await C.pause(p, 400);
+  const X = (await nouveaux(p, els0)).find(e => e.t === 'exutoire'); if (!X) return null;
+  const els = await elements(p), qd = A.plan(76, 3.6), qw = A.plan(72, 8);
+  els.push(C.P('d1', 'descente', qd.x, qd.y, {cote: 'avant', visitable: 'oui'}), C.P('w1', 'wc', qw.x, qw.y));
+  const I = C.index(els); els.push(C.L('L1', 'tr', ['d1', X.id], I), C.L('L2', 'tr', ['w1', X.id], I));
+  await C.injecter(p, {el: els}); await vue(A);
+  return {id: M.id, X: X.id};
+}
+/* croquis ouvert : champs des destinations posées, résultat par source, anomalies du croquis, conclusion proposée du constat */
+const analyseDest = p => p.evaluate(() => {
+  const ed = window.__vcEd, S = ed.etat, T = window.__VT, v = T.VC.ctx.v, list = T.S.anoms.filter(a => a.visiteId === v.id);
+  const X = S.doc.el.filter(e => e.t === 'exutoire').map(e => e.id + ' ' + ['nom', 'ab', 'art', 'ep', 'cst'].map(k => e.p[k]).join('/')).sort().join(' ; ');
+  const res = Object.keys(S.an.resObj).sort().map(id => id + '=' + S.an.resObj[id].etat + ':' + (S.an.resObj[id].res || '')).join(' ');
+  const an = ed.liste().map(a => a.cle + ' ' + a.st + (a.nc ? ' NC' : ' réserve') + ' « ' + a.obs + ' »').sort().join(' ; ');
+  return X + ' | ' + res + ' | ' + an + ' | constat ' + T.constatEval(v, list).auto;
+});
+/* dossier, croquis fermé : anomalies au dossier, conclusion proposée du constat, résumé du croquis (installations, raccordement, cases des EP,
+   boîte), sans son numéro de révision */
+const constatDossier = p => p.evaluate(async () => {
+  const T = window.__VT, v = T.S.visites[0], list = T.S.anoms.filter(a => a.visiteId === v.id), r = await T.vcResume(v), res = r ? Object.assign({}, r) : null;
+  if (res) delete res.rev;
+  return JSON.stringify({anomalies: list.map(a => [a.observation, a.reseau, a.nc == null ? 'absent' : a.nc, T.anomNC(a) ? 'NC' : 'réserve', a.croquis && a.croquis.cle]).sort(),
+    auto: T.constatEval(v, list).auto, res});
+});
+/* Réglages de l'application : lignes de « Destinations ajoutées » */
+const lignesReglages = p => p.evaluate(() => Array.from(document.querySelectorAll('[data-exu]')).map(r => r.textContent.replace(/\s+/g, ' ').trim()));
+const allerA = async (p, h) => { await p.evaluate(h => { location.hash = h; }, h); await C.pause(p, 500); };
+const versDossier = async (p, ids) => { await allerA(p, '#/e/' + ids.e + '/v/' + ids.v); await p.waitForSelector('[data-act="vc-ouvrir"]'); await C.pause(p, 300); };
+/* m2 : modèle changé, puis retiré, dans les Réglages de l'application : les destinations déjà posées ne changent pas, ni l'analyse */
+async function destinationReglages(){
+  const A = await croquisTourne(), p = A.p;
+  try {
+    const E = await etangRelie(A);
+    if (!E){ R.ok(false, 'm2 : aucun modèle créé par « + Nouvelle destination »'); return; }
+    const s0 = await analyseDest(p);
+    await C.fermerCroquis(p);
+    const ids = await p.evaluate(() => { const v = window.__VT.S.visites[0]; return {e: v.etudeId, v: v.id}; });
+    /* Réglages : « Destinations ajoutées » liste l'Étang ; « Modifier » : « Puits » refusé avec le toast de la fiche, puis Mare, conforme,
+       récupérateur, abréviation vidée (tirée du nom), article laissé tel quel ; une seconde fois : « la » */
+    await allerA(p, '#/reglages');
+    const lig0 = await lignesReglages(p), MOD = '#modal-root .modal ';
+    const bMod = await p.$('[data-act="vc-exu-mod"][data-id="' + E.id + '"]'); if (bMod){ await bMod.click(); await C.pause(p, 500); }
+    const v0 = await p.evaluate(() => ['#m-dnom', '#m-dab', '#m-dart', '#m-dep', '#m-dcst'].map(s => { const x = document.querySelector('#modal-root ' + s); return x ? x.value : null; }));
+    const enreg = async () => {
+      await p.evaluate(() => { const t = document.querySelector('#toast'); if (t){ t.classList.remove('show'); t.textContent = ''; } });
+      const b = await p.$(MOD + '.m-foot .btn.primary'); if (b){ await b.click(); await C.pause(p, 500); }
+      return {toast: await p.evaluate(() => { const t = document.querySelector('#toast'); return t && t.classList.contains('show') ? t.textContent : ''; }), ouverte: !!await p.$(MOD + '#m-dnom')};
+    };
+    if (bMod) await p.fill(MOD + '#m-dnom', 'Puits');
+    const rP = bMod ? await enreg() : {};
+    /* Mare, article laissé tel quel : la fenêtre le montre réglé sur le nouveau nom (« le » au lieu de « l' »), celui qui est enregistré */
+    let artVu = null, artVu2 = null;
+    if (bMod){ await p.fill(MOD + '#m-dnom', 'Mare'); artVu = await p.$eval(MOD + '#m-dart', x => x.value); await p.fill(MOD + '#m-dab', ''); await p.selectOption(MOD + '#m-dep', 'conforme'); await p.selectOption(MOD + '#m-dcst', 'recup'); }
+    const rL = bMod ? await enreg() : {ouverte: true}, cL = await modelesTablette(p);
+    /* seconde fenêtre : « la », choisi à la main, enregistré tel quel */
+    const bMod2 = await p.$('[data-act="vc-exu-mod"][data-id="' + E.id + '"]');
+    if (bMod2){ await bMod2.click(); await C.pause(p, 500); artVu2 = await p.$eval(MOD + '#m-dart', x => x.value); await p.selectOption(MOD + '#m-dart', 'la'); }
+    const rM = bMod2 ? await enreg() : {ouverte: true}, c1 = await modelesTablette(p), lig1 = await lignesReglages(p);
+    R.ok(lig0.length === 1 && /^Étang /.test(lig0[0]) && /EP non conforme/.test(lig0[0]) && JSON.stringify(v0) === JSON.stringify(['Étang', 'Ét', 'l\'', 'nc', 'autre'])
+      && rP.toast === PUITS_T && rP.ouverte && !rM.ouverte && Array.isArray(c1) && c1.length === 1 && c1[0].id === E.id && cinq(c1[0]) === cinq(MARE_C)
+      && lig1.length === 1 && /^Mare /.test(lig1[0]),
+      'm2 Réglages : « Destinations ajoutées » liste l\'Étang, « Modifier » le montre ; « Puits » refusé avec le toast de la fiche ; Mare (abréviation vidée : « Ma »), la, '
+      + 'conforme, récupérateur, enregistrée sous le même identifiant (' + [JSON.stringify(lig0), JSON.stringify(v0), JSON.stringify(rP.toast), rM.ouverte, JSON.stringify(c1), JSON.stringify(lig1)].join(' ; ') + ')');
+    R.ok(artVu === 'le' && !rL.ouverte && Array.isArray(cL) && cL.length === 1 && cinq(cL[0]) === cinq(Object.assign({}, MARE_C, {art: 'le'})) && artVu2 === 'le',
+      'm2 Réglages, Étang renommée Mare sans toucher l\'article : la fenêtre montre « le », réglé sur le nouveau nom comme dans la fiche courte, et l\'enregistre ; '
+      + 'rouverte, elle montre « le » (' + [JSON.stringify(artVu), rL.ouverte, JSON.stringify(cL), JSON.stringify(artVu2)].join(' ; ') + ')');
+    /* croquis rouvert : la destination posée reste l'Étang, même analyse ; la palette propose « Mare » ; posée depuis ce modèle, une nouvelle
+       destination en prend les champs */
+    await versDossier(p, ids); await C.ouvrirCroquis(p, {dejaCommence: true});
+    const s1 = await analyseDest(p), it1 = await itemsEqu(p);
+    R.ok(s1 === s0 && it1.indexOf('pt:exutoire:' + E.id + '=Mare') >= 0 && /^\S+ Étang\/Ét\/l'\/nc\/autre \| /.test(s1),
+      'm2 croquis rouvert : la destination posée reste l\'Étang (NC), même analyse qu\'avant le changement du modèle ; la palette propose « Mare » ('
+      + s1 + ' ; ' + it1.filter(s => /^(pt:exutoire|nv:)/.test(s)).join(', ') + ')');
+    const bM = await p.$('.vc .vc-pitem[data-item="pt:exutoire:' + E.id + '"]'); if (bM){ await bM.click(); await C.pause(p, 200); }
+    const els0 = await elements(p); await toucherPlan(p, A.plan(64, 1.5)); await C.pause(p, 400);
+    const Y = (await nouveaux(p, els0)).find(e => e.t === 'exutoire'), s2 = await analyseDest(p);
+    R.ok(!!Y && cinq(Y.p) === cinq(MARE_C), 'm2 posée depuis le modèle changé : la nouvelle destination prend Mare, la, conforme, récupérateur (' + (Y ? cinq(Y.p) : 'pas de pose') + ')');
+    await C.fermerCroquis(p);
+    /* « Retirer », confirmé : plus de modèle ; croquis rouvert : la palette n'en propose plus, les destinations posées et l'analyse ne changent pas */
+    await allerA(p, '#/reglages');
+    const bR = await p.$('[data-act="vc-exu-ret"][data-id="' + E.id + '"]');
+    if (bR){ await bR.click(); await C.pause(p, 500); const ok = await p.$('#modal-root .m-foot .btn.danger-solid'); if (ok){ await ok.click(); await C.pause(p, 500); } }
+    const c2 = await modelesTablette(p), lig2 = await lignesReglages(p), vide = await p.evaluate(() => /Aucune destination ajoutée/.test(document.body.textContent));
+    await versDossier(p, ids); await C.ouvrirCroquis(p, {dejaCommence: true});
+    const s3 = await analyseDest(p), it3 = await itemsEqu(p);
+    R.ok(!!bR && Array.isArray(c2) && !c2.length && !lig2.length && vide && s3 === s2 && !it3.some(s => /^pt:exutoire:/.test(s)) && it3.indexOf('nv:exutoire=+ Nouvelle destination') >= 0,
+      'm2 « Retirer » : plus de modèle (« Aucune destination ajoutée ») ; croquis rouvert : la palette n\'en propose plus, les destinations posées et l\'analyse ne changent pas ('
+      + [JSON.stringify(c2), JSON.stringify(lig2), vide, s3 === s2 ? 'même analyse' : s2 + ' ≠ ' + s3, it3.filter(s => /^(pt:exutoire|nv:)/.test(s)).join(', ')].join(' ; ') + ')');
+    R.ok(!A.erreurs.length, 'm2 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+/* m3 : sauvegarde de l'étude (export complet) restaurée sur un profil neuf, sans modèles : même analyse, même constat */
+async function destinationSauvegarde(){
+  const A = await croquisTourne(), p = A.p; let B = null;
+  try {
+    const E = await etangRelie(A);
+    if (!E){ R.ok(false, 'm3 : aucun modèle créé par « + Nouvelle destination »'); return; }
+    const sA = await analyseDest(p);
+    await C.fermerCroquis(p);
+    const ids = await p.evaluate(() => { const v = window.__VT.S.visites[0]; return {e: v.etudeId, v: v.id}; }), cA = await constatDossier(p);
+    /* export de l'étude : le zip, capté à l'enregistrement, passe en base 64 au second profil */
+    const zip = await p.evaluate(async () => {
+      const T = window.__VT, S0 = window.__VT_SAVE; let blob = null;
+      window.__VT_SAVE = async b => { blob = b; return true; };
+      try { await T.exportEtude(); } finally { window.__VT_SAVE = S0; }
+      if (!blob) return null;
+      const u = new Uint8Array(await blob.arrayBuffer()); let s = '';
+      for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, Array.from(u.subarray(i, i + 0x8000)));
+      return btoa(s);
+    });
+    B = await C.ouvrir(); const q = B.p;
+    const ok = zip ? await q.evaluate(async b64 => { const s = atob(b64), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
+      return window.__VT.restoreZip(new Blob([u], {type: 'application/zip'})); }, zip) : false;
+    await C.pause(q, 600);
+    const cfgB = await modelesTablette(q);
+    await versDossier(q, ids);
+    const cB = await constatDossier(q);
+    await C.ouvrirCroquis(q, {dejaCommence: true});
+    const sB = await analyseDest(q), itB = await itemsEqu(q);
+    await C.fermerCroquis(q);
+    const cB2 = await constatDossier(q);
+    R.ok(!!zip && ok === true && sansModele(cfgB), 'm3 sauvegarde de l\'étude restaurée sur un profil neuf, sans modèles (' + [zip ? Math.round(zip.length * 3 / 4 / 1024) + ' ko' : 'pas de zip', ok, JSON.stringify(cfgB)].join(' ; ') + ')');
+    R.ok(sB === sA && /^\S+ Étang\/Ét\/l'\/nc\/autre \| /.test(sB) && !itB.some(s => /^pt:exutoire:/.test(s)),
+      'm3 croquis restauré : même analyse (la destination garde l\'Étang, NC ; descente et WC reliés NC) ; la palette ne propose aucun modèle (' + (sB === sA ? sB : sA + ' ≠ ' + sB) + ')');
+    R.ok(cB === cA && cB2 === cA, 'm3 même constat : anomalies au dossier, conclusion proposée et résumé du croquis, avant et après l\'ouverture du croquis restauré ('
+      + (cB === cA ? cA.slice(0, 300) : cA.slice(0, 200) + ' ≠ ' + cB.slice(0, 200)) + (cB2 === cA ? '' : ' ; après ouverture : ' + cB2.slice(0, 200)) + ')');
+    R.ok(!A.erreurs.length && !B.erreurs.length, 'm3 : aucune erreur dans la console' + (A.erreurs.length || B.erreurs.length ? ' : ' + A.erreurs.concat(B.erreurs).slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); if (B) await B.fermer(); }
+}
+
 (async () => {
   for (const f of [apercu, boutonRejetSol, rejetPresDunRegard, rejetSansFacade, rejetPresDesMurs, rejetPresDunComplement, puits, destination, destinationModele, destinationNature,
-    regardNature, destinationTexte]){
+    regardNature, destinationTexte, destinationNouvelle, destinationReglages, destinationSauvegarde]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();

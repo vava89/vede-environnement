@@ -15,8 +15,9 @@ const EXUTOIRES = ['puisard', 'milieu', 'gargouille'];
 
 /* o : maxS (sources), maxN (regards et équipements), maxC (collecteurs), pLoop (part de tuyaux en plus), pRes (part de tuyaux au réseau
    indiqué), pSens (part de tuyaux orientés), avp (statuts « Projet » et « À supprimer »), passages (types du milieu), exutoires (types
-   des exutoires dessinés ; sans elle, EXUTOIRES : mêmes tirages, mêmes croquis qu'avant m118), drains (m124 : des drains ; sans elle, aucun
-   tirage de plus : mêmes croquis qu'avant m124). */
+   des exutoires dessinés ; sans elle, EXUTOIRES : mêmes tirages, mêmes croquis qu'avant m118 ; « exutoire », l'autre destination, m128 :
+   ses champs viennent d'une suite à part, voir destTiree ; sans « exutoire », aucun tirage de plus), drains (m124 : des drains ; sans
+   elle, aucun tirage de plus : mêmes croquis qu'avant m124). */
 function gen(graine, o){
   o = Object.assign({maxS: 3, maxN: 5, maxC: 2, pLoop: 0.5, pRes: 0.4, pSens: 0.25, avp: false, passages: PASSAGES, exutoires: EXUTOIRES, drains: false}, o || {});
   const rnd = mkRnd(graine * 7919 + 17), pick = a => a[Math.floor(rnd() * a.length)], ent = (a, b) => a + Math.floor(rnd() * (b - a + 1));
@@ -36,9 +37,9 @@ function gen(graine, o){
     for (let i = 0; i < k; i++){ const x = -8 + i * 6 + ent(0, 2), t = rnd() < 0.7 ? 'jonction' : 'regard_pub'; const n = obj('j' + c + i, t, x, y, t === 'regard_pub' && rnd() < 0.3 ? {res: pick(['EU', 'EP'])} : {}); pts.push(n); attaches.push(n); }
     ligne('col', pick(['EU', 'EU', 'EP', 'UN']), [[-14, y]].concat(pts, [[14, y]]), 0, o.avp && rnd() < 0.15 ? 'projet' : '');
   }
-  /* exutoires */
-  const exus = [];
-  if (rnd() < 0.35){ const k = ent(1, 2); for (let i = 0; i < k; i++) exus.push(obj('x' + i, pick(o.exutoires), 10 + 3 * i, 2, {})); }
+  /* exutoires ; une autre destination tire ses champs d'une suite à part, créée à la première (m128) */
+  const exus = []; let rx = null;
+  if (rnd() < 0.35){ const k = ent(1, 2); for (let i = 0; i < k; i++){ const t = pick(o.exutoires); exus.push(obj('x' + i, t, 10 + 3 * i, 2, t === 'exutoire' ? destTiree(rx || (rx = mkRnd(graine * 6151 + 29)), objs) : {})); } }
   /* regards et équipements, du bas (indice 0) vers le haut */
   const nN = ent(0, o.maxN);
   for (let i = 0; i < nN; i++){
@@ -113,6 +114,24 @@ function drains(graine, o, objs, lignes, noeuds, attaches, exus, ligne){
     const i = l[4].findIndex(q => typeof q !== 'string'); if (i < 0) return;
     const id = 'pd' + l[0], q = l[4][i]; objs.push([id, 'drain', q[0], q[1], l[3] ? {st: l[3]} : {}]); l[4][i] = id;
   });
+}
+
+/* Autre destination (m128, option exutoires avec « exutoire ») : champs tirés de la suite r, à part, qui ne change donc rien au reste du
+   croquis. Nom fictif, parfois absent (« Autre destination ») ; abréviation parfois absente, de longueur fausse ou illisible au PDF ;
+   article, jugement des EP et case du constat parmi les valeurs permises, parfois un texte inconnu de cette version (comme d'une tablette
+   plus récente : lu par les replis de destDe). Parfois les mêmes champs qu'une autre destination du croquis (même rejet). */
+const DEST_NOMS = ['Étang', 'étang', 'Fossé', 'Mare', 'Noue', 'Bassin d\'orage', 'Cours d\'eau'];
+const DEST_ABS = ['Ét', 'Fo', 'Ma', 'No', 'BO', 'CE', 'ét1'], DEST_ILLISIBLES = ['ΩΩ', '\u{1F4A7}', 'ΩΩΩ', 'Ω\u{1F4A7}'], DEST_LONGS = ['X', 'ABCD', ''];
+function destTiree(r, objs){
+  const pick = a => a[Math.floor(r() * a.length)], p = {}, deja = objs.filter(q => q[1] === 'exutoire');
+  if (deja.length && r() < 0.3){ ['nom', 'ab', 'art', 'ep', 'cst'].forEach(k => { if (k in deja[0][4]) p[k] = deja[0][4][k]; }); return p; }
+  if (r() < 0.9) p.nom = pick(DEST_NOMS);
+  const u = r();
+  if (u < 0.4) p.ab = pick(DEST_ABS); else if (u < 0.6) p.ab = pick(DEST_ILLISIBLES); else if (u < 0.7) p.ab = pick(DEST_LONGS);
+  if (r() < 0.9) p.art = r() < 0.92 ? pick(['le', 'la', 'l\'']) : 'les';
+  if (r() < 0.95) p.ep = r() < 0.92 ? pick(['conforme', 'reserve', 'nc', 'arbitrer']) : 'nc-futur';
+  if (r() < 0.95) p.cst = r() < 0.92 ? pick(['MILIEU', 'GARG', 'puisard', 'recup', 'infil', 'autre']) : 'fosse-futur';
+  return p;
 }
 
 /* Résumé lisible d'un croquis généré, pour les messages ; un drain est marqué (drain collecte) ou (drain infiltration). */

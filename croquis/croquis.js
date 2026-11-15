@@ -812,7 +812,9 @@ function exuDe(res){ var k = codeExu(res); return Object.prototype.hasOwnPropert
 function resTrace(res){ var x = exuDe(res); return x ? x.res : res; }
 /* Autre destination (m125, décision D3) : champs de l'objet o, avec leurs replis, pour tous les lecteurs (clé, an.exu, textes) :
    - nom : 40 caractères au plus ; absent, autre qu'un texte ou blanc : « Autre destination », article « l' » ;
-   - ab : 2 ou 3 caractères ; sinon (absent, 1 caractère, plus de 3), les deux premiers du nom ;
+   - ab : 2 ou 3 caractères, dont un au moins que le PDF sait écrire ; sinon (absent, 1 caractère, plus de 3, illisible au PDF : m128),
+     les deux premiers du nom ; s'ils sont illisibles au PDF (un nom qui commence par un émoji, que la fiche accepte), les deux premiers
+     qu'il sait écrire, comme la fiche (abDe : « 💧 Mare » donne « Ma ») ;
    - art : 'le', 'la' ou « l' », sinon 'le' (pour les textes, jamais pour la clé) ;
    - ep, jugement des EP : 'conforme', 'reserve', 'nc' ou 'arbitrer', sinon 'arbitrer' ; jamais d'après le nom ;
    - cst, case du constat en EP : 'MILIEU', 'GARG', 'puisard', 'recup', 'infil' ou 'autre', sinon 'autre'. */
@@ -824,7 +826,8 @@ function destDe(o){
   var p = (o && o.p) || {}, net = function(x){ return typeof x === 'string' ? x.replace(/\s+/g, ' ').trim() : ''; };
   var nom = net(p.nom).slice(0, 40).trim(), sans = !nom, ab;
   if (sans) nom = 'Autre destination';
-  ab = net(p.ab); if (ab.length < 2 || ab.length > 3) ab = nom.slice(0, 2);
+  ab = net(p.ab);
+  if (ab.length < 2 || ab.length > 3 || !pdfTxt(ab).trim()){ ab = nom.slice(0, 2); if (!pdfTxt(ab).trim() && abDe(nom).length === 2) ab = abDe(nom); }
   var own = function(t, k){ return typeof k === 'string' && Object.prototype.hasOwnProperty.call(t, k); };
   return {nom: nom, ab: ab, art: sans ? 'l\'' : (p.art === 'la' || p.art === 'l\'' ? p.art : 'le'), ep: own(DEST_EP, p.ep) ? p.ep : 'arbitrer', cst: own(DEST_CST, p.cst) ? p.cst : 'autre'};
 }
@@ -841,6 +844,56 @@ function abDe(nom){ return pdfTxt(nom).replace(/\s+/g, '').slice(0, 2); }
 function artDevant(art, nom){
   var c = norm(nom).charAt(0);
   return /[aeiouœæ]/.test(c) ? 'l\'' : art === 'l\'' && /[bcdfgjklmnpqrstvwxz]/.test(c) ? 'le' : art;
+}
+/* choix de la fiche d'une destination, de la fiche courte « + Nouvelle destination » et des Réglages de l'application (m128) */
+var DEST_ARTS = [['le', 'le'], ['la', 'la'], ['l\'', 'l\'']];
+var DEST_EPS = [['conforme', 'Conforme'], ['reserve', 'Réserve'], ['nc', 'Non conforme'], ['arbitrer', 'À arbitrer']];
+var DEST_CSTS = [['MILIEU', 'Milieu naturel'], ['GARG', 'Gargouille'], ['puisard', 'Puisard'], ['recup', 'Récupérateur'], ['infil', 'Infiltration diffuse'], ['autre', 'Indéterminé/Autres']];
+/* nom ou abréviation saisis pour une destination (fiche, fiche courte, Réglages ; m128) : la valeur retenue (espaces réduits, nom coupé à
+   40 caractères ; abréviation vide : tirée du nom nom0) et le refus, texte du toast de la fiche ('' : acceptée). Refusés : un nom vide,
+   qui contient « puits » une fois normalisé comme la clé (décision D3), ou illisible au PDF ; une abréviation de longueur fausse ou
+   illisible au PDF */
+function champDest(k, val, nom0){
+  var s = String(val == null ? '' : val).replace(/\s+/g, ' ').trim(), refus = '', LONG = 'Abréviation de 2 ou 3 caractères, par exemple Ét';
+  if (k === 'nom'){
+    s = s.slice(0, 40).trim();
+    refus = !s ? 'Le nom ne peut pas être vide' : /PUIT(S|\b)/.test(nomCle(s)) ? 'Pour un puits, posez l\'objet Puits (EP non conformes) ; pour un puits perdu, un Puisard.'
+      : abDe(s).length < 2 ? 'Nom illisible au PDF : employez au moins deux lettres latines ou chiffres' : '';
+  } else if (k === 'ab'){
+    if (!s){ s = abDe(nom0 == null ? '' : String(nom0)); if (s.length < 2) refus = LONG; }
+    else refus = s.length < 2 || s.length > 3 ? LONG : !pdfTxt(s).trim() ? 'Abréviation illisible au PDF : employez des lettres latines ou des chiffres' : '';
+  }
+  return {v: s, refus: refus};
+}
+/* modèle de destination saisi (fiche courte de l'éditeur, Réglages de l'application ; m128) : s, les cinq champs tels que saisis ; m0, le
+   modèle d'avant (Réglages) : quand le nom change, une abréviation tirée de l'ancien nom et restée telle quelle suit le nouveau, et un
+   article resté tel quel se règle sur lui, comme dans la fiche. Rend {m, refus} : m, les cinq champs retenus (lus par destDe), ou null ;
+   refus, le texte du toast de la fiche ('' : accepté) */
+function destSaisie(s, m0){
+  s = s || {};
+  var rN = champDest('nom', s.nom), ab = s.ab == null ? '' : String(s.ab), art = s.art;
+  if (rN.refus) return {m: null, refus: rN.refus};
+  if (m0 && rN.v !== m0.nom){
+    if (ab.replace(/\s+/g, ' ').trim() === m0.ab && (m0.ab === abDe(m0.nom) || m0.ab === m0.nom.slice(0, 2))) ab = '';
+    if (art === m0.art) art = artDevant(m0.art, rN.v);
+  }
+  var rA = champDest('ab', ab, rN.v);
+  if (rA.refus) return {m: null, refus: rA.refus};
+  return {m: destDe({p: {nom: rN.v, ab: rA.v, art: art, ep: s.ep, cst: s.cst}}), refus: ''};
+}
+/* destinations ajoutées (m128 ; D3, D10) : modèles de la tablette, lus dans la liste l (Réglages de l'application, croquisConfig.exutoires ;
+   labo, 'vcl-exutoires'). Gardés : ceux dont l'identifiant est sûr (lettres, chiffres, - et _ : ni « : » ni guillemet ; tiré par
+   l'éditeur, jamais le nom), dont le nom serait accepté par la fiche, un identifiant repris une seule fois. Chacun : {id, nom, ab, art,
+   ep, cst}, lus par destDe */
+function modelesDe(l){
+  var vus = {}, r = [];
+  (Array.isArray(l) ? l : []).forEach(function(m){
+    if (!m || typeof m !== 'object' || typeof m.id !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(m.id) || vus[m.id]) return;
+    if (typeof m.nom !== 'string' || champDest('nom', m.nom).refus) return;
+    var d = destDe({p: m}); vus[m.id] = true;
+    r.push({id: m.id, nom: d.nom, ab: d.ab, art: d.art, ep: d.ep, cst: d.cst});
+  });
+  return r;
 }
 /* ligne d'une destination d (destDe), de la forme de celles de la table (décisions D6 et D7) : textes avec son article et son nom (initiale
    en minuscule, sauf un sigle) ; source EU : toujours non conforme ; source EP : selon son jugement, aucune anomalie si conforme (réserve,
@@ -875,6 +928,9 @@ function libsRejets(nets, an){
   });
 }
 VC.EXU = EXU; VC.libExu = libExu; VC.destDe = destDe; VC.estDest = estDest;
+/* destinations ajoutées (m128) : pour les Réglages de l'application */
+VC.DEST_EP = DEST_EP; VC.DEST_CST = DEST_CST; VC.DEST_ARTS = DEST_ARTS; VC.DEST_EPS = DEST_EPS; VC.DEST_CSTS = DEST_CSTS;
+VC.champDest = champDest; VC.destSaisie = destSaisie; VC.modelesDe = modelesDe; VC.artDevant = artDevant;
 /* Codes de l'application (constat) ; caméra et déclaré s'y ajoutent */
 var METH = [['visuel', 'Visuel', 'V'], ['eau', 'Eau', 'E'], ['fluo', 'Colorant', 'Fl'], ['fumee', 'Fumée', 'Fu'], ['reso', 'Résonance', 'R'], ['camera', 'Caméra', 'Ca'], ['declare', 'Déclaré', 'D']];
 var NIV = [['ss', 'Sous-sol'], ['rdc', 'RDC'], ['etage', 'Étage']];
@@ -2923,6 +2979,8 @@ function editeur(racine, opts){
   var S = {doc: null, fond: null, reseau: null, an: null, liste: [], vue: new Vue(), dpr: 1, outil: {k: 'main'}, sel: null, brouillon: null, zones: [], ptr: {}, geste: null,
     undo: [], redo: [], panneau: null, mode: 'edl', aff: {fond: true, reseau: true, etiquettes: true, attenuer: false}, dessinDemande: false, dernierTap: null, accrocheVue: null, aligner: null, palette: null,
     aides: Object.assign({}, AIDES_DEFAUT, opts.aides || {}), apercu: null, relier: null, survol: null,
+    /* destinations ajoutées (m128 ; D3, D10) : modèles de la tablette, proposés dans la palette Équipements */
+    exutoires: modelesDe(opts.exutoires),
     /* « + » de la souris sur le tracé choisi (m110) : null, ou sa cible {k: 'segment', id, i, x, y} ; bulle « + point » du doigt et du
        stylet : null, ou {id, i, x, y, tx, ty, vue} ; plusClic : dernier clic sur le « + » {t, id, i}, pour le double clic */
     plus: null, bullePoint: null, plusClic: null,
@@ -5026,10 +5084,16 @@ function editeur(racine, opts){
   }
   function ouvrirPalette(k){
     if (S.palette === k){ fermerPalette(); return; }
-    S.palette = k; var P = PALETTES[k];
-    pal.innerHTML = '<h3>' + esc(P.lib) + '</h3><div class="vc-pgrille">' + P.items.map(function(it){
-      var q = it.split(':'), lib, sous = '', svg, actif = false;
-      if (q[0] === 'pt'){ lib = T[q[1]].lib; svg = symboleSvg(q[1], 38); actif = S.outil.k === 'pt' && S.outil.t === q[1]; }
+    S.palette = k; var P = PALETTES[k], items = [];
+    /* destinations ajoutées (m128 ; D10) : après « Autre destination », un item par modèle de la tablette ('pt:exutoire:<id>'), puis
+       « + Nouvelle destination » ; ajoutés à chaque ouverture (PALETTES est figé au chargement). Nom, symbole et état actif viennent du
+       modèle ; « Autre destination » n'est active que sans modèle de la tablette */
+    P.items.forEach(function(it){ items.push(it); if (it === 'pt:exutoire'){ S.exutoires.forEach(function(m){ items.push('pt:exutoire:' + m.id); }); items.push('nv:exutoire'); } });
+    pal.innerHTML = '<h3>' + esc(P.lib) + '</h3><div class="vc-pgrille">' + items.map(function(it){
+      var q = it.split(':'), lib, sous = '', svg, actif = false, m = q[0] === 'pt' && q[2] ? modeleExu(q[2]) : null;
+      if (m){ lib = m.nom; svg = symboleSvg(q[1], 38, defautsPt(q[1], m)); actif = S.outil.k === 'pt' && S.outil.t === q[1] && S.outil.mid === m.id; }
+      else if (q[0] === 'pt'){ lib = T[q[1]].lib; svg = symboleSvg(q[1], 38); actif = S.outil.k === 'pt' && S.outil.t === q[1] && !S.outil.mid; }
+      else if (q[0] === 'nv'){ lib = '+ Nouvelle destination'; svg = '<span class="vc-ptx">' + ico('plus', 30) + '</span>'; }
       else if (q[0] === 'ln'){ var oo = OUTILS_LN[q[1]]; lib = oo.lib; sous = oo.sous || ''; svg = oo.relier ? '<span class="vc-ptx">' + ico('relier', 30) + '</span>' : oo.t === 'esc' ? escalierSvg(38) : sorteDrain(oo.p && oo.p.drain) ? drainSvg(oo.p.drain, 38) : traitSvg(oo.res, oo.st, 38); actif = S.outil.k === 'ln' && S.outil.id === q[1]; }
       else { lib = 'Texte libre'; svg = '<span class="vc-ptx">' + ico('texte', 30) + '</span>'; actif = S.outil.k === 'tx'; }
       return '<button type="button" class="vc-pitem" data-item="' + it + '" aria-pressed="' + actif + '">' + svg + '<span>' + esc(lib) + (sous ? '<small>' + esc(sous) + '</small>' : '') + '</span></button>';
@@ -5040,9 +5104,13 @@ function editeur(racine, opts){
   function fermerPalette(){ S.palette = null; pal.hidden = true; R.querySelectorAll('.vc-o').forEach(function(b){ b.classList.remove('ouvert'); }); }
   pal.addEventListener('click', function(ev){
     var b = ev.target.closest('[data-item]'); if (!b) return;
-    var q = b.dataset.item.split(':'), k = S.palette;
-    if (q[0] === 'pt') choisirOutil({k: 'pt', t: q[1], pal: k}); else if (q[0] === 'ln') choisirOutil({k: 'ln', id: q[1], pal: k}); else choisirOutil({k: 'tx', pal: k});
+    var q = b.dataset.item.split(':'), k = S.palette, m = q[0] === 'pt' && q[2] ? modeleExu(q[2]) : null;
+    /* modèle de la tablette (m128) : l'outil en garde les cinq champs, que les deux poses copient, et son identifiant (état actif) */
+    if (q[0] === 'nv'){ fermerPalette(); nouvelleDestination(k); return; }
+    if (m) choisirOutil({k: 'pt', t: q[1], pal: k, modele: destDe({p: m}), mid: m.id});
+    else if (q[0] === 'pt') choisirOutil({k: 'pt', t: q[1], pal: k}); else if (q[0] === 'ln') choisirOutil({k: 'ln', id: q[1], pal: k}); else choisirOutil({k: 'tx', pal: k});
   });
+  function modeleExu(id){ for (var i = 0; i < S.exutoires.length; i++) if (S.exutoires[i].id === id) return S.exutoires[i]; return null; }
   function majAide(){
     var o = S.outil, h = '';
     if (S.aligner) h = '<span>Touchez deux points le long de la voie : le plan tournera pour la mettre à l\'horizontale.</span><button type="button" class="vc-b vc-bt" data-a="alignerStop">Annuler</button>';
@@ -5150,6 +5218,59 @@ function editeur(racine, opts){
     d.addEventListener('click', function(ev){ var b = ev.target.closest('[data-r]'); if (b) fermer(b.dataset.r); else if (ev.target === d) fermer('0'); });
     /* Entrée valide depuis le champ seulement : sur un bouton, c'est le bouton choisi qui agit (jamais « Valider » à la place d'« Annuler ») */
     d.addEventListener('keydown', function(ev){ if (ev.key === 'Escape'){ ev.stopPropagation(); fermer('0'); } else if (ev.key === 'Enter' && inp && ev.target === inp && inp.tagName !== 'TEXTAREA'){ ev.preventDefault(); fermer('1'); } });
+  }
+  /* « + Nouvelle destination » (m128 ; D3, D10) : fiche courte des cinq champs d'une destination. Au départ : nom vide, abréviation tirée
+     du nom tant qu'on ne la saisit pas, « le », « à arbitrer » (à trancher dans le croquis, Contrôles), « autre » ; l'article suit le nom
+     saisi (artDevant), comme dans la fiche. Un nom vide, qui contient « puits » ou illisible au PDF, une abréviation de longueur fausse ou
+     illisible : refusés avec le toast de la fiche, la fiche courte reste ouverte avec la saisie. « Enregistrer » ajoute le modèle à ceux de
+     la tablette (identifiant tiré ici, jamais le nom ; opts.enregistrerExutoires) et arme l'outil de pose. Un modèle ne sert qu'à la pose :
+     le changer ou le retirer ne touche aucun objet posé */
+  function nouvelleDestination(pal){
+    var d = document.createElement('div'), v = {art: 'le', ep: 'arbitrer', cst: 'autre'}, abSaisie = false;
+    d.className = 'vc-modal vc-mdest';
+    d.innerHTML = '<div class="vc-mboite" role="dialog" aria-modal="true" aria-label="Nouvelle destination"><h3>Nouvelle destination</h3>'
+      + champ('Nom', '<input class="vc-in" type="text" autocomplete="off" data-k="nom" maxlength="40" aria-label="Nom de la destination">', 'étang, fossé, mare… (40 caractères au plus)')
+      + champ('Abréviation', '<input class="vc-in" type="text" autocomplete="off" data-k="ab" maxlength="3" aria-label="Abréviation du symbole">', '2 ou 3 caractères, dans le symbole ; vide : tirée du nom')
+      + champ('Article', chipsHtml('art', DEST_ARTS, v.art, {a: 'ndest', label: 'Article'}))
+      + champ('Jugement des EP', chipsHtml('ep', DEST_EPS, v.ep, {a: 'ndest', label: 'Jugement des EP'}), 'les EU y sont toujours non conformes')
+      + champ('Case du constat', chipsHtml('cst', DEST_CSTS, v.cst, {a: 'ndest', label: 'Case du constat'}), 'en EP')
+      + '<p>Elle reste dans la palette de cette tablette. Une destination déjà posée garde ses champs.</p>'
+      + '<div class="vc-mact"><button type="button" class="vc-b vc-bt" data-r="0">Annuler</button><button type="button" class="vc-b vc-bt vc-prim" data-r="1">Enregistrer</button></div></div>';
+    R.appendChild(d);
+    var iN = d.querySelector('input[data-k="nom"]'), iA = d.querySelector('input[data-k="ab"]');
+    setTimeout(function(){ if (d.isConnected) iN.focus(); }, 30);
+    function puces(k){ d.querySelectorAll('button[data-a="ndest"][data-k="' + k + '"]').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.v === v[k] ? 'true' : 'false'); }); }
+    iN.addEventListener('input', function(){
+      var nom = iN.value.replace(/\s+/g, ' ').trim(), a = artDevant(v.art, nom);
+      if (!abSaisie) iA.value = abDe(nom);
+      if (a !== v.art){ v.art = a; puces('art'); }
+    });
+    /* abréviation vidée : elle suit de nouveau le nom */
+    iA.addEventListener('input', function(){ abSaisie = !!iA.value.trim(); });
+    function enregistrer(){
+      var r = destSaisie({nom: iN.value, ab: abSaisie ? iA.value : '', art: v.art, ep: v.ep, cst: v.cst});
+      if (r.refus){ toast(r.refus, 4000); (champDest('nom', iN.value).refus ? iN : iA).focus(); return; }
+      var id; do { id = uid(); } while (modeleExu(id));
+      var m = {id: id, nom: r.m.nom, ab: r.m.ab, art: r.m.art, ep: r.m.ep, cst: r.m.cst};
+      S.exutoires = S.exutoires.concat([m]);
+      if (opts.enregistrerExutoires) try { opts.enregistrerExutoires(S.exutoires.map(function(x){ return Object.assign({}, x); })); } catch(e){}
+      d.remove();
+      choisirOutil({k: 'pt', t: 'exutoire', pal: pal || 'equ', modele: destDe({p: m}), mid: m.id});
+    }
+    /* au doigt, le clic de fin du toucher qui a ouvert la fiche est avalé (400 ms sans appui sur elle), comme dans demander */
+    var t0 = Date.now(), appui = false;
+    d.addEventListener('pointerdown', function(){ appui = true; }, true);
+    d.addEventListener('click', function(ev){ if (ev.detail && !appui && Date.now() - t0 < 400){ ev.stopPropagation(); ev.preventDefault(); } }, true);
+    d.addEventListener('click', function(ev){
+      var b = ev.target.closest('button');
+      if (b && b.dataset.a === 'ndest'){ if (v[b.dataset.k] !== b.dataset.v){ v[b.dataset.k] = b.dataset.v; puces(b.dataset.k); } return; }
+      if (b && b.dataset.r === '1'){ enregistrer(); return; }
+      if ((b && b.dataset.r === '0') || ev.target === d) d.remove();
+    });
+    d.addEventListener('keydown', function(ev){
+      if (ev.key === 'Escape'){ ev.stopPropagation(); d.remove(); }
+      else if (ev.key === 'Enter' && (ev.target === iN || ev.target === iA)){ ev.preventDefault(); enregistrer(); }
+    });
   }
   R.querySelector('.vc-barre').addEventListener('click', function(ev){
     var b = ev.target.closest('button'); if (!b) return;
@@ -5261,11 +5382,10 @@ function editeur(racine, opts){
         var dd = destDe(e);
         h += champ('Nom', saisie('nom', dd.nom, {a: 'destTxt', lab: 'Nom de la destination', max: 40}), 'étang, fossé, mare… (40 caractères au plus)');
         h += champ('Abréviation', saisie('ab', dd.ab, {a: 'destTxt', lab: 'Abréviation du symbole', max: 3}), '2 ou 3 caractères, dans le symbole');
-        h += champ('Article', chipsHtml('art', [['le', 'le'], ['la', 'la'], ['l\'', 'l\'']], dd.art, {a: 'dest', label: 'Article'}), esc(ligneDest(dd).eu.obs));
-        h += champ('Jugement des EP', chipsHtml('ep', [['conforme', 'Conforme'], ['reserve', 'Réserve'], ['nc', 'Non conforme'], ['arbitrer', 'À arbitrer']], dd.ep, {a: 'dest', label: 'Jugement des EP'}),
+        h += champ('Article', chipsHtml('art', DEST_ARTS, dd.art, {a: 'dest', label: 'Article'}), esc(ligneDest(dd).eu.obs));
+        h += champ('Jugement des EP', chipsHtml('ep', DEST_EPS, dd.ep, {a: 'dest', label: 'Jugement des EP'}),
           'les EU y sont toujours non conformes ; le changer efface les décisions de Contrôles sur les rejets des EP');
-        h += champ('Case du constat', chipsHtml('cst', [['MILIEU', 'Milieu naturel'], ['GARG', 'Gargouille'], ['puisard', 'Puisard'], ['recup', 'Récupérateur'], ['infil', 'Infiltration diffuse'], ['autre', 'Indéterminé/Autres']],
-          dd.cst, {a: 'dest', label: 'Case du constat'}), 'en EP ; hors milieu naturel et gargouille, le raccordement reste à cocher, comme pour l\'infiltration');
+        h += champ('Case du constat', chipsHtml('cst', DEST_CSTS, dd.cst, {a: 'dest', label: 'Case du constat'}), 'en EP ; hors milieu naturel et gargouille, le raccordement reste à cocher, comme pour l\'infiltration');
       }
       if (ty.role === 'source' || e.t === 'test') h += champ('Méthode de test', chipsHtml('meth', METH.map(function(m){ return [m[0], m[1]]; }), e.p.meth || [], {label: 'Méthode de test'}), ty.role === 'source' ? 'comment l\'écoulement a été établi' : '');
       if (e.t === 'descente'){ h += champ('Façade', chipsHtml('cote', [['avant', 'Avant'], ['arriere', 'Arrière']], e.p.cote)); h += champ('Visitable', chipsHtml('visitable', OUI_NON, e.p.visitable)); }
@@ -5775,15 +5895,10 @@ function editeur(racine, opts){
        nouveau nom [p]. L'article se règle sur la première lettre du nouveau nom (artDevant) ; « le » mis à la place de « l' » est signalé.
        Seuls les champs changés sont écrits (Q8 b) */
     if (a === 'destTxt' && e && estDest(e.t)){
-      var kT = b.dataset.k, d0 = destDe(e), sT = String(v).replace(/\s+/g, ' ').trim(), refus = '', LONG = 'Abréviation de 2 ou 3 caractères, par exemple Ét';
-      if (kT === 'nom'){
-        sT = sT.slice(0, 40).trim();
-        refus = !sT ? 'Le nom ne peut pas être vide' : /PUIT(S|\b)/.test(nomCle(sT)) ? 'Pour un puits, posez l\'objet Puits (EP non conformes) ; pour un puits perdu, un Puisard.'
-          : abDe(sT).length < 2 ? 'Nom illisible au PDF : employez au moins deux lettres latines ou chiffres' : '';
-      } else if (kT === 'ab'){
-        if (!sT){ sT = abDe(d0.nom); if (sT.length < 2) refus = LONG; }
-        else refus = sT.length < 2 || sT.length > 3 ? LONG : !pdfTxt(sT).trim() ? 'Abréviation illisible au PDF : employez des lettres latines ou des chiffres' : '';
-      } else return;
+      var kT = b.dataset.k, d0 = destDe(e);
+      if (kT !== 'nom' && kT !== 'ab') return;
+      /* refus et valeur retenue : ceux de la fiche courte et des Réglages (champDest, m128) */
+      var rT = champDest(kT, v, d0.nom), sT = rT.v, refus = rT.refus;
       if (refus){ toast(refus, 4000); b.value = d0[kT]; return; }
       if (d0[kT] === sT){ b.value = sT; return; }
       instantane(); e.p[kT] = sT;
@@ -5911,6 +6026,8 @@ function editeur(racine, opts){
   function ouvrir(doc, fond, reseau, o){
     o = o || {}; fermerMenu();
     if (o.aides) S.aides = Object.assign({}, AIDES_DEFAUT, o.aides);
+    /* destinations ajoutées de la tablette (m128) : celles de l'hôte à chaque ouverture ; sans elles, celles déjà connues de l'éditeur */
+    if (o.exutoires) S.exutoires = modelesDe(o.exutoires);
     S.placer = null; S.cotes = null; var m0 = R.querySelector('.vc-modal'); if (m0) m0.remove();
     S.doc = doc; S.fond = fond || null; S.reseau = reseau || null; S.undo = []; S.redo = []; S.sel = null; S.brouillon = null; S.panneau = null; S.mode = 'edl'; S.ajoutAnom = null; S.aligner = null;
     S.ptr = {}; S.geste = null; S.apercu = null; S.accrocheVue = null; S.survol = null;
@@ -6054,13 +6171,16 @@ var CSS = [
 '.vc-menu{position:absolute;left:0;top:0;z-index:8;display:flex;flex-direction:column;gap:4px;min-width:200px;padding:6px;background:var(--surface,#fff);border:1px solid var(--line,#C7D1D8);border-radius:14px;box-shadow:var(--shadow,0 18px 50px -22px rgba(9,18,24,.55))}',
 '.vc-menu[hidden]{display:none}',
 '.vc-menu .vc-chip{min-height:44px;justify-content:flex-start;white-space:nowrap}',
-'.vc-toast{position:absolute;left:50%;top:70px;transform:translate(-50%,-12px);max-width:min(560px,calc(100% - 24px));padding:10px 16px;border-radius:12px;background:#1f2a31;color:#fff;font-size:15px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:9;text-align:center}',
+/* toast au-dessus des fenêtres de l'éditeur (.vc-modal) : les refus de la fiche courte s'y lisent (m128) */
+'.vc-toast{position:absolute;left:50%;top:70px;transform:translate(-50%,-12px);max-width:min(560px,calc(100% - 24px));padding:10px 16px;border-radius:12px;background:#1f2a31;color:#fff;font-size:15px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:11;text-align:center}',
 '.vc-toast.on{opacity:1;transform:translate(-50%,0)}',
 '.vc-modal{position:absolute;inset:0;background:var(--scrim,rgba(9,18,24,.5));display:flex;align-items:center;justify-content:center;z-index:10;padding:16px;-webkit-user-select:text;user-select:text;touch-action:auto}',
 '.vc-mboite{width:min(460px,100%);background:var(--surface,#fff);border-radius:16px;padding:16px;box-shadow:var(--shadow,0 18px 50px -22px rgba(9,18,24,.55))}',
 '.vc-mboite h3{margin:0 0 8px;font-size:18px}',
 '.vc-mboite input,.vc-mboite textarea{width:100%;min-height:44px;padding:8px 10px;border:1px solid var(--line,#C7D1D8);border-radius:10px;font:inherit;font-size:16px;background:var(--surface,#fff);color:inherit}',
 '.vc-mact{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:14px}',
+'.vc-mdest .vc-mboite{width:min(520px,100%);max-height:100%;overflow:auto}',
+'.vc-mdest .vc-mboite p{margin:8px 0 0;font-size:13.5px;color:var(--muted,#5C6C78)}',
 '.vc-bulle-point{position:absolute;left:0;top:0;z-index:8;min-width:44px;min-height:44px;padding:0 16px;border:0;border-radius:999px;background:var(--brand,#0F5C63);color:var(--on-brand,#fff);font:inherit;font-size:16px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;cursor:pointer;box-shadow:var(--shadow,0 18px 50px -22px rgba(9,18,24,.55))}',
 '.vc-bulle-point[hidden]{display:none}',
 '.vc-bulle-point i{position:absolute;top:100%;left:50%;width:0;height:0;margin-left:-8px;border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid var(--brand,#0F5C63)}',

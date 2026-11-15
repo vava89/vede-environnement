@@ -6,11 +6,16 @@
 // --contre=<dossier> (m116 ; décision D11 de .claude/conception-rejets.md) : chaque croquis est aussi analysé, dans ses modes, par la version de ce dossier
 // (par exemple une copie du commit d'avant, faite par git archive) ; résultat par source, anomalies, conclusion, contrôles et constat déduit
 // doivent être les mêmes (correctif sans changement visible).
-// Les exutoires dessinés comptent l'infiltration au sol (option exutoires du générateur, m118) et le puits (m120). Une version qui ne connaît
-// pas un type y voit un bout libre : avec --contre, les croquis qui en ont un y donnent des écarts attendus.
-// --sans=<type>,… (m120) retire ces types des exutoires tirés ; les autres tirages ne changent pas. --sans=puits,drains redonne les
-// croquis du tirage d'avant m120 (contre la version d'avant m120, aucun écart attendu) ; --sans=infiltration,puits,drains, ceux d'avant
-// m118. Sans « drains » dans --sans, une version d'avant m121 lit les drains tirés (ci-dessous) comme de simples tronçons.
+// Les exutoires dessinés comptent l'infiltration au sol (option exutoires du générateur, m118), le puits (m120) et l'autre destination
+// (m128 : nom fictif ou absent, abréviation parfois absente, de longueur fausse ou illisible au PDF, article, jugement des EP et case
+// parfois inconnus, comme d'une tablette plus récente ; parfois deux destinations aux mêmes champs). Une version qui ne connaît pas un
+// type y voit un bout libre : avec --contre, les croquis qui en ont un y donnent des écarts attendus.
+// --sans=<type>,… (m120) retire ces types des exutoires tirés ; les autres tirages ne changent pas. --sans=exutoire redonne les croquis
+// du tirage d'avant m128 (contre la version d'avant m128, aucun écart attendu) ; --sans=exutoire,puits,drains, ceux d'avant m120 ;
+// --sans=exutoire,infiltration,puits,drains, ceux d'avant m118. Sans « drains » dans --sans, une version d'avant m121 lit les drains
+// tirés (ci-dessous) comme de simples tronçons. Contre la version d'avant m128 (qui connaît l'autre destination depuis m125), les
+// croquis avec « exutoire » ne donnent aucun écart non plus : seule l'abréviation illisible au PDF change (repli de destDe), qui
+// n'entre ni dans l'analyse, ni dans les anomalies, ni dans le constat.
 // Les croquis ont aussi des drains (option drains du générateur, m124) : des tronçons tirés deviennent des drains de collecte ou
 // d'infiltration, d'autres passent par un regard, un équipement ou un raccord neuf (nœud du milieu), orientés ou non, ou sont libres ; un
 // point « Drain » est parfois posé sur le premier sommet libre d'un drain de collecte (un bout, ou un coude au milieu du drain : ce point
@@ -26,10 +31,10 @@ const G = require('./generateur.js');
 const {V} = charger(), R = rapport('aleatoire');
 const optContre = process.argv.find(x => /^--contre=/.test(x)), Vc = optContre ? charger({dir: optContre.slice(9)}).V : null;
 const args = process.argv.slice(2).filter(x => !/^-/.test(x)), N = +(args[0] || 1500), S0 = +(args[1] || 1);
-/* exutoires dessinés : ceux du générateur, l'infiltration au sol (m118) et le puits (m120), sauf ceux de --sans (m120) ; drains (m124), sauf
-   « drains » dans --sans ; un mot de --sans qui n'est ni un de ces types ni « drains » arrête le test (faute de frappe : le tirage ne
-   serait pas celui qu'on croit) */
-const TOUS = G.EXUTOIRES.concat(['infiltration', 'puits']), optSans = process.argv.find(x => /^--sans=/.test(x));
+/* exutoires dessinés : ceux du générateur, l'infiltration au sol (m118), le puits (m120) et l'autre destination (m128), sauf ceux de --sans
+   (m120) ; drains (m124), sauf « drains » dans --sans ; un mot de --sans qui n'est ni un de ces types ni « drains » arrête le test (faute
+   de frappe : le tirage ne serait pas celui qu'on croit) */
+const TOUS = G.EXUTOIRES.concat(['infiltration', 'puits', 'exutoire']), optSans = process.argv.find(x => /^--sans=/.test(x));
 const SANS = optSans ? optSans.slice(7).split(',').filter(Boolean) : [], EXUS = TOUS.filter(t => SANS.indexOf(t) < 0), DRAINS = SANS.indexOf('drains') < 0;
 SANS.forEach(t => { if (TOUS.indexOf(t) < 0 && t !== 'drains') throw new Error('--sans : « ' + t + ' » n\'est ni un exutoire tiré (' + TOUS.join(', ') + ') ni « drains »'); });
 if (!EXUS.length) throw new Error('--sans : aucun exutoire ne resterait à tirer');
@@ -91,7 +96,11 @@ if (Vc) Object.assign(st, {contre: 0, ecartsContre: 0});
 /* drains tirés : de collecte, d'infiltration, passant par un nœud du milieu (regard, équipement ou raccord ; pas un point « Drain »),
    orientés ; points « Drain » posés sur un drain, dont au milieu du drain (sur un coude) */
 const tir = {collecte: 0, infiltration: 0, milieu: 0, orientes: 0, points: 0, pointsMilieu: 0};
+/* autres destinations tirées (m128), dont celles à l'abréviation illisible au PDF (2 ou 3 caractères, aucun que le PDF sache écrire) */
+const dst = {destinations: 0, abIllisibles: 0};
 function compterTirage(spec){
+  spec.o.filter(o => o[1] === 'exutoire').forEach(o => { const ab = o[4].ab; dst.destinations++;
+    if (typeof ab === 'string' && ab.length >= 2 && ab.length <= 3 && !V.pdfTxt(ab).trim()) dst.abIllisibles++; });
   const pd = spec.o.filter(o => o[1] === 'drain').map(o => o[0]);
   spec.l.forEach(l => { const s = l[6] && l[6].drain; if (!s) return; tir[s]++; const mil = l[4].slice(1, -1).filter(q => typeof q === 'string');
     if (mil.some(q => pd.indexOf(q) < 0)) tir.milieu++; tir.pointsMilieu += mil.filter(q => pd.indexOf(q) >= 0).length; if (l[5]) tir.orientes++; });
@@ -156,9 +165,10 @@ for (let it = 0; it < N; it++){
   try { if (dossier(d)) { st.dossierInstable++; note('dossier', 'graine ' + graine + ' ' + G.fmt(spec)); } }
   catch (e){ st.exceptions++; note('exception', 'graine ' + graine + ' dossier : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
 }
-console.log(JSON.stringify(st)); console.log('drains tirés : ' + JSON.stringify(tir));
+console.log(JSON.stringify(st)); console.log('drains tirés : ' + JSON.stringify(tir) + ' ; autres destinations tirées : ' + JSON.stringify(dst));
 Object.keys(ex).forEach(k => ex[k].forEach(t => console.log('[' + k + '] ' + t)));
-R.ok(st.exceptions === 0, 'aucune exception (' + st.analyses + ' analyses de ' + st.croquis + ' croquis ; exutoires tirés : ' + EXUS.join(', ') + ' ; drains : ' + (DRAINS ? 'oui' : 'non') + ')');
+R.ok(st.exceptions === 0, 'aucune exception (' + st.analyses + ' analyses de ' + st.croquis + ' croquis ; exutoires tirés : ' + EXUS.join(', ') + ' ; drains : ' + (DRAINS ? 'oui' : 'non')
+  + (EXUS.indexOf('exutoire') >= 0 ? ' ; ' + dst.destinations + ' autres destinations, dont ' + dst.abIllisibles + ' à l\'abréviation illisible au PDF' : '') + ')');
 R.ok(st.ordreTraces === 0, 'même résultat dans cinq ordres des tracés (' + st.avecFosse + ' croquis avec fosse)');
 R.ok(st.ordreObjets === 0, 'même résultat dans un autre ordre des objets');
 R.ok(st.raccordChange === 0, 'un raccord au milieu d\'un tuyau, d\'où part un tuyau absent de ce plan, ne change rien (' + st.raccordsAuMilieu + ' plans'

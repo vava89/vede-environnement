@@ -3162,12 +3162,14 @@ async function downloadConstatPdf(vid){
 /* ---------- Croquis de terrain (module croquis/croquis.js, facultatif) ----------
    Un plan par dossier (magasin « plans », clé visiteId) ; les fonds de plan DXF appartiennent à l'étude (magasin « fonds »).
    Les anomalies retenues sur le croquis sont des anomalies du dossier, reliées par a.croquis = {cle, objId, auto} :
-   la fiche, le constat, la complétude et les exports les lisent comme les autres. Sans le réglage ou sans le module, rien ne change. */
-var CROQ_DEF = {actif: true, aides: null};
+   la fiche, le constat, la complétude et les exports les lisent comme les autres. Sans le réglage ou sans le module, rien ne change.
+   exutoires (m128 ; décisions D3, D10, D12) : destinations ajoutées par « + Nouvelle destination », modèles de la tablette ({id, nom, ab,
+   art, ep, cst}), hors sauvegarde ; un modèle ne sert qu'à la pose. La liste est gardée telle quelle, module absent compris. */
+var CROQ_DEF = {actif: true, aides: null, exutoires: null};
 var VC = {ed: null, hote: null, ctx: null, logo: null, fondT: null};
 var VC_FONDS = new Map();   /* fonds déjà lus (id → fond prêt à dessiner), quatre au plus */
-async function croqCfgLire(){ var r = null; try { r = await DB.get('meta', 'croquisConfig'); } catch(e){} var c = Object.assign({}, CROQ_DEF, (r && r.v) || {}); c.actif = c.actif !== false; return c; }
-function croqCfgEcrire(){ return DB.put('meta', {k: 'croquisConfig', v: {actif: !!S.croq.actif, aides: S.croq.aides || null}}).catch(function(e){ reportError(e, 'Réglage du croquis'); }); }
+async function croqCfgLire(){ var r = null; try { r = await DB.get('meta', 'croquisConfig'); } catch(e){} var c = Object.assign({}, CROQ_DEF, (r && r.v) || {}); c.actif = c.actif !== false; if (!Array.isArray(c.exutoires)) c.exutoires = null; return c; }
+function croqCfgEcrire(){ return DB.put('meta', {k: 'croquisConfig', v: {actif: !!S.croq.actif, aides: S.croq.aides || null, exutoires: Array.isArray(S.croq.exutoires) ? S.croq.exutoires : null}}).catch(function(e){ reportError(e, 'Réglage du croquis'); }); }
 function vcModule(){ return !!(window.VCroquis && window.VCroquis.editeur && window.VCroquis.reconcilier); }
 function vcPret(){ return !!(S.croq && S.croq.actif && vcModule()); }
 function planDe(vid){ return !!(S.plansV && S.plansV.has(vid)); }
@@ -3374,6 +3376,8 @@ function vcEditeur(){
     enregistrer: function(doc){ vcEnregistrer(doc, true); },
     enregistrerVue: function(doc){ vcEnregistrer(doc, false); },
     enregistrerAides: function(a){ if (!S.croq) return; S.croq.aides = a; croqCfgEcrire(); },
+    /* destinations ajoutées dans le croquis (m128) : la liste des modèles de la tablette, écrite telle que l'éditeur la rend */
+    enregistrerExutoires: function(l){ if (!S.croq || !Array.isArray(l)) return; S.croq.exutoires = l; croqCfgEcrire(); },
     chargerFond: vcChargerFond,
     fondModifie: vcFondModifie,
     fondRetire: function(doc){ vcEnregistrer(doc, true); },
@@ -3436,7 +3440,7 @@ async function vcOuvrir(v, o){
     onMount: function(w, close){
       ctx.close = close;
       w.querySelector('.m-body').appendChild(VC.hote);
-      try { ed.ouvrir(doc, fond, reseau, {aides: Object.assign({}, window.VCroquis.AIDES_DEFAUT, S.croq.aides || {})}); }
+      try { ed.ouvrir(doc, fond, reseau, {aides: Object.assign({}, window.VCroquis.AIDES_DEFAUT, S.croq.aides || {}), exutoires: S.croq.exutoires || []}); }
       catch(e){ reportError(e, 'Croquis illisible'); ctx.erreur = true; setTimeout(function(){ close('erreur'); }, 0); return; }
       if (o.objet){ if ((doc.el || []).some(function(e){ return e.id === o.objet; })) ed.selectionner(o.objet); else if (o.anomalie) ed.placerAnomalie(o.anomalie); }
       if (o.placer) ed.placerAnomalie(o.placer);
@@ -3555,8 +3559,53 @@ function croqReglagesHtml(){
     h += '<h3 class="h3">Aides au dessin</h3><label class="check"><input type="checkbox" data-act="vc-aide" data-k="actives"' + (ai.actives !== false ? ' checked' : '') + '><span>Aides activées <span class="opt">décoché : tracé libre, sans redressement ni accroche au bâti ; les tuyaux se raccordent toujours aux objets et aux autres tuyaux</span></span></label>'
       + V.AIDES_LIB.map(function(x){ var off = ai.actives === false && x[0] !== 'glisser'; return '<label class="check' + (off ? ' off' : '') + '"><input type="checkbox" data-act="vc-aide" data-k="' + esc(x[0]) + '"' + ((V.AIDES_DEFAUT[x[0]] === true ? ai[x[0]] !== false : ai[x[0]] === true) ? ' checked' : '') + (off ? ' disabled' : '') + '><span>' + esc(x[1]) + ' <span class="opt">' + esc(x[2]) + '</span></span></label>'; }).join('')
       + '<p class="muted small">Ces réglages valent aussi dans le croquis (bouton aimant et palette d\'accrochage, à droite du plan).</p>';
+    /* destinations ajoutées (m128 ; D3, D12) : modèles de la tablette, créés dans le croquis ; seulement avec le module et le croquis actif */
+    var mx = V.modelesDe ? V.modelesDe(c.exutoires) : [];
+    h += '<h3 class="h3">Destinations ajoutées</h3>' + (mx.length ? mx.map(function(m){
+      return '<div class="ob-row" data-exu="' + esc(m.id) + '"><span><strong>' + esc(m.nom) + '</strong> (' + esc(m.ab) + ') : EP ' + esc(V.DEST_EP[m.ep] || '') + ', case du constat « ' + esc(V.DEST_CST[m.cst] || '') + ' »</span>'
+        + '<button type="button" class="btn sm" data-act="vc-exu-mod" data-id="' + esc(m.id) + '">Modifier</button><button type="button" class="btn sm ghost" data-act="vc-exu-ret" data-id="' + esc(m.id) + '">Retirer</button></div>';
+    }).join('') : '<p class="muted small">Aucune destination ajoutée. Dans le croquis, « + Nouvelle destination » (palette Équipements) en ajoute une : étang, fossé, mare…</p>')
+      + '<p class="muted small">Elles restent sur cette tablette : la sauvegarde ne les emporte pas. Une destination déjà posée garde son nom et ses jugements : modifier ou retirer un modèle ne la change pas.</p>';
   }
   return h + '</section>';
+}
+/* destinations ajoutées (m128) : modèle modifié dans les Réglages, avec les refus de la fiche du croquis (VCroquis.destSaisie) ; seules les
+   poses suivantes en tiennent compte */
+async function vcExuModifier(id){
+  var V = window.VCroquis; if (!S.croq || !vcModule() || !V.modelesDe) return;
+  var m = V.modelesDe(S.croq.exutoires).filter(function(x){ return x.id === id; })[0]; if (!m) return;
+  var opt = function(l, val){ return l.map(function(x){ return '<option value="' + esc(x[0]) + '"' + (x[0] === val ? ' selected' : '') + '>' + esc(x[1]) + '</option>'; }).join(''); };
+  var champ = function(lib, html){ return '<label class="field"><span class="lbl">' + lib + '</span>' + html + '</label>'; };
+  var res = await openModal({title: 'Modifier la destination',
+    html: champ('Nom', '<input type="text" id="m-dnom" maxlength="40" autocomplete="off" data-autofocus value="' + esc(m.nom) + '">')
+      + champ('Abréviation <span class="opt">2 ou 3 caractères, dans le symbole ; vide : tirée du nom</span>', '<input type="text" id="m-dab" maxlength="3" autocomplete="off" value="' + esc(m.ab) + '">')
+      + champ('Article', '<select id="m-dart">' + opt(V.DEST_ARTS, m.art) + '</select>')
+      + champ('Jugement des EP <span class="opt">les EU y sont toujours non conformes</span>', '<select id="m-dep">' + opt(V.DEST_EPS, m.ep) + '</select>')
+      + champ('Case du constat <span class="opt">en EP</span>', '<select id="m-dcst">' + opt(V.DEST_CSTS, m.cst) + '</select>')
+      + '<p class="muted small">Seules les prochaines poses en tiennent compte : une destination déjà posée garde ses champs.</p>',
+    actions: [{label: 'Annuler', value: null}, {label: 'Enregistrer', cls: 'primary', collect: function(w){
+      var q = function(s){ return w.querySelector(s).value; };
+      var r = V.destSaisie({nom: q('#m-dnom'), ab: q('#m-dab'), art: q('#m-dart'), ep: q('#m-dep'), cst: q('#m-dcst')}, m);
+      if (r.refus){ toast(r.refus, 4000); return false; }
+      return r.m;
+    }}],
+    /* l'article suit le nom tapé, comme dans la fiche courte du croquis : la fenêtre montre celui qui sera enregistré (« le » devant une
+       consonne, au lieu de « l' » : à changer en « la » s'il le faut) */
+    onMount: function(w){
+      var n = w.querySelector('#m-dnom'), a = w.querySelector('#m-dart');
+      if (n && a && V.artDevant) n.addEventListener('input', function(){ a.value = V.artDevant(a.value, n.value.replace(/\s+/g, ' ').trim()); });
+    }});
+  if (!res || !S.croq) return;
+  S.croq.exutoires = V.modelesDe(S.croq.exutoires).map(function(x){ return x.id === id ? {id: id, nom: res.nom, ab: res.ab, art: res.art, ep: res.ep, cst: res.cst} : x; });
+  await croqCfgEcrire(); toast('Destination modifiée : les prochaines poses en tiendront compte.'); render();
+}
+async function vcExuRetirer(id){
+  var V = window.VCroquis; if (!S.croq || !vcModule() || !V.modelesDe) return;
+  var l = V.modelesDe(S.croq.exutoires), m = l.filter(function(x){ return x.id === id; })[0]; if (!m) return;
+  if (!await confirmModal('Retirer la destination', '« ' + m.nom + ' » ne sera plus proposée dans la palette. Les destinations déjà posées gardent leurs champs.', 'Retirer', true)) return;
+  if (!S.croq) return;
+  S.croq.exutoires = l.filter(function(x){ return x.id !== id; });
+  await croqCfgEcrire(); toast('Destination retirée de la palette.'); render();
 }
 var VC_ACTIONS = {
   'c-croq-fill': async function(){
@@ -3572,7 +3621,9 @@ var VC_ACTIONS = {
   'vc-pdf': function(el){ var v = curVisit(); if (v && (!el.dataset.vid || el.dataset.vid === v.id)) return vcPdf(v); },
   'vc-voir': function(){ var v = curVisit(), a = curAnom(); if (!v || !a) return; var oid = a.croquis && a.croquis.objId; return vcOuvrir(v, oid ? {objet: oid, anomalie: a.id} : {placer: a.id}); },
   'vc-actif': async function(el){ if (!S.croq) return; S.croq.actif = !!el.checked; VC_RESUMES.clear(); await croqCfgEcrire(); render(); },
-  'vc-aide': async function(el){ if (!S.croq || !vcModule()) return; var a = Object.assign({}, window.VCroquis.AIDES_DEFAUT, S.croq.aides || {}); a[el.dataset.k] = !!el.checked; S.croq.aides = a; await croqCfgEcrire(); if (el.dataset.k === 'actives') render(); }
+  'vc-aide': async function(el){ if (!S.croq || !vcModule()) return; var a = Object.assign({}, window.VCroquis.AIDES_DEFAUT, S.croq.aides || {}); a[el.dataset.k] = !!el.checked; S.croq.aides = a; await croqCfgEcrire(); if (el.dataset.k === 'actives') render(); },
+  'vc-exu-mod': function(el){ return vcExuModifier(el.dataset.id); },
+  'vc-exu-ret': function(el){ return vcExuRetirer(el.dataset.id); }
 };
 
 /* ---------- Croquis de terrain et constat ----------
@@ -4347,6 +4398,8 @@ async function vcPlansPdf(v, list){
 }
 function vcNombre(x){ return typeof x === 'number' && isFinite(x); }
 function vcBorne(x, m){ return vcNombre(x) && Math.abs(x) <= m; }
+/* champ k présent dans p, mais qui n'est pas du texte (Q8 b, m128) */
+function vcPasTexte(p, k){ return Object.prototype.hasOwnProperty.call(p, k) && typeof p[k] !== 'string'; }
 /* points du fond : tous finis et à moins de 10 000 km de l'origine (une valeur démesurée figerait les aides au dessin) */
 function xyValide(xy){ for (var i = 0; i < xy.length; i++){ var q = xy[i]; if (!(q === q) || q > 1e7 || q < -1e7) return false; } return true; }
 /* plan venu d'une sauvegarde (peut-être d'un tiers) : forme vérifiée, éléments douteux écartés */
@@ -4361,13 +4414,19 @@ function planValide(pl, visIds){
   pl.el = pl.el.filter(function(e){
     if (!e || typeof e !== 'object' || typeof e.id !== 'string' || ['pt', 'ln', 'tx'].indexOf(e.k) < 0) return false;
     if (e.p && typeof e.p === 'object' && e.p.a != null) e.p.a = vcNombre(e.p.a) ? e.p.a % 360 : 0;
-    /* champs libres (m126, décision D3) : réparés, jamais refusés. Une destination reçoit les replis que le module lit déjà (nom coupé à
-       40 caractères ou « Autre destination », abréviation, article, EP « à arbitrer », case « autre ») ; un p.drain d'une autre sorte que
-       collecte ou infiltration est retiré. Rien ne change à l'analyse ; aucun champ n'est ajouté aux autres objets. La réparation se fait
-       dès que le module est chargé (balise fixe), même croquis désactivé : sans effet visible, la lecture donne les mêmes replis */
+    /* champs libres (m126, décision D3 ; Q8 b, m128) : réparés, jamais refusés. Seul un champ qui n'est pas du texte est remplacé : celui
+       d'une destination (abréviation, article, jugement des EP, case) par le repli que le module lit déjà (destDe), un nom par un nom vide,
+       lu « Autre destination », « l' », comme avant ; un p.drain est retiré. Un texte, même inconnu de cette version (d'une tablette plus
+       récente), est gardé tel quel : les replis de destDe et de sorteDrain le lisent. Un champ absent reste absent. Rien ne change à
+       l'analyse ; aucun champ n'est ajouté aux autres objets. La réparation se fait dès que le module est chargé (balise fixe), même croquis
+       désactivé : sans effet visible, la lecture donne les mêmes replis */
     if (e.p && typeof e.p === 'object' && !Array.isArray(e.p)){
-      if (Object.prototype.hasOwnProperty.call(e.p, 'drain') && e.p.drain !== 'collecte' && e.p.drain !== 'infiltration') delete e.p.drain;
-      if (e.k === 'pt' && window.VCroquis && typeof window.VCroquis.estDest === 'function' && window.VCroquis.estDest(e.t)) Object.assign(e.p, window.VCroquis.destDe(e));
+      if (vcPasTexte(e.p, 'drain')) delete e.p.drain;
+      if (e.k === 'pt' && window.VCroquis && typeof window.VCroquis.estDest === 'function' && window.VCroquis.estDest(e.t)){
+        var dP = window.VCroquis.destDe(e);
+        if (vcPasTexte(e.p, 'nom')) e.p.nom = '';
+        ['ab', 'art', 'ep', 'cst'].forEach(function(k){ if (vcPasTexte(e.p, k)) e.p[k] = dP[k]; });
+      }
     }
     if (e.k === 'ln') return Array.isArray(e.v) && e.v.length >= 2 && e.v.every(function(q){ return q && vcBorne(q.x, 1e7) && vcBorne(q.y, 1e7); });
     return vcBorne(e.x, 1e7) && vcBorne(e.y, 1e7);

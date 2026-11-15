@@ -76,6 +76,11 @@
 //   Abréviations « Ét » et « Et » : VEDE_EXUTOIRE_ET puis VEDE_EXUTOIRE_ET_2. Sans nom ni abréviation : « Autre destination (Au) »,
 //   VEDE_EXUTOIRE_AU. Noms longs : la ligne de légende finit à 287 mm au plus (filets du cartouche) ; 40 majuscules en taille réduite
 //   (5,5 pt au moins), nom entier ; 40 « W » en 5,5 pt, nom coupé (« … »), abréviation gardée ; témoin : « Étang (Ét) » en 7,2 pt.
+//   Abréviation illisible au PDF (« ΩΩ », un émoji, « Ω » et un émoji ; m128) : destDe prend les deux premiers caractères du nom, « Ét »,
+//   au symbole comme à la légende du plan PDF (« Étang (Ét) ») ; « <& » (lisible) reste. Échoue sur b6e3e3c (« ΩΩ » gardée, rien d'écrit).
+//   Nom « 💧 Mare » (accepté par la fiche), abréviation absente, illisible ou qui n'est pas du texte : ses deux premiers caractères sont
+//   illisibles aussi ; destDe prend les deux premiers que le PDF sait écrire, « Ma », comme la fiche, au symbole et à la légende
+//   (« Mare (Ma) »). Échoue sur b6e3e3c et sur la première version de m128 (« 💧 » gardé, légende « Mare () »).
 // x5 : avant-projet qui garde l'étang aux EP non conformes : préconisation au tableau du plan PDF, « Reste après travaux : Descente EP : rejet
 //   dans l'étang » ; témoin : le rejet supprimé par le projet, plus rien ne reste ; au dossier (reconcilier), ep-exu créée en catégorie
 //   « autre », sur la ligne « Gouttière(s) avant », non conforme, case gestEP.
@@ -687,6 +692,23 @@ async function destRendu(){
     'x4 plan PDF, noms longs : lignes de légende dans le cartouche (fin à 287 mm au plus) ; 40 majuscules en taille réduite (5,5 pt au moins), nom entier ; 40 « W » en 5,5 pt, '
     + 'nom coupé (« … »), « (WW) » gardé ; témoin : « Étang (Ét) » en 7,2 pt (' + (p5.err.join(' | ') || [lA, lB, lE].map(q => q ? JSON.stringify(q.t) + ' en ' + +q.pt.toFixed(2) + ' pt, fin à '
     + (q.x + q.w).toFixed(1) + ' mm' : 'absent').join(' ; ')) + ')');
+  /* abréviation illisible au PDF (m128) : repli de destDe, les deux premiers caractères du nom ; une abréviation lisible reste */
+  const ILL = ['ΩΩ', '💧', 'Ω💧'], abLu = ab => sur(() => V.destDe({p: Object.assign(etang('nc'), {ab})}).ab);
+  const sym = ab => { const q = sur(() => V.primitives({k: 'pt', t: 'exutoire', p: Object.assign(etang('nc'), {ab})}, V.RES.EP.rgb, 0)); return Array.isArray(q) ? q.filter(x => x.k === 't').map(x => x.s).join() : String(q); };
+  const d6 = versDest('descente', Object.assign(etang('nc'), {ab: 'ΩΩ'})), p6 = await pdf(d6, {mode: 'edl'}), l6 = p6.txt.filter(s => /^Étang\b/.test(s));
+  R.ok(vu(ILL.map(abLu)) === vu(['Ét', 'Ét', 'Ét']) && vu(ILL.map(sym)) === vu(['Ét', 'Ét', 'Ét']) && abLu('<&') === '<&' && !p6.err.length && l6.indexOf('Étang (Ét)') >= 0,
+    'x4 abréviation illisible au PDF (« ΩΩ », un émoji, « Ω » et un émoji) : les deux premiers caractères du nom, « Ét », au symbole et à la légende du plan PDF ; « <& » reste ('
+    + vu(ILL.map(abLu)) + ' ; ' + vu(ILL.map(sym)) + ' ; ' + JSON.stringify(abLu('<&')) + ' ; ' + (p6.err.join(' | ') || vu(l6)) + ')');
+  /* nom qui commence par un caractère que le PDF ne sait pas écrire (« 💧 Mare », que la fiche accepte), abréviation absente, illisible
+     ou qui n'est pas du texte : les deux premiers caractères du nom sont illisibles aussi ; le repli prend alors les deux premiers que le
+     PDF sait écrire, « Ma », comme la fiche (abDe) */
+  const MARE = {nom: '💧 Mare', art: 'la', ep: 'nc', cst: 'autre'}, avec = ab => ab === undefined ? Object.assign({}, MARE) : Object.assign({}, MARE, {ab});
+  const abM = [undefined, 'ΩΩ', '💧', 5].map(ab => sur(() => V.destDe({p: avec(ab)}).ab));
+  const symM = sur(() => V.primitives({k: 'pt', t: 'exutoire', p: avec()}, V.RES.EP.rgb, 0)), sM = Array.isArray(symM) ? symM.filter(x => x.k === 't').map(x => x.s).join() : String(symM);
+  const p7 = await pdf(versDest('descente', avec()), {mode: 'edl'}), l7 = p7.txt.filter(s => /Mare \(/.test(s)).map(s => s.trim());
+  R.ok(vu(abM) === vu(['Ma', 'Ma', 'Ma', 'Ma']) && sM === 'Ma' && !p7.err.length && vu(l7) === vu(['Mare (Ma)']),
+    'x4 nom « 💧 Mare » (accepté par la fiche), abréviation absente, illisible au PDF ou qui n\'est pas du texte : « Ma », les deux premiers caractères que le PDF sait '
+    + 'écrire, comme la fiche, au symbole et à la légende du plan PDF (' + vu(abM) + ' ; ' + JSON.stringify(sM) + ' ; ' + (p7.err.join(' | ') || vu(l7)) + ')');
 }
 /* x5 : avant-projet qui garde l'étang aux EP non conformes (aucun travaux) ; témoin : le tronçon vers l'étang « à supprimer » et un tronçon
    « projet » vers une boîte EP « projet » ; au dossier (reconcilier) : ep-exu créée, en catégorie « autre », sur la ligne « Gouttière(s) avant » */

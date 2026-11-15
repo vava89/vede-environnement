@@ -62,7 +62,7 @@ CROQUIS DE TERRAIN (facultatif)
   infiltre les eaux, se dessine en « Puisard ». Un rejet dans un étang, un
   fossé, une mare… se dessine avec l'objet « Autre destination » (palette
   Équipements, juste après « Puits »). Sa fiche règle son nom (refusé
-  vide ou s'il contient « puits » ou « puit »), l'abréviation de son
+  vide, illisible au PDF ou s'il nomme un puits), l'abréviation de son
   symbole (2 ou 3 caractères), l'article (« rejet dans l'étang » ; un
   nouveau nom le règle sur sa première lettre : vérifiez-le), le jugement
   des eaux pluviales (« À arbitrer » au départ, ou Conforme, Réserve, Non
@@ -70,10 +70,24 @@ CROQUIS DE TERRAIN (facultatif)
   conformes ; une case autre que « Milieu naturel » ou « Gargouille »
   laisse, comme l'infiltration, le raccordement à cocher. Changer le
   jugement efface les décisions de Contrôles sur les rejets des eaux
-  pluviales qui y aboutissent. Dans la fiche d'une descente, d'une
-  grille, d'un siphon de sol ou d'une autre source d'eaux pluviales
-  qu'aucun tronçon ne relie, le bouton « Rejet au sol » pose d'un toucher
-  une infiltration au sol à 1 m, et le tronçon qui l'y relie.
+  pluviales qui y aboutissent. Pour une destination qui revient d'un
+  dossier à l'autre, « + Nouvelle destination » (palette Équipements,
+  après « Autre destination ») ouvre une fiche courte : nom (mêmes
+  refus que dans la fiche), abréviation (tirée du nom tant qu'on ne la
+  saisit pas), article (réglé sur la première lettre du nom :
+  vérifiez-le), jugement des eaux pluviales (« À arbitrer » au départ) et
+  case du constat (« Indéterminé/Autres » au départ). « Enregistrer »
+  l'ajoute à la palette, sous son nom, et la pose au toucher suivant (ou
+  par « Cotes »). Les Réglages de l'application la listent sous
+  « Destinations ajoutées » (croquis activé) : « Modifier » vaut pour les
+  poses à venir, « Retirer » l'ôte de la palette ; aucune destination
+  déjà posée ne change. Les destinations ajoutées restent sur la
+  tablette : la sauvegarde ne les emporte pas. Une destination déjà
+  posée garde son nom et ses jugements sur toute tablette. Dans la fiche
+  d'une descente, d'une grille, d'un siphon de sol ou d'une autre source
+  d'eaux pluviales qu'aucun tronçon ne relie, le bouton « Rejet au sol »
+  pose d'un toucher une infiltration au sol à 1 m, et le tronçon qui l'y
+  relie.
   L'infiltration va à l'opposé de la façade la plus proche (façade du fond
   affiché, à 3 m au plus ; sinon vers le bas de l'écran). Elle n'est posée
   ni dans un bâti ou un trait de complément fermé, ni sur un mur ou un
@@ -324,8 +338,17 @@ MISE À JOUR DE L'APPLICATION
   simple tuyau : un drain d'infiltration, comme le bouton « Rejet au
   sol », y donne « À compléter » ; un drain de collecte n'y compte pas
   au constat, et un équipement qui y est relié y est présumé raccordé au
-  réseau EP. N'y signez aucun constat de ces dossiers : un constat signé
-  ne change plus.
+  réseau EP. En v1.6.3, ou plus ancienne, le plan PDF d'un croquis qui
+  contient une infiltration, un puits ou une autre destination ne sort
+  pas (message « Plan PDF : » suivi d'une erreur), et leur fiche ne
+  s'ouvre pas dans le croquis ; la fiche et le constat du dossier
+  sortent, comme le plan PDF d'un croquis qui n'a que des drains. N'y
+  signez aucun constat de ces dossiers : un constat signé ne change plus.
+- Une tablette remise en v1.7.0, ou plus ancienne, garde les
+  destinations ajoutées (« + Nouvelle destination ») sans les proposer,
+  puis les efface dès qu'un réglage du croquis y change (une aide au
+  dessin, le croquis activé ou désactivé) : à saisir de nouveau sur la
+  tablette à jour. Les destinations déjà posées n'en changent pas.
 - Une tablette restée en v1.7.0, ou plus ancienne, compte encore une
   anomalie à arbitrer comme conforme : elle y laisse « Conformes ». N'y
   signez pas le constat d'un dossier dont une anomalie reste à arbitrer.
