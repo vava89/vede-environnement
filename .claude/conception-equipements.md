@@ -240,8 +240,8 @@ Détail du code : cartes A, B et C (`carte-*.md`). Lot Rejets : `.claude/concept
 Chaque correctif est livrable seul et garde la batterie verte (`sh tests/tout.sh --navigateur`) ; garde commune : compat 245/245 et
 différentiel sans écart. Les tests nouveaux vont dans tests/vm/equipements.js et tests/navigateur/equipements.js, créés en m130 et ajoutés à
 tests/tout.sh (l. 14 et 19) et à tests/LISEZMOI.md. Le lot tient en six numéros ; s'il en manque (lot Rejets plus long, correctif scindé),
-m135 puis m134 attendent la fusion suivante (l'étiquette commune forme un tout), ou la fusion se fait après m133. m130 est envoyé :
-sa fiche dit ce qui a été fait.
+m135 puis m134 attendent la fusion suivante (l'étiquette commune forme un tout), ou la fusion se fait après m133. m130 et m131 sont
+envoyés : leurs fiches disent ce qui a été fait.
 - **m130 Niveau d'étage précis** (souhait 15 ; D1, D2, D5, D7). Fait : 609b9f1, 15 nov.
   - Fichiers : CJ : NIV (les puces), etageDe, libNiv (VC.libNiv), valNiv, poserNiv, texteEtiquette, pageTableaux, demander (option num), chipsHtml
     (option apres), nivHtml, ficheHtml, rafraichirFiche, branche 'prop', action nivAutre, changerType (extraite du gestionnaire a === 'type').
@@ -259,18 +259,29 @@ sa fiche dit ce qui a été fait.
     « Étage », aide « Numéro de l'étage, de 1 à 99 : 1 pour le 1er, 5 pour le 5e. » ; changerType garde tout etage non vide, même illisible, même vers
     un type qui n'est pas une source, comme niv ; étiquettes plus longues (collisions au 1/200, non mesurées) ; en v1.7.0, une autre puce du niveau
     laisse l'étage, que « Étage » fait revenir (lu sur b08133d, non remesuré).
-- **m131 WC + lave-mains** (souhait 18 ; D2, D4, D5, D7).
-  - But : un WC à lave-mains intégré, dit sur le plan, compté WC seul.
-  - Fichiers : CJ libDe ; libObj ; texteEtiquette ; libEquipement ; en-tête de fiche ; constatDeduit (types) ; ficheHtml (puce, aide) ;
-    changerType. LISEZMOI.txt (aide, l. 127-130 ; consigne).
-  - Pour l'utilisateur : puce « + lave-mains » ; « WC + lave-mains » sur le plan, au tableau et dans les anomalies ; WC 1 au constat.
-  - Test : vm l1 : texteEtiquette d'un WC lm 'oui' sans niveau → « WC + lave-mains » (échoue avant : '') ; l2 : WC sur EP → « WC +
-    lave-mains : rejet au réseau EP » ; l3 : constatDeduit : WC nb 1, Évier 0, types ['WC', 'Lave-mains'] ; l4 : page 2, avec un drain
-    de collecte ; l5 : symbole, légende et bloc VEDE_WC inchangés. Navigateur : puce, aide, étiquette posée, second toucher ; WC → Lavabo :
-    lm effacé, toast. navigateur/dossier.js : « Autres : Lave-mains » saisie à la main rappelée (avant : non), « Autres : Lavabo du WC »
-    toujours.
-  - Risques : une anomalie intacte change de texte quand lm change ; une tablette pas à jour la réécrit « WC : … » (D8).
-  - Lot Rejets : constatDeduit après m123 et m125.
+- **m131 WC + lave-mains** (souhait 18 ; D2, D4, D5, D7). Fait : 323b5fe, 15 nov.
+  - Fichiers : CJ : libDe (VC.libDe, près de libObj ; type cherché par hasOwnProperty), libObj (rend libDe), constatDeduit (row.types),
+    texteEtiquette, ficheHtml (en-tête ; champ « Lave-mains » après le Niveau), branche 'prop' (k === 'lm'), changerType (commentaire seulement),
+    libEquipement. LISEZMOI.txt (constat ; consigne de MISE À JOUR), croquis/LISEZMOI.txt, tests/LISEZMOI.md. index.html inchangé : row.types suffit à
+    vcAutresDouble.
+  - Pour l'utilisateur : fiche du WC : champ « Lave-mains », puce « + lave-mains », aide « Lave-mains intégré au WC ; raccordé à part : dessinez un
+    Lavabo. », second toucher qui l'enlève (clé lm retirée), un pas d'annulation par geste ; « WC + lave-mains » sur le plan (écran, PDF, DXF), même
+    sans niveau, puis « (1er étage) » s'il y en a un, au tableau de la page 2, dans l'en-tête de la fiche et dans les anomalies (« WC + lave-mains :
+    rejet au réseau EP », jamais de niveau) ; constat : ligne WC, Évier 0 ; une ligne « Autres : Lave-mains » saisie à côté est rappelée ; changer le
+    type efface le lave-mains (toast « Type changé »). Symbole, bloc VEDE_WC et légende « WC » inchangés.
+  - Tests : vm/equipements.js l1 à l5 (54 contrôles, 98 en tout ; 27 échouent sur 824fabf, tous en l1 à l4 ; l5 est une garde) ;
+    navigateur/equipements.js l6 (9 contrôles, 7 avant) ; navigateur/dossier.js 66 à 68 (6 contrôles ; 66 échoue avant, 67 et 68 sont des gardes).
+    Garde : compat 245/245 sans régénération ; aléatoire 8000 contre 824fabf : aucune exception, aucun écart ; sondes v1.7.0 (b08133d) : « WC » sans
+    étiquette (« WC (étage) » au 1er étage ; « Projet : WC », « À supprimer : WC »), anomalies intactes réécrites « WC : … » à l'ouverture du croquis
+    (2 mises à jour), rendues sur une tablette à jour, aucune erreur au PDF, au DXF ni à l'écran, constat WC 4, Évier 0 ; batterie complète verte (18
+    min).
+  - Relecture : aucun défaut bloquant ni majeur. M1 à M6 appliqués (M2 : libDe par hasOwnProperty, « toString » et « constructor » rendent leur code ;
+    phrases de LISEZMOI.txt et de croquis/LISEZMOI.txt ; consigne v1.7.0 : moment de la réécriture et « Projet : WC ») ; écarté : citer l'étiquette
+    personnalisée dans la consigne (la même dans les deux versions).
+  - Risques et [p] : E5 sans réponse (aide sous la puce) ; un Lavabo dessiné en plus pour le même lave-mains intégré compte un Évier, seule l'aide le
+    prévient ; restent « WC » : sélecteur Type, palette, panneau Cotes et nom de pose ; seule la chaîne 'oui' compte, sur un WC ; le générateur ne
+    tire pas p.lm (prévu en m134) ; les anomalies du croquis gardent leur installation (ligneDe : ligne WC), une anomalie saisie à la main est rangée
+    par ses mots (anomRows) ; libDe(undefined) rend ''.
 - **m132 Autres appareils (1) : type, constat, rendu**, hors palette, comme la destination de m125 (souhait 7 ; D1 à D5).
   - But : compter, juger et imprimer un appareil nommé par l'opérateur.
   - Fichiers : CJ def, defautsPt, libDe et abDe, nomRefuse, controles, constatDeduit (clé avec la nature, row), primitives, legende,
