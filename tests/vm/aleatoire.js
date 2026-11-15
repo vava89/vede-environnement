@@ -5,7 +5,7 @@
 // (avant-projet), ne change pas l'analyse de ce plan (m95 ; échoue sur ba2d32a).
 // --contre=<dossier> (m116 ; décision D11 de .claude/conception-rejets.md) : chaque croquis est aussi analysé, dans ses modes, par la version de ce dossier
 // (par exemple une copie du commit d'avant, faite par git archive) ; résultat par source, anomalies, conclusion, contrôles et constat déduit
-// doivent être les mêmes (correctif sans changement visible).
+// doivent être les mêmes (correctif sans changement visible), de même que l'étiquette de chaque objet analysé (m134).
 // Les exutoires dessinés comptent l'infiltration au sol (option exutoires du générateur, m118), le puits (m120) et l'autre destination
 // (m128 : nom fictif ou absent, abréviation parfois absente, de longueur fausse ou illisible au PDF, article, jugement des EP et case
 // parfois inconnus, comme d'une tablette plus récente ; parfois deux destinations aux mêmes champs). Une version qui ne connaît pas un
@@ -31,7 +31,11 @@
 // « autre_ep », nom fictif parfois absent, blanc, long ou à balises, abréviation et ligne du constat parfois fausses). Ils changent
 // le tirage des sources : avec --contre, ou avec --sans=generiques, aucun n'est tiré, et les croquis sont ceux d'avant m132 (une version
 // d'avant m132 ne connaît pas ce type : elle y verrait un bout libre).
-// usage : node tests/vm/aleatoire.js [n=1500] [graine=1] [-v] [--app=<dossier>] [--contre=<dossier>] [--sans=<type>|drains|generiques,…]
+// Sans --contre, les sources tirées ont aussi des champs (m134, option champs du générateur : niveau, lave-mains, nom et étiquette
+// commune, liens et titres parfois illisibles), et la signature compte l'étiquette de chaque source analysée (texte commun du porteur,
+// vide pour un membre) : elle ne dépend pas non plus de l'ordre du dessin ; le test compte les porteurs et les membres. Avec --contre, ou
+// avec --sans=champs, aucun champ n'est tiré : mêmes croquis qu'avant m134.
+// usage : node tests/vm/aleatoire.js [n=1500] [graine=1] [-v] [--app=<dossier>] [--contre=<dossier>] [--sans=<type>|drains|generiques|champs,…]
 'use strict';
 const {charger, doc, melange, copie, rapport} = require('./charger.js');
 const G = require('./generateur.js');
@@ -40,12 +44,12 @@ const optContre = process.argv.find(x => /^--contre=/.test(x)), Vc = optContre ?
 const args = process.argv.slice(2).filter(x => !/^-/.test(x)), N = +(args[0] || 1500), S0 = +(args[1] || 1);
 /* exutoires dessinés : ceux du générateur, l'infiltration au sol (m118), le puits (m120) et l'autre destination (m128), sauf ceux de --sans
    (m120) ; drains (m124), sauf « drains » dans --sans ; autres appareils parmi les sources (m132), sauf avec --contre ou « generiques »
-   dans --sans ; un mot de --sans qui n'est ni un de ces types, ni « drains », ni « generiques » arrête le test (faute de frappe : le
-   tirage ne serait pas celui qu'on croit) */
+   dans --sans ; champs des sources (m134), sauf avec --contre ou « champs » dans --sans ; un mot de --sans qui n'est ni un de ces types,
+   ni « drains », ni « generiques », ni « champs » arrête le test (faute de frappe : le tirage ne serait pas celui qu'on croit) */
 const TOUS = G.EXUTOIRES.concat(['infiltration', 'puits', 'exutoire']), optSans = process.argv.find(x => /^--sans=/.test(x));
 const SANS = optSans ? optSans.slice(7).split(',').filter(Boolean) : [], EXUS = TOUS.filter(t => SANS.indexOf(t) < 0), DRAINS = SANS.indexOf('drains') < 0;
-const GENS = !Vc && SANS.indexOf('generiques') < 0, SOURCES = GENS ? G.SOURCES.concat(G.GENERIQUES) : G.SOURCES;
-SANS.forEach(t => { if (TOUS.indexOf(t) < 0 && t !== 'drains' && t !== 'generiques') throw new Error('--sans : « ' + t + ' » n\'est ni un exutoire tiré (' + TOUS.join(', ') + '), ni « drains », ni « generiques »'); });
+const GENS = !Vc && SANS.indexOf('generiques') < 0, SOURCES = GENS ? G.SOURCES.concat(G.GENERIQUES) : G.SOURCES, CHAMPS = !Vc && SANS.indexOf('champs') < 0;
+SANS.forEach(t => { if (TOUS.indexOf(t) < 0 && t !== 'drains' && t !== 'generiques' && t !== 'champs') throw new Error('--sans : « ' + t + ' » n\'est ni un exutoire tiré (' + TOUS.join(', ') + '), ni « drains », ni « generiques », ni « champs »'); });
 if (!EXUS.length) throw new Error('--sans : aucun exutoire ne resterait à tirer');
 
 function signature(d, mode, parSommets){
@@ -58,7 +62,9 @@ function signature(d, mode, parSommets){
   /* parSommets : une pièce désignée par son tuyau et les points de ses deux bouts (un sommet ajouté décale les numéros des sommets) */
   const cle = p => parSommets ? p.l.id + (p.col ? ':c' : ':') + [p.i0, p.i1].map(i => p.l.v[i].x + ',' + p.l.v[i].y).join('>') : p.id;
   const fl = an.pieces.map(p => cle(p) + (an.sensPiece[p.id] > 0 ? '>' : an.sensPiece[p.id] < 0 ? '<' : '=')).sort().join(' ; ');
-  return s + ' | ' + anos + ' | ' + c + ' | ' + ctrl + ' | ' + fl;
+  /* étiquettes des sources analysées (m134 : étiquette commune), avant les flèches, qui restent la dernière partie (raccordAuMilieu) */
+  const T = V.TYPES, etq = Object.keys(an.objs).sort().filter(id => (T[an.objs[id].t] || {}).role === 'source').map(id => id + '=' + JSON.stringify(V.texteEtiquette(an.objs[id], an))).join(' ; ');
+  return s + ' | ' + anos + ' | ' + c + ' | ' + ctrl + ' | ' + etq + ' | ' + fl;
 }
 /* mise à jour du dossier : aucune exception, une seconde synchronisation ne change plus rien */
 function dossier(d){
@@ -114,9 +120,10 @@ if (Vc) Object.assign(st, {contre: 0, ecartsContre: 0});
 const tir = {collecte: 0, infiltration: 0, milieu: 0, orientes: 0, points: 0, pointsMilieu: 0};
 /* autres destinations tirées (m128), dont celles à l'abréviation illisible au PDF (2 ou 3 caractères, aucun que le PDF sache écrire) */
 const dst = {destinations: 0, abIllisibles: 0};
-/* autres appareils tirés (m132) */
-const gens = {tires: 0, sansNom: 0, row: 0};
+/* autres appareils tirés (m132) ; étiquettes communes (m134) : liens tirés, porteurs et membres analysés */
+const gens = {tires: 0, sansNom: 0, row: 0}, grp = {liens: 0, porteurs: 0, membres: 0};
 function compterTirage(spec){
+  grp.liens += spec.o.filter(o => o[4] && 'etiqAvec' in o[4]).length;
   spec.o.filter(o => G.GENERIQUES.indexOf(o[1]) >= 0).forEach(o => { gens.tires++; if (typeof o[4].nom !== 'string' || !o[4].nom.trim()) gens.sansNom++; if ('row' in o[4]) gens.row++; });
   spec.o.filter(o => o[1] === 'exutoire').forEach(o => { const ab = o[4].ab; dst.destinations++;
     if (typeof ab === 'string' && ab.length >= 2 && ab.length <= 3 && !V.pdfTxt(ab).trim()) dst.abIllisibles++; });
@@ -141,7 +148,9 @@ function resultat(Vx, d, mode){
   try {
     const an = Vx.analyser(copie(d), mode), L = Vx.anomaliesDoc(copie(d), an), cd = Vx.constatDeduit(copie(d), an);
     return {sources: stable(an.resObj, []), anomalies: stable(L, []), conclusion: stable(Vx.conclusion(L, an), []), controles: stable(an.controles, []),
-      constat: stable({rows: cd.rows, epRecup: cd.epRecup, sansCote: cd.sansCote, methodes: cd.methodes}, [])};
+      constat: stable({rows: cd.rows, epRecup: cd.epRecup, sansCote: cd.sansCote, methodes: cd.methodes}, []),
+      /* étiquette de chaque objet analysé (m134 : sans lien d'étiquette commune, aucune ne change) */
+      etiquettes: Object.keys(an.objs).sort().map(id => id + '=' + Vx.texteEtiquette(an.objs[id], an)).join(' ; ')};
   } catch (e){ return {exception: e.message}; }
 }
 const ex = {};
@@ -153,14 +162,16 @@ function ecart(a, b){
 const note = (k, t) => { (ex[k] = ex[k] || []); if (ex[k].length < 3) ex[k].push(t); };
 for (let it = 0; it < N; it++){
   const graine = S0 + it, avp = graine % 3 === 0;
-  const spec = G.gen(graine, {avp, pLoop: (graine % 10) / 10, maxN: 2 + graine % 7, maxS: 1 + graine % 4, maxC: graine % 3, exutoires: EXUS, drains: DRAINS, sources: SOURCES});
+  const spec = G.gen(graine, {avp, pLoop: (graine % 10) / 10, maxN: 2 + graine % 7, maxS: 1 + graine % 4, maxC: graine % 3, exutoires: EXUS, drains: DRAINS, sources: SOURCES, champs: CHAMPS});
   const d = doc(spec), fosse = spec.o.some(o => o[1] === 'fosse'); st.croquis++; if (fosse) st.avecFosse++; compterTirage(spec);
   const lns = d.el.filter(e => e.k === 'ln'), pts = d.el.filter(e => e.k !== 'ln');
   const ordres = [d.el, pts.concat(lns.slice().reverse()), pts.concat(melange(lns, graine)), pts.concat(melange(lns, graine + 1)), pts.concat(melange(lns, graine + 2))];
   (avp ? ['edl', 'avp'] : ['edl']).forEach(mode => {
     st.analyses++;
     let sigs;
-    try { sigs = ordres.map(el => signature(Object.assign({}, d, {el}), mode)); }
+    try { sigs = ordres.map(el => signature(Object.assign({}, d, {el}), mode));
+      if (CHAMPS && typeof V.groupeEtiquette === 'function'){ const an = V.analyser(copie(d), mode);
+        Object.keys(an.objs).forEach(id => { const g = V.groupeEtiquette(an.objs[id], an); if (g) grp[g.porteur === id ? 'porteurs' : 'membres']++; }); } }
     catch (e){ st.exceptions++; note('exception', 'graine ' + graine + ' ' + mode + ' : ' + e.message + ' ' + (e.stack || '').split('\n')[1] + '\n      ' + G.fmt(spec)); return; }
     if (new Set(sigs).size > 1){
       st.ordreTraces++;
@@ -184,12 +195,14 @@ for (let it = 0; it < N; it++){
   try { if (dossier(d)) { st.dossierInstable++; note('dossier', 'graine ' + graine + ' ' + G.fmt(spec)); } }
   catch (e){ st.exceptions++; note('exception', 'graine ' + graine + ' dossier : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
 }
-console.log(JSON.stringify(st)); console.log('drains tirés : ' + JSON.stringify(tir) + ' ; autres destinations tirées : ' + JSON.stringify(dst) + ' ; autres appareils tirés : ' + JSON.stringify(gens));
+console.log(JSON.stringify(st)); console.log('drains tirés : ' + JSON.stringify(tir) + ' ; autres destinations tirées : ' + JSON.stringify(dst) + ' ; autres appareils tirés : ' + JSON.stringify(gens) + ' ; étiquettes communes : ' + JSON.stringify(grp));
 Object.keys(ex).forEach(k => ex[k].forEach(t => console.log('[' + k + '] ' + t)));
 R.ok(st.exceptions === 0, 'aucune exception (' + st.analyses + ' analyses de ' + st.croquis + ' croquis ; exutoires tirés : ' + EXUS.join(', ') + ' ; drains : ' + (DRAINS ? 'oui' : 'non')
   + (EXUS.indexOf('exutoire') >= 0 ? ' ; ' + dst.destinations + ' autres destinations, dont ' + dst.abIllisibles + ' à l\'abréviation illisible au PDF' : '')
   + ' ; autres appareils : ' + (GENS ? gens.tires + ', dont ' + gens.sansNom + ' sans nom et ' + gens.row + ' avec une ligne du constat' : 'non') + ')');
 R.ok(!GENS || (gens.tires > 0 && gens.sansNom > 0 && gens.row > 0), 'autres appareils tirés parmi les sources (' + (GENS ? gens.tires + ' tirés' : 'option retirée') + ')');
+R.ok(!CHAMPS || (grp.porteurs > 0 && grp.membres >= grp.porteurs), 'étiquettes communes tirées (' + (CHAMPS ? grp.liens + ' liens ; ' + grp.porteurs + ' porteurs et ' + grp.membres
+  + ' membres dans les analyses' : 'option retirée') + ')');
 R.ok(st.ordreTraces === 0, 'même résultat dans cinq ordres des tracés (' + st.avecFosse + ' croquis avec fosse)');
 R.ok(st.ordreObjets === 0, 'même résultat dans un autre ordre des objets');
 R.ok(st.raccordChange === 0, 'un raccord au milieu d\'un tuyau, d\'où part un tuyau absent de ce plan, ne change rien (' + st.raccordsAuMilieu + ' plans'
@@ -201,6 +214,6 @@ R.ok(st.drainsKo === 0 && (!DRAINS || (tir.collecte > 0 && tir.infiltration > 0 
   + ' par un nœud du milieu et ' + tir.orientes + ' orientés ; ' + tir.points + ' points « Drain » posés sur un drain, dont ' + tir.pointsMilieu + ' au milieu ; '
   + st.drainsComptes + ' drains comptés dans les analyses'
   : 'option drains retirée') + (st.drainsKo ? ' ; ' + st.drainsKo + ' analyses en écart' : '') + ')');
-if (Vc) R.ok(st.ecartsContre === 0, 'même résultat par source, anomalies, conclusion, contrôles et constat déduit qu\'avec la version de ' + optContre.slice(9)
+if (Vc) R.ok(st.ecartsContre === 0, 'même résultat par source, anomalies, conclusion, contrôles, constat déduit et étiquettes qu\'avec la version de ' + optContre.slice(9)
   + ' (' + st.contre + ' analyses' + (st.ecartsContre ? ' ; ' + st.ecartsContre + ' écarts' : '') + ')');
 R.fin();

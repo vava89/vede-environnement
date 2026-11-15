@@ -39,6 +39,16 @@
 //      fiche sur le nom, puces EP, bouton « Rejet au sol » ; « Rigole » tapé, puis un autre ouvrage EP posé : « Rigole » proposé après les
 //      noms du cadrage, « Bidet » (EU) non ; aucune erreur dans la console.
 // e2 échoue sur 53fe487 (« Autre appareil » absent de la palette ; les contrôles suivants ne sont pas lancés).
+// m134, étiquette commune (souhait 8 ; décision D6 ; c8, à la suite de c1 à c7 de vm/equipements.js : e3 est le test prévu pour m135) :
+// c8 : douche porteur (titre « sdb »), lavabo et WC + lave-mains liés à elle, au 1er étage, étiquettes à placer : à l'écran « Salle de bain
+//      (1er étage) » puis « douche, WC + lave-mains, lavabo », une fois chacune, aucune étiquette propre d'un membre ; témoin « Évier
+//      (RDC) » à part ; de même au plan PDF de l'état des lieux, produit par la sortie de l'éditeur (textes captés à l'appel de la
+//      bibliothèque PDF, sans les liserés). Le lavabo changé en évier par le sélecteur Type : lien gardé, aucun toast, un pas, « douche,
+//      WC + lave-mains, évier » ; « Annuler » rend le lavabo lié ; la douche changée en baignoire : titre gardé, « baignoire, WC +
+//      lave-mains, lavabo » ; le témoin, au lien et au titre vides (fichier fait à la main), changé en lavabo : aucune de ces clés écrite,
+//      « Lavabo (RDC) » ; aucune erreur dans la console.
+// c8 échoue sur 344c7b2 (5 cas : chacun son étiquette, à l'écran et au plan PDF ; le changement de type efface lien et titre avec un
+// toast) ; y passent « Annuler » et la console.
 // usage : node tests/navigateur/equipements.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -420,8 +430,73 @@ async function autresAppareils(){
   } finally { await A.fermer(); }
 }
 
+/* textes du plan PDF de l'état des lieux, par la sortie de l'éditeur (bouton « Plan de l'état des lieux ») : appels de la bibliothèque PDF
+   captés, sans le liseré blanc écrit sous chaque étiquette ; le fichier est gardé par le crochet des tests (window.__fichiers) */
+async function textesPdf(p){
+  const n = await p.evaluate(() => {
+    if (!window.__pdfPris){ window.__pdfPris = true; const J0 = window.jspdf.jsPDF;
+      const W = function(){ const d = new J0(...arguments), ot = d.text;
+        d.text = function(t, x, y, o){ try { if (!(o && o.renderingMode === 'stroke')) window.__txtPdf.push([].concat(t).join(' ')); } catch (e){} return ot.apply(d, arguments); }; return d; };
+      W.API = J0.API; window.jspdf.jsPDF = W; }
+    window.__txtPdf = []; const n = window.__fichiers.length; window.__vcEd.sortie('pdfEdl'); return n;
+  });
+  await p.waitForFunction(n => window.__fichiers.length > n, n, {timeout: 15000});
+  return p.evaluate(() => ({textes: window.__txtPdf.slice(), fichier: window.__fichiers[window.__fichiers.length - 1].nom}));
+}
+
+/* m134 : étiquette commune (souhait 8 ; D6) dans l'éditeur : textes du canevas et du plan PDF, sélecteur Type */
+async function etiquetteCommune(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy, N1 = {niv: 'etage', etage: '1'}, ouvert = o => { o.lab = null; return o; };
+    await C.injecter(p, {el: [ouvert(C.P('D', 'douche', cx - 4, cy, Object.assign({etiqTitre: 'sdb'}, N1))),
+      ouvert(C.P('L', 'lavabo', cx, cy, Object.assign({etiqAvec: 'D'}, N1))), ouvert(C.P('W', 'wc', cx + 4, cy, Object.assign({lm: 'oui', etiqAvec: 'D'}, N1))),
+      ouvert(C.P('E', 'evier', cx, cy + 6, {niv: 'rdc', etiqAvec: '', etiqTitre: ''}))]});
+    await C.regler(p, cx, cy, 40);
+    const T1 = 'Salle de bain (1er étage)', PROPRES = ['Douche (1er étage)', 'Lavabo (1er étage)', LM + ' (1er étage)', 'Évier (1er étage)', 'Baignoire (1er étage)'];
+    /* textes du canevas ou du plan PDF : titre et liste une fois chacun, aucune étiquette propre d'un membre, témoin à part */
+    const compte = (tx, l2) => ({t1: tx.filter(t => t === T1).length, t2: tx.filter(t => t === l2).length, propres: tx.filter(t => PROPRES.indexOf(t) >= 0),
+      temoin: tx.filter(t => /^(Évier|Lavabo) \(RDC\)$/.test(t)), tx: tx.filter(t => /bain|ouche|avabo|WC|vier|aignoire/.test(t))});
+    const vu = async l2 => compte(await textesEcran(p), l2);
+    const bien = (r, temoin) => r.t1 === 1 && r.t2 === 1 && !r.propres.length && r.temoin.join() === temoin;
+    let r = await vu('douche, WC + lave-mains, lavabo');
+    R.ok(bien(r, 'Évier (RDC)'), 'c8 douche porteur (titre « sdb »), lavabo et WC + lave-mains liés, au 1er : à l\'écran « ' + T1 + ' » puis « douche, WC + lave-mains, lavabo », '
+      + 'une fois chacune, aucune étiquette propre ; témoin « Évier (RDC) » (obtenu ' + JSON.stringify(r) + ')');
+    /* plan PDF de l'état des lieux, par la sortie de l'éditeur : de même (la légende et le tableau de la page 2 nomment chaque appareil,
+       sans niveau) */
+    const pd = await textesPdf(p); r = compte(pd.textes, 'douche, WC + lave-mains, lavabo');
+    R.ok(/\.pdf$/.test(pd.fichier) && bien(r, 'Évier (RDC)'), 'c8 plan PDF de l\'état des lieux (sortie de l\'éditeur) : « ' + T1 + ' » puis « douche, WC + lave-mains, lavabo », '
+      + 'une fois chacune, aucune étiquette propre ; témoin « Évier (RDC) » (fichier ' + JSON.stringify(pd.fichier) + ' ; obtenu ' + JSON.stringify(r) + ')');
+
+    /* membre changé de type : le lien reste, aucun toast, un pas ; le texte commun suit */
+    const typeVers = async (id, v) => { await choisir(p, id); await effacerToast(p); const s = await p.$('.vc .vc-pcorps select[data-a="type"]'); if (!s) return false;
+      await s.selectOption(v); await C.pause(p, 300); return true; };
+    let u = await nUndo(p), ok = await typeVers('L', 'evier'), msg = await toastVu(p), e = await elDoc(p, 'L'), u1 = await nUndo(p);
+    r = await vu('douche, WC + lave-mains, évier');
+    R.ok(ok && e.t === 'evier' && e.p.etiqAvec === 'D' && !('etiqTitre' in e.p) && !msg && u1 === u + 1 && bien(r, 'Évier (RDC)'),
+      'c8 membre Lavabo → Évier par le sélecteur Type : lien gardé, aucun toast, un pas ; à l\'écran « douche, WC + lave-mains, évier » ('
+      + (ok ? '' : 'sélecteur absent, ') + JSON.stringify({t: e.t, p: e.p, toast: msg, pas: u1 - u}) + ' ; ' + JSON.stringify(r) + ')');
+    await annuler(p); e = await elDoc(p, 'L');
+    R.ok(e.t === 'lavabo' && e.p.etiqAvec === 'D', 'c8 « Annuler » rend le lavabo lié à la douche (' + JSON.stringify({t: e.t, etiqAvec: e.p.etiqAvec}) + ')');
+
+    /* porteur changé de type : le titre reste */
+    ok = await typeVers('D', 'baignoire'); msg = await toastVu(p); e = await elDoc(p, 'D');
+    r = await vu('baignoire, WC + lave-mains, lavabo');
+    R.ok(ok && e.t === 'baignoire' && e.p.etiqTitre === 'sdb' && !('etiqAvec' in e.p) && !msg && bien(r, 'Évier (RDC)'),
+      'c8 porteur Douche → Baignoire : titre gardé, aucun toast ; à l\'écran « ' + T1 + ' » puis « baignoire, WC + lave-mains, lavabo » ('
+      + JSON.stringify({t: e.t, p: e.p, toast: msg}) + ' ; ' + JSON.stringify(r) + ')');
+
+    /* témoin aux champs vides (fichier fait à la main) : aucune clé vide écrite */
+    ok = await typeVers('E', 'lavabo'); msg = await toastVu(p); e = await elDoc(p, 'E'); r = await vu('baignoire, WC + lave-mains, lavabo');
+    R.ok(ok && e.t === 'lavabo' && !('etiqAvec' in e.p) && !('etiqTitre' in e.p) && !msg && bien(r, 'Lavabo (RDC)'),
+      'c8 témoin Évier (lien et titre vides) → Lavabo : ni etiqAvec ni etiqTitre écrits, aucun toast, « Lavabo (RDC) » à l\'écran ('
+      + JSON.stringify({t: e.t, p: e.p, toast: msg}) + ' ; ' + JSON.stringify(r.temoin) + ')');
+    erreurs(A, 'c8');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [niveaux, laveMains, autresAppareils]){
+  for (const f of [niveaux, laveMains, autresAppareils, etiquetteCommune]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();

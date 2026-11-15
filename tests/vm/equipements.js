@@ -94,6 +94,44 @@
 // g9 et g10 échouent sur 53fe487 (la synchro remet l'installation à vide, ops.autres absent, NOMS_AUTRES absent) ; y passent la création,
 // le bidet compté en WC, la ligne retouchée du témoin de g9 et « aucun nom refusé » de g10. Le retour en « Autres » échoue avant la
 // relecture de m133 (l'anomalie reste sur la ligne « wc »).
+// m134, étiquette commune (souhait 8 ; décision D6) : p.etiqAvec (id du porteur) sur chaque membre, p.etiqTitre ('sdb', 'eau', 'cuisine',
+// 'buanderie', 'aucun') sur le porteur. Un membre compte si son lien est un texte autre que son id, si le porteur est un objet analysé
+// (an.objs) sans lien et du même statut, et si les deux sont des sources EU ; sans analyse, chacun garde son étiquette.
+// VCroquis.groupeEtiquette(e, an) : {porteur, objets} (porteur en tête, puis l'ordre du catalogue, puis l'id) ou null.
+// c1 : douche porteur, lavabo et WC + lave-mains au 1er étage : « Salle de bain (1er étage) » puis « douche, WC + lave-mains, lavabo »,
+//   membres sans étiquette (ordre du catalogue, règle de D6 : le WC avant le lavabo [p] ; l'exemple de D6 et de la fiche de m134 écrit
+//   « douche, lavabo, WC + lave-mains ») ; titres « sdb », « eau », « cuisine », « buanderie » ; titre d'office (« Salle de bain » avec
+//   une douche, une baignoire ou une salle de bain, sinon aucun) pour '', 'zz', 'constructor', 'toString', 3 et null ; « aucun » : une
+//   ligne, le niveau à la fin ; un nom égal au titre n'est pas répété (porteur ou membre), une fois seulement : deux salles de bain, deux
+//   cuisines, une salle de bain et un autre appareil nommé « Salle de bain » gardent le second ; il reste avec « aucun » ; « Cuisine »
+//   puis « évier, lave-vaisselle » ; ordre et minuscules (« Lave-linge, urinoir, bidet, PAC » : catalogue, puis id ; sigle gardé) ; porteur WC sans
+//   niveau : « WC, lavabo » ; l'étiquette personnalisée du porteur l'emporte et ses membres restent vides ; l'ordre du croquis ne change
+//   rien ; à l'écran, au plan PDF et au DXF, les deux lignes une fois chacune, aucune étiquette d'un membre ; au plan PDF, la liste sous
+//   le titre.
+// c2 : un membre à étiquette personnalisée : texte vide ; VCroquis.obstaclesPlan : trois symboles et la seule étiquette du porteur (4
+//   boîtes, 6 sans groupe), boîte de deux lignes ; porteur retiré : chacun son étiquette, « Lavabo du haut » revient ; à l'écran, au plan
+//   PDF et au DXF, ni « Lavabo du haut », ni étiquette d'un membre.
+// c3 (témoins) : étiquette propre de chacun pour un membre ou un porteur « Projet » (avant-projet), un membre « À supprimer » (état des
+//   lieux), un membre ou un porteur EP (descente, siphon de sol, grille, autre ouvrage EP), un porteur boîte, absent, d'un type inconnu ou
+//   lié (même à lui-même), un lien vers soi, vide, en nombre, 'toString', 'constructor', '__proto__', un membre d'un type inconnu ; chaîne
+//   (lavabo lié au WC, WC lié à la douche) : le WC rejoint la douche, le lavabo garde son étiquette ; statut absent : « existant » [p] ;
+//   sans analyse : chacun son étiquette.
+// c4 : groupe « Projet » : défait en état des lieux (trois « Projet : … », aussi à l'écran et au DXF), formé en avant-projet (« Projet : »
+//   et le texte commun, aussi au plan PDF) ; groupe « À supprimer » : formé en état des lieux, sans préfixe ; défait en avant-projet.
+// c5 : niveaux différents : après chaque nom, rien sur le titre ; le nom égal au titre reste, avec son niveau [p] ; sans titre ; quatre
+//   appareils : leurs noms ; cinq : leurs lettres (« Do, WC, La, Ba, Év »), de même à niveaux différents ; cinq objets dont une salle de
+//   bain : quatre noms [p] ; six sans titre : lettres, nom du siphon de garage (sans lettres), « ? » d'un autre appareil sans nom [p] ;
+//   « Projet : Lavabo, WC (1er étage) » en avant-projet.
+// c6 (garde) : croquis témoin (douche, lavabo, WC + lave-mains et évier, boîtes EP et EU, deux anomalies) avec et sans liens : analyse,
+//   textes et constat (sorties de vm/compat.js), plan PDF aux étiquettes masquées et page 2 du plan PDF identiques ; DXF identique hors
+//   les TEXT des étiquettes du groupe ; à l'écran, un trait de rappel par étiquette, celui du porteur seul avec les liens.
+// c7 : 250 croquis du générateur (option champs ; sources EU seules une graine sur quatre) : aucune exception, aucun « undefined » ;
+//   membres vides, porteur non vide ; même texte dans l'ordre inverse du croquis ; sorties et DXF hors étiquettes égaux à ceux du croquis
+//   sans liens ; plus de 50 porteurs, des textes sur deux lignes et des groupes de plus de quatre.
+// c1 à c7 échouent sur 344c7b2 (54 cas : aucun groupe, VCroquis.groupeEtiquette et obstaclesPlan absentes) ; y passent les témoins de c3
+// (sauf la chaîne et le statut absent), les groupes défaits de c4, les gardes de c6 (sorties, anomalies, plan PDF masqué, page 2),
+// l'étiquette personnalisée et l'ordre de c1, le porteur retiré de c2. Les trois cas d'un second nom égal au titre échouent aussi avant la
+// relecture de m134 (les deux noms omis : « Salle de bain (1er étage) » seul).
 // usage : node tests/vm/equipements.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rendus, rapport} = require('./charger.js');
@@ -624,6 +662,229 @@ function g10(){
   const mal = [].concat(att.EU, att.EP).filter(n => nomRefuse(n) !== '');
   R.ok(!mal.length, 'g10 aucun nom proposé n\'est refusé (nomRefuse)' + (mal.length ? ' (refusés : ' + JSON.stringify(mal.map(n => [n, nomRefuse(n)])) + ')' : ''));
 }
+/* m134 : étiquette commune (souhait 8 ; D1 et D6). Membre : p.etiqAvec, l'id du porteur ; porteur : p.etiqTitre ('sdb', 'eau', 'cuisine',
+   'buanderie', 'aucun' ; sinon, titre d'office). VCroquis.groupeEtiquette(e, an) : null pour un objet seul ; VCroquis.obstaclesPlan :
+   encombrement du plan (symboles, étiquettes posées, tracés) */
+const N1 = {niv: 'etage', etage: '1'}, SDB = 'Salle de bain (1er étage)\ndouche, WC + lave-mains, lavabo';
+/* douche D (porteur), lavabo L et WC + lave-mains W (membres), au 1er étage ; st : statut des trois ; plus : propriétés en plus, par id */
+function salleDeBain(st, plus){
+  const p = (id, q) => Object.assign({}, N1, st ? {st} : {}, q, (plus || {})[id]);
+  return rangee([['D', 'douche', p('D', {})], ['L', 'lavabo', p('L', {etiqAvec: 'D'})], ['W', 'wc', p('W', {etiqAvec: 'D', lm: 'oui'})]]);
+}
+/* étiquettes de tous les objets d'un croquis dans un mode, {id: texte} ; l'objet vient du croquis, l'analyse d'une copie (comme la fiche,
+   qui passe une copie de l'objet) */
+const etiquettesDe = (d, mode) => { const an = V.analyser(copie(d), mode || 'edl'), o = {}; d.el.forEach(e => { o[e.id] = sur(() => V.texteEtiquette(e, an)); }); return o; };
+/* le même croquis sans étiquette commune (etiqAvec et etiqTitre retirés) */
+const sansLiens = d => { const c = copie(d); c.el.forEach(e => { if (e.p){ delete e.p.etiqAvec; delete e.p.etiqTitre; } }); return c; };
+const js = x => JSON.stringify(x);
+/* copie dont les étiquettes sont placées d'office (lab null), comme troisRendus */
+const ouvert = d => { const c = copie(d); c.el.forEach(o => { o.lab = null; }); return c; };
+/* mêmes étiquettes, objet par objet (l'ordre des clés suit celui du croquis) */
+const memes = (a, b) => Object.keys(a).length === Object.keys(b).length && Object.keys(a).every(id => a[id] === b[id]);
+/* c1 : texte du porteur (titre et niveau commun, puis la liste), membres sans étiquette ; titres ; ordre ; casse ; rendus */
+async function c1(){
+  const e = etiquettesDe(salleDeBain());
+  R.ok(e.D === SDB && e.L === '' && e.W === '', 'c1 douche porteur, lavabo et WC + lave-mains au 1er étage → ' + js(SDB) + ', membres sans étiquette (obtenu ' + js([e.D, e.L, e.W]) + ')');
+  [['sdb', 'Salle de bain'], ['eau', 'Salle d\'eau'], ['cuisine', 'Cuisine'], ['buanderie', 'Buanderie']].forEach(([t, lib]) => {
+    const x = etiquettesDe(salleDeBain('', {D: {etiqTitre: t}})).D, att = lib + ' (1er étage)\ndouche, WC + lave-mains, lavabo';
+    R.ok(x === att, 'c1 titre « ' + t + ' » → ' + js(att) + ' (obtenu ' + js(x) + ')');
+  });
+  ['', 'zz', 'constructor', 'toString', 3, null].forEach(t => { const x = etiquettesDe(salleDeBain('', {D: {etiqTitre: t}})).D;
+    R.ok(x === SDB, 'c1 titre ' + js(t) + ' : titre d\'office (obtenu ' + js(x) + ')'); });
+  const L1 = Object.assign({etiqAvec: 'L'}, N1), cas = [
+    ['titre « aucun » : une ligne, niveau commun à la fin', salleDeBain('', {D: {etiqTitre: 'aucun'}}), 'D', 'Douche, WC + lave-mains, lavabo (1er étage)'],
+    ['ni douche, ni baignoire, ni salle de bain : pas de titre, une ligne', rangee([['L', 'lavabo', N1], ['W', 'wc', L1]]), 'L', 'Lavabo, WC (1er étage)'],
+    ['une baignoire : titre d\'office', rangee([['B', 'baignoire', L1], ['L', 'lavabo', N1]]), 'L', 'Salle de bain (1er étage)\nlavabo, baignoire'],
+    ['porteur Salle de bain : son nom, égal au titre, n\'est pas répété', rangee([['S', 'sdb', N1], ['W', 'wc', Object.assign({etiqAvec: 'S'}, N1)]]), 'S', 'Salle de bain (1er étage)\nWC'],
+    ['membre Salle de bain : de même', rangee([['D', 'douche', N1], ['S', 'sdb', Object.assign({etiqAvec: 'D'}, N1)]]), 'D', 'Salle de bain (1er étage)\ndouche'],
+    /* un seul nom égal au titre est omis, le premier de la liste : deux objets ne se lisent pas comme un seul (relecture de m134, M1) */
+    ['deux salles de bain réunies : l\'une est omise, l\'autre reste', rangee([['S', 'sdb', N1], ['S2', 'sdb', Object.assign({etiqAvec: 'S'}, N1)]]), 'S', 'Salle de bain (1er étage)\nsalle de bain'],
+    ['deux cuisines, titre « cuisine » : de même', rangee([['K', 'cuisine', {etiqTitre: 'cuisine'}], ['K2', 'cuisine', {etiqAvec: 'K'}]]), 'K', 'Cuisine\ncuisine'],
+    ['salle de bain et autre appareil nommé « Salle de bain » (fichier fait à la main) sous une douche : la salle de bain, la première, est omise',
+      rangee([['G', 'autre_eu', Object.assign({nom: 'Salle de bain', etiqAvec: 'D'}, N1)], ['S', 'sdb', Object.assign({etiqAvec: 'D'}, N1)], ['D', 'douche', N1]]), 'D',
+      'Salle de bain (1er étage)\ndouche, salle de bain'],
+    ['titre « aucun » sur une salle de bain : son nom reste', rangee([['S', 'sdb', Object.assign({etiqTitre: 'aucun'}, N1)], ['W', 'wc', Object.assign({etiqAvec: 'S'}, N1)]]), 'S', 'Salle de bain, WC (1er étage)'],
+    ['cuisine, titre « cuisine »', rangee([['V', 'lavevaisselle', {etiqAvec: 'K'}], ['K', 'cuisine', {etiqTitre: 'cuisine'}], ['E', 'evier', {etiqAvec: 'K'}]]), 'K', 'Cuisine\névier, lave-vaisselle'],
+    ['porteur en tête, puis l\'ordre du catalogue, puis l\'id ; nom d\'un autre appareil en minuscule, sigle gardé', rangee([['G2', 'autre_eu', {nom: 'Bidet', etiqAvec: 'LL'}],
+      ['P', 'autre_eu', {nom: 'PAC', etiqAvec: 'LL'}], ['LL', 'lavelinge', {}], ['G1', 'autre_eu', {nom: 'Urinoir', etiqAvec: 'LL'}]]), 'LL', 'Lave-linge, urinoir, bidet, PAC'],
+    ['autre appareil dans une salle de bain', rangee([['D', 'douche', N1], ['G', 'autre_eu', Object.assign({nom: 'Bidet', etiqAvec: 'D'}, N1)]]), 'D', 'Salle de bain (1er étage)\ndouche, bidet'],
+    ['porteur WC sans niveau (seul, il n\'aurait pas d\'étiquette)', rangee([['W', 'wc', {}], ['L', 'lavabo', {etiqAvec: 'W'}]]), 'W', 'WC, lavabo'],
+    ['sans niveau, avec un titre', rangee([['L', 'lavabo', {etiqAvec: 'D'}], ['D', 'douche', {}]]), 'D', 'Salle de bain\ndouche, lavabo'],
+    ['étiquette personnalisée du porteur : elle l\'emporte', salleDeBain('', {D: {etiq: 'Salle de bain du haut'}}), 'D', 'Salle de bain du haut']];
+  cas.forEach(([n, d, id, att]) => { const x = etiquettesDe(d); R.ok(x[id] === att, 'c1 ' + n + ' → ' + js(att) + ' (obtenu ' + js(x[id]) + ')'); });
+  { const d = cas.find(c => /^porteur en tête/.test(c[0]))[1], r = copie(d); r.el.reverse(); const a = etiquettesDe(d), b = etiquettesDe(r);
+    R.ok(memes(a, b), 'c1 l\'ordre du croquis ne change pas le texte (obtenu ' + js(a.LL) + ' et ' + js(b.LL) + ')'); }
+  { const x = etiquettesDe(salleDeBain('', {D: {etiq: 'Salle de bain du haut'}})); R.ok(x.L === '' && x.W === '', 'c1 étiquette personnalisée du porteur : membres sans étiquette (obtenu ' + js([x.L, x.W]) + ')'); }
+  /* rendus : deux lignes, sans les étiquettes propres des trois objets */
+  const r = await troisRendus(salleDeBain()), l1 = 'Salle de bain (1er étage)', l2 = 'douche, WC + lave-mains, lavabo', propres = ['Douche (1er étage)', 'Lavabo (1er étage)', LM + ' (1er étage)'];
+  for (const [n, liste] of [['à l\'écran', r.ecran], ['au plan PDF', r.plan], ['au DXF', r.dxf]]){
+    const k1 = liste.filter(t => t === l1).length, k2 = liste.filter(t => t === l2).length, mal = liste.filter(t => propres.indexOf(t) >= 0 || /\n/.test(t));
+    R.ok(k1 === 1 && k2 === 1 && !mal.length && !r.err.length, 'c1 ' + n + ' : « ' + l1 + ' » puis « ' + l2 + ' », une fois chacune, aucune étiquette propre (obtenu ' + k1 + ' et ' + k2
+      + (mal.length ? ', ' + js(mal) : '') + ' ; ' + js(liste.filter(t => /bain|ouche|avabo|WC/.test(t))) + ')' + (r.err.length ? ' ' + r.err.join(' | ') : ''));
+  }
+  const p = await pdf(ouvert(salleDeBain()), {mode: 'edl'}), q1 = p.pos.find(q => q.t === l1), q2 = p.pos.find(q => q.t === l2);
+  R.ok(!!q1 && !!q2 && q2.y > q1.y && Math.abs(q2.y - q1.y) < 5, 'c1 plan PDF : la liste sous le titre (obtenu ' + (q1 && q2 ? (q2.y - q1.y).toFixed(2) + ' mm' : 'absentes') + ')');
+}
+/* c2 : un membre n'a ni étiquette ni place dans l'encombrement du plan, même avec une étiquette personnalisée ; elle revient quand le
+   groupe se défait */
+async function c2(){
+  const d = salleDeBain('', {L: {etiq: 'Lavabo du haut'}}), e = etiquettesDe(d);
+  R.ok(e.L === '' && e.W === '' && e.D === SDB, 'c2 membre à étiquette personnalisée : texte vide ; porteur ' + js(SDB) + ' (obtenu ' + js([e.D, e.L, e.W]) + ')');
+  /* étiquettes posées (lab), plan au 1/200 : la boîte d'une étiquette de deux lignes a 2 × 1,22 + 0,2 hauteurs de texte (2,1 mm sur le papier) */
+  const boites = x => { if (typeof V.obstaclesPlan !== 'function') return 'VCroquis.obstaclesPlan absente';
+    const c = copie(x); c.el.forEach(o => { o.lab = {dx: 1.5, dy: 1, E: 200}; }); return sur(() => V.obstaclesPlan(c, V.analyser(copie(c), 'edl'), 200, V.indexDoc(c), null).boites); };
+  const bG = boites(d), bS = boites(sansLiens(d)), n = b => Array.isArray(b) ? b.length : b, h2 = 2.1 * .2 * (2 * 1.22 + .2);
+  R.ok(n(bG) === 4 && n(bS) === 6, 'c2 encombrement du plan (VCroquis.obstaclesPlan) : trois symboles et la seule étiquette du porteur, 4 boîtes (sans groupe : 6) (obtenu ' + js(n(bG)) + ', ' + js(n(bS)) + ')');
+  R.ok(Array.isArray(bG) && bG.filter(b => Math.abs(b[3] - b[1] - h2) < 1e-9).length === 1, 'c2 boîte de l\'étiquette du porteur : deux lignes de haut (' + h2.toFixed(4) + ' m au 1/200)');
+  const sep = copie(d); sep.el = sep.el.filter(o => o.id !== 'D'); const s = etiquettesDe(sep);
+  R.ok(s.L === 'Lavabo du haut' && s.W === LM + ' (1er étage)', 'c2 porteur retiré : chacun son étiquette, « Lavabo du haut » revient (obtenu ' + js([s.L, s.W]) + ')');
+  const r = await troisRendus(d);
+  for (const [n, liste] of [['à l\'écran', r.ecran], ['au plan PDF', r.plan], ['au DXF', r.dxf]])
+    R.ok(liste.indexOf('Lavabo du haut') < 0 && liste.indexOf('douche, WC + lave-mains, lavabo') >= 0, 'c2 ' + n + ' : ni « Lavabo du haut », ni étiquette d\'un membre ; étiquette commune (obtenu '
+      + js(liste.filter(t => /bain|ouche|avabo|WC/.test(t))) + ')');
+}
+/* c3 : un lien qui ne fait pas de groupe (autre statut, EP, porteur absent, lié ou d'un autre rôle, lien illisible) : chacun garde son
+   étiquette, celle du croquis sans lien ; chaîne ; sans analyse */
+function c3(){
+  const n1 = p => Object.assign({}, N1, p), cas = [
+    ['membre « Projet », porteur existant (avant-projet)', [['D', 'douche', N1], ['L', 'lavabo', n1({st: 'projet', etiqAvec: 'D'})]], 'avp', 'Projet : Lavabo (1er étage)'],
+    ['membre existant, porteur « Projet » (avant-projet)', [['D', 'douche', n1({st: 'projet'})], ['L', 'lavabo', n1({etiqAvec: 'D'})]], 'avp', 'Lavabo (1er étage)'],
+    ['membre « À supprimer », porteur existant (état des lieux)', [['D', 'douche', N1], ['L', 'lavabo', n1({st: 'supprimer', etiqAvec: 'D'})]], 'edl', 'Lavabo (1er étage)'],
+    ['membre EP : descente', [['D', 'douche', N1], ['L', 'descente', n1({etiqAvec: 'D'})]], 'edl', 'Descente EP avant (1er étage)'],
+    ['membre EP : siphon de sol', [['D', 'douche', N1], ['L', 'siphon_sol', n1({etiqAvec: 'D'})]], 'edl', null],
+    ['membre EP : autre ouvrage EP', [['D', 'douche', N1], ['L', 'autre_ep', n1({nom: 'Avaloir de terrasse', etiqAvec: 'D'})]], 'edl', 'Avaloir de terrasse (1er étage)'],
+    ['porteur EP : grille', [['D', 'grille', {}], ['L', 'lavabo', n1({etiqAvec: 'D'})]], 'edl', 'Lavabo (1er étage)'],
+    ['porteur EP : autre ouvrage EP', [['D', 'autre_ep', {nom: 'Cour anglaise'}], ['L', 'lavabo', n1({etiqAvec: 'D'})]], 'edl', 'Lavabo (1er étage)'],
+    ['porteur qui n\'est pas une source : boîte', [['D', 'boite', {res: 'EU'}], ['L', 'lavabo', n1({etiqAvec: 'D'})]], 'edl', 'Lavabo (1er étage)'],
+    ['porteur absent du croquis', [['D', 'douche', N1], ['L', 'lavabo', n1({etiqAvec: 'X9'})]], 'edl', 'Lavabo (1er étage)'],
+    ['porteur d\'un type inconnu', [['D', 'zz', {}], ['L', 'lavabo', n1({etiqAvec: 'D'})]], 'edl', 'Lavabo (1er étage)'],
+    ['lien vers lui-même', [['D', 'douche', N1], ['L', 'lavabo', n1({etiqAvec: 'L'})]], 'edl', 'Lavabo (1er étage)'],
+    ['porteur lié à lui-même', [['D', 'douche', n1({etiqAvec: 'D'})], ['L', 'lavabo', n1({etiqAvec: 'D'})]], 'edl', 'Lavabo (1er étage)'],
+    ['lien vide', [['D', 'douche', N1], ['L', 'lavabo', n1({etiqAvec: ''})]], 'edl', 'Lavabo (1er étage)'],
+    ['lien écrit en nombre (7)', [['7', 'douche', N1], ['L', 'lavabo', n1({etiqAvec: 7})]], 'edl', 'Lavabo (1er étage)'],
+    ['lien « toString »', [['D', 'douche', N1], ['L', 'lavabo', n1({etiqAvec: 'toString'})]], 'edl', 'Lavabo (1er étage)'],
+    ['lien « constructor »', [['D', 'douche', N1], ['L', 'lavabo', n1({etiqAvec: 'constructor'})]], 'edl', 'Lavabo (1er étage)'],
+    ['lien « __proto__ »', [['D', 'douche', N1], ['L', 'lavabo', n1({etiqAvec: '__proto__'})]], 'edl', 'Lavabo (1er étage)'],
+    ['lien d\'un type inconnu', [['D', 'douche', N1], ['L', 'zz', {etiqAvec: 'D'}]], 'edl', '']];
+  cas.forEach(([n, objs, mode, att]) => {
+    const d = rangee(objs), a = etiquettesDe(d, mode), b = etiquettesDe(sansLiens(d), mode), bon = js(a) === js(b) && !/exception/.test(js(a)) && (att === null || a.L === att);
+    R.ok(bon, 'c3 ' + n + ' : étiquette propre de chacun ' + js(b) + (bon ? '' : ' (obtenu ' + js(a) + ')'));
+  });
+  { const d = rangee([['D', 'douche', N1], ['W', 'wc', n1({etiqAvec: 'D'})], ['L', 'lavabo', n1({etiqAvec: 'W'})]]), a = etiquettesDe(d), att = {D: 'Salle de bain (1er étage)\ndouche, WC', W: '', L: 'Lavabo (1er étage)'};
+    R.ok(js(a) === js(att), 'c3 chaîne : lavabo lié au WC, WC lié à la douche → ' + js(att) + ' (obtenu ' + js(a) + ')'); }
+  { const d = rangee([['D', 'douche', n1({st: undefined})], ['L', 'lavabo', n1({etiqAvec: 'D'})]]), a = etiquettesDe(d);
+    R.ok(a.D === 'Salle de bain (1er étage)\ndouche, lavabo' && a.L === '', 'c3 statut absent du porteur : vaut « existant » [p] (obtenu ' + js(a) + ')'); }
+  { const d = salleDeBain(), a = ['D', 'L', 'W'].map(id => sur(() => V.texteEtiquette(elDe(d, id)))), att = ['Douche (1er étage)', 'Lavabo (1er étage)', LM + ' (1er étage)'];
+    R.ok(js(a) === js(att), 'c3 sans analyse : chacun son étiquette ' + js(att) + ' (obtenu ' + js(a) + ')'); }
+}
+/* c4 : groupe « Projet » défait sur l'état des lieux, formé sur l'avant-projet (« Projet : ») ; groupe « À supprimer » défait sur
+   l'avant-projet ; à l'écran, au plan PDF et au DXF */
+async function c4(){
+  const P = salleDeBain('projet'), S = salleDeBain('supprimer'), pE = etiquettesDe(P, 'edl'), pA = etiquettesDe(P, 'avp'), sE = etiquettesDe(S, 'edl'), sA = etiquettesDe(S, 'avp');
+  const att = (pre, D) => ({D: D === undefined ? pre + 'Douche (1er étage)' : D, L: D === undefined ? pre + 'Lavabo (1er étage)' : '', W: D === undefined ? pre + LM + ' (1er étage)' : ''});
+  [['groupe « Projet », état des lieux : défait', pE, att('Projet : ')], ['groupe « Projet », avant-projet : « Projet : » et le texte commun', pA, att('', 'Projet : ' + SDB)],
+    ['groupe « À supprimer », état des lieux : formé, sans préfixe', sE, att('', SDB)], ['groupe « À supprimer », avant-projet : défait', sA, att('À supprimer : ')]].forEach(([n, a, b]) =>
+    R.ok(js(a) === js(b), 'c4 ' + n + ' → ' + js(b) + (js(a) === js(b) ? '' : ' (obtenu ' + js(a) + ')')));
+  const r = await troisRendus(P), propres = ['Projet : Douche (1er étage)', 'Projet : Lavabo (1er étage)', 'Projet : ' + LM + ' (1er étage)'];
+  for (const [n, liste] of [['à l\'écran', r.ecran], ['au DXF', r.dxf]]){ const manque = propres.filter(t => liste.indexOf(t) < 0);
+    R.ok(!manque.length && liste.indexOf('Projet : Salle de bain (1er étage)') < 0, 'c4 groupe « Projet » ' + n + ' (état des lieux) : les trois étiquettes « Projet : … »' + (manque.length ? ' (absentes : ' + js(manque) + ')' : '')); }
+  const p = await pdf(ouvert(P), {mode: 'avp'}), fin = p.txt.indexOf(TITRE_EQ), plan = p.txt.slice(0, fin < 0 ? p.txt.length : fin);
+  R.ok(plan.indexOf('Projet : Salle de bain (1er étage)') >= 0 && plan.indexOf('douche, WC + lave-mains, lavabo') >= 0 && !plan.some(t => propres.indexOf(t) >= 0) && !p.err.length,
+    'c4 groupe « Projet », plan PDF de l\'avant-projet : « Projet : Salle de bain (1er étage) » et la liste (obtenu ' + js(plan.filter(t => /bain|ouche|avabo|WC/.test(t))) + ')' + (p.err.length ? ' ' + p.err.join(' | ') : ''));
+}
+/* c5 : niveaux différents ; au-delà de quatre appareils listés, leurs lettres */
+function c5(){
+  const n = (niv, q) => Object.assign(niv === '1' ? {niv: 'etage', etage: '1'} : niv ? {niv} : {}, q), cas = [
+    ['niveaux différents : après chaque nom, rien sur la première ligne', [['D', 'douche', n('1')], ['L', 'lavabo', n('rdc', {etiqAvec: 'D'})], ['W', 'wc', n('', {etiqAvec: 'D'})]], 'Salle de bain\ndouche (1er étage), WC, lavabo (RDC)'],
+    ['niveaux différents : le nom égal au titre reste, avec son niveau [p]', [['S', 'sdb', n('1')], ['W', 'wc', n('rdc', {etiqAvec: 'S'})]], 'Salle de bain\nsalle de bain (1er étage), WC (RDC)'],
+    ['niveaux différents, sans titre', [['L', 'lavabo', n('ss')], ['W', 'wc', n('rdc', {etiqAvec: 'L'})]], 'Lavabo (sous-sol), WC (RDC)'],
+    ['quatre appareils : leurs noms', [['D', 'douche', n('1')], ['L', 'lavabo', n('1', {etiqAvec: 'D'})], ['W', 'wc', n('1', {etiqAvec: 'D'})], ['B', 'baignoire', n('1', {etiqAvec: 'D'})]],
+      'Salle de bain (1er étage)\ndouche, WC, lavabo, baignoire'],
+    ['cinq appareils : leurs lettres', [['D', 'douche', n('1')], ['L', 'lavabo', n('1', {etiqAvec: 'D'})], ['W', 'wc', n('1', {etiqAvec: 'D'})], ['B', 'baignoire', n('1', {etiqAvec: 'D'})],
+      ['E', 'evier', n('1', {etiqAvec: 'D'})]], 'Salle de bain (1er étage)\nDo, WC, La, Ba, Év'],
+    ['cinq appareils à niveaux différents', [['D', 'douche', n('1')], ['L', 'lavabo', n('1', {etiqAvec: 'D'})], ['W', 'wc', n('1', {etiqAvec: 'D'})], ['B', 'baignoire', n('rdc', {etiqAvec: 'D'})],
+      ['E', 'evier', n('1', {etiqAvec: 'D'})]], 'Salle de bain\nDo (1er étage), WC (1er étage), La (1er étage), Ba (RDC), Év (1er étage)'],
+    ['cinq objets dont une salle de bain, nom égal au titre : quatre noms listés [p]', [['S', 'sdb', n('1')], ['D', 'douche', n('1', {etiqAvec: 'S'})], ['L', 'lavabo', n('1', {etiqAvec: 'S'})],
+      ['W', 'wc', n('1', {etiqAvec: 'S'})], ['B', 'baignoire', n('1', {etiqAvec: 'S'})]], 'Salle de bain (1er étage)\nWC, lavabo, douche, baignoire'],
+    ['six appareils sans titre : lettres ; siphon de garage, sans lettres : son nom ; autre appareil sans nom : « ? » [p]', [['LL', 'lavelinge', {}], ['W', 'wc', {etiqAvec: 'LL'}],
+      ['L', 'lavabo', {etiqAvec: 'LL'}], ['E', 'evier', {etiqAvec: 'LL'}], ['G', 'siphon_garage', {etiqAvec: 'LL'}], ['A', 'autre_eu', {etiqAvec: 'LL'}]], 'LL, WC, La, Év, siphon de garage, ?'],
+    ['« Projet », sans titre, avant-projet', [['L', 'lavabo', n('1', {st: 'projet'})], ['W', 'wc', n('1', {st: 'projet', etiqAvec: 'L'})]], 'Projet : Lavabo, WC (1er étage)', 'avp']];
+  cas.forEach(([nom, objs, att, mode]) => { const d = rangee(objs), x = etiquettesDe(d, mode), id = objs.find(o => !('etiqAvec' in o[2]))[0], vides = objs.filter(o => o[0] !== id).every(o => x[o[0]] === '');
+    R.ok(x[id] === att && vides, 'c5 ' + nom + ' → ' + js(att) + (x[id] === att && vides ? '' : ' (obtenu ' + js(x) + ')')); });
+}
+/* c6 (garde) : l'étiquette commune ne change ni l'analyse, ni les anomalies, ni la conclusion, ni le constat (chaque objet compte), ni la
+   légende, ni la page 2 du plan PDF ; au DXF, seuls changent les TEXT des étiquettes du groupe ; à l'écran, un seul trait de rappel,
+   vers le porteur */
+async function c6(){
+  /* WC et lavabo vers une boîte EP (non conformes), évier vers la boîte EU, douche reliée à rien ; groupe : douche porteur, les autres membres */
+  const sans = doc({o: [['D', 'douche', 0, 8, N1], ['L', 'lavabo', 3, 8, N1], ['W', 'wc', 6, 8, Object.assign({lm: 'oui'}, N1)], ['E', 'evier', 9, 8, N1],
+    ['Bp', 'boite', 0, 2, {res: 'EP'}], ['Bu', 'boite', 9, 2, {res: 'EU'}], ['Rp', 'regard_pub', 9, -2, {res: 'EU'}]],
+    l: [['tL', 'tr', '', '', ['L', 'Bp']], ['tW', 'tr', '', '', ['W', 'Bp']], ['tE', 'tr', '', '', ['E', 'Bu']], ['tU', 'tr', '', '', ['Bu', 'Rp']], ['C', 'col', 'EU', '', [[-6, -2], 'Rp', [15, -2]]]]});
+  const avec = copie(sans); avec.el.forEach(o => { if (o.id === 'D') o.p.etiqTitre = 'sdb'; if (/^[LWE]$/.test(o.id)) o.p.etiqAvec = 'D'; });
+  const ea = etiquettesDe(avec), l1 = 'Salle de bain (1er étage)', l2 = 'douche, WC + lave-mains, lavabo, évier';
+  R.ok(ea.D === l1 + '\n' + l2 && ea.L === '' && ea.W === '' && ea.E === '', 'c6 croquis témoin : groupe de quatre → ' + js(l1 + '\n' + l2) + ' (obtenu ' + js([ea.D, ea.L, ea.W, ea.E]) + ')');
+  const a = sur(() => sorties(sans)), b = sur(() => sorties(avec));
+  if (typeof a === 'string' || typeof b === 'string'){ R.ok(false, 'c6 sorties : ' + (typeof a === 'string' ? a : b)); return; }
+  Object.keys(a).forEach(k => R.ok(a[k] === b[k], 'c6 ' + k + ' : identique avec et sans étiquette commune' + (a[k] === b[k] ? '' : ' (sans : ' + a[k].slice(0, 160) + ' ; avec : ' + b[k].slice(0, 160) + ')')));
+  const an = V.analyser(copie(avec), 'edl'); R.ok(an.anomalies.length >= 2, 'c6 le croquis témoin a des anomalies (' + an.anomalies.length + ')');
+  /* étiquettes masquées (lab off) : plan PDF identique ; affichées (lab null) : page 2 identique */
+  const pS = await pdf(sans, {mode: 'edl'}), pA = await pdf(avec, {mode: 'edl'});
+  R.ok(js(pS.txt) === js(pA.txt) && js(pS.formes) === js(pA.formes) && js(pS.traits) === js(pA.traits) && !pA.err.length, 'c6 plan PDF, étiquettes masquées : mêmes textes (légende, tableaux) et mêmes traits');
+  const p2 = p => { const i = p.txt.indexOf(TITRE_EQ); return i < 0 ? [] : p.txt.slice(i); };
+  const qS = await pdf(ouvert(sans), {mode: 'edl'}), qA = await pdf(ouvert(avec), {mode: 'edl'});
+  R.ok(p2(qS).length > 10 && js(p2(qS)) === js(p2(qA)), 'c6 plan PDF, page 2 : identique avec et sans étiquette commune (' + p2(qS).length + ' textes)');
+  /* DXF, étiquettes placées d'office (aucune n'est un obstacle) : tout est identique hors les TEXT des étiquettes du groupe */
+  const propres = ['Douche (1er étage)', 'Lavabo (1er étage)', LM + ' (1er étage)', 'Évier (1er étage)'], xS = sur(() => dxf(ouvert(sans))), xA = sur(() => dxf(ouvert(avec)));
+  if (typeof xS === 'string' || typeof xA === 'string'){ R.ok(false, 'c6 DXF : ' + (typeof xS === 'string' ? xS : xA)); return; }
+  const etq = q => q.type === 'TEXT' && q.cal === 'VEDE-ETIQUETTES', ent = q => q.type + '|' + q.cal + '|' + js(q.c) + '|' + js(q.sommets || null);
+  const resteS = xS.ents.filter(q => !(etq(q) && propres.indexOf(q.c['1']) >= 0)).map(ent), resteA = xA.ents.filter(q => !(etq(q) && [l1, l2].indexOf(q.c['1']) >= 0)).map(ent);
+  const tS = xS.ents.filter(q => etq(q) && propres.indexOf(q.c['1']) >= 0).map(q => q.c['1']), tA = xA.ents.filter(q => etq(q) && [l1, l2].indexOf(q.c['1']) >= 0).map(q => q.c['1']);
+  R.ok(js(resteS) === js(resteA) && js(xS.blocs) === js(xA.blocs) && js(xS.calques) === js(xA.calques) && js(tS) === js(propres) && js(tA) === js([l1, l2]),
+    'c6 DXF : mêmes calques, blocs et entités hors les TEXT des étiquettes du groupe : quatre étiquettes propres sans lien, deux lignes du porteur avec (obtenu ' + js(tS) + ', ' + js(tA)
+    + (js(resteS) === js(resteA) ? '' : ', ' + resteS.filter(x => resteA.indexOf(x) < 0).length + ' entités changées') + ')');
+  /* écran, étiquettes des quatre appareils posées loin des symboles (les autres masquées) : un trait de rappel par étiquette ; avec le
+     groupe, celui du porteur seul */
+  const loin = d => { const c = copie(d); c.el.forEach(o => { if (/^[DLWE]$/.test(o.id)) o.lab = {dx: 2.5, dy: 4, E: 200}; }); return c; }, rappels = d => { const x = sur(() => dessiner(loin(d), 40, [5, 6]));
+    if (typeof x === 'string') return x; return x.traits.filter(t => t.larg === 1 && t.coul === V.TXT_RES.EU).map(t => ['D', 'L', 'W', 'E'].find(id => { const o = elDe(d, id); return Math.hypot(t.a.x - o.x, t.a.y - o.y) < 1.2; }) || '?'); };
+  const rS = rappels(sans), rA = rappels(avec);
+  R.ok(js(rS) === js(['D', 'L', 'W', 'E']) && js(rA) === js(['D']), 'c6 écran : un trait de rappel par étiquette sans lien, celui du porteur seul avec (obtenu ' + js(rS) + ', ' + js(rA) + ')');
+}
+/* c7 : croquis du générateur avec l'option champs (niveaux, lave-mains, noms, liens et titres, parfois illisibles) : aucune exception ni
+   « undefined » ; un membre (groupeEtiquette) n'a pas d'étiquette, le porteur a un texte ; l'ordre du croquis ne change rien ; l'analyse,
+   les anomalies et le constat sont ceux du croquis sans lien ; le DXF aussi, hors les TEXT des étiquettes */
+function c7(){
+  const G = require('./generateur.js'), SRC = G.SOURCES.concat(G.GENERIQUES), mal = [], st = {croquis: 0, liens: 0, groupes: 0, membres: 0, deuxLignes: 0, lettres: 0};
+  /* une graine sur quatre : sources EU seulement, jusqu'à huit (groupes de plus de quatre appareils) */
+  const EU = ['wc', 'wc', 'lavabo', 'douche', 'baignoire', 'sdb', 'evier', 'cuisine', 'lavelinge', 'lavevaisselle', 'siphon_garage', 'autre_eu'];
+  const etq = q => q.type === 'TEXT' && q.cal === 'VEDE-ETIQUETTES';
+  const horsEtq = x => x.ents.filter(q => !etq(q)).map(q => q.type + '|' + q.cal + '|' + JSON.stringify(q.c) + '|' + JSON.stringify(q.sommets || null)).join('\n');
+  for (let graine = 1; graine <= 250; graine++){
+    const spec = G.gen(graine, {sources: graine % 4 ? SRC : EU, avp: graine % 3 === 0, maxS: graine % 4 ? 2 + graine % 6 : 8, maxN: 2 + graine % 5, drains: graine % 2 === 0, champs: true});
+    st.croquis++; st.liens += spec.o.filter(o => 'etiqAvec' in o[4]).length;
+    try {
+      const d = doc(spec), r = copie(d); r.el.reverse();
+      for (const mode of ['edl', 'avp']){
+        const an = V.analyser(copie(d), mode), a = etiquettesDe(d, mode), b = etiquettesDe(r, mode);
+        if (!memes(a, b)) mal.push('graine ' + graine + ' ' + mode + ' : l\'ordre du croquis change une étiquette');
+        Object.keys(a).forEach(id => {
+          if (typeof a[id] !== 'string' || /undefined|\[object|NaN|^exception/.test(a[id])) mal.push('graine ' + graine + ' ' + mode + ' ' + id + ' : ' + js(a[id]));
+          const g = typeof V.groupeEtiquette === 'function' ? sur(() => V.groupeEtiquette(elDe(d, id), an)) : null;
+          if (typeof g === 'string') mal.push('graine ' + graine + ' ' + mode + ' ' + id + ' : ' + g);
+          if (!g || typeof g !== 'object') return;
+          if (g.porteur !== id){ st.membres++; if (a[id] !== '') mal.push('graine ' + graine + ' ' + mode + ' membre ' + id + ' : ' + js(a[id])); return; }
+          st.groupes++; if (/\n/.test(a[id])) st.deuxLignes++; if (g.objets.length > 4) st.lettres++;
+          const p = elDe(d, id).p; if (!a[id] || (!p.etiq && a[id].split(/\n|, /).length < 2)) mal.push('graine ' + graine + ' ' + mode + ' porteur ' + id + ' : ' + js(a[id]));
+        });
+      }
+      const s = sansLiens(d), so = sorties(d), ss = sorties(s);
+      Object.keys(so).forEach(k => { if (so[k] !== ss[k]) mal.push('graine ' + graine + ' ' + k + ' : différent du croquis sans lien'); });
+      if (horsEtq(dxf(ouvert(d))) !== horsEtq(dxf(ouvert(s)))) mal.push('graine ' + graine + ' : DXF différent du croquis sans lien, hors étiquettes');
+    } catch (e){ mal.push('graine ' + graine + ' : exception ' + e.message + ' ' + (e.stack || '').split('\n')[1] + ' ' + G.fmt(spec)); }
+  }
+  R.ok(!mal.length && st.groupes > 50 && st.membres > st.groupes && st.deuxLignes > 0 && st.lettres > 0, 'c7 ' + st.croquis + ' croquis du générateur (option champs, ' + st.liens + ' liens) : '
+    + st.groupes + ' porteurs et ' + st.membres + ' membres analysés, dont ' + st.deuxLignes + ' textes sur deux lignes et ' + st.lettres + ' groupes de plus de quatre ; aucun écart'
+    + (mal.length ? ' (' + mal.length + ' écarts : ' + mal.slice(0, 4).join(' ; ') + ')' : ''));
+}
 (async () => {
   try {
     etiquettes();
@@ -637,7 +898,7 @@ function g10(){
     constatLm();
     await page2Lm();
     await gardeLm();
-    for (const g of [g1, g1bis, g2, g3, g4, g5, g6, g7, g8, g9, g10]){
+    for (const g of [g1, g1bis, g2, g3, g4, g5, g6, g7, g8, g9, g10, c1, c2, c3, c4, c5, c6, c7]){
       try { await g(); } catch (e){ R.ok(false, g.name + ' : exception : ' + (e && e.stack || e).toString().split('\n').slice(0, 3).join(' | ')); }
     }
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }

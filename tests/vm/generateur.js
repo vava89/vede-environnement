@@ -19,7 +19,8 @@ const EXUTOIRES = ['puisard', 'milieu', 'gargouille'];
    ses champs viennent d'une suite à part, voir destTiree ; sans « exutoire », aucun tirage de plus), drains (m124 : des drains ; sans
    elle, aucun tirage de plus : mêmes croquis qu'avant m124), sources (m132 : types des sources tirées ; sans elle, SOURCES : mêmes
    croquis qu'avant m132 ; « autre_eu » et « autre_ep », les autres appareils, tirent nom, abréviation et ligne du constat d'une suite à
-   part, voir genTire). */
+   part, voir genTire), champs (m134 : niveau, lave-mains, nom et étiquette commune des sources, d'une suite à part tirée après le reste,
+   voir champs ; sans elle, aucun tirage de plus : mêmes croquis qu'avant m134). */
 function gen(graine, o){
   o = Object.assign({maxS: 3, maxN: 5, maxC: 2, pLoop: 0.5, pRes: 0.4, pSens: 0.25, avp: false, passages: PASSAGES, exutoires: EXUTOIRES, drains: false, sources: SOURCES}, o || {});
   const rnd = mkRnd(graine * 7919 + 17), pick = a => a[Math.floor(rnd() * a.length)], ent = (a, b) => a + Math.floor(rnd() * (b - a + 1));
@@ -84,6 +85,7 @@ function gen(graine, o){
     else ligne('tr', res(), [noeuds[i], [ent(-12, 12), 2.5 * i]], sens(), stL());
   }
   if (o.drains) drains(graine, o, objs, lignes, noeuds, attaches, exus, ligne);
+  if (o.champs) champs(graine, objs);
   return {o: objs, l: lignes};
 }
 /* Drains (m124, option drains) : une suite de tirages à part, tirée après le reste du croquis, qui ne change donc rien au reste. Des
@@ -155,9 +157,34 @@ function genTire(r){
   return p;
 }
 
-/* Résumé lisible d'un croquis généré, pour les messages ; un drain est marqué (drain collecte) ou (drain infiltration). */
+/* Champs des sources (m134, option champs ; D10 de .claude/conception-equipements.md) : niveau (le même pour la plupart des sources d'un
+   croquis, parfois un autre ; étage précis parfois illisible), lave-mains (sur un WC surtout ; ailleurs, sans effet), nom (lu d'un autre
+   appareil seulement) et étiquette commune : une source tirée pour porteur ; p.etiqAvec, le plus souvent son id, parfois celui d'une
+   autre source, le sien, celui d'un regard, d'un raccord ou d'un objet absent, un texte vide, un nombre ou une propriété des objets du
+   langage (le porteur lui-même en a parfois un) ; p.etiqTitre, sur le porteur surtout, un code connu ou non, vide ou un nombre. Suite à
+   part, tirée après le reste du croquis : elle ne change rien au reste. */
+const CH_NIV = ['', 'ss', 'rdc', 'rdc', 'etage', 'etage', 'etage', 'zz'], CH_ETAGES = ['1', '1', '2', '3', '12', 'combles', '', '0', 'abc', 2];
+const CH_LM = ['oui', 'oui', 'non', ''], CH_NOMS = ['Bidet', 'Nom Fictif', '', 'Douche italienne'];
+const CH_LIENS = ['', 'X99', 'N0', 'j00', 'toString', 'constructor', '__proto__', 7], CH_TITRES = ['sdb', 'eau', 'cuisine', 'buanderie', 'aucun', '', 'zz', 'constructor', 3];
+function champs(graine, objs){
+  const r = mkRnd(graine * 6007 + 53), pick = a => a[Math.floor(r() * a.length)];
+  const srcs = objs.filter(o => /^S\d+$/.test(o[0])), ids = srcs.map(o => o[0]), porteur = ids.length ? pick(ids) : '';
+  const niveau = () => { const n = pick(CH_NIV), p = {niv: n}; if (n === 'etage' ? r() < 0.8 : r() < 0.1) p.etage = pick(CH_ETAGES); return p; };
+  const commun = niveau();
+  srcs.forEach(([id, t, , , p]) => {
+    if (r() < 0.7) Object.assign(p, r() < 0.75 ? commun : niveau());
+    if (t === 'wc' ? r() < 0.4 : r() < 0.05) p.lm = pick(CH_LM);
+    if (r() < 0.1 && !('nom' in p)) p.nom = pick(CH_NOMS);
+    if (r() < (id === porteur ? 0.1 : 0.65)){ const u = r(), autres = ids.filter(x => x !== id);
+      p.etiqAvec = id !== porteur && u < 0.75 ? porteur : u < 0.85 && autres.length ? pick(autres) : u < 0.9 ? id : pick(CH_LIENS); }
+    if (r() < (id === porteur ? 0.5 : 0.1)) p.etiqTitre = pick(CH_TITRES);
+  });
+}
+
+/* Résumé lisible d'un croquis généré, pour les messages ; un drain est marqué (drain collecte) ou (drain infiltration), le lien d'une
+   étiquette commune par « →S0 » (m134). */
 function fmt(spec){
-  return spec.o.map(o => o[0] + ':' + o[1] + (o[4] && o[4].st ? '[' + o[4].st + ']' : '')).join(' ') + ' ; ' + spec.l.map(l => l[0] + (l[1] === 'col' ? '(col ' + l[2] + ')' : (l[2] ? '[' + l[2] + ']' : '') + (l[5] ? (l[5] > 0 ? '>' : '<') : '') + (l[3] ? '{' + l[3] + '}' : '') + (l[6] && l[6].drain ? '(drain ' + l[6].drain + ')' : '')) + '=' + l[4].map(q => typeof q === 'string' ? q : '·').join('-')).join(' ');
+  return spec.o.map(o => o[0] + ':' + o[1] + (o[4] && o[4].st ? '[' + o[4].st + ']' : '') + (o[4] && 'etiqAvec' in o[4] ? '→' + o[4].etiqAvec : '')).join(' ') + ' ; ' + spec.l.map(l => l[0] + (l[1] === 'col' ? '(col ' + l[2] + ')' : (l[2] ? '[' + l[2] + ']' : '') + (l[5] ? (l[5] > 0 ? '>' : '<') : '') + (l[3] ? '{' + l[3] + '}' : '') + (l[6] && l[6].drain ? '(drain ' + l[6].drain + ')' : '')) + '=' + l[4].map(q => typeof q === 'string' ? q : '·').join('-')).join(' ');
 }
 
 module.exports = {mkRnd, gen, fmt, SOURCES, PASSAGES, EXUTOIRES, GENERIQUES: ['autre_eu', 'autre_ep']};

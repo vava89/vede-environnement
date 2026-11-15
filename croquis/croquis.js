@@ -2373,7 +2373,67 @@ function texteLimite(p){
   }
   return cote ? 'côté ' + cote : '';
 }
+/* Étiquette commune (souhait 8, m134 ; décisions D1 et D6) : les appareils d'une pièce partagent l'étiquette de l'un d'eux, le porteur.
+   Chaque membre porte p.etiqAvec (l'id du porteur), le porteur p.etiqTitre ('sdb', 'eau', 'cuisine', 'buanderie' ou 'aucun' ; absent,
+   vide ou inconnu : titre d'office). Le groupe se calcule à chaque dessin, sur an.objs (les objets actifs du mode) : un membre est valide
+   si etiqAvec est un texte différent de son id, si le porteur est dans an.objs sans etiqAvec, avec le même statut (absent : « existant »
+   [p]), et si les deux sont des sources EU (Autre appareil compris). Sans analyse, chacun garde son étiquette. Un groupe « Projet » se
+   défait donc sur l'état des lieux, un groupe « À supprimer » sur l'avant-projet. Rien d'autre ne lit le groupe : l'analyse, les
+   anomalies, le constat, la légende et la page 2 du plan PDF comptent chaque objet.
+   groupeEtiquette(e, an) : null pour un objet seul ; sinon {porteur: son id, objets: le porteur, puis les membres valides dans l'ordre
+   du catalogue (FAMILLES), puis par id}. Les objets se désignent par leur id : la fiche passe une copie de l'objet, prise telle quelle.
+   [p] L'ordre du catalogue met le WC avant le lavabo : « douche, WC + lave-mains, lavabo ». L'exemple de D6 écrit « douche, lavabo, WC +
+   lave-mains » ; la règle de D6 l'emporte ici. */
+var TITRES_ETIQ = {sdb: 'Salle de bain', eau: 'Salle d\'eau', cuisine: 'Cuisine', buanderie: 'Buanderie', aucun: ''};
+function aCle(o, k){ return !!o && typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k); }
+function lienEtiq(o){ var x = o && o.p ? o.p.etiqAvec : null; return typeof x === 'string' ? x : ''; }
+function sourceEU(o){ var ty = o && o.k === 'pt' && aCle(T, o.t) ? T[o.t] : null; return !!ty && ty.role === 'source' && ty.nat === 'EU'; }
+function stEtiq(o){ return (o.p && o.p.st) || 'existant'; }
+/* porteur valide du membre o : son objet dans an.objs, sinon null */
+function porteurEtiq(o, an){
+  var id = lienEtiq(o), q;
+  if (!id || id === o.id || !aCle(an.objs, o.id) || !aCle(an.objs, id)) return null;
+  q = an.objs[id];
+  return !lienEtiq(q) && stEtiq(q) === stEtiq(o) && sourceEU(o) && sourceEU(q) ? q : null;
+}
+function rangCatalogue(o){ var i = FAMILLES[0].types.indexOf(o.t); return i < 0 ? FAMILLES[0].types.length : i; }
+function groupeEtiquette(e, an){
+  if (!e || e.k !== 'pt' || !an || !an.objs) return null;
+  var por = porteurEtiq(e, an), base = por || e, membres = [], objs = an.objs, ks, i, o;
+  if (!por && (lienEtiq(e) || !sourceEU(e) || !aCle(objs, e.id))) return null;
+  /* un parcours des objets analysés par étiquette de source EU, sans cache (rien n'est écrit dans an) ; le lien brut trie vite, porteurEtiq
+     juge ; l'objet décrit (e, peut-être une copie) remplace le sien */
+  for (ks = Object.keys(objs), i = 0; i < ks.length; i++){
+    o = objs[ks[i]]; if (!o) continue;
+    if (por && o.id === e.id) o = e;
+    if (o.p && o.p.etiqAvec === base.id && o.id !== base.id && porteurEtiq(o, an)) membres.push(o);
+  }
+  if (!membres.length) return null;
+  membres.sort(function(a, b){ return rangCatalogue(a) - rangCatalogue(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); });
+  return {porteur: base.id, objets: [por ? por : e].concat(membres)};
+}
+VC.groupeEtiquette = groupeEtiquette;
+/* initiale en minuscule, sauf un sigle (deuxième lettre en capitale : « WC », « WC + lave-mains ») [p] */
+function minusculeEtiq(s){ var c = s.charAt(1); return c && c !== c.toLowerCase() ? s : s.charAt(0).toLowerCase() + s.slice(1); }
+/* Texte commun d'un groupe (D6), pre : préfixe du porteur (« Projet : », « À supprimer : »). Ligne 1 : préfixe, titre et niveau commun
+   (« Salle de bain (1er étage) ») ; ligne 2 : la liste des appareils (libDe), initiale en minuscule sauf sigle, niveau après chaque nom
+   s'ils diffèrent. Titre d'office « Salle de bain » si le groupe a une douche, une baignoire ou une salle de bain, sinon aucun : une
+   seule ligne, initiale en capitale, niveau commun à la fin. Un nom égal au titre n'est pas répété, sauf avec un niveau à lui [p] ; seul
+   le premier de la liste est omis : deux salles de bain réunies se lisent encore deux. Au-delà de quatre appareils listés [p], leurs
+   lettres (abObj, telles quelles ; sans lettres, le nom : siphon de garage [p]). */
+function texteGroupe(g, pre){
+  var objs = g.objets, tc = objs[0].p ? objs[0].p.etiqTitre : null, nivs = objs.map(libNiv), items = [], liste;
+  var titre = aCle(TITRES_ETIQ, tc) ? TITRES_ETIQ[tc] : objs.some(function(o){ return o.t === 'douche' || o.t === 'baignoire' || o.t === 'sdb'; }) ? 'Salle de bain' : '';
+  var commun = nivs.every(function(n){ return n === nivs[0]; }), niv = commun && nivs[0] ? ' (' + nivs[0] + ')' : '', omis = !(commun && titre);
+  objs.forEach(function(o, i){ var nom = libDe(o); if (!omis && norm(nom) === norm(titre)){ omis = true; return; } items.push({o: o, nom: nom, nv: nivs[i]}); });
+  liste = items.map(function(x){ return (items.length > 4 && abObj(x.o) || minusculeEtiq(x.nom)) + (!commun && x.nv ? ' (' + x.nv + ')' : ''); }).join(', ');
+  if (titre) return pre + titre + niv + (liste ? '\n' + liste : '');
+  return pre + liste.charAt(0).toUpperCase() + liste.slice(1) + niv;
+}
 function texteEtiquette(e, an){
+  /* membre d'une étiquette commune (m134 ; D6) : aucune étiquette, même personnalisée (elle revient quand le groupe se défait) */
+  var grp = groupeEtiquette(e, an);
+  if (grp && grp.porteur !== e.id) return '';
   if (e.p && e.p.etiq) return String(e.p.etiq);
   if (e.k === 'tx') return e.txt || '';
   var ty, det = [], avp = !!(an && an.mode === 'avp');
@@ -2382,6 +2442,8 @@ function texteEtiquette(e, an){
     var res = an && (an.resPt[e.id] || (an.ref && an.ref.resPt[e.id])), lr = /^(EU|EP|UN)$/.test(res) ? ' ' + libRes(res) : '';
     var pre = e.p.st === 'projet' ? 'Projet : ' : e.p.st === 'supprimer' && avp ? 'À supprimer : ' : '';
     if (ty.role === 'source'){
+      /* porteur d'une étiquette commune (m134 ; D6) : le texte du groupe, après son étiquette personnalisée */
+      if (grp) return texteGroupe(grp, pre);
       /* libellé de l'objet (m131 ; D5) : « WC + lave-mains » s'affiche même sans niveau (ce n'est pas l'abréviation du type), suivi du
          niveau s'il y en a un */
       var s = libDe(e);
@@ -2666,7 +2728,8 @@ function segBoite(s, b){
   return false;
 }
 function segSeg(a, b, c, d, e, f, g, h){ var den = (c - a) * (h - f) - (d - b) * (g - e); if (!den) return false; var t = ((e - a) * (h - f) - (f - b) * (g - e)) / den, u = ((e - a) * (d - b) - (f - b) * (c - a)) / den; return t >= 0 && t <= 1 && u >= 0 && u <= 1; }
-/* Encombrement du plan (repère du plan) : symboles, étiquettes déjà posées, segments de tracés */
+/* Encombrement du plan (repère du plan) : symboles, étiquettes déjà posées, segments de tracés. Une étiquette vide ne pose rien : celle
+   d'un membre d'une étiquette commune (m134 ; D6), même déplacée à la main ; celle du porteur a ses deux lignes (boiteTexte) */
 function obstaclesPlan(doc, an, E, idx, sauf){
   var m = E / 1000, rot = doc.rot || 0, boites = [], segs = [];
   doc.el.forEach(function(e){
@@ -2680,7 +2743,7 @@ function obstaclesPlan(doc, an, E, idx, sauf){
   });
   return {boites: boites, segs: segs};
 }
-VC.placerEtiquette = placerEtiquette;
+VC.placerEtiquette = placerEtiquette; VC.obstaclesPlan = obstaclesPlan;
 
 function trace(ctx, pts){ ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); }
 function hachures(ctx, pts, pas, long){
@@ -6207,11 +6270,12 @@ function editeur(racine, opts){
      reprennent la valeur qu'ils avaient ; meth, niv, obs, st et etiq sont gardés ; a suit le nouveau type (repris s'il est orienté, sinon
      effacé), sans toast ; tout autre champ non vide est effacé, avec un toast. m130 : p.etage, compagnon de niv, est gardé lui aussi quand
      il a une valeur (aucune clé vide écrite) et n'entre pas dans le toast. m131 : p.lm, le lave-mains du WC, n'est pas gardé : effacé
-     hors du WC, avec ce toast (« Annuler » le rend) */
+     hors du WC, avec ce toast (« Annuler » le rend). m134 : p.etiqAvec et p.etiqTitre (étiquette commune, D6) sont gardés de même, quel
+     que soit le nouveau type : le groupe se refait au dessin suivant (un membre devenu ouvrage EP reprend son étiquette) */
   function changerType(e, v){
     instantane(); var ancien = e.p, nv = defautsPt(v), perdus = [];
     Object.keys(nv).forEach(function(k){ if (ancien[k] !== undefined) nv[k] = Array.isArray(ancien[k]) ? ancien[k].slice() : ancien[k]; });
-    var gardes = {a: 1, meth: 1, niv: 1, obs: 1, st: 1, etiq: 1, etage: 1};
+    var gardes = {a: 1, meth: 1, niv: 1, obs: 1, st: 1, etiq: 1, etage: 1, etiqAvec: 1, etiqTitre: 1};
     Object.keys(ancien).forEach(function(k){ var x = ancien[k]; if (!(k in nv) && !gardes[k] && x != null && x !== '' && !(Array.isArray(x) && !x.length)) perdus.push(k); });
     /* m133 : d'un autre appareil à l'autre (EU ↔ EP), nom et abréviation suivent ; la ligne du formulaire, d'un autre réseau, est vidée et
        comptée dans le toast */
@@ -6219,6 +6283,7 @@ function editeur(racine, opts){
     if (t0 && t1 && t0.nomLibre && t1.nomLibre && t0.nat !== t1.nat && ancien.row != null && ancien.row !== ''){ nv.row = ''; perdus.push('row'); }
     e.t = v; e.p = Object.assign(nv, {meth: ancien.meth || [], niv: ancien.niv || '', obs: ancien.obs || '', st: ancien.st || 'existant', etiq: ancien.etiq || ''});
     if (ancien.etage != null && ancien.etage !== '') e.p.etage = ancien.etage;
+    ['etiqAvec', 'etiqTitre'].forEach(function(k){ if (ancien[k] != null && ancien[k] !== '') e.p[k] = ancien[k]; });
     /* une zone suspecte ne tient aucun tuyau : un point de test qui reliait deux tuyaux laisse un raccord à sa place, comme à l'ouverture */
     if (v === 'zone') libererZones(S.doc, e.id);
     if (e.lab && !e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx());
