@@ -243,7 +243,7 @@ Détail du code : cartes A, B et C (`carte-*.md`). Lot Rejets : `.claude/concept
 Chaque correctif est livrable seul et garde la batterie verte (`sh tests/tout.sh --navigateur`) ; garde commune : compat 245/245 et
 différentiel sans écart. Les tests nouveaux vont dans tests/vm/equipements.js et tests/navigateur/equipements.js, créés en m130 et ajoutés à
 tests/tout.sh (l. 14 et 19) et à tests/LISEZMOI.md. Le lot tient en six numéros ; s'il en manque (lot Rejets plus long, correctif scindé),
-m135 puis m134 attendent la fusion suivante (l'étiquette commune forme un tout), ou la fusion se fait après m133. m130 à m132 sont
+m135 puis m134 attendent la fusion suivante (l'étiquette commune forme un tout), ou la fusion se fait après m133. m130 à m133 sont
 envoyés : leurs fiches disent ce qui a été fait.
 - **m130 Niveau d'étage précis** (souhait 15 ; D1, D2, D5, D7). Fait : 609b9f1, 15 nov.
   - Fichiers : CJ : NIV (les puces), etageDe, libNiv (VC.libNiv), valNiv, poserNiv, texteEtiquette, pageTableaux, demander (option num), chipsHtml
@@ -316,23 +316,42 @@ envoyés : leurs fiches disent ce qui a été fait.
     _BI_2) ; vcApparier suit l'ordre des id : une ligne saisie très générale va à la première ligne du croquis ; vcArbitrage s'écarte de la lettre de
     D10 (repli) ; renommer un générique déjà repris retire sa ligne créée et en crée une autre, sauf retouche ; longueur de la légende du plan PDF non
     mesurée ; le générateur ne tire les génériques que sans --contre ; la puce « Lavabo » d'AUTRES_SUGG reste (E2 sans accord).
-- **m133 Autres appareils (2) : palette et fiche** (souhait 7 ; D7).
-  - But : poser et nommer l'appareil au doigt.
-  - Fichiers : CJ FAMILLES[0] et [1], ficheHtml (nom, suggestions, abréviation, EU | EP, « Compté au constat »), propTxt (CJ:5377),
-    changerType (nom, ab, row), poserObjet (CJ:4098). croquis/LISEZMOI.txt (palette, fiche) ; LISEZMOI.txt (consigne).
-  - Pour l'utilisateur : « Autre appareil » en fin d'« Appareils EU », « Autre ouvrage EP » en fin d'« Ouvrages EP » ; fiche ouverte sur le
-    nom.
-  - Test : navigateur e2 (échoue avant : pas d'outil, C.outil) : poser « Autre appareil », puce « Bidet » → étiquette et « Autres :
-    Bidet » ; « Lavabo », « Douche italienne », « Puits perdu » refusés (toasts), nom rendu ; ab « BD » ; EU → EP : nom gardé, row vidé,
-    toast ; « Compté au constat » WC ; « Autre ouvrage EP » seul : bouton « Rejet au sol ».
-  - Risques : rang des outils (les tests choisissent par type) ; saisie au clavier sur tablette.
-  - Lot Rejets : palette après m127.
-  - Reporté de m132 (relecture), à faire avant que la palette ne rende le cas courant. M2 : une anomalie d'un générique compté en « Autres » est
-    rangée par son texte (anomRows) ; avec « Bidet » et « Bidet suspendu », elle n'est rangée sur aucune ligne, qui reste « Oui » d'office au PDF ;
-    correctif proposé, sans toucher anomRows (D9) : au report d'une anomalie du croquis dans le dossier (index.html), a.installation reçoit l'id de la
-    ligne « Autres » que vcApparier lie à sa ligne du croquis ; à défaut, vcEcarts la rappelle ; test fondé sur la sonde de la relecture (deux
-    génériques proches, une anomalie sur l'un : sa ligne « non » au PDF, l'autre « oui »). M4 : « Déplacer par cotes (…) » et « … placé depuis »
-    lisent T[t].lib : libDe(e) quand l'objet existe (le WC + lave-mains de m131 en profite).
+- **m133 Autres appareils (2) : palette et fiche** (souhait 7 ; D7 ; M2 et M4 de m132). Fait : bd74d29, 15 nov.
+  - Fichiers : CJ : FAMILLES (autre_eu en dernier d'« Appareils EU », autre_ep en dernier d'« Ouvrages EP »), NOMS_AUTRES (VC.NOMS_AUTRES), rowAutre,
+    autreHtml, ficheHtml, rafraichirFiche, le clic (second toucher, actions autreNom et autreNat, propTxt du nom et de ab), changerType (entre
+    génériques), reconcilier (ligneDe, ops.autres), libPour, aideCotes, cotesHtml. IX : vcResumeCalc (autresAnom), vcAutreSuit, vcRangerAutres,
+    constatDepuisCroquis, vcEcarts (sansLigne). LISEZMOI.txt (aide du constat, consigne de MISE À JOUR), croquis/LISEZMOI.txt, tests/LISEZMOI.md.
+    Inchangés : anomRows, AUTRES_SUGG (E2).
+  - Pour l'utilisateur : « Autre appareil » et « Autre ouvrage EP » en dernier de leur palette et dans le sélecteur Type ; un toucher pose l'objet et
+    ouvre sa fiche sur le Nom (puces Bidet, Urinoir… puis noms déjà donnés dans le croquis), puis Abréviation, Réseau EU | EP et « Compté au constat »
+    (« Autres : <nom> » ou une ligne du formulaire du même réseau) ; un nom qui désigne un objet de la palette, ou une abréviation illisible au PDF,
+    est refusé (toast, ancienne valeur rendue) ; EU → EP : nom et lettres suivent, ligne choisie vidée (toast) ; l'anomalie d'un générique compté en
+    « Autres » est rangée sur sa ligne (« Bidet » et « Bidet suspendu » : « non » sur la bonne ligne au PDF, « oui » sur l'autre) ; les cotes nomment
+    l'objet (« Autre appareil « Fontaine » déplacé depuis : Façade », « Mare déplacée »).
+  - Tests : vm/equipements.js g9 (M2 de m132) et g10 (noms du cadrage, aucun refusé) : 10 contrôles, 147 en tout ; 6 échouent sur 53fe487 (g9 :
+    rangement par l'application, ops.autres, retour en « Autres », témoin ; g10 : VC.NOMS_AUTRES absente) ; navigateur/equipements.js e2 (20
+    contrôles, 57 en tout ; sur 53fe487 : 38/40, outil absent, la suite n'est pas lancée) ; navigateur/dossier.js 77 à 82 (140 en tout ; sur 53fe487 :
+    134/140, 77 (trois contrôles), 78, 79 et 80 échouent ; le cas signé de 77, 81 et 82 sont des gardes ; 81 échouait sur la version d'avant la
+    correction de relecture) ; navigateur/cotes.js q1 à q5 (130 en tout ; sur 53fe487 : 125/130, q1 à q5 échouent). Garde : compat 245/245 sans
+    régénération ; aléatoire 8000 contre 53fe487 : aucune exception, aucun écart (10 666 analyses) ; mise-en-page 412/412, rejets 84/84 et les autres
+    tests du navigateur qui lisent les palettes, verts ; sonde v1.7.0 (b08133d) : objets gardés tels quels, ni comptés ni jugés (0 anomalie, 4
+    contrôles « extrémité libre », « conformes » là où m133 dit « non conformes » avec 2 anomalies), fiche « Type inconnu de cette version : gardé tel
+    quel », aucune erreur de console ; batterie complète verte (19 min).
+  - Relecture : aucun défaut bloquant ni majeur, rien à contre-vérifier ; neuf remarques appliquées : M1 (un générique remis de « WC » en « Autres »
+    gardait son anomalie sur la ligne WC tant qu'il n'y avait pas de constat : la ligne notée revient à vide si personne ne l'a retouchée), M2 et M7
+    (accord : « Autre appareil « Fontaine » déplacé depuis »), M3 (le rappel sansLigne promettait de ranger une anomalie mise sur « Aucune » :
+    vcAutreSuit, test 81), M4 (destination déplacée par cotes nommée « Autre destination » : son nom), M5 et M6 (consigne de MISE À JOUR : lignes du
+    constat retirées en v1.7.0, « Reprendre du croquis » ; v1.6.3 à part), M8 (messages de refus cités exactement), M9 (e2 renvoie à D7, D2 et D10).
+  - Risques et [p] : le Nom en tête de fiche, avant « Rejet au sol » et Type ; second toucher d'une puce de nom ou de ligne sans effet ; noms
+    proposés : cadrage, puis dessin, doublons ôtés par norm, noms refusés et nom de l'objet exclus ; libellés des lignes sans leurs parenthèses
+    (« Gouttière(s) avant » garde « (s) ») ; nom tapé : espaces réduits, coupé à 40 caractères ; le champ ab montre le texte stocké ; participe
+    accordé au type (un nom libre n'a pas de genre) ; l'application seule range l'anomalie (fermeture du croquis, page du Constat, « Reprendre du
+    croquis ») : une anomalie neuve n'a pas de ligne d'ici là ; les anomalies rangées entrent dans « Constat mis à jour depuis le croquis (N
+    valeurs) » ; ops.autres est donné même pour une installation retouchée ; aucun rappel pour une ligne retirée par le technicien (P.refus) ;
+    exemples de MISE À JOUR tirés de la sonde ; les anomalies des types à ligne « Autres » fixe (chaudière, attente, drain, siphon de cour,
+    trop-plein) restent rangées par leur texte (anomRows), avec le défaut de M2 quand deux lignes « Autres » se ressemblent (hors périmètre) ; une
+    tablette en v1.7.0 retire à la réouverture les anomalies des génériques non retouchées (documenté) ; la puce « Lavabo » d'AUTRES_SUGG reste (E2
+    sans accord).
 - **m134 Étiquette commune (1) : texte, plan, PDF, DXF** (souhait 8 ; D6).
   - But : une étiquette pour les appareils d'une pièce, sans changer le compte.
   - Fichiers : CJ groupeEtiquette(e, an), texteEtiquette, obstaclesPlan, changerType (etiqAvec, etiqTitre). vm/generateur.js : option
