@@ -43,6 +43,43 @@
 //   lave-mains, aux textes « WC + lave-mains » près.
 // l1 à l4 échouent sur 824fabf (pas d'étiquette, « WC : rejet au réseau EP », types ['WC'], « WC » au tableau, VCroquis.libDe absente) ;
 //   l5 y passe.
+// m132, autres appareils, 1re partie (souhait 7 ; décisions D1 à D5, D8 et D10) : types 'autre_eu' (« Autre appareil », EU) et 'autre_ep'
+// (« Autre ouvrage EP », EP), hors palette : p.nom (40 caractères au plus ; blanc ou autre chose qu'un texte : sans nom), p.ab (1 à 3
+// caractères), p.row (ligne du formulaire du même groupe). VCroquis.abObj(e) : lettres du symbole d'un objet ; VCroquis.nomRefuse(nom) :
+// '' si la fiche (m133) accepte le nom, sinon le texte de son refus.
+// g1 : deux « Bidet » (l'un entouré d'espaces) et un « bidet » reliés à la boîte EU : une ligne « Autres : Bidet » (clé autre:EU:bidet),
+//   nb 3, raccordement EU_D, conforme « oui », aucune ligne du formulaire ; « bidet » dessiné d'abord : libellé « bidet » (premier objet).
+// g1 bis : « Climatisation » en EU et en EP : deux lignes (autre:EU:… et autre:EP:…), chacune jugée sur son réseau (EU_D « oui », EP_D
+//   « oui ») ; les deux reliées à la boîte EU : l'EU « oui », l'EP « non ».
+// g2 : « Urinoir » de row « wc » : ligne « WC » 1, types ["Urinoir"] ; avec un WC : 2, ["WC","Urinoir"] ; relié à la boîte EP, son
+//   anomalie « Urinoir : rejet au réseau EP » va sur l'installation « wc » (VCroquis.reconcilier) ; row d'un autre groupe (gout_av,
+//   grilles), inconnu (zz, 12) ou nom d'une propriété des objets du langage (constructor, toString) : ignoré (« Autres : Bidet ») ;
+//   « Avaloir de terrasse » de row « grilles » : ligne « Grilles », types ["Avaloir de terrasse"] ; de row « wc » : « Autres ».
+// g3 : sans nom (absent, '', blancs, 12, null) : une ligne « Autres : Autre appareil » (EU) et une « Autres : Autre ouvrage EP » (EP) ;
+//   contrôle « Autre appareil : nom à indiquer » (« Autre ouvrage EP : … »), niveau « manque », pour chacun ; aucun une fois nommés, et la
+//   conclusion ne change pas ; un nom de 60 caractères est coupé à 40 (libellé, ligne, étiquette).
+// g4 : étiquettes « Bidet (RDC) », « Autre appareil », « ? » et « Bi » (la règle « égal à l'abréviation » ne vaut pas), « Avaloir de
+//   terrasse (1er étage) » ; lettres du symbole (abObj, primitives) : « Bi » pour « Bidet » et « bidet », l'abréviation saisie de 1 à 3
+//   caractères lisibles au PDF, sinon tirée du nom, sinon « ? » ; symbole de la fiche (symboleSvg) : « ? » sans nom, abréviation à balises
+//   échappée ; légende du plan PDF : « Bidet (Bi) » (une seule pour « Bidet » et « bidet »), « Bidet (bi) », « Autre appareil (?) »,
+//   « Avaloir de terrasse (Av) » ; DXF : blocs VEDE_AUTRE_EU_BI, VEDE_AUTRE_EU_BI_2 (« bi »), VEDE_AUTRE_EU (sans nom), VEDE_AUTRE_EP_AV
+//   et leurs INSERT, aucun VEDE_OBJET ; nom « <b>Bidet</b> & "x" » écrit tel quel à l'écran, au plan PDF et au DXF, sans exception.
+// g5 : « Avaloir de terrasse » (autre_ep) relié au réseau EU : « Avaloir de terrasse : rejet au réseau EU » (ep-eu) ; « Bidet » relié au
+//   réseau EP : eu-ep ; sans nom : « Autre ouvrage EP : rejet au réseau EU » ; conclusion « non_conformes ».
+// g6 : « Bidet » conforme et une anomalie saisie à la main sur lui, « à arbitrer » : la ligne n'est jamais « oui » (arbitrer) ; témoins
+//   « retenue » et « écartée » : « oui ».
+// g7 : nomRefuse : « Douche italienne », « WC suspendu », « Évier double », « Puits perdu », « Chaudière », « Lavabos », « Chaudière
+//   (purge, condensat) », « Autre appareil », « Lave-mains », « Salle d'eau », « Siphon de cour », « Trop-pleins », « Vasque », « Bac à
+//   laver »… refusés, de même « Salle d’eau » et « Lave’linge » (apostrophe typographique, celle du clavier de l'iPad) et
+//   « Lave‑mains » (trait d'union insécable) ; « Bidet », « Urinoir », « Avaloir de terrasse », « Climatisation », '' et null permis ;
+//   textes du refus de « Douche italienne » et de « Puits perdu » ; un nom refusé venu d'un fichier est lu tel quel (« Autres : Douche
+//   italienne »).
+// g8 : 200 croquis du générateur avec des génériques (option sources, D10 ; nom, abréviation et ligne tirés d'une suite à part) :
+//   la moitié au moins des génériques analysés (une source a un résultat, reliée ou non : seuls ceux « Projet » de l'état des lieux n'en
+//   ont pas) ; aucune exception (analyse, anomalies, conclusion, constat, étiquettes, DXF), aucun « undefined » ; chaque générique compté sur une
+//   ligne et une seule, celle de son row valide ou sa ligne « Autres » ; ni ses textes ni sa ligne ne disent « Autre destination ».
+// g1 à g8 échouent sur 9ad0840 (type inconnu : aucune ligne, aucun contrôle, aucune étiquette, aucun générique analysé ; VCroquis.abObj
+// et nomRefuse absentes) ; la première version de m132 acceptait les trois noms à signes typographiques de g7 (relecture, M1).
 // usage : node tests/vm/equipements.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rendus, rapport} = require('./charger.js');
@@ -332,6 +369,190 @@ async function gardeLm(){
   R.ok(hors(c0) === hors(c1), 'l5 constat déduit : identique avec et sans lave-mains, hors row.types');
 }
 
+/* m132 : autres appareils (1re partie ; souhait 7 ; D1 à D5, D8 et D10) : types 'autre_eu' et 'autre_ep', nom, abréviation et ligne du
+   formulaire dans p. VCroquis.abObj(e) : lettres du symbole ; VCroquis.nomRefuse(nom) : '' si le nom est permis, sinon le texte du refus */
+const abObj = e => typeof V.abObj === 'function' ? sur(() => V.abObj(e)) : 'VCroquis.abObj absente';
+const nomRefuse = n => typeof V.nomRefuse === 'function' ? sur(() => V.nomRefuse(n)) : 'VCroquis.nomRefuse absente';
+/* croquis fictif à deux réseaux : boîte EU Bu vers le regard public Rp (collecteur EU), boîte EP Bp vers Rq (collecteur EP) ; objets
+   [id, type, p, vers] à 3 m les uns des autres, chacun relié par le tracé 't' + id à la boîte vers ('Bu' ou 'Bp') ; les tracés du
+   croquis lui-même commencent par « x », pour ne pas prendre l'identifiant d'un tracé d'objet (un objet 'U' a le tracé 'tU') */
+function deuxReseaux(objs){
+  return doc({o: objs.map(([id, t, p], i) => [id, t, 3 * i - 6, 9, p || {}]).concat([['Bu', 'boite', 0, 2, {res: 'EU'}], ['Rp', 'regard_pub', 0, -2, {res: 'EU'}],
+    ['Bp', 'boite', 30, 2, {res: 'EP'}], ['Rq', 'regard_pub', 30, -2, {res: 'EP'}]]),
+    l: objs.map(([id, , , vers]) => ['t' + id, 'tr', '', '', [id, vers]]).concat([['xBu', 'tr', '', '', ['Bu', 'Rp']], ['xBp', 'tr', '', '', ['Bp', 'Rq']],
+      ['xC1', 'col', 'EU', '', [[-6, -2], 'Rp', [12, -2]]], ['xC2', 'col', 'EP', '', [[24, -2], 'Rq', [40, -2]]]])});
+}
+const constatDe = d => sur(() => { const c = copie(d); return V.constatDeduit(c, V.analyser(c, 'edl')); });
+const rowDe = (cd, id) => (cd && cd.rows || []).find(r => r.id === id) || {};
+const vueRows = cd => typeof cd === 'string' ? cd : cd.rows.filter(r => r.nb).map(r => r.id + ' ×' + r.nb + ' ' + r.raccord + ' ' + JSON.stringify(r.conforme)
+  + (r.label !== (r.std ? r.label : r.id) ? ' « ' + r.label + ' »' : '') + ' ' + JSON.stringify(r.types)).join(', ') || 'aucune ligne';
+
+/* g1 : une ligne « Autres » par nom normalisé et par réseau ; un objet = une installation */
+function g1(){
+  const d = deuxReseaux([['G1', 'autre_eu', {nom: 'Bidet'}, 'Bu'], ['G2', 'autre_eu', {nom: '  Bidet '}, 'Bu'], ['G3', 'autre_eu', {nom: 'bidet'}, 'Bu']]), cd = constatDe(d);
+  const r = rowDe(cd, 'autre:EU:bidet'), std = typeof cd === 'string' ? [] : cd.rows.filter(x => x.std && x.nb), aut = typeof cd === 'string' ? [] : cd.rows.filter(x => !x.std && x.nb);
+  R.ok(r.nb === 3 && r.label === 'Bidet' && r.groupe === 'EU' && r.std === false && r.raccord === 'EU_D' && r.conforme === 'oui' && !std.length && aut.length === 1,
+    'g1 deux « Bidet » et un « bidet » : une ligne « Autres : Bidet » (autre:EU:bidet), nb 3, EU_D, « oui », aucune ligne du formulaire (obtenu ' + vueRows(cd) + ')');
+  const d2 = deuxReseaux([['G3', 'autre_eu', {nom: 'bidet'}, 'Bu'], ['G1', 'autre_eu', {nom: 'Bidet'}, 'Bu']]), c2 = constatDe(d2), r2 = rowDe(c2, 'autre:EU:bidet');
+  R.ok(r2.nb === 2 && r2.label === 'bidet', 'g1 « bidet » dessiné d\'abord : libellé « bidet », celui du premier objet (obtenu ' + vueRows(c2) + ')');
+}
+/* g1 bis : même nom en EU et en EP : deux lignes, chacune jugée sur son réseau */
+function g1bis(){
+  const d = deuxReseaux([['Ce', 'autre_eu', {nom: 'Climatisation'}, 'Bu'], ['Cp', 'autre_ep', {nom: 'Climatisation'}, 'Bp']]), cd = constatDe(d);
+  const e = rowDe(cd, 'autre:EU:climatisation'), p = rowDe(cd, 'autre:EP:climatisation');
+  R.ok(e.nb === 1 && e.groupe === 'EU' && e.raccord === 'EU_D' && e.conforme === 'oui' && p.nb === 1 && p.groupe === 'EP' && p.raccord === 'EP_D' && p.conforme === 'oui'
+    && e.label === 'Climatisation' && p.label === 'Climatisation', 'g1 bis « Climatisation » EU et EP : deux lignes, EU_D « oui » et EP_D « oui » (obtenu ' + vueRows(cd) + ')');
+  const d2 = deuxReseaux([['Ce', 'autre_eu', {nom: 'Climatisation'}, 'Bu'], ['Cp', 'autre_ep', {nom: 'Climatisation'}, 'Bu']]), c2 = constatDe(d2);
+  const e2 = rowDe(c2, 'autre:EU:climatisation'), p2 = rowDe(c2, 'autre:EP:climatisation');
+  R.ok(e2.conforme === 'oui' && p2.nb === 1 && p2.raccord === 'EU_D' && p2.conforme === 'non', 'g1 bis les deux reliées à la boîte EU : l\'EU « oui », l\'EP « non » (obtenu ' + vueRows(c2) + ')');
+}
+/* g2 : p.row, ligne du formulaire du même groupe */
+function g2(){
+  const c1 = constatDe(deuxReseaux([['U', 'autre_eu', {nom: 'Urinoir', row: 'wc'}, 'Bu']])), w1 = rowDe(c1, 'wc');
+  R.ok(w1.nb === 1 && JSON.stringify(w1.types) === '["Urinoir"]' && w1.conforme === 'oui' && !(c1.rows || []).some(x => !x.std && x.nb),
+    'g2 « Urinoir » de row « wc » : ligne « WC » 1, types ["Urinoir"], aucune ligne « Autres » (obtenu ' + vueRows(c1) + ')');
+  const c2 = constatDe(deuxReseaux([['W', 'wc', {}, 'Bu'], ['U', 'autre_eu', {nom: 'Urinoir', row: 'wc'}, 'Bu']])), w2 = rowDe(c2, 'wc');
+  R.ok(w2.nb === 2 && JSON.stringify(w2.types) === '["WC","Urinoir"]', 'g2 avec un WC : « WC » 2, types ["WC","Urinoir"] (obtenu ' + vueRows(c2) + ')');
+  const ops = sur(() => V.reconcilier(copie(deuxReseaux([['U', 'autre_eu', {nom: 'Urinoir', row: 'wc'}, 'Bp']])), null, []));
+  const a = ops && ops.creer ? ops.creer.find(c => c.croquis && c.croquis.cle === 'eu-ep:U') : null;
+  R.ok(!!a && a.installation === 'wc' && a.observation === 'Urinoir : rejet au réseau EP', 'g2 urinoir relié à la boîte EP : anomalie « Urinoir : rejet au réseau EP » sur l\'installation « wc » (obtenu '
+    + (a ? JSON.stringify([a.observation, a.installation]) : typeof ops === 'string' ? ops : 'aucune') + ')');
+  const rows = ['gout_av', 'grilles', 'zz', 12, 'constructor', 'toString'], c3 = constatDe(deuxReseaux(rows.map((row, i) => ['B' + i, 'autre_eu', {nom: 'Bidet', row}, 'Bu'])));
+  R.ok(rowDe(c3, 'autre:EU:bidet').nb === rows.length && !(c3.rows || []).some(x => x.std && x.nb), 'g2 row d\'un autre groupe, inconnu ou nom d\'une propriété des objets du langage ('
+    + rows.join(', ') + ') : ignoré, « Autres : Bidet » ×' + rows.length + ' (obtenu ' + vueRows(c3) + ')');
+  const c4 = constatDe(deuxReseaux([['A', 'autre_ep', {nom: 'Avaloir de terrasse', row: 'grilles'}, 'Bp'], ['A2', 'autre_ep', {nom: 'Avaloir de terrasse', row: 'wc'}, 'Bp']])), g = rowDe(c4, 'grilles');
+  R.ok(g.nb === 1 && JSON.stringify(g.types) === '["Avaloir de terrasse"]' && rowDe(c4, 'autre:EP:avaloir de terrasse').nb === 1 && rowDe(c4, 'wc').nb === 0,
+    'g2 « Avaloir de terrasse » de row « grilles » : ligne « Grilles » ; de row « wc » (groupe EU) : « Autres » (obtenu ' + vueRows(c4) + ')');
+}
+/* g3 : sans nom ; contrôle « nom à indiquer » ; nom coupé à 40 caractères */
+function g3(){
+  const sans = [['A0', {}], ['A1', {nom: ''}], ['A2', {nom: '   '}], ['A3', {nom: 12}], ['A4', {nom: null}]];
+  const d = deuxReseaux(sans.map(([id, p]) => [id, 'autre_eu', p, 'Bu']).concat([['P0', 'autre_ep', {}, 'Bp'], ['P1', 'autre_ep', {nom: ' '}, 'Bp']])), cd = constatDe(d);
+  const e = rowDe(cd, 'autre:EU:autre appareil'), p = rowDe(cd, 'autre:EP:autre ouvrage ep'), aut = typeof cd === 'string' ? [] : cd.rows.filter(x => !x.std && x.nb);
+  R.ok(aut.length === 2 && e.nb === 5 && e.label === 'Autre appareil' && p.nb === 2 && p.label === 'Autre ouvrage EP', 'g3 sans nom : « Autres : Autre appareil » ×5 et « Autres : Autre ouvrage EP » ×2 (obtenu '
+    + vueRows(cd) + ')');
+  const an = sur(() => V.analyser(copie(d), 'edl')), ctl = an.controles ? an.controles.filter(c => /^nom:/.test(c.cle)).map(c => c.cle + ' ' + c.niveau + ' ' + c.txt).sort() : [an];
+  const att = sans.map(([id]) => 'nom:' + id + ' manque Autre appareil : nom à indiquer').concat(['nom:P0 manque Autre ouvrage EP : nom à indiquer', 'nom:P1 manque Autre ouvrage EP : nom à indiquer']).sort();
+  R.ok(JSON.stringify(ctl) === JSON.stringify(att), 'g3 contrôle « Autre appareil : nom à indiquer » (« Autre ouvrage EP : … »), niveau « manque », pour chacun (obtenu ' + JSON.stringify(ctl.slice(0, 3)) + ')');
+  const dn = copie(d); dn.el.forEach(x => { if (/^autre_e[up]$/.test(x.t)) x.p.nom = 'Bidet'; });
+  const conc = x => sur(() => { const c = copie(x), a = V.analyser(c, 'edl'); return V.conclusion(V.anomaliesDoc(c, a), a); }), aN = sur(() => V.analyser(copie(dn), 'edl'));
+  R.ok(aN.controles && !aN.controles.some(c => /^nom:/.test(c.cle)) && conc(d) === conc(dn) && !/^exception/.test(conc(d)), 'g3 nommés : aucun contrôle « nom à indiquer », même conclusion (« '
+    + conc(d) + ' » sans nom, « ' + conc(dn) + ' » nommés)');
+  const LONG = 'Pompe de relevage fictive numéro 1234 pour un essai de coupe', L40 = LONG.slice(0, 40).trim(), dl = deuxReseaux([['Lg', 'autre_eu', {nom: '  ' + LONG + '  '}, 'Bu']]);
+  const cl = constatDe(dl), lg = rowDe(cl, 'autre:EU:' + V.outils.norm(L40)), et = etiquette(dl, 'Lg');
+  R.ok(LONG.length === 60 && L40.length === 40 && libDe(elDe(dl, 'Lg')) === L40 && lg.nb === 1 && lg.label === L40 && et === L40, 'g3 nom de 60 caractères coupé à 40 : « ' + L40
+    + ' » (libellé ' + JSON.stringify(libDe(elDe(dl, 'Lg'))) + ', étiquette ' + JSON.stringify(et) + ', ligne ' + vueRows(cl) + ')');
+}
+/* g4 : étiquette, symbole, légende, DXF, nom à balises */
+async function g4(){
+  const d = rangee([['G', 'autre_eu', {nom: 'Bidet', niv: 'rdc'}], ['G0', 'autre_eu', {}], ['Gq', 'autre_eu', {nom: '?'}], ['Gb', 'autre_eu', {nom: 'Bi'}],
+    ['P', 'autre_ep', {nom: 'Avaloir de terrasse', niv: 'etage', etage: '1'}]]);
+  for (const [id, att] of [['G', 'Bidet (RDC)'], ['G0', 'Autre appareil'], ['Gq', '?'], ['Gb', 'Bi'], ['P', 'Avaloir de terrasse (1er étage)']]){
+    const vu = etiquette(d, id); R.ok(vu === att, 'g4 étiquette de ' + id + ' → « ' + att + ' » (obtenu ' + JSON.stringify(vu) + ')');
+  }
+  const ab = (t, p) => abObj({k: 'pt', t, p}), cas = [['autre_eu', {nom: 'Bidet'}, 'Bi'], ['autre_eu', {nom: 'bidet'}, 'Bi'], ['autre_eu', {nom: 'Bidet', ab: 'BD'}, 'BD'],
+    ['autre_eu', {nom: 'Bidet', ab: ' x '}, 'x'], ['autre_eu', {nom: 'Bidet', ab: 'ABCD'}, 'Bi'], ['autre_eu', {nom: 'Bidet', ab: 'ΩΩ'}, 'Bi'], ['autre_eu', {nom: 'Bidet', ab: 12}, 'Bi'],
+    ['autre_eu', {}, '?'], ['autre_eu', {nom: '', ab: ''}, '?'], ['autre_eu', null, '?'], ['autre_ep', {nom: 'avaloir'}, 'Av'], ['wc', {nom: 'Bidet', ab: 'Bi'}, 'WC'], ['zz', {}, '']];
+  const malAb = cas.filter(([t, p, att]) => ab(t, p) !== att).map(([t, p, att]) => t + ' ' + JSON.stringify(p) + ' → ' + JSON.stringify(ab(t, p)) + ' (attendu ' + JSON.stringify(att) + ')');
+  R.ok(!malAb.length, 'g4 lettres du symbole (abObj) : « Bi » pour « Bidet » et « bidet », abréviation saisie de 1 à 3 caractères lisibles au PDF, sinon tirée du nom, sinon « ? » ; '
+    + 'type ordinaire : la sienne' + (malAb.length ? ' (' + malAb.slice(0, 3).join(' ; ') + ')' : ''));
+  const lettres = p => { const r = sur(() => V.primitives({id: 'G', k: 'pt', t: 'autre_eu', x: 0, y: 0, p: Object.assign({st: 'existant', obs: ''}, p)}, [20, 20, 20], 0));
+    return Array.isArray(r) ? r.filter(q => q.k === 't').map(q => q.s).join('|') : String(r); };
+  R.ok(lettres({nom: 'Bidet'}) === 'Bi' && lettres({}) === '?' && lettres({nom: 'Pompe', ab: 'PAC'}) === 'PAC', 'g4 symbole (VCroquis.primitives) : « Bi », « ? » sans nom, « PAC » saisie (obtenu '
+    + JSON.stringify([lettres({nom: 'Bidet'}), lettres({}), lettres({nom: 'Pompe', ab: 'PAC'})]) + ')');
+  const sv = sur(() => V.symboleSvg('autre_eu', 40)), svb = sur(() => V.symboleSvg('autre_eu', 40, {nom: 'Bidet', ab: '<i>'}));
+  R.ok(/<svg/.test(sv) && />\?<\/text>/.test(sv) && /&lt;i&gt;/.test(svb) && !/<i>/.test(svb), 'g4 symbole de la fiche (symboleSvg) : « ? » sans nom ; abréviation « <i> » échappée (obtenu '
+    + JSON.stringify(String(svb).slice(-80)) + ')');
+  /* légende du plan PDF et blocs du DXF : G1 et G2 (« Bidet », « bidet » : « Bi »), G3 (« Bidet », abréviation « bi »), G4 sans nom, P1 */
+  const dR = deuxReseaux([['G1', 'autre_eu', {nom: 'Bidet'}, 'Bu'], ['G2', 'autre_eu', {nom: 'bidet'}, 'Bu'], ['G3', 'autre_eu', {nom: 'Bidet', ab: 'bi'}, 'Bu'], ['G4', 'autre_eu', {}, 'Bu'],
+    ['P1', 'autre_ep', {nom: 'Avaloir de terrasse'}, 'Bp']]);
+  const p = await pdf(dR, {mode: 'edl'}), fin = p.txt.indexOf(TITRE_EQ), p1 = p.txt.slice(0, fin < 0 ? p.txt.length : fin);
+  const LEG = ['Bidet (Bi)', 'Bidet (bi)', 'Autre appareil (?)', 'Avaloir de terrasse (Av)'], vusL = p1.filter(t => /\((Bi|bi|\?|Av)\)$/.test(t));
+  R.ok(JSON.stringify(vusL.slice().sort()) === JSON.stringify(LEG.slice().sort()) && !p.err.length, 'g4 légende du plan PDF : ' + LEG.map(t => '« ' + t + ' »').join(', ') + ', une fois chacune (obtenu '
+    + JSON.stringify(vusL) + ')' + (p.err.length ? ' ' + p.err.join(' | ') : ''));
+  const x = sur(() => dxf(dR)), blocs = x.blocs || [], ins = n => (x.ents || []).filter(q => q.type === 'INSERT' && q.c['2'] === n).length;
+  const attB = [['VEDE_AUTRE_EU_BI', 2], ['VEDE_AUTRE_EU_BI_2', 1], ['VEDE_AUTRE_EU', 1], ['VEDE_AUTRE_EP_AV', 1]];
+  R.ok(attB.every(([n, k]) => blocs.indexOf(n) >= 0 && ins(n) === k) && blocs.indexOf('VEDE_OBJET') < 0, 'g4 DXF : ' + attB.map(([n, k]) => n + ' (' + k + ' INSERT)').join(', ') + ', aucun VEDE_OBJET (obtenu '
+    + (typeof x === 'string' ? x : blocs.filter(n => /AUTRE|OBJET/.test(n)).map(n => n + ' (' + ins(n) + ')').join(', ')) + ')');
+  const NH = '<b>Bidet</b> & "x"', rH = await troisRendus(deuxReseaux([['H', 'autre_eu', {nom: NH}, 'Bu']]));
+  R.ok(rH.ecran.indexOf(NH) >= 0 && rH.plan.indexOf(NH) >= 0 && rH.pdf.indexOf(NH + ' (<b)') >= 0 && rH.dxf.indexOf(NH) >= 0 && !rH.err.length, 'g4 nom « ' + NH
+    + ' » tel quel : étiquette à l\'écran, au plan PDF et au DXF, légende « ' + NH + ' (<b)' + ' » (obtenu ' + JSON.stringify([rH.ecran.filter(t => /Bidet/.test(t)), rH.dxf.filter(t => /Bidet/.test(t))]).slice(0, 200) + ')'
+    + (rH.err.length ? ' ' + rH.err.join(' | ') : ''));
+}
+/* g5 : règles des anomalies selon la nature du type */
+function g5(){
+  const d = deuxReseaux([['A', 'autre_ep', {nom: 'Avaloir de terrasse'}, 'Bu'], ['B', 'autre_eu', {nom: 'Bidet'}, 'Bp'], ['A0', 'autre_ep', {}, 'Bu']]);
+  const r = sur(() => { const c = copie(d), an = V.analyser(c, 'edl'), L = V.anomaliesDoc(c, an); return {L, conc: V.conclusion(L, an)}; }), obs = cle => ((r.L || []).find(a => a.cle === cle) || {}).obs;
+  for (const [cle, att] of [['ep-eu:A', 'Avaloir de terrasse : rejet au réseau EU'], ['eu-ep:B', 'Bidet : rejet au réseau EP'], ['ep-eu:A0', 'Autre ouvrage EP : rejet au réseau EU']])
+    R.ok(obs(cle) === att, 'g5 ' + cle + ' : « ' + att + ' » (obtenu ' + JSON.stringify(obs(cle)) + ')');
+  R.ok(r.conc === 'non_conformes', 'g5 conclusion « non_conformes » (obtenu ' + JSON.stringify(typeof r === 'string' ? r : r.conc) + ')');
+}
+/* g6 : anomalie saisie à la main, à arbitrer, sur un « Bidet » conforme */
+function g6(){
+  const base = deuxReseaux([['G', 'autre_eu', {nom: 'Bidet'}, 'Bu']]);
+  const avec = st => { const d = copie(base); d.anomManu = [{id: 'm1', objId: 'G', reseau: 'EU', obs: 'Bidet : écoulement lent (anomalie fictive)', preco: '', nc: true, st}]; return d; };
+  const r0 = rowDe(constatDe(base), 'autre:EU:bidet'), ra = rowDe(constatDe(avec('arbitrer')), 'autre:EU:bidet');
+  R.ok(r0.conforme === 'oui' && ra.nb === 1 && ra.conforme !== 'oui' && ra.arbitrer === true, 'g6 « Bidet » conforme, anomalie saisie « à arbitrer » : ligne jamais « oui », arbitrer (obtenu '
+    + JSON.stringify([r0.conforme, ra.conforme, ra.arbitrer]) + ')');
+  for (const st of ['retenue', 'ecartee']){ const r = rowDe(constatDe(avec(st)), 'autre:EU:bidet');
+    R.ok(r.nb === 1 && r.conforme === 'oui' && !r.arbitrer, 'g6 témoin : anomalie « ' + st + ' » : « oui » (obtenu ' + JSON.stringify([r.conforme, r.arbitrer]) + ')'); }
+}
+/* g7 : noms refusés par la fiche (m133) ; jamais à la lecture */
+function g7(){
+  const REFUS = ['Douche italienne', 'WC suspendu', 'Évier double', 'Puits perdu', 'Chaudière', 'Lavabos', 'Chaudière (purge, condensat)', 'Autre appareil', 'autre ouvrage ep',
+    'Lave-mains', 'Salle d\'eau', 'Siphon de cour', 'Trop-pleins', 'Vasque', 'Bac à laver', 'Toilettes du jardin', 'Gouttière', 'Grille', 'Regard', '  wc  ',
+    /* signes typographiques (relecture de m132) : apostrophe du clavier de l'iPad, trait d'union insécable */
+    'Salle d\u2019eau', 'Lave\u2019linge', 'Lave\u2011mains'];
+  const PERMIS = ['Bidet', 'Urinoir', 'Avaloir de terrasse', 'Climatisation', 'Pompe à chaleur', '', '   ', null, undefined, 12];
+  const refuse = n => { const r = nomRefuse(n); return typeof r === 'string' && r !== '' && !/^exception|absente$/.test(r); };
+  const malR = REFUS.filter(n => !refuse(n)), malP = PERMIS.filter(n => nomRefuse(n) !== '');
+  R.ok(!malR.length, 'g7 ' + REFUS.length + ' noms refusés (« Douche italienne », « WC suspendu », « Puits perdu », « Chaudière », « Lavabos »…)' + (malR.length ? ' ; acceptés : '
+    + JSON.stringify(malR.slice(0, 6)) + ' (' + JSON.stringify(nomRefuse(malR[0])) + ')' : ''));
+  R.ok(!malP.length, 'g7 noms permis : « Bidet », « Urinoir », « Avaloir de terrasse », « Climatisation », « Pompe à chaleur », vide, null' + (malP.length ? ' ; refusés : '
+    + JSON.stringify(malP.map(n => [n, nomRefuse(n)]).slice(0, 4)) : ''));
+  for (const [n, att] of [['Douche italienne', 'Douche italienne : posez une Douche, comptée en Salle de bain.'],
+    ['Puits perdu', 'Pour un puits, posez l\'objet Puits (EP non conformes) ; pour un puits perdu, un Puisard.'],
+    ['Vasque', 'Vasque : se dessine en Lavabo, compté Évier ; le lave-mains d\'un WC est sa puce « + lave-mains ».']])
+    R.ok(nomRefuse(n) === att, 'g7 refus de « ' + n + ' » : « ' + att + ' » (obtenu ' + JSON.stringify(nomRefuse(n)) + ')');
+  const d = deuxReseaux([['G', 'autre_eu', {nom: 'Douche italienne'}, 'Bu']]), cd = constatDe(d);
+  R.ok(libDe(elDe(d, 'G')) === 'Douche italienne' && rowDe(cd, 'autre:EU:douche italienne').nb === 1 && rowDe(cd, 'sdb').nb === 0, 'g7 nom refusé venu d\'un fichier : lu tel quel, « Autres : '
+    + 'Douche italienne », salle de bain 0 (obtenu ' + vueRows(cd) + ')');
+}
+/* g8 : croquis du générateur avec des génériques (option sources) */
+function g8(){
+  const G = require('./generateur.js'), SRC = G.SOURCES.concat(['autre_eu', 'autre_ep']), EXU = G.EXUTOIRES.concat(['infiltration', 'puits', 'exutoire']), T = V.TYPES || {};
+  const cle = s => V.outils.norm(s).replace(/\s+/g, ' ').trim(), ex = [], mal = [];
+  let n = 0, k = 0, ka = 0;
+  for (let graine = 1; graine <= 200; graine++){
+    const spec = G.gen(graine, {sources: SRC, avp: graine % 3 === 0, maxS: 2 + graine % 4, maxN: 2 + graine % 5, exutoires: EXU, drains: graine % 2 === 0});
+    const gens = spec.o.filter(o => o[1] === 'autre_eu' || o[1] === 'autre_ep');
+    if (!gens.length) continue;
+    n++; k += gens.length;
+    try {
+      const d = doc(spec), dA = copie(d), an = V.analyser(dA, 'edl'), L = V.anomaliesDoc(dA, an), dP = copie(d), aP = V.analyser(dP, 'avp');
+      V.conclusion(L, an); V.anomaliesDoc(dP, aP);
+      const dC = copie(d), cd = V.constatDeduit(dC, V.analyser(dC, 'edl')), ou = {}, txt = [];
+      cd.rows.forEach(r => r.objets.forEach(id => { (ou[id] = ou[id] || []).push(r); }));
+      gens.forEach(([id, t]) => {
+        const e = elDe(d, id), ty = T[t] || {}, mots = [libDe(e), V.texteEtiquette(e, an), V.texteEtiquette(e, aP), abObj(e)];
+        if (mots.some(s => typeof s !== 'string' || /Autre destination|undefined|\[object|^exception/.test(s))) mal.push('graine ' + graine + ' ' + id + ' : ' + JSON.stringify(mots));
+        if (!an.resObj[id]) return;
+        ka++;
+        const rs = ou[id] || [], row = typeof e.p.row === 'string' ? e.p.row : '';
+        const att = cd.rows.some(r => r.std && r.id === row && r.groupe === ty.nat) ? row : 'autre:' + ty.nat + ':' + cle(libDe(e));
+        if (rs.length !== 1 || rs[0].id !== att || /Autre destination/.test(rs[0].label)) mal.push('graine ' + graine + ' ' + id + ' ' + JSON.stringify(e.p.nom) + ' row ' + JSON.stringify(e.p.row)
+          + ' : ' + JSON.stringify(rs.map(r => r.id)) + ' (attendu ' + att + ')');
+      });
+      cd.rows.forEach(r => txt.push(r.label)); L.forEach(a => txt.push(a.obs)); an.controles.forEach(c => txt.push(c.txt)); txt.push(dxf(d).texte);
+      if (txt.some(s => typeof s !== 'string' || /undefined|\[object/.test(s))) mal.push('graine ' + graine + ' : « undefined » dans ' + JSON.stringify(txt.filter(s => typeof s !== 'string' || /undefined|\[object/.test(s))).slice(0, 120));
+    } catch (e){ ex.push('graine ' + graine + ' : ' + e.message); }
+  }
+  R.ok(n >= 50 && ka >= k / 2 && !ex.length, 'g8 ' + n + ' croquis à génériques (' + k + ' génériques, dont ' + ka + ' analysés, la moitié au moins attendue) : aucune exception'
+    + (ex.length ? ' (' + ex.length + ' : ' + ex.slice(0, 3).join(' | ') + ')' : ''));
+  R.ok(!mal.length, 'g8 chaque générique compté sur une ligne, celle de son row valide ou sa ligne « Autres » ; ni « undefined » ni « Autre destination »'
+    + (mal.length ? ' (' + mal.length + ' : ' + mal.slice(0, 3).join(' | ') + ')' : ''));
+}
+
 (async () => {
   try {
     etiquettes();
@@ -345,6 +566,9 @@ async function gardeLm(){
     constatLm();
     await page2Lm();
     await gardeLm();
+    for (const g of [g1, g1bis, g2, g3, g4, g5, g6, g7, g8]){
+      try { await g(); } catch (e){ R.ok(false, g.name + ' : exception : ' + (e && e.stack || e).toString().split('\n').slice(0, 3).join(' | ')); }
+    }
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }
   R.fin();
 })();

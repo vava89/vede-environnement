@@ -3657,9 +3657,42 @@ async function vcResume(v){
   if (!doc) return null;
   try { return vcResumeCalc(v, doc); } catch(e){ reportError(e, 'Croquis'); return null; }
 }
-/* ligne du constat qui correspond à une ligne du croquis : même id pour les lignes du formulaire, libellé pour « Autres » */
-function vcLigneConstat(c, s){
-  if (s.std) return rowById(c, s.id);
+/* m132 (D4) : lignes du constat qui correspondent aux lignes du résumé du croquis, cherchées en une fois. Rend {id de la ligne du croquis :
+   ligne du constat} ; une ligne du croquis absente de la table n'a pas de ligne au constat. Une ligne du formulaire va à la ligne de même id.
+   Une ligne « Autres » va à une ligne « Autres » du même réseau, en trois passes : celle qu'elle a déjà liée (croq), puis celle de même
+   libellé, puis celle qui lui ressemble (autresMatch, dans les deux sens). Dans chaque passe, les lignes du croquis sont prises dans l'ordre
+   de leur id, pas dans celui du dessin ; une ligne du constat ne sert qu'une fois. Avant, chaque ligne du croquis cherchait seule : une
+   chaudière et une attente prenaient toutes deux la ligne saisie « Chaudière et attente », et un « Bidet suspendu » prenait la ligne
+   « Bidet » créée juste avant. Ne pose aucun lien (constatDepuisCroquis le fait) ; lue aussi par vcEcarts et vcArbitrage, pour que les
+   rappels et l'arbitrage visent les lignes que la reprise remplit. Une ligne du croquis sans ligne liée : vcArbitrage se replie sur la
+   ressemblance d'avant (vcRessemble) */
+function vcApparier(c, res){
+  var lien = {}, pris = [], autres = [];
+  (res && res.rows || []).forEach(function(s){
+    if (s.std){ var r0 = rowById(c, s.id); if (r0) lien[s.id] = r0; }
+    else autres.push(s);
+  });
+  autres.sort(function(a, b){ return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
+  function mots(x){ return norm(x).replace(/[-']/g, ' '); }
+  function egal(x){ return mots(x).replace(/\s+/g, ' ').trim(); }
+  var passes = [
+    function(r, s){ return r.croq === s.id; },
+    function(r, s){ return egal(r.label) === egal(s.label); },
+    function(r, s){ return autresMatch(r, mots(s.label)) || autresMatch({label: s.label}, mots(r.label)); }];
+  passes.forEach(function(ok){
+    autres.forEach(function(s){
+      if (lien[s.id]) return;
+      for (var i = 0; i < c.rows.length; i++){
+        var r = c.rows[i];
+        if (!r.std && r.groupe === s.groupe && pris.indexOf(r) < 0 && ok(r, s)){ lien[s.id] = r; pris.push(r); return; }
+      }
+    });
+  });
+  return lien;
+}
+/* première ligne « Autres » du constat qui ressemble à une ligne « Autres » du croquis, même prise par une autre (corps de l'ancienne
+   vcLigneConstat, avant m132) : repli de vcArbitrage pour une ligne du croquis sans ligne liée */
+function vcRessemble(c, s){
   var o = norm(s.label).replace(/[-']/g, ' ');
   return c.rows.filter(function(r){ return !r.std && r.groupe === s.groupe && (r.croq === s.id || autresMatch(r, o) || autresMatch({label: s.label}, norm(r.label).replace(/[-']/g, ' '))); })[0] || null;
 }
@@ -3669,8 +3702,11 @@ function vcLigneConstat(c, s){
 function vcArbitrage(v, c, vide){
   if (!vcPret() || !planDe(v.id)) return null;
   var res = VC_RESUMES.get(v.id); if (!res) return null;
-  var lignes = [];
-  (res.rows || []).forEach(function(s){ if (!s.arbitrer) return; var r = vcLigneConstat(c, s); if (r && lignes.indexOf(r.id) < 0) lignes.push(r.id); });
+  var lignes = [], lien = vcApparier(c, res);
+  /* la ligne que la reprise remplit (vcApparier). Une ligne « Autres » du croquis sans ligne liée (ligne saisie à la main pour deux
+     appareils, prise par l'autre ; constat pas encore repris du croquis) marque, comme avant m132, la première ligne qui lui ressemble :
+     sinon cette ligne serait « oui » d'office, et un constat signé pendant l'arbitrage se dirait changé depuis */
+  (res.rows || []).forEach(function(s){ if (!s.arbitrer) return; var r = lien[s.id] || (s.std ? null : vcRessemble(c, s)); if (r && lignes.indexOf(r.id) < 0) lignes.push(r.id); });
   var n = res.arbitrer || 0;
   return n || lignes.length || vide ? {n: n, lignes: lignes} : null;
 }
@@ -3687,7 +3723,7 @@ function vcValeurs(s){
 function vcMethKey(m){ var mk = METH.map(function(x){ return x[0]; }); return JSON.stringify((m || []).slice().sort(function(a, b){ return mk.indexOf(a) - mk.indexOf(b); })); }
 /* ligne « Autres » active où le technicien compte déjà un appareil que le croquis range dans cette ligne du formulaire (lave-vaisselle, descente EP,
    lavabo…) : son libellé dans le nom de l'appareil, ou le nom de l'appareil dans son libellé (« Lavabos », « Lavabo de la salle d'eau »), comme
-   vcLigneConstat */
+   la ressemblance de vcApparier */
 function vcAutresDouble(c, s){
   if (!s.std || !(s.types || []).length) return null;
   return c.rows.filter(function(r){
@@ -3737,8 +3773,10 @@ function constatDepuisCroquis(v, res, suivi){
     });
     P.rows[r.id] = a;
   }
+  /* m132 : appariement fait d'avance (vcApparier) ; une ligne créée ici n'est donc jamais prise par une autre ligne du croquis */
+  var lien = vcApparier(c, res);
   res.rows.forEach(function(s){
-    var r = vcLigneConstat(c, s);
+    var r = lien[s.id] || null;
     if (!r && !s.std){
       if (suivi || P.refus[s.id]) return;
       r = {id: rowIdNeuf(c), groupe: s.groupe, label: s.label, std: false, nb: '', raccord: '', conforme: '', methodes: [], croq: s.id};
@@ -3821,10 +3859,12 @@ function vcEcarts(v, c){
   var out = [], P = c.croqAuto && typeof c.croqAuto === 'object' ? c.croqAuto : {}, refus = P.refus && typeof P.refus === 'object' ? P.refus : {};
   /* conformité de chaque ligne telle que le constat l'imprimera (choisie, ou déduite du raccordement et des anomalies) */
   var conf = {}; try { constatEval(v, anomsOf(v.id)).rows.forEach(function(x){ conf[x.r.id] = x.conf; }); } catch(e){}
+  /* m132 : même appariement que la reprise (vcApparier), sans poser de lien : deux lignes du croquis ne se comparent plus à la même ligne */
+  var lien = vcApparier(c, res);
   res.rows.forEach(function(s){
     /* ligne « Autres » que le technicien a retirée du constat : son choix */
     if (!s.std && refus[s.id]) return;
-    var r = vcLigneConstat(c, s), vals = vcValeurs(s), lab = r ? r.label : s.label, dbl = vcAutresDouble(c, s);
+    var r = lien[s.id] || null, vals = vcValeurs(s), lab = r ? r.label : s.label, dbl = vcAutresDouble(c, s);
     /* appareil de la même sorte aussi compté en « Autres » : à vérifier, sans rien retirer ni remplir à la place du technicien */
     var aussi = dbl ? ' ; « ' + dbl.label + ' » (' + (String(dbl.nb == null ? '' : dbl.nb).trim() || '0') + ') figure aussi au constat, en « Autres » : vérifiez qu\'il n\'est pas compté deux fois' : '';
     if (!r || !rowActive(r)){ out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + (r && String(r.nb == null ? '' : r.nb).trim() === '0' ? '0' : 'nombre non renseigné') + ' au constat' + aussi + '.'); return; }

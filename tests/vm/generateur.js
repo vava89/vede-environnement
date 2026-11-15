@@ -17,9 +17,11 @@ const EXUTOIRES = ['puisard', 'milieu', 'gargouille'];
    indiqué), pSens (part de tuyaux orientés), avp (statuts « Projet » et « À supprimer »), passages (types du milieu), exutoires (types
    des exutoires dessinés ; sans elle, EXUTOIRES : mêmes tirages, mêmes croquis qu'avant m118 ; « exutoire », l'autre destination, m128 :
    ses champs viennent d'une suite à part, voir destTiree ; sans « exutoire », aucun tirage de plus), drains (m124 : des drains ; sans
-   elle, aucun tirage de plus : mêmes croquis qu'avant m124). */
+   elle, aucun tirage de plus : mêmes croquis qu'avant m124), sources (m132 : types des sources tirées ; sans elle, SOURCES : mêmes
+   croquis qu'avant m132 ; « autre_eu » et « autre_ep », les autres appareils, tirent nom, abréviation et ligne du constat d'une suite à
+   part, voir genTire). */
 function gen(graine, o){
-  o = Object.assign({maxS: 3, maxN: 5, maxC: 2, pLoop: 0.5, pRes: 0.4, pSens: 0.25, avp: false, passages: PASSAGES, exutoires: EXUTOIRES, drains: false}, o || {});
+  o = Object.assign({maxS: 3, maxN: 5, maxC: 2, pLoop: 0.5, pRes: 0.4, pSens: 0.25, avp: false, passages: PASSAGES, exutoires: EXUTOIRES, drains: false, sources: SOURCES}, o || {});
   const rnd = mkRnd(graine * 7919 + 17), pick = a => a[Math.floor(rnd() * a.length)], ent = (a, b) => a + Math.floor(rnd() * (b - a + 1));
   const objs = [], lignes = [], noeuds = [];
   let nl = 0;
@@ -61,11 +63,14 @@ function gen(graine, o){
     const k = rnd() < 0.8 ? 1 : 2;
     for (let j = 0; j < k; j++) ligne('tr', res(), coude([n, aval(i, 0, 3 + 2.5 * i)]), sens(), stL());
   });
-  /* sources (en haut), chacune reliée à un nœud, à un collecteur ou laissée libre */
+  /* sources (en haut), chacune reliée à un nœud, à un collecteur ou laissée libre ; un autre appareil tire ses champs d'une suite à
+     part, créée au premier (m132) */
   const nS = ent(1, o.maxS);
+  let rg = null;
   for (let s = 0; s < nS; s++){
-    const t = pick(SOURCES), p = {};
+    const t = pick(o.sources), p = {};
     if (t === 'descente'){ p.visitable = pick(['oui', 'oui', 'non']); p.cote = pick(['avant', 'arriere']); }
+    if (t === 'autre_eu' || t === 'autre_ep') Object.assign(p, genTire(rg || (rg = mkRnd(graine * 7247 + 41))));
     const n = obj('S' + s, t, -8 + 5 * s, 4 + 2.5 * nN, p);
     ligne('tr', res(), coude([n, aval(nN, -8 + 5 * s, 4 + 2.5 * nN)]), sens(), stL());
     if (rnd() < 0.15) ligne('tr', res(), [n, aval(nN, -8 + 5 * s, 4 + 2.5 * nN)], sens(), stL());
@@ -134,9 +139,25 @@ function destTiree(r, objs){
   return p;
 }
 
+/* Autre appareil (m132, option sources avec « autre_eu » ou « autre_ep ») : champs tirés de la suite r, à part, qui ne change donc rien
+   au reste du croquis. Nom fictif, parfois absent, blanc, long (coupé à 40 caractères), à balises, celui d'un type du catalogue
+   (« Douche italienne » : lu tel quel) ou un nombre au lieu d'un texte (comme d'un fichier abîmé : lu sans nom) ; abréviation parfois
+   de longueur fausse ou illisible au PDF ; ligne du constat parfois celle d'un autre groupe, inconnue ou propriété des objets
+   (« constructor »). */
+const GEN_NOMS = ['Bidet', 'bidet', 'Urinoir', 'Climatisation', 'Avaloir de terrasse', '', '   ', 'Pompe de relevage fictive numéro 1234 pour un essai de coupe',
+  '<b>Bidet</b> & "x"', 'Douche italienne', 12];
+const GEN_ABS = ['Bi', 'Ur', 'ABCD', '', 'ΩΩ', 'b'], GEN_ROWS = ['', 'wc', 'evier', 'gout_av', 'grilles', 'zz', 'constructor'];
+function genTire(r){
+  const pick = a => a[Math.floor(r() * a.length)], p = {};
+  if (r() < 0.9) p.nom = pick(GEN_NOMS);
+  if (r() < 0.4) p.ab = pick(GEN_ABS);
+  if (r() < 0.3) p.row = pick(GEN_ROWS);
+  return p;
+}
+
 /* Résumé lisible d'un croquis généré, pour les messages ; un drain est marqué (drain collecte) ou (drain infiltration). */
 function fmt(spec){
   return spec.o.map(o => o[0] + ':' + o[1] + (o[4] && o[4].st ? '[' + o[4].st + ']' : '')).join(' ') + ' ; ' + spec.l.map(l => l[0] + (l[1] === 'col' ? '(col ' + l[2] + ')' : (l[2] ? '[' + l[2] + ']' : '') + (l[5] ? (l[5] > 0 ? '>' : '<') : '') + (l[3] ? '{' + l[3] + '}' : '') + (l[6] && l[6].drain ? '(drain ' + l[6].drain + ')' : '')) + '=' + l[4].map(q => typeof q === 'string' ? q : '·').join('-')).join(' ');
 }
 
-module.exports = {mkRnd, gen, fmt, SOURCES, PASSAGES, EXUTOIRES};
+module.exports = {mkRnd, gen, fmt, SOURCES, PASSAGES, EXUTOIRES, GENERIQUES: ['autre_eu', 'autre_ep']};

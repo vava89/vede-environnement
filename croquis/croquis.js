@@ -853,11 +853,12 @@ var DEST_CSTS = [['MILIEU', 'Milieu naturel'], ['GARG', 'Gargouille'], ['puisard
    40 caractères ; abréviation vide : tirée du nom nom0) et le refus, texte du toast de la fiche ('' : acceptée). Refusés : un nom vide,
    qui contient « puits » une fois normalisé comme la clé (décision D3), ou illisible au PDF ; une abréviation de longueur fausse ou
    illisible au PDF */
+var REFUS_PUITS = 'Pour un puits, posez l\'objet Puits (EP non conformes) ; pour un puits perdu, un Puisard.';
 function champDest(k, val, nom0){
   var s = String(val == null ? '' : val).replace(/\s+/g, ' ').trim(), refus = '', LONG = 'Abréviation de 2 ou 3 caractères, par exemple Ét';
   if (k === 'nom'){
     s = s.slice(0, 40).trim();
-    refus = !s ? 'Le nom ne peut pas être vide' : /PUIT(S|\b)/.test(nomCle(s)) ? 'Pour un puits, posez l\'objet Puits (EP non conformes) ; pour un puits perdu, un Puisard.'
+    refus = !s ? 'Le nom ne peut pas être vide' : /PUIT(S|\b)/.test(nomCle(s)) ? REFUS_PUITS
       : abDe(s).length < 2 ? 'Nom illisible au PDF : employez au moins deux lettres latines ou chiffres' : '';
   } else if (k === 'ab'){
     if (!s){ s = abDe(nom0 == null ? '' : String(nom0)); if (s.length < 2) refus = LONG; }
@@ -968,6 +969,12 @@ def('siphon_sol', {fam: 'ep', lib: 'Siphon de sol', nat: 'EP', role: 'source', f
 def('siphon_cour', {fam: 'ep', lib: 'Siphon de cour', nat: 'EP', role: 'source', forme: 'siphon', autre: 'Siphon de cour'});
 def('drain', {fam: 'ep', lib: 'Drain', ab: 'Dr', nat: 'EP', role: 'source', forme: 'app', autre: 'Drain'});
 def('tropplein', {fam: 'ep', lib: 'Trop-plein', ab: 'TP', nat: 'EP', role: 'source', forme: 'app', autre: 'Trop-plein', mur: true});
+/* autres appareils (m132, souhait 7 ; décisions D1 à D5) : appareil EU ou ouvrage EP que le catalogue n'a pas (bidet, urinoir, avaloir de
+   terrasse…), nommé par l'opérateur. Dans p : nom (libDe), ab (lettres du symbole, abObj) et row (ligne du formulaire du constat, du même
+   réseau ; sinon une ligne « Autres » à son nom), tous facultatifs. Nature fixée par le type : les règles des sources s'appliquent telles
+   quelles. Hors des familles : ni palette ni sélecteur « Type » (m133) */
+def('autre_eu', {fam: 'eu', lib: 'Autre appareil', ab: '?', nat: 'EU', role: 'source', forme: 'app', nomLibre: true});
+def('autre_ep', {fam: 'ep', lib: 'Autre ouvrage EP', ab: '?', nat: 'EP', role: 'source', forme: 'app', nomLibre: true});
 def('regard', {fam: 'reg', lib: 'Regard', nat: null, role: 'passage', forme: 'regard', regard: true});
 def('boite', {fam: 'reg', lib: 'Boîte de branchement', court: 'Boîte', g: 'f', role: 'passage', forme: 'boite', regard: true, boite: true});
 def('te', {fam: 'reg', lib: 'Té de visite', role: 'passage', forme: 'te', mur: true});
@@ -1005,6 +1012,8 @@ function defautsPt(t, m){
   if (t === 'test'){ p.meth = []; p.resultat = ''; }
   if (t === 'zone') p.r = 1.5;
   if (ty.oriente) p.a = 0;
+  /* autre appareil (m132) : sans nom, sans abréviation, sans ligne du formulaire choisie */
+  if (ty.nomLibre){ p.nom = ''; p.ab = ''; p.row = ''; }
   /* autre destination (m125) : champs d'une destination sans nom ni jugement (destDe) ; m : modèle de la pose (m127, D10), ses cinq champs
      lus par destDe, rien d'autre (ni statut ni observation) ; sans effet sur un autre type */
   if (ty.exu && exuDe(ty.exu) && exuDe(ty.exu).dest) Object.assign(p, destDe(m ? {p: m} : null));
@@ -1611,14 +1620,67 @@ VC.analyser = analyser;
    « WC + lave-mains » ; un type inconnu : son code, même s'il porte le nom d'une propriété des objets du langage (« toString »), comme
    estDest. Un drain de collecte se lit par l'objet que rend srcObj (« Drain »). Le lisent les anomalies et les contrôles (libObj),
    l'étiquette, la page 2 du plan PDF, l'en-tête de la fiche et le constat ; le symbole, le bloc du DXF et la légende gardent le libellé
-   du type (« WC ») */
+   du type (« WC »). Autre appareil (m132 ; D2) : son nom (nomLibre), sinon le libellé du type (« Autre appareil », « Autre ouvrage EP ») */
 function libDe(e){
   var ty = e && Object.prototype.hasOwnProperty.call(T, e.t) ? T[e.t] : null;
   if (!ty) return e ? e.t : '';
+  if (ty.nomLibre) return nomLibre(e.p) || ty.lib;
   if (e.t === 'wc' && e.p && e.p.lm === 'oui') return 'WC + lave-mains';
   return ty.lib;
 }
 VC.libDe = libDe;
+/* nom d'un autre appareil (m132 ; D2), comme celui d'une destination (destDe) : seul un texte compte, espaces réduits, 40 caractères au
+   plus ; '' sans nom (absent, vide, blanc, ou qui n'est pas du texte [p]) */
+function nomLibre(p){
+  var x = p && typeof p.nom === 'string' ? p.nom.replace(/\s+/g, ' ').trim() : '';
+  return x.slice(0, 40).trim();
+}
+/* lettres du symbole d'un objet (m132 ; D2) : celles de son type ; un autre appareil : l'abréviation saisie (texte de 1 à 3 caractères, dont
+   un au moins que le PDF sait écrire [p], comme celle d'une destination), sinon les deux premières lettres de son nom que le PDF sait
+   écrire, l'initiale en capitale [p] (« bidet » : « Bi »), sinon celles du type (« ? ») ; '' pour un type inconnu */
+function abObj(e){
+  var ty = e && Object.prototype.hasOwnProperty.call(T, e.t) ? T[e.t] : null;
+  if (!ty) return '';
+  if (!ty.nomLibre) return ty.ab || '';
+  var p = (e.p && typeof e.p === 'object') ? e.p : {}, ab = typeof p.ab === 'string' ? p.ab.replace(/\s+/g, ' ').trim() : '';
+  if (ab.length >= 1 && ab.length <= 3 && pdfTxt(ab).trim()) return ab;
+  var n = abDe(nomLibre(p));
+  return n ? n.charAt(0).toUpperCase() + n.slice(1) : ty.ab;
+}
+VC.abObj = abObj;
+/* nom refusé pour un autre appareil (m132 ; D2), lu par la fiche (m133), jamais à la lecture d'un croquis : un nom venu d'un fichier est lu
+   tel quel. Rend '' si le nom est permis (vide ou blanc compris : le contrôle « nom à indiquer » le demande ; ce qui n'est pas du texte
+   aussi), sinon le texte du toast, qui nomme l'objet à poser. Refusé : un nom égal (casse, accents, tirets, apostrophes et espaces
+   ignorés, typographiques compris : « ’ » du clavier de l'iPad, trait d'union insécable ; s final de chaque mot [p]) au libellé d'un type
+   du catalogue, génériques compris, ou à celui de sa ligne « Autres », avec ou sans
+   ses parenthèses (« Chaudière ») ; un nom qui contient un mot d'un appareil que le formulaire range déjà (ceux de l'application, ROW_KW et
+   rowSides), plus lave-mains, vasque, salle d'eau, bac à laver [p] et puits */
+var NOM_MOTS = [[/\b(lavabos?|vasques?|lave mains?)\b/, 'lavabo'], [/\b(wc|toilettes?)\b/, 'wc'], [/\beviers?\b/, 'evier'], [/\bdouches?\b/, 'douche'],
+  [/\bbaignoires?\b/, 'baignoire'], [/\bsalles? (de bains?|d eau)\b/, 'sdb'], [/\bcuisines?\b/, 'cuisine'], [/\b(lave linges?|machines? a laver)\b/, 'lavelinge'],
+  [/\bbacs? a laver\b/, 'evier'], [/\blave vaisselles?\b/, 'lavevaisselle'], [/\bsiphons? (de |du )?garage\b/, 'siphon_garage'], [/\bsiphons? de sol\b/, 'siphon_sol'],
+  [/\bgrilles?\b/, 'grille'], [/\bcaniveaux?\b/, 'caniveau'], [/\b(descentes?|gouttieres?)\b/, 'descente'], [/\bpuits\b/, 'puits']];
+function nomRefuse(nom){
+  if (typeof nom !== 'string') return '';
+  var n = nom.replace(/\s+/g, ' ').trim(); if (!n) return '';
+  var mots = function(x){ return norm(x).replace(/[-'‐-―‘’ʼ]/g, ' ').replace(/\s+/g, ' ').trim(); }, eg = function(x){ return mots(x).replace(/s\b/g, ''); };
+  var en = eg(n), t = '', k, i;
+  for (k in T){
+    if (!Object.prototype.hasOwnProperty.call(T, k)) continue;
+    var ty = T[k], libs = [ty.lib];
+    if (ty.autre) libs.push(ty.autre, ty.autre.replace(/\s*\([^)]*\)/g, ''));
+    if (libs.some(function(l){ return eg(l) === en; })){ t = k; break; }
+  }
+  if (!t){ var m = mots(n); for (i = 0; i < NOM_MOTS.length && !t; i++) if (NOM_MOTS[i][0].test(m)) t = NOM_MOTS[i][1]; }
+  if (!t) return '';
+  if (t === 'puits') return REFUS_PUITS;
+  if (t === 'lavabo') return n + ' : se dessine en Lavabo, compté Évier ; le lave-mains d\'un WC est sa puce « + lave-mains ».';
+  var tt = T[t];
+  if (tt.nomLibre) return n + ' : c\'est le nom d\'office ; indiquez celui de ' + (tt.nat === 'EP' ? 'l\'ouvrage' : 'l\'appareil') + ' vu sur place.';
+  var f = tt.g === 'f', rl = '';
+  for (i = 0; i < ROWS_STD.length; i++) if (ROWS_STD[i][0] === tt.row) rl = ROWS_STD[i][2].replace(/\s*\([^)]*\)/g, '');
+  return n + ' : posez ' + (f ? 'une ' : 'un ') + tt.lib + (rl && rl !== tt.lib ? ', compté' + (f ? 'e' : '') + ' en ' + rl : '') + '.';
+}
+VC.nomRefuse = nomRefuse;
 function libObj(o){ return libDe(o); }
 /* Niveau d'une source (souhait 15, m130 ; décisions D1 et D2) : p.niv garde ses trois codes ('ss', 'rdc', 'etage') ; p.etage précise
    l'étage, '1' à '99' ou 'combles', et ne se lit que si niv vaut 'etage'. etageDe : cette valeur, '' si elle manque ou est illisible.
@@ -1751,6 +1813,8 @@ function controles(doc, an){
     var o = an.objs[id], ty = T[o.t], lib = libObj(o), r = an.resObj[id];
     if (ty.role === 'source'){
       source(id, o, lib, r);
+      /* autre appareil sans nom (m132 ; D3) : sans effet sur la conclusion */
+      if (ty.nomLibre && !nomLibre(o.p)) c(id, 'manque', lib + ' : nom à indiquer', 'nom');
       if (o.t === 'descente'){
         if (!o.p.visitable) c(id, 'manque', 'Descente EP : visitable ou non à indiquer', 'visit');
         if (!o.p.cote) c(id, 'manque', 'Descente EP : façade avant ou arrière à indiquer pour le constat', 'cote');
@@ -2163,6 +2227,16 @@ function constatDeduit(doc, an){
     /* descente sans façade indiquée : ni avant ni arrière (le contrôle la demande) */
     if (ty.row === 'gout') return o.p.cote === 'arriere' ? rows[7] : o.p.cote === 'avant' ? rows[6] : null;
     if (ty.row){ for (var i = 0; i < rows.length; i++) if (rows[i].id === ty.row) return rows[i]; }
+    /* autre appareil (m132 ; D4) : la ligne du formulaire choisie (p.row), si c'en est une du même réseau ; sinon une ligne « Autres » par
+       réseau et par nom normalisé (« Bidet » et « bidet » : une ligne, au libellé du premier objet de l'analyse), « Autre appareil » ou
+       « Autre ouvrage EP » sans nom. Chaque objet reste une installation */
+    if (ty.nomLibre){
+      var rw = o.p && typeof o.p.row === 'string' ? o.p.row : '';
+      for (var j = 0; rw && j < rows.length; j++) if (rows[j].std && rows[j].id === rw && rows[j].groupe === ty.nat) return rows[j];
+      var nm = libDe(o), kg = 'autre:' + ty.nat + ':' + norm(nm).replace(/\s+/g, ' ').trim();
+      if (!autres[kg]){ autres[kg] = {id: kg, groupe: ty.nat, label: nm, std: false, nb: 0, codes: [], libs: [], non: [], oks: [], meth: [], objets: [], types: []}; rows.push(autres[kg]); }
+      return autres[kg];
+    }
     var lab = ty.autre || ty.lib, k = 'autre:' + lab;
     if (!autres[k]){ autres[k] = {id: k, groupe: ty.nat, label: lab, std: false, nb: 0, codes: [], libs: [], non: [], oks: [], meth: [], objets: [], types: []}; rows.push(autres[k]); }
     return autres[k];
@@ -2285,7 +2359,8 @@ function texteEtiquette(e, an){
       if (e.t === 'descente'){ s = 'Descente EP' + (e.p.cote === 'arriere' ? ' arrière' : e.p.cote === 'avant' ? ' avant' : ''); if (e.p.visitable === 'non') s += '\nnon visitable'; }
       /* niveau (m130 ; D5) : « (1er étage) », « (RDC) »… ; rien pour un code inconnu */
       var nv = libNiv(e); if (nv) s += ' (' + nv + ')';
-      if (s === ty.ab && !pre) return '';
+      /* le nom d'un autre appareil s'écrit même s'il vaut les lettres de son symbole (m132 ; D5) */
+      if (s === ty.ab && !pre && !ty.nomLibre) return '';
       return pre + s;
     }
     if (ty.regard){
@@ -2345,7 +2420,8 @@ function primitives(e, rgb, angPlan){
   switch (ty.forme){
     case 'app': case 'app2': {
       var r = ty.forme === 'app2' ? 2.3 : 1.9; cercle(r, {trait: rgb, fond: BLANC, ep: ep});
-      var ab = ty.ab || ''; texte(ab, ab.length > 2 ? 1.3 : 1.65, {coul: rgb, gras: true}); break;
+      /* autre appareil (m132 ; D5) : les lettres de l'objet (abObj) */
+      var ab = ty.nomLibre ? abObj(e) : ty.ab || ''; texte(ab, ab.length > 2 ? 1.3 : 1.65, {coul: rgb, gras: true}); break;
     }
     case 'descente': cercle(1.25, {trait: rgb, fond: rgb, ep: .2}); cercle(.42, {fond: BLANC}); break;
     case 'grille': rect(3, 3, {trait: rgb, fond: BLANC, ep: ep}); poly([-.5, -1.5, -.5, 1.5], false, {trait: rgb, ep: .18}); poly([.5, -1.5, .5, 1.5], false, {trait: rgb, ep: .18}); break;
@@ -6708,6 +6784,13 @@ function legende(doc, an, mode, ext, oL){
       if (!vus[kd]){ vus[kd] = 1; out.push({k: 'pt', t: e.t, p: dd, rgb: couleurPt(Object.assign({}, e, {p: Object.assign({}, e.p, {st: 'existant'})}), an), lib: dd.nom + (dd.ab !== dd.nom ? ' (' + dd.ab + ')' : ''), o: 3}); }
       return;
     }
+    /* autre appareil (m132 ; D5) : une ligne par type, nom (casse, accents et espaces ignorés : au libellé du premier objet dessiné) et
+       lettres du symbole, « Bidet (Bi) », « Autre appareil (?) » sans nom ; son échantillon porte ces lettres (it.p) */
+    if (e.k === 'pt' && T[e.t] && T[e.t].nomLibre){
+      var ng = libDe(e), ag = abObj(e), kg = 'gen\n' + e.t + '\n' + nomCle(ng) + '\n' + ag;
+      if (!vus[kg]){ vus[kg] = 1; out.push({k: 'pt', t: e.t, p: {nom: ng, ab: ag}, rgb: couleurPt(Object.assign({}, e, {p: Object.assign({}, e.p, {st: 'existant'})}), an), lib: ng + (ag !== ng ? ' (' + ag + ')' : ''), o: 3}); }
+      return;
+    }
     if (e.k === 'pt' && e.t !== 'jonction' && T[e.t] && !vus[e.t]){ vus[e.t] = 1; out.push({k: 'pt', t: e.t, rgb: couleurPt(Object.assign({}, e, {p: Object.assign({}, e.p, {st: 'existant'})}), an), lib: T[e.t].lib + (T[e.t].ab && T[e.t].ab !== T[e.t].lib ? ' (' + T[e.t].ab + ')' : ''), o: 3}); }
   });
   if (st.presume) out.push({k: 'ln', res: 'INC', st: 'presume', lib: 'Tracé présumé (tirets)', o: 2});
@@ -6855,17 +6938,19 @@ function ecrireDxf(doc, an, liste){
   /* objet d'un type inconnu (croquis d'une version plus récente) : bloc neutre VEDE_OBJET (un cercle) */
   /* destination (m126, décision D9) : un bloc par abréviation, VEDE_EXUTOIRE_ + l'abréviation réduite à A-Z, 0-9 et _ (« Ét » :
      VEDE_EXUTOIRE_ET), 31 caractères au plus (R12) ; deux abréviations qui donnent le même nom : _2, _3… dans l'ordre du dessin */
+  /* autre appareil (m132 ; D5) : de même, un bloc par type et lettres du symbole (abObj), VEDE_AUTRE_EU_ + les lettres réduites (« Bi » :
+     VEDE_AUTRE_EU_BI ; « bi » ensuite : VEDE_AUTRE_EU_BI_2 [p]) ; celles du type (« ? », sans nom) : VEDE_AUTRE_EU */
   var blocs = [], nomBloc = Object.create(null), pris = Object.create(null);
-  function cleBloc(e){ return estDest(e.t) ? 'dest\n' + destDe(e).ab : T[e.t] ? e.t : 'objet'; }
+  function cleBloc(e){ return estDest(e.t) ? 'dest\n' + destDe(e).ab : T[e.t] && T[e.t].nomLibre ? 'gen\n' + e.t + '\n' + abObj(e) : T[e.t] ? e.t : 'objet'; }
   doc.el.forEach(function(e){
     if (e.k !== 'pt' || e.t === 'zone') return;
-    var c = cleBloc(e);
-    if (!(c in nomBloc)){ nomBloc[c] = ''; blocs.push({cle: c, t: T[e.t] ? e.t : 'objet', p: estDest(e.t) ? destDe(e) : null}); }
+    var c = cleBloc(e), ty = T[e.t], ag = ty && ty.nomLibre ? abObj(e) : '';
+    if (!(c in nomBloc)){ nomBloc[c] = ''; blocs.push({cle: c, t: ty ? e.t : 'objet', p: estDest(e.t) ? destDe(e) : ty && ty.nomLibre && ag !== ty.ab ? {ab: ag} : null, gen: !!(ty && ty.nomLibre)}); }
   });
   blocs.forEach(function(b){ if (!b.p){ nomBloc[b.cle] = 'VEDE_' + b.t.toUpperCase(); pris[nomBloc[b.cle]] = 1; } });
   blocs.forEach(function(b){
     if (!b.p) return;
-    var base = ('VEDE_EXUTOIRE_' + norm(b.p.ab).toUpperCase().replace(/[^A-Z0-9_]/g, '_')).slice(0, 31), n = base, i = 1, suf;
+    var base = ((b.gen ? 'VEDE_' + b.t.toUpperCase() + '_' : 'VEDE_EXUTOIRE_') + norm(b.p.ab).toUpperCase().replace(/[^A-Z0-9_]/g, '_')).slice(0, 31), n = base, i = 1, suf;
     while (pris[n]){ suf = '_' + (++i); n = base.slice(0, 31 - suf.length) + suf; }
     pris[n] = 1; nomBloc[b.cle] = n;
   });
