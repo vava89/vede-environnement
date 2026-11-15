@@ -19,7 +19,7 @@ Détail du code : cartes A, B et C (`carte-*.md`). Lot Rejets : `.claude/concept
   - 18 : une puce « + lave-mains » sur le WC ; le WC + lave-mains compte le WC seul.
 - 13 et 14 nov. (lot Rejets, utiles ici) : une anomalie à arbitrer n'est jamais comptée conforme (m119) ; chaque drain de collecte compte
   « Autres : Drain » (Q4 b) ; un drain qui reçoit un équipement EP disperse dans le sol ; Q6 (équipement relié à un drain de collecte sans
-  sortie) reste ouverte, recommandation (b), codée en m129 sauf avis contraire.
+  sortie) reste ouverte, recommandation (b), codée en m129 (aabb18c) sauf avis contraire.
 
 ## « Autres » par défaut et la décision du 6 nov.
 - À quoi elle répondait : à m85. Ses phrases visent ce cas : ne pas réinterpréter le dessin, ne pas ajouter une ligne « Autres » pour un
