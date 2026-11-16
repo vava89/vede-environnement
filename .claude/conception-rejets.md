@@ -338,7 +338,7 @@ cités par nom de cas. Détail du code : `carte-*.md` (8 nov. ; le puits y est e
     (IX:2958), croquis simple (IX:2342, 2368), exception du lavabo (ligne « Évier », m96). croqAuto.recup et croquisConfig.exutoires restent inertes ;
     les anomalies déjà au dossier restent telles quelles.
 
-## Découpage (m116 à m129 ; quatorze correctifs, batterie verte après chacun)
+## Découpage (m116 à m129, puis m136 ; quinze correctifs, batterie verte après chacun)
 Ordre : le commun, sans changement visible (m116) ; l'infiltration (m117, m118) ; l'arbitrage, règle générale, juste après m118 (m119) ; le puits
 (m120) ; les drains (m121 à m124) ; les destinations (m125 à m128), la palette après l'analyse et le rendu ; les cas limites des drains, après les
 réponses à Q6 et Q7 (m129). m116 à m129 sont envoyés (le lot est fini) : leur fiche ne change plus (celles de m116 à m123 renvoient au message de leur
@@ -545,6 +545,23 @@ libres avant la suivante.
   - Risques et [p] : M5 (mélange avec un autre bout libre : réseau présumé) ; M6 (drain que suit un WC : conforme) ; libellé du constat, peigne,
     légende et tête de fiche du drain de collecte qui disperse ; fosse au-delà non comptée ; flèches d'un drain qui disperse.
 
+- **m136 Avant-projet : anomalie de raccordement restée à arbitrer** (défaut J1 de la relecture d'ensemble de la v1.7.1 ; D6, m119 :
+  une anomalie à arbitrer n'est jamais comptée conforme ; corrigé avant la fusion, réponse (B) du 16 nov., par exception à la limite de 20).
+  Fait : d657694, 16 nov.
+  - Fichiers : CJ : pageTableaux (anomalies de raccordement de l'avant-projet partagées en apres et arbA d'après le statut d'anomaliesDoc) ;
+    vm/avant-projet.js a1 à a12 ; les trois LISEZMOI.
+  - Pour l'utilisateur : au plan PDF d'avant-projet, tableau « Contrôle de l'avant-projet », une anomalie de raccordement que le projet garde
+    ou crée et qui reste à arbitrer a la ligne « À arbitrer après travaux : … (retenir ou écarter l'anomalie dans Contrôles) », après « Reste
+    après travaux » ; « Après travaux, le dessin ne fait plus apparaître d'anomalie de raccordement. » ne sort que si le tableau n'a aucune
+    autre ligne.
+  - Tests : vm/avant-projet.js a1 à a12 (39 contrôles ; 14 échouent sur af9c776). Sonde : 700 croquis, 3 500 PDF comparés à af9c776 : seules
+    changent ces lignes et la phrase.
+  - Relecture : aucun défaut bloquant ni majeur ; M2 à M6 appliqués ; laissés pour la v1.7.2 : M1 (retenue à l'état des lieux, à arbitrer sur
+    le seul avant-projet : « À arbitrer », et « écarter » efface la NC ; mode autonome, déjà ainsi à l'écran), M7 (libellé de la fosse
+    douteuse), M8 (décision liée à la source, D10).
+  - [p] : libellé et ordre des lignes ; anomalie créée par le seul projet listée ; fosse douteuse sous son texte ; statut du mode intégré pris
+    d'anomaliesDoc.
+
 ## Questions qui restent
 - Q1 à Q5 : tranchées le 13 nov. (Q1 : D6, m119 ; Q2 : D8, m121 ; Q3 : D4, m122, m123 ; Q4 : D4, D7, m123 ; Q5 : D3, D6, m120).
 - Q6 Un équipement relié à un drain de collecte dont la sortie n'est pas dessinée (D4, m129).
@@ -552,7 +569,7 @@ libres avant la suivante.
   est relié (la lettre de la règle du 13 nov.) ; (c) réseau EP présumé, comme pour le drain (Q3). (b) et (c) jugent de même (descente conforme, WC
   NC).
   Recommandation : (b), soumise le 14 nov., codée en m129 (aabb18c) sauf avis contraire ; le relecteur préférait (a) : le PDF n'imprime rien que le
-  technicien n'a pas choisi.
+  technicien n'a pas choisi. Réponse du 16 nov. : (b), confirmée.
 - Q7 Un drain d'infiltration qui atteint aussi un autre exutoire (m122, m129).
   Ce qu'on voit (m122) : trop-plein parti du drain vers un réseau, ou puits, puisard, boîte posés dessus : « Relié à plusieurs réseaux », à compléter,
   sans sens vrai qui le lève (l'eau va aux deux). Le trop-plein d'un puisard ou d'une infiltration au sol n'est pas lu (v1.5.1).
@@ -560,9 +577,11 @@ libres avant la suivante.
   une bifurcation avant le drain reste « multiple » ; (b) garder « multiple » ; (c) le drain arrête l'eau (un trop-plein vers le réseau EU passe
   inaperçu).
   Recommandation : (a), codée en m129 (aabb18c) sauf avis contraire ; l'étendre au puisard déroge à la v1.5.1 (accord de l'utilisateur).
+  Réponses du 16 nov. : (a), confirmée ; trop-plein d'un puisard ou d'une infiltration au sol : « Oui : chaque exutoire atteint par le
+  trop-plein compte avec son jugement, comme en Q7 (a) » (pour la v1.7.2).
 - Q8 Réparation d'une sauvegarde (m126, D11). À la restauration, planValide écrit pour de bon les replis de D3 dans une destination aux champs
   inconnus (nom coupé à 40 caractères ou « Autre destination », EP « à arbitrer », case « autre ») et retire un p.drain inconnu. Une tablette pas à
   jour qui restaure la sauvegarde d'une tablette plus récente perdrait une valeur qu'elle ne connaît pas (un article, une case…).
   Choix : (a) garder ; (b) ne remplacer que les champs qui ne sont pas du texte et garder une valeur inconnue, lue par les replis de destDe et
   sorteDrain (comme un objet d'un type inconnu est gardé).
-  Recommandation : (b), soumise le 14 nov., codée en m128 (7b4f489) sauf avis contraire.
+  Recommandation : (b), soumise le 14 nov., codée en m128 (7b4f489) sauf avis contraire. Réponse du 16 nov. : (b), confirmée.
