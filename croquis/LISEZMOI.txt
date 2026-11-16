@@ -56,6 +56,10 @@ CE QUE L'APPLICATION DÉDUIT DU DESSIN
   retenue, rien n'est proposé, comme avant (« sans objet »). La fiche de l'équipement (VCroquis.etatSource) est « en attente » (« … · anomalie à
   arbitrer ») quand l'anomalie porte sur lui ; une boîte manquante ou un tampon absent ne jouent que sur la conclusion.
 - Après l'avant-projet : les tracés « projet » remplacent les tracés « à supprimer » ; le contrôle dit si les raccordements sont corrigés.
+  Une anomalie de raccordement que le projet garde ou crée et qui reste à arbitrer y est listée « À arbitrer après travaux : … (retenir
+  ou écarter l'anomalie dans Contrôles) », après « Reste après travaux » : elle n'est jamais comptée corrigée (m136). « Après travaux, le
+  dessin ne fait plus apparaître d'anomalie de raccordement. » ne s'imprime que si le tableau n'a aucune autre ligne : aucune anomalie de
+  raccordement ne reste à corriger ni à arbitrer (les défauts d'ouvrage et les anomalies saisies à la main n'entrent pas dans ce contrôle).
 
 SORTIES
 - Plan de l'état des lieux en PDF (A4 paysage) :

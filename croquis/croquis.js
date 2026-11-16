@@ -7246,8 +7246,10 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL, conclC){
   if (mode === 'avp'){
     /* le dessin du projet doit corriger les raccordements ; les défauts d'ouvrage (tampon, cunette, accès) le sont par la préconisation.
        Un rejet des EP dans un puits (catégorie « autre ») est un raccordement : il reste à corriger sur le dessin (m120) ; de même le rejet
-       des EP dans une autre destination, non conforme ou en réserve (m125) */
-    var apres = anomaliesDoc(doc, analyser(doc, 'avp'), ext, oL).filter(function(a){ return (a.st === 'retenue' || a.st === 'horsdossier') && a.auto && (a.cat === 'inversion' || /^(fosse|ep-puits|ep-exu):/.test(a.cle)); });
+       des EP dans une autre destination, non conforme ou en réserve (m125). Une anomalie de raccordement que le projet garde ou crée et
+       qui reste à arbitrer a sa ligne à part : elle n'est jamais comptée corrigée (consigne du 13 nov. 2026 ; m136) */
+    var raccA = anomaliesDoc(doc, analyser(doc, 'avp'), ext, oL).filter(function(a){ return a.auto && (a.cat === 'inversion' || /^(fosse|ep-puits|ep-exu):/.test(a.cle)); });
+    var apres = raccA.filter(function(a){ return a.st === 'retenue' || a.st === 'horsdossier'; }), arbA = raccA.filter(function(a){ return a.st === 'arbitrer'; });
     var edlL = anomaliesDoc(doc, analyser(doc, 'edl'), ext, oL), edl = edlL.filter(function(a){ return a.st === 'retenue'; });
     y = tableauPdf(pdf, y, [{t: 'N°', w: 10}, {t: 'Préconisation', w: 120}, {t: 'Anomalie traitée', w: 120}, {t: 'Réseau', w: 26}],
       edl.map(function(a){ return {cells: [String(a.num), a.preco || 'à définir', a.obs, a.reseau], coul: [O], gras: [true, true]}; }), 'Préconisations');
@@ -7257,7 +7259,10 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL, conclC){
     Object.keys(anA.resObj).forEach(function(id){ var e = anA.resObj[id]; if (e.etat === 'ok' && e.sortiesLibres) orphelins.push({cells: ['Après travaux : ' + libEquipement(srcObj(anA, id)) + (e.sortiesLibres.length > 1 ? ' garde des sorties ' + listeEt(e.sortiesLibres.map(libRes)) + ' laissées libres : les passer « À supprimer » ou les raccorder dans le projet' : ' garde une sortie ' + listeEt(e.sortiesLibres.map(libRes)) + ' laissée libre : la passer « À supprimer » ou la raccorder dans le projet')]}); });
     /* hors de l'éditeur : le dessin retient une anomalie que la liste du dossier n'a pas encore (croquis à rouvrir) */
     var nHors = edlL.filter(function(a){ return a.st === 'horsdossier'; }).length, aReprendre = nHors ? [{cells: [texteAReprendre(nHors)]}] : [];
-    var lignesC = aReprendre.concat(apres.map(function(a){ return {cells: ['Reste après travaux : ' + a.obs]}; })).concat(orphelins);
+    var lignesC = aReprendre.concat(apres.map(function(a){ return {cells: ['Reste après travaux : ' + a.obs]}; }))
+      .concat(arbA.map(function(a){ return {cells: ['À arbitrer après travaux : ' + a.obs + ' (retenir ou écarter l\'anomalie dans Contrôles)']}; })).concat(orphelins);
+    /* la phrase seulement quand le tableau n'a aucune autre ligne : aucune anomalie de raccordement ne reste à corriger ni à arbitrer
+       (les défauts d'ouvrage et les anomalies saisies à la main n'entrent pas dans ce contrôle) */
     y = tableauPdf(pdf, y, [{t: 'Contrôle du projet', w: 276}], lignesC.length ? lignesC : [{cells: ['Après travaux, le dessin ne fait plus apparaître d\'anomalie de raccordement.']}], 'Contrôle de l\'avant-projet');
     return;
   }

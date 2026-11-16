@@ -202,7 +202,9 @@ CROQUIS DE TERRAIN (facultatif)
   à arbitrer » au lieu de « Conformes » ou « Conformes avec réserves »,
   et la conclusion proposée du constat reste vide (rappel « Conclusion
   non précisée ») ; choisir « Conformes » ou « Conformes avec réserves »
-  donne un rappel avant la signature.
+  donne un rappel avant la signature. Au plan d'avant-projet, une
+  anomalie de raccordement à arbitrer que le projet garde ou crée est
+  listée « À arbitrer après travaux », jamais comptée corrigée.
   Quand l'anomalie porte sur l'équipement lui-même (descente non
   visitable ou mauvais réseau mis « À arbitrer », fosse que son eau
   traverse peut-être, saisie à la main posée sur l'équipement…), sa
@@ -468,4 +470,8 @@ MISE À JOUR DE L'APPLICATION
   à arbitrer y paraît changé depuis la signature (conclusion, parfois
   aussi installations ou anomalies) : il est intact. N'y touchez pas
   « Modifier », qui efface les signatures : mettez d'abord la tablette à
-  jour.
+  jour. Au plan PDF d'avant-projet, elle omet aussi une anomalie de
+  raccordement restée à arbitrer que le projet garde ou crée (« Après
+  travaux, le dessin ne fait plus apparaître d'anomalie de
+  raccordement. » quand rien d'autre ne reste) ; une tablette à jour
+  l'y liste « À arbitrer après travaux ».
