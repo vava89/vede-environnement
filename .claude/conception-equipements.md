@@ -239,11 +239,11 @@ Détail du code : cartes A, B et C (`carte-*.md`). Lot Rejets : `.claude/concept
     options du générateur (l. 10, 92).
   - Plus tard : le souhait 9 (cadrage l. 299) touchera constatDeduit et pageTableaux ; le barème du souhait 13 devra couvrir les génériques.
 
-## Découpage (m130 à m135, numéros provisoires ; 20 correctifs depuis m116, sans fusion)
+## Découpage (m130 à m135 ; 20 correctifs depuis m116, sans fusion ; tous envoyés)
 Chaque correctif est livrable seul et garde la batterie verte (`sh tests/tout.sh --navigateur`) ; garde commune : compat 245/245 et
 différentiel sans écart. Les tests nouveaux vont dans tests/vm/equipements.js et tests/navigateur/equipements.js, créés en m130 et ajoutés à
 tests/tout.sh (l. 14 et 19) et à tests/LISEZMOI.md. Le lot tient en six numéros ; s'il en manque (lot Rejets plus long, correctif scindé),
-m135 puis m134 attendent la fusion suivante (l'étiquette commune forme un tout), ou la fusion se fait après m133. m130 à m134 sont
+m135 puis m134 attendent la fusion suivante (l'étiquette commune forme un tout), ou la fusion se fait après m133. m130 à m135 sont
 envoyés : leurs fiches disent ce qui a été fait.
 - **m130 Niveau d'étage précis** (souhait 15 ; D1, D2, D5, D7). Fait : 609b9f1, 15 nov.
   - Fichiers : CJ : NIV (les puces), etageDe, libNiv (VC.libNiv), valNiv, poserNiv, texteEtiquette, pageTableaux, demander (option num), chipsHtml
@@ -383,17 +383,44 @@ envoyés : leurs fiches disent ce qui a été fait.
     douche : le WC rejoint la douche, le lavabo garde son étiquette) ; changerType garde lien et titre quel que soit le type, sans toast ; l'e.lab
     d'un membre peut rester vide (changement de type, « Replacer les étiquettes ») : Séparer (m135) la replace ; c6 ne compare pas l'en-tête du DXF
     ($EXTMIN, $EXTMAX) ; collisions au 1/200 non mesurées.
-- **m135 Étiquette commune (2) : mode « Réunir » et fiches** (souhait 8 ; D7).
-  - But : réunir et séparer au doigt.
-  - Fichiers : CJ S.reunir, tapPlan (CJ:3624), halos de la surcouche (CJ:2801), majAide (CJ:4727), ficheHtml, supprimerSel (CJ:4858),
-    sorties du mode, toasts (plus de 3 m, Terminé). croquis/LISEZMOI.txt (fiche) ; LISEZMOI.txt (lavabo compté Évier, l. 127-130 ;
-    consigne).
-  - Pour l'utilisateur : bouton « Étiquette commune… », bandeau Terminé / Annuler, Voir et Séparer.
-  - Test : navigateur e3 : douche, lavabo, WC au même niveau ; « Étiquette commune… », touchers (halos), Terminé → une étiquette et le toast
-    du lavabo (échoue avant : pas de bouton) ; un Annuler rend les trois ; un EP refusé ; un appareil à plus de 3 m : toast ; Séparer, aussi
-    après « Replacer les étiquettes » : étiquette du membre replacée ; porteur supprimé ; zoom pendant le mode.
-  - Risques : sélection multiple nouvelle dans l'éditeur ; gestes au doigt ; une sortie du mode oubliée.
-  - Lot Rejets : fiche après m121 et m127.
+- **m135 Étiquette commune (2) : mode « Réunir » et fiches** (souhait 8 ; D7 ; M3, M4 et M6 de m134). Fait : b2c49d1, 16 nov.
+  - Fichiers : CJ : delierPorteur (VC.delierPorteur), titreGroupe, supprimerElement (rend les objets déliés), état S (reunir, noteEtiq, nInst ;
+    instantane appelle noterCommun), restaurer, annuler et refaire (fermerReunir), halos de la surcouche (écran seulement), plusSous neutralisé
+    pendant le mode, tapPlan (tapReunir), TITRES_LISTE, texteCommun, estPorteur, replacerEtiq, artLib, avecLib, deLib, rowObj, comptesGroupe,
+    texteIndicatif, entrerReunir, fermerReunir, quitterReunir, horsPlan, refusReunir, terminerReunir, etiqCommuneHtml, oublierTitre, separerMembre,
+    defaireGroupe, noterCommun, suivreCommun (apresProp, changerType), majAide (bandeau), supprimerSel, ficheHtml, actions etiqReunir, etiqModifier,
+    etiqDefaire, etiqSeparer et etiqTitre ; Échap, choisirOutil, cotes, ouverture d'un croquis et majPanneau ferment le mode. LISEZMOI.txt (lavabo
+    compté sur Évier ; consigne MISE À JOUR DE L'APPLICATION), croquis/LISEZMOI.txt (fiche), tests/vm/equipements.js c9,
+    tests/navigateur/equipements.js e3, tests/LISEZMOI.md.
+  - Pour l'utilisateur : dans la fiche d'un appareil EU seul, « Étiquette commune… » ouvre le mode « Réunir » (bandeau « Touchez les appareils à
+    réunir avec la Douche · 0 choisi », « Terminé », « Annuler » ; halos à l'écran) ; un toucher ajoute ou retire un appareil ; refus par un message,
+    dans l'ordre de D7 (pas un appareil EU, absent du plan affiché, autre statut, déjà réuni ailleurs, porteur d'un autre groupe) ; au-delà de 3 m,
+    l'appareil reste choisi, avec un message ; « Terminé » en un pas, puis la fiche du porteur et, pour un titre Salle de bain ou Cuisine avec un
+    lavabo ou un évier, « Lavabo et évier comptent à part (Évier) ; pour une seule installation, dessinez l'objet Salle de bain ou Cuisine. » Fiche du
+    porteur : puces du titre (à bascule), « Compté au constat : Salle de bain 1, WC 1, Évier 1 », « Modifier le groupe », « Défaire ». Fiche d'un
+    membre : « Étiquette réunie avec la Douche », « Voir », « Séparer » ; champ Étiquette, « Affichée » et « Replacer » grisés. Supprimer le porteur
+    délie ses membres dans le même pas. Le compte ne change pas.
+  - Tests : vm/equipements.js c9 (7 contrôles, 243 en tout ; 6 échouent sur 82f9ae2 : VCroquis.delierPorteur absente, supprimerElement ne rend pas les
+    objets déliés ; y passe l'étiquette propre des membres d'un porteur supprimé, déjà rendue par m134) ; navigateur/equipements.js e3 (56 contrôles,
+    120 en tout ; sur 82f9ae2, il s'arrête au premier : pas de bouton « Étiquette commune… »). Garde : compat 245/245 sans régénération ; aléatoire
+    8000 contre 82f9ae2 : aucune exception, aucun écart (10 666 analyses) ; aléatoire 8000 avec les champs : aucune exception (4 675 liens, 908
+    porteurs, 1 021 membres) ; sonde v1.7.0 (b08133d) : 14/14, aucune exception, chacun garde son étiquette propre ; batterie complète verte (20 min).
+  - Relecture : deux relecteurs (exactitude, conformité) : aucun défaut bloquant ni majeur, rien à contre-vérifier. Appliquées : M1 (séparer ou
+    supprimer le dernier membre retire aussi le titre : oublierTitre) ; M2 et M4 (« Compté au constat » garde le libellé entier d'une ligne
+    « Autres ») ; M3 et M5 (mode d'emploi de « Séparer » : une étiquette masquée ou déplacée à la main reste telle quelle) ; M6 (contrôle d'un porteur
+    au lien orphelin) ; M7 (le bouton d'un appareil absent du plan affiché n'ouvre pas le mode : « … ; réunissez-le sur l'état des lieux » ou « sur
+    l'avant-projet »). Écartées : la variante de M3 qui retirait lab.off (contraire à D6) ; celle de M7 qui masquait le bouton (D7 le montre quel que
+    soit le statut [p]) ; M1 étendue à « Terminé » : [p] (un titre resté d'un ancien groupe est repris par un nouveau groupe).
+  - Risques et [p] : ordre de « Compté au constat » : celui du groupe (« Salle de bain 1, WC 1, Évier 1 » ; la conception écrivait « Salle de bain 1,
+    Évier 1, WC 1 ») ; un membre placé à la main ou masqué le reste ; liens périmés effacés à « Terminé », à « Défaire » et à la suppression ;
+    « Modifier le groupe » sans appareil choisi = « Défaire » ; message Évier pour les titres Salle de bain et Cuisine seulement ; puce de titre à
+    bascule ; tout panneau ferme le mode, la rotation reste permise ; « Annuler » et « Rétablir » de la barre ferment d'abord le mode ; double
+    toucher : le second est ignoré ; messages de 3,5 s (refus), 4 s (plus de 3 m, appareil hors plan) et 6 s (Évier) ; pas de sélection pendant le
+    mode ; articles « l'appareil « Bidet » », « du WC » ; consigne de mise à jour en une puce à part ; versions antérieures à la v1.7.0 supposées
+    pareilles ; gestes non essayés sur une tablette réelle.
+  - Ouverts : sur une tablette restée en v1.7.0, l'étiquette propre du porteur s'écrit à la place calculée par m135 (sonde : 3,49 m au lieu de 1,08 m)
+    et « Replacer » la ramène ; un membre qui quitte le groupe par son statut ou son type garde son ancienne place ; l'ordre de « Compté au constat »
+    est à confirmer ; la consigne de mise à jour est à reprendre dans l'annonce de la v1.7.1.
 - Attendront la fusion suivante : la liste personnelle des Réglages et la variante « Contient » (non retenues par le cadrage) ; la
   présélection ou le bouton de E4 (b, c) ; la puce « Lavabo » si E2 arrive après m132.
 
