@@ -246,7 +246,14 @@ CROQUIS DE TERRAIN (facultatif)
   palette est refusé : le message dit quel objet poser. Il compte sur la
   ligne « Autres : <son nom> » (une ligne par nom et par réseau), ou sur
   la ligne du formulaire choisie dans sa fiche (« Compté au constat ») ;
-  ses anomalies vont sur sa ligne.
+  ses anomalies vont sur sa ligne. Une étiquette commune (bouton
+  « Étiquette commune… » de la fiche d'un appareil EU) écrit sur le plan
+  une seule étiquette pour les appareils d'une même pièce (« Salle de
+  bain (1er étage) » puis « douche, WC + lave-mains, lavabo ») ; elle ne
+  change aucun compte : chaque appareil reste une installation, et un
+  lavabo réuni compte comme un évier. Un message le rappelle à
+  « Terminé » quand le titre est Salle de bain ou Cuisine : pour une
+  seule installation, dessinez l'objet Salle de bain ou Cuisine.
   « Reprendre du croquis » remplit aussi la section Boîte
   de branchement, réseau par réseau, quand le croquis porte une seule
   boîte existante (ni « projet » ni « à supprimer ») sur ce réseau :
@@ -443,6 +450,17 @@ MISE À JOUR DE L'APPLICATION
   contient ne sortent pas (message d'erreur), et leur fiche ne s'ouvre
   pas dans le croquis. N'y signez aucun constat de ces dossiers : un
   constat signé ne change plus.
+- Mettez aussi à jour toutes les tablettes avant de réunir des appareils
+  sous une étiquette commune (bouton « Étiquette commune… »), et avant
+  d'échanger une sauvegarde ou un dossier qui en contient. Une tablette
+  restée en v1.7.0, ou plus ancienne, ne la connaît pas : chaque
+  appareil y garde son étiquette propre, à l'écran, au plan PDF et au
+  DXF, et le groupe revient sur une tablette à jour. L'étiquette de
+  l'appareil qui porte l'étiquette commune peut s'y écrire loin de son
+  symbole : « Replacer », dans sa fiche, la ramène. Changer le type d'un
+  de ces appareils y efface son lien au groupe ou le titre choisi, avec
+  le message « Type changé ». L'analyse, les anomalies et le constat ne
+  changent pas avec l'étiquette commune.
 - Une tablette restée en v1.7.0, ou plus ancienne, compte encore une
   anomalie à arbitrer comme conforme : elle y laisse « Conformes ». N'y
   signez pas le constat d'un dossier dont une anomalie reste à arbitrer.

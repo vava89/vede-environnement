@@ -132,6 +132,12 @@
 // (sauf la chaîne et le statut absent), les groupes défaits de c4, les gardes de c6 (sorties, anomalies, plan PDF masqué, page 2),
 // l'étiquette personnalisée et l'ordre de c1, le porteur retiré de c2. Les trois cas d'un second nom égal au titre échouent aussi avant la
 // relecture de m134 (les deux noms omis : « Salle de bain (1er étage) » seul).
+// m135, étiquette commune (2e partie : mode « Réunir » et fiches ; D7 ; e3 de navigateur/equipements.js) :
+// c9 : VCroquis.delierPorteur(doc, id) retire les liens vers le porteur id (clé etiqAvec supprimée, jamais une valeur vide), liens
+//   périmés compris (descente EP liée), et rend les objets déliés ; VCroquis.ops.supprimerElement(doc, id) d'un porteur les délie de même
+//   et les rend : lavabo et WC reprennent leur étiquette propre, le membre d'un autre groupe garde son lien ; membre supprimé : rien de
+//   délié, le groupe garde les autres ; id absent : rien de rendu, croquis inchangé ; delierPorteur sans croquis : rien, aucune exception.
+// c9 échoue sur 82f9ae2 (delierPorteur absente ; supprimerElement ne rend rien et laisse les liens).
 // usage : node tests/vm/equipements.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rendus, rapport} = require('./charger.js');
@@ -885,6 +891,30 @@ function c7(){
     + st.groupes + ' porteurs et ' + st.membres + ' membres analysés, dont ' + st.deuxLignes + ' textes sur deux lignes et ' + st.lettres + ' groupes de plus de quatre ; aucun écart'
     + (mal.length ? ' (' + mal.length + ' écarts : ' + mal.slice(0, 4).join(' ; ') + ')' : ''));
 }
+/* c9 (m135) : suppression du porteur (VCroquis.ops.supprimerElement) et VCroquis.delierPorteur : liens vers lui retirés (clé supprimée),
+   liens périmés compris ; objets déliés rendus ; leurs étiquettes propres reviennent ; un autre groupe reste */
+function c9(){
+  const base = () => rangee([['D', 'douche', Object.assign({}, N1)], ['L', 'lavabo', Object.assign({etiqAvec: 'D'}, N1)], ['W', 'wc', Object.assign({etiqAvec: 'D', lm: 'oui'}, N1)],
+    ['X', 'douche', Object.assign({}, N1)], ['Y', 'wc', Object.assign({etiqAvec: 'X'}, N1)], ['Z', 'descente', {etiqAvec: 'D'}]]);
+  const lien = (d, id) => { const e = d.el.find(o => o.id === id); return !e ? 'absent' : 'etiqAvec' in e.p ? e.p.etiqAvec : 'sans clé'; };
+  const ids = l => Array.isArray(l) ? l.map(o => o && o.id).sort().join() : js(l);
+  R.ok(typeof V.delierPorteur === 'function', 'c9 VCroquis.delierPorteur exportée (obtenu ' + typeof V.delierPorteur + ')');
+  let d = base(), r = sur(() => V.ops.supprimerElement(d, 'D')), e = etiquettesDe(d);
+  R.ok(ids(r) === 'L,W,Z' && lien(d, 'D') === 'absent' && lien(d, 'L') === 'sans clé' && lien(d, 'W') === 'sans clé' && lien(d, 'Z') === 'sans clé' && lien(d, 'Y') === 'X',
+    'c9 porteur supprimé : lavabo, WC et descente (lien périmé) déliés, clé etiqAvec retirée, rendus par supprimerElement ; le membre d\'un autre groupe garde son lien (obtenu '
+    + js({rendus: ids(r), D: lien(d, 'D'), L: lien(d, 'L'), W: lien(d, 'W'), Z: lien(d, 'Z'), Y: lien(d, 'Y')}) + ')');
+  R.ok(e.L === 'Lavabo (1er étage)' && e.W === 'WC + lave-mains (1er étage)' && e.Y === '' && e.X === 'Salle de bain (1er étage)\ndouche, WC',
+    'c9 porteur supprimé : étiquettes propres du lavabo et du WC ; l\'autre groupe inchangé (obtenu ' + js(e) + ')');
+  d = base(); r = sur(() => V.ops.supprimerElement(d, 'L')); e = etiquettesDe(d);
+  R.ok(ids(r) === '' && lien(d, 'W') === 'D' && e.D === 'Salle de bain (1er étage)\ndouche, WC + lave-mains', 'c9 membre supprimé : aucun objet délié, le groupe garde la douche et le WC (obtenu '
+    + js({rendus: ids(r), W: lien(d, 'W'), D: e.D}) + ')');
+  d = base(); const j0 = js(d); r = sur(() => V.ops.supprimerElement(d, 'inconnu'));
+  R.ok(ids(r) === '' && js(d) === j0, 'c9 id absent : rien de rendu, croquis inchangé (obtenu ' + ids(r) + ')');
+  d = base(); r = sur(() => V.delierPorteur(d, 'D')); e = etiquettesDe(d);
+  R.ok(ids(r) === 'L,W,Z' && lien(d, 'L') === 'sans clé' && lien(d, 'Y') === 'X' && e.D === 'Douche (1er étage)' && e.L === 'Lavabo (1er étage)', 'c9 delierPorteur(doc, « D ») : '
+    + 'les trois liens retirés, la douche reste et reprend son étiquette (obtenu ' + js({rendus: ids(r), L: lien(d, 'L'), Y: lien(d, 'Y'), D: e.D, Lab: e.L}) + ')');
+  R.ok(ids(sur(() => V.delierPorteur({}, 'D'))) === '' && ids(sur(() => V.delierPorteur(null, 'D'))) === '', 'c9 delierPorteur sans croquis ou sans éléments : rien, aucune exception');
+}
 (async () => {
   try {
     etiquettes();
@@ -898,7 +928,7 @@ function c7(){
     constatLm();
     await page2Lm();
     await gardeLm();
-    for (const g of [g1, g1bis, g2, g3, g4, g5, g6, g7, g8, g9, g10, c1, c2, c3, c4, c5, c6, c7]){
+    for (const g of [g1, g1bis, g2, g3, g4, g5, g6, g7, g8, g9, g10, c1, c2, c3, c4, c5, c6, c7, c9]){
       try { await g(); } catch (e){ R.ok(false, g.name + ' : exception : ' + (e && e.stack || e).toString().split('\n').slice(0, 3).join(' | ')); }
     }
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }

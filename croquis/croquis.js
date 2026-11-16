@@ -2413,6 +2413,20 @@ function groupeEtiquette(e, an){
   return {porteur: base.id, objets: [por ? por : e].concat(membres)};
 }
 VC.groupeEtiquette = groupeEtiquette;
+/* Étiquette commune (m135 ; D7) : retire les liens vers le porteur id (clé etiqAvec supprimée, jamais une valeur vide), liens périmés
+   compris (membre d'un autre statut, ouvrage EP) ; rend les objets déliés. Le porteur garde ses propres clés. */
+function delierPorteur(doc, id){
+  var lies = []; if (typeof id !== 'string' || !id) return lies;
+  (doc && Array.isArray(doc.el) ? doc.el : []).forEach(function(o){ if (o && o.k === 'pt' && o.p && o.id !== id && o.p.etiqAvec === id){ delete o.p.etiqAvec; lies.push(o); } });
+  return lies;
+}
+VC.delierPorteur = delierPorteur;
+/* titre du groupe g (code de TITRES_ETIQ) : celui choisi par le porteur, sinon « sdb » d'office (douche, baignoire ou salle de bain),
+   sinon '' ; même règle que texteGroupe, qui reste tel quel */
+function titreGroupe(g){
+  var tc = g.objets[0].p ? g.objets[0].p.etiqTitre : null;
+  return aCle(TITRES_ETIQ, tc) ? tc : g.objets.some(function(o){ return o.t === 'douche' || o.t === 'baignoire' || o.t === 'sdb'; }) ? 'sdb' : '';
+}
 /* initiale en minuscule, sauf un sigle (deuxième lettre en capitale : « WC », « WC + lave-mains ») [p] */
 function minusculeEtiq(s){ var c = s.charAt(1); return c && c !== c.toLowerCase() ? s : s.charAt(0).toLowerCase() + s.slice(1); }
 /* Texte commun d'un groupe (D6), pre : préfixe du porteur (« Projet : », « À supprimer : »). Ligne 1 : préfixe, titre et niveau commun
@@ -3068,11 +3082,14 @@ function insererDansLigne(doc, o, snap){
   l.v.splice(best.i, 0, {x: o.x, y: o.y, a: o.id});
 }
 function synchroSommets(doc){ var idx = indexDoc(doc); doc.el.forEach(function(e){ if (e.k === 'ln') e.v.forEach(function(v){ var o = v.a && idx[v.a]; if (o && o.k === 'pt'){ v.x = o.x; v.y = o.y; } else if (v.a) v.a = null; }); }); }
-/* Suppression : les sommets attachés à un objet supprimé restent en place ; une jonction devenue inutile disparaît */
+/* Suppression : les sommets attachés à un objet supprimé restent en place ; une jonction devenue inutile disparaît. Rend les objets déliés
+   d'un porteur d'étiquette commune supprimé (m135 ; D7), une liste vide sinon. */
 function supprimerElement(doc, id, gardes){
-  var idx = indexDoc(doc), e = idx[id]; if (!e) return;
+  var idx = indexDoc(doc), e = idx[id], lies = []; if (!e) return lies;
   doc.el = doc.el.filter(function(x){ return x.id !== id; });
   if (e.k === 'pt'){
+    /* porteur d'une étiquette commune : ses membres sont déliés dans le même pas (liens périmés compris) */
+    lies = delierPorteur(doc, id);
     /* ouvrage de passage (regard, boîte, fosse…), exutoire ou point de test où se rejoignent plusieurs tuyaux : ils restent raccordés entre
        eux par un raccord posé d'office à sa place (comme avant qu'il prenne celle d'un raccord) ; un raccord supprimé, lui, les sépare */
     var tenus = [], nl = {};
@@ -3083,6 +3100,7 @@ function supprimerElement(doc, id, gardes){
   }
   doc.anomManu = (doc.anomManu || []).filter(function(m){ return m.objId !== id; });
   nettoyerJonctions(doc, null, gardes);
+  return lies;
 }
 /* raccord créé par le dessin (jonctionSur) : marqué, ou, dans un croquis plus ancien, sans étiquette ; un raccord posé à la main n'en est pas un */
 function jonctionAuto(o){ return o.auto === true || (o.auto !== false && !!(o.lab && o.lab.off)); }
@@ -3288,6 +3306,9 @@ function editeur(racine, opts){
     cotes: null, dernierPointeur: null,
     /* menu de poignée ouvert à la souris (m109) : null, ou sa poignée {k: 'sommet' ou 'milieu', id, i} */
     menu: null,
+    /* étiquette commune (m135 ; D7) : mode « Réunir » (null, ou {porteur, ids, modif, dernier}) ; texte commun noté avant un geste de la
+       fiche (M6 : noteEtiq, pris au pas d'annulation nInst) */
+    reunir: null, noteEtiq: null, nInst: 0,
     /* palette d'accrochage ouverte (m111) */
     accroches: false};
   racine.innerHTML = '<div class="vc" tabindex="-1">'
@@ -3366,6 +3387,7 @@ function editeur(racine, opts){
   function instantane(){
     S.undo.push(etatCourant());
     if (S.undo.length > 100) S.undo.shift(); S.redo = [];
+    S.nInst++; noterCommun();
   }
   function restaurer(json){
     var o = JSON.parse(json); S.doc.el = o.el; S.doc.decisions = o.decisions || {}; S.doc.ordre = o.ordre || []; S.doc.anomManu = o.anomManu || []; S.doc.rot = o.rot || 0; S.vue.rot = S.doc.rot;
@@ -3380,6 +3402,8 @@ function editeur(racine, opts){
     synchroSommets(S.doc);
     analyse(); synchroniser(o.forcer);
     if (S.sel && !el(S.sel.id)) S.sel = null;
+    /* porteur du mode « Réunir » disparu (m135) : le mode se ferme sans rien écrire */
+    if (S.reunir && !el(S.reunir.porteur)){ S.reunir = null; majAide(); }
     majBarre();
     if (!o.garderPanneau) majPanneau();
     redessiner();
@@ -3390,14 +3414,15 @@ function editeur(racine, opts){
      du dessin ; une barrière dans l'historique empêche « Annuler » de défaire à sa place, sans le dire, le geste de dessin précédent */
   var BARRIERE = 'barriere';
   function barriere(){ if (S.undo[S.undo.length - 1] !== BARRIERE){ S.undo.push(BARRIERE); if (S.undo.length > 100) S.undo.shift(); } }
-  /* « Annuler » et « Rétablir » mettent fin aux saisies en cours, pose par cotes comprise (m101 : son trait de référence a pu disparaître) */
+  /* « Annuler » et « Rétablir » mettent fin aux saisies en cours, pose par cotes comprise (m101 : son trait de référence a pu disparaître),
+     et au mode « Réunir » (m135 : rien n'y est écrit) */
   function annuler(){
-    fermerMenu();
+    fermerMenu(); fermerReunir(); S.noteEtiq = null;
     if (!S.undo.length) return toast('Rien à annuler');
     if (S.undo[S.undo.length - 1] === BARRIERE){ S.undo.pop(); majBarre(); return toast('Le dernier changement porte sur une anomalie du dossier : « Annuler » ne le défait pas (pour un placement : « Retirer du plan »).' + (S.undo.length ? ' Touchez de nouveau « Annuler » pour revenir sur le dessin.' : ''), 6500); }
     S.redo.push(etatCourant()); restaurer(S.undo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; S.cotes = null; changement(); majAide();
   }
-  function refaire(){ fermerMenu(); if (!S.redo.length) return toast('Rien à rétablir'); S.undo.push(etatCourant()); restaurer(S.redo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; S.cotes = null; changement(); majAide(); }
+  function refaire(){ fermerMenu(); fermerReunir(); S.noteEtiq = null; if (!S.redo.length) return toast('Rien à rétablir'); S.undo.push(etatCourant()); restaurer(S.redo.pop()); S.sel = null; S.brouillon = null; S.relier = null; S.finAuto = null; S.cotes = null; changement(); majAide(); }
 
   /* --- affichage --- */
   function redim(){
@@ -3479,6 +3504,18 @@ function editeur(racine, opts){
           ctx.beginPath(); ctx.arc(p.x, p.y, choisi ? 10 : 8, 0, 2 * Math.PI); ctx.fillStyle = att ? ac : '#fff'; ctx.fill(); ctx.strokeStyle = choisi ? '#d4650a' : ac; ctx.lineWidth = choisi ? 3 : 2; ctx.stroke();
         });
       }
+    }
+    /* mode « Réunir » (m135 ; D7) : halo orange en tirets autour du porteur, halo plein autour de chaque appareil choisi ; à l'écran
+       seulement (ni PDF ni DXF) */
+    if (S.reunir){
+      [S.reunir.porteur].concat(S.reunir.ids).forEach(function(id, i){
+        var oh = el(id); if (!oh || oh.k !== 'pt') return;
+        var ch = S.vue.ecran(oh.x, oh.y), zh = zonePt(oh.id), rh = (zh ? zh.r : 12) + 9;
+        ctx.beginPath(); ctx.arc(ch.x, ch.y, rh, 0, 2 * Math.PI);
+        if (i){ ctx.fillStyle = 'rgba(15,92,99,.16)'; ctx.fill(); ctx.strokeStyle = ac; ctx.setLineDash([]); }
+        else { ctx.strokeStyle = '#d4650a'; ctx.setLineDash([6, 4]); }
+        ctx.lineWidth = 3; ctx.stroke(); ctx.setLineDash([]);
+      });
     }
     /* « + » de la souris sur le tracé choisi (m110), au pied du segment survolé ; curseur « copie » */
     var pl = plusSurvol(); S.plus = pl; cv.style.cursor = pl ? 'copy' : '';
@@ -4056,7 +4093,7 @@ function editeur(racine, opts){
      passerait au suivant ; ni sur un escalier, ni pendant les cotes, l'alignement ou le placement, ni avec le menu de poignée ou la palette
      d'accrochage ouverts (m114 : un clic sur le plan ne ferait que la fermer) */
   function plusSous(e, P, x, y){
-    if (e.t === 'esc' || S.menu || S.accroches || S.cotes || S.aligner || S.placer) return null;
+    if (e.t === 'esc' || S.menu || S.accroches || S.cotes || S.aligner || S.placer || S.reunir) return null;
     var s = segmentProche(P, x, y); if (!s || s.q.d > 10 || s.q.t <= 0 || s.q.t >= 1) return null;
     var z = toucher(x, y); if (!z || z.type !== 'ln' || z.id !== e.id) return null;
     if (S.panneau === 'fiche' && tracesSous(x, y).length > 1) return null;
@@ -4304,6 +4341,8 @@ function editeur(racine, opts){
       if (!ep || ep.k === 'tx' || (ep.k === 'ln' && ep.t !== 'tr')){ toast('Touchez un objet ou un tronçon du croquis'); return; }
       placerRec(S.placer, ep.id); return;
     }
+    /* mode « Réunir » (m135 ; D7) : le toucher choisit ou retire un appareil ; rien d'autre */
+    if (S.reunir){ tapReunir(x, y, double); return; }
     if (o.k === 'main'){
       var z = toucher(x, y);
       if (!z){ if (S.sel){ S.sel = null; majPanneau(); redessiner(); } return; }
@@ -4950,7 +4989,7 @@ function editeur(racine, opts){
     if (depEsc && S.brouillon && S.brouillon.pts.length) return;
     if (!refsCotes().length){ toast('Aucune ligne de référence affichée : ni façade, ni limite de parcelle, ni complément.', 4000); return; }
     quitterSaisie();
-    S.aligner = null; S.relier = null; S.placer = null; S.apercu = null;
+    S.aligner = null; S.relier = null; S.placer = null; S.apercu = null; S.reunir = null;
     /* pose : le modèle de l'outil (destination, m127 ; D10), pour « Poser », l'aperçu et les aides */
     S.cotes = {etape: 'cote', pour: depEsc ? {esc: true} : id ? {id: id, t: o.t, mesure: !!mesure} : o.modele ? {t: o.t, modele: o.modele} : {t: o.t}, cands: null, k: 0, w0: null, ref: null, c: null, essai: null, refus: 0, t0: Date.now()};
     if (S.sel || S.panneau){ S.sel = null; S.panneau = null; majPanneau(); }
@@ -5388,7 +5427,7 @@ function editeur(racine, opts){
     fermerMenu();
     if (S.brouillon && S.brouillon.pts.length >= 2) terminerTrace(); else S.brouillon = null;
     /* l'outil est gardé tel quel : pour une destination, avec son modèle (o.modele, m127 ; D10), que les deux poses copient */
-    S.outil = o; S.aligner = null; S.relier = null; S.apercu = null; S.placer = null;
+    S.outil = o; S.aligner = null; S.relier = null; S.apercu = null; S.placer = null; S.reunir = null;
     /* un autre outil met fin à la pose par cotes (m101), panneau « Cotes » compris */
     if (S.cotes){ S.cotes = null; if (S.panneau === 'cotes'){ S.panneau = null; majPanneau(); } }
     R.querySelectorAll('.vc-o').forEach(function(b){ var on = o.k === 'main' ? b.dataset.outil === 'main' : b.dataset.pal === o.pal; b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
@@ -5422,11 +5461,180 @@ function editeur(racine, opts){
     if (m) choisirOutil({k: 'pt', t: q[1], pal: k, modele: destDe({p: m}), mid: m.id});
     else if (q[0] === 'pt') choisirOutil({k: 'pt', t: q[1], pal: k}); else if (q[0] === 'ln') choisirOutil({k: 'ln', id: q[1], pal: k}); else choisirOutil({k: 'tx', pal: k});
   });
+  /* --- étiquette commune (m135 ; D7) : mode « Réunir », fiches du porteur et d'un membre, étiquette du porteur replacée (M6) --- */
+  var TITRES_LISTE = [['sdb', 'Salle de bain'], ['eau', 'Salle d\'eau'], ['cuisine', 'Cuisine'], ['buanderie', 'Buanderie'], ['aucun', 'Aucun']];
+  /* texte d'office de P (celui du groupe s'il en porte un), sans son étiquette personnalisée */
+  function texteCommun(P){ return texteEtiquette(Object.assign({}, P, {p: Object.assign({}, P.p, {etiq: ''})}), S.an); }
+  function estPorteur(P){ var g = P && P.k === 'pt' ? groupeEtiquette(P, S.an) : null; return !!g && g.porteur === P.id; }
+  /* étiquette reposée d'office, comme « Replacer » (S.an à jour) ; une étiquette déplacée à la main ou masquée reste telle quelle */
+  function replacerEtiq(o){ if (!o || (o.lab && (o.lab.main || o.lab.off))) return; o.lab = null; o.lab = placerEtiquette(S.doc, S.an, o, E(), idx()); }
+  /* nom de l'objet et son article : « la Douche », « l'Évier », « le WC » ; un autre appareil : « l'appareil « Bidet » » */
+  function artLib(o){
+    var ty = T[o.t] || {}, nom = libDe(o);
+    if (ty.nomLibre) return {art: 'l\'', nom: 'appareil « ' + nom + ' »'};
+    return {art: artDevant(ty.g === 'f' ? 'la' : 'le', nom), nom: nom};
+  }
+  function avecLib(o){ var a = artLib(o); return a.art + (a.art === 'l\'' ? '' : ' ') + a.nom; }
+  /* « de la Douche », « de l'Évier », « du WC » */
+  function deLib(o){ var a = artLib(o); return a.art === 'le' ? 'du ' + a.nom : 'de ' + avecLib(o); }
+  /* ligne du constat d'un objet : celle de son type ; un autre appareil, celle choisie dans sa fiche (rowAutre) */
+  function rowObj(o){ var ty = T[o.t] || {}; return ty.nomLibre ? rowAutre(o) : ty.row || ''; }
+  /* ce que le constat compte pour les objets du groupe g : ses lignes dans l'ordre du groupe (« Salle de bain 1, WC 1, Évier 1 ») ; une
+     ligne du formulaire sans sa précision entre parenthèses ; une ligne hors du formulaire avec « Autres : » et son libellé entier, comme au
+     constat (« Autres : Piscine (vidange) 1 » : nom saisi par l'opérateur ; M2 et M4 de la relecture) ; aucun compte ne change */
+  function comptesGroupe(g){
+    var rows = constatDeduit(S.doc, S.an).rows, vus = [];
+    g.objets.forEach(function(o){
+      for (var i = 0; i < rows.length; i++) if (rows[i].objets.indexOf(o.id) >= 0){
+        var r = rows[i], x = vus.filter(function(v){ return v.r === r; })[0];
+        if (x) x.n++; else vus.push({r: r, n: 1});
+        return;
+      }
+    });
+    return vus.map(function(v){ return (v.r.std ? String(v.r.label).replace(/\s*\([^)]*\)$/, '') : 'Autres : ' + v.r.label) + ' ' + v.n; }).join(', ');
+  }
+  /* texte indicatif du champ Étiquette : celui d'office ; celui du porteur sur une ligne (M3) ; un membre renvoie à l'étiquette commune */
+  function texteIndicatif(e){
+    var g = e.k === 'pt' ? groupeEtiquette(e, S.an) : null;
+    if (g && g.porteur !== e.id) return 'sur l\'étiquette commune';
+    var t = texteCommun(e);
+    return g ? t.replace(/\n/g, ' — ') : t;
+  }
+  /* mode « Réunir » (sur le modèle de S.placer) : S.reunir = {porteur, ids : appareils choisis, modif : « Modifier le groupe », dernier :
+     objet du dernier toucher}. Rien n'est écrit avant « Terminé » ; « Annuler », un autre outil, Échap, « Annuler » ou « Rétablir » de la
+     barre, un panneau qui s'ouvre, l'ouverture d'un croquis ou la disparition du porteur le ferment sans rien écrire. Zoom et
+     déplacement du plan restent permis */
+  function entrerReunir(id, ids, modif){
+    if (!el(id)) return;
+    fermerPanneau(); choisirOutil({k: 'main'});
+    S.reunir = {porteur: id, ids: (ids || []).slice(), modif: !!modif, dernier: null};
+    majAide(); redessiner();
+  }
+  function fermerReunir(){ if (!S.reunir) return false; S.reunir = null; majAide(); redessiner(); return true; }
+  /* « Annuler » du bandeau : rien n'est écrit, la fiche du porteur se rouvre */
+  function quitterReunir(){ var id = S.reunir && S.reunir.porteur; fermerReunir(); if (id && el(id)) selectionner(id); }
+  /* appareil absent du plan affiché (hors de an.objs) : « Projet » sur l'état des lieux, « À supprimer » sur l'avant-projet */
+  function horsPlan(){ return S.mode === 'avp' ? 'Appareil à supprimer : il ne figure pas sur l\'avant-projet' : 'Appareil en projet : il ne figure pas sur l\'état des lieux'; }
+  /* raison du refus de l'appareil o pour le porteur P, dans l'ordre de D7 ; '' s'il peut être réuni */
+  function refusReunir(o, P){
+    if (!sourceEU(o)) return 'Étiquette commune : seuls les appareils des eaux usées (WC, lavabo, douche…) se réunissent';
+    if (!aCle(S.an.objs, o.id)) return horsPlan();
+    if (stEtiq(o) !== stEtiq(P)) return 'Statut différent de celui ' + deLib(P) + ' : seuls les appareils de même statut se réunissent';
+    var q = porteurEtiq(o, S.an);
+    if (q && q.id !== P.id) return 'Cet appareil est déjà réuni avec ' + avecLib(q) + ' : séparez-le d\'abord (sa fiche)';
+    if (estPorteur(o)) return 'Cet appareil porte déjà une étiquette commune : défaites-la d\'abord (sa fiche)';
+    return '';
+  }
+  /* toucher pendant le mode : ajoute ou retire l'appareil touché ; le second toucher d'un double toucher sur le même objet est ignoré (il ne
+     retire pas ce que le premier vient d'ajouter) ; le porteur : rien */
+  function tapReunir(x, y, double){
+    var Rn = S.reunir, P = el(Rn.porteur);
+    if (!P){ fermerReunir(); return; }
+    var z = toucher(x, y), id = z ? (z.type === 'bulle' ? z.objId : z.id) : null, o = id ? el(id) : null, oid = o ? o.id : '';
+    if (double && Rn.dernier === oid) return;
+    Rn.dernier = oid;
+    if (!o){ toast('Touchez un appareil à réunir, puis « Terminé »'); return; }
+    if (o.id === P.id) return;
+    var i = Rn.ids.indexOf(o.id);
+    if (i >= 0) Rn.ids.splice(i, 1);
+    else {
+      var refus = refusReunir(o, P); if (refus){ toast(refus, 3500); return; }
+      Rn.ids.push(o.id);
+      /* au-delà de 3 m, l'appareil reste choisi : l'étiquette commune se place près du porteur */
+      if (Math.hypot(o.x - P.x, o.y - P.y) > 3) toast('Loin du porteur : le plan ne le désignera que par la liste.', 4000);
+    }
+    majAide(); redessiner();
+  }
+  /* « Terminé » : un seul pas d'annulation. etiqAvec = id du porteur sur chaque appareil choisi (revu : un appareil devenu irrecevable
+     n'est pas lié), clé retirée sur un ancien membre et sur un lien périmé vers le porteur, celui du porteur effacé même orphelin ou vers
+     lui-même (M4). Zéro choisi : rien d'écrit pour un nouveau groupe, groupe défait (titre compris) pour « Modifier le groupe ».
+     Étiquettes du porteur et des membres retirés replacées (sauf à la main ou masquées) ; fiche du porteur */
+  function terminerReunir(){
+    var Rn = S.reunir; if (!Rn) return;
+    S.reunir = null; majAide();
+    var P = el(Rn.porteur); if (!P){ redessiner(); return; }
+    var ids = Rn.ids.filter(function(id){ var o = el(id); return !!o && o.id !== P.id && !refusReunir(o, P); });
+    if (!ids.length && !Rn.modif){ selectionner(P.id); return; }
+    var g0 = groupeEtiquette(P, S.an), anciens = g0 && g0.porteur === P.id ? g0.objets.slice(1) : [];
+    var avant = S.doc.el.filter(function(o){ return o.k === 'pt' && o.p && o.id !== P.id && o.p.etiqAvec === P.id; });
+    var aRetirer = avant.filter(function(o){ return ids.indexOf(o.id) < 0; }), aPoser = ids.filter(function(id){ return lienEtiq(el(id)) !== P.id; });
+    if (!aRetirer.length && !aPoser.length && !aCle(P.p, 'etiqAvec') && !(!ids.length && aCle(P.p, 'etiqTitre'))){ selectionner(P.id); return; }
+    instantane();
+    aPoser.forEach(function(id){ el(id).p.etiqAvec = P.id; });
+    aRetirer.forEach(function(o){ delete o.p.etiqAvec; });
+    delete P.p.etiqAvec;
+    if (!ids.length) delete P.p.etiqTitre;
+    analyse();
+    replacerEtiq(P);
+    aRetirer.forEach(function(o){ if (anciens.indexOf(o) >= 0) replacerEtiq(o); });
+    changement(); selectionner(P.id);
+    /* lavabo dans une salle de bain ou une cuisine (D6) : il compte à part, sur la ligne « Évier » */
+    var g = groupeEtiquette(P, S.an), tg = g ? titreGroupe(g) : '';
+    if ((tg === 'sdb' || tg === 'cuisine') && g.objets.some(function(o){ return rowObj(o) === 'evier'; })) toast('Lavabo et évier comptent à part (Évier) ; pour une seule installation, dessinez l\'objet Salle de bain ou Cuisine.', 6000);
+  }
+  /* fiche : bloc « Étiquette commune » du porteur (titre, ce que compte le constat, « Modifier le groupe », « Défaire ») ou d'un membre
+     (« Voir » le porteur, « Séparer ») ; '' pour un objet seul (son bouton « Étiquette commune… » est près du champ Étiquette) */
+  function etiqCommuneHtml(e, g){
+    if (!g) return '';
+    if (g.porteur !== e.id){
+      var por = el(g.porteur);
+      return champ('Étiquette commune', '<p class="vc-muet">Étiquette réunie avec ' + esc(avecLib(por)) + '</p><div class="vc-chips"><button type="button" class="vc-chip" data-a="voir" data-id="' + esc(por.id) + '">Voir</button>'
+        + '<button type="button" class="vc-chip" data-a="etiqSeparer">Séparer</button></div>');
+    }
+    var tc = e.p.etiqTitre, cg = comptesGroupe(g);
+    return champ('Étiquette commune', chipsHtml('etiqTitre', TITRES_LISTE, aCle(TITRES_ETIQ, tc) ? tc : '', {label: 'Titre de l\'étiquette'})
+      + (cg ? '<p class="vc-muet">Compté au constat : ' + esc(cg) + '</p>' : '')
+      + '<div class="vc-chips"><button type="button" class="vc-chip" data-a="etiqModifier">Modifier le groupe</button><button type="button" class="vc-chip" data-a="etiqDefaire">Défaire</button></div>', 'titre de l\'étiquette');
+  }
+  /* porteur P sans plus aucun objet lié (dernier membre séparé ou supprimé) : son titre est retiré dans le même pas, comme à « Défaire »
+     (M1 de la relecture) ; un lien périmé vers lui (appareil passé à un autre statut…) garde le titre, que le groupe reprend s'il se refait */
+  function oublierTitre(P){
+    if (!P || !P.p || !aCle(P.p, 'etiqTitre')) return;
+    if (!S.doc.el.some(function(o){ return o && o.k === 'pt' && o.p && o.id !== P.id && o.p.etiqAvec === P.id; })) delete P.p.etiqTitre;
+  }
+  /* « Séparer » (fiche d'un membre) : un pas ; son lien retiré, son étiquette replacée (même vide jusque-là), celle du porteur aussi ; le
+     dernier membre séparé défait le groupe, titre compris */
+  function separerMembre(e){
+    var P = porteurEtiq(e, S.an); if (!P) return;
+    instantane(); delete e.p.etiqAvec; oublierTitre(P); analyse(); replacerEtiq(e); replacerEtiq(P); changement();
+    toast('Étiquette séparée · « Annuler » la réunit de nouveau');
+  }
+  /* « Défaire » (fiche du porteur) : un pas ; liens vers lui (périmés compris) et titre effacés, étiquettes replacées */
+  function defaireGroupe(P){
+    var g = groupeEtiquette(P, S.an); if (!g || g.porteur !== P.id) return;
+    var mb = g.objets.slice(1);
+    instantane(); delierPorteur(S.doc, P.id); delete P.p.etiqTitre; analyse(); replacerEtiq(P); mb.forEach(replacerEtiq); changement();
+    toast('Étiquette commune défaite · « Annuler » la rétablit');
+  }
+  /* M6 : texte commun noté au pas d'annulation d'un geste de la fiche d'un appareil EU (ou lié à un porteur) ; après le geste (apresProp,
+     changerType), l'étiquette du porteur est replacée si ce texte a changé, jamais celle déplacée à la main, masquée ou personnalisée */
+  function noterCommun(){
+    S.noteEtiq = null;
+    var fe = !pan.hidden && pan.dataset.id ? el(pan.dataset.id) : null;
+    if (!fe || fe.k !== 'pt' || !fe.p || !S.an || !(sourceEU(fe) || lienEtiq(fe))) return;
+    var P = el(lienEtiq(fe)); if (!P || P.k !== 'pt' || !P.p) P = fe;
+    S.noteEtiq = {n: S.nInst, e: fe.id, id: P.id, txt: texteCommun(P), grp: estPorteur(P)};
+  }
+  function suivreCommun(e){
+    var nt = S.noteEtiq; S.noteEtiq = null;
+    if (!nt || nt.n !== S.nInst || !e || nt.e !== e.id) return;
+    var P = el(nt.id);
+    if (!P || P.k !== 'pt' || (P.p && P.p.etiq) || (P.lab && (P.lab.main || P.lab.off))) return;
+    if (!nt.grp && !S.doc.el.some(function(o){ return o.k === 'pt' && o.id !== P.id && lienEtiq(o) === P.id; })) return;
+    analyse();
+    if ((nt.grp || estPorteur(P)) && texteCommun(P) !== nt.txt) replacerEtiq(P);
+  }
   function modeleExu(id){ for (var i = 0; i < S.exutoires.length; i++) if (S.exutoires[i].id === id) return S.exutoires[i]; return null; }
   function majAide(){
     var o = S.outil, h = '';
     if (S.aligner) h = '<span>Touchez deux points le long de la voie : le plan tournera pour la mettre à l\'horizontale.</span><button type="button" class="vc-b vc-bt" data-a="alignerStop">Annuler</button>';
     else if (S.placer){ var rp = recDe(S.placer), ip = S.liste.filter(function(a){ return a.appId === S.placer; })[0]; h = '<span><strong>Placer l\'anomalie ' + esc(ip ? numLib(ip) : '') + '</strong>' + (rp ? ' (' + esc(coupe(rp.observation, 50)) + ')' : '') + ' : touchez l\'objet ou le tronçon concerné.</span><button type="button" class="vc-b vc-bt" data-a="placerStop">' + ico('fermer', 18) + 'Annuler</button>'; }
+    /* mode « Réunir » (m135 ; D7) : le porteur, le nombre d'appareils choisis, « Terminé » et « Annuler » */
+    else if (S.reunir){
+      var Pr = el(S.reunir.porteur), nr = S.reunir.ids.length;
+      h = '<span><strong>Touchez les appareils à réunir</strong>' + (Pr ? ' avec ' + esc(avecLib(Pr)) : '') + ' · ' + nr + ' choisi' + (nr > 1 ? 's' : '') + '</span>'
+        + '<button type="button" class="vc-b vc-bt vc-prim" data-a="reunirFin">' + ico('valider', 18) + 'Terminé</button><button type="button" class="vc-b vc-bt" data-a="reunirStop">' + ico('fermer', 18) + 'Annuler</button>';
+    }
     else if (S.cotes) h = aideCotes();
     else if (o.k === 'ln' && OUTILS_LN[o.id].relier){
       h = '<span><strong>Relier deux objets</strong> : ' + (S.relier ? 'touchez l\'objet d\'arrivée (regard, boîte, tracé…).' : 'touchez l\'objet de départ puis celui d\'arrivée, ou glissez de l\'un à l\'autre.') + (aideOn('coude') ? ' Le tronçon est tracé d\'équerre avec le bâti.' : '') + '</span>'
@@ -5450,7 +5658,7 @@ function editeur(racine, opts){
     else if (o.k === 'tx') h = '<span>Touchez le plan à l\'endroit du texte.</span>';
     aide.innerHTML = h; aide.hidden = !h; placerBarres();
   }
-  aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') abandonnerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } else if (a === 'placerStop'){ S.placer = null; majAide(); } else if (a === 'relierStop'){ S.relier = null; majAide(); redessiner(); } else if (a === 'cotes') boutonCotes(); else if (a === 'cotesAutre') autreCoteCotes(); else if (a === 'cotesStop') abandonnerCotes(); });
+  aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') abandonnerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } else if (a === 'placerStop'){ S.placer = null; majAide(); } else if (a === 'relierStop'){ S.relier = null; majAide(); redessiner(); } else if (a === 'reunirFin') terminerReunir(); else if (a === 'reunirStop') quitterReunir(); else if (a === 'cotes') boutonCotes(); else if (a === 'cotesAutre') autreCoteCotes(); else if (a === 'cotesStop') abandonnerCotes(); });
   R.querySelector('.vc-outils').addEventListener('click', function(ev){
     var b = ev.target.closest('.vc-o'); if (!b) return;
     if (b.dataset.outil === 'main'){ choisirOutil({k: 'main'}); return; }
@@ -5610,8 +5818,13 @@ function editeur(racine, opts){
   function supprimerSel(){
     if (!S.sel) return; var e = el(S.sel.id); if (!e) return;
     if (e.k === 'ln' && S.sel.sommet != null && e.v.length > 2){ retirerSommet(e); return; }
+    /* étiquette commune (m135 ; D7) : porteur supprimé, ses membres déliés dans le même pas (supprimerElement) et leurs étiquettes
+       replacées ; membre supprimé, l'étiquette du porteur replacée (jamais à la main ni masquée) et, pour le dernier, son titre retiré */
+    var P = e.k === 'pt' ? porteurEtiq(e, S.an) : null, g = e.k === 'pt' && !P ? groupeEtiquette(e, S.an) : null, mb = g && g.porteur === e.id ? g.objets.slice(1) : [];
     instantane();
-    supprimerElement(S.doc, e.id, gardesJ()); S.sel = null; changement(); toast('Supprimé · « Annuler » le rétablit');
+    supprimerElement(S.doc, e.id, gardesJ()); S.sel = null; oublierTitre(P);
+    if (P || mb.length){ analyse(); mb.forEach(replacerEtiq); replacerEtiq(P); }
+    changement(); toast('Supprimé · « Annuler » le rétablit');
   }
   global.addEventListener('resize', redim);
   if (global.ResizeObserver) new ResizeObserver(redim).observe(R);
@@ -5822,9 +6035,15 @@ function editeur(racine, opts){
     }
     /* pas d'étiquette à saisir : texte libre, objet sans étiquette ou d'un type inconnu, complément du fond, escalier, tracé d'un type inconnu */
     if (e.k !== 'tx' && !(e.k === 'pt' && (!T[e.t] || T[e.t].sansEtiquette)) && !(e.k === 'ln' && !estCanalisation(e.t))){
-      var auto = texteEtiquette(Object.assign({}, e, {p: Object.assign({}, e.p, {etiq: ''})}), S.an), off = e.lab && e.lab.off;
-      h += champ('Étiquette', saisie('etiq', e.p.etiq || '', {ph: auto || 'pas d\'étiquette automatique', lab: 'Texte de l\'étiquette'})
-        + '<div class="vc-chips"><button type="button" class="vc-chip" data-a="etiqOnOff" aria-pressed="' + !off + '">' + (off ? 'Masquée' : 'Affichée') + '</button>' + (!off ? '<button type="button" class="vc-chip" data-a="etiqReplacer">Replacer</button>' : '') + '</div>', 'glissez-la sur le plan pour la déplacer');
+      /* étiquette commune (m135 ; D7) : un membre a son champ, « Affichée » et « Replacer » grisés ; le texte indicatif du porteur tient sur
+         une ligne (M3) ; un appareil EU seul (ni membre ni porteur, quel que soit son statut) a le bouton « Étiquette commune… » */
+      var gEt = e.k === 'pt' ? groupeEtiquette(e, S.an) : null, membre = !!gEt && gEt.porteur !== e.id, auto = texteIndicatif(e), off = e.lab && e.lab.off, dis = membre ? ' disabled' : '';
+      var inE = saisie('etiq', e.p.etiq || '', {ph: auto || 'pas d\'étiquette automatique', lab: 'Texte de l\'étiquette'});
+      h += champ('Étiquette', (membre ? inE.replace(/^<input /, '<input disabled ') : inE)
+        + '<div class="vc-chips"><button type="button" class="vc-chip" data-a="etiqOnOff" aria-pressed="' + !off + '"' + dis + '>' + (off ? 'Masquée' : 'Affichée') + '</button>' + (!off ? '<button type="button" class="vc-chip" data-a="etiqReplacer"' + dis + '>Replacer</button>' : '')
+        + (e.k === 'pt' && sourceEU(e) && !gEt ? '<button type="button" class="vc-chip" data-a="etiqReunir" title="Une étiquette pour les appareils d\'une même pièce">Étiquette commune…</button>' : '') + '</div>',
+        membre ? 'réunie : séparez-la pour la changer' : 'glissez-la sur le plan pour la déplacer');
+      if (e.k === 'pt' && sourceEU(e)) h += etiqCommuneHtml(e, gEt);
     }
     if ((e.k === 'pt' && T[e.t]) || (e.k === 'ln' && e.t === 'tr')) h += anomsObjet(e);
     h += '<div class="vc-fact"><button type="button" class="vc-b vc-bt vc-danger" data-a="supprimer">' + ico('poubelle', 18) + 'Supprimer</button></div>';
@@ -6010,7 +6229,7 @@ function editeur(racine, opts){
     /* Niveau (m130) : valeur composée des puces (valNiv) */
     var vk = k === 'niv' ? valNiv(e.p) : String(e.p[k] == null ? '' : e.p[k]);
     pcorps.querySelectorAll('[data-a="prop"][data-k="' + k + '"]').forEach(function(c){ if (!c.dataset.multi) c.setAttribute('aria-pressed', String(vk === c.dataset.v)); });
-    var et = pcorps.querySelector('input[data-k="etiq"]'); if (et){ var auto = texteEtiquette(Object.assign({}, e, {p: Object.assign({}, e.p, {etiq: ''})}), S.an); et.placeholder = auto || 'pas d\'étiquette automatique'; }
+    var et = pcorps.querySelector('input[data-k="etiq"]'); if (et){ var auto = texteIndicatif(e); et.placeholder = auto || 'pas d\'étiquette automatique'; }
     /* autre appareil (m133) : puces des noms proposés et texte indicatif de l'abréviation, d'après le nom enregistré */
     if ((T[e.t] || {}).nomLibre){
       var nm = nomLibre(e.p), ia = pcorps.querySelector('input[data-k="ab"]');
@@ -6023,6 +6242,8 @@ function editeur(racine, opts){
        sans événement « change » et la saisie est perdue */
     quitterSaisie(); panMajAttente = false;
     var n = S.panneau;
+    /* mode « Réunir » (m135) : un panneau qui s'ouvre, ou son porteur disparu, le ferme sans rien écrire */
+    if (S.reunir && (n || !el(S.reunir.porteur))){ S.reunir = null; majAide(); redessiner(); }
     if (n === 'fiche' && !(S.sel && el(S.sel.id))) n = S.panneau = null;
     /* objet existant (m102) supprimé, ou un choix fait pendant le mode (S.sel reste vide jusqu'à la fin) : fin du mode, rien n'est changé */
     if (S.cotes && S.cotes.pour.id && (S.sel || !el(S.cotes.pour.id))){ S.cotes = null; majAide(); redessiner(); }
@@ -6062,6 +6283,8 @@ function editeur(racine, opts){
          rowAutre) : rien ne change, pas de pas d'annulation */
       var vk = k === 'row' && (T[e.t] || {}).nomLibre ? rowAutre(e) : e.p[k];
       if (!b.dataset.multi && (k === 'sens' ? (parseInt(v, 10) || 0) === (e.p.sens || 0) : b.dataset.garder && vk === v)){ pucePressee = null; return; }
+      /* titre d'une étiquette commune (m135 ; D7) : un code connu, sur la fiche du porteur seulement */
+      if (k === 'etiqTitre' && (!aCle(TITRES_ETIQ, v) || !estPorteur(e))){ pucePressee = null; return; }
       instantane();
       if (b.dataset.multi){ var arr = (e.p[k] || []).slice(), i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); e.p[k] = arr; }
       else if (k === 'sens') e.p.sens = parseInt(v, 10) || 0;
@@ -6069,6 +6292,8 @@ function editeur(racine, opts){
       else if (k === 'niv'){ var pn = pucePressee, cour = valNiv(e.p), mn = pn && pn.el === b && Date.now() - pn.t < 2000 ? pn.on : cour === v; poserNiv(e.p, mn && cour === v ? '' : v); }
       /* lave-mains du WC (m131 ; D7) : 'oui' ; second toucher sur la puce pressée : la clé lm est retirée, jamais une valeur vide écrite */
       else if (k === 'lm'){ var pl = pucePressee, ml = pl && pl.el === b && Date.now() - pl.t < 2000 ? pl.on : e.p.lm === v; if (ml && e.p.lm === v) delete e.p.lm; else e.p.lm = v; }
+      /* titre (m135) : second toucher sur la puce pressée, la clé etiqTitre est retirée (titre d'office), jamais une valeur vide écrite */
+      else if (k === 'etiqTitre'){ var pq = pucePressee, mq = pq && pq.el === b && Date.now() - pq.t < 2000 ? pq.on : e.p.etiqTitre === v; if (mq && e.p.etiqTitre === v) delete e.p.etiqTitre; else e.p.etiqTitre = v; }
       else if (b.dataset.garder) e.p[k] = v;
       else { var pp = pucePressee, montree = pp && pp.el === b && Date.now() - pp.t < 2000 ? pp.on : e.p[k] === v; e.p[k] = montree && e.p[k] === v ? '' : v; }
       pucePressee = null; apresProp(e); return;
@@ -6130,6 +6355,18 @@ function editeur(racine, opts){
       apresProp(e); return;
     }
     if (a === 'tailleTexte' && e){ var tt = parseFloat(b.dataset.v) || 2.5; if ((num(e.taille) || 2.5) === tt) return; instantane(); e.taille = tt; changement(); return; }
+    /* étiquette commune (m135 ; D7) : mode « Réunir » (nouveau groupe, ou « Modifier le groupe » avec ses membres choisis), « Défaire »,
+       « Séparer » ; « Affichée » et « Replacer » ne font rien pour un membre (grisés) */
+    if (a === 'etiqReunir' && e){
+      if (e.k !== 'pt' || !sourceEU(e) || groupeEtiquette(e, S.an)) return;
+      /* appareil absent du plan affiché (M7 de la relecture) : le mode n'y accepterait aucun appareil ; le message dit où le réunir */
+      if (S.an && !aCle(S.an.objs, e.id)){ toast(horsPlan() + ' ; réunissez-le sur ' + (S.mode === 'avp' ? 'l\'état des lieux' : 'l\'avant-projet'), 4000); return; }
+      entrerReunir(e.id, [], false); return;
+    }
+    if (a === 'etiqModifier' && e){ var gM = e.k === 'pt' ? groupeEtiquette(e, S.an) : null; if (gM && gM.porteur === e.id) entrerReunir(e.id, gM.objets.slice(1).map(function(o){ return o.id; }), true); return; }
+    if (a === 'etiqDefaire' && e){ if (e.k === 'pt') defaireGroupe(e); return; }
+    if (a === 'etiqSeparer' && e){ if (e.k === 'pt') separerMembre(e); return; }
+    if ((a === 'etiqOnOff' || a === 'etiqReplacer') && e && e.k === 'pt' && porteurEtiq(e, S.an)) return;
     if (a === 'etiqOnOff' && e){ instantane(); if (e.lab && e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); else e.lab = {off: true}; changement(); return; }
     if (a === 'etiqReplacer' && e){ instantane(); e.lab = null; e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); changement(); return; }
     if (a === 'supprimer'){ supprimerSel(); return; }
@@ -6264,6 +6501,7 @@ function editeur(racine, opts){
   function apresProp(e, o){
     if (e.p.st === '') e.p.st = 'existant';
     if (!e.lab && texteEtiquette(e, S.an)){ analyse(); e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); }
+    suivreCommun(e);
     changement(o);
   }
   /* changement de type par le sélecteur Type de la fiche (extrait du gestionnaire en m130) : un pas d'annulation ; les champs du nouveau type
@@ -6287,6 +6525,7 @@ function editeur(racine, opts){
     /* une zone suspecte ne tient aucun tuyau : un point de test qui reliait deux tuyaux laisse un raccord à sa place, comme à l'ouverture */
     if (v === 'zone') libererZones(S.doc, e.id);
     if (e.lab && !e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx());
+    suivreCommun(e);
     changement();
     if (perdus.length) toast('Type changé : ' + (perdus.length > 1 ? perdus.length + ' caractéristiques ne s\'appliquent plus et sont effacées' : 'une caractéristique ne s\'applique plus et est effacée') + ' · « Annuler » les rétablit', 5000);
   }
@@ -6428,7 +6667,7 @@ function editeur(racine, opts){
     if (S.palette){ fermerPalette(); return true; }
     if (S.accroches){ fermerAccroches(); return true; }
     if (S.sel || S.panneau){ fermerPanneau(); return true; }
-    if (S.relier || S.aligner || S.placer || S.cotes){ S.relier = null; S.aligner = null; S.placer = null; S.cotes = null; majAide(); redessiner(); return true; }
+    if (S.relier || S.aligner || S.placer || S.cotes || S.reunir){ S.relier = null; S.aligner = null; S.placer = null; S.cotes = null; S.reunir = null; majAide(); redessiner(); return true; }
     if (S.brouillon){ annulerTrace(); return true; }
     return false;
   }
@@ -6439,7 +6678,7 @@ function editeur(racine, opts){
     if (o.aides) S.aides = Object.assign({}, AIDES_DEFAUT, o.aides);
     /* destinations ajoutées de la tablette (m128) : celles de l'hôte à chaque ouverture ; sans elles, celles déjà connues de l'éditeur */
     if (o.exutoires) S.exutoires = modelesDe(o.exutoires);
-    S.placer = null; S.cotes = null; var m0 = R.querySelector('.vc-modal'); if (m0) m0.remove();
+    S.placer = null; S.cotes = null; S.reunir = null; S.noteEtiq = null; var m0 = R.querySelector('.vc-modal'); if (m0) m0.remove();
     S.doc = doc; S.fond = fond || null; S.reseau = reseau || null; S.undo = []; S.redo = []; S.sel = null; S.brouillon = null; S.panneau = null; S.mode = 'edl'; S.ajoutAnom = null; S.aligner = null;
     S.ptr = {}; S.geste = null; S.apercu = null; S.accrocheVue = null; S.survol = null;
     /* palette d'accrochage fermée, appuis avalés oubliés (m111) */
