@@ -239,7 +239,7 @@ Détail du code : cartes A, B et C (`carte-*.md`). Lot Rejets : `.claude/concept
     options du générateur (l. 10, 92).
   - Plus tard : le souhait 9 (cadrage l. 299) touchera constatDeduit et pageTableaux ; le barème du souhait 13 devra couvrir les génériques.
 
-## Découpage (m130 à m135 ; 20 correctifs depuis m116, sans fusion ; tous envoyés)
+## Découpage (m130 à m135 ; 20 correctifs depuis m116 ; tous envoyés, fusionnés en v1.7.1, PR #13, 16 nov. 2026)
 Chaque correctif est livrable seul et garde la batterie verte (`sh tests/tout.sh --navigateur`) ; garde commune : compat 245/245 et
 différentiel sans écart. Les tests nouveaux vont dans tests/vm/equipements.js et tests/navigateur/equipements.js, créés en m130 et ajoutés à
 tests/tout.sh (l. 14 et 19) et à tests/LISEZMOI.md. Le lot tient en six numéros ; s'il en manque (lot Rejets plus long, correctif scindé),

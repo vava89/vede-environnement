@@ -20,7 +20,7 @@
 - Liste de la v1.7.0 (reçue le 6 nov. 2026 ; cadrage du 7 nov. : six lots, environ 46 correctifs) : 1 photo de la façade ; 2 nouvelles destinations de rejet (puits) ; 3 symbole du rejet en infiltration ; 4 drains ; 5 plan d'avant-projet sans les éléments « à supprimer » ; 6 « à supprimer » sur une partie seulement d'un tronçon (puis tronçon « projet » vers un autre regard) ; 7 équipements non listés ; 8 étiquette commune aux équipements d'une salle de bain ; 9 constat et listing des équipements sans les lignes non cochées ou absentes ; 10 boîte de branchement en limite (distance à la limite, intérieur ou extérieur) ; 11 objet dans le prolongement d'une façade (distance, décalage à droite ou à gauche) ; 12 escaliers (départ, fin, largeur, marches ; départ à une distance le long du bâti) ; 13 réglage par anomalie standard (conformité, non-conformité, à arbitrer) ; 14 plan centré sur l'adresse ou la parcelle à l'ouverture ; 15 niveau d'étage précis ; 16 ajouter ou supprimer un sommet au survol (comme AutoCAD) ; 17 palette d'accrochage ; 18 WC avec option « + lave-mains ».
 
 ## Réponses du 16 nov. 2026 au formulaire « Questions ouvertes VÉDÉ » (choix et commentaires mot pour mot)
-- Artefact privé « Questions ouvertes VÉDÉ » (adresse hors du dépôt public), base « reponses » (un document par question). Ce qui suit est la lecture du 16 nov. 2026 au soir (75 réponses sur 91) ; les réponses facultatives encore absentes gardent le choix appliqué (« appliquée en attendant »).
+- Artefact privé « Questions ouvertes VÉDÉ » (adresse hors du dépôt public), base « reponses » (un document par question). Ce qui suit est la lecture du 16 nov. 2026 au soir (91 réponses sur 91) ; toutes les questions ont reçu une réponse ; un « Sans avis » garde le choix appliqué, sans valoir accord.
 - Fusion de la v1.7.1 :
   - fusion-ab (Fusionner maintenant, ou corriger J1 d'abord ?) : (B) Corriger J1 d'abord (m136), puis fusionner la v1.7.1 : 21 correctifs, par exception à la limite de 20.
 - v1.7.1 : lot Rejets :
@@ -36,6 +36,7 @@
   - puits-venu-fichier (« Puits » venu d'un fichier) : Oui : la juger comme un puits, non conforme
 - v1.7.1 : lot Équipements :
   - e1 (Ligne du constat d'un « Autre appareil ») : Sur aucune ligne tant que l'opérateur n'a pas choisi ; commentaire : « Ne jamais écrire "Autres :". Créée simplement une nouvelle ligne avec le nom de l'équipement »
+  - e1, précision dans le fil (16 nov. 2026 au soir), à la question « la ligne au nom de l'équipement, créée d'office ou seulement quand l'opérateur l'a choisie ? » : « Créée d'office, avec le nom de l'équipement »
   - e2 (Suggestion « Lavabo » des lignes « Autres ») : La retirer partout, croquis désactivé compris ; une ligne déjà saisie reste, et le libellé peut toujours être tapé à la main
   - e3 (Nom d'« Autre appareil » déjà au catalogue) : Le refuser, avec un message qui nomme l'objet à poser
   - e4 (Choix des appareils d'une étiquette commune) : Présélection des appareils EU à moins de 3 m et au même niveau, à retirer d'un toucher ; commentaire : « Ne jamais fusionner des appareils ensemble. L'opérateur choisit lui-même de dessiner tous les équipements ou alors de dessiner seulement une étiquette "cuisine" "salle de bain" etc... »
@@ -100,5 +101,21 @@
   - cotes-gauche-droite (Gauche, droite, devant et derrière dans les cotes) : D'accord
   - fond-de-plan (Lecture du fond de plan) : D'accord
   - pose-par-cotes (Pose par cotes) : D'accord
+  - mesurer-deplacer-par-cotes (« Déplacer par cotes » et « Mesurer depuis une façade ») : D'accord
+  - boite-en-limite (Boîte en limite) : À changer (dites quoi dans le commentaire) ; commentaire : « Changer "intérieur" par "à l'intérieur de la propriété". Idem pour extérieur. OK pour le reste »
+  - boite-cote-propose (Côté proposé pour la boîte en limite) : D'accord
+  - boite-reprise-constat (Reprise de la boîte au constat) : D'accord
+  - escalier-rendu (Rendu de l'escalier) : À changer (dites quoi dans le commentaire) ; commentaire : « Le dessin d'un escalier ne doit jamais être assimilé à un réseau »
+  - escalier-outil (Outil Escalier) : D'accord
+  - escalier-inverser (Pas de bouton « Inverser » pour l'escalier) : D'accord
+  - escalier-depart-cotes (Départ d'escalier par cotes) : D'accord
+  - menu-poignee (Menu de poignée) : D'accord
+  - menu-poignee-doigt (Menu de poignée à la souris seulement) : D'accord
+  - plus-et-bulle (« + » au survol et bulle « + point ») : D'accord
+  - palette-accrochage (Palette d'accrochage) : D'accord
+  - accrochages-milieu-perpendiculaire (Milieu, perpendiculaire et limites de parcelle) : D'accord
+  - prolongement-intersection (Prolongement et intersection) : D'accord
+  - barre-navigation-mise-en-page (Mise en page de la barre et de la palette) : D'accord
+  - corrections-relecture-v170 (Corrections de la relecture de la v1.7.0) : D'accord
   - pied-commits (Nom du modèle dans le pied des commits) : Retirer la ligne « Co-Authored-By » ; seul reste le lien de la session.
-  - remarque-libre (Autre chose ?) : ? ; commentaire : « Créer un genre de disque autour d'un objet créé pour pouvoir le pivoter en utilisant ce disque »
+  - remarque-libre (Autre chose ?) : texte libre ; commentaire : « Créer un genre de disque autour d'un objet créé pour pouvoir le pivoter en utilisant ce disque » puis « Ajouter un outil de dessin par cote : intersection de 2 cotes avec choix du point calculé parmi les deux solutions possibles »

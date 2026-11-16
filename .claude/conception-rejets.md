@@ -338,7 +338,7 @@ cités par nom de cas. Détail du code : `carte-*.md` (8 nov. ; le puits y est e
     (IX:2958), croquis simple (IX:2342, 2368), exception du lavabo (ligne « Évier », m96). croqAuto.recup et croquisConfig.exutoires restent inertes ;
     les anomalies déjà au dossier restent telles quelles.
 
-## Découpage (m116 à m129, puis m136 ; quinze correctifs, batterie verte après chacun)
+## Découpage (m116 à m129, puis m136 ; quinze correctifs, batterie verte après chacun ; fusionnés en v1.7.1, PR #13, 16 nov. 2026)
 Ordre : le commun, sans changement visible (m116) ; l'infiltration (m117, m118) ; l'arbitrage, règle générale, juste après m118 (m119) ; le puits
 (m120) ; les drains (m121 à m124) ; les destinations (m125 à m128), la palette après l'analyse et le rendu ; les cas limites des drains, après les
 réponses à Q6 et Q7 (m129). m116 à m129 sont envoyés (le lot est fini) : leur fiche ne change plus (celles de m116 à m123 renvoient au message de leur
