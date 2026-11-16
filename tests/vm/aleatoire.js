@@ -3,12 +3,54 @@
 // ordres, objets dans deux), fosse septique comprise (contournée par un by-pass, elle ne compte pas : voir fosse-contournee.js).
 // Un raccord posé au milieu d'un tuyau, d'où part un tuyau « Projet » (outil Projet, état des lieux) ou une branche « À supprimer »
 // (avant-projet), ne change pas l'analyse de ce plan (m95 ; échoue sur ba2d32a).
-// usage : node tests/vm/aleatoire.js [n=1500] [graine=1] [-v] [--app=<dossier>]
+// --contre=<dossier> (m116 ; décision D11 de .claude/conception-rejets.md) : chaque croquis est aussi analysé, dans ses modes, par la version de ce dossier
+// (par exemple une copie du commit d'avant, faite par git archive) ; résultat par source, anomalies, conclusion, contrôles et constat déduit
+// doivent être les mêmes (correctif sans changement visible), de même que l'étiquette de chaque objet analysé (m134).
+// Les exutoires dessinés comptent l'infiltration au sol (option exutoires du générateur, m118), le puits (m120) et l'autre destination
+// (m128 : nom fictif ou absent, abréviation parfois absente, de longueur fausse ou illisible au PDF, article, jugement des EP et case
+// parfois inconnus, comme d'une tablette plus récente ; parfois deux destinations aux mêmes champs). Une version qui ne connaît pas un
+// type y voit un bout libre : avec --contre, les croquis qui en ont un y donnent des écarts attendus.
+// --sans=<type>,… (m120) retire ces types des exutoires tirés ; les autres tirages ne changent pas. --sans=exutoire redonne les croquis
+// du tirage d'avant m128 (contre la version d'avant m128, aucun écart attendu) ; --sans=exutoire,puits,drains, ceux d'avant m120 ;
+// --sans=exutoire,infiltration,puits,drains, ceux d'avant m118. Sans « drains » dans --sans, une version d'avant m121 lit les drains
+// tirés (ci-dessous) comme de simples tronçons. Contre la version d'avant m128 (qui connaît l'autre destination depuis m125), les
+// croquis avec « exutoire » ne donnent aucun écart non plus : seule l'abréviation illisible au PDF change (repli de destDe), qui
+// n'entre ni dans l'analyse, ni dans les anomalies, ni dans le constat.
+// Contre 00f4ac5 (m128), les écarts attendus viennent de m129 : sources reliées au bout libre d'un drain de collecte (Q6 b), sources
+// qu'un drain d'infiltration mène aussi à un autre exutoire (Q7 a), et ces drains eux-mêmes ; avec --sans=drains, aucun écart.
+// Les croquis ont aussi des drains (option drains du générateur, m124) : des tronçons tirés deviennent des drains de collecte ou
+// d'infiltration, d'autres passent par un regard, un équipement ou un raccord neuf (nœud du milieu), orientés ou non, ou sont libres ; un
+// point « Drain » est parfois posé sur le premier sommet libre d'un drain de collecte (un bout, ou un coude au milieu du drain : ce point
+// n'est pas compté comme un nœud du milieu). Ils comptent comme m121 à m123 le disent : un drain de collecte
+// actif, d'au moins deux sommets, sans point « Drain » sur un sommet, a son résultat ; un drain d'infiltration n'en a pas ; la ligne
+// « Autres : Drain » du constat en compte un par drain compté et par point « Drain » analysé ; une source n'atteint la dispersion dans le
+// sol (DISP) que par un drain d'infiltration ou, depuis m129, par le bout libre d'un drain de collecte (r.drains) ; ce qu'un drain
+// d'infiltration atteint au-delà de lui (r.apres, m129) est un exutoire dessiné qu'elle atteint ; aucun nœud « dr: » ni pièce virtuelle ne reste. Échoue sur f7c2589 (le générateur
+// ne tire aucun drain). --sans=drains retire l'option : mêmes croquis qu'avant m124 (aucun tirage de plus).
+// Sans --contre, les sources tirées comptent aussi les autres appareils (m132, option sources du générateur : « autre_eu » et
+// « autre_ep », nom fictif parfois absent, blanc, long ou à balises, abréviation et ligne du constat parfois fausses). Ils changent
+// le tirage des sources : avec --contre, ou avec --sans=generiques, aucun n'est tiré, et les croquis sont ceux d'avant m132 (une version
+// d'avant m132 ne connaît pas ce type : elle y verrait un bout libre).
+// Sans --contre, les sources tirées ont aussi des champs (m134, option champs du générateur : niveau, lave-mains, nom et étiquette
+// commune, liens et titres parfois illisibles), et la signature compte l'étiquette de chaque source analysée (texte commun du porteur,
+// vide pour un membre) : elle ne dépend pas non plus de l'ordre du dessin ; le test compte les porteurs et les membres. Avec --contre, ou
+// avec --sans=champs, aucun champ n'est tiré : mêmes croquis qu'avant m134.
+// usage : node tests/vm/aleatoire.js [n=1500] [graine=1] [-v] [--app=<dossier>] [--contre=<dossier>] [--sans=<type>|drains|generiques|champs,…]
 'use strict';
 const {charger, doc, melange, copie, rapport} = require('./charger.js');
 const G = require('./generateur.js');
 const {V} = charger(), R = rapport('aleatoire');
+const optContre = process.argv.find(x => /^--contre=/.test(x)), Vc = optContre ? charger({dir: optContre.slice(9)}).V : null;
 const args = process.argv.slice(2).filter(x => !/^-/.test(x)), N = +(args[0] || 1500), S0 = +(args[1] || 1);
+/* exutoires dessinés : ceux du générateur, l'infiltration au sol (m118), le puits (m120) et l'autre destination (m128), sauf ceux de --sans
+   (m120) ; drains (m124), sauf « drains » dans --sans ; autres appareils parmi les sources (m132), sauf avec --contre ou « generiques »
+   dans --sans ; champs des sources (m134), sauf avec --contre ou « champs » dans --sans ; un mot de --sans qui n'est ni un de ces types,
+   ni « drains », ni « generiques », ni « champs » arrête le test (faute de frappe : le tirage ne serait pas celui qu'on croit) */
+const TOUS = G.EXUTOIRES.concat(['infiltration', 'puits', 'exutoire']), optSans = process.argv.find(x => /^--sans=/.test(x));
+const SANS = optSans ? optSans.slice(7).split(',').filter(Boolean) : [], EXUS = TOUS.filter(t => SANS.indexOf(t) < 0), DRAINS = SANS.indexOf('drains') < 0;
+const GENS = !Vc && SANS.indexOf('generiques') < 0, SOURCES = GENS ? G.SOURCES.concat(G.GENERIQUES) : G.SOURCES, CHAMPS = !Vc && SANS.indexOf('champs') < 0;
+SANS.forEach(t => { if (TOUS.indexOf(t) < 0 && t !== 'drains' && t !== 'generiques' && t !== 'champs') throw new Error('--sans : « ' + t + ' » n\'est ni un exutoire tiré (' + TOUS.join(', ') + '), ni « drains », ni « generiques », ni « champs »'); });
+if (!EXUS.length) throw new Error('--sans : aucun exutoire ne resterait à tirer');
 
 function signature(d, mode, parSommets){
   const an = V.analyser(copie(d), mode), L = V.anomaliesDoc(copie(d), an), c = V.conclusion(L, an);
@@ -20,7 +62,9 @@ function signature(d, mode, parSommets){
   /* parSommets : une pièce désignée par son tuyau et les points de ses deux bouts (un sommet ajouté décale les numéros des sommets) */
   const cle = p => parSommets ? p.l.id + (p.col ? ':c' : ':') + [p.i0, p.i1].map(i => p.l.v[i].x + ',' + p.l.v[i].y).join('>') : p.id;
   const fl = an.pieces.map(p => cle(p) + (an.sensPiece[p.id] > 0 ? '>' : an.sensPiece[p.id] < 0 ? '<' : '=')).sort().join(' ; ');
-  return s + ' | ' + anos + ' | ' + c + ' | ' + ctrl + ' | ' + fl;
+  /* étiquettes des sources analysées (m134 : étiquette commune), avant les flèches, qui restent la dernière partie (raccordAuMilieu) */
+  const T = V.TYPES, etq = Object.keys(an.objs).sort().filter(id => (T[an.objs[id].t] || {}).role === 'source').map(id => id + '=' + JSON.stringify(V.texteEtiquette(an.objs[id], an))).join(' ; ');
+  return s + ' | ' + anos + ' | ' + c + ' | ' + ctrl + ' | ' + etq + ' | ' + fl;
 }
 /* mise à jour du dossier : aucune exception, une seconde synchronisation ne change plus rien */
 function dossier(d){
@@ -46,7 +90,69 @@ function raccordAuMilieu(d0, mode, k){
   d.el.push({id: 'Lm', k: 'ln', t: 'tr', v: [{x: m.x, y: m.y, a: 'Jm'}, {x: m.x + 0.8, y: m.y + 0.6, a: null}], p: Object.assign(V.defautsLn('tr', {res: ''}), {res: '', st: mode === 'avp' ? 'supprimer' : 'projet'}), lab: null});
   return d;
 }
-const st = {croquis: 0, analyses: 0, exceptions: 0, ordreTraces: 0, ordreObjets: 0, avecFosse: 0, dossierInstable: 0, raccordsAuMilieu: 0, raccordChange: 0, raccordChangeAnalyse: 0};
+/* drains tirés (m124) : comptés comme m121 à m123 le disent (voir l'en-tête) ; rend les écarts, sans exception */
+function comptageDrains(d, mode){
+  const an = V.analyser(copie(d), mode), L = an.lignes, ko = [];
+  const att = Object.keys(L).filter(id => V.drainDe(L[id]) === 'collecte' && L[id].v.length >= 2 && !L[id].v.some(v => v.a && an.objs[v.a] && an.objs[v.a].t === 'drain')).sort();
+  const vus = Object.keys(an.resObj).filter(id => !an.objs[id]).sort(), pts = Object.keys(an.resObj).filter(id => an.objs[id] && an.objs[id].t === 'drain').length;
+  if (att.join() !== vus.join()) ko.push('drains comptés : ' + (vus.join(',') || 'aucun') + ', au lieu de ' + (att.join(',') || 'aucun'));
+  const inf = Object.keys(L).filter(id => V.drainDe(L[id]) === 'infiltration');
+  if (inf.some(id => an.resObj[id])) ko.push('drain d\'infiltration compté comme une source');
+  const rd = V.constatDeduit(copie(d), an).rows.find(r => r.id === 'autre:Drain'), nb = rd ? rd.nb : 0;
+  if (nb !== att.length + pts) ko.push('ligne « Autres : Drain » ×' + nb + ', au lieu de ×' + (att.length + pts));
+  /* m129 : la dispersion dans le sol vient d'un drain d'infiltration, ou du bout libre d'un drain de collecte (r.drains : drains de collecte
+     actifs, ni EU ni unitaires) ; ce qu'un drain d'infiltration atteint au-delà de lui (r.apres) est un exutoire dessiné atteint */
+  Object.keys(an.resObj).forEach(id => { const r = an.resObj[id];
+    if ((r.nets || []).indexOf('DISP') >= 0 && !(r.drains ? r.res === 'DISP' && !r.presume && r.drains.length > 0
+      && r.drains.every(k => L[k] && V.drainDe(L[k]) === 'collecte' && !/^(EU|UN)$/.test(L[k].p.res || '')) : inf.some(k => L[k].v.length >= 2))) ko.push('DISP sans drain d\'infiltration ni bout de drain de collecte : ' + id);
+    if (r.apres && !(r.res === 'DISP' && r.term.some(t => t.res === 'DISP') && r.apres.length > 0 && r.apres.every(x => x.res !== 'DISP' && r.term.some(t => t.res === x.res))))
+      ko.push('au-delà du drain sans drain d\'infiltration ni exutoire dessiné : ' + id);
+  });
+  if (/dr:/.test(JSON.stringify(an.resObj)) || Object.keys(an.sensSource).concat(Object.keys(an.adj)).some(x => /^dr:/.test(x)) || Object.keys(an.adj).some(x => an.adj[x].some(p => p.virt)))
+    ko.push('nœud « dr: » ou pièce virtuelle restés');
+  return {ko, comptes: att.length, points: pts};
+}
+const st = {croquis: 0, analyses: 0, exceptions: 0, ordreTraces: 0, ordreObjets: 0, avecFosse: 0, dossierInstable: 0, raccordsAuMilieu: 0, raccordChange: 0, raccordChangeAnalyse: 0,
+  drainsComptes: 0, pointsDrain: 0, drainsKo: 0};
+if (Vc) Object.assign(st, {contre: 0, ecartsContre: 0});
+/* drains tirés : de collecte, d'infiltration, passant par un nœud du milieu (regard, équipement ou raccord ; pas un point « Drain »),
+   orientés ; points « Drain » posés sur un drain, dont au milieu du drain (sur un coude) */
+const tir = {collecte: 0, infiltration: 0, milieu: 0, orientes: 0, points: 0, pointsMilieu: 0};
+/* autres destinations tirées (m128), dont celles à l'abréviation illisible au PDF (2 ou 3 caractères, aucun que le PDF sache écrire) */
+const dst = {destinations: 0, abIllisibles: 0};
+/* autres appareils tirés (m132) ; étiquettes communes (m134) : liens tirés, porteurs et membres analysés */
+const gens = {tires: 0, sansNom: 0, row: 0}, grp = {liens: 0, porteurs: 0, membres: 0};
+function compterTirage(spec){
+  grp.liens += spec.o.filter(o => o[4] && 'etiqAvec' in o[4]).length;
+  spec.o.filter(o => G.GENERIQUES.indexOf(o[1]) >= 0).forEach(o => { gens.tires++; if (typeof o[4].nom !== 'string' || !o[4].nom.trim()) gens.sansNom++; if ('row' in o[4]) gens.row++; });
+  spec.o.filter(o => o[1] === 'exutoire').forEach(o => { const ab = o[4].ab; dst.destinations++;
+    if (typeof ab === 'string' && ab.length >= 2 && ab.length <= 3 && !V.pdfTxt(ab).trim()) dst.abIllisibles++; });
+  const pd = spec.o.filter(o => o[1] === 'drain').map(o => o[0]);
+  spec.l.forEach(l => { const s = l[6] && l[6].drain; if (!s) return; tir[s]++; const mil = l[4].slice(1, -1).filter(q => typeof q === 'string');
+    if (mil.some(q => pd.indexOf(q) < 0)) tir.milieu++; tir.pointsMilieu += mil.filter(q => pd.indexOf(q) >= 0).length; if (l[5]) tir.orientes++; });
+  tir.points += pd.length;
+}
+/* --contre : écriture stable d'une valeur (clés triées, boucle coupée) ; ce qu'une version tire d'un croquis, partie par partie */
+function stable(v, pile){
+  if (v === null || v === undefined) return 'null';
+  if (typeof v === 'function') return '"(fonction)"';
+  if (typeof v !== 'object') return JSON.stringify(v);
+  if (pile.indexOf(v) >= 0) return '"(boucle)"';
+  pile.push(v);
+  const t = Array.isArray(v) ? '[' + v.map(x => stable(x, pile)).join(',') + ']'
+    : '{' + Object.keys(v).sort().filter(k => v[k] !== undefined).map(k => JSON.stringify(k) + ':' + stable(v[k], pile)).join(',') + '}';
+  pile.pop();
+  return t;
+}
+function resultat(Vx, d, mode){
+  try {
+    const an = Vx.analyser(copie(d), mode), L = Vx.anomaliesDoc(copie(d), an), cd = Vx.constatDeduit(copie(d), an);
+    return {sources: stable(an.resObj, []), anomalies: stable(L, []), conclusion: stable(Vx.conclusion(L, an), []), controles: stable(an.controles, []),
+      constat: stable({rows: cd.rows, epRecup: cd.epRecup, sansCote: cd.sansCote, methodes: cd.methodes}, []),
+      /* étiquette de chaque objet analysé (m134 : sans lien d'étiquette commune, aucune ne change) */
+      etiquettes: Object.keys(an.objs).sort().map(id => id + '=' + Vx.texteEtiquette(an.objs[id], an)).join(' ; ')};
+  } catch (e){ return {exception: e.message}; }
+}
 const ex = {};
 /* ce qui diffère entre deux résultats (parties séparées par « | » et « ; ») */
 function ecart(a, b){
@@ -56,14 +162,16 @@ function ecart(a, b){
 const note = (k, t) => { (ex[k] = ex[k] || []); if (ex[k].length < 3) ex[k].push(t); };
 for (let it = 0; it < N; it++){
   const graine = S0 + it, avp = graine % 3 === 0;
-  const spec = G.gen(graine, {avp, pLoop: (graine % 10) / 10, maxN: 2 + graine % 7, maxS: 1 + graine % 4, maxC: graine % 3});
-  const d = doc(spec), fosse = spec.o.some(o => o[1] === 'fosse'); st.croquis++; if (fosse) st.avecFosse++;
+  const spec = G.gen(graine, {avp, pLoop: (graine % 10) / 10, maxN: 2 + graine % 7, maxS: 1 + graine % 4, maxC: graine % 3, exutoires: EXUS, drains: DRAINS, sources: SOURCES, champs: CHAMPS});
+  const d = doc(spec), fosse = spec.o.some(o => o[1] === 'fosse'); st.croquis++; if (fosse) st.avecFosse++; compterTirage(spec);
   const lns = d.el.filter(e => e.k === 'ln'), pts = d.el.filter(e => e.k !== 'ln');
   const ordres = [d.el, pts.concat(lns.slice().reverse()), pts.concat(melange(lns, graine)), pts.concat(melange(lns, graine + 1)), pts.concat(melange(lns, graine + 2))];
   (avp ? ['edl', 'avp'] : ['edl']).forEach(mode => {
     st.analyses++;
     let sigs;
-    try { sigs = ordres.map(el => signature(Object.assign({}, d, {el}), mode)); }
+    try { sigs = ordres.map(el => signature(Object.assign({}, d, {el}), mode));
+      if (CHAMPS && typeof V.groupeEtiquette === 'function'){ const an = V.analyser(copie(d), mode);
+        Object.keys(an.objs).forEach(id => { const g = V.groupeEtiquette(an.objs[id], an); if (g) grp[g.porteur === id ? 'porteurs' : 'membres']++; }); } }
     catch (e){ st.exceptions++; note('exception', 'graine ' + graine + ' ' + mode + ' : ' + e.message + ' ' + (e.stack || '').split('\n')[1] + '\n      ' + G.fmt(spec)); return; }
     if (new Set(sigs).size > 1){
       st.ordreTraces++;
@@ -75,16 +183,37 @@ for (let it = 0; it < N; it++){
       if (a !== b){ const ana = a.slice(0, a.lastIndexOf(' | ')) !== b.slice(0, b.lastIndexOf(' | ')); st.raccordChange++; if (ana) st.raccordChangeAnalyse++;
         note('raccord au milieu d\'un tuyau' + (ana ? '' : ' (pièces et flèches seules)'), 'graine ' + graine + ' ' + mode + ' ' + G.fmt(spec) + '\n      ' + ecart(a, b)); } } }
     catch (e){ st.exceptions++; note('exception', 'graine ' + graine + ' ' + mode + ' (raccord au milieu) : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
+    try { const c = comptageDrains(d, mode); st.drainsComptes += c.comptes; st.pointsDrain += c.points;
+      if (c.ko.length){ st.drainsKo++; note('drains comptés', 'graine ' + graine + ' ' + mode + ' : ' + c.ko.join(' ; ') + '\n      ' + G.fmt(spec)); } }
+    catch (e){ st.exceptions++; note('exception', 'graine ' + graine + ' ' + mode + ' (drains) : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
+    if (Vc){
+      const a = resultat(V, d, mode), b = resultat(Vc, d, mode), k = [...new Set(Object.keys(a).concat(Object.keys(b)))].filter(x => a[x] !== b[x]);
+      st.contre++;
+      if (k.length){ st.ecartsContre++; note('écart avec --contre', 'graine ' + graine + ' ' + mode + ' (' + k.join(', ') + ') ' + G.fmt(spec)); }
+    }
   });
   try { if (dossier(d)) { st.dossierInstable++; note('dossier', 'graine ' + graine + ' ' + G.fmt(spec)); } }
   catch (e){ st.exceptions++; note('exception', 'graine ' + graine + ' dossier : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
 }
-console.log(JSON.stringify(st));
+console.log(JSON.stringify(st)); console.log('drains tirés : ' + JSON.stringify(tir) + ' ; autres destinations tirées : ' + JSON.stringify(dst) + ' ; autres appareils tirés : ' + JSON.stringify(gens) + ' ; étiquettes communes : ' + JSON.stringify(grp));
 Object.keys(ex).forEach(k => ex[k].forEach(t => console.log('[' + k + '] ' + t)));
-R.ok(st.exceptions === 0, 'aucune exception (' + st.analyses + ' analyses de ' + st.croquis + ' croquis)');
+R.ok(st.exceptions === 0, 'aucune exception (' + st.analyses + ' analyses de ' + st.croquis + ' croquis ; exutoires tirés : ' + EXUS.join(', ') + ' ; drains : ' + (DRAINS ? 'oui' : 'non')
+  + (EXUS.indexOf('exutoire') >= 0 ? ' ; ' + dst.destinations + ' autres destinations, dont ' + dst.abIllisibles + ' à l\'abréviation illisible au PDF' : '')
+  + ' ; autres appareils : ' + (GENS ? gens.tires + ', dont ' + gens.sansNom + ' sans nom et ' + gens.row + ' avec une ligne du constat' : 'non') + ')');
+R.ok(!GENS || (gens.tires > 0 && gens.sansNom > 0 && gens.row > 0), 'autres appareils tirés parmi les sources (' + (GENS ? gens.tires + ' tirés' : 'option retirée') + ')');
+R.ok(!CHAMPS || (grp.porteurs > 0 && grp.membres >= grp.porteurs), 'étiquettes communes tirées (' + (CHAMPS ? grp.liens + ' liens ; ' + grp.porteurs + ' porteurs et ' + grp.membres
+  + ' membres dans les analyses' : 'option retirée') + ')');
 R.ok(st.ordreTraces === 0, 'même résultat dans cinq ordres des tracés (' + st.avecFosse + ' croquis avec fosse)');
 R.ok(st.ordreObjets === 0, 'même résultat dans un autre ordre des objets');
 R.ok(st.raccordChange === 0, 'un raccord au milieu d\'un tuyau, d\'où part un tuyau absent de ce plan, ne change rien (' + st.raccordsAuMilieu + ' plans'
   + (st.raccordChange ? ' ; ' + st.raccordChange + ' changés, dont ' + st.raccordChangeAnalyse + ' hors pièces et flèches' : '') + ')');
 R.ok(st.dossierInstable === 0, 'une seconde mise à jour du dossier ne change plus rien');
+R.ok(st.drainsKo === 0 && (!DRAINS || (tir.collecte > 0 && tir.infiltration > 0 && tir.milieu > 0 && tir.orientes > 0 && tir.points > 0 && tir.pointsMilieu > 0
+  && st.drainsComptes > 0)),
+  'les drains tirés comptent comme m121 à m123 le disent (' + (DRAINS ? tir.collecte + ' drains de collecte, ' + tir.infiltration + ' d\'infiltration, dont ' + tir.milieu
+  + ' par un nœud du milieu et ' + tir.orientes + ' orientés ; ' + tir.points + ' points « Drain » posés sur un drain, dont ' + tir.pointsMilieu + ' au milieu ; '
+  + st.drainsComptes + ' drains comptés dans les analyses'
+  : 'option drains retirée') + (st.drainsKo ? ' ; ' + st.drainsKo + ' analyses en écart' : '') + ')');
+if (Vc) R.ok(st.ecartsContre === 0, 'même résultat par source, anomalies, conclusion, contrôles, constat déduit et étiquettes qu\'avec la version de ' + optContre.slice(9)
+  + ' (' + st.contre + ' analyses' + (st.ecartsContre ? ' ; ' + st.ecartsContre + ' écarts' : '') + ')');
 R.fin();

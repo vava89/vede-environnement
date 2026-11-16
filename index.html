@@ -372,7 +372,7 @@ details.xls summary{gap:8px}
 <script>
 (function(){
 'use strict';
-var VERSION = '1.7.0';
+var VERSION = '1.7.1';
 
 /* ---------- Utilitaires ---------- */
 var $ = function(s, r){ return (r || document).querySelector(s); };
@@ -2025,17 +2025,31 @@ function precosAuto(c, L){
 function constatEval(v, list){
   var c = migrerConstat(v.constat, v) || newConstat(v), L = list.filter(function(a){ return !a.brouillon; }), link = new Map();
   L.forEach(function(a){ anomRows(c, a).forEach(function(r){ if (!link.has(r.id)) link.set(r.id, []); link.get(r.id).push(a); }); });
+  /* anomalies du croquis restées « à arbitrer » (m119, consigne du 13 nov. 2026 : jamais comptées conformes). Constat non signé : celles du
+     résumé du croquis (vcArbitrage). Constat signé : celles que la signature a vues (c.fige.arbitrer), pour que le dossier ne paraisse pas
+     changé depuis ; signé sans elles (avant m119, ou rien à arbitrer), rien ne change */
+  var F0 = c.signeLe && c.fige, A = c.signeLe ? (F0 && F0.arbitrer && typeof F0.arbitrer === 'object' ? F0.arbitrer : null) : vcArbitrage(v, c);
+  var AL = A && Array.isArray(A.lignes) ? A.lignes : [];
   var rows = c.rows.map(function(r){
-    var la = link.get(r.id) || [], ok = raccOk(r), auto = '';
+    var la = link.get(r.id) || [], ok = raccOk(r), auto = '', arb = AL.indexOf(r.id) >= 0;
     if (la.some(anomNC)) auto = 'non'; else if (rowActive(r) && ok !== null) auto = ok ? 'oui' : 'non';
-    return {r: r, auto: auto, conf: (r.conforme === 'oui' || r.conforme === 'non') ? r.conforme : auto, anoms: la};
+    /* une anomalie de la ligne reste à arbitrer : jamais « oui » d'office, même raccordement ressaisi ; « non » reste */
+    if (arb && auto === 'oui') auto = '';
+    var x = {r: r, auto: auto, conf: (r.conforme === 'oui' || r.conforme === 'non') ? r.conforme : auto, anoms: la};
+    if (arb && !c.signeLe) x.arbitrer = true;
+    return x;
   });
   var nc = rows.some(function(x){ return x.conf === 'non'; }) || L.some(anomNC), res = L.some(function(a){ return !anomNC(a); });
   var auto = nc ? 'non_conformes' : res ? 'reserves' : (rows.some(function(x){ return x.conf === 'oui'; }) ? 'conformes' : '');
+  /* tant qu'une anomalie reste à arbitrer, ni « Conformes » ni « Conformes avec réserves » ne sont proposées : « Conclusion non précisée » */
+  if (A && A.n > 0 && !nc) auto = '';
   var pa = precosAuto(c, L), precos = {}, meth = {};
   PRECO_ALL.forEach(function(p){ var k = p[0]; precos[k] = c.precos[k] === true || (c.precos[k] !== false && pa.has(k)); });
   METH.forEach(function(m){ meth[m[0]] = !!(c.methodes || {})[m[0]] || c.rows.some(function(r){ return rowActive(r) && (r.methodes || []).indexOf(m[0]) >= 0; }); });
   var E = {c: c, rows: rows, auto: auto, conclusion: c.conclusion || auto, precos: precos, precosAuto: pa, meth: meth, anoms: L};
+  /* constat non signé : nombre d'anomalies à arbitrer (rappels) et état gardé à la signature (constatFigeCalc) */
+  E.arbitrer = !c.signeLe && A ? (A.n || 0) : 0;
+  if (!c.signeLe && A) E.arbA = {n: A.n || 0, lignes: AL.slice()};
   E.obsText = String(c.observations || '').trim() || constatObsAuto(E);
   E.reservesText = String(c.reserves || '').trim() || constatObsAuto(E, true);
   var F = c.signeLe && c.fige;
@@ -2051,6 +2065,10 @@ function constatEval(v, list){
     /* ce qui a changé, dans l'ordre du constat, pour le dire au lieu d'un message général */
     if (dif('statut')) why.push('statut de la visite'); if (dif('dateVisite')) why.push('date de visite'); if (dif('nom')) why.push('nom du propriétaire'); if (dif('adresse') || dif('commune')) why.push('adresse du branchement');
     if (JSON.stringify(liveConf) !== JSON.stringify(F.conf)) why.push('installations ou anomalies'); if (E.conclusion !== F.conclusion) why.push('conclusion');
+    /* signé pendant un arbitrage (m119) : l'arbitrage a changé depuis (anomalie retenue ou écartée, dessin changé). Rien n'est dit tant que
+       le résumé du croquis n'est pas prêt (null), ni pour un constat signé sans rien à arbitrer, ou avant m119 */
+    var FA = F.arbitrer && typeof F.arbitrer === 'object' ? F.arbitrer : null, Av = FA ? vcArbitrage(v, c, true) : null;
+    if (Av && (Av.n !== (FA.n || 0) || JSON.stringify(Av.lignes) !== JSON.stringify(Array.isArray(FA.lignes) ? FA.lignes : []))) why.push('anomalies à arbitrer');
     if (JSON.stringify(precos) !== JSON.stringify(F.precos)) why.push('préconisations'); if (E.obsText !== F.observations || E.reservesText !== F.reserves) why.push('observations');
     E.changeWhy = why; E.changed = why.length > 0;
     rows.forEach(function(x){ x.conf = F.conf[x.r.id] || ''; });
@@ -2069,8 +2087,11 @@ function constatFige(v){ var c = v.constat; if (!c || !c.signeLe) return v; retu
 function constatFigeCalc(v){
   var E = constatEval(v, anomsOf(v.id)), conf = {}, w = constatFige(v);
   E.rows.forEach(function(x){ conf[x.r.id] = rowActive(x.r) ? x.conf : ''; });
-  return {logo: (S.etude && S.etude.fiche && S.etude.fiche.constatLogo) || '', conclusion: E.conclusion, conf: conf, precos: E.precos, meth: E.meth, observations: E.obsText, reserves: E.reservesText, soussigne: E.soussigne,
+  var fg = {logo: (S.etude && S.etude.fiche && S.etude.fiche.constatLogo) || '', conclusion: E.conclusion, conf: conf, precos: E.precos, meth: E.meth, observations: E.obsText, reserves: E.reservesText, soussigne: E.soussigne,
     visite: {statut: w.statut, dateVisite: w.dateVisite, absences: (w.absences || []).slice(), nom: ctc(w, 'nom'), adresse: w.adresse, commune: w.commune, domicile: ctc(w, 'domicile'), domVille: ctc(w, 'domVille'), tel: ctc(w, 'tel'), mail: ctc(w, 'mail')}};
+  /* anomalies du croquis à arbitrer vues à la signature (m119) : le constat signé les garde (constatEval), seulement s'il y en a */
+  if (E.arbA) fg.arbitrer = E.arbA;
+  return fg;
 }
 /* Constat signé en v1.3.0, sans gel : figé tel qu'il s'affiche avant que le croquis puisse changer les anomalies (un constat signé ne bouge jamais) */
 function constatGeler(v){
@@ -2100,12 +2121,14 @@ function constatIssues(v, list){
     if (rowActive(r) && !(r.methodes || []).length) out.push(lab + ' : méthode de contrôle non précisée.');
     if (!rowActive(r) && (r.raccord || x.anoms.length)) out.push(lab + ' : nombre non précisé.');
     if (r.conforme === 'oui' && x.auto === 'non') out.push(lab + ' : déclarée conforme alors que ' + (raccOk(r) === false ? 'son raccordement (' + raccLabel(r.raccord).toLowerCase() + ') ne l\'est pas.' : 'une anomalie liée est une non-conformité.'));
+    else if (r.conforme === 'oui' && x.arbitrer) out.push(lab + ' : déclarée conforme alors qu\'une anomalie reste à arbitrer : décidez dans le croquis (Contrôles).');
   });
   if (!c.reseau) out.push('Réseau desservant non précisé : départemental ou territorial.');
   if (vcPret()) E.anoms.forEach(function(a){ if (vcOrpheline(a)) out.push('A' + (list.indexOf(a) + 1) + ' « ' + String(a.observation || '').split('\n')[0].slice(0, 80) + ' » : le croquis ne la produit plus (dessin corrigé) ; vérifiez-la ou supprimez-la.'); });
   if (vcPret()) vcDoublons(E.anoms).forEach(function(l){ out.push(vcDoublonsMsg(l, list)); });
   if (E.conclusion === 'non_conformes' && !PRECO_ALL.some(function(p){ return E.precos[p[0]]; }) && !String(c.observations || '').trim() && !E.anoms.length) out.push('Installations non conformes sans préconisation ni observation.');
   if (c.conclusion && E.auto && c.conclusion !== E.auto) out.push('Conclusion choisie (« ' + conclLabel(c.conclusion) + ' ») différente de celle déduite des installations et anomalies (« ' + conclLabel(E.auto) + ' »).');
+  if ((c.conclusion === 'conformes' || c.conclusion === 'reserves') && E.arbitrer) out.push('Conclusion « ' + conclLabel(c.conclusion) + ' » choisie alors qu\'une anomalie reste à arbitrer : décidez dans le croquis (Contrôles).');
   if (!E.conclusion) out.push('Conclusion non précisée.');
   if (!String(E.soussigne || '').trim()) out.push('Nom du signataire manquant (« Je, soussigné ») : renseignez la fiche contact ou le champ du constat.');
   if (E.obsText.length > 470) out.push('Observations trop longues pour le cadre du constat (' + E.obsText.length + ' caractères, environ 470 au maximum) : raccourcissez-les ; le détail reste sur la fiche.');
@@ -3124,7 +3147,7 @@ function drawConstat(doc, v, list, first){
 }
 function constatFileName(v){ var hd = ficheHeader(S.etude, v); return safeNameFr('Constat ' + v.numero + (hd.ville ? ' - ' + hd.ville : ''), 120) + '.pdf'; }
 async function constatPdfBlob(v){
-  await croquisAJour(v);
+  await croquisAJour(v); await vcResumeSiBesoin(v);
   var doc = newPdf(); doc.setProperties({title: 'Constat ' + v.numero, author: 'SAS VÉDÉ Environnement', creator: 'VÉDÉ Terrain'});
   drawConstat(doc, v, anomsOf(v.id), true);
   return doc.output('blob');
@@ -3139,12 +3162,14 @@ async function downloadConstatPdf(vid){
 /* ---------- Croquis de terrain (module croquis/croquis.js, facultatif) ----------
    Un plan par dossier (magasin « plans », clé visiteId) ; les fonds de plan DXF appartiennent à l'étude (magasin « fonds »).
    Les anomalies retenues sur le croquis sont des anomalies du dossier, reliées par a.croquis = {cle, objId, auto} :
-   la fiche, le constat, la complétude et les exports les lisent comme les autres. Sans le réglage ou sans le module, rien ne change. */
-var CROQ_DEF = {actif: true, aides: null};
+   la fiche, le constat, la complétude et les exports les lisent comme les autres. Sans le réglage ou sans le module, rien ne change.
+   exutoires (m128 ; décisions D3, D10, D12) : destinations ajoutées par « + Nouvelle destination », modèles de la tablette ({id, nom, ab,
+   art, ep, cst}), hors sauvegarde ; un modèle ne sert qu'à la pose. La liste est gardée telle quelle, module absent compris. */
+var CROQ_DEF = {actif: true, aides: null, exutoires: null};
 var VC = {ed: null, hote: null, ctx: null, logo: null, fondT: null};
 var VC_FONDS = new Map();   /* fonds déjà lus (id → fond prêt à dessiner), quatre au plus */
-async function croqCfgLire(){ var r = null; try { r = await DB.get('meta', 'croquisConfig'); } catch(e){} var c = Object.assign({}, CROQ_DEF, (r && r.v) || {}); c.actif = c.actif !== false; return c; }
-function croqCfgEcrire(){ return DB.put('meta', {k: 'croquisConfig', v: {actif: !!S.croq.actif, aides: S.croq.aides || null}}).catch(function(e){ reportError(e, 'Réglage du croquis'); }); }
+async function croqCfgLire(){ var r = null; try { r = await DB.get('meta', 'croquisConfig'); } catch(e){} var c = Object.assign({}, CROQ_DEF, (r && r.v) || {}); c.actif = c.actif !== false; if (!Array.isArray(c.exutoires)) c.exutoires = null; return c; }
+function croqCfgEcrire(){ return DB.put('meta', {k: 'croquisConfig', v: {actif: !!S.croq.actif, aides: S.croq.aides || null, exutoires: Array.isArray(S.croq.exutoires) ? S.croq.exutoires : null}}).catch(function(e){ reportError(e, 'Réglage du croquis'); }); }
 function vcModule(){ return !!(window.VCroquis && window.VCroquis.editeur && window.VCroquis.reconcilier); }
 function vcPret(){ return !!(S.croq && S.croq.actif && vcModule()); }
 function planDe(vid){ return !!(S.plansV && S.plansV.has(vid)); }
@@ -3351,6 +3376,8 @@ function vcEditeur(){
     enregistrer: function(doc){ vcEnregistrer(doc, true); },
     enregistrerVue: function(doc){ vcEnregistrer(doc, false); },
     enregistrerAides: function(a){ if (!S.croq) return; S.croq.aides = a; croqCfgEcrire(); },
+    /* destinations ajoutées dans le croquis (m128) : la liste des modèles de la tablette, écrite telle que l'éditeur la rend */
+    enregistrerExutoires: function(l){ if (!S.croq || !Array.isArray(l)) return; S.croq.exutoires = l; croqCfgEcrire(); },
     chargerFond: vcChargerFond,
     fondModifie: vcFondModifie,
     fondRetire: function(doc){ vcEnregistrer(doc, true); },
@@ -3413,7 +3440,7 @@ async function vcOuvrir(v, o){
     onMount: function(w, close){
       ctx.close = close;
       w.querySelector('.m-body').appendChild(VC.hote);
-      try { ed.ouvrir(doc, fond, reseau, {aides: Object.assign({}, window.VCroquis.AIDES_DEFAUT, S.croq.aides || {})}); }
+      try { ed.ouvrir(doc, fond, reseau, {aides: Object.assign({}, window.VCroquis.AIDES_DEFAUT, S.croq.aides || {}), exutoires: S.croq.exutoires || []}); }
       catch(e){ reportError(e, 'Croquis illisible'); ctx.erreur = true; setTimeout(function(){ close('erreur'); }, 0); return; }
       if (o.objet){ if ((doc.el || []).some(function(e){ return e.id === o.objet; })) ed.selectionner(o.objet); else if (o.anomalie) ed.placerAnomalie(o.anomalie); }
       if (o.placer) ed.placerAnomalie(o.placer);
@@ -3532,8 +3559,53 @@ function croqReglagesHtml(){
     h += '<h3 class="h3">Aides au dessin</h3><label class="check"><input type="checkbox" data-act="vc-aide" data-k="actives"' + (ai.actives !== false ? ' checked' : '') + '><span>Aides activées <span class="opt">décoché : tracé libre, sans redressement ni accroche au bâti ; les tuyaux se raccordent toujours aux objets et aux autres tuyaux</span></span></label>'
       + V.AIDES_LIB.map(function(x){ var off = ai.actives === false && x[0] !== 'glisser'; return '<label class="check' + (off ? ' off' : '') + '"><input type="checkbox" data-act="vc-aide" data-k="' + esc(x[0]) + '"' + ((V.AIDES_DEFAUT[x[0]] === true ? ai[x[0]] !== false : ai[x[0]] === true) ? ' checked' : '') + (off ? ' disabled' : '') + '><span>' + esc(x[1]) + ' <span class="opt">' + esc(x[2]) + '</span></span></label>'; }).join('')
       + '<p class="muted small">Ces réglages valent aussi dans le croquis (bouton aimant et palette d\'accrochage, à droite du plan).</p>';
+    /* destinations ajoutées (m128 ; D3, D12) : modèles de la tablette, créés dans le croquis ; seulement avec le module et le croquis actif */
+    var mx = V.modelesDe ? V.modelesDe(c.exutoires) : [];
+    h += '<h3 class="h3">Destinations ajoutées</h3>' + (mx.length ? mx.map(function(m){
+      return '<div class="ob-row" data-exu="' + esc(m.id) + '"><span><strong>' + esc(m.nom) + '</strong> (' + esc(m.ab) + ') : EP ' + esc(V.DEST_EP[m.ep] || '') + ', case du constat « ' + esc(V.DEST_CST[m.cst] || '') + ' »</span>'
+        + '<button type="button" class="btn sm" data-act="vc-exu-mod" data-id="' + esc(m.id) + '">Modifier</button><button type="button" class="btn sm ghost" data-act="vc-exu-ret" data-id="' + esc(m.id) + '">Retirer</button></div>';
+    }).join('') : '<p class="muted small">Aucune destination ajoutée. Dans le croquis, « + Nouvelle destination » (palette Équipements) en ajoute une : étang, fossé, mare…</p>')
+      + '<p class="muted small">Elles restent sur cette tablette : la sauvegarde ne les emporte pas. Une destination déjà posée garde son nom et ses jugements : modifier ou retirer un modèle ne la change pas.</p>';
   }
   return h + '</section>';
+}
+/* destinations ajoutées (m128) : modèle modifié dans les Réglages, avec les refus de la fiche du croquis (VCroquis.destSaisie) ; seules les
+   poses suivantes en tiennent compte */
+async function vcExuModifier(id){
+  var V = window.VCroquis; if (!S.croq || !vcModule() || !V.modelesDe) return;
+  var m = V.modelesDe(S.croq.exutoires).filter(function(x){ return x.id === id; })[0]; if (!m) return;
+  var opt = function(l, val){ return l.map(function(x){ return '<option value="' + esc(x[0]) + '"' + (x[0] === val ? ' selected' : '') + '>' + esc(x[1]) + '</option>'; }).join(''); };
+  var champ = function(lib, html){ return '<label class="field"><span class="lbl">' + lib + '</span>' + html + '</label>'; };
+  var res = await openModal({title: 'Modifier la destination',
+    html: champ('Nom', '<input type="text" id="m-dnom" maxlength="40" autocomplete="off" data-autofocus value="' + esc(m.nom) + '">')
+      + champ('Abréviation <span class="opt">2 ou 3 caractères, dans le symbole ; vide : tirée du nom</span>', '<input type="text" id="m-dab" maxlength="3" autocomplete="off" value="' + esc(m.ab) + '">')
+      + champ('Article', '<select id="m-dart">' + opt(V.DEST_ARTS, m.art) + '</select>')
+      + champ('Jugement des EP <span class="opt">les EU y sont toujours non conformes</span>', '<select id="m-dep">' + opt(V.DEST_EPS, m.ep) + '</select>')
+      + champ('Case du constat <span class="opt">en EP</span>', '<select id="m-dcst">' + opt(V.DEST_CSTS, m.cst) + '</select>')
+      + '<p class="muted small">Seules les prochaines poses en tiennent compte : une destination déjà posée garde ses champs.</p>',
+    actions: [{label: 'Annuler', value: null}, {label: 'Enregistrer', cls: 'primary', collect: function(w){
+      var q = function(s){ return w.querySelector(s).value; };
+      var r = V.destSaisie({nom: q('#m-dnom'), ab: q('#m-dab'), art: q('#m-dart'), ep: q('#m-dep'), cst: q('#m-dcst')}, m);
+      if (r.refus){ toast(r.refus, 4000); return false; }
+      return r.m;
+    }}],
+    /* l'article suit le nom tapé, comme dans la fiche courte du croquis : la fenêtre montre celui qui sera enregistré (« le » devant une
+       consonne, au lieu de « l' » : à changer en « la » s'il le faut) */
+    onMount: function(w){
+      var n = w.querySelector('#m-dnom'), a = w.querySelector('#m-dart');
+      if (n && a && V.artDevant) n.addEventListener('input', function(){ a.value = V.artDevant(a.value, n.value.replace(/\s+/g, ' ').trim()); });
+    }});
+  if (!res || !S.croq) return;
+  S.croq.exutoires = V.modelesDe(S.croq.exutoires).map(function(x){ return x.id === id ? {id: id, nom: res.nom, ab: res.ab, art: res.art, ep: res.ep, cst: res.cst} : x; });
+  await croqCfgEcrire(); toast('Destination modifiée : les prochaines poses en tiendront compte.'); render();
+}
+async function vcExuRetirer(id){
+  var V = window.VCroquis; if (!S.croq || !vcModule() || !V.modelesDe) return;
+  var l = V.modelesDe(S.croq.exutoires), m = l.filter(function(x){ return x.id === id; })[0]; if (!m) return;
+  if (!await confirmModal('Retirer la destination', '« ' + m.nom + ' » ne sera plus proposée dans la palette. Les destinations déjà posées gardent leurs champs.', 'Retirer', true)) return;
+  if (!S.croq) return;
+  S.croq.exutoires = l.filter(function(x){ return x.id !== id; });
+  await croqCfgEcrire(); toast('Destination retirée de la palette.'); render();
 }
 var VC_ACTIONS = {
   'c-croq-fill': async function(){
@@ -3549,23 +3621,32 @@ var VC_ACTIONS = {
   'vc-pdf': function(el){ var v = curVisit(); if (v && (!el.dataset.vid || el.dataset.vid === v.id)) return vcPdf(v); },
   'vc-voir': function(){ var v = curVisit(), a = curAnom(); if (!v || !a) return; var oid = a.croquis && a.croquis.objId; return vcOuvrir(v, oid ? {objet: oid, anomalie: a.id} : {placer: a.id}); },
   'vc-actif': async function(el){ if (!S.croq) return; S.croq.actif = !!el.checked; VC_RESUMES.clear(); await croqCfgEcrire(); render(); },
-  'vc-aide': async function(el){ if (!S.croq || !vcModule()) return; var a = Object.assign({}, window.VCroquis.AIDES_DEFAUT, S.croq.aides || {}); a[el.dataset.k] = !!el.checked; S.croq.aides = a; await croqCfgEcrire(); if (el.dataset.k === 'actives') render(); }
+  'vc-aide': async function(el){ if (!S.croq || !vcModule()) return; var a = Object.assign({}, window.VCroquis.AIDES_DEFAUT, S.croq.aides || {}); a[el.dataset.k] = !!el.checked; S.croq.aides = a; await croqCfgEcrire(); if (el.dataset.k === 'actives') render(); },
+  'vc-exu-mod': function(el){ return vcExuModifier(el.dataset.id); },
+  'vc-exu-ret': function(el){ return vcExuRetirer(el.dataset.id); }
 };
 
 /* ---------- Croquis de terrain et constat ----------
    Résumé du croquis (installations dessinées, raccordement, méthodes), gardé en mémoire par dossier : jamais recalculé à chaque affichage.
-   Le constat ne reprend que nombre, raccordement et méthodes des lignes, le puisard, la distance à la limite et la profondeur de la boîte de
-   branchement (seule boîte existante du réseau), et seulement là où le technicien n'a rien saisi (ou a gardé la dernière valeur venue du
-   croquis : c.croqAuto) ; jamais la conformité, la conclusion ni les préconisations, jamais un constat signé, rien quand le croquis est désactivé. */
+   Le constat ne reprend que nombre, raccordement et méthodes des lignes, les cases des ouvrages de récupération des EP (puisard, récupérateur,
+   infiltration diffuse, indéterminé/autres), la distance à la limite et la profondeur de la boîte de branchement (seule boîte existante du
+   réseau), et seulement là où le technicien n'a rien saisi (ou a gardé la dernière valeur venue du croquis : c.croqAuto) ; jamais la
+   conformité, la conclusion ni les préconisations, jamais un constat signé, rien quand le croquis est désactivé. */
 var VC_RESUMES = new Map();
 function vcResumeCalc(v, doc){
   var V = window.VCroquis, an = V.analyser(doc, 'edl'), cd = V.constatDeduit(doc, an);
-  var r = {rev: doc.rev || 0, plan: typeof doc.id === 'string' ? doc.id : '', rows: cd.rows.filter(function(x){ return x.nb > 0; }).map(function(x){ return {id: x.id, groupe: x.groupe, label: x.label, std: !!x.std, nb: x.nb, raccord: x.raccord || '', conforme: x.conforme || '', non: (x.non || []).slice(), meth: (x.meth || []).slice(), types: (x.types || []).slice()}; }),
+  var r = {rev: doc.rev || 0, plan: typeof doc.id === 'string' ? doc.id : '', rows: cd.rows.filter(function(x){ return x.nb > 0; }).map(function(x){ var o = {id: x.id, groupe: x.groupe, label: x.label, std: !!x.std, nb: x.nb, raccord: x.raccord || '', conforme: x.conforme || '', non: (x.non || []).slice(), meth: (x.meth || []).slice(), types: (x.types || []).slice()}; if (x.arbitrer) o.arbitrer = true; return o; }),
     puisard: !!(cd.epRecup && cd.epRecup.puisard), sansCote: (cd.sansCote || []).length};
+  /* autres cases des ouvrages de récupération des EP d'après le croquis (récupérateur, infiltration diffuse, indéterminé/autres : décision D7
+     de .claude/conception-rejets.md), s'il y en a */
+  var rc = {}; EP_RECUP.forEach(function(q){ if (q[0] !== 'puisard' && cd.epRecup && cd.epRecup[q[0]]) rc[q[0]] = true; });
+  if (Object.keys(rc).length) r.recup = rc;
   /* anomalies du dossier restées intactes que le dessin d'aujourd'hui met à jour (texte, réseau, nature, ligne du constat), par exemple un
-     dossier commencé avant une mise à jour qui range autrement un lavabo : l'éditeur les reporte à son ouverture */
+     dossier commencé avant une mise à jour qui range autrement un lavabo : l'éditeur les reporte à son ouverture. m133 (M2) : autresAnom, les
+     anomalies d'un autre appareil compté en « Autres » ({id de l'anomalie : id de la ligne du croquis}), que vcRangerAutres range */
   try { var dc = JSON.parse(JSON.stringify(doc)), ops = V.reconcilier(dc, null, anomsOf(v.id), {});
-    r.aReporter = (ops.maj || []).filter(function(m){ return ['observation', 'preconisation', 'reseau', 'nc', 'installation'].some(function(k){ return m.champs && m.champs[k] !== undefined; }); }).length; } catch(e){ r.aReporter = 0; }
+    r.aReporter = (ops.maj || []).filter(function(m){ return ['observation', 'preconisation', 'reseau', 'nc', 'installation'].some(function(k){ return m.champs && m.champs[k] !== undefined; }); }).length;
+    r.autresAnom = ops.autres && typeof ops.autres === 'object' ? ops.autres : {}; } catch(e){ r.aReporter = 0; r.autresAnom = {}; }
   try { var La = V.anomaliesDoc(doc, an, anomsOf(v.id), {telQuel: true}); r.arbitrer = La.filter(function(a){ return a.st === 'arbitrer'; }).length; r.horsdossier = La.filter(function(a){ return a.st === 'horsdossier'; }).length; } catch(e){ r.arbitrer = 0; r.horsdossier = 0; }
   /* boîte de branchement par réseau : nombre de boîtes existantes, distance à la limite et profondeur s'il n'y en a qu'une (VCroquis.boitesConstat) */
   try { r.boite = V.boitesConstat(doc, an); } catch(e){ r.boite = null; }
@@ -3578,11 +3659,64 @@ async function vcResume(v){
   if (!doc) return null;
   try { return vcResumeCalc(v, doc); } catch(e){ reportError(e, 'Croquis'); return null; }
 }
-/* ligne du constat qui correspond à une ligne du croquis : même id pour les lignes du formulaire, libellé pour « Autres » */
-function vcLigneConstat(c, s){
-  if (s.std) return rowById(c, s.id);
+/* m132 (D4) : lignes du constat qui correspondent aux lignes du résumé du croquis, cherchées en une fois. Rend {id de la ligne du croquis :
+   ligne du constat} ; une ligne du croquis absente de la table n'a pas de ligne au constat. Une ligne du formulaire va à la ligne de même id.
+   Une ligne « Autres » va à une ligne « Autres » du même réseau, en trois passes : celle qu'elle a déjà liée (croq), puis celle de même
+   libellé, puis celle qui lui ressemble (autresMatch, dans les deux sens). Dans chaque passe, les lignes du croquis sont prises dans l'ordre
+   de leur id, pas dans celui du dessin ; une ligne du constat ne sert qu'une fois. Avant, chaque ligne du croquis cherchait seule : une
+   chaudière et une attente prenaient toutes deux la ligne saisie « Chaudière et attente », et un « Bidet suspendu » prenait la ligne
+   « Bidet » créée juste avant. Ne pose aucun lien (constatDepuisCroquis le fait) ; lue aussi par vcEcarts et vcArbitrage, pour que les
+   rappels et l'arbitrage visent les lignes que la reprise remplit. Une ligne du croquis sans ligne liée : vcArbitrage se replie sur la
+   ressemblance d'avant (vcRessemble) */
+function vcApparier(c, res){
+  var lien = {}, pris = [], autres = [];
+  (res && res.rows || []).forEach(function(s){
+    if (s.std){ var r0 = rowById(c, s.id); if (r0) lien[s.id] = r0; }
+    else autres.push(s);
+  });
+  autres.sort(function(a, b){ return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
+  function mots(x){ return norm(x).replace(/[-']/g, ' '); }
+  function egal(x){ return mots(x).replace(/\s+/g, ' ').trim(); }
+  var passes = [
+    function(r, s){ return r.croq === s.id; },
+    function(r, s){ return egal(r.label) === egal(s.label); },
+    function(r, s){ return autresMatch(r, mots(s.label)) || autresMatch({label: s.label}, mots(r.label)); }];
+  passes.forEach(function(ok){
+    autres.forEach(function(s){
+      if (lien[s.id]) return;
+      for (var i = 0; i < c.rows.length; i++){
+        var r = c.rows[i];
+        if (!r.std && r.groupe === s.groupe && pris.indexOf(r) < 0 && ok(r, s)){ lien[s.id] = r; pris.push(r); return; }
+      }
+    });
+  });
+  return lien;
+}
+/* première ligne « Autres » du constat qui ressemble à une ligne « Autres » du croquis, même prise par une autre (corps de l'ancienne
+   vcLigneConstat, avant m132) : repli de vcArbitrage pour une ligne du croquis sans ligne liée */
+function vcRessemble(c, s){
   var o = norm(s.label).replace(/[-']/g, ' ');
   return c.rows.filter(function(r){ return !r.std && r.groupe === s.groupe && (r.croq === s.id || autresMatch(r, o) || autresMatch({label: s.label}, norm(r.label).replace(/[-']/g, ' '))); })[0] || null;
+}
+/* anomalies du croquis restées « à arbitrer » (m119, consigne du 13 nov. 2026) : leur nombre (résumé du croquis) et les lignes du constat
+   qu'elles nomment (rows[].arbitrer du résumé) ; null sans croquis prêt, sans résumé ou sans rien à arbitrer. vide : {n: 0, lignes: []}
+   quand le résumé est prêt et que rien n'est à arbitrer (null veut alors dire : pas prêt) */
+function vcArbitrage(v, c, vide){
+  if (!vcPret() || !planDe(v.id)) return null;
+  var res = VC_RESUMES.get(v.id); if (!res) return null;
+  var lignes = [], lien = vcApparier(c, res);
+  /* la ligne que la reprise remplit (vcApparier). Une ligne « Autres » du croquis sans ligne liée (ligne saisie à la main pour deux
+     appareils, prise par l'autre ; constat pas encore repris du croquis) marque, comme avant m132, la première ligne qui lui ressemble :
+     sinon cette ligne serait « oui » d'office, et un constat signé pendant l'arbitrage se dirait changé depuis */
+  (res.rows || []).forEach(function(s){ if (!s.arbitrer) return; var r = lien[s.id] || (s.std ? null : vcRessemble(c, s)); if (r && lignes.indexOf(r.id) < 0) lignes.push(r.id); });
+  var n = res.arbitrer || 0;
+  return n || lignes.length || vide ? {n: n, lignes: lignes} : null;
+}
+/* résumé du croquis calculé s'il manque (m119) : pour un constat non signé (signature, PDF du constat), la conclusion proposée tient compte
+   des anomalies à arbitrer ; pour un constat signé pendant un arbitrage (fenêtre d'envoi), il dit si l'arbitrage a changé depuis */
+async function vcResumeSiBesoin(v){
+  var c = v && v.constat;
+  if (v && (!(c && c.signeLe) || (c.fige && c.fige.arbitrer)) && vcPret() && planDe(v.id) && !VC_RESUMES.has(v.id)) await vcResume(v);
 }
 function vcValeurs(s){
   var rk = RACC.map(function(k){ return k[0]; }), mk = METH.map(function(m){ return m[0]; });
@@ -3591,7 +3725,7 @@ function vcValeurs(s){
 function vcMethKey(m){ var mk = METH.map(function(x){ return x[0]; }); return JSON.stringify((m || []).slice().sort(function(a, b){ return mk.indexOf(a) - mk.indexOf(b); })); }
 /* ligne « Autres » active où le technicien compte déjà un appareil que le croquis range dans cette ligne du formulaire (lave-vaisselle, descente EP,
    lavabo…) : son libellé dans le nom de l'appareil, ou le nom de l'appareil dans son libellé (« Lavabos », « Lavabo de la salle d'eau »), comme
-   vcLigneConstat */
+   la ressemblance de vcApparier */
 function vcAutresDouble(c, s){
   if (!s.std || !(s.types || []).length) return null;
   return c.rows.filter(function(r){
@@ -3609,17 +3743,51 @@ function vcProvenance(c){
     if (!P.boite || typeof P.boite !== 'object' || Array.isArray(P.boite)) delete P.boite;
     else Object.keys(P.boite).forEach(function(k){ if (VC_BOITE_CHAMPS.indexOf(k) < 0 || typeof P.boite[k] !== 'string') delete P.boite[k]; });
   }
+  /* autres cases des ouvrages de récupération des EP cochées d'après le croquis (P.recup : {case: true} ; le puisard garde P.puisard) */
+  if (P.recup !== undefined){
+    if (!P.recup || typeof P.recup !== 'object' || Array.isArray(P.recup)) delete P.recup;
+    else {
+      Object.keys(P.recup).forEach(function(k){ if (k === 'puisard' || P.recup[k] !== true || !EP_RECUP.some(function(q){ return q[0] === k; })) delete P.recup[k]; });
+      if (!Object.keys(P.recup).length) delete P.recup;
+    }
+  }
   return P;
 }
 var VC_BOITE_CHAMPS = ['distEU', 'distEP', 'profEU', 'profEP'];
 /* suivi (fermeture du croquis, ouverture du constat) : seulement les champs déjà posés par le croquis, sans ajouter de ligne ; la boîte de
    branchement seulement si « Reprendre du croquis » l'a déjà reprise (P.boite). Constat signé, visite non effectuée, croquis désactivé : rien. */
+/* anomalie dont la ligne suit encore le croquis : installation égale à la valeur notée par le croquis. Seule celle-là est rangée, ou
+   rappelée par vcEcarts ; une ligne choisie par le technicien, « Aucune » comprise, reste la sienne (relecture de m133, M3) */
+function vcAutreSuit(a){ var au = a && a.croquis && a.croquis.auto; return !!au && typeof au === 'object' && (a.installation || '') === au.installation; }
+/* m133 (M2 de la relecture de m132) : anomalie d'un autre appareil compté en « Autres » (bidet, urinoir…), rangée sur la ligne du constat
+   que vcApparier lie à la ligne du croquis de cet appareil (res.autresAnom, que donne VCroquis.reconcilier) ; sans ligne liée, sur aucune
+   (vcEcarts le rappelle). La valeur écrite est notée dans croquis.auto.installation, comme celles que l'éditeur écrit : ni retouche, ni
+   « à reporter ». Une ligne choisie par le technicien (installation autre que la valeur notée) reste la sienne ; un constat signé n'est
+   jamais modifié, ses anomalies non plus. Rend le nombre d'anomalies rangées */
+function vcRangerAutres(v, c, res){
+  var A = res && res.autresAnom; if (!c || c.signeLe || !A || typeof A !== 'object') return 0;
+  var lien = null, n = 0;
+  anomsOf(v.id).forEach(function(a){
+    var s = Object.prototype.hasOwnProperty.call(A, a.id) ? A[a.id] : null, cr = a.croquis, au = cr && cr.auto && typeof cr.auto === 'object' ? cr.auto : null;
+    if (typeof s !== 'string' || !au) return;
+    if (!lien) lien = vcApparier(c, res);
+    var r = Object.prototype.hasOwnProperty.call(lien, s) ? lien[s] : null, val = r && !r.std ? r.id : '';
+    /* comme l'éditeur (reconcilier, suit) : la ligne suit le croquis tant qu'elle est celle qui a été notée */
+    if (!vcAutreSuit(a) || val === au.installation) return;
+    a.installation = val; a.croquis = Object.assign({}, cr, {auto: Object.assign({}, au, {installation: val})});
+    a.updatedAt = nowISO(); saveLater('anomalies', a); n++;
+  });
+  if (n) touchEtude();
+  return n;
+}
 function constatDepuisCroquis(v, res, suivi){
   if (!res || !vcPret() || (v.constat && v.constat.signeLe) || constatNonEffectue(v)) return 0;
-  if (suivi && !(v.constat && v.constat.croqAuto)) return 0;
+  /* constat jamais repris du croquis : le croquis n'y touche pas ; les anomalies des autres appareils vont quand même sur leur ligne, s'il
+     en a une (m133) */
+  if (suivi && !(v.constat && v.constat.croqAuto)) return v.constat ? vcRangerAutres(v, v.constat, res) : 0;
   var neuf = !v.constat, c = constatOf(v), P = vcProvenance(c), n = 0, vus = {}, boiteNeuve = false;
   /* valeurs reprises d'un autre croquis (supprimé puis recommencé) : elles restent, comme saisies par le technicien */
-  if (res.plan && P.plan !== res.plan){ P.rows = {}; P.crees = {}; delete P.puisard; if (P.boite) P.boite = {}; }
+  if (res.plan && P.plan !== res.plan){ P.rows = {}; P.crees = {}; delete P.puisard; delete P.recup; if (P.boite) P.boite = {}; }
   if (res.plan) P.plan = res.plan;
   function poser(r, vals){
     var a = P.rows[r.id]; if (!a || typeof a !== 'object') a = {};
@@ -3633,8 +3801,10 @@ function constatDepuisCroquis(v, res, suivi){
     });
     P.rows[r.id] = a;
   }
+  /* m132 : appariement fait d'avance (vcApparier) ; une ligne créée ici n'est donc jamais prise par une autre ligne du croquis */
+  var lien = vcApparier(c, res);
   res.rows.forEach(function(s){
-    var r = vcLigneConstat(c, s);
+    var r = lien[s.id] || null;
     if (!r && !s.std){
       if (suivi || P.refus[s.id]) return;
       r = {id: rowIdNeuf(c), groupe: s.groupe, label: s.label, std: false, nb: '', raccord: '', conforme: '', methodes: [], croq: s.id};
@@ -3656,6 +3826,14 @@ function constatDepuisCroquis(v, res, suivi){
   if (!c.epRecup || typeof c.epRecup !== 'object') c.epRecup = {};
   if (res.puisard){ if (c.epRecup.puisard === undefined){ c.epRecup.puisard = true; P.puisard = true; n++; } }
   else if (P.puisard){ if (c.epRecup.puisard === true){ delete c.epRecup.puisard; n++; } delete P.puisard; }
+  /* autres cases (récupérateur, infiltration diffuse, indéterminé/autres) : même règle, marquées dans P.recup */
+  var rRecup = res.recup && typeof res.recup === 'object' ? res.recup : {};
+  EP_RECUP.forEach(function(q){
+    var k = q[0]; if (k === 'puisard') return;
+    if (rRecup[k] === true){ if (c.epRecup[k] === undefined){ c.epRecup[k] = true; (P.recup || (P.recup = {}))[k] = true; n++; } }
+    else if (P.recup && P.recup[k]){ if (c.epRecup[k] === true){ delete c.epRecup[k]; n++; } delete P.recup[k]; }
+  });
+  if (P.recup && !Object.keys(P.recup).length) delete P.recup;
   /* boîte de branchement (réponse 10.4) : distance à la limite et profondeur, par réseau, d'après la seule boîte existante du réseau ; comme
      pour les lignes, une valeur retouchée, ou saisie sans avoir été posée par le croquis, reste ; une valeur posée que le croquis ne donne plus
      (aucune ou plusieurs boîtes) est vidée si personne n'y a touché */
@@ -3673,11 +3851,13 @@ function constatDepuisCroquis(v, res, suivi){
       });
     });
   }
+  /* anomalies des autres appareils (m133) : rangées sur leur ligne, celle que cet appel vient de créer comprise ; comptées dans le total */
+  var k = vcRangerAutres(v, c, res);
   if (n) constatTouch(v);
   /* « Reprendre du croquis » sans rien à reprendre : la provenance de la boîte, créée ici, est enregistrée quand même (sans changer la date
      du dossier), sinon le suivi l'ignorerait après un rechargement ; un constat créé par cet appel n'est pas enregistré pour autant */
   else if (boiteNeuve && !neuf) saveLater('visites', v);
-  return n;
+  return n + k;
 }
 /* boîte de branchement : forme comparable d'une distance à la limite ou d'une profondeur, pour les écarts seulement (le texte saisi ne change
    pas) : minuscules, sans accents, espaces réduits ; nombre à deux décimales (virgule ou point, « m » ou « cm » facultatif) ; côté « int » ou
@@ -3709,13 +3889,25 @@ function vcEcarts(v, c){
   var out = [], P = c.croqAuto && typeof c.croqAuto === 'object' ? c.croqAuto : {}, refus = P.refus && typeof P.refus === 'object' ? P.refus : {};
   /* conformité de chaque ligne telle que le constat l'imprimera (choisie, ou déduite du raccordement et des anomalies) */
   var conf = {}; try { constatEval(v, anomsOf(v.id)).rows.forEach(function(x){ conf[x.r.id] = x.conf; }); } catch(e){}
+  /* m132 : même appariement que la reprise (vcApparier), sans poser de lien : deux lignes du croquis ne se comparent plus à la même ligne */
+  var lien = vcApparier(c, res);
+  /* m133 (M2) : anomalies d'un autre appareil compté en « Autres » qui ne sont rangées sur aucune ligne, faute de la ligne de l'appareil au
+     constat (vcRangerAutres n'a rien pour elles) ; seulement celles que la reprise y rangera (vcAutreSuit) : une anomalie que le technicien
+     a mise sur « Aucune » n'est pas rappelée */
+  var LA = anomsOf(v.id).filter(function(a){ return !a.brouillon; }), AA = res.autresAnom && typeof res.autresAnom === 'object' ? res.autresAnom : {};
+  function sansLigne(s, lab){
+    var k = LA.filter(function(a){ return AA[a.id] === s.id && vcAutreSuit(a) && !anomRows(c, a).length; }).length;
+    if (k) out.push(lab + ' : ' + (k > 1 ? k + ' anomalies du croquis de terrain ne sont rangées' : 'une anomalie du croquis de terrain n\'est rangée') + ' sur aucune ligne du constat ; '
+      + '« Reprendre du croquis » crée la ligne et ' + (k > 1 ? 'les y range.' : 'l\'y range.'));
+  }
   res.rows.forEach(function(s){
     /* ligne « Autres » que le technicien a retirée du constat : son choix */
     if (!s.std && refus[s.id]) return;
-    var r = vcLigneConstat(c, s), vals = vcValeurs(s), lab = r ? r.label : s.label, dbl = vcAutresDouble(c, s);
+    var r = lien[s.id] || null, vals = vcValeurs(s), lab = r ? r.label : s.label, dbl = vcAutresDouble(c, s);
     /* appareil de la même sorte aussi compté en « Autres » : à vérifier, sans rien retirer ni remplir à la place du technicien */
     var aussi = dbl ? ' ; « ' + dbl.label + ' » (' + (String(dbl.nb == null ? '' : dbl.nb).trim() || '0') + ') figure aussi au constat, en « Autres » : vérifiez qu\'il n\'est pas compté deux fois' : '';
-    if (!r || !rowActive(r)){ out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + (r && String(r.nb == null ? '' : r.nb).trim() === '0' ? '0' : 'nombre non renseigné') + ' au constat' + aussi + '.'); return; }
+    if (!r || !rowActive(r)){ out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + (r && String(r.nb == null ? '' : r.nb).trim() === '0' ? '0' : 'nombre non renseigné') + ' au constat' + aussi + '.');
+      if (!r && !s.std) sansLigne(s, lab); return; }
     if (String(r.nb).trim() !== vals.nb) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + String(r.nb).trim() + ' au constat' + aussi + '.');
     else if (dbl) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain' + aussi + '.');
     if (vals.raccord && r.raccord && r.raccord !== vals.raccord) out.push(lab + ' : raccordement « ' + raccLabel(vals.raccord) + ' » sur le croquis de terrain, « ' + raccLabel(r.raccord) + ' » au constat.');
@@ -3725,6 +3917,10 @@ function vcEcarts(v, c){
       + ', conforme au constat : vérifiez le raccordement de chaque appareil de la ligne.');
   });
   if (res.puisard && !(c.epRecup || {}).puisard) out.push('Puisard : sur le croquis de terrain, non coché au constat (ouvrages de récupération des EP).');
+  EP_RECUP.forEach(function(q){
+    if (q[0] === 'puisard' || !(res.recup && res.recup[q[0]] === true) || (c.epRecup || {})[q[0]]) return;
+    out.push(q[1].charAt(0).toUpperCase() + q[1].slice(1) + ' : sur le croquis de terrain, non ' + (q[0] === 'infil' ? 'cochée' : 'coché') + ' au constat (ouvrages de récupération des EP).');
+  });
   /* boîte de branchement : distance à la limite et profondeur de la seule boîte du réseau sur le croquis, autres ou absentes au constat
      (comparées par vcBoiteCle : « 0,8 » vaut « 0,80 m ») ; plusieurs boîtes sur le réseau : rien n'est repris, et un champ vide du constat
      est rappelé si l'une d'elles porte cette valeur */
@@ -3770,6 +3966,8 @@ async function vcConstatApres(v){
   var nf = 0; try { nf = constatDepuisCroquis(v, res, true); } catch(e){ reportError(e, 'Croquis'); }
   if (nf){ toast('Constat mis à jour depuis le croquis (' + plural(nf, 'valeur', 'valeurs') + ').', 3500); await flushSaves(); if (curVisit() === v && S.route && S.route.name === 'constat') render(); return; }
   if (!neuf) return;
+  /* constat signé pendant un arbitrage (m119) : le résumé arrivé dit si l'arbitrage a changé depuis (« Le dossier a changé ») */
+  var c0 = v.constat; if (c0 && c0.signeLe && c0.fige && c0.fige.arbitrer && S.route && S.route.name === 'constat' && (constatEval(v, anomsOf(v.id)).changeWhy || []).indexOf('anomalies à arbitrer') >= 0){ render(); return; }
   var box = $('#croq-ecarts'); if (!box) return;
   var ec = vcEcarts(v, v.constat || newConstat(v));
   if (ec.length && S.route && S.route.name === 'constat'){ render(); return; }
@@ -3944,7 +4142,7 @@ function refreshEnvoiUI(){
 async function mailModal(v){
   var c = v.constat; if (!c || !c.signeLe){ toast('Signez d\'abord le constat.'); return; }
   if (!pdfLibOk()) return;
-  await flushSaves();
+  await flushSaves(); await vcResumeSiBesoin(v);   /* signé pendant un arbitrage : le résumé du croquis dit si l'arbitrage a changé (m119) */
   var cfg = await mailCfg(), direct = mailDirectOk(cfg), E = constatEval(v, anomsOf(v.id)), name = constatFileName(v), blob = null, dests = [], t0 = nowISO();
   var vSigne = c.fige && c.fige.visite ? constatFige(v) : v;   /* objet et message : adresse, ville, date et nom du constat signé joint */
   function addDest(adr, lib, on, note){ adr = String(adr || '').trim(); if (!mailOk(adr) || dests.some(function(d){ return d.adr.toLowerCase() === adr.toLowerCase(); })) return; dests.push({adr: adr, lib: lib, on: on, note: note || ''}); }
@@ -4143,7 +4341,7 @@ var CONSTAT_ACTIONS = {
     constatTouch(v); render();
   },
   'c-lock': async function(){
-    if (curVisit()) await croquisAJour(curVisit());
+    if (curVisit()){ await croquisAJour(curVisit()); await vcResumeSiBesoin(curVisit()); }
     var v = curVisit(), c = v.constat; if (!c || !c.sigTech) return;
     c.fige = constatFigeCalc(v);
     c.signeLe = nowISO(); constatTouch(v); await flushSaves(); toast('Constat validé et verrouillé'); render();
@@ -4280,6 +4478,8 @@ async function vcPlansPdf(v, list){
 }
 function vcNombre(x){ return typeof x === 'number' && isFinite(x); }
 function vcBorne(x, m){ return vcNombre(x) && Math.abs(x) <= m; }
+/* champ k présent dans p, mais qui n'est pas du texte (Q8 b, m128) */
+function vcPasTexte(p, k){ return Object.prototype.hasOwnProperty.call(p, k) && typeof p[k] !== 'string'; }
 /* points du fond : tous finis et à moins de 10 000 km de l'origine (une valeur démesurée figerait les aides au dessin) */
 function xyValide(xy){ for (var i = 0; i < xy.length; i++){ var q = xy[i]; if (!(q === q) || q > 1e7 || q < -1e7) return false; } return true; }
 /* plan venu d'une sauvegarde (peut-être d'un tiers) : forme vérifiée, éléments douteux écartés */
@@ -4294,6 +4494,20 @@ function planValide(pl, visIds){
   pl.el = pl.el.filter(function(e){
     if (!e || typeof e !== 'object' || typeof e.id !== 'string' || ['pt', 'ln', 'tx'].indexOf(e.k) < 0) return false;
     if (e.p && typeof e.p === 'object' && e.p.a != null) e.p.a = vcNombre(e.p.a) ? e.p.a % 360 : 0;
+    /* champs libres (m126, décision D3 ; Q8 b, m128) : réparés, jamais refusés. Seul un champ qui n'est pas du texte est remplacé : celui
+       d'une destination (abréviation, article, jugement des EP, case) par le repli que le module lit déjà (destDe), un nom par un nom vide,
+       lu « Autre destination », « l' », comme avant ; un p.drain est retiré. Un texte, même inconnu de cette version (d'une tablette plus
+       récente), est gardé tel quel : les replis de destDe et de sorteDrain le lisent. Un champ absent reste absent. Rien ne change à
+       l'analyse ; aucun champ n'est ajouté aux autres objets. La réparation se fait dès que le module est chargé (balise fixe), même croquis
+       désactivé : sans effet visible, la lecture donne les mêmes replis */
+    if (e.p && typeof e.p === 'object' && !Array.isArray(e.p)){
+      if (vcPasTexte(e.p, 'drain')) delete e.p.drain;
+      if (e.k === 'pt' && window.VCroquis && typeof window.VCroquis.estDest === 'function' && window.VCroquis.estDest(e.t)){
+        var dP = window.VCroquis.destDe(e);
+        if (vcPasTexte(e.p, 'nom')) e.p.nom = '';
+        ['ab', 'art', 'ep', 'cst'].forEach(function(k){ if (vcPasTexte(e.p, k)) e.p[k] = dP[k]; });
+      }
+    }
     if (e.k === 'ln') return Array.isArray(e.v) && e.v.length >= 2 && e.v.every(function(q){ return q && vcBorne(q.x, 1e7) && vcBorne(q.y, 1e7); });
     return vcBorne(e.x, 1e7) && vcBorne(e.y, 1e7);
   });
@@ -4537,7 +4751,7 @@ async function restoreZip(file){
     (data.visites || []).forEach(function(v){ if (v && v.constat != null && (typeof v.constat !== 'object' || Array.isArray(v.constat))) delete v.constat; var c0 = v && v.constat; if (!c0) return; var nc0 = newConstat(v); if (!Array.isArray(c0.rows)) c0.rows = nc0.rows; c0.rows = c0.rows.filter(function(r){ return r && typeof r === 'object' && typeof r.id === 'string'; }); ['methodes', 'epRecup', 'precos', 'boite'].forEach(function(k){ if (!c0[k] || typeof c0[k] !== 'object' || Array.isArray(c0[k])) c0[k] = nc0[k]; }); if (c0.croqAuto != null && (typeof c0.croqAuto !== 'object' || Array.isArray(c0.croqAuto))) delete c0.croqAuto;
       if (c0.croqAuto){ var P0 = vcProvenance(c0); Object.keys(P0.rows).forEach(function(k){ var x = P0.rows[k]; if (!x || typeof x !== 'object' || Array.isArray(x)) delete P0.rows[k]; }); if (P0.plan != null && typeof P0.plan !== 'string') delete P0.plan; if (P0.puisard !== true) delete P0.puisard;
         /* clés inconnues de la provenance retirées, clés connues gardées (la boîte est vérifiée par vcProvenance) */
-        Object.keys(P0).forEach(function(k){ if (['rows', 'refus', 'crees', 'plan', 'puisard', 'boite'].indexOf(k) < 0) delete P0[k]; }); }
+        Object.keys(P0).forEach(function(k){ if (['rows', 'refus', 'crees', 'plan', 'puisard', 'recup', 'boite'].indexOf(k) < 0) delete P0[k]; }); }
       c0.rows.forEach(function(r){ ['nb', 'raccord', 'conforme', 'label', 'groupe'].forEach(function(f){ if (r[f] != null && typeof r[f] !== 'string') r[f] = String(r[f]); }); r.methodes = Array.isArray(r.methodes) ? r.methodes.filter(function(m){ return typeof m === 'string'; }) : []; if (r.croq != null && typeof r.croq !== 'string') delete r.croq; }); });
     (data.visites || []).forEach(function(v){ var c = v && v.constat; if (!c || typeof c !== 'object') return; ['croquis', 'sigTech', 'sigProp'].forEach(function(k){ if (c[k]) c[k] = imgData(c[k]); }); if (c.croquisV && c.croquisV.fond) c.croquisV.fond = imgData(c.croquisV.fond); });
     (data.visites || []).forEach(function(v){ if (v && v.id) VIS_SUPPR.delete(v.id); });

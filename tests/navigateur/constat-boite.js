@@ -16,6 +16,9 @@
 //     du croquis, ouverture du constat, « Reprendre du croquis »).
 // 9 : sauvegarde altérée (clés inconnues dans la provenance c.croqAuto, provenance de la boîte invalide) : nettoyée à la restauration, les
 //     clés connues gardées.
+// 9, suite (m116, décision D7 de .claude/conception-rejets.md) : la provenance des autres cases des ouvrages de récupération des EP (c.croqAuto.recup)
+//     est gardée, sans ses clés inconnues ({infil: true, x: 1} devient {infil: true}) ; une liste, le puisard (suivi à part, dans
+//     c.croqAuto.puisard) ou une valeur autre que true sont retirés ; échoue sur 52cd3c8 (recup retiré) ; témoin : recup invalides retirés.
 // 10 (entre 7 et 8) : écarts de la boîte comparés sans tenir compte de l'écriture (vcBoiteCle : « 0,8 m int » vaut « 0,80 m intérieur »,
 //     « en limite de propriété » vaut « en limite », « 110 cm » vaut « 1,10 m ») : aucun écart pour des valeurs équivalentes, un écart pour
 //     une autre valeur (« 0,90 » face à « 0,70 m »).
@@ -32,6 +35,36 @@
 // 12 (m115, L3) : PDF du constat, page 2, Boîte de branchement : « 0,80 m intérieur » et « 12,50 m extérieur », trop larges en 9,5 pt
 //     pour la case (56 pt), sur une ligne, à la plus grande taille de 9,5 à 7 pt qui tient, sur la ligne de leur libellé (y 52,5) ; échoue
 //     sur 52f0b00 (y 48,9, 7 pt) ; témoins : « en limite » en 9,5 pt ; un texte plus large que 56 pt à 7 pt, sur deux lignes de 7 pt.
+// 13 (m116, D7) : les autres cases des ouvrages de récupération des EP (récupérateur, infiltration diffuse, indéterminé/autres) suivent
+//     le croquis comme le puisard. Aucun exutoire d'aujourd'hui ne les coche : des lignes d'essai ajoutées à VCroquis.EXU dans la page
+//     (place EP : case « Infiltration diffuse » pour ZZ, « Récupérateur » pour ZX, « Indéterminé/Autres » pour ZY), et un type d'essai
+//     pour chacune. Avant la reprise, la case est rappelée ; « Reprendre du croquis » la coche (provenance c.croqAuto.recup) ; une case
+//     cochée à la main (récupérateur) reste ; le croquis ne la montre plus : elle est décochée ; il la montre de nouveau : elle est
+//     recochée ; décochée par le technicien, elle le reste et elle est rappelée ; fiche de la descente dans l'éditeur : « Rejet : exutoire
+//     de test » (libellé de la table, jamais le code) ; panneau Constat de l'éditeur : « Ouvrage de récupération des EP : infiltration
+//     diffuse » ; puisard et exutoire d'essai dessinés ensemble : « Ouvrages de récupération des EP : puisard, infiltration diffuse »
+//     (ordre du formulaire) ; croquis d'un autre plan (comme au cas 7) : la case cochée d'après l'ancien plan (« Indéterminé/Autres »)
+//     reste, comme cochée par le technicien, et sa provenance est effacée ; « Récupérateur » et « Indéterminé/Autres » décochées par le
+//     technicien sont rappelées, au masculin (« non coché au constat »).
+//     Échoue sur 52cd3c8 (VCroquis.EXU absente : case jamais cochée ni rappelée), sauf les témoins : le croquis ne la montre plus
+//     (récupérateur coché à la main gardé, puisard coché d'après le croquis), panneau avec le puisard seul (« Ouvrage de récupération
+//     des EP : puisard », le texte de la v1.7.0), aucune erreur dans la console.
+// 14 (m126, D3 ; Q8 b, m128) : sauvegarde d'une étude fictive (trois visites). Le plan de la visite 1 porte quatre destinations aux
+//     champs faux ou inconnus : E1, nom de 300 caractères à balises, article « x », EP « x », case 7 ; E2, nom blanc, abréviation trop
+//     longue, EP « x », case 7 ; E4, aucun champ en texte (nom 12, abréviation, article, EP, case : tableau, null, objet, nombre) ; E5,
+//     abréviation et article en nombres ; et deux tronçons à p.drain « oui » (texte inconnu) et 5 (nombre). La sauvegarde est restaurée
+//     sans erreur et ses trois plans sont gardés. Seul un champ qui n'est pas du texte est remplacé, par le repli que le module lit
+//     (Q8 b) : E1 garde nom, article et EP (lus « Ma », « le », à arbitrer), sa case devient « autre » ; E2 garde nom blanc,
+//     abréviation, article et EP, case « autre » ; E4 : nom vide (lu « Autre destination »), « Au », « l' », à arbitrer, « autre » ;
+//     E5 : « Fo », « le », le reste gardé ; p.drain « oui » gardé, 5 retiré (le drain d'infiltration d'un autre tronçon reste). Plan d'un
+//     constat signé (visite 2) : sa destination à l'EP « x » gardée telle quelle. Même analyse (résultat par source, anomalies) avant et
+//     après la restauration, pour les trois plans. Ouverte dans l'éditeur, la fiche de E1 porte « Ma » dans son symbole.
+//     Témoins : sauvegarde restaurée, ses trois plans gardés ; les autres objets rendus tels quels (aucun champ ajouté) ; plan sans
+//     destination ni drain invalide (visite 3) rendu tel quel ; fiche de la descente (nom écrit tel quel, sans balise) ; constat signé
+//     inchangé après la restauration et l'ouverture puis la fermeture de son croquis (seul le gel de l'ouverture, c.fige, s'y ajoute,
+//     conclusion « conformes ») ; aucune erreur dans la console.
+//     Échoue sur 4a55a83 (planValide garde les champs faux et le drain « oui » ; symbole de la fiche sans abréviation), sauf les témoins.
+//     Échoue sur b6e3e3c (m126 récrit les cinq champs de chaque destination et retire le drain « oui »), sauf les témoins et l'analyse.
 // usage : node tests/navigateur/constat-boite.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -50,13 +83,17 @@ async function dossier(p){
   await p.evaluate(() => { const v = window.__VT.S.visites[0]; location.hash = '#/e/' + v.etudeId + '/v/' + v.id; });
   await p.waitForFunction(() => { const r = window.__VT.S.route; return !!r && r.name === 'visit'; }); await C.pause(p, 400);
 }
+/* dessin injecté dans l'éditeur ouvert, autour du centre de la vue */
+async function poserDessin(p, de){
+  const v0 = await C.vue(p), els = de[0].map(([id, t, x, y, q]) => C.P(id, t, v0.cx + x, v0.cy + y, q)), I = C.index(els);
+  de[1].forEach(([id, a, b]) => els.push(C.L(id, 'tr', [a, b], I)));
+  await C.injecter(p, {el: els});
+}
 /* croquis du dossier : dessin injecté, enregistré, croquis fermé (le suivi du constat s'y fait) */
 async function croquis(p, de, premier){
   if (premier) await C.ouvrirCroquis(p, {fond: false});
   else { await dossier(p); await C.ouvrirCroquis(p, {dejaCommence: true}); await p.waitForSelector('#modal-root .vc'); await C.pause(p, 400); }
-  const v0 = await C.vue(p), els = de[0].map(([id, t, x, y, q]) => C.P(id, t, v0.cx + x, v0.cy + y, q)), I = C.index(els);
-  de[1].forEach(([id, a, b]) => els.push(C.L(id, 'tr', [a, b], I)));
-  await C.injecter(p, {el: els});
+  await poserDessin(p, de);
   await p.evaluate(() => { const S = window.__vcEd.etat; S.doc.rev = (S.doc.rev || 0) + 1; window.__vcEd.enregistrer(); }); await C.pause(p, 500);
   await C.fermerCroquis(p); await C.pause(p, 600);
 }
@@ -230,9 +267,10 @@ async function restauration(){
       e.id = 'etude-sauvegarde-fictive'; e.nom = 'Étude fictive restaurée';
       const visite = (n, croqAuto) => Object.assign(JSON.parse(JSON.stringify(v0)), {id: 'visite-fictive-' + n, etudeId: e.id, numero: String(n), statut: 'visitee',
         constat: {v: 3, boite: {distEU: '0,80 m intérieur'}, croqAuto}});
-      const vs = [visite(1, {rows: {evier: {nb: '1'}, bad: 3}, refus: {}, crees: {}, plan: 'plan-fictif', puisard: true,
+      const vs = [visite(1, {rows: {evier: {nb: '1'}, bad: 3}, refus: {}, crees: {}, plan: 'plan-fictif', puisard: true, recup: {infil: true, x: 1},
           boite: {distEU: '0,80 m intérieur', profEU: 5, autre: 'texte'}, inconnue: {a: 1}, autreCle: 'texte'}),
-        visite(2, {rows: {}, boite: ['0,80 m intérieur'], zz: 1}), visite(3, {boite: 'texte'}), visite(4, {rows: {}, plan: 'plan-fictif'})];
+        visite(2, {rows: {}, boite: ['0,80 m intérieur'], zz: 1, recup: ['infil']}), visite(3, {boite: 'texte', recup: {puisard: true, autre: 'oui'}}),
+        visite(4, {rows: {}, plan: 'plan-fictif'})];
       const zip = new window.JSZip();
       zip.file('Sauvegarde fictive/_sauvegarde/vede-terrain-sauvegarde.json', JSON.stringify({format: 'vede-terrain', version: 1, app: 'test', exportedAt: new Date().toISOString(),
         etude: e, visites: vs, anomalies: [], photos: [], biblio: [], plans: [], fonds: []}));
@@ -244,9 +282,14 @@ async function restauration(){
     const cles = x => x && typeof x === 'object' ? Object.keys(x).sort().join(', ') : JSON.stringify(x);
     R.ok(vu.ok === true, '9 sauvegarde fictive restaurée (' + vu.ok + ')');
     const P1 = vu[1] || {};
-    R.ok(cles(P1) === 'boite, crees, plan, puisard, refus, rows', '9 clés inconnues de la provenance retirées, clés connues gardées : ' + cles(P1));
+    R.ok(cles(P1) === 'boite, crees, plan, puisard, recup, refus, rows', '9 clés inconnues de la provenance retirées, clés connues gardées : ' + cles(P1));
     R.ok(JSON.stringify(P1.rows) === '{"evier":{"nb":"1"}}' && P1.plan === 'plan-fictif' && P1.puisard === true, '9 lignes, plan et puisard gardés : ' + JSON.stringify([P1.rows, P1.plan, P1.puisard]));
     R.ok(JSON.stringify(P1.boite) === '{"distEU":"0,80 m intérieur"}', '9 provenance de la boîte : seuls les champs connus, en texte (' + JSON.stringify(P1.boite) + ')');
+    /* m116 : provenance des autres cases des ouvrages de récupération des EP */
+    const rc = x => x && typeof x === 'object' && 'recup' in x ? JSON.stringify(x.recup) : 'absente';
+    R.ok(rc(P1) === '{"infil":true}', '9 provenance des cases EP (c.croqAuto.recup) : seules les cases connues cochées gardées (' + rc(P1) + ')');
+    R.ok(rc(vu[2]) === 'absente' && rc(vu[3]) === 'absente', '9 témoin, provenance des cases EP invalide (liste ; puisard et valeur autre que true) retirée : '
+      + rc(vu[2]) + ' ; ' + rc(vu[3]));
     R.ok(cles(vu[2]) === 'crees, refus, rows' && cles(vu[3]) === 'crees, refus, rows', '9 provenance de la boîte invalide (liste, texte) retirée : ' + cles(vu[2]) + ' ; ' + cles(vu[3]));
     R.ok(cles(vu[4]) === 'crees, plan, refus, rows', '9 témoin, provenance sans la boîte : aucune n\'est créée (' + cles(vu[4]) + ')');
   } catch (err){ R.ok(false, 'exception du test : ' + (err && err.stack || err)); }
@@ -326,10 +369,211 @@ async function pdfBoite(){
   finally { R.ok(!A.erreurs.length, 'PDF de la boîte : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
+/* 13 (m116, D7) : autres cases des ouvrages de récupération des EP d'après le croquis. Ligne d'essai ZZ, de la forme de celles du code
+   (la même que dans tests/vm/rejets.js) : sa place EP coche « Infiltration diffuse » ; ZX et ZY, copies de ZZ, cochent « Récupérateur »
+   et « Indéterminé/Autres » (leur règle EU, celle de ZZ, ne sert pas : aucun WC n'y est relié) */
+const ZZ = {lib: 'exutoire de test', res: 'EP',
+  eu: {cle: 'eu-zz', obs: 'rejet à l\'exutoire de test', preco: 'Suppression du rejet à l\'exutoire de test et raccordement au branchement EU', nc: true,
+    codes: ['raccEUsep'], cat: 'inversion'},
+  cEU: {code: 'MILIEU', lib: 'Exutoire de test : rejet au sol'}, cEP: {code: '', lib: 'Exutoire de test (infiltration)', recup: 'infil'}};
+const ZX = Object.assign({}, ZZ, {lib: 'récupérateur de test', cEP: {code: '', lib: 'Récupérateur de test', recup: 'recup'}});
+const ZY = Object.assign({}, ZZ, {lib: 'exutoire indéterminé de test', cEP: {code: '', lib: 'Exutoire indéterminé de test', recup: 'autre'}});
+const INFIL = 'Infiltration diffuse : sur le croquis de terrain, non cochée au constat (ouvrages de récupération des EP).';
+const RECUP = 'Récupérateur : sur le croquis de terrain, non coché au constat (ouvrages de récupération des EP).';
+const AUTRE = 'Indéterminé/Autres : sur le croquis de terrain, non coché au constat (ouvrages de récupération des EP).';
+async function casesEP(){
+  const A = await C.ouvrir(), p = A.p;
+  /* cases du constat (triées), provenance, cases enfoncées à l'écran, rappels des ouvrages de récupération des EP */
+  const cases = () => p.evaluate(() => {
+    const c = window.__VT.S.visites[0].constat || {}, P = c.croqAuto, E = c.epRecup || {};
+    return {coche: Object.keys(E).sort().map(k => k + ' ' + E[k]).join(', '), prov: P && typeof P === 'object' && 'recup' in P ? JSON.stringify(P.recup) : 'absente',
+      ecran: [...document.querySelectorAll('[data-act="c-toggle"][data-k^="epRecup."]')].filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.dataset.k.slice(8)).join(', '),
+      rappels: [...document.querySelectorAll('#croq-ecarts li')].map(x => x.textContent).filter(t => /ouvrages de récupération des EP/.test(t))};
+  });
+  const dire = e => 'cases ' + (e.coche || 'aucune') + ' ; provenance ' + e.prov + ' ; à l\'écran ' + (e.ecran || 'aucune') + ' ; rappels ' + (e.rappels.join(' | ') || 'aucun');
+  /* WC vers la boîte EU, descente avant vers l'exutoire de type t ; avec t2, une seconde descente avant vers un exutoire de type t2 */
+  const vers = (t, t2) => [[['w', 'wc', -3, 6], ['B', 'boite', -3, 0, BEU], ['d', 'descente', 3, 6, {cote: 'avant'}], ['z', t, 3, 0]]
+    .concat(t2 ? [['d2', 'descente', 6, 6, {cote: 'avant'}], ['z2', t2, 6, 0]] : []), [['t1', 'w', 'B'], ['t2', 'd', 'z']].concat(t2 ? [['t3', 'd2', 'z2']] : [])];
+  const toucherCase = async k => { await p.click('[data-act="c-toggle"][data-k="epRecup.' + k + '"]'); await C.pause(p, 500); return cases(); };
+  /* panneau Constat de l'éditeur ouvert : le paragraphe des ouvrages de récupération des EP */
+  const panneauEP = () => p.evaluate(() => {
+    window.__vcEd.ouvrirPanneau('constat');
+    return [...document.querySelectorAll('.vc-panneau .vc-pcorps p')].map(x => x.textContent).filter(t => /^Ouvrages? de récupération des EP/.test(t)).join(' | ') || 'aucun';
+  });
+  try {
+    await C.etudeEtDossier(p);
+    const table = await p.evaluate(L => {
+      const V = window.VCroquis, ok = !!V.EXU && typeof V.EXU === 'object';
+      /* sans table (version d'avant), les types d'essai sont posés quand même : les vérifications montrent ce qui manque */
+      if (ok) Object.assign(V.EXU, L);
+      V.TYPES.essai = {id: 'essai', fam: 'exu', lib: 'Exutoire de test', role: 'exutoire', forme: 'puisard', exu: 'ZZ'};
+      V.TYPES.essaiRecup = {id: 'essaiRecup', fam: 'exu', lib: 'Récupérateur de test', role: 'exutoire', forme: 'puisard', exu: 'ZX'};
+      V.TYPES.essaiAutre = {id: 'essaiAutre', fam: 'exu', lib: 'Exutoire indéterminé de test', role: 'exutoire', forme: 'puisard', exu: 'ZY'};
+      return ok;
+    }, {ZZ, ZX, ZY});
+    R.ok(table, '13 lignes d\'essai ZZ, ZX et ZY posées dans VCroquis.EXU' + (table ? '' : ' (VCroquis.EXU absente)'));
+    await croquis(p, vers('essai'), true);
+    await p.evaluate(async () => { const T = window.__VT; T.S.visites[0].statut = 'visitee'; await T.flushSaves(); });
+    await constat(p);
+    let e = await cases();
+    R.ok(!e.coche && e.rappels.length === 1 && e.rappels[0] === INFIL, '13 avant la reprise, la case du croquis est rappelée (' + dire(e) + ')');
+    await reprendre(p); e = await cases();
+    R.ok(e.coche === 'infil true' && e.prov === '{"infil":true}' && e.ecran === 'infil' && !e.rappels.length,
+      '13 « Reprendre du croquis » coche « Infiltration diffuse », provenance gardée (' + dire(e) + ')');
+    e = await toucherCase('recup');
+    R.ok(e.coche === 'infil true, recup true' && e.prov === '{"infil":true}', '13 récupérateur coché à la main (' + dire(e) + ')');
+    await croquis(p, vers('puisard')); await constat(p); e = await cases();
+    R.ok(e.coche === 'puisard true, recup true' && e.prov === 'absente' && e.ecran === 'puisard, recup' && !e.rappels.length,
+      '13 le croquis ne montre plus la case : décochée ; récupérateur coché à la main gardé ; puisard coché d\'après le croquis (' + dire(e) + ')');
+    await croquis(p, vers('essai')); await constat(p); e = await cases();
+    R.ok(e.coche === 'infil true, recup true' && e.prov === '{"infil":true}' && e.ecran === 'recup, infil' && !e.rappels.length,
+      '13 le croquis la montre de nouveau : recochée ; puisard décoché (' + dire(e) + ')');
+    e = await toucherCase('infil');
+    R.ok(e.coche === 'infil false, recup true' && e.rappels.length === 1 && e.rappels[0] === INFIL, '13 décochée par le technicien : rappelée (' + dire(e) + ')');
+    await croquis(p, vers('essai')); await constat(p); e = await cases();
+    R.ok(e.coche === 'infil false, recup true' && e.rappels.length === 1 && e.rappels[0] === INFIL,
+      '13 le croquis change : la case décochée par le technicien le reste, toujours rappelée (' + dire(e) + ')');
+    /* fiche de la descente dans l'éditeur : « Rejet : » d'après la table, jamais le code */
+    await dossier(p); await C.ouvrirCroquis(p, {dejaCommence: true}); await p.waitForSelector('#modal-root .vc'); await C.pause(p, 400);
+    await p.evaluate(() => window.__vcEd.selectionner('d')); await C.pause(p, 300);
+    const rej = await p.evaluate(() => { const x = document.querySelector('.vc-ftete .vc-etat'); return x ? x.textContent : 'aucun état'; });
+    R.ok(rej === 'Rejet : exutoire de test', '13 fiche de la descente dans l\'éditeur : rejet d\'après la table (' + rej + ')');
+    /* panneau Constat de l'éditeur : les cases cochées d'après le croquis, dans l'ordre du formulaire ; « Ouvrages » pour plusieurs */
+    let pan = await panneauEP();
+    R.ok(pan === 'Ouvrage de récupération des EP : infiltration diffuse', '13 panneau Constat de l\'éditeur, exutoire d\'essai : « Ouvrage de récupération des EP : '
+      + 'infiltration diffuse » (' + pan + ')');
+    await poserDessin(p, vers('puisard')); pan = await panneauEP();
+    R.ok(pan === 'Ouvrage de récupération des EP : puisard', '13 témoin, panneau Constat, puisard seul : le texte de la v1.7.0 (' + pan + ')');
+    await poserDessin(p, vers('essai', 'puisard')); pan = await panneauEP();
+    R.ok(pan === 'Ouvrages de récupération des EP : puisard, infiltration diffuse', '13 panneau Constat, puisard et exutoire d\'essai dessinés ensemble : '
+      + '« Ouvrages de récupération des EP : puisard, infiltration diffuse » (' + pan + ')');
+    /* le dessin du dossier, remis avant la fermeture : le suivi n'a rien à changer */
+    await poserDessin(p, vers('essai'));
+    await C.fermerCroquis(p);
+    /* croquis d'un autre plan (supprimé puis recommencé, comme au cas 7) : la case cochée d'après l'ancien plan reste, comme cochée par le
+       technicien, même quand le nouveau croquis ne la montre pas ; sa provenance est effacée */
+    await croquis(p, vers('essaiAutre')); await constat(p); e = await cases();
+    R.ok(e.coche === 'autre true, infil false, recup true' && e.prov === '{"autre":true}' && e.ecran === 'recup, autre' && !e.rappels.length,
+      '13 « Indéterminé/Autres » cochée d\'après le croquis (' + dire(e) + ')');
+    await p.evaluate(async () => { const T = window.__VT; T.S.visites[0].constat.croqAuto.plan = 'plan-fictif-ancien'; await T.flushSaves(); });
+    await croquis(p, vers('puisard')); await constat(p); e = await cases();
+    R.ok(e.coche === 'autre true, infil false, puisard true, recup true' && e.prov === 'absente' && e.ecran === 'puisard, recup, autre' && !e.rappels.length,
+      '13 croquis d\'un autre plan, sans l\'exutoire d\'essai : « Indéterminé/Autres » reste cochée, comme par le technicien, provenance effacée (' + dire(e) + ')');
+    /* rappels des cases au masculin : « Récupérateur » et « Indéterminé/Autres », décochées par le technicien, sur le croquis */
+    await toucherCase('recup'); await toucherCase('autre');
+    await croquis(p, vers('essaiRecup', 'essaiAutre')); await constat(p); e = await cases();
+    R.ok(e.coche === 'autre false, infil false, recup false' && e.rappels.length === 2 && e.rappels[0] === RECUP && e.rappels[1] === AUTRE,
+      '13 « Récupérateur » et « Indéterminé/Autres » décochées par le technicien : rappelées, « non coché au constat » (' + dire(e) + ')');
+  } catch (err){ R.ok(false, 'exception du test : ' + (err && err.stack || err)); }
+  finally { R.ok(!A.erreurs.length, 'cases des EP : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
+/* 14 (m126, décision D3 ; Q8 b, m128) : sauvegarde dont les plans portent des destinations aux champs faux ou inconnus et des tronçons à
+   p.drain invalide ; à la restauration, seul un champ qui n'est pas du texte est remplacé (repli de destDe, nom vide ; p.drain retiré),
+   un texte inconnu est gardé ; l'analyse ne change pas ; le reste non plus */
+async function reparation(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p);
+    /* nom de 300 caractères, avec deux espaces de suite et des signes du HTML */
+    const LONG = 'Mare  <b>fictive</b> & "x" ' + 'a'.repeat(273), NOM = 'Mare <b>fictive</b> & "x" ' + 'a'.repeat(14);
+    const vu = await p.evaluate(async LONG => {
+      const T = window.__VT, e = JSON.parse(JSON.stringify(T.S.etude)), v0 = JSON.parse(JSON.stringify(T.S.visites[0]));
+      e.id = 'etude-reparation-fictive'; e.nom = 'Étude fictive réparée';
+      const visite = n => Object.assign(JSON.parse(JSON.stringify(v0)), {id: 'visite-reparation-' + n, etudeId: e.id, numero: String(n), statut: 'visitee'});
+      const vs = [visite(1), visite(2), visite(3)];
+      /* visite 2 : constat signé */
+      vs[1].constat = {v: 3, rows: [{id: 'wc', groupe: 'EU', label: 'WC', std: true, nb: '1', raccord: 'EU', conforme: 'oui', methodes: ['eau']}], methodes: {}, epRecup: {},
+        precos: {}, boite: {}, conclusion: 'conformes', reserves: '', observations: '', signeLe: '2026-11-01T10:00:00.000Z'};
+      const pt = (id, t, x, y, q) => ({id, k: 'pt', t, x, y, p: Object.assign({st: 'existant', obs: ''}, q || {})});
+      const tr = (id, a, b, q) => ({id, k: 'ln', t: 'tr', v: [{x: a.x, y: a.y, a: a.id}, {x: b.x, y: b.y, a: b.id}], p: Object.assign({res: '', st: 'existant', sens: 0, obs: ''}, q || {})});
+      const libre = (id, x0, x1, q) => ({id, k: 'ln', t: 'tr', v: [{x: x0, y: 0, a: null}, {x: x1, y: 0, a: null}], p: Object.assign({res: '', st: 'existant', sens: 0, obs: ''}, q)});
+      const plan = (v, el) => Object.assign(window.VCroquis.nouveauDoc({nom: 'Croquis fictif', adresse: '12 rue Fictive', commune: 'Ville-Exemple', technicien: 'Nom Fictif'}),
+        {visiteId: v.id, etudeId: e.id, el});
+      /* visite 1 : E1 (nom de 300 caractères, sans abréviation, article « x ») et E2 (nom blanc, abréviation trop longue, article « la »), EP « x »,
+         case 7 ; tronçon t1 à p.drain « oui » ; témoins : WC, boîte, descentes, tronçons t0 et t2, drain d'infiltration t4 */
+      const W = pt('W', 'wc', -3, 6), B = pt('B', 'boite', -3, 0, {res: 'EU'}), D1 = pt('D1', 'descente', 0, 10, {cote: 'avant'}), D2 = pt('D2', 'descente', 8, 10, {cote: 'avant'});
+      const E1 = pt('E1', 'exutoire', 0, 4, {nom: LONG, art: 'x', ep: 'x', cst: 7}), E2 = pt('E2', 'exutoire', 8, 4, {nom: '   ', ab: 'Étang du bas', art: 'la', ep: 'x', cst: 7});
+      /* E4 : aucun champ en texte ; E5 : abréviation et article en nombres (Q8 b, m128) ; t6 : p.drain en nombre ; descentes reliées */
+      const D4 = pt('D4', 'descente', 16, 10, {cote: 'avant'}), D5 = pt('D5', 'descente', 22, 10, {cote: 'arriere'});
+      const E4 = pt('E4', 'exutoire', 16, 4, {nom: 12, ab: ['Ét'], art: null, ep: {v: 'nc'}, cst: 7}), E5 = pt('E5', 'exutoire', 22, 4, {nom: 'Fossé', ab: 5, art: 3, ep: 'nc', cst: 'GARG'});
+      const el1 = [W, B, D1, D2, E1, E2, D4, D5, E4, E5, tr('t0', W, B, {res: 'EU'}), tr('t1', D1, E1, {drain: 'oui'}), tr('t2', D2, E2), libre('t4', 12, 16, {drain: 'infiltration'}),
+        tr('t6', D4, E4, {drain: 5}), tr('t7', D5, E5)];
+      /* visite 2 (constat signé) : une destination aux EP « x » ; visite 3 : ni destination ni drain invalide (un drain de collecte) */
+      const S2 = pt('S', 'descente', 0, 10, {cote: 'avant'}), E3 = pt('E3', 'exutoire', 0, 4, {nom: 'Étang', ab: 'Ét', art: 'l\'', ep: 'x', cst: 'autre'});
+      const W3 = pt('W', 'wc', -3, 6), B3 = pt('B', 'boite', -3, 0, {res: 'EU'});
+      const plans = [plan(vs[0], el1), plan(vs[1], [S2, E3, tr('t1', S2, E3)]), plan(vs[2], [W3, B3, tr('t0', W3, B3, {res: 'EU'}), libre('t5', 4, 9, {res: 'EP', drain: 'collecte'})])];
+      const avant = JSON.parse(JSON.stringify(plans)), cs = JSON.stringify(vs[1].constat), zip = new window.JSZip();
+      zip.file('Sauvegarde fictive/_sauvegarde/vede-terrain-sauvegarde.json', JSON.stringify({format: 'vede-terrain', version: 1, app: 'test', exportedAt: new Date().toISOString(),
+        etude: e, visites: vs, anomalies: [], photos: [], biblio: [], plans, fonds: []}));
+      const ok = await T.restoreZip(await zip.generateAsync({type: 'blob'})), apres = [];
+      for (const v of vs) apres.push(await T.DB.get('plans', v.id) || null);
+      /* analyse d'un plan (Q8 b) : résultat par source et anomalies, avant et après la restauration */
+      const V = window.VCroquis, sig = pl => { if (!pl) return null; const c = () => JSON.parse(JSON.stringify(pl)), an = V.analyser(c(), 'edl'), L = V.anomaliesDoc(c(), an);
+        return Object.keys(an.resObj).sort().map(id => id + '=' + an.resObj[id].etat + ':' + (an.resObj[id].nets || []).join(',')).join(' ')
+          + ' | ' + L.map(a => [a.cle, a.objId, a.st, a.nc ? 'NC' : 'réserve', a.obs].join(' ')).sort().join(' ; '); };
+      return {ok, avant, apres, cs, analyses: avant.map((pl, i) => [sig(pl), sig(apres[i])])};
+    }, LONG);
+    const el = (pl, id) => ((pl && pl.el) || []).find(q => q.id === id) || {};
+    const dest = q => JSON.stringify(['nom', 'ab', 'art', 'ep', 'cst'].map(k => (q.p || {})[k]));
+    const autres = (pl, ids) => JSON.stringify(((pl && pl.el) || []).filter(q => ids.indexOf(q.id) < 0));
+    const [P1, P2, P3] = vu.apres, [A1, A2, A3] = vu.avant;
+    R.ok(vu.ok === true && !!P1 && !!P2 && !!P3, '14 sauvegarde aux destinations fausses restaurée, ses trois plans gardés (' + vu.ok + ', ' + vu.apres.map(x => !!x).join(', ') + ')');
+    R.ok(dest(el(P1, 'E1')) === JSON.stringify([LONG, null, 'x', 'x', 'autre']),
+      '14 destination au nom de 300 caractères, article « x », EP « x », case 7 : nom, article et EP gardés tels quels (textes), abréviation toujours absente, case « autre » ('
+      + dest(el(P1, 'E1')).slice(0, 40) + '…' + dest(el(P1, 'E1')).slice(-30) + ')');
+    R.ok(dest(el(P1, 'E2')) === JSON.stringify(['   ', 'Étang du bas', 'la', 'x', 'autre']),
+      '14 destination au nom blanc, abréviation trop longue, EP « x », case 7 : les textes gardés tels quels, case « autre » (' + dest(el(P1, 'E2')) + ')');
+    R.ok(dest(el(P1, 'E4')) === JSON.stringify(['', 'Au', 'l\'', 'arbitrer', 'autre']) && dest(el(P1, 'E5')) === JSON.stringify(['Fossé', 'Fo', 'le', 'nc', 'GARG']),
+      '14 champs qui ne sont pas du texte remplacés par le repli : nom vide (lu « Autre destination »), « Au », « l\' », à arbitrer, « autre » ; « Fossé » : « Fo », « le », le reste gardé ('
+      + dest(el(P1, 'E4')) + ' ; ' + dest(el(P1, 'E5')) + ')');
+    const t1 = el(P1, 't1').p || {}, t4 = el(P1, 't4').p || {}, t6 = el(P1, 't6').p || {};
+    R.ok(t1.drain === 'oui' && !('drain' in t6) && t4.drain === 'infiltration', '14 p.drain « oui » (texte) gardé, 5 (nombre) retiré ; témoin : drain d\'infiltration gardé ('
+      + JSON.stringify([t1.drain, t6, t4.drain]) + ')');
+    const ch = ['E1', 'E2', 'E4', 'E5', 't6'];
+    R.ok(autres(P1, ch) === autres(A1, ch) && JSON.stringify(el(P1, 't6').v) === JSON.stringify(el(A1, 't6').v),
+      '14 les autres objets du plan sont rendus tels quels (aucun champ ajouté)');
+    R.ok(dest(el(P2, 'E3')) === JSON.stringify(['Étang', 'Ét', 'l\'', 'x', 'autre']) && autres(P2, ['E3']) === autres(A2, ['E3']),
+      '14 plan d\'un constat signé : sa destination à l\'EP « x » gardée telle quelle, le reste aussi (' + dest(el(P2, 'E3')) + ')');
+    R.ok(vu.analyses.every(x => !!x[0] && x[0] === x[1]) && /D1=/.test(vu.analyses[0][0]) && /ep-exu/.test(vu.analyses[0][0]),
+      '14 même analyse avant et après la restauration, pour les trois plans (résultat par source, anomalies) ('
+      + vu.analyses.map(x => x[0] === x[1] ? 'même' : String(x[0]).slice(0, 120) + ' ≠ ' + String(x[1]).slice(0, 120)).join(' ; ') + ')');
+    R.ok(!!P3 && JSON.stringify(P3.el) === JSON.stringify(A3.el), '14 garde : plan sans destination ni drain invalide rendu tel quel');
+    /* l'éditeur ouvre le plan réparé : symbole de E1 dans sa fiche (« Ma ») ; fiche de la descente D1 : le nom écrit tel quel, jamais du HTML */
+    await p.evaluate(() => { location.hash = '#/e/etude-reparation-fictive/v/visite-reparation-1'; });
+    await p.waitForFunction(() => { const r = window.__VT.S.route; return !!r && r.name === 'visit'; }); await C.pause(p, 400);
+    await C.ouvrirCroquis(p, {dejaCommence: true});
+    const fi = await p.evaluate(async () => {
+      const ed = window.__vcEd, lire = () => { const t = document.querySelector('.vc-ftete'); return t ? {svg: (t.querySelector('svg text') || {}).textContent || '', etat: (t.querySelector('.vc-etat') || {}).textContent || '', b: !!t.querySelector('.vc-etat b')} : null; };
+      ed.selectionner('E1'); await new Promise(r => setTimeout(r, 300)); const e1 = lire();
+      ed.selectionner('D1'); await new Promise(r => setTimeout(r, 300)); return {e1, d1: lire()};
+    });
+    R.ok(!!fi.e1 && fi.e1.svg === 'Ma', '14 fiche de la destination réparée : son symbole porte « Ma » (' + JSON.stringify(fi.e1) + ')');
+    R.ok(!!fi.d1 && fi.d1.etat.indexOf(NOM.replace(/^M/, 'm')) >= 0 && !fi.d1.b, '14 témoin, fiche de la descente : le nom de la destination écrit tel quel, sans balise (' + JSON.stringify(fi.d1) + ')');
+    await C.fermerCroquis(p);
+    /* croquis de la visite 2 (constat signé) ouvert puis fermé : l'ouverture gèle le constat signé (c.fige : ce qu'il affiche, posé une fois) ;
+       ce qui a été signé ne change pas */
+    await p.evaluate(() => { location.hash = '#/e/etude-reparation-fictive/v/visite-reparation-2'; });
+    await p.waitForSelector('[data-act="vc-ouvrir"][data-vid="visite-reparation-2"]'); await C.pause(p, 400);
+    await C.ouvrirCroquis(p, {dejaCommence: true});
+    await p.waitForFunction(() => { const d = window.__vcEd && window.__vcEd.doc(); return !!d && d.visiteId === 'visite-reparation-2'; });
+    await C.fermerCroquis(p);
+    const cs2 = await p.evaluate(async () => {
+      const v = await window.__VT.DB.get('visites', 'visite-reparation-2'), c = v && v.constat ? Object.assign({}, v.constat) : null;
+      if (!c) return null; const f = c.fige; delete c.fige; return {c: JSON.stringify(c), gel: f ? f.conclusion : null};
+    });
+    R.ok(!!cs2 && cs2.c === vu.cs && cs2.gel === 'conformes', '14 constat signé inchangé après la restauration et l\'ouverture puis la fermeture de son croquis '
+      + '(seul le gel de l\'ouverture s\'y ajoute, conclusion « ' + (cs2 && cs2.gel) + ' »)' + (cs2 && cs2.c === vu.cs ? '' : ' : ' + String(cs2 && cs2.c).slice(0, 200)));
+  } catch (err){ R.ok(false, 'exception du test : ' + (err && err.stack || err)); }
+  finally { R.ok(!A.erreurs.length, 'réparation : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
 (async () => {
   await parcours();
   await restauration();
   await enregistrement();
   await pdfBoite();
+  await casesEP();
+  await reparation();
   R.fin();
 })();

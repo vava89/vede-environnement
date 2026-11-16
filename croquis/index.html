@@ -266,6 +266,9 @@ function ouvrir(id){
         telecharger: telecharger,
         aides: (function(){ try { return JSON.parse(localStorage.getItem('vcl-aides') || '{}'); } catch(e){ return {}; } })(),
         enregistrerAides: function(a){ try { localStorage.setItem('vcl-aides', JSON.stringify(a)); } catch(e){} },
+        /* destinations ajoutées par « + Nouvelle destination » (m128) : gardées dans ce navigateur, comme les aides */
+        exutoires: (function(){ try { return JSON.parse(localStorage.getItem('vcl-exutoires') || '[]'); } catch(e){ return []; } })(),
+        enregistrerExutoires: function(l){ try { localStorage.setItem('vcl-exutoires', JSON.stringify(l)); } catch(e){} },
         get logo(){ return LOGO; }
       });
       ED.ouvrir(d, r[0], r[1]);

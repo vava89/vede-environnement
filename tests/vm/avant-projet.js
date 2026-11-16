@@ -18,6 +18,25 @@
 // c1 à c4 (m97) : conclusion choisie dans le constat, donnée par l'hôte (conclusionConstat) : le plan de l'état des lieux l'imprime
 // (« Conclusion du constat : … », échouent sur 0a317cc) ; une valeur que le constat ne peut pas choisir (« À compléter ») ou rien :
 // « Conclusion proposée : … » d'après le dessin (témoins) ; l'avant-projet n'imprime pas de conclusion (témoin).
+// a1 à a12 (m136, défaut J1 de la relecture de la v1.7.1 ; consigne du 13 nov. 2026 : une anomalie à arbitrer n'est jamais comptée
+// conforme) : tableau « Contrôle de l'avant-projet » du plan PDF quand le projet garde (ou crée, a11) une anomalie de raccordement restée
+// « à arbitrer ».
+// a1 : descente vers une destination « Fossé » aux EP à arbitrer, sans décision : « À arbitrer après travaux : Descente EP : rejet dans
+// le fossé (retenir ou écarter l'anomalie dans Contrôles) », pas « ne fait plus apparaître d'anomalie de raccordement ». a2 : écartée,
+// la phrase seule (témoin). a3 : retenue, « Reste après travaux » seul (témoin). a4 : fosse septique peut-être traversée (à arbitrer
+// d'office), vers un WC (fosse:F) ou une descente (ep-fosse). a5 : anomalie mise « À arbitrer » à la main : WC vers une boîte EP
+// (eu-ep), descente vers un puits (ep-puits). a6 : WC vers l'EP retenu et corrigé par le projet, descente vers le fossé à arbitrer
+// gardée : la seule ligne « À arbitrer après travaux », aussi en mode intégré (dossier tiré de reconcilier). a7 (témoin) : le projet
+// supprime le rejet à arbitrer : la phrase. a8 : mode intégré hors de l'éditeur, dossier vide : comme a1 ; enregistrement créé quand
+// l'anomalie était retenue, puis remise à arbitrer : hors de l'éditeur, elle reste retenue (« Reste après travaux », inchangé, témoin) ;
+// dans l'éditeur, « À arbitrer après travaux ». a9 : ordre des lignes : « Reste après travaux », « À arbitrer après travaux », puis
+// « Après travaux » des équipements ; en mode intégré, dossier vide : « À reprendre » d'abord. a10 (garde) : boîte de branchement
+// manquante et regard sans tampon (défauts d'ouvrage, à arbitrer d'office), anomalie saisie à la main à arbitrer : la phrase seule.
+// a11 : descente et destination ajoutées par le seul projet (l'anomalie n'existe qu'après travaux), seule et en mode intégré hors de
+// l'éditeur, dossier vide. a12 : destination sans aucun champ (« Autre destination », EP à arbitrer).
+// Échouent sur af9c776 (la ligne « À arbitrer après travaux » manque : la phrase la remplace, sauf en a9 où les autres lignes restent
+// seules) : a1, a4, a5, a6, a9, a11, a12, et a8 dossier vide et dans l'éditeur. Y passent : les témoins a2, a3, a7, a8 hors de
+// l'éditeur avec l'enregistrement, et la garde a10.
 'use strict';
 const {charger, rapport} = require('./charger.js');
 const {V, ctx} = charger({pdf: true}), R = rapport('avant-projet');
@@ -52,6 +71,36 @@ function fosseSupprimee(seul){
 }
 const SORTIE = 'WC : sortie EP laissée libre à côté de l\'exutoire dessiné (la passer « À supprimer », la prolonger, ou indiquer le sens du tracé d\'une arrivée)';
 const PDF_S = 'Après travaux : WC garde une sortie EP laissée libre : la passer « À supprimer » ou la raccorder dans le projet', PDF_OK = 'Après travaux, le dessin ne fait plus apparaître d\'anomalie de raccordement.';
+/* a1 à a12 (m136) : lignes du tableau « Contrôle de l'avant-projet » (après son en-tête « Contrôle du projet », sans les numéros de page) */
+function tableC(txt){ const i = txt.indexOf('Contrôle du projet'); return i < 0 ? ['tableau absent'].concat(txt.filter(t => /^ERR/.test(t))) : txt.slice(i + 1).filter(t => !/^Page \d+ \/ \d+$/.test(t)); }
+const ARB = obs => 'À arbitrer après travaux : ' + obs + ' (retenir ou écarter l\'anomalie dans Contrôles)', RESTE = obs => 'Reste après travaux : ' + obs;
+const FOSSE = {nom: 'Fossé', ab: 'Fo', art: 'le', ep: 'arbitrer', cst: 'autre'}, FO = 'Descente EP : rejet dans le fossé';
+/* descente d reliée à une destination « Fossé » aux EP à arbitrer (le jugement que proposent la palette et « + Nouvelle destination ») ;
+   corrige : le projet la raccorde à une boîte EP « Projet » et passe l'ancien tracé « À supprimer » */
+function ajoutFosse(d, x, corrige){
+  pt(d, 'd', 'descente', x, 10, {cote: 'avant', visitable: 'oui'}); pt(d, 'X', 'exutoire', x, 4, FOSSE);
+  ln(d, 'tX', 'tr', '', ['d', 'X'], corrige ? 'supprimer' : null);
+  if (corrige){ pt(d, 'BP', 'boite', x + 6, 4, {res: 'EP', tampon: 'fonte'}, 'projet'); ln(d, 'tB', 'tr', '', ['d', 'BP'], 'projet'); }
+  return d;
+}
+function versFosse(dec, corrige){ const d = ajoutFosse(nouveau(), 0, corrige); if (dec) d.decisions['ep-exu:d'] = {st: dec}; return d; }
+/* WC w2 relié à une boîte EP (eu-ep, retenue d'office) ; corrige : le projet le raccorde à une boîte EU « Projet » */
+function ajoutWcEP(d, x, corrige){
+  pt(d, 'w2', 'wc', x, 8); pt(d, 'B2', 'boite', x, 0, {res: 'EP', tampon: 'fonte'});
+  ln(d, 'L1', 'tr', '', ['w2', 'B2'], corrige ? 'supprimer' : null);
+  if (corrige){ pt(d, 'BU', 'boite', x + 6, 0, {res: 'EU', tampon: 'fonte'}, 'projet'); ln(d, 'L2', 'tr', '', ['w2', 'BU'], 'projet'); }
+  return d;
+}
+/* source s (WC ou descente) → regard R1 → fosse F → regard R3 → sortie laissée libre, avec une arrivée laissée libre dans R1 : la fosse est
+   peut-être traversée, « à arbitrer » d'office (fosse:F pour un WC, ep-fosse:s pour une descente) */
+function fosseDouteuse(t){
+  const r = t === 'wc' ? 'EU' : 'EP', d = nouveau();
+  pt(d, 's', t, 0, 12, t === 'wc' ? {} : {cote: 'avant', visitable: 'oui'}); pt(d, 'R1', 'regard', 0, 8, {tampon: 'fonte'}); pt(d, 'F', 'fosse', 0, 5); pt(d, 'R3', 'regard', 0, 2, {tampon: 'fonte'});
+  ln(d, 'L1', 'tr', r, ['s', 'R1']); ln(d, 'A', 'tr', r, ['R1', 'F']); ln(d, 'B', 'tr', r, ['F', 'R3']); ln(d, 'S', 'tr', r, ['R3', [0, -2]]); ln(d, 'Arr', 'tr', r, [[-5, 8], 'R1']);
+  return d;
+}
+/* dossier de l'application (mode intégré) : les enregistrements que reconcilier crée pour ce croquis, numérotés A1, A2… */
+const dossier = d => V.reconcilier(JSON.parse(JSON.stringify(d)), null, []).creer.map((c, i) => Object.assign({id: 'A' + (i + 1)}, c));
 (async () => {
   for (const [v, signale] of [['s1', true], ['s2', false], ['s3', false], ['s4', false], ['s5', false], ['s6', true]]){
     const d = maison(v), an = V.analyser(JSON.parse(JSON.stringify(d)), 'avp'), mq = an.controles.filter(c => c.niveau === 'manque').map(c => c.txt);
@@ -126,6 +175,58 @@ const PDF_S = 'Après travaux : WC garde une sortie EP laissée libre : la passe
       ['c4 avant-projet (témoin)', {mode: 'avp', conclusionConstat: 'reserves'}, /^aucune$/]]){
       const vu = await concl(o); R.ok(re.test(vu), n + ' : ' + vu);
     }
+  }
+  {
+    /* a1 à a12 (m136) : le projet garde (ou crée) une anomalie de raccordement restée « à arbitrer » ; att : les lignes attendues du tableau ; pre :
+       ce que le cas suppose du croquis (faux : le cas échoue) */
+    const j = x => JSON.stringify(x);
+    const cas = async (n, d, att, o, pre) => {
+      const t = tableC(await textesPdf(d, Object.assign({mode: 'avp'}, o || {}))), bon = j(t) === j(att) && pre !== false;
+      R.ok(bon, n + ' : ' + j(att) + (bon ? '' : ' (obtenu ' + j(t) + (pre === false ? ' ; croquis inattendu' : '') + ')'));
+    };
+    await cas('a1 descente vers une destination « Fossé » aux EP à arbitrer, gardée par le projet, sans décision', versFosse(), [ARB(FO)]);
+    await cas('a2 la même, anomalie écartée (témoin)', versFosse('ecartee'), [PDF_OK]);
+    await cas('a3 la même, anomalie retenue (témoin)', versFosse('retenue'), [RESTE(FO)]);
+    await cas('a4 WC vers une fosse septique peut-être traversée (à arbitrer d\'office), gardée par le projet', fosseDouteuse('wc'),
+      [ARB('Fosse septique : eaux usées traversant la fosse')]);
+    await cas('a4 descente vers la même fosse (ep-fosse, à arbitrer d\'office)', fosseDouteuse('descente'), [ARB('Descente EP : rejet dans la fosse septique')]);
+    const wcEP = ajoutWcEP(nouveau(), 0); wcEP.decisions['eu-ep:w2'] = {st: 'arbitrer'};
+    await cas('a5 WC vers une boîte EP, anomalie mise « À arbitrer » à la main, gardée par le projet', wcEP, [ARB('WC : rejet au réseau EP')]);
+    const pu = nouveau(); pt(pu, 'd', 'descente', 0, 8, {cote: 'avant', visitable: 'oui'}); pt(pu, 'W', 'puits', 0, 0); ln(pu, 't', 'tr', '', ['d', 'W']);
+    pu.decisions['ep-puits:d'] = {st: 'arbitrer'};
+    await cas('a5 descente vers un puits, anomalie mise « À arbitrer » à la main', pu, [ARB('Descente EP : rejet dans un puits')]);
+    const mx = ajoutFosse(ajoutWcEP(nouveau(), 0, true), 20), dMx = dossier(mx);
+    await cas('a6 WC vers l\'EP (retenue d\'office) corrigé par le projet, descente vers le fossé à arbitrer gardée', mx, [ARB(FO)]);
+    await cas('a6 le même, mode intégré hors de l\'éditeur, dossier ' + j(dMx.map(r => r.croquis.cle)), mx, [ARB(FO)], {anomalies: dMx, telQuel: true},
+      j(dMx.map(r => r.croquis.cle)) === j(['eu-ep:w2']));
+    await cas('a7 témoin : le projet raccorde la descente à une boîte EP et passe l\'ancien tracé vers le fossé « À supprimer »', versFosse(null, true), [PDF_OK]);
+    await cas('a8 mode intégré hors de l\'éditeur, dossier vide : comme a1', versFosse(), [ARB(FO)], {anomalies: [], telQuel: true});
+    const dR = dossier(versFosse('retenue')), okR = j(dR.map(r => r.croquis.cle)) === j(['ep-exu:d']);
+    await cas('a8 enregistrement ' + j(dR.map(r => r.croquis.cle)) + ' créé quand l\'anomalie était retenue, puis remise « À arbitrer » : hors de l\'éditeur, '
+      + 'elle reste retenue (inchangé, témoin)', versFosse('arbitrer'), [RESTE(FO)], {anomalies: dR, telQuel: true}, okR);
+    await cas('a8 le même dans l\'éditeur (l\'enregistrement sera retiré du dossier)', versFosse('arbitrer'), [ARB(FO)], {anomalies: dR}, okR);
+    const ord = ajoutFosse(ajoutWcEP(maison('s1'), 30), 40);
+    await cas('a9 ordre des lignes : « Reste après travaux », « À arbitrer après travaux », puis « Après travaux » des équipements', ord,
+      [RESTE('WC : rejet au réseau EP'), ARB(FO), PDF_S]);
+    await cas('a9 le même, mode intégré hors de l\'éditeur, dossier vide : « À reprendre » d\'abord', ord,
+      ['À reprendre : le croquis retient 2 anomalies absentes de la liste du dossier (rouvrir le croquis)', RESTE('WC : rejet au réseau EP'), ARB(FO), PDF_S],
+      {anomalies: [], telQuel: true});
+    const gd = maison('s3'); gd.el.find(e => e.id === 'R1').p.tampon = 'absent';
+    gd.anomManu = [{id: 'm1', objId: 'wc', reseau: 'EU', obs: 'Anomalie fictive saisie à la main', preco: '', nc: true, st: 'arbitrer'}];
+    const aG = V.anomaliesDoc(JSON.parse(JSON.stringify(gd)), V.analyser(JSON.parse(JSON.stringify(gd)), 'avp')).filter(a => a.st === 'arbitrer').map(a => a.cle).sort();
+    await cas('a10 garde : boîte de branchement manquante, regard sans tampon et saisie à la main, à arbitrer, gardés par le projet (' + aG.join(', ') + ')', gd, [PDF_OK],
+      null, j(aG) === j(['m1', 'sansboite:C:EU', 'sanstampon:R1']));
+    /* a11 : descente et destination « Projet » : l'anomalie n'existe qu'après travaux (l'état des lieux n'en a aucune) */
+    const pj = nouveau(); pt(pj, 'd', 'descente', 0, 10, {cote: 'avant', visitable: 'oui'}, 'projet'); pt(pj, 'X', 'exutoire', 0, 4, FOSSE, 'projet');
+    ln(pj, 't', 'tr', '', ['d', 'X'], 'projet');
+    const okP = j(V.anomaliesDoc(JSON.parse(JSON.stringify(pj)), V.analyser(JSON.parse(JSON.stringify(pj)), 'edl')).map(a => a.cle)) === '[]';
+    await cas('a11 descente et destination « Fossé » ajoutées par le seul projet (à arbitrer, absente de l\'état des lieux)', pj, [ARB(FO)], null, okP);
+    await cas('a11 le même, mode intégré hors de l\'éditeur, dossier vide', pj, [ARB(FO)], {anomalies: [], telQuel: true}, okP);
+    /* a12 : destination sans aucun champ : « Autre destination », EP à arbitrer (repli de la lecture des champs) */
+    const sc = nouveau(); pt(sc, 'd', 'descente', 0, 10, {cote: 'avant', visitable: 'oui'}); const xs = pt(sc, 'X', 'exutoire', 0, 4);
+    ['nom', 'ab', 'art', 'ep', 'cst'].forEach(k => { delete xs.p[k]; }); ln(sc, 't', 'tr', '', ['d', 'X']);
+    await cas('a12 destination sans aucun champ (« Autre destination », EP à arbitrer), gardée par le projet', sc,
+      [ARB('Descente EP : rejet dans l\'autre destination')]);
   }
   R.fin();
 })().catch(e => { console.log('ERREUR ' + (e && e.stack || e)); process.exitCode = 1; });

@@ -1,4 +1,4 @@
-VÉDÉ Terrain, version installable hors connexion (v1.7.0)
+VÉDÉ Terrain, version installable hors connexion (v1.7.1)
 =====================================================
 
 Ce dossier contient l'application complète. Une fois installée sur la
@@ -54,10 +54,101 @@ CROQUIS DE TERRAIN (facultatif)
   tablette et sert à tous les dossiers de l'étude.
 - On pose les équipements (WC, évier, descentes…), les regards, la boîte
   de branchement et les collecteurs, puis on les relie par des tronçons.
-  L'application en déduit où chaque eau se rejette. Dans la fiche de la
-  boîte de branchement, on indique sa position par rapport à la limite de
-  propriété (côté intérieur ou extérieur, distance en mètres) ; l'étiquette
-  du plan la reprend, par exemple « à 0,80 m de la limite, intérieur ».
+  L'application en déduit où chaque eau se rejette. Un rejet dans un
+  puits se dessine avec l'objet « Puits » (palette Équipements) : il est
+  non conforme, pour les eaux usées comme pour les eaux pluviales, et sa
+  fiche n'a rien à régler ; l'anomalie se retient, se met à arbitrer ou
+  s'écarte dans Contrôles, comme toute autre. Un puits perdu, qui
+  infiltre les eaux, se dessine en « Puisard ». Un rejet dans un étang, un
+  fossé, une mare… se dessine avec l'objet « Autre destination » (palette
+  Équipements, juste après « Puits »). Sa fiche règle son nom (refusé
+  vide, illisible au PDF ou s'il nomme un puits), l'abréviation de son
+  symbole (2 ou 3 caractères), l'article (« rejet dans l'étang » ; un
+  nouveau nom le règle sur sa première lettre : vérifiez-le), le jugement
+  des eaux pluviales (« À arbitrer » au départ, ou Conforme, Réserve, Non
+  conforme) et la case du constat. Les eaux usées y sont toujours non
+  conformes ; une case autre que « Milieu naturel » ou « Gargouille »
+  laisse, comme l'infiltration, le raccordement à cocher. Changer le
+  jugement efface les décisions de Contrôles sur les rejets des eaux
+  pluviales qui y aboutissent. Pour une destination qui revient d'un
+  dossier à l'autre, « + Nouvelle destination » (palette Équipements,
+  après « Autre destination ») ouvre une fiche courte : nom (mêmes
+  refus que dans la fiche), abréviation (tirée du nom tant qu'on ne la
+  saisit pas), article (réglé sur la première lettre du nom :
+  vérifiez-le), jugement des eaux pluviales (« À arbitrer » au départ) et
+  case du constat (« Indéterminé/Autres » au départ). « Enregistrer »
+  l'ajoute à la palette, sous son nom, et la pose au toucher suivant (ou
+  par « Cotes »). Les Réglages de l'application la listent sous
+  « Destinations ajoutées » (croquis activé) : « Modifier » vaut pour les
+  poses à venir, « Retirer » l'ôte de la palette ; aucune destination
+  déjà posée ne change. Les destinations ajoutées restent sur la
+  tablette : la sauvegarde ne les emporte pas. Une destination déjà
+  posée garde son nom et ses jugements sur toute tablette. Dans la fiche
+  d'une descente, d'une grille, d'un siphon de sol ou d'une autre source
+  d'eaux pluviales qu'aucun tronçon ne relie, le bouton « Rejet au sol »
+  pose d'un toucher une infiltration au sol à 1 m, et le tronçon qui l'y
+  relie.
+  L'infiltration va à l'opposé de la façade la plus proche (façade du fond
+  affiché, à 3 m au plus ; sinon vers le bas de l'écran). Elle n'est posée
+  ni dans un bâti ou un trait de complément fermé, ni sur un mur ou un
+  trait, ni contre un autre objet ; si aucune place ne convient, elle va
+  1 m sous la source. « Annuler » retire les deux. Dans la fiche d'un
+  tronçon, les puces « Drain » (Non, Collecte, Infiltration) en font un
+  drain : « Collecte » le met en eaux pluviales s'il n'a pas de réseau,
+  « Infiltration » (épandage, tranchée drainante) retire son réseau. Le
+  plan le dessine avec un peigne, des dents d'un côté pour la collecte,
+  des deux côtés pour l'infiltration, et la légende du PDF dit « Drain »
+  ou « Drain d'infiltration ». Un drain d'infiltration disperse dans le
+  sol l'eau qui l'atteint : une descente ou une grille qui y mène est
+  conforme (« Rejet : dispersion dans le sol » ; au constat, la case
+  « Infiltration diffuse »), un WC non conforme (« rejet au sol ») ; ses
+  bouts libres n'attendent pas d'exutoire. Il est vert, avec l'étiquette
+  « Dispersion dans le sol ». Ce que le drain d'infiltration atteint
+  au-delà de lui (trop-plein parti du drain vers une boîte de
+  branchement, puits, puisard ou infiltration posés sur le drain) est un
+  rejet de plus, jugé selon sa règle : la source disperse dans le sol et,
+  au-delà du drain, va au réseau EP, dans un puisard ou une infiltration
+  (conforme), au réseau EU ou dans un puits (non conforme) ; la fiche le
+  dit (« Rejet : dispersion dans le sol et, au-delà du drain, réseau EP
+  départemental »), et la page 2 du plan PDF aussi. Chaque exutoire posé
+  sur le drain compte, même derrière un autre (une boîte EP, puis un
+  puits plus loin sur le drain : non conforme). Si la source atteint un
+  autre exutoire avant le drain, ou deux autres destinations au-delà de
+  lui, elle est reliée à plusieurs réseaux, à compléter. Un drain de
+  collecte compte au constat comme un équipement (ligne « Autres :
+  Drain »), sans point à poser : l'eau qu'il recueille part de chacun de
+  ses bouts, regards et raccords (vers l'aval si son sens est indiqué) et
+  suit les règles des eaux pluviales ; sa sortie non dessinée est
+  présumée au réseau de son tracé (le plus souvent les eaux pluviales),
+  sans message ; au réseau « Déduit », elle est à dessiner (à compléter).
+  Un équipement relié à un drain de collecte dont la sortie n'est pas
+  dessinée disperse dans le sol, comme au drain d'infiltration : une
+  descente est conforme (« Rejet : dispersion dans le sol », case
+  « Infiltration diffuse »), un WC non conforme (« rejet au sol ») ; les
+  drains qu'il atteint suivent le même rejet, au constat aussi, et celui
+  dont le bout libre disperse porte l'étiquette « Dispersion dans le
+  sol ». Un drain indiqué EU ou unitaire garde son réseau présumé, et un
+  équipement qui atteint aussi le bout libre d'un autre tuyau au réseau
+  indiqué (un « Tronçon EP », par exemple) garde le réseau présumé. Sa
+  fiche a les puces « Méthode de test ». Un point « Drain » posé sur un
+  de ses sommets compte seul, s'il figure sur le plan affiché (un point
+  « Projet » ne figure pas sur l'état des lieux). Un point « Drain » qui
+  y est relié par un tronçon suit le drain : il ne disperse dans le sol
+  que si un équipement y disperse aussi.
+  Les outils « Drain » et « Drain d'infiltration » de la palette
+  « Tracés », juste après « Projet », tracent un drain comme un tronçon,
+  sans poser de point « Drain » : « Drain » un drain de collecte en eaux
+  pluviales, « Drain d'infiltration » un drain sans réseau, qui reçoit
+  aussitôt son étiquette « Dispersion dans le sol ». La fin du tracé
+  l'annonce (« Drain ajouté », « Drain d'infiltration ajouté »). Un
+  tracé ne prolonge le bout libre d'un tuyau que s'il est de la même
+  sorte (tronçon, drain de collecte ou drain d'infiltration) : un drain
+  tracé depuis le bout d'un « Tronçon EP » forme un second tracé, relié
+  au premier par un raccord.
+  Dans la fiche de la boîte de branchement, on indique sa position par
+  rapport à la limite de propriété (côté intérieur ou extérieur, distance
+  en mètres) ; l'étiquette du plan la reprend, par exemple « à 0,80 m de
+  la limite, intérieur ».
   Avec le fond de plan, la fiche mesure la boîte dans la parcelle de
   l'installation : la parcelle fermée qui contient le plus d'objets
   existants dessinés (sans elle, en cas d'égalité par exemple, rien
@@ -104,6 +195,30 @@ CROQUIS DE TERRAIN (facultatif)
   l'arrivée ou dessinez l'exutoire, sinon retenez-la ou écartez-la.
   Sur l'état des lieux, un ouvrage « Projet » posé là où se rejoignent
   des tuyaux existants les relie comme un raccord.
+- Une anomalie « à arbitrer » n'est jamais comptée conforme (consigne du
+  13 nov. 2026). Tant qu'il en reste une (fosse peut-être traversée,
+  branchement sans boîte, regard sans tampon, ou toute anomalie mise « À
+  arbitrer », saisie à la main comprise), le plan dit « À compléter : …
+  à arbitrer » au lieu de « Conformes » ou « Conformes avec réserves »,
+  et la conclusion proposée du constat reste vide (rappel « Conclusion
+  non précisée ») ; choisir « Conformes » ou « Conformes avec réserves »
+  donne un rappel avant la signature. Au plan d'avant-projet, une
+  anomalie de raccordement à arbitrer que le projet garde ou crée est
+  listée « À arbitrer après travaux », jamais comptée corrigée.
+  Quand l'anomalie porte sur l'équipement lui-même (descente non
+  visitable ou mauvais réseau mis « À arbitrer », fosse que son eau
+  traverse peut-être, saisie à la main posée sur l'équipement…), sa
+  fiche est aussi « en attente », et sa ligne du constat garde son
+  raccordement sans être déclarée conforme, même si on ressaisit le
+  raccordement ; répondre « Oui » à « Conforme » pour cette ligne donne
+  un rappel. Une boîte manquante ou un tampon absent ne jouent que sur
+  la conclusion.
+  Décidez dans le croquis (Contrôles) : retenez l'anomalie ou
+  écartez-la. Un constat déjà signé ne change pas : signé pendant un
+  arbitrage, il paraît « changé depuis la signature (anomalies à
+  arbitrer) » une fois l'anomalie retenue ou écartée ; touchez
+  « Modifier » pour le mettre à jour et le faire signer à nouveau. Sans
+  croquis (désactivé ou absent), rien ne change.
 - Tant qu'on n'y touche pas, une anomalie déduite suit le dessin (texte mis
   à jour, retirée si le dessin ne la produit plus). Dès qu'on la modifie
   (texte, photo, localisation), c'est elle qui fait foi : le dessin ne la
@@ -119,7 +234,29 @@ CROQUIS DE TERRAIN (facultatif)
   dessinées, sans remplacer ce qui a été saisi. Chaque objet dessiné compte
   pour une installation : une salle de bain ou une cuisine se dessine d'un
   seul objet (son lavabo, son évier, son lave-vaisselle y sont compris) ;
-  un lavabo seul compte comme un évier. Il remplit aussi la section Boîte
+  un lavabo seul compte comme un évier. Un WC à lave-mains intégré
+  (puce « + lave-mains » de la fiche du WC, sous le Niveau) compte
+  un WC, sans évier. Un lave-mains raccordé à part se dessine en
+  Lavabo et compte comme un évier ; l'aide de la puce le rappelle :
+  « Lave-mains intégré au WC ; raccordé à part : dessinez un
+  Lavabo. » Un équipement que la palette n'a pas se dessine avec « Autre
+  appareil » (en dernier de la palette Appareils EU) ou « Autre ouvrage
+  EP » (en dernier de la palette Ouvrages EP). Posé au toucher, il ouvre
+  sa fiche sur le Nom : puces Bidet, Urinoir, Ballon d'eau chaude… en EU,
+  Évacuation de balcon, Avaloir de terrasse, Cour anglaise en EP, puis les
+  noms déjà donnés dans le croquis. Un nom qui désigne un objet de la
+  palette est refusé : le message dit quel objet poser. Il compte sur la
+  ligne « Autres : <son nom> » (une ligne par nom et par réseau), ou sur
+  la ligne du formulaire choisie dans sa fiche (« Compté au constat ») ;
+  ses anomalies vont sur sa ligne. Une étiquette commune (bouton
+  « Étiquette commune… » de la fiche d'un appareil EU) écrit sur le plan
+  une seule étiquette pour les appareils d'une même pièce (« Salle de
+  bain (1er étage) » puis « douche, WC + lave-mains, lavabo ») ; elle ne
+  change aucun compte : chaque appareil reste une installation, et un
+  lavabo réuni compte comme un évier. Un message le rappelle à
+  « Terminé » quand le titre est Salle de bain ou Cuisine : pour une
+  seule installation, dessinez l'objet Salle de bain ou Cuisine.
+  « Reprendre du croquis » remplit aussi la section Boîte
   de branchement, réseau par réseau, quand le croquis porte une seule
   boîte existante (ni « projet » ni « à supprimer ») sur ce réseau :
   distance à la limite et côté (« 0,80 m intérieur », « en limite »),
@@ -226,3 +363,115 @@ MISE À JOUR DE L'APPLICATION
 - Sur la tablette : ouvrez l'application une fois avec connexion (elle
   télécharge la nouvelle version et l'annonce), puis fermez-la
   complètement et rouvrez-la. Vos données ne sont pas touchées.
+- Mettez à jour toutes les tablettes avant de poser une infiltration au
+  sol, un puits ou une autre destination, ou de dessiner un drain, et
+  avant d'échanger une sauvegarde ou un dossier qui en contient (la
+  version se lit au pied du plan PDF). Une tablette restée en v1.7.0, ou
+  plus ancienne, ne connaît pas ces objets : un « Tronçon EP »,
+  « Tronçon EU » ou « Tronçon unitaire » qui y mène y est présumé
+  raccordé à ce réseau. Une descente ou un WC vers un puits ou une autre
+  destination, un WC vers une infiltration ou un drain d'infiltration,
+  non conformes sur une tablette à jour, y restent non conformes tant
+  que le croquis n'y est pas ouvert ; son ouverture retire du dossier
+  les anomalies « rejet au sol », « rejet dans un puits » ou « rejet
+  dans l'étang » (le nom de la destination) que personne n'a modifiées,
+  et le plan comme le constat y paraissent alors conformes (« À
+  compléter » par un simple « Tronçon » ; par un « Tronçon EP », un WC y
+  reste non conforme, mais comme raccordé aux EP ; par un « Tronçon
+  EU », une descente y reste non conforme, mais comme raccordée aux
+  EU) ; elles reviennent sur une tablette à jour. Un drain y est un
+  simple tuyau : un drain d'infiltration, comme le bouton « Rejet au
+  sol », y donne « À compléter » ; un drain de collecte n'y compte pas au
+  constat, et un équipement relié à son bout libre, qui disperse dans le
+  sol sur une tablette à jour, y prend le réseau indiqué du drain, à
+  défaut celui du tronçon qui l'y relie (sinon « À compléter »). Au
+  réseau EP (celui que donnent la puce « Collecte » et l'outil
+  « Drain »), une descente (case « Infiltration diffuse » sur une
+  tablette à jour) y paraît raccordée aux EP (présumé), et un WC, « rejet
+  au sol » sur une tablette à jour, y devient « rejet au réseau EP
+  (présumé) » à l'ouverture du croquis. Au réseau « Déduit », par un
+  « Tronçon EU », une descente, conforme sur une tablette à jour, y
+  paraît non conforme, et un WC, non conforme sur une tablette à jour, y
+  paraît conforme à l'ouverture du croquis. Une source qu'un drain
+  d'infiltration mène aussi à une boîte de branchement y est jugée sur la
+  première boîte qu'elle atteint, sans « dispersion dans le sol » ni
+  « Infiltration diffuse » au constat : même conformité, sauf si le drain
+  atteint plus loin un autre exutoire (une boîte EP, puis une boîte EU :
+  conforme en v1.7.0, non conforme sur une tablette à jour). En v1.6.3,
+  ou plus ancienne, le plan PDF d'un croquis qui contient une
+  infiltration, un puits ou une autre destination ne sort pas (message
+  « Plan PDF : » suivi d'une erreur), et leur fiche ne s'ouvre pas dans
+  le croquis ; la fiche et le constat du dossier sortent, comme le plan
+  PDF d'un croquis qui n'a que des drains. N'y signez aucun constat de
+  ces dossiers : un constat signé ne change plus.
+- Une tablette remise en v1.7.0, ou plus ancienne, garde les
+  destinations ajoutées (« + Nouvelle destination ») sans les proposer,
+  puis les efface dès qu'un réglage du croquis y change (une aide au
+  dessin, le croquis activé ou désactivé) : à saisir de nouveau sur la
+  tablette à jour. Les destinations déjà posées n'en changent pas.
+- Mettez aussi à jour toutes les tablettes avant d'indiquer un étage
+  précis (puces 1er, 2e, 3e, Combles et « Autre… » du niveau d'un
+  équipement). Une tablette restée en v1.7.0, ou plus ancienne, l'écrit
+  « étage » : « WC (étage) » sur le plan, « étage » au tableau des
+  équipements du plan PDF. Changer le type de l'équipement y efface
+  l'étage, avec le message « Type changé ». Ses puces du niveau ne
+  l'effacent pas : si l'on y choisit de nouveau « Étage », l'ancien
+  numéro revient sur une tablette à jour ; vérifiez-le. L'analyse, les
+  anomalies et le constat ne changent pas avec l'étage.
+- Mettez aussi à jour toutes les tablettes avant de toucher la puce
+  « + lave-mains » d'un WC. Une tablette restée en v1.7.0, ou plus
+  ancienne, l'appelle « WC » (fiche, plan, tableau des équipements
+  du plan PDF). Sans niveau, il n'y porte pas d'étiquette, sauf en
+  projet (« Projet : WC ») ou, au plan d'avant-projet, à supprimer
+  (« À supprimer : WC »). À l'ouverture du croquis, elle réécrit
+  « WC : … » le texte de ses anomalies restées telles que le croquis
+  les a écrites ; une tablette à jour leur rend « WC + lave-mains : … »,
+  elle aussi à l'ouverture du croquis. Le WC y compte comme sur une
+  tablette à jour (un WC, sans évier) ; seul y manque le rappel d'une
+  ligne « Autres : Lave-mains » saisie à côté.
+- Mettez aussi à jour toutes les tablettes avant de poser un « Autre
+  appareil » ou un « Autre ouvrage EP », et avant d'échanger une
+  sauvegarde ou un dossier qui en contient. Une tablette restée en
+  v1.7.0 ne les connaît pas : elle les garde tels quels, dessinés en
+  neutre (symbole d'appareil), sans nom ni étiquette, au plan PDF et au
+  DXF aussi ; leur fiche y dit « Type inconnu de cette version : gardé
+  tel quel ». Elle ne les compte pas au constat et ne les juge pas :
+  leurs tuyaux y ont une « extrémité libre, non reliée à un objet » ; un
+  urinoir relié aux EP ou une évacuation de balcon reliée aux EU, non
+  conformes sur une tablette à jour, n'y donnent aucune anomalie, et le
+  plan comme le constat peuvent y paraître conformes. Dès l'ouverture du
+  Constat, ou à la fermeture du croquis, elle retire du constat leurs
+  lignes « Autres » reprises du croquis que personne n'a modifiées, et
+  une ligne du formulaire choisie dans leur fiche (« Compté au
+  constat ») y baisse d'autant ; l'ouverture du croquis y retire du
+  dossier leurs anomalies que personne n'a modifiées. Sur une tablette à
+  jour, les anomalies reviennent à l'ouverture du croquis, la ligne du
+  formulaire à l'ouverture du Constat, les lignes « Autres » seulement
+  par « Reprendre du croquis » ; d'ici là, le Constat les rappelle. En
+  v1.6.3, ou plus ancienne, le plan PDF et le DXF d'un croquis qui en
+  contient ne sortent pas (message d'erreur), et leur fiche ne s'ouvre
+  pas dans le croquis. N'y signez aucun constat de ces dossiers : un
+  constat signé ne change plus.
+- Mettez aussi à jour toutes les tablettes avant de réunir des appareils
+  sous une étiquette commune (bouton « Étiquette commune… »), et avant
+  d'échanger une sauvegarde ou un dossier qui en contient. Une tablette
+  restée en v1.7.0, ou plus ancienne, ne la connaît pas : chaque
+  appareil y garde son étiquette propre, à l'écran, au plan PDF et au
+  DXF, et le groupe revient sur une tablette à jour. L'étiquette de
+  l'appareil qui porte l'étiquette commune peut s'y écrire loin de son
+  symbole : « Replacer », dans sa fiche, la ramène. Changer le type d'un
+  de ces appareils y efface son lien au groupe ou le titre choisi, avec
+  le message « Type changé ». L'analyse, les anomalies et le constat ne
+  changent pas avec l'étiquette commune.
+- Une tablette restée en v1.7.0, ou plus ancienne, compte encore une
+  anomalie à arbitrer comme conforme : elle y laisse « Conformes ». N'y
+  signez pas le constat d'un dossier dont une anomalie reste à arbitrer.
+  Un constat signé sur une tablette à jour alors qu'une anomalie restait
+  à arbitrer y paraît changé depuis la signature (conclusion, parfois
+  aussi installations ou anomalies) : il est intact. N'y touchez pas
+  « Modifier », qui efface les signatures : mettez d'abord la tablette à
+  jour. Au plan PDF d'avant-projet, elle omet aussi une anomalie de
+  raccordement restée à arbitrer que le projet garde ou crée (« Après
+  travaux, le dessin ne fait plus apparaître d'anomalie de
+  raccordement. » quand rien d'autre ne reste) ; une tablette à jour
+  l'y liste « À arbitrer après travaux ».

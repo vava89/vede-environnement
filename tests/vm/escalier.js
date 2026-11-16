@@ -31,8 +31,8 @@
 // Échouent sur b08e6cd : d10, d11, d12, d14 et d16 (le sixième argument est ignoré) ; témoins : d13 et d15.
 // usage : node tests/vm/escalier.js [-v] [--app=<dossier>]
 'use strict';
-const {charger, rapport} = require('./charger.js');
-const {V, ctx} = charger({pdf: true}), R = rapport('escalier');
+const {charger, rapport, rendus} = require('./charger.js');
+const ch = charger({pdf: true}), {V} = ch, R = rapport('escalier'), {dessiner, pdf, dxf} = rendus(ch);
 const copie = x => JSON.parse(JSON.stringify(x));
 /* appel protégé : une exception devient le texte « exception : … » */
 const sur = f => { try { return f(); } catch (e){ return 'exception : ' + e.message; } };
@@ -306,29 +306,11 @@ function analyse(){
   R.ok(ok2, 'a2 témoin : analyse identique avec un objet et un tracé d\'un type inconnu');
 }
 
-/* Canevas factice : les segments de chaque chemin tracé (stroke), avec la couleur et l'épaisseur du moment */
-function canevas(){
-  const traits = [], etat = {}; let chemin = [], dernier = null, debut = null;
-  const m = {
-    beginPath(){ chemin = []; dernier = debut = null; },
-    moveTo(x, y){ dernier = debut = {x, y}; },
-    lineTo(x, y){ const q = {x, y}; if (dernier) chemin.push([dernier, q]); dernier = q; },
-    closePath(){ if (dernier && debut) chemin.push([dernier, debut]); dernier = debut; },
-    stroke(){ chemin.forEach(s => traits.push({a: s[0], b: s[1], coul: etat.strokeStyle, larg: etat.lineWidth})); },
-    measureText(){ return {width: 10}; }
-  };
-  return {ctx: new Proxy(etat, {get: (t, k) => k in m ? m[k] : k in t ? t[k] : () => {}, set: (t, k, v) => { t[k] = v; return true; }}), traits};
-}
-/* dessin de l'écran (vue de 800 × 600 px centrée sur c, à s px par mètre) : zones de toucher et traits, ramenés en mètres du croquis */
-function dessiner(d, s, c){
-  const an = V.analyser(copie(d), 'edl'), vue = new V.Vue(800, 600); vue.s = s; vue.cx = c[0]; vue.cy = c[1];
-  const cv = canevas(), zones = V.dessinerCroquis(cv.ctx, d, an, vue, 1, {});
-  return {zones, traits: cv.traits.map(t => ({a: vue.monde(t.a.x, t.a.y), b: vue.monde(t.b.x, t.b.y), coul: t.coul, larg: t.larg}))};
-}
+/* gris du complément, à l'écran */
 const GRIS = 'rgb(40,40,40)';
 const aTrait = (T, A, B) => T.some(t => memeSeg(t.a, t.b, A, B));
 
-/* e : écran */
+/* e : écran (dessiner, de vm/charger.js : zones de toucher, traits ramenés en mètres du croquis) */
 function ecran(){
   const d = avecEscalier();
   const r = sur(() => dessiner(d, 20, [5.5, 3.5]));
@@ -363,26 +345,7 @@ function ecran(){
   R.ok(bouge, 'e5 étiquette d\'une boîte au bord de l\'escalier : déplacée hors du bord du contour (sans escalier ' + JSON.stringify(lab0) + ' ; avec ' + JSON.stringify(lab1) + ')');
 }
 
-/* p : plan PDF : textes, place des textes (pos), traits (couleur/épaisseur, dans l'ordre) et formes (couleur, fermée ou non, sommets en mm) */
-async function pdf(doc, o){
-  const J0 = ctx.jspdf.jsPDF, txt = [], pos = [], traits = [], formes = [];
-  const W = function(){
-    const d = new J0(...arguments), ot = d.text, ol = d.lines, lw = d.setLineWidth, dc = d.setDrawColor; let w = null, c = null;
-    d.text = function(t, x, y){ try { const s = [].concat(t).join(' '); txt.push(s); pos.push({t: s, x, y}); } catch (e){} return ot.apply(d, arguments); };
-    d.setLineWidth = function(x){ w = x; return lw.apply(d, arguments); };
-    d.setDrawColor = function(){ c = Array.from(arguments).join(','); return dc.apply(d, arguments); };
-    /* d.line passe aussi par ici ; s : segments relatifs, k : échelle (d'une courbe, on garde le point d'arrivée) */
-    d.lines = function(s, x, y, k, st, ferme){
-      const ech = k || [1, 1], pts = [{x, y}];
-      (s || []).forEach(q => { const z = pts[pts.length - 1]; pts.push({x: z.x + ech[0] * q[q.length - 2], y: z.y + ech[1] * q[q.length - 1]}); });
-      traits.push(c + '/' + w); formes.push({coul: c, ferme: !!ferme, pts}); return ol.apply(d, arguments);
-    };
-    return d;
-  };
-  W.API = J0.API; ctx.jspdf.jsPDF = W;
-  try { await V.pdfPlan(copie(doc), null, o || {}); } catch (e){ txt.push('ERR ' + e.message); } finally { ctx.jspdf.jsPDF = J0; }
-  return {txt, pos, traits, formes, err: txt.filter(t => /^ERR/.test(t))};
-}
+/* p : plan PDF (relevé par pdf, de vm/charger.js : textes, place des textes, traits et formes) */
 /* Escalier dessiné sur le papier, sans rotation, qui monte vers la droite, parmi les formes F (traits gris du complément) : contour fermé
    (rectangle de dim = [largeur, hauteur] mm, ou de toute taille sans dim), flèche d'un bord à l'autre sur sa ligne du milieu, pointe à la tête
    de la flèche (deux ailes en arrière, symétriques), marches (traits d'un bord à l'autre, abscisses depuis le bord gauche, triées) ;
@@ -453,31 +416,7 @@ async function plans(){
     'p6 ordre des tracés sur le papier : gris (escalier, complément, inconnu), puis collecteur, puis tronçon (traits : ' + seq.slice(0, 12).join(' ') + ')' + (r6.err.length ? ' ' + r6.err.join(' | ') : ''));
 }
 
-/* x : DXF (latin1 ; paires code/valeur) */
-function dxf(doc){
-  const x = Buffer.from(V.ecrireDxf(copie(doc))).toString('latin1').split('\r\n'), ents = [];
-  let sec = null, e = null;
-  for (let i = 0; i + 1 < x.length; i += 2){
-    const c = x[i].trim(), v = x[i + 1];
-    if (c === '0'){ e = {sec, type: v, c: {}}; ents.push(e); continue; }
-    if (!e) continue;
-    if (e.type === 'SECTION' && c === '2'){ sec = e.sec = v; continue; }
-    if (sec === 'HEADER' && c === '9'){ e = {sec, type: 'VAR', nom: v, c: {}}; ents.push(e); continue; }
-    if (!(c in e.c)) e.c[c] = v;
-  }
-  const out = {calques: {}, blocs: [], ents: [], ext: {}, texte: x.join('\n')}; let pl = null;
-  ents.forEach(q => {
-    if (q.type === 'VAR') out.ext[q.nom] = {x: +q.c['10'], y: +q.c['20']};
-    if (q.sec === 'TABLES' && q.type === 'LAYER') out.calques[q.c['2']] = +q.c['62'];
-    if (q.sec === 'BLOCKS' && q.type === 'BLOCK') out.blocs.push(q.c['2']);
-    if (q.sec !== 'ENTITIES') return;
-    if (q.type === 'POLYLINE'){ pl = {type: 'POLYLINE', cal: q.c['8'], ferme: (+q.c['70'] & 1) === 1, sommets: []}; out.ents.push(pl); return; }
-    if (q.type === 'VERTEX'){ if (pl) pl.sommets.push({x: +q.c['10'], y: +q.c['20']}); return; }
-    if (q.type === 'SEQEND'){ pl = null; return; }
-    out.ents.push({type: q.type, cal: q.c['8'], c: q.c, a: {x: +q.c['10'], y: +q.c['20']}, b: {x: +q.c['11'], y: +q.c['21']}});
-  });
-  return out;
-}
+/* x : DXF (lu par dxf, de vm/charger.js) */
 function sortiesDxf(){
   const r = sur(() => dxf(avecEscalier()));
   if (typeof r === 'string'){ R.ok(false, 'x DXF : ' + r); return; }

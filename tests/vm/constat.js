@@ -50,4 +50,24 @@ const LA = ['la', 'lavabo', 0, 0], DO = ['do', 'douche', 4, 0], WC = ['w', 'wc',
   {n: 'dossier de la v1.6.2, enregistrement intact sans ligne : passe sur la ligne « Évier »', vu: () => maj(manu([LA, DO], 'la', rec(''))), att: 'evier/evier'},
   {n: 'dossier de la v1.6.2, ligne « Salle de bain » choisie par le technicien : gardée (témoin)', vu: () => maj(manu([LA, DO], 'la', rec('sdb'))), att: 'aucune'},
 ].forEach(k => { const vu = k.vu(); R.ok(vu === k.att, k.n + ' : ' + vu + (vu === k.att ? '' : ' (attendu ' + k.att + ')')); });
+
+/* garde (m123) : chaque point « Drain » compte, relié ou non, sur la ligne « Autres : Drain ». Un drain de collecte y compte aussi, pour une
+   installation, sauf s'il tient un point « Drain » sur un sommet : le point compte alors, seul (pas de double compte). Un drain
+   d'infiltration et un tronçon n'y comptent pas. Échouent sur 841fd30 : les cas où un drain de collecte compte */
+const DCO = {drain: 'collecte'}, INF = {drain: 'infiltration'}, DR = 'Drain';
+[
+  {n: 'deux points « Drain » reliés à une boîte EU', d: vers([['d1', 'drain', 0, 0], ['d2', 'drain', 6, 0]]), att: 2},
+  {n: 'un point « Drain » non relié', d: doc({o: [['d1', 'drain', 0, 0]]}), att: 1},
+  {n: 'un point « Drain » au bout d\'un tronçon EP, un autre au bout d\'un drain d\'infiltration', att: 2,
+    d: doc({o: [['d1', 'drain', 0, 0], ['d2', 'drain', 0, 6]], l: [['T', 'tr', 'EP', '', ['d1', [10, 0]]], ['I', 'tr', '', '', ['d2', [10, 6]], 0, INF]]})},
+  {n: 'un point « Drain » au 1er sommet d\'un drain de collecte : un seul', att: 1, d: doc({o: [['d1', 'drain', 0, 0]], l: [['T', 'tr', 'EP', '', ['d1', [10, 0]], 0, DCO]]})},
+  {n: 'un point « Drain » au sommet du milieu d\'un drain de collecte : un seul', att: 1,
+    d: doc({o: [['d1', 'drain', 5, 0]], l: [['T', 'tr', 'EP', '', [[0, 0], 'd1', [10, 0]], 0, DCO]]})},
+  {n: 'un point « Drain » et un drain de collecte sans point : deux', att: 2, d: doc({o: [['d1', 'drain', 0, 8]], l: [['T', 'tr', 'EP', '', [[0, 0], [10, 0]], 0, DCO]]})},
+  {n: 'deux drains de collecte et un drain d\'infiltration : deux', att: 2,
+    d: doc({l: [['T1', 'tr', 'EP', '', [[0, 0], [10, 0]], 0, DCO], ['T2', 'tr', '', '', [[0, 4], [10, 4]], 0, DCO], ['I', 'tr', '', '', [[0, 8], [10, 8]], 0, INF]]})},
+].forEach(k => {
+  const rows = lignes(k.d), vu = nb(rows, DR), aut = rows.filter(r => !r.std && r.nb && r.label !== DR).map(r => r.label + ' ×' + r.nb);
+  R.ok(vu === k.att && !aut.length, 'Drain : ' + k.n + ' : « Autres : Drain » ×' + vu + (vu === k.att ? '' : ' (attendu ×' + k.att + ')') + (aut.length ? ', autres lignes : ' + aut.join(', ') : ''));
+});
 R.fin();
