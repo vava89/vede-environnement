@@ -804,18 +804,28 @@ et à tests/LISEZMOI.md.
     précision pour les renvois de m140 (« décision D6 ») et de m138 (« décision D2 »).
   - Risques et [p] : ordre au-delà de l'exemple [p] ; le porteur perd la tête de la liste [p]. Dépendances : aucune (m147 et m153 viennent
     après).
-- **m142 Couleur du drain d'infiltration d'après ses eaux** (drain-infiltration-dessin ; D8). Taille S.
-  - Fichiers et fonctions : CJ : boucle des sources de l'analyse (terminaux de drain, l. 1440-1560), an.eauxDrains (l. 1610-1612), resLigne
-    (l. 2350-2362). LISEZMOI.txt l. 141 et l. 104-106. tests/vm/drain.js.
-  - Pour l'utilisateur : un drain d'infiltration qui ne reçoit que des eaux usées est rouge (écran, plan PDF, étiquette, fiche, DXF ; légende
-    « Canalisation EU ») ; vert dès qu'il reçoit des EP, ou sans source. Libellés du panneau Constat inchangés.
-  - Tests : vm/drain.js : un WC vers le drain : resLigne 'EU' (v1.7.1 : 'EP') ; DXF en couleur 1 sur VEDE-DRAINS, légende ; WC et descente :
-    'EP' ; sans source : 'EP' ; projet : 'PRJ' ; libellés fixés (S5 a : rien ne change ; descente : libellé EP, case infil, oui ; WC :
-    libellé EU, MILIEU, non) ; témoin de la décision du 16 nov. (regard-suit-exutoire) : un regard sans réseau au tampon béton sur un drain
-    rouge (WC seul) reste « Regard EP : tampon béton », en réserve.
-  - Garde : compat 245/245 (an.eauxDrains absent sans drain d'infiltration) ; aléatoire : sans écart (resObj, constat, étiquettes inchangés).
-  - Risques et [p] : réseau saisi ignoré, sens non lu [p] ; un dossier ancien change de couleur ; sous un drain rouge, le regard reste EP, en
-    réserve (décision du 16 nov.) : à dire dans l'annonce. Dépendances : aucune.
+- **m142 Couleur du drain d'infiltration d'après ses eaux** (drain-infiltration-dessin ; D8). Taille S. Fait : cbbdd7c, 17 nov.
+  - Fichiers et fonctions : CJ : analyser (eauxDrains, l. 1479 ; boucle des sources, l. 1504-1511 : un compte par drain d'infiltration
+    atteint, d'après la nature de la source, un drain de collecte compté en EP ; an.eauxDrains, l. 1652, écrit seulement s'il n'est pas
+    vide) ; resLigne (l. 2451-2462). LISEZMOI.txt l. 106-110 ; croquis/LISEZMOI.txt l. 16, 69 et 73 ; tests/vm/drain.js (d18),
+    tests/vm/charger.js (pdf() relève la couleur du texte, pos[].coul), tests/navigateur/drain.js (c1), tests/LISEZMOI.md.
+  - Pour l'utilisateur : un drain d'infiltration qui ne reçoit que des eaux usées est rouge (écran, plan PDF, couleur de l'étiquette, tête de
+    la fiche, DXF en couleur 1 sur VEDE-DRAINS ; légende « Canalisation EU ») ; vert dès qu'il reçoit des EP, ou sans source ; « Projet » en
+    projet. Au plan d'avant-projet, un drain « à supprimer » garde la couleur de l'état des lieux, comme un tuyau ; un drain gardé que plus
+    rien n'atteint est vert [p]. Une anomalie ajoutée à la main sur un drain rouge part en EU [p]. Inchangés : libellés du panneau Constat
+    (S5 a), texte « Dispersion dans le sol », resObj, constat, données ; regard posé sur le drain : EP, tampon béton en réserve ; tuyau sans
+    réseau qui mène au drain : vert.
+  - Tests : vm/drain.js (146) : d18 (14 cas) échoue sur a7635a4 pour 13 cas (y passe le témoin des libellés S5 a) ; 133/146 sur a7635a4.
+    navigateur/drain.js (45) : c1 (4 cas) échoue sur a7635a4 pour 3 cas ; 42/45 sur a7635a4. Garde : compat 245/245 (aucun drain
+    d'infiltration) ; aléatoire 8000 contre a7635a4 : sans écart (10 666 analyses, 9 892 drains d'infiltration ; la couleur n'y est pas
+    comparée).
+  - Relecture : ni défaut bloquant ni défaut majeur ; suggestions traitées : le cas de la légende vérifie le tuyau resté vert ; tuyau vert et
+    regard EP écrits dans les LISEZMOI ; au plan d'avant-projet, un drain gardé que plus rien n'atteint est vert, au lieu de la couleur de
+    an.ref que D8 présumait (une ligne de resLigne : comme un tuyau, le drain ne reprend an.ref que s'il est absent du plan d'avant-projet).
+  - Risques et [p] : réseau saisi ignoré, sens non lu, drain de collecte en EP, toute source qui atteint le drain compte, quel que soit son
+    résultat [p] ; un dossier existant change de couleur à l'ouverture (rien n'est écrit) ; une tablette en v1.7.1 le montre vert
+    (information, S11) ; sous un drain rouge, le regard reste EP, en réserve, et le tuyau sans réseau du WC reste vert (son exutoire, DISP,
+    est EP) : à dire dans l'annonce, avec la question de la couleur de ce tuyau. Dépendances : m145 (trop-plein) s'appuie sur an.eauxDrains.
 - **m143 Anomalies rangées d'après l'objet du croquis** (rangement-autres-par-texte ; D9 ; X7). Taille M.
   - Fichiers et fonctions : CJ : ligneDe (l. 2061-2069 : la condition nomLibre de la l. 2066 est retirée pour toute ligne non standard),
     rapprochement (l. 2124-2131 : ops.autres). IX : vcAutreSuit (l. 3761), vcRangerAutres (l. 3767), vcApparier (l. 3671). LISEZMOI.txt
