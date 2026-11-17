@@ -826,19 +826,27 @@ et à tests/LISEZMOI.md.
     résultat [p] ; un dossier existant change de couleur à l'ouverture (rien n'est écrit) ; une tablette en v1.7.1 le montre vert
     (information, S11) ; sous un drain rouge, le regard reste EP, en réserve, et le tuyau sans réseau du WC reste vert (son exutoire, DISP,
     est EP) : à dire dans l'annonce, avec la question de la couleur de ce tuyau. Dépendances : m145 (trop-plein) s'appuie sur an.eauxDrains.
-- **m143 Anomalies rangées d'après l'objet du croquis** (rangement-autres-par-texte ; D9 ; X7). Taille M.
-  - Fichiers et fonctions : CJ : ligneDe (l. 2061-2069 : la condition nomLibre de la l. 2066 est retirée pour toute ligne non standard),
-    rapprochement (l. 2124-2131 : ops.autres). IX : vcAutreSuit (l. 3761), vcRangerAutres (l. 3767), vcApparier (l. 3671). LISEZMOI.txt
-    l. 270-273. tests/vm/equipements.js, tests/navigateur/dossier.js.
-  - Pour l'utilisateur : l'anomalie d'une chaudière, d'une attente, d'un drain, d'un siphon de cour ou d'un trop-plein du croquis va sur la
-    ligne de cet objet, même si une autre ligne ajoutée lui ressemble ; une ligne choisie à la main reste ; une anomalie saisie au dossier est
-    rangée par son texte.
-  - Tests : vm : chaudière reliée à un puisard (anomalie eu-inf) : ops.autres nomme, pour l'enregistrement de son anomalie, la ligne de la
-    chaudière (v1.7.1 : absent) ; navigateur/dossier.js : ligne tapée « Chaudière fioul » : l'anomalie du croquis sur « Chaudière (purge,
-    condensat) », une anomalie saisie « Chaudière fioul : … » sur sa ligne ; deux drains sur une ligne « Drain ».
-  - Garde : compat 245/245 ; aléatoire : sans écart (opérations non comparées).
-  - Risques et [p] : chaque ligne non standard doit être liée à son objet ; tablette en v1.7.1 [p] ; anomalie sans ligne liée [p].
-  - Dépendances : aucune.
+- **m143 Anomalies rangées d'après l'objet du croquis** (rangement-autres-par-texte ; D9 ; X7). Taille M. Fait : 332e467, 17 nov.
+  - Fichiers et fonctions : CJ : reconcilier, ligneDe (l. 2103-2111 : la condition nomLibre est retirée, toute ligne non standard remplit
+    autresG) ; commentaires de ligneDe et de ops.autres (l. 2171). index.html non modifié : vcApparier, vcRangerAutres et vcAutreSuit (m133)
+    traitent déjà toute ligne non standard. LISEZMOI.txt l. 261-265 ; croquis/LISEZMOI.txt l. 20 ; tests/vm/equipements.js (g11, g9),
+    tests/navigateur/dossier.js (cas 88 à 94 ; constatVu reçoit o.finAvant, croixPdf), tests/LISEZMOI.md.
+  - Pour l'utilisateur : l'anomalie d'une chaudière, d'une attente, d'un drain (point ou drain de collecte), d'un siphon de cour ou d'un
+    trop-plein du croquis va sur la ligne du constat liée à la ligne « Autres » qui compte cet objet : celle que la reprise a créée, ou une
+    ligne déjà tapée, du même nom ou d'un nom qui lui ressemble. Une ligne choisie à la main reste (« Aucune » comprise) ; une anomalie
+    saisie au dossier est rangée par son texte ; sans ligne liée, rangée par le texte, puis rappel ; constat signé inchangé.
+  - Tests : vm/equipements.js (273) : g11 (14 cas) et une assertion de g9 ; 260/273 sur f71a6e7. navigateur/dossier.js (161) : cas 88 à 94 :
+    8/15 sur f71a6e7 (88, 90, 91, 92 et 94 échouent). Garde : compat 245/245 ; aléatoire 8000 contre f71a6e7 : sans écart (10 666 analyses ;
+    les opérations n'y sont pas comparées).
+  - Relecture : ni défaut bloquant ni défaut majeur ; un mineur confirmé, corrigé : le cas 91 lit l'état du constat au suivi seul, avant la
+    reprise (o.finAvant) ; cas 94 ajouté, témoin du livrable (croix du PDF du constat sous « Non »). D9, point 4, à lire ainsi : objet passé
+    en projet, anomalie intacte retirée ; retouchée, gardée sur sa ligne, comme pour une ligne du formulaire. Laissé : les commentaires
+    d'index.html (l. 3645-3646, 3762-3766, 3785-3786, 3854, 3897-3899) ne parlent que de l'« autre appareil » : à reprendre au prochain
+    correctif qui touche index.html.
+  - Risques et [p] : deux lignes tapées qui ressemblent à une même ligne « Autres » (« Chaudière gaz », « Chaudière fioul ») : la première
+    dans l'ordre du constat reçoit toutes les anomalies, seul l'écart de nombre est rappelé [p] ; dossier existant : au premier suivi,
+    l'installation des anomalies qui suivent le croquis est écrite (date de l'étude changée ; constat signé inchangé) ; tablettes en v1.7.1
+    et v1.7.2 sur un même dossier : la ligne peut changer d'une tablette à l'autre [p]. Dépendances : aucune.
 - **m144 Destinations de même nom refusées ; noms proches et « Fosse »** (destinations-meme-nom ; D10 ; F9 ; S6 b, S7 a). Taille M à L [p].
   - Réponses : S6 (b) et S7 (a), du 17 nov., codées directement : un nom proche reçoit la question « la même ou une autre ? » (Q) ; « Fosse »
     reçoit M5.
