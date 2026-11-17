@@ -1,9 +1,17 @@
-# Conception de la v1.7.2 (réponses du 16 nov. 2026)
+# Conception de la v1.7.2 (réponses du 16 et du 17 nov. 2026)
 
 Statut : conception relue par deux relecteurs dans la nuit du 16 au 17 nov. 2026 (RX : exactitude technique ; RF : fidélité et clarté) ;
 défauts appliqués : X1, X2, X3, X5, X6, X7, X8, X9, X10, F1, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15 ; écartés : X4 et
 F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire (un regard vers une infiltration est jugé EP, en réserve,
 « même si un WC y est relié » ; « un regard sur un drain d'infiltration est jugé en EP ») : voir D8.
+
+Mise à jour du 17 nov. 2026, après-midi : réponses du groupe « Suivi » du formulaire (S1 à S16) et réponses du fil aux trois questions qui
+les ont suivies (constat délesté, prolongement, escalier), reportées mot pour mot dans « Réponses de l'utilisateur » ; décisions, cartes,
+souhaits restants et questions revus en conséquence ; m137 à m140 faits ; nouvelle carte m155 (D2). Cette mise à jour a été relue par deux
+relecteurs (exactitude, fidélité : `scratchpad/v172/suivi-17nov/relecture/relecture-x.md` et `…/relecture-f.md`) : 25 défauts, dont quatre
+majeurs confirmés en tout ou en partie et aucun bloquant, tous corrigés. Les numéros de ligne cités restent ceux de 71a4ed6, sauf dans les
+cartes « Fait » (numéros de leur commit) et dans m155 (numéros de 1ee93f4) : m137 à m140 en ont décalé, et chaque correctif les retrouve par
+recherche.
 
 - Fiabilité 80 % - Établie le 17 nov. 2026 sur 71a4ed6 (v1.7.1 fusionnée, numéro 1.7.2), sur le modèle de `.claude/conception-equipements.md`.
   Lignes citées : code actuel (CJ = croquis/croquis.js, 7 647 lignes ; IX = index.html, 5 071 lignes, numéros du fichier).
@@ -11,12 +19,13 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
   (dessin, étiquettes, destinations) ; EC = `…/etude-c.md` (souhaits restants). Relectures : RX = `…/relecture-x.md` (X1 à X10) et
   RF = `…/relecture-f.md` (F1 à F15). [p] = présomption à signaler à l'utilisateur ; « vérifié » = relu par moi dans le code le 17 nov.
 - Souhaits restants de la v1.7.0 (1, 5, 6, 9, 13, 14) et réponses du cadrage (cadrage-14-4, cadrage-validation-departement,
-  cadrage-13-reserve, cadrage-sans-croquis) : EC, résumée à la section « Souhaits restants (après la v1.7.2) » ; lot à part, après la
-  v1.7.2 [p]. fusion-ab est faite (m136, PR #13).
-- Compte : 0/20 correctifs depuis la fusion de la v1.7.1. Ce lot : 18 numéros (m137 à m154) ; m155 et m156 restent pour les relectures.
+  cadrage-13-reserve, cadrage-sans-croquis) : EC, résumée à la section « Souhaits restants (après la v1.7.2) » ; lot suivant, après la fusion
+  de la v1.7.2, le constat délesté en premier (fil du 17 nov.). fusion-ab est faite (m136, PR #13).
+- Compte : établie à 0/20 correctifs depuis la fusion de la v1.7.1 (compte courant : .claude/etat-travaux.md). Ce lot : 19 numéros (m137 à
+  m155 ; m155 ajouté le 17 nov. après le fil, D2) ; m156 reste pour une scission de m154 ou une relecture.
 - Questions du groupe « Suivi » : `suivi.json`, 16 questions, étiquetées S1 à S16 dans l'ordre de lecture (d'abord celles qui bloquent un
   correctif proche). Il réunit `suivi-v172.json` et `suivi-c.json` corrigés : suivi-constat-signe est retirée (F7 : la règle est dans
-  CLAUDE.md, D13) ; suivi-noms-proches est ajoutée (F9, D10). Liste à la fin.
+  CLAUDE.md, D13) ; suivi-noms-proches est ajoutée (F9, D10). Liste à la fin, avec les réponses du 17 nov. et ce que chacune change.
 
 ## Réponses de l'utilisateur
 
@@ -73,6 +82,54 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
 - Question : « la ligne au nom de l'équipement est-elle créée d'office, ou seulement quand l'opérateur l'a choisie ? »
 - Réponse : « Créée d'office, avec le nom de l'équipement ».
 
+### 17 nov. 2026, groupe « Suivi » du formulaire (mot pour mot ; base lue à 13 h 04 : 107 documents ; scratchpad/reponses-17nov-6)
+- S1 suivi-e1-portee : choix d « Comme c, et la ligne laissée vide pour écrire à la main perd aussi « Autres : » » (appliqué : c) ;
+  commentaire : « Cette ligne vide est à supprimer totalement, le rapport final doit être délesté de toutes les informations non nécessaires
+  et tous les éléments non utilisés ».
+- S2 suivi-sans-croquis : choix b « Oui, toutes, comme avec le croquis » (appliqué : a).
+- S3 suivi-boite-cote-place : choix a « Juste sous la distance, les quatre lignes du tableau un peu resserrées dans le même cadre ».
+- S4 suivi-puits-colonne : choix a « Dans la colonne « Puits », verte comme « Milieu naturel » et « Gargouille » » ; commentaire : « Penser à
+  supprimer les colonnes inutiles pour que n'apparaissent que les colonnes ayant été cochées ».
+- S5 suivi-drain-libelle : choix a « Rien : garder « Drain d'infiltration : rejet au sol (milieu naturel) » ».
+- S6 suivi-noms-proches : choix b « Le signaler et demander si c'est la même destination : « la même » la reprend, « une autre » garde le
+  nouveau nom » (appliqué : a).
+- S7 suivi-fosse : choix a « La refuser avec le message : « Pour une fosse septique, posez l'objet Fosse septique ; pour un fossé, écrivez
+  « Fossé ». » » (appliqué : b).
+- S8 suivi-symbole-puits : choix a « En Z : vers le haut à gauche, vers le bas à droite ».
+- S9 suivi-e4-niveau : choix a « Oui, seulement si le porteur de l'étiquette n'a pas de niveau non plus ».
+- S10 suivi-disque-objets : choix b « Aussi les symboles qui ne sont pas ronds : regard, boîte, grille, fosse, té, siphon, puits… »
+  (appliqué : a) ; commentaire : « La rotation doit se faire degré par degré et proposer un accrochage pour que l'objet soit orienté
+  parallèlement ou perpendiculairement à un linéaire proche ».
+- S11 suivi-escalier-ancienne-version : choix a « Garder l'enregistrement actuel et le dire dans la consigne de mise à jour des tablettes » ;
+  commentaire : « Partir du principe que les tablettes seront toujours à jour ».
+- S12 parcelle-essai-dxf : choix a « « parcelle », au moins une fois » (appliqué : b).
+- S13 facade-constat : choix c « Oui, sur le constat complet comme sur l'abrégé » (appliqué : a).
+- S14 bareme-permissif : choix b « Un réglage par anomalie dans les Réglages : non-conformité, réserve ou à arbitrer, jamais « pas
+  d'anomalie » » (appliqué : a).
+- S15 reserves-sans-croquis : choix a « Oui, partout : une anomalie type a la même nature dans tous les dossiers » (appliqué : b).
+- S16 reserves-eu : choix b « Non : réserve en EP, non-conformité en EU » (appliqué : a).
+- remarque-libre-suivi : sans réponse.
+
+### 17 nov. 2026, fil (après les réponses « Suivi » ; questions, choix et textes mot pour mot)
+- Constat délesté. Question : « Vos commentaires de S1 et S4 demandent un constat imprimé « délesté » : ni ligne vide, ni ligne d'appareil
+  absent, ni colonne sans croix (c'est le souhait 9, étendu aux colonnes). La v1.7.2 ne peut compter que 20 correctifs. Quand faire ce
+  constat délesté ? » Choix : « Lot suivant, en premier (Recommandé) » (« La v1.7.2 garde ses correctifs et se fusionne plus tôt. Dès m147,
+  les lignes vides « Autres : » ne s'impriment plus. Lignes d'appareils absents et colonnes sans croix : 3 ou 4 correctifs conçus ensemble,
+  juste après la fusion. ») ; autre choix : « Dans la v1.7.2 » (« Pour tenir dans les 20 correctifs, « Deux points » (pose par deux cotes,
+  m146) et l'accrochage du disque de rotation passent à la fusion suivante. La v1.7.2 se fusionne plus tard. »). Suite : D14 et m147 pour les
+  lignes vides ; « Souhaits restants (après la v1.7.2) », item 9, pour le reste.
+- Prolongement. Question : « Prolongement d'un côté (m138, déjà fait) : quand le côté à prolonger est à plus de 30 m du doigt, l'application
+  essaie d'abord le redressement « Parallèle au bâti » et l'accroche à la façade, puis le prolongement. Cet ordre vous convient-il ? »
+  Choix : « Prolongement toujours d'abord » (« L'ordre de la v1.7.0 (m113), même au-delà de 30 m, et l'aide le dit. ») ; autres choix :
+  « Garder cet ordre (Recommandé) » (« Au-delà de 30 m, le redressement et la façade passent avant le prolongement ; en deçà, rien ne change
+  par rapport à la v1.7.1. ») et « Le plus proche du doigt » (« À toute distance, l'accroche la plus proche du doigt l'emporte, prolongement
+  compris. »). Suite : D2 et m155.
+- Escalier. Question : « Escalier (m139, déjà fait), trois changements visibles : 1) un escalier tracé depuis un coin le long d'une façade
+  monte maintenant vers la fin (avant : vers le départ) ; 2) un contour de « Complément du fond » se ferme quand on retouche son premier
+  point, même aimant coupé ; 3) fond de plan masqué, les contours fermés de complément comptent pour le côté proposé de l'escalier. Vous
+  conviennent-ils ? » Choix : « Tous les trois (Recommandé) » (« Rien à changer. ») ; autre choix : « Un ou plusieurs à changer ». Suite : D3
+  et la carte m139.
+
 ### Décisions antérieures qui jouent ici
 - 6 nov. 2026, sur m85 (mot pour mot) : « Si j'ai un lavabo à côté d'un lave-vaisselle dans la réalité je ne crée qu'un objet cuisine. Si je
   dois créer deux objets differents lavabo et cuisine c'est qu'ils ne sont pas dans la même pièce et donc qu'il faut bien les distinguer. En
@@ -93,11 +150,11 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
   l'opérateur les choisit.
 - Vérifié : la ligne au nom est déjà créée d'office à « Reprendre du croquis » (IX:3808-3811) ; le suivi n'ajoute jamais de ligne (commentaire
   IX:3757) ; seul le mot « Autres : » est en cause (IX:3022-3023, le seul « Autres : » d'IX ; CJ:5494 ; CJ:5904 ; message IX:3908).
-- Ce qui reste ouvert (S1, suivi-e1-portee) : « jamais » vise-t-il aussi les lignes que le croquis crée pour d'autres objets que le
-  formulaire n'a pas (« Autres : Drain » de Q4 b ; chaudière, attente, siphon de cour, trop-plein) et les lignes tapées à la main ? Le
-  6 nov. dit « en ajoutant une ligne » : toute ligne ajoutée. À la lettre, « jamais » vise aussi la ligne vide imprimée en bas de chaque
-  groupe, pour écrire à la main (S1 d) ; la lecture appliquée et recommandée (S1 c) est plus étroite : cette ligne n'est pas une ligne
-  ajoutée (F10) [p].
+- S1 (d, 17 nov.) tranche ce qui restait ouvert : « jamais » se lit à la lettre. Aucune ligne n'a plus « Autres : », qu'elle soit reprise du
+  croquis pour un objet que le formulaire n'a pas (« Autres : Drain » de Q4 b ; chaudière, attente, siphon de cour, trop-plein) ou tapée à la
+  main ; et, selon le commentaire (« Cette ligne vide est à supprimer totalement… »), les lignes vides du bas de chaque groupe ne sont plus
+  imprimées du tout, au lieu de perdre seulement le mot (D14, m147). Le reste du délestage demandé : souhait 9, au lot suivant (fil du 17
+  nov.).
 
 ## Décisions
 
@@ -112,21 +169,24 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
   commune) (vérifié : aleatoire.js l. 46-51) ; il tire exutoires (dont des puisards), puits et drains. Sans écart, sauf m145 et m150 : écarts
   attendus, vérifiés un par un.
 - Croquis désactivé ou absent (`!vcPret()`, IX:3174, vérifié) : la v1.5.1, sauf les exceptions accordées : lavabo → « Évier » (m96) ;
-  présentation des valeurs de la boîte (PR #12, point 11, « Le garder ») ; suggestion « Lavabo » retirée (E2). Toute autre nouveauté du
-  constat qui jouerait sans croquis attend S2 (suivi-sans-croquis, D15).
+  présentation des valeurs de la boîte (PR #12, point 11, « Le garder ») ; suggestion « Lavabo » retirée (E2) ; et, depuis S2 (b, 17 nov. :
+  « Oui, toutes, comme avec le croquis »), les nouveautés du constat de la v1.7.2 : lignes sans « Autres : » ni ligne vide (m147 ; « ni ligne
+  vide » sans croquis : [p], D14), « Évier » seul (m148), ligne du côté de la boîte (m149), colonne « Puits » (m150) (D15).
   - La règle de CLAUDE.md (« Croquis désactivé ou absent : comportement de la v1.5.1, sauf une anomalie saisie à la main qui nomme un
     lavabo… ») ne citait pas les deux dernières exceptions : un relecteur qui l'appliquait y aurait vu une faute (F15). m137 l'a mise à
     jour ; texte retenu (précisé à sa relecture) : « Croquis désactivé ou absent : comportement de la v1.5.1, sauf une anomalie saisie à la
     main qui nomme un lavabo : ligne « Évier », comme sur le croquis (décision du 7 nov. 2026) ; la suggestion « Lavabo » est retirée
     partout, et une valeur de la boîte trop large pour sa case en 9,5 pt, mais qui tient en 7 pt, s'imprime au constat sur la ligne de son
-    libellé, comme en v1.7.0 (réponses du 16 nov. 2026). » À revoir si S2 donne (b) ou (c) [p].
+    libellé, comme en v1.7.0 (réponses du 16 nov. 2026). » S2 a donné (b) : chacun de m147 à m150 la complète pour sa nouveauté (texte
+    proposé : D15) [p].
 - Constat signé : lignes, boîte, croix (`c.fige.conf`) et conclusion ne changent plus (IX:2087-2095, vérifié). Le constat imprimé est
   redessiné à chaque impression [p, comme m115]. Règle de CLAUDE.md : « Le PDF est le livrable. Un constat signé n'est jamais modifié. »
   Une présentation nouvelle (E1, colonne « Puits », ligne de la boîte) ne touche donc pas un constat signé avant la v1.7.2 : la signature
   note la présentation (D13 ; question retirée, F7).
 - Plan PDF et DXF : ils suivent la version qui imprime (étiquettes, symboles, couleurs), comme en v1.7.0 et v1.7.1, dossier signé compris [p].
-- Tablettes plus anciennes : chaque carte dit ce que montre une tablette en v1.7.1 (et plus ancienne au besoin). Un champ absent donne le
-  comportement de la v1.7.1 ; doc.v reste 1.
+- Tablettes plus anciennes : S11 (a, 17 nov.), commentaire : « Partir du principe que les tablettes seront toujours à jour ». Ce qu'une carte
+  dit d'une tablette en v1.7.1 (ou plus ancienne) n'est qu'une information, sans travail pour elle. Un champ absent (dossier fait avant la
+  v1.7.2) donne le comportement de la v1.7.1 ; doc.v reste 1.
 - Tests sur données fictives seulement (« 12 rue Fictive », « Ville-Exemple », « Nom Fictif », VCroquis.demoDxf()).
 - Chaque correctif tient à jour LISEZMOI.txt (et croquis/LISEZMOI.txt au besoin), tests/LISEZMOI.md pour un test nouveau, sa carte « Fait »
   ci-dessous et .claude/etat-travaux.md.
@@ -160,6 +220,14 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
   limite de longueur » ; LISEZMOI l. 296-297 (vérifiées) « (au-delà d'un bout, sans limite de longueur) ». Repli : « jusqu'à 120 m » au lieu
   de « sans limite de longueur ».
 - Constat, constat signé, croquis désactivé, sauvegarde : sans objet (aide au dessin). Tablette en v1.7.1 : 30 m. Compat, différentiel : sans effet.
+- Ordre au-delà de 30 m (fil du 17 nov.) : m138 essayait le prolongement d'un côté dont le bout est à plus de 30 m après le redressement
+  « Parallèle au bâti » et l'accroche à la façade (prolLoin, option 1 d'un relecteur [p]), parce qu'un prolongement lointain prenait sinon la
+  plupart des points redressés ou posés sur une façade (fond fictif « ville », 10 px/m : 84/16 devenait 16/84, mesure de m138). Réponse :
+  « Prolongement toujours d'abord » (« L'ordre de la v1.7.0 (m113), même au-delà de 30 m, et l'aide le dit. »). m155 rend au prolongement
+  lointain la place qu'il a jusqu'à 30 m, celle de m113 ; la borne de 256 côtés et le passage unique restent [p]. Conséquence, non montrée
+  dans la question du fil [p] : ce partage devrait revenir à 16/84 environ [p : mesuré sur la première version de m138 ; m155 le mesure] ;
+  sur un fond dense, dès 5 px/m environ, un point resté libre se cale presque toujours sur un prolongement (déjà vrai avec m138). Le repli à
+  120 m n'a pas servi.
 
 ### D3 Côté et montée proposés d'un escalier (pr12-2 ; EB § 6)
 - Retenu : choix d, « Les deux ».
@@ -173,6 +241,9 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
 - Ce ne sont que des valeurs proposées à la pose : la fiche les change, un escalier posé garde les siennes. Dossiers existants : rien.
 - Textes : LISEZMOI l. 166-173 : dire qu'un contour fermé de « Complément du fond » compte comme le bâti [p].
 - Compat et différentiel : sans effet (aucun escalier dans la garde ; le générateur n'en tire pas, vérifié).
+- Fait par m139. Ses trois changements visibles (un escalier tracé depuis un coin le long d'une façade monte vers la fin ; un contour de
+  « Complément du fond » se ferme quand on retouche son premier point, même aimant coupé ; fond masqué, les contours fermés de complément
+  comptent pour le côté proposé) sont acceptés (fil du 17 nov.) : « Tous les trois (Recommandé) » (« Rien à changer. »).
 
 ### D4 Escalier jamais lu comme un réseau (escalier-rendu ; EB § 8)
 - Constat de l'étude (sonde-escalier.js, croquis fictif) : la v1.7.0 et la v1.7.1 ne lisent jamais l'escalier comme un réseau (resLigne
@@ -180,10 +251,11 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
   déterminé » à l'écran, au DXF et dans la légende, sans le compter dans son analyse ; sa fiche y est celle d'un tronçon.
 - On ne choisit que le format qu'écrit la v1.7.2. Aucun des quatre formats essayés n'est à la fois montré sans réseau par la v1.6.3 et lu
   comme un escalier par la v1.7.0 et la v1.7.1 (EB § 8.3, formats A à D).
-- Appliqué en attendant S11 (suivi-escalier-ancienne-version), et vrai pour la v1.7.2 quelle que soit la réponse : (a), format actuel gardé ;
-  consigne de mise à jour du LISEZMOI (l. 366-372, vérifiée) : ajouter « dessiner un escalier » et la phrase [p] « Une tablette en v1.6.3, ou
-  plus ancienne, dessine un escalier comme un tronçon « Réseau non déterminé » (sans le compter dans le constat) ; ne l'y modifiez pas. » ;
-  tests de garde. (b) ou (c) : gros travail (L), pour la fusion suivante, et la phrase serait revue.
+- S11 (a, 17 nov.) : « Garder l'enregistrement actuel et le dire dans la consigne de mise à jour des tablettes » ; commentaire : « Partir du
+  principe que les tablettes seront toujours à jour ». Format actuel gardé. m139 a écrit la consigne (LISEZMOI, puce « Mettez aussi à jour
+  toutes les tablettes avant de dessiner un escalier… ») avec la phrase « Une tablette en v1.6.3, ou plus ancienne, dessine un escalier comme
+  un tronçon « Réseau non déterminé » (sans le compter dans le constat) ; ne l'y modifiez pas. », et les tests de garde. (b) et (c) ne sont
+  pas choisis : rien pour la fusion suivante.
 - Les trois autres choix de m106 (marches omises sous 4 px à l'écran et sous 1 mm sur le papier ; type inconnu ; ni ligne de référence ni
   cible d'accrochage) restent [p : la réponse ne les vise pas].
 
@@ -221,6 +293,10 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
 - Dossiers existants : les valeurs se remplissent à la reprise, ou au suivi si la boîte a déjà été reprise. Constat signé : intact. Croquis
   désactivé : sans objet. Tablette en v1.7.1 : n = 2, elle vide une valeur reprise et non retouchée [p] ; la v1.7.2 la remet.
 - Compat : inchangé (boitesConstat hors de la garde) ; différentiel : non comparé.
+- Fait par m140 (carte « Fait ») : le chemin suivi est celui de l'analyse, les plus courts chemins de chaque source jusqu'à ses exutoires
+  dessinés (resObj[s].term), dans le sens dessiné des tuyaux (traversees) ; an.sensPiece, arbitraire dans une boucle, n'est pas lu
+  (relecture, M1). Une boîte que le dessin dit mêlée (un « Tronçon EU », un « Tronçon EP » ou un drain y arrive) n'est pas reprise, comme en
+  v1.7.1 : question nouvelle (fin du document).
 
 ### D7 Ordre de l'étiquette commune (ordre-etiquette-commune ; EB § 5)
 - Retenu : choix b. ORDRE_ETIQ : sdb, douche, baignoire, lavabo, evier, wc, cuisine, lavevaisselle, lavelinge, chaudiere, siphon_garage,
@@ -256,8 +332,9 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
   croquis. La réponse a deux phrases (F4) : « Ok sauf le libellé du "drain d'infiltration : rejet au sol" en EU » refuse ce libellé en EU ;
   « Si les eaux sont des EP, placer le libellé dans les EP » décrit ce qui se fait déjà, sauf à la lire « dès que le drain reçoit des EP »
   (S5 d) [p].
-- Appliqué en attendant S5 (suivi-drain-libelle) : (a), rien, qui garde le libellé refusé en EU ; aucune option recommandée (F4). Un test
-  fixe les libellés actuels (m142). (b), (c) ou (d) : dans m150 (même table) ; (d) lirait an.eauxDrains.
+- S5 (a, 17 nov.) : « Rien : garder « Drain d'infiltration : rejet au sol (milieu naturel) » » : le libellé d'un appareil EU reste celui-là,
+  non conforme, et celui d'un appareil EP reste « Drain d'infiltration (dispersion dans le sol) ». m142 fixe ces libellés par un test ; rien
+  dans m150.
 - Dossiers existants : un drain qui ne reçoit que des EU devient rouge à l'ouverture ; rien n'est écrit. Constat signé : non touché. Croquis
   désactivé : sans objet. Tablette en v1.7.1 : toujours vert.
 - Compat : inchangé (aucun drain d'infiltration dans la garde ; an.eauxDrains absent quand il est vide). Différentiel : sans écart (resObj,
@@ -284,30 +361,33 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
   s ou x final ôté (mot sans chiffre de 4 lettres ou plus) ; mots collés ; repères = mots qui portent un chiffre ou n'ont qu'une lettre, triés.
 - Deux degrés : même nom (formes égales) ; nom proche (mêmes repères, distance OSA : sous 5 lettres, jamais ; de 5 à 9 lettres, 1 au plus ;
   dès 10 lettres, 2 au plus). Des repères différents ne sont jamais proches (« Noue 1 », « Noue 2 »). Essai : 42 paires fictives (noms.js).
-- Nom proche : S6 (suivi-noms-proches, question ajoutée, F9). Faux refus connu : « Fossé de la rue » face à « Fossé de la route » (noms.js :
-  proche). Appliqué en attendant : (a), refusé comme un même nom (M2 ci-dessous), ce que code m144 ; recommandé : (b), le signaler et
-  demander si c'est la même destination (« la même » la reprend, « une autre » garde le nouveau nom) [p : textes et boutons] ; (c) : ne
-  refuser que le même nom, sans tolérer de faute, contre « ne pas manquer un nom identique qui aurait été mal orthographié ». (b) ou (c) :
-  dans m151.
+- Nom proche : S6 (b, 17 nov.) : « Le signaler et demander si c'est la même destination : « la même » la reprend, « une autre » garde le
+  nouveau nom », codé par m144 (plus rien dans m151). « Fossé de la rue » face à « Fossé de la route » (noms.js : proche) : la question est
+  posée. « La même », selon l'endroit [p] : dans la palette (« + Nouvelle destination »), la destination existante est posée ; dans la fiche,
+  la destination reprend de l'existante son nom exact, son abréviation, son article et ses jugements (ep, cst) : une seule clé cleDest
+  (CJ:839 ; regroupement des rejets, CJ:1152, vérifié), donc un seul rejet au constat ; dans les Réglages, le modèle garde son ancien nom.
+  « Une autre » garde le nom tapé. Nom proche d'un objet de la palette : boutons « Le même » et « Un autre » [p] ; « Le même » prend, dans la
+  palette, l'outil de l'objet, sans modèle ; dans la fiche, l'ancien nom reste et M4 s'affiche ; dans les Réglages, aucun modèle n'est créé
+  ni renommé ; « Un autre » garde le nom tapé.
 - Listes comparées : modèles de la tablette ; dans le croquis, destinations posées sur le plan ouvert ; objets fixes de la palette [p]
   (Puisard, Infiltration au sol, Gargouille, Rejet en milieu naturel, Fosse septique, Autre destination). Jamais au chargement, à la
   restauration, à l'import, ni d'une tablette à l'autre.
-- Messages, mot pour mot [p] (toast de 4 s) :
+- Messages, mot pour mot [p] (toast de 4 s, sauf la question Q) :
   - M1 « Une destination « Étang » existe déjà : choisissez-la dans la palette. »
-  - M2 « Nom proche de « Étang », qui existe déjà : choisissez « Étang » dans la palette, ou un nom bien différent. »
-  - M3 (posée sur ce plan, absente de la palette ; même nom exact, même abréviation et mêmes jugements : acceptée) « Une destination « Étang »
-    est déjà posée sur ce plan : reprenez ce nom et ses jugements, ou choisissez un nom bien différent. »
-  - M4 « « Puisard » est un objet de la palette : posez l'objet Puisard. » ; « Nom proche de « Puisard », objet de la palette : posez
-    l'objet Puisard, ou choisissez un nom bien différent. »
-  - Fiche, nom changé (le texte exact d'une autre destination reste accepté, pour réunir deux destinations) : « Une destination « Étang »
-    existe déjà : écrivez « Étang » pour la même, ou un nom bien différent. » ; « Nom proche de « Étang », qui existe déjà : écrivez
-    « Étang » pour la même, ou un nom bien différent. »
-  - Réglages, modèle renommé : « Une destination « Étang » existe déjà dans la liste. » ; « Nom proche de « Étang », déjà dans la liste :
-    choisissez un nom bien différent. »
-- « Fosse » et « Fossé » ont la même forme (« fose »). Vérifié : nomCle (CJ:838) ôte déjà les accents, donc cleDest (CJ:839) confond déjà
-  une « Fosse » et un « Fossé » de mêmes jugements. Appliqué en attendant S7 (suivi-fosse) : (b), « Fosse » vaut « Fossé » (refusé
-  seulement si un « Fossé » existe) ; recommandé : (a), message M5 (m151) « Pour une fosse septique, posez l'objet Fosse septique ; pour un
-  fossé, écrivez « Fossé ». »
+  - M3 (posée sur ce plan, absente de la palette ; même nom exact, même abréviation et mêmes jugements : acceptée) « Une destination
+    « Étang » est déjà posée sur ce plan : reprenez ce nom et ses jugements, ou choisissez un nom bien différent. »
+  - M4 « « Puisard » est un objet de la palette : posez l'objet Puisard. »
+  - M5 (S7 a, texte de la réponse) « Pour une fosse septique, posez l'objet Fosse septique ; pour un fossé, écrivez « Fossé ». »
+  - Fiche, nom changé (le texte exact d'une autre destination reste accepté, pour réunir deux destinations, si ses jugements sont les mêmes :
+    la destination reprend alors son abréviation et son article ; sinon M3 [p]) : « Une destination « Étang » existe déjà : écrivez « Étang »
+    pour la même, ou un nom bien différent. » ; Réglages, modèle renommé : « Une destination « Étang » existe déjà dans la liste. »
+  - Q (S6 b ; remplace M2 et les formes « Nom proche » de M4, de la fiche et des Réglages), dans un bandeau à deux boutons [p] : « Nom proche
+    de « Étang », qui existe déjà : est-ce la même destination ? », boutons « La même » et « Une autre » ; pour un objet de la palette :
+    « Nom proche de « Puisard », objet de la palette : est-ce le même ? », boutons « Le même » et « Un autre » [p].
+- « Fosse » et « Fossé » ont la même forme (« fose »). Vérifié : nomCle (CJ:838) ôte déjà les accents, donc cleDest (CJ:839) confond déjà une
+  « Fosse » et un « Fossé » de mêmes jugements. S7 (a, 17 nov.) : « La refuser avec le message : « Pour une fosse septique, posez l'objet
+  Fosse septique ; pour un fossé, écrivez « Fossé ». » » : M5, codé par m144 ; il vise un nom de forme « fose » écrit sans accent (« Fosse »,
+  « FOSSE ») [p] ; « Fossé » reste accepté (M1 s'il existe déjà).
 - Données : aucune ; cleDest et nomCle inchangés. Dossiers existants : identiques ; deux modèles proches déjà enregistrés restent tous deux.
   Croquis désactivé : cette saisie n'existe qu'avec le croquis (v1.5.1). Tablette en v1.7.1 : sa saisie accepte toujours les doublons.
 - Compat et différentiel : sans effet (le générateur écrit les noms sans passer par la saisie).
@@ -352,20 +432,20 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
 - Vérifié : un constat signé garde c.signeLe et c.fige (IX:2087-2095 : logo, conclusion, conformité de chaque ligne, précos, méthodes,
   observations, réserves, soussigné, visite, anomalies à arbitrer) ; ses lignes et sa boîte ne changent plus ; le PDF est redessiné à chaque
   impression [p]. Précédent : le logo d'un constat signé est déjà pris dans c.fige (IX:2946).
-- E1, la colonne « Puits » et la ligne de la boîte changeraient donc la réimpression d'un constat signé avant la v1.7.2. Une seule
-  « présentation » décide des trois nouveautés :
-  - La signature note c.fige.mep [p : nom et valeur] : 2 = présentation de la v1.7.2 ; absente = celle de la v1.7.1 (« Autres : », trois
-    colonnes, trois rangées, côté collé à la distance).
+- E1 (et, depuis S1 d, les lignes vides, qui ne sont plus imprimées), la colonne « Puits » et la ligne de la boîte changeraient donc la
+  réimpression d'un constat signé avant la v1.7.2. Une seule « présentation » décide de toutes ces nouveautés :
+  - La signature note c.fige.mep [p : nom et valeur] : 2 = présentation de la v1.7.2 ; absente = celle de la v1.7.1 (« Autres : » et lignes
+    vides, trois colonnes, trois rangées, côté collé à la distance).
   - Où la poser (X2, vérifié) : dans le geste de signature (c-lock, IX:4346), juste après `c.fige = constatFigeCalc(v)`, jamais dans
-    constatFigeCalc ni dans constatGeler. constatGeler (IX:2097-2102) fait lui aussi `c.fige = constatFigeCalc(v)` pour un constat signé
-    sans c.fige (signé en v1.3.0, avant le gel), et il est appelé à l'ouverture du croquis (vcOuvrir, IX:3432) : une marque posée par
+    constatFigeCalc ni dans constatGeler. constatGeler (IX:2097-2102) fait lui aussi `c.fige = constatFigeCalc(v)` pour un constat signé sans
+    c.fige (signé en v1.3.0, avant le gel), et il est appelé à l'ouverture du croquis (vcOuvrir, IX:3432) : une marque posée par
     constatFigeCalc donnerait à ce constat la présentation du jour.
-  - Constat non signé : présentation 2 croquis activé ; croquis désactivé, celle de la v1.7.1 tant que S2 est en (a).
-  - À la signature, c'est la présentation du moment qui est notée (croquis désactivé et S2 en (a) : celle de la v1.7.1), pour qu'un
-    constat signé se réimprime à l'identique même si le croquis est activé ensuite [p].
+  - Constat non signé : présentation 2, croquis activé, désactivé ou absent (S2 b).
+  - À la signature, c'est la présentation du moment qui est notée (2, croquis activé ou non), pour qu'un constat signé se réimprime à
+    l'identique [p].
   - Déverrouiller (« Modifier le constat signé ? », IX:4349) puis signer de nouveau note la présentation du jour.
-- Tablette en v1.7.1 : imprime toujours à sa façon, même un constat signé en v1.7.2 (« Autres : », trois colonnes) : à dire dans
-  l'annonce ; une signature faite chez elle n'a pas de marque (présentation d'avant).
+- Tablette en v1.7.1 : imprime toujours à sa façon, même un constat signé en v1.7.2 (« Autres : » et lignes vides, trois colonnes) : à dire
+  dans l'annonce ; une signature faite chez elle n'a pas de marque (présentation d'avant).
 - Compat et différentiel : sans effet (impression hors de la garde).
 
 ### D14 Ligne d'un « Autre appareil » et « Autres : » (e1 ; EA § 5)
@@ -375,31 +455,51 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
 - Où « Autres : » s'écrit (vérifié) : PDF page 1, IX:3023 (`pr.autres ? 'Autres : ' + r.label : r.label`, toute ligne non standard) et
   IX:3022 (ligne vide du bas d'un groupe) ; puce de la fiche (CJ:5904) ; « Compté au constat » (CJ:5494) ; vcEcarts (IX:3908, « … figure
   aussi au constat, en « Autres » : … ») ; LISEZMOI l. 118, 248-250, 431. L'écran du constat ne l'écrit pas.
-- Portée (S1, suivi-e1-portee) ; appliqué en attendant et recommandé : (c), toutes les lignes ajoutées, reprises du croquis ou tapées à la
-  main, croquis activé ; la ligne vide du bas de chaque groupe garde « Autres : » (place pour écrire à la main, pas une ligne ajoutée). (d)
-  est la lecture à la lettre de « Ne jamais écrire "Autres :" » ; (c) en est une lecture plus étroite (F10) [p].
+- Portée : S1 (d, 17 nov.) : « Comme c, et la ligne laissée vide pour écrire à la main perd aussi « Autres : » » ; commentaire : « Cette
+  ligne vide est à supprimer totalement, le rapport final doit être délesté de toutes les informations non nécessaires et tous les éléments
+  non utilisés ». Aucune ligne, reprise du croquis ou tapée à la main, n'a plus « Autres : », croquis activé, désactivé ou absent (S2 b) ;
+  les lignes vides que constatRowsForPrint (IX:2931) ajoute au bas de chaque groupe ne sont plus imprimées (vérifié : en EU, de quoi
+  atteindre 2 lignes ajoutées, ou 1 s'il y a au moins 6 lignes types ; en EP, 1 ; la première porte « Autres : » quand le groupe n'a aucune
+  ligne ajoutée, IX:3022). Hauteur des lignes (drawConstatTable, IX:3001, vérifié) : celles du formulaire pour 12 lignes exactement, sinon à
+  parts égales ; le cas courant (6 lignes types en EU, 4 en EP) passe de 12 à 10 lignes. Hauteurs proposées [p] : chaque ligne type garde sa
+  hauteur du formulaire (Évier 18 pt ; Salle de bain et Cuisine 21,5 ; les autres 17,5 : IX:3001, vérifié), une ligne ajoutée a 17,5 ; le
+  tout est mis à l'échelle pour remplir les 218,5 pt du tableau (cas courant : 183,5 pt, × 1,19 environ) ; la taille du texte ne change pas
+  (8 pt au-delà de 14 lignes, sinon 9,5 : IX:3018, vérifié). L'écran du constat ne change pas. Lignes d'appareils absents et colonnes sans
+  croix : souhait 9, au lot suivant.
 - Textes, mot pour mot : PDF « Bidet », « Drain », « Chaudière (purge, condensat) », « Attente » ; puce de la fiche « Bidet (ligne à son
   nom) » [p] ; « Compté au constat : … Bidet 1 » ; vcEcarts « … figure aussi au constat, sur sa propre ligne : vérifiez qu'il n'est pas
   compté deux fois » [p] ; LISEZMOI « il compte sur une ligne à son nom (une ligne par nom et par réseau) » et « ligne « Drain » ».
 - Données : aucune (le libellé enregistré n'a jamais porté « Autres : ») ; une ligne tapée « Autres : X » par l'opérateur garde son texte.
   La case « Indéterminé/Autres » des ouvrages EP (IX:1912, vérifié) est un libellé du formulaire : elle reste.
-- Croquis désactivé : D15. Constat signé : D13. Tablette en v1.7.1 : « Autres : ».
+- Croquis désactivé ou absent : comme croquis activé (S2 b, D15) ; pour les lignes vides, c'est une présomption [p] : S2 visait « Les lignes
+  tapées à la main sans « Autres : » (si la question S1 le prévoit) », et leur suppression vient du commentaire de S1. Constat signé : D13.
+  Tablette en v1.7.1 : « Autres : » et lignes vides (information).
 - Compat : inchangé (le mot est ajouté à l'impression et dans la fiche, pas dans constatDeduit). Différentiel : sans écart.
 
 ### D15 Nouveautés du constat, croquis désactivé (point 2 ; EA § 3, 5, 9, 10)
-- Quatre nouveautés touchent le constat sans croquis : les lignes tapées à la main sans « Autres : » (si S1 le prévoit) ;
-  « Évier » seul (D16) ; la ligne de la boîte (D17) ; la colonne « Puits » (D18). La présentation actuelle des valeurs de la boîte y vaut déjà
-  (point 11) : on ne la redemande pas.
-- Appliqué en attendant S2 (suivi-sans-croquis) : (a), aucune : croquis désactivé, le constat imprimé garde la présentation de la v1.7.1 (D13) et
-  ROW_KW garde Évier et Cuisine. Recommandé : (b), toutes : un seul modèle de constat, ligne et colonne vides tant qu'on ne les remplit pas,
-  comme l'utilisateur l'a accepté pour les nouveautés du cadrage (« valeurs par défaut identiques à la v1.5.1 ») et pour la boîte.
-- Coût : (a) et (b) passent par la même présentation (D13) ; un cas de test de plus, croquis désactivé, dans m147 à m150.
+- Quatre nouveautés touchent le constat sans croquis : les lignes sans « Autres : » ni ligne vide (D14 ; « ni ligne vide » sans croquis :
+  [p]) ; « Évier » seul (D16) ; la ligne de la boîte (D17) ; la colonne « Puits » (D18). La présentation actuelle des valeurs de la boîte y
+  vaut déjà (point 11).
+- S2 (b, 17 nov.) : « Oui, toutes, comme avec le croquis » : un seul modèle de constat, croquis activé, désactivé ou absent ; ligne et
+  colonne vides tant qu'on ne les remplit pas (note de S2 b ; réponse du 16 nov. à cadrage-sans-croquis : « valeurs par défaut identiques à
+  la v1.5.1 », comme pour les nouveautés du cadrage et pour la boîte). Cela déroge à la v1.5.1 : la règle « Croquis désactivé ou absent » de
+  CLAUDE.md change avec m147 à m150.
+- Texte proposé pour CLAUDE.md, une fois m147 à m150 faits [p] : la règle actuelle, dont le point final devient « ; les nouveautés du constat
+  de la v1.7.2 y valent aussi : ni « Autres : » ni ligne laissée vide pour écrire à la main, une anomalie qui nomme l'évier et la cuisine ou
+  la salle de bain (texte ou localisation) ne compte plus sur la ligne de la pièce, sauf si elle nomme aussi un appareil de celle-ci
+  (lave-vaisselle ; douche ou baignoire), ligne « Boîte à l'intérieur ou à l'extérieur de la propriété », colonne « Puits » (réponses du 17
+  nov. 2026). » m147 écrit d'abord « ; les nouveautés du constat de la v1.7.2 y valent aussi : ni « Autres : » ni ligne laissée vide pour
+  écrire à la main (réponses du 17 nov. 2026). », et m148, m149, m150 ajoutent chacun la sienne, avec ces mots. La phrase de m148 suit D16
+  (une douche, une baignoire ou un lave-vaisselle nommés avec l'évier gardent leur ligne ; « Lave-vaisselle : fuite », localisée « Cuisine »,
+  reste sur Cuisine) ; « « Évier » seul » la trahissait.
+- Coût : un cas de test « croquis désactivé » par correctif (m147 à m150) ; la présentation notée à la signature (D13) reste, pour les
+  constats signés avant la v1.7.2.
 
 ### D16 Anomalie « Évier » localisée « Cuisine » (pr12-10 ; EA § 9)
 - Retenu : choix b. ROW_KW (IX:1974-1981, vérifié ; m115 n'a fait l'exception que pour le lavabo) : cuisine = lave-vaisselle, ou « cuisine »
   sans lavabo ni évier ; salle de bain = douche, baignoire, ou « salle de bain » sans lavabo ni évier [p : même règle que m115]. Une douche,
   une baignoire ou un lave-vaisselle nommés avec l'évier gardent leur ligne.
-- Appliqué en attendant S2 : croquis activé seulement (vcPret()) ; croquis désactivé, Évier et Cuisine, comme en v1.5.1.
+- S2 (b, 17 nov.) : croquis activé, désactivé ou absent ; la règle ne lit pas vcPret().
 - Textes : LISEZMOI l. 273-276 (« La pièce nommée avec le lavabo ou l'évier… le situe seulement »). Données : aucune ; une anomalie dont la
   ligne n'a pas été choisie à la main est rangée de nouveau à l'ouverture [p]. Constat signé : c.fige.conf, rien ne bouge (IX:2089, vérifié).
 - Tablette en v1.7.1 : Évier et Cuisine. Compat : inchangé (ROW_KW est dans IX). Différentiel : sans effet.
@@ -415,14 +515,14 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
 - Reprise et suivi : VC_BOITE_CHAMPS (IX:3756) reçoit coteEU et coteEP, même règle que la distance. Écart [p] : « Boîte de branchement EU :
   côté « intérieur » sur le croquis de terrain, « extérieur » au constat. » ; une distance ancienne qui porte le côté se compare à la
   distance du croquis suivie de son côté (vcBoiteCle, IX:3868), sans faux écart.
-- Page 2 du constat imprimé (IX:3045-3064, vérifié : traits 40 / 57,5 / 75 / 93, « Conclusion : » à y 109 : page pleine). Appliqué en
-  attendant S3 (suivi-boite-cote-place), et recommandé : (a), 2e rangée ; quatre rangées de 13,25 pt dans le cadre (traits à 53,25 / 66,5 /
-  79,75) ; libellé en 10 pt, réduit s'il ne tient pas ; deux cases « int. » et « ext. » par réseau [p], la choisie porte une croix ; « sans
-  objet » en clair ; les autres valeurs sur une ligne (jusqu'à 5,5 pt) [p].
+- Page 2 du constat imprimé (IX:3045-3064, vérifié : traits 40 / 57,5 / 75 / 93, « Conclusion : » à y 109 : page pleine). S3 (a, 17 nov.) :
+  « Juste sous la distance, les quatre lignes du tableau un peu resserrées dans le même cadre » : 2e rangée ; quatre rangées de 13,25 pt dans
+  le cadre (traits à 53,25 / 66,5 / 79,75) ; libellé en 10 pt, réduit s'il ne tient pas ; deux cases « int. » et « ext. » par réseau [p], la
+  choisie porte une croix ; « sans objet » en clair ; les autres valeurs sur une ligne (jusqu'à 5,5 pt) [p].
 - Dossiers existants : une distance « 0,80 m intérieur » posée par le croquis et non retouchée devient « 0,80 m », et le côté se coche, à la
   reprise ou au suivi ; une distance tapée ou retouchée reste, côté vide.
-- Croquis désactivé (S2 en (a), en attendant) : trois rangées, comme aujourd'hui ; un côté resté dans la distance s'imprime à sa suite [p].
-  Constat signé sans marque : trois rangées (D13).
+- Croquis désactivé ou absent (S2 b) : la même rangée, vide d'office (rien n'est repris) ; une distance tapée qui porte le côté (« 0,80 m
+  intérieur ») reste telle quelle, côté vide [p]. Constat signé sans marque : trois rangées (D13).
 - Tablette en v1.7.1 : n'affiche ni n'imprime le côté ; efface sa provenance (vcProvenance, IX:3738) [p] ; son « Sans objet » efface le
   côté ; sa reprise réécrit « 0,80 m intérieur ». Compat : inchangé (boitesConstat hors de la garde). Différentiel : sans effet.
 
@@ -431,10 +531,10 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
   (IX:1957) : en EP, vrai pour MILIEU ; precosAuto (IX:2012) : une ligne EU sur MILIEU ajoute suppMilieu ; PDF page 1 : colonnes Fosse
   septique (rouge), Milieu naturel et Gargouille (vertes, comme « Réseau EP ») (IX:2999-3016), croix l. 3038.
 - Réponse, mot pour mot (F3) : « Créée une colone "Puits", garder le rejet EP dans la catégorie EP ».
-- Retenu : un code PUITS : RACC ['PUITS', 'Puits'] après MILIEU (IX:1904) [p] ; RACC_LIB.PUITS = 'Puits' (CJ:2217) ; table : cEU et cEP
-  {code 'PUITS'}, libellé du panneau « Puits » [p]. « Garder le rejet EP dans la catégorie EP » : la ligne d'une gouttière reste dans le
-  groupe EP, non conforme ; lecture de S4 (a), appliquée en attendant [p] : la colonne « Puits » est verte, comme « Réseau EP », « Milieu
-  naturel » et « Gargouille » (IX:3010-3014, vérifié), et la croix d'un rejet des EP dans un puits y va, comme celle d'un rejet des EU.
+- Retenu : un code PUITS : RACC ['PUITS', 'Puits'] après MILIEU (IX:1904) [p] ; RACC_LIB.PUITS = 'Puits' (CJ:2217) ; table : cEU et cEP {code
+  'PUITS'}, libellé du panneau « Puits » [p]. « Garder le rejet EP dans la catégorie EP » : la ligne d'une gouttière reste dans le groupe EP,
+  non conforme ; S4 (a), confirmé le 17 nov. : la colonne « Puits » est verte, comme « Réseau EP », « Milieu naturel » et « Gargouille »
+  (IX:3010-3014, vérifié), et la croix d'un rejet des EP dans un puits y va, comme celle d'un rejet des EU.
 - Conformité (X1, F1 ; règle de CLAUDE.md : « Rejet des EP dans un puits = NC ») :
   - raccOk : PUITS donne « non » d'office, en EU et en EP. Le code est nouveau : avant lui, aucune ligne ne nommait un puits ; une ligne
     mise à la main sur « Puits » n'est jamais conforme, croquis activé ou non.
@@ -449,15 +549,14 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
   « Milieu / naturel », « Puits », « Gar- / gouille » (verts).
 - Écran : option « Puits » du raccordement de chaque ligne (instRowHtml, IX:2146) ; note D7 du panneau Constat du croquis (CJ:6105-6125) ;
   vcValeurs (IX:3721) connaît PUITS.
-- Appliqué en attendant S4 (suivi-puits-colonne) : (a) [p] ; aucune option recommandée (F3). (b) : pas de croix de raccordement, case
-  « Indéterminé/Autres » des ouvrages EP cochée ; (c) : case « Puits » ajoutée aux ouvrages EP ; dans les deux, la colonne ne sert qu'aux
-  eaux usées.
+- S4 (a, 17 nov.) : « Dans la colonne « Puits », verte comme « Milieu naturel » et « Gargouille » » ; (b) et (c) ne sont pas choisis.
+  Commentaire : « Penser à supprimer les colonnes inutiles pour que n'apparaissent que les colonnes ayant été cochées » : c'est le constat
+  délesté, au lot suivant (fil du 17 nov. ; souhait 9) ; m150 imprime les quatre colonnes.
 - Dossiers existants : MILIEU posé par le croquis et non retouché → PUITS à la reprise ou au suivi ; valeur retouchée ou choisie à la main :
   reste « Milieu naturel », et vcEcarts (IX:3913) le signale : « Gouttière(s) avant : raccordement « Puits » sur le croquis de terrain,
   « Milieu naturel » au constat. »
-- Croquis désactivé (S2 en (a)) : ni colonne ni option, sauf pour une ligne qui porte déjà PUITS (posée croquis activé ; l'option reste
-  pour elle [p]) ; sa croix va sous « Milieu naturel » [p] ; une ligne mise à la main sur « Puits » reste « non » (test de m150). Constat
-  signé sans marque : trois colonnes (la ligne garde MILIEU).
+- Croquis désactivé ou absent (S2 b) : la colonne et l'option « Puits » aussi ; une ligne mise à la main sur « Puits » est « non » (test de
+  m150). Constat signé sans marque : trois colonnes (la ligne garde MILIEU).
 - Tablette en v1.7.1 (X9, vérifié) : raccOk y rejette PUITS en EU et en EP (IX:1957 : `/^(EP|UN)_|^GARG$|^MILIEU$/`) : une ligne
   « Puits » y est « non » d'office, même anomalie écartée, sans la préconisation suppMilieu (IX:2012 : seul MILIEU l'ajoute) ; valeur vide
   dans la liste, pas de croix [p] ; son suivi remet MILIEU, puis la v1.7.2 remet PUITS.
@@ -477,8 +576,8 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
   infiltre les eaux) se dessine en Puisard. » (la seconde phrase est le texte accepté, puits-perdu-texte).
 - Texte « À vérifier » d'un puits [p] : « Autre destination « Puits » : jugée comme un puits (rejet des EP non conforme). Pour un puits,
   posez l'objet Puits ; pour un puits perdu, un Puisard. » ; le même rappel dans la fiche, au-dessus des champs du jugement, laissés visibles.
-- « Fosse » : M5 si S7 (suivi-fosse) donne (a) (refus de m144) ; (b) : rien de plus ; (c) : changer la clé des exutoires (nomCle), qui
-  sépare des destinations déjà réunies dans les dossiers faits : fusion suivante. Noms proches : S6 (D10).
+- « Fosse » : S7 (a, 17 nov.), message M5, codé par m144 (D10) ; (c), une clé des exutoires qui sépare « Fosse » et « Fossé » dans les
+  dossiers faits, n'est pas choisi. Noms proches : S6 (b), codé par m144 (D10).
 - Dossiers existants : un « Puits » jugé conforme devient non conforme à l'ouverture (voulu). Tablette en v1.7.1 : le jugement de la fiche [p].
 - Compat : inchangé (aucune destination dans la garde). Différentiel : sans écart (le générateur ne nomme aucune destination « Puits » ni
   « Fosse », vérifié : generateur.js l. 130).
@@ -488,16 +587,20 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
 - Retenu : « un symbole semblable à celui du cadastre avec une barre diamétrale et des manivelles aux extrémités ». La barre dépasse le
   cercle de chaque côté (2,1 pour un rayon de 1,4), pour que les manivelles se voient : notre proposition [p], dite comme telle dans S8.
   L'option « barre seule, sans manivelles » est retirée : elle contredisait la demande ; le formulaire n'affiche que du texte, aucun dessin
-  (F12). Appliqué en attendant S8 (suivi-symbole-puits), et recommandé : (a), manivelles en Z [p] ; (b) : toutes deux vers le haut. Code
-  de (a) :
+  (F12). S8 (a, 17 nov.) : « En Z : vers le haut à gauche, vers le bas à droite » ; (b), toutes deux vers le haut, n'est pas choisi. Code de
+  (a), vérifié (axe y vers le haut : commentaire des primitives, CJ:2504 ; dessinerPrims, CJ:2801-2802 ; primsPdf, CJ:6880-6881 ; bloc DXF
+  écrit avec les mêmes coordonnées, CJ:7364-7368) :
   ```
   case 'puits':
     cercle(1.4, {trait: rgb, fond: BLANC, ep: ep});
     poly([-2.1, .8, -2.1, 0, 2.1, 0, 2.1, -.8], false, {trait: rgb, ep: ep});
     break;
   ```
-- Le même dessin partout : écran, palettes, fiches, plan PDF, légende, DXF (bloc VEDE_PUITS : un CIRCLE de rayon 1,4 et une POLYLINE de
-  4 sommets). Le mot « Puits » est le même au plan et au constat (D18).
+- Le même dessin partout : écran, palettes, fiches, plan PDF, légende, DXF (bloc VEDE_PUITS : un CIRCLE de rayon 1,4 et une POLYLINE de 4
+  sommets). Le mot « Puits » est le même au plan et au constat (D18). Taille : les bouts des manivelles (±2,1 ; ±0,8) sont à 2,25 du centre,
+  au-delà de rayonSymbole('puits') = 2,1 (CJ:2506, vérifié) mais dans son carré, qui sert à l'évitement des étiquettes et à la légende ; seul
+  le trait d'une étiquette ou d'une bulle venu de leur côté, arrêté à 2,1 du centre, peut les toucher (0,15 au plus). Retenu [p] : barre à
+  ±2,1 (proposée ainsi dans S8) et rayonSymbole('puits') gardé à 2,1 ; repli : une barre à ±1,94, dont les bouts restent à 2,1.
 - Compat : inchangé (le DXF n'écrit que les blocs des symboles utilisés, CJ:7344, vérifié ; aucun puits dans la garde). Différentiel : sans
   effet. Tablette en v1.7.1 : deux cercles.
 
@@ -512,33 +615,51 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
   groupe tel qu'il est [p]. Rien n'est écrit avant « Terminé » ; « Annuler » ne laisse rien.
 - Textes, mot pour mot [p] : toast de 4 s « 2 appareils à moins de 3 m, au même niveau : déjà choisis. Touchez-en un pour le retirer. » ;
   « 1 appareil à moins de 3 m, au même niveau : déjà choisi. Touchez-le pour le retirer. » ; aucun : pas de message ; bandeau « … · 2 choisis ».
-- « Même niveau » (S9, suivi-e4-niveau) ; appliqué en attendant, et recommandé : (a), même niveau affiché (libNiv, CJ:1700-1714) : deux appareils
-  sans niveau sont au même niveau ; un appareil sans niveau ne l'est pas d'un appareil qui en a un ; « étage » sans numéro n'est pas
-  « 1er étage ».
+- « Même niveau » : S9 (a, 17 nov.) : « Oui, seulement si le porteur de l'étiquette n'a pas de niveau non plus » : même niveau affiché
+  (libNiv, CJ:1700-1714) ; deux appareils sans niveau sont au même niveau ; un appareil sans niveau ne l'est pas d'un appareil qui en a un ;
+  « étage » sans numéro n'est pas « 1er étage ».
 - Croquis désactivé : sans objet. Tablette en v1.7.1 : un groupe fait en v1.7.2 y est le même. Compat et différentiel : sans effet.
 
 ### D22 Disque de rotation (remarque-libre, 1re partie ; EB § 9 A)
 - Retenu [p] : quand un objet qu'on peut faire pivoter est choisi (fiche ouverte), un anneau fin et gris l'entoure (rayon du symbole à
   l'écran + 22 px), avec une poignée ronde de 12 px dans la direction de son angle. Glisser la poignée, ou l'anneau à 8 px près, le fait
-  tourner : par pas de 15° avec les aides au dessin (l'aimant), au degré sans elles [p] ; une bulle montre l'angle (« 35° ») [p] ; un pas
-  d'annulation par geste ; l'angle est écrit au lâcher (0 à 359). Les puces de 15° (CJ:5970, vérifié) et l'orientation à la pose restent.
-- Objets (S10, suivi-disque-objets) ; appliqué en attendant : (a), les trois types orientés (caniveau, clapet, gargouille : CJ:967, 983, 988,
-  vérifié). Recommandé : (b), aussi les symboles non ronds (regard, boîte, grille, fosse, té, siphon, puits… [p : liste]) par un drapeau
-  pivot de def(), le DXF suivant leur angle (CJ:7447-7448, vérifié : aujourd'hui pour un type orienté seulement) ; ni les symboles ronds,
-  ni la zone, ni les textes. (c), les textes libres : fusion suivante.
-- Données : e.p.a, qui existe déjà. Tablette en v1.7.1 : elle tourne déjà l'écran et le plan PDF selon e.p.a pour tout type non droit
-  (angleSymbole, CJ:2566, vérifié), pas le DXF. Compat et différentiel : sans effet.
+  tourner degré par degré, aides au dessin comprises : plus de pas de 15° ; une bulle montre l'angle (« 35° ») [p] ; un pas d'annulation par
+  geste ; l'angle est écrit au lâcher (0 à 359). Les puces de 15° de la fiche (CJ:5970, vérifié : aujourd'hui pour les trois types orientés
+  seulement) valent aussi pour les types pivotants (ty.oriente || ty.pivot) [p] ; l'orientation à la pose reste aux trois types orientés [p].
+- Accrochage (commentaire de S10 : « La rotation doit se faire degré par degré et proposer un accrochage pour que l'objet soit orienté
+  parallèlement ou perpendiculairement à un linéaire proche ») : aimant actif, l'angle se cale, à 5° près [p], sur la direction d'un linéaire
+  proche de l'objet ou sur sa perpendiculaire. Linéaires retenus [p] : ceux des aides au dessin, segsCibles (côtés du bâti, traits de
+  complément, limites de parcelle si elles sont cochées), et les pièces des tronçons et des collecteurs proches [p : fonction], tuyaux
+  raccordés à l'objet compris : un regard se cale donc d'office sur son tuyau quand on le tourne près de sa direction. Chaque linéaire à la
+  distance des aides au dessin propose sa direction et sa perpendiculaire ; la plus proche de l'angle du doigt l'emporte, à 5° au plus ; à
+  égalité, celle du linéaire le plus proche de l'objet [p]. La bulle le dit (« 30°, parallèle ») [p]. Aimant coupé : au degré, sans
+  accrochage.
+- Objets : S10 (b, 17 nov.) : « Aussi les symboles qui ne sont pas ronds : regard, boîte, grille, fosse, té, siphon, puits… » : les trois
+  types orientés (caniveau, clapet, gargouille : CJ:967, 983, 988, vérifié) et les symboles non ronds [p : liste], par un drapeau pivot de
+  def() ; le DXF suit leur angle quand il est donné : e.p.a s'il existe (comme pour un type orienté), sinon rotDeg, comme aujourd'hui
+  (CJ:7447-7448, vérifié : `oriente ? (e.p.a || 0) : rotDeg`) ; l'écran et le plan PDF lisent déjà e.p.a (angleSymbole) ; le disque n'écrit
+  l'angle au lâcher que s'il a changé ; ni les symboles ronds, ni la zone, ni les textes ((c) n'est pas choisi).
+- Taille : L avec l'accrochage ; m154 peut se scinder en m154 (disque, objets, DXF) et m156 (accrochage) [p].
+- Données : e.p.a, qui existe déjà ; un objet jamais tourné n'en a pas. Tablette en v1.7.1 : elle tourne déjà l'écran et le plan PDF selon
+  e.p.a pour tout type non droit (angleSymbole, CJ:2566, vérifié), pas le DXF. Vérifié : sans angle, l'écran et le plan PDF dessinent un
+  symbole non droit à −rot (angleSymbole) et le DXF l'écrit à rotDeg ; un angle de 0, même dessin à l'écran, donnerait 0 au DXF : m154
+  vérifie sur un plan tourné que l'écran, le plan PDF et le DXF concordent pour un objet tourné au disque ; pour un objet jamais tourné, un
+  écart serait antérieur à m154 : le signaler à l'utilisateur, sans changer son DXF [p]. Compat : 245/245, car un objet non orienté sans
+  angle garde rotDeg [p : aucun objet non orienté de la garde n'a d'angle ; m154 le vérifie] ; écrire `e.p.a || 0` pour ces types aurait
+  changé cinq empreintes dxf-entites (demo, complement, complement-mm, complement-mi, types ; contre-vérifié à la relecture). Différentiel :
+  sans effet.
 
-## Découpage (m137 à m154)
+## Découpage (m137 à m155)
 Chaque correctif est livrable seul : un test qui échoue sur la v1.7.1, la batterie verte (`sh tests/tout.sh --navigateur`), un commit en
 français, l'envoi sur la branche de travail. Garde de chacun : compat 245/245 sans régénération ; aléatoire 8000 contre le commit d'avant le
 correctif. Dans les cartes, « compat 245/245 » veut dire qu'aucune empreinte ne bouge, et « sans écart » qu'aucune sortie comparée par le
-différentiel ne change ; seuls m145 et m150 changent des sorties comparées (écarts attendus, vérifiés un par un) ; une sortie qui change
-hors de la garde (couleur, ordre d'une étiquette commune, impression) est dite dans la carte. Ordre : d'abord ce qui ne dépend d'aucune
-réponse et touche peu de code (m137 à m142), puis les moyens (m143 à m145) et le gros (m146) ; à la fin, ceux qui attendent une réponse
-« Suivi » (m147 à m154 ; questions S1 à S10), codés avec le choix appliqué si la réponse n'est pas venue, dans l'ordre de leurs dépendances
-(m147 avant m149 et m150 ; m144 avant m151 ; m141 avant m147 et m153). Les tests nouveaux vont dans des fichiers qui existent ; un fichier
-nouveau (tests/vm/tropplein.js, si m145 le choisit) s'ajoute à tests/tout.sh et à tests/LISEZMOI.md.
+différentiel ne change ; seuls m145 et m150 changent des sorties comparées (écarts attendus, vérifiés un par un) ; une sortie qui change hors
+de la garde (couleur, ordre d'une étiquette commune, impression) est dite dans la carte. Ordre : d'abord ce qui ne dépend d'aucune réponse et
+touche peu de code (m137 à m142), puis les moyens (m143 à m145) et le gros (m146) ; à la fin, ceux de la réponse « Suivi » (m147 à m154 ;
+questions S1 à S10 ; réponses venues le 17 nov., codées directement ; m154 est devenu gros, D22), dans l'ordre de leurs dépendances (m147
+avant m148 à m150 ; m144 avant m151 ; m141 avant m147 et m153) ; m155 (fil du 17 nov., D2), juste après m140 et avant m141 [p : ordre]. Les
+tests nouveaux vont dans des fichiers qui existent ; un fichier nouveau (tests/vm/tropplein.js, si m145 le choisit) s'ajoute à tests/tout.sh
+et à tests/LISEZMOI.md.
 
 ### Sans réponse attendue
 - **m137 « Lavabo » retiré des suggestions ; règle de CLAUDE.md** (e2 ; D1 ; F15). Taille S. Fait : 4772d81, 17 nov.
@@ -551,11 +672,12 @@ nouveau (tests/vm/tropplein.js, si m145 le choisit) s'ajoute à tests/tout.sh et
   - Tests : navigateur/dossier.js 83 (croquis désactivé dans les Réglages) et 86 (croquis activé, un lavabo dessiné) échouent sur 2f2a638 ;
     témoins 84 (« Douche », feuille EP inchangée), 85 (« Lavabo » tapé à la main), 87 (la ligne reste) ; 146 contrôles. Garde : compat
     245/245 ; aléatoire 8000 contre 2f2a638 (même code que 71a4ed6) : sans écart.
-  - Relecture : aucun défaut bloquant ni majeur. Trois remarques appliquées : la règle de CLAUDE.md précise « en 9,5 pt, mais qui tient en
-    7 pt » (une valeur plus longue s'imprime sur deux lignes de 7 pt, de part et d'autre du libellé, comme en v1.5.1 ; cas 12 de
+  - Relecture : aucun défaut bloquant ni majeur. Trois remarques appliquées : la règle de CLAUDE.md précise « en 9,5 pt, mais qui tient en 7
+    pt » (une valeur plus longue s'imprime sur deux lignes de 7 pt, de part et d'autre du libellé, comme en v1.5.1 ; cas 12 de
     navigateur/constat-boite.js) ; message du cas 85.
-  - Risques et [p] : texte de la règle de CLAUDE.md, plus précis que celui de la conception [p], à revoir si S2 donne (b) ou (c) ;
-    commentaire en fin de ligne d'IX:1909 [p].
+  - Risques et [p] : texte de la règle de CLAUDE.md, plus précis que celui de la conception [p], revu après la réponse S2 (b, 17 nov.) : m147
+    à m150 le complètent (D15) ; commentaire en fin de ligne d'IX:1909 [p].
+  - Suite : S2 (b, 17 nov.) : m147 à m150 complètent la règle de CLAUDE.md, chacun pour sa nouveauté (D15).
 - **m138 Prolongement sans limite** (pr12-9 ; D2 ; X5). Taille S. Fait : 80ffc7d, 17 nov.
   - Fichiers et fonctions : CJ : contrat et commentaire de PROL_MAX (l. 336-351), prolSegs (défaut Infinity, l. 364-366), interSegs (défaut
     PROL_MAX gardé, l. 386), Réglages (accProl et accInter, l. 3260-3261), traitsComplement (tirée de segsPres, sans changement,
@@ -592,6 +714,8 @@ nouveau (tests/vm/tropplein.js, si m145 le choisit) s'ajoute à tests/tout.sh et
     prolongement d'un côté lointain (18 sur 18 à 5 px/m, 39 sur 39 à 1 px/m : effet de D2) ; borne par la diagonale du canevas [p] ; seuil de
     10 px, 120 m au plus, comme la façade [p] ; borne de 256 côtés (4 points sur 2 100 restent libres, à 0,2 px/m, fond de 40 × 40 tourné au
     hasard) [p] ; intersection à 30 m [p] ; texte de l'explication d'« Intersection » ajouté [p]. Dépendances : aucune.
+  - Suite : m155 (fil du 17 nov. : « Prolongement toujours d'abord ») rend au prolongement lointain la place de m113 ; l'ordre de m138
+    au-delà de 30 m (option 1 [p]) n'est plus retenu (D2).
 - **m139 Escalier : côté et montée proposés ; consigne pour les anciennes tablettes** (pr12-2, escalier-rendu ; D3, D4 ; X6). Taille S.
   Fait : dc6c18f, 17 nov.
   - Fichiers et fonctions : CJ : ESC_POSE (nouvelle, l. 1060) et escalierDefauts (l. 1061-1099 : lignes retenues, centres des deux côtés,
@@ -627,7 +751,8 @@ nouveau (tests/vm/tropplein.js, si m145 le choisit) s'ajoute à tests/tout.sh et
     de D4, non vérifiée sur une v1.6.3 [p] ; place de la consigne : puce à part, entre l'étiquette commune et l'anomalie à arbitrer, pas dans
     la première puce, qui dit qu'une tablette en v1.7.0 ne connaît pas ces objets (faux pour l'escalier) ; refsEscalier relit le croquis à
     chaque mouvement pendant le tracé ; fond invalide : refsEscalier garde les compléments du croquis, alors que refsCotes ne rend rien [p].
-  - Dépendances : aucune ; S11 (suivi-escalier-ancienne-version) ne change pas ce correctif (b et c : fusion suivante).
+  - Dépendances : aucune. S11 (a, 17 nov.) : rien de plus. Ses trois changements visibles sont acceptés (fil du 17 nov. : « Tous les trois
+    (Recommandé) », « Rien à changer. »).
 - **m140 Boîte en limite et boîte en zone unitaire** (boite-en-limite, pr12-5 ; D5, D6 ; X3, F8). Taille S. Fait : b5e5215, 17 nov.
   - Fichiers et fonctions : CJ : coteLimite (nouvelle, l. 2454) et texteLimite (l. 2455) ; boitesConstat (l. 2352), avec traversees
     (nouvelle, l. 2369 : plus courts chemins de l'analyse de chaque source jusqu'à ses exutoires dessinés, resObj[s].term, dans le sens
@@ -681,9 +806,9 @@ nouveau (tests/vm/tropplein.js, si m145 le choisit) s'ajoute à tests/tout.sh et
   - Pour l'utilisateur : un drain d'infiltration qui ne reçoit que des eaux usées est rouge (écran, plan PDF, étiquette, fiche, DXF ; légende
     « Canalisation EU ») ; vert dès qu'il reçoit des EP, ou sans source. Libellés du panneau Constat inchangés.
   - Tests : vm/drain.js : un WC vers le drain : resLigne 'EU' (v1.7.1 : 'EP') ; DXF en couleur 1 sur VEDE-DRAINS, légende ; WC et descente :
-    'EP' ; sans source : 'EP' ; projet : 'PRJ' ; libellés fixés en attendant S5 (descente : libellé EP, case infil, oui ; WC : libellé EU,
-    MILIEU, non) ; témoin de la décision du 16 nov. (regard-suit-exutoire) : un regard sans réseau au tampon béton sur un drain rouge (WC
-    seul) reste « Regard EP : tampon béton », en réserve.
+    'EP' ; sans source : 'EP' ; projet : 'PRJ' ; libellés fixés (S5 a : rien ne change ; descente : libellé EP, case infil, oui ; WC :
+    libellé EU, MILIEU, non) ; témoin de la décision du 16 nov. (regard-suit-exutoire) : un regard sans réseau au tampon béton sur un drain
+    rouge (WC seul) reste « Regard EP : tampon béton », en réserve.
   - Garde : compat 245/245 (an.eauxDrains absent sans drain d'infiltration) ; aléatoire : sans écart (resObj, constat, étiquettes inchangés).
   - Risques et [p] : réseau saisi ignoré, sens non lu [p] ; un dossier ancien change de couleur ; sous un drain rouge, le regard reste EP, en
     réserve (décision du 16 nov.) : à dire dans l'annonce. Dépendances : aucune.
@@ -700,19 +825,32 @@ nouveau (tests/vm/tropplein.js, si m145 le choisit) s'ajoute à tests/tout.sh et
   - Garde : compat 245/245 ; aléatoire : sans écart (opérations non comparées).
   - Risques et [p] : chaque ligne non standard doit être liée à son objet ; tablette en v1.7.1 [p] ; anomalie sans ligne liée [p].
   - Dépendances : aucune.
-- **m144 Destinations de même nom refusées** (destinations-meme-nom ; D10 ; F9). Taille M.
+- **m144 Destinations de même nom refusées ; noms proches et « Fosse »** (destinations-meme-nom ; D10 ; F9 ; S6 b, S7 a). Taille M à L [p].
+  - Réponses : S6 (b) et S7 (a), du 17 nov., codées directement : un nom proche reçoit la question « la même ou une autre ? » (Q) ; « Fosse »
+    reçoit M5.
   - Fichiers et fonctions : CJ : canonDest, distDest, refusNomDest (près de champDest, l. 856-885), destSaisie (l. 873 : 3e argument
-    facultatif), export (l. 938), enregistrement de « + Nouvelle destination » (l. 5770), destTxt (l. 6559-6575). IX : vcExuModifier
-    (l. 3574-3600). LISEZMOI.txt l. 70-80. tests/vm/rejets.js, tests/navigateur/rejets.js.
-  - Pour l'utilisateur : M1 à M4 dans la palette, la fiche et les Réglages ; un nom proche refusé comme un même nom (en attendant S6) ;
-    « Fosse » accepté comme un fossé (en attendant S7).
-  - Tests : vm/rejets.js n1 (42 paires), n2 (« etang » face au modèle « Étang » : M1 ; v1.7.1 : accepté), n3 (« Fosse » face à « Fossé »
-    existant : refusé ; seul : accepté), n4 (deux modèles « Étang » et « etang » gardés au chargement), n5 (destination posée : même nom et
-    mêmes jugements acceptés, autres jugements M3) ; navigateur/rejets.js : « + Nouvelle destination » « Étang » puis « etang » : M1 et un
-    seul modèle ; fiche et Réglages.
+    facultatif), export (l. 938), enregistrement de « + Nouvelle destination » (l. 5770), destTxt (l. 6559-6575), question Q [p : forme] et
+    une fonction exportée qui applique la réponse à Q [p : nom], testée par n6 et n7. IX : vcExuModifier (l. 3574-3600). LISEZMOI.txt
+    l. 70-80. tests/vm/rejets.js, tests/navigateur/rejets.js. Numéros de 71a4ed6 : à retrouver par recherche.
+  - Pour l'utilisateur : M1, M3, M4 et M5 (D10) dans la palette, la fiche et les Réglages ; un nom proche d'une destination existante ou d'un
+    objet de la palette reçoit Q : « La même » reprend l'existante (palette : elle est posée ; fiche : son nom exact, son abréviation, son
+    article et ses jugements sont repris, d'où un seul rejet au constat ; Réglages : l'ancien nom reste) [p], « Une autre » garde le nom
+    tapé ; pour un objet de la palette, « Le même » prend son outil (palette), garde l'ancien nom avec M4 (fiche), ne crée ni ne renomme
+    aucun modèle (Réglages) [p], « Un autre » garde le nom tapé ; « Fosse » : M5 ; « Fossé » accepté.
+  - Tests : vm/rejets.js n1 (42 paires), n2 (« etang » face au modèle « Étang » : M1 ; v1.7.1 : accepté), n3 (« Fosse » : M5, avec ou sans
+    « Fossé » existant ; « Fossé » seul : accepté ; « Fossé » face à « Fossé » : M1), n4 (deux modèles « Étang » et « etang » gardés au
+    chargement), n5 (destination posée : même nom et mêmes jugements acceptés, autres jugements M3), n6 (« Fossé de la rue » face à « Fossé
+    de la route » : Q ; « Une autre » garde « Fossé de la rue » ; « La même » reprend « Fossé de la route » ; dans la fiche, deux
+    destinations aux jugements différents : « La même » reprend aussi l'abréviation, l'article et les jugements, d'où un seul rejet au
+    constat), n7 (« Puisart » face à l'objet Puisard : Q, boutons « Le même » et « Un autre ») ; navigateur/rejets.js : « + Nouvelle
+    destination » « Étang » puis « etang » : M1 et un seul modèle ; Q dans la palette, la fiche et les Réglages, pour une destination et pour
+    un objet de la palette.
   - Garde : compat 245/245 ; aléatoire : sans écart (noms écrits sans la saisie).
-  - Risques et [p] : faux positifs (« Fossé de la rue », « Fossé de la route » : question S6) et faux négatifs (deux fautes) ; doublons venus
-    d'une autre tablette, que seul M3 voit ; textes [p]. Dépendances : aucune (m151 y ajoute M5 et la suite de S6).
+  - Risques et [p] : faux négatifs (deux fautes) ; doublons venus d'une autre tablette, que seul M3 voit ; forme de Q et de ses boutons [p] ;
+    ce que fait « La même » dans les Réglages [p] ; « Le même » d'un objet de la palette [p] ; si m144 se scinde [p] : M1, M3, M4 et M5 dans
+    m144, Q dans le numéro de réserve (m156) ; un second correctif à scinder se demande à l'utilisateur (« Attendront ») ; M5 pour « Fosse »
+    sans accent seulement [p] ; textes [p].
+  - Dépendances : aucune (m151 ne garde que le « Puits » venu d'un fichier).
 - **m145 Trop-plein d'un puisard ou d'une infiltration suivi** (q7-trop-plein ; D11). Taille M.
   - Fichiers et fonctions : CJ : parcours (l. 1212-1235, option [p]), terminal (l. 1200-1208), bloc Q7 (l. 1468-1487), resObj[id].apres
     (l. 1552-1558), rejetsDe et auDelaTxt (l. 921-923), texte « Rejet : … » (l. 2205), page 2 du plan (l. 7277), an.eauxDrains (m142).
@@ -737,131 +875,209 @@ nouveau (tests/vm/tropplein.js, si m145 le choisit) s'ajoute à tests/tout.sh et
   - Risques et [p] : lecture de « deux cotes » [p] ; points acceptés [p] ; côté de la Solution 1 [p]. Dépendances : aucune. À scinder si la
     relecture le demande (calcul, puis mode Cotes).
 
-### Réponse « Suivi » attendue (codés avec le choix appliqué si la réponse n'est pas venue)
-- **m147 Constat sans « Autres : » ; présentation notée à la signature** (e1, T1 ; D13, D14, D15 ; X2, F7). Taille M.
-  - Attend : S1 (c appliqué), S2 (a). Constat signé : règle de CLAUDE.md (D13), sans question.
-  - Fichiers et fonctions : IX : drawConstatTable (l. 3022-3023), présentation du constat (fonction nouvelle [p]), geste de signature
-    c-lock (l. 4346 : c.fige.mep posé après constatFigeCalc [p : nom]), constatFigeCalc et constatGeler (l. 2087-2102, sans la marque),
-    vcEcarts (l. 3908). CJ : comptesGroupe (l. 5494), fiche de l'autre appareil (l. 5904). LISEZMOI.txt l. 118, 248-250, 431.
-    tests/navigateur/dossier.js, tests/navigateur/equipements.js.
-  - Pour l'utilisateur : croquis activé, les lignes ajoutées s'impriment à leur seul nom (« Bidet », « Drain », « Chaudière (purge,
-    condensat) ») ; la ligne vide du bas garde « Autres : » ; fiche « Bidet (ligne à son nom) » ; « Compté au constat : … Bidet 1 » ; message
-    « … sur sa propre ligne … ». Croquis désactivé : « Autres : » comme en v1.5.1. Un constat signé avant la v1.7.2 se réimprime avec
-    « Autres : ».
-  - Tests : navigateur/dossier.js cas 74 (l. 733-756) réécrit : mêmes libellés sans le mot, aucun « Autres : » hors de la ligne vide
-    (échoue sur la v1.7.1) ; croquis désactivé : « Autres : » ; constat signé sans marque : « Autres : » ; constat signé sans c.fige (signé
-    avant le gel), croquis activé : à l'ouverture du croquis, constatGeler le gèle sans marque, et le PDF garde « Autres : » (X2) ; signé en
-    v1.7.2 puis croquis désactivé : présentation gardée ; navigateur/equipements.js l. 389 et cas de la l. 76.
+### Réponse « Suivi » venue le 17 nov. (codés avec elle)
+- **m147 Constat sans « Autres : » ni ligne vide ; présentation notée à la signature** (e1, T1 ; D13, D14, D15 ; X2, F7 ; S1 d, S2 b). Taille
+  M.
+  - Réponses : S1 (d) et son commentaire : aucune ligne n'a « Autres : », et les lignes vides du bas de chaque groupe ne sont plus
+    imprimées ; S2 (b) : croquis activé, désactivé ou absent (sans croquis, « ni ligne vide » est une présomption [p] : D14). Constat signé :
+    règle de CLAUDE.md (D13), sans question.
+  - Fichiers et fonctions : IX : constatRowsForPrint (l. 2931 : grp et minAutres, vérifié), drawConstatTable (l. 2999-3044 : hauteurs
+    l. 3001, chaque ligne type à sa hauteur du formulaire, une ligne ajoutée à 17,5, le tout mis à l'échelle pour remplir 218,5 pt [p] ;
+    ligne vide l. 3022, libellé l. 3023), présentation du constat (fonction nouvelle [p]), geste de signature c-lock (l. 4346 : c.fige.mep
+    posé après constatFigeCalc [p : nom]), constatFigeCalc et constatGeler (l. 2087-2102, sans la marque), vcEcarts (l. 3908). CJ :
+    comptesGroupe (l. 5494), fiche de l'autre appareil (l. 5904). LISEZMOI.txt l. 118, 248-250, 431. CLAUDE.md (règle « Croquis désactivé ou
+    absent », D15). tests/navigateur/dossier.js, tests/navigateur/equipements.js. Numéros de 71a4ed6 : à retrouver par recherche.
+  - Pour l'utilisateur : au constat imprimé, les lignes ajoutées portent leur seul nom (« Bidet », « Drain », « Chaudière (purge,
+    condensat) ») et les lignes vides du bas de chaque groupe disparaissent, croquis activé, désactivé ou absent ; fiche « Bidet (ligne à son
+    nom) » ; « Compté au constat : … Bidet 1 » ; message « … sur sa propre ligne … ». Un constat signé avant la v1.7.2 se réimprime avec
+    « Autres : » et ses lignes vides.
+  - Tests : navigateur/dossier.js cas 74 (l. 733-756) réécrit : mêmes libellés sans le mot, ni « Autres : » ni ligne vide au PDF (échoue sur
+    le commit d'avant) ; croquis désactivé : pareil (S2 b ; échoue aussi) ; constat signé sans marque : « Autres : » et lignes vides gardés ;
+    constat signé sans c.fige (signé avant le gel), croquis activé : à l'ouverture du croquis, constatGeler le gèle sans marque, et le PDF
+    garde « Autres : » (X2) ; signé en v1.7.2 puis croquis désactivé : présentation gardée ; hauteurs des 10 lignes du cas courant : celles
+    du formulaire × 218,5/183,5 (× 1,19 environ), texte en 9,5 pt [p] ; navigateur/equipements.js l. 389 et cas de la l. 76.
   - Garde : compat 245/245 (impression hors de la garde) ; aléatoire : sans écart.
-  - Risques et [p] : nom de la marque [p] ; une ligne tapée « Autres : X » garde son texte ; tablette en v1.7.1 : « Autres : », même pour un
-    constat signé en v1.7.2 (à dire dans l'annonce).
+  - Règle de CLAUDE.md : « ; les nouveautés du constat de la v1.7.2 y valent aussi : ni « Autres : » ni ligne laissée vide pour écrire à la
+    main (réponses du 17 nov. 2026). » au bout de la règle « Croquis désactivé ou absent » (D15).
+  - Risques et [p] : nom de la marque [p] ; hauteurs sans les lignes vides, mises à l'échelle (D14) [p] ; une ligne tapée « Autres : X »
+    garde son texte ; tablette en v1.7.1 : « Autres : » et lignes vides, même pour un constat signé en v1.7.2 (information).
   - Dépendances : après m141 (comptesGroupe).
-- **m148 Anomalie « Évier » localisée « Cuisine » : « Évier » seul** (pr12-10 ; D16). Taille S.
-  - Attend : S2 (a : croquis activé seulement).
-  - Fichiers et fonctions : IX : ROW_KW (l. 1978-1981). LISEZMOI.txt l. 273-276. tests/navigateur/dossier.js (près des cas 64-68).
-  - Pour l'utilisateur : une anomalie saisie « Évier : siphon fuyard », localisation « Cuisine », ne touche plus que la ligne « Évier »
-    (croquis activé) ; croquis désactivé : Évier et Cuisine.
-  - Tests : dossier.js : croquis activé : Évier seul (échoue sur la v1.7.1) ; croquis désactivé : Évier et Cuisine (jusqu'à la réponse) ;
-    témoins « Lave-vaisselle de la cuisine » → Cuisine, « Évier et lave-vaisselle » → Évier et Cuisine, « Cuisine : … » → Cuisine.
+- **m148 Anomalie « Évier » localisée « Cuisine » : « Évier » seul** (pr12-10 ; D16 ; S2 b). Taille S.
+  - Réponse : S2 (b) : croquis activé, désactivé ou absent.
+  - Fichiers et fonctions : IX : ROW_KW (l. 1978-1981). LISEZMOI.txt l. 273-276. CLAUDE.md (D15). tests/navigateur/dossier.js (près des cas
+    64-68).
+  - Pour l'utilisateur : une anomalie saisie « Évier : siphon fuyard », localisation « Cuisine », ne touche plus que la ligne « Évier »,
+    croquis activé, désactivé ou absent.
+  - Tests : dossier.js : croquis activé : Évier seul (échoue sur le commit d'avant) ; croquis désactivé : Évier seul (échoue aussi) ; témoins
+    « Lave-vaisselle de la cuisine » → Cuisine, « Évier et lave-vaisselle » → Évier et Cuisine, « Cuisine : … » → Cuisine.
   - Garde : compat 245/245 ; aléatoire : sans écart.
+  - Règle de CLAUDE.md : « une anomalie qui nomme l'évier et la cuisine ou la salle de bain (texte ou localisation) ne compte plus sur la
+    ligne de la pièce, sauf si elle nomme aussi un appareil de celle-ci (lave-vaisselle ; douche ou baignoire) » ajouté à la liste des
+    nouveautés (D15).
   - Risques et [p] : une ligne Cuisine non conforme à tort redevient conforme à la réouverture d'un dossier non signé (voulu ; à dire dans
-    l'annonce) ; salle de bain [p]. Dépendances : aucune.
-- **m149 Ligne « Boîte à l'intérieur ou à l'extérieur de la propriété »** (pr12-11 ; D17). Taille M.
-  - Attend : S3 (a), S2 (a). Constat signé : règle (D13).
-  - Fichiers et fonctions : CJ : boitesConstat (l. 2320-2342). IX : écran de la boîte (l. 2196-2200), « Sans objet » (l. 4323),
-    VC_BOITE_CHAMPS (l. 3756), vcProvenance (l. 3738), reprise (l. 3840-3852), résumé (l. 3651), vcBoiteCle (l. 3868), vcEcarts
-    (l. 3933-3939), drawConstatP2 (l. 3045-3064). LISEZMOI.txt l. 260-262. tests/navigateur/constat-boite.js, tests/vm/boite.js.
-  - Pour l'utilisateur : la distance s'écrit seule (« 0,80 m ») ; une rangée « Boîte à l'intérieur ou à l'extérieur de la propriété », deux
-    boutons par réseau à l'écran, deux cases « int. » et « ext. » au constat imprimé, sous la distance.
-  - Tests : constat-boite.js : boîte côté intérieur à 0,80 m : distance « 0,80 m », côté « intérieur », croix dans « int. » au PDF (v1.7.1 :
-    « 0,80 m intérieur » ; échoue) ; « Sans objet » ; valeur retouchée gardée ; deux boîtes ; croquis désactivé : trois rangées ; constat
-    signé sans marque : trois rangées. vm/boite.js : boitesConstat rend la distance et le côté à part ; en limite, pas de côté.
+    l'annonce) ; salle de bain [p]. Dépendances : après m147 (texte de la règle de CLAUDE.md).
+- **m149 Ligne « Boîte à l'intérieur ou à l'extérieur de la propriété »** (pr12-11 ; D17 ; S3 a, S2 b). Taille M.
+  - Réponses : S3 (a) « Juste sous la distance, les quatre lignes du tableau un peu resserrées dans le même cadre » ; S2 (b) : croquis
+    activé, désactivé ou absent. Constat signé : règle (D13).
+  - Fichiers et fonctions : CJ : boitesConstat (l. 2320-2342 sur 71a4ed6 ; m140 y a ajouté traversees, et coteLimite près de texteLimite).
+    IX : écran de la boîte (l. 2196-2200), « Sans objet » (l. 4323), VC_BOITE_CHAMPS (l. 3756), vcProvenance (l. 3738), reprise
+    (l. 3840-3852), résumé (l. 3651), vcBoiteCle (l. 3868 ; m140 lui fait déjà ignorer « de la propriété »), vcEcarts (l. 3933-3939),
+    drawConstatP2 (l. 3045-3064). LISEZMOI.txt l. 260-262. CLAUDE.md (D15). tests/navigateur/constat-boite.js, tests/vm/boite.js. Numéros de
+    71a4ed6 : à retrouver par recherche.
+  - Pour l'utilisateur : la distance s'écrit seule (« 0,80 m ») ; juste sous elle, une rangée « Boîte à l'intérieur ou à l'extérieur de la
+    propriété », deux boutons par réseau à l'écran, deux cases « int. » et « ext. » au constat imprimé, les quatre rangées resserrées dans le
+    même cadre ; croquis désactivé ou absent : la même rangée, vide d'office.
+  - Tests : constat-boite.js : boîte côté intérieur à 0,80 m : distance « 0,80 m », côté « intérieur », croix dans « int. » au PDF (avant :
+    « 0,80 m intérieur » ; échoue) ; « Sans objet » ; valeur retouchée gardée ; deux boîtes ; croquis désactivé : quatre rangées, côté vide
+    (échoue sur le commit d'avant) ; constat signé sans marque : trois rangées. vm/boite.js : boitesConstat rend la distance et le côté à
+    part ; en limite, pas de côté ; l'étiquette du plan garde « à 0,80 m de la limite, à l'intérieur de la propriété » (m140).
   - Garde : compat 245/245 ; aléatoire : sans écart (boitesConstat non comparé).
-  - Risques et [p] : page 2 pleine (13,25 pt par rangée) ; cases petites ; valeurs sur une ligne [p] ; tablette en v1.7.1 [p].
-  - Dépendances : m140 (mêmes mots), m147 (présentation).
-- **m150 Colonne « Puits » au constat** (puits-milieu-naturel, drain-infiltration-constat ; D18, D8 ; X1, F1, F3, F4, X9). Taille M.
-  - Attend : S4 (a appliqué, aucune recommandée), S5 (a : rien de plus, aucune recommandée), S2 (a). Constat signé : règle (D13).
-  - Fichiers et fonctions : CJ : table, ligne PUITS (l. 794-796), RACC_LIB (l. 2217), note du panneau Constat (l. 6105-6125) ; ligne DISP
-    (l. 799-801) ou raccInfo (l. 2228-2245) si S5 donne b, c ou d. IX : RACC (l. 1904), raccOk (l. 1957 : PUITS « non » d'office, sauf
-    ligne venue du croquis [p : raccOk reçoit le constat]), constatEval (l. 2034-2038), vcProvenance (l. 3738, lue), precosAuto (l. 2012),
-    drawConstatTable (l. 2999-3038), instRowHtml (l. 2146), vcValeurs (l. 3721). LISEZMOI.txt (colonnes du constat).
-    tests/vm/rejets.js (l. 448-470, 480), tests/navigateur/rejets.js (l. 451), tests/navigateur/dossier.js (PDF et conformité).
-  - Pour l'utilisateur : une colonne « Puits » au constat imprimé, entre « Milieu naturel » et « Gargouille », croix des rejets dans un puits
-    (EU et EP) ; option « Puits » à l'écran ; panneau « Puits » ; une ligne mise à la main sur « Puits » est non conforme.
-  - Tests : vm/rejets.js q1 (l. 448-470 : PUITS et « Puits » au lieu de MILIEU ; échoue sur la v1.7.1) et contrôle de la table (l. 480) ;
-    navigateur/rejets.js l. 451 ; PDF : en-tête « Puits » vers x 445,2 et la croix dessous, une ligne MILIEU vers x 413,3 ; navigateur/
-    dossier.js : ligne « Gouttière(s) » EP mise à la main sur « Puits », sans anomalie : « non », croquis activé puis désactivé (X1, F1) ;
-    ligne venue du croquis, anomalie ep-puits écartée dans les Contrôles : « oui », retenue : « non » ; suivi : MILIEU posé par le croquis →
-    PUITS, valeur retouchée gardée avec le message ; croquis désactivé : trois colonnes ; constat signé sans marque : trois colonnes.
+  - Règle de CLAUDE.md : « ligne « Boîte à l'intérieur ou à l'extérieur de la propriété » » ajouté à la liste des nouveautés (D15).
+  - Risques et [p] : page 2 pleine (13,25 pt par rangée) ; cases petites ; valeurs sur une ligne [p] ; une distance tapée qui porte le côté
+    reste telle quelle [p] ; tablette en v1.7.1 (information).
+  - Dépendances : m140 (mêmes mots), m147 (présentation, règle de CLAUDE.md).
+- **m150 Colonne « Puits » au constat** (puits-milieu-naturel, drain-infiltration-constat ; D18, D8 ; X1, F1, F3, F4, X9 ; S4 a, S5 a, S2 b).
+  Taille M.
+  - Réponses : S4 (a) « Dans la colonne « Puits », verte comme « Milieu naturel » et « Gargouille » » (son commentaire, les colonnes sans
+    croix : lot suivant, souhait 9) ; S5 (a) : le libellé du drain d'infiltration ne change pas, rien dans ce correctif ; S2 (b) : croquis
+    activé, désactivé ou absent. Constat signé : règle (D13).
+  - Fichiers et fonctions : CJ : table, ligne PUITS (l. 794-796), RACC_LIB (l. 2217), note du panneau Constat (l. 6105-6125). IX : RACC
+    (l. 1904), raccOk (l. 1957 : PUITS « non » d'office, sauf ligne venue du croquis [p : raccOk reçoit le constat]), constatEval
+    (l. 2034-2038), vcProvenance (l. 3738, lue), precosAuto (l. 2012), drawConstatTable (l. 2999-3038), instRowHtml (l. 2146), vcValeurs
+    (l. 3721). LISEZMOI.txt (colonnes du constat). CLAUDE.md (D15). tests/vm/rejets.js (l. 448-470, 480), tests/navigateur/rejets.js
+    (l. 451), tests/navigateur/dossier.js (PDF et conformité). Numéros de 71a4ed6 : à retrouver par recherche.
+  - Pour l'utilisateur : une colonne « Puits », verte, au constat imprimé, entre « Milieu naturel » et « Gargouille » : croix des rejets dans
+    un puits, en EU comme en EP ; option « Puits » à l'écran ; panneau « Puits » ; une ligne mise à la main sur « Puits » est non conforme ;
+    croquis activé, désactivé ou absent.
+  - Tests : vm/rejets.js q1 (l. 448-470 : PUITS et « Puits » au lieu de MILIEU ; échoue sur le commit d'avant) et contrôle de la table
+    (l. 480) ; navigateur/rejets.js l. 451 ; PDF : en-tête « Puits » vers x 445,2 et la croix dessous, une ligne MILIEU vers x 413,3 ;
+    navigateur/dossier.js : ligne « Gouttière(s) » EP mise à la main sur « Puits », sans anomalie : « non », croquis activé puis désactivé
+    (X1, F1) ; ligne venue du croquis, anomalie ep-puits écartée dans les Contrôles : « oui », retenue : « non » ; suivi : MILIEU posé par le
+    croquis → PUITS, valeur retouchée gardée avec le message ; croquis désactivé : quatre colonnes et option « Puits » (échoue sur le commit
+    d'avant) ; constat signé sans marque : trois colonnes.
   - Garde : compat 245/245 (aucun puits) ; aléatoire contre le commit d'avant : écarts attendus, code MILIEU → PUITS des lignes vers un puits
     dans le constat déduit, rien d'autre ; chacun vérifié.
+  - Règle de CLAUDE.md : « colonne « Puits » » ajouté à la liste des nouveautés (D15) : le texte proposé y est alors entier.
   - Risques et [p] : en-têtes serrés (31,9 pt), à voir sur un PDF imprimé ; raccOk qui reçoit le constat [p] ; conformité fixée à la main
-    gardée [p] ; tablette en v1.7.1 : une ligne « Puits » y est non conforme d'office, sans suppMilieu, jusqu'au suivi (X9).
-  - Dépendances : m147 (présentation) ; m142 pour l'option d de S5.
-- **m151 « Puits » venu d'un fichier ; noms proches ; « Fosse »** (puits-venu-fichier, destinations-meme-nom ; D19, D10 ; F6, F9). Taille S
-  (M si S6 donne b).
-  - Attend : S6 (a appliqué : rien de plus que m144), S7 (b appliqué : rien de plus pour « Fosse »).
-  - Fichiers et fonctions : CJ : nomPuits [p] (rend 'puits', 'perdu' ou '' ; partagé par champDest, l. 856-857, et l'analyse,
-    l. 1149-1153), contrôles de la destination (l. 1019-1020), fiche de la destination, refusNomDest (m144 : M5 si S7 donne a ; question
-    « la même ou une autre ? » si S6 donne b ; même nom seul si S6 donne c). LISEZMOI.txt (destinations). tests/vm/regles.js,
-    tests/vm/rejets.js, tests/navigateur/rejets.js (si S6 donne b).
-  - Pour l'utilisateur : une « Autre destination » « Puits » venue d'un fichier est jugée comme un puits, non conforme, avec le message
-    « À vérifier » ; « Puits perdu » garde le jugement de sa fiche, avec son rappel (D19) ; noms proches et « Fosse » : selon les réponses.
-  - Tests : vm/regles.js l. 110-113 (« Puits » : règle du puits ; échouent sur la v1.7.1) ; « Puit », « Ancien puits » (puits), « Puits
-    perdu » (jugement de sa fiche, rappel), « Puisard » (témoin : jugement de la fiche) ; le refus de la fiche et le jugement par la même
-    fonction ; rejets.js n3 selon S7, n6 (« Fossé de la rue » face à « Fossé de la route ») selon S6.
+    gardée [p] ; tablette en v1.7.1 : une ligne « Puits » y est non conforme d'office, sans suppMilieu, jusqu'au suivi (X9 ; information).
+  - Dépendances : m147 (présentation, règle de CLAUDE.md).
+- **m151 « Puits » venu d'un fichier** (puits-venu-fichier ; D19 ; F6). Taille S.
+  - Réponses : noms proches (S6 b) et « Fosse » (S7 a) sont codés par m144 ; il ne reste que D19.
+  - Fichiers et fonctions : CJ : nomPuits [p] (rend 'puits', 'perdu' ou '' ; partagé par champDest, l. 856-857, et l'analyse, l. 1149-1153),
+    contrôles de la destination (l. 1019-1020), fiche de la destination. LISEZMOI.txt (destinations). tests/vm/regles.js, tests/vm/rejets.js.
+    Numéros de 71a4ed6 : à retrouver par recherche.
+  - Pour l'utilisateur : une « Autre destination » « Puits » venue d'un fichier est jugée comme un puits, non conforme, avec le message « À
+    vérifier » ; « Puits perdu » garde le jugement de sa fiche, avec son rappel (D19).
+  - Tests : vm/regles.js l. 110-113 (« Puits » : règle du puits ; échouent sur le commit d'avant) ; « Puit », « Ancien puits » (puits),
+    « Puits perdu » (jugement de sa fiche, rappel), « Puisard » (témoin : jugement de la fiche) ; le refus de la fiche et le jugement par la
+    même fonction.
   - Garde : compat 245/245 ; aléatoire : sans écart.
-  - Risques et [p] : rappel du « Puits perdu » [p] ; objet laissé tel quel [p] ; textes de S6 (b) [p]. Dépendances : m144.
+  - Risques et [p] : rappel du « Puits perdu » [p] ; objet laissé tel quel [p]. Dépendances : m144 (même champ de saisie).
 - **m152 Symbole du puits du cadastre** (symbole-puits ; D20). Taille S.
-  - Attend : S8 (a).
-  - Fichiers et fonctions : CJ : primitives, cas 'puits' (l. 2542-2544), rayonSymbole (l. 2506) si besoin, légende, bloc DXF. tests/vm/rejets.js
-    q2 (l. 482-497).
+  - Réponse : S8 (a) « En Z : vers le haut à gauche, vers le bas à droite » ; l'axe y des primitives monte (vérifié, D20) : la manivelle de
+    gauche monte.
+  - Fichiers et fonctions : CJ : primitives, cas 'puits' (l. 2542-2544), rayonSymbole (l. 2506 : 2,1 gardé, D20), légende, bloc DXF.
+    tests/vm/rejets.js q2 (l. 482-497).
   - Pour l'utilisateur : le puits a le dessin du cadastre (cercle, barre, manivelles), partout.
-  - Tests : vm/rejets.js q2 réécrit : un cercle de 1,4 et une ligne de quatre points (v1.7.1 : deux cercles ; échoue) ; DXF : bloc
-    VEDE_PUITS avec un CIRCLE et une POLYLINE de 4 VERTEX.
+  - Tests : vm/rejets.js q2 réécrit : un cercle de 1,4 et une ligne de quatre points (v1.7.1 : deux cercles ; échoue) ; DXF : bloc VEDE_PUITS
+    avec un CIRCLE et une POLYLINE de 4 VERTEX.
   - Garde : compat 245/245 ; aléatoire : sans écart (le symbole n'est pas comparé).
-  - Risques et [p] : lisibilité au petit zoom [p] ; forme [p]. Dépendances : aucune.
+  - Risques et [p] : lisibilité au petit zoom [p] ; forme [p] ; bouts des manivelles à 2,25 du centre, 0,15 au-delà de rayonSymbole : repli,
+    une barre à ±1,94 (D20) [p]. Dépendances : aucune.
 - **m153 Présélection des voisins d'une étiquette commune** (e4 ; D21). Taille S.
-  - Attend : S9 (a).
+  - Réponse : S9 (a) « Oui, seulement si le porteur de l'étiquette n'a pas de niveau non plus ».
   - Fichiers et fonctions : CJ : voisinsEtiquette et refusEtiq (près de groupeEtiquette, l. 2386-2415 ; export), refusReunir (l. 5518-5527),
     entrerReunir (l. 5507-5512, toast), etiqReunir (l. 6364). LISEZMOI.txt l. 249-258. tests/vm/equipements.js, tests/navigateur/equipements.js.
   - Pour l'utilisateur : « Étiquette commune… » arrive avec les voisins déjà choisis et le toast de D21 ; un toucher en retire un.
-  - Tests : vm/equipements.js, porteur WC en (0 ; 0) au RDC : lavabo à 2 m et douche en (2 ; 2) choisis ; évier à 4 m, baignoire au 1er étage,
-    lave-linge en projet, descente EP, second WC déjà réuni : non ; ordre lavabo, douche (la v1.7.1 n'a pas la fonction) ; appareils sans
-    niveau selon la réponse. navigateur/equipements.js : bandeau « 2 choisis » (v1.7.1 : « 0 choisi ») ; toucher le lavabo : « 1 choisi » ;
-    « Terminé » : WC et douche seulement.
+  - Tests : vm/equipements.js, porteur WC en (0 ; 0) au RDC : lavabo à 2 m et douche en (2 ; 2) choisis ; évier à 4 m, baignoire au 1er
+    étage, lave-linge en projet, descente EP, second WC déjà réuni : non ; ordre lavabo, douche (la v1.7.1 n'a pas la fonction) ; un appareil
+    sans niveau n'est choisi que si le porteur n'a pas de niveau non plus (S9 a). navigateur/equipements.js : bandeau « 2 choisis » (v1.7.1 :
+    « 0 choisi ») ; toucher le lavabo : « 1 choisi » ; « Terminé » : WC et douche seulement.
   - Garde : compat 245/245 ; aléatoire : sans effet.
   - Risques et [p] : un voisin derrière une cloison est choisi d'office (l'opérateur doit le voir et le retirer) ; textes [p].
   - Dépendances : après m141 (même tri des membres).
-- **m154 Disque de rotation** (remarque-libre ; D22). Taille M.
-  - Attend : S10 (a appliqué, b recommandé).
-  - Fichiers et fonctions : CJ : gestes (S.geste, l. 3808-3872 : geste 'tourner' [p]), cibleGlisser (l. 4068-4083), terminerGlisser (l. 4266),
-    dessin de la sélection [p : vers l. 2849-2900] ; pour (b) : drapeau pivot de def() (l. 960-995) et DXF (l. 7447-7448). LISEZMOI.txt
-    l. 290-298 [p]. tests/navigateur/gestes.js, tests/vm/dessin.js (b).
-  - Pour l'utilisateur : un anneau et sa poignée autour de l'objet choisi, qu'on glisse pour le faire tourner.
-  - Tests : navigateur/gestes.js : un caniveau, poignée glissée d'un quart de tour : angle 90 (v1.7.1 : pas de poignée ; échoue) ; une
-    annulation rend l'angle ; avec (b) : un regard tourné donne un INSERT DXF à cet angle (vm/dessin.js).
-  - Garde : compat 245/245 ; aléatoire : sans effet.
-  - Risques et [p] : conflit entre la poignée et le glisser de l'objet au petit zoom ; liste de (b) [p] ; tablette en v1.7.1 : écran et PDF
-    tournés, DXF non [p]. Dépendances : aucune.
+- **m154 Disque de rotation** (remarque-libre ; D22 ; S10 b). Taille L.
+  - Réponse : S10 (b) « Aussi les symboles qui ne sont pas ronds : regard, boîte, grille, fosse, té, siphon, puits… » ; commentaire : « La
+    rotation doit se faire degré par degré et proposer un accrochage pour que l'objet soit orienté parallèlement ou perpendiculairement à un
+    linéaire proche ».
+  - Fichiers et fonctions : CJ : gestes (S.geste, l. 3808-3872 : geste 'tourner' [p]), cibleGlisser (l. 4068-4083), terminerGlisser
+    (l. 4266), dessin de la sélection [p : vers l. 2849-2900] ; drapeau pivot de def() (l. 960-995) ; DXF (l. 7447-7448 : e.p.a s'il est
+    donné, sinon rotDeg) ; puces de la fiche (l. 5970 : ty.oriente || ty.pivot) ; accrochage aux linéaires proches (segsCibles et pièces des
+    tronçons et collecteurs proches [p : fonction], tuyaux raccordés compris). LISEZMOI.txt l. 290-298 [p]. tests/navigateur/gestes.js,
+    tests/vm/dessin.js. Numéros de 71a4ed6 : à retrouver par recherche.
+  - Pour l'utilisateur : un anneau et sa poignée autour de l'objet choisi, qu'on glisse pour le faire tourner degré par degré ; aimant actif,
+    l'objet se cale parallèle ou perpendiculaire au tuyau (le sien compris), au côté du bâti, à la limite ou au trait proche ; caniveau,
+    clapet, gargouille et les symboles qui ne sont pas ronds (regard, boîte, grille, fosse, té, siphon, puits… [p : liste]) ; les puces de
+    15° de la fiche valent aussi pour eux [p] ; le DXF suit l'angle donné ; un objet jamais tourné ne change pas.
+  - Tests : navigateur/gestes.js : un caniveau, poignée glissée d'un quart de tour : angle 90 (avant : pas de poignée ; échoue) ; aimant
+    coupé, un glissé de 37° donne 37 ; une annulation rend l'angle ; aimant actif, un regard près d'un côté du bâti orienté à 30°, lâché à
+    32° : 30 [p] ; à 45° de toute direction proche : pas d'accrochage ; vm/dessin.js : un regard tourné donne un INSERT DXF à cet angle
+    (avant : rotDeg, 0 sans rotation ; échoue) ; témoin : R1 sans angle sur un plan tourné de −0,6° : INSERT à rotDeg, comme avant ; fiche
+    d'un regard : puces de 15° (avant : aucune ; échoue) ; aimant actif, un regard raccordé à un tronçon à 30°, lâché à 33° : 30 [p] ; plan
+    tourné : l'écran, le plan PDF et le DXF concordent pour un regard tourné au disque ; un écart pour un objet jamais tourné serait
+    antérieur : le signaler, sans changer son DXF (D22) [p].
+  - Garde : compat 245/245 (un objet sans angle garde rotDeg au DXF ; une empreinte qui bouge est un défaut) ; aléatoire : sans effet.
+  - Risques et [p] : conflit entre la poignée et le glisser de l'objet au petit zoom ; liste des symboles non ronds [p] ; seuil de 5° et
+    linéaires retenus pour l'accrochage [p] ; tablette en v1.7.1 : écran et PDF tournés, DXF non (information). À scinder si la relecture le
+    demande : m154 (disque, objets, DXF) et m156 (accrochage).
+  - Dépendances : aucune.
+
+### Ajouté le 17 nov. (fil)
+- **m155 Prolongement toujours d'abord** (fil du 17 nov. ; D2). Taille S.
+  - Réponse : « Prolongement toujours d'abord » (« L'ordre de la v1.7.0 (m113), même au-delà de 30 m, et l'aide le dit. ») ; le choix
+    recommandé était « Garder cet ordre (Recommandé) ». Ordre : juste après m140, avant m141 [p].
+  - Fichiers et fonctions (numéros de 1ee93f4) : CJ : prolLoin et PROL_LOIN_MAX (commentaire compris, l. 3745-3780) : ses candidats entrent à
+    l'étape prol d'accrochesNouvelles (l. 3735), avec ceux de prolSegs jusqu'à 30 m, et ses trois appels sont retirés : accrocheLibre
+    (l. 3785-3793, appel l. 3791, après celui d'accrochesNouvelles l. 3788), point saisi d'un tronçon (l. 3842, après l. 3840), sommet glissé
+    (l. 4249, sur la ligne de l'appel d'accrochesNouvelles) ; entre deux prolongements, la règle de plusProche (le plus proche du doigt) ;
+    commentaires (l. 348-350, 3732, 3782, 3837-3839) ; contrat de PROL_MAX. m140 a décalé ces lignes d'environ +60, sauf les l. 348-350 : à
+    retrouver par recherche. LISEZMOI.txt : la phrase « Au-delà de 30 m d'un bout, le prolongement passe après les autres aides (accroche au
+    bâti ou à une limite, parallèle au bâti, angles). » est remplacée par l'ordre de m113, dit en clair ; croquis/LISEZMOI.txt l. 28 (deux
+    phrases d'ordre) ; tests/navigateur/accroches.js (cas pl : f9 et r9 renversés), tests/vm/dessin.js au besoin, tests/LISEZMOI.md.
+  - Pour l'utilisateur : le prolongement d'un côté passe avant le redressement « Parallèle au bâti » et l'accroche à la façade, à toute
+    distance, comme en v1.7.0 ; l'aide le dit.
+  - Tests : f9 et r9 renversés : au-delà de 30 m, le prolongement l'emporte sur la façade et sur le redressement (échouent sur le commit
+    d'avant) ; témoins jusqu'à 30 m ; gardés : l9, t9, zd, zp, e5, n120 ; mesures de m138 refaites (coût du glissé, part des points calés sur
+    un prolongement).
+  - Garde : compat 245/245 ; aléatoire 8000 contre le commit d'avant : sans écart (aide au dessin, non comparée).
+  - Risques et [p] : sur un fond dense, un point libre se calera le plus souvent sur un prolongement (16/84 attendu [p], au lieu de 84/16 :
+    mesure de m138 sur sa première version ; m155 la refait) : effet du choix, non montré dans la question, à dire à l'utilisateur à la
+    livraison de m155 et dans l'annonce ; coût : les 2,8 à 11,7 ms de prolLoin (mesure de m138) s'ajoutent aux points redressés ou posés sur
+    une façade, à mesurer au tracé et au glissé, seuil de 16 ms par mouvement [p] ; borne de 256 côtés gardée ; entre deux prolongements, le
+    plus proche du doigt l'emporte [p].
+  - Dépendances : m138.
 
 ### Attendront la fusion suivante
-- L'escalier enregistré autrement (S11, b ou c : L).
-- Les textes libres tournés par le disque (S10, c) ; une clé des exutoires qui sépare « Fosse » et « Fossé » (S7, c).
-- Les souhaits restants de la v1.7.0 (questions S12 à S16) : section suivante.
-- S'il manque des numéros (correctif scindé, relecture plus longue) : m154, puis m146 (aucun autre n'en dépend).
+- Les souhaits restants de la v1.7.0 et le constat délesté (fil du 17 nov. : lot suivant, en premier) : section suivante.
+- Plus rien pour l'escalier (S11 a), les textes libres tournés par le disque (S10 : b, pas c) ni une clé des exutoires qui sépare « Fosse »
+  et « Fossé » (S7 : a, pas c).
+- Ce lot compte 19 numéros (m137 à m155) ; m156 reste en réserve, pour un premier correctif scindé (m144 ou m154). S'il en faut plus (second
+  correctif scindé, relecture plus longue) : le demander à l'utilisateur ; ne pas repousser d'office m146 ni m154, que la réponse du fil
+  garde dans la v1.7.2 (« La v1.7.2 garde ses correctifs et se fusionne plus tôt »).
 
 ## Souhaits restants (après la v1.7.2)
-Résumé d'EC : ce que les réponses du cadrage (16 nov.) changent aux recommandations du cadrage (CA = .claude/cadrage-v170.md, numéros de
-ligne). Lot à part, après la v1.7.2 [p] : 13 à 17 correctifs selon les réponses (14 : 2 ; 5 : 1 ; 6 : 4 ; 9 : 3 ; 1 : 2 ou 3 ; 13 : 1 à 4).
-Ordre conseillé [p] : 14 ; 5 puis 6 (lot avant-projet) ; 9, après les changements du constat de la v1.7.2 (m147 à m150) ; 1 (juste après 5
-si la photo ne va pas au constat) ; 13, après les réponses.
-- **14, plan centré à l'ouverture** (CA:344-361 ; M, 2 correctifs ; S12). cadrage-14-4 confirme la source, la parcelle du tableau Excel,
-  déjà importée (CA:346), et la parcelle d'abord (CA:356). Aujourd'hui, seuls les calques de texte de parcelle (PARCELLETEX ou voisin,
-  CJ:708) donnent un numéro de parcelle ; sonde d'EC : sur un calque renommé …PARCELLENUM, les numéros ne sont que des textes, et son trait
-  de rappel devient une limite de parcelle. Changements [p] : reconnaître aussi un calque du genre PARCELLENUM, et le sortir des limites et
-  des contours (CJ:244) ; garder la ligne « Textes reconnus » (CA:346). Le repli sur l'adresse (CA:359-361) reste incertain : il peut
-  attendre ce que montreront les fonds réels. Premier du lot : il ne touche ni l'analyse, ni le constat, ni le PDF.
+Résumé d'EC : ce que les réponses du cadrage (16 nov.) et celles du groupe « Suivi » (17 nov. : S12 à S16) changent aux recommandations du
+cadrage (CA = .claude/cadrage-v170.md, numéros de ligne). Lot suivant, après la fusion de la v1.7.2 : d'abord le constat délesté (fil du 17
+nov. : « Lot suivant, en premier »), puis [p] 14 ; 5 puis 6 (lot avant-projet) ; 1 ; 13. Environ 15 à 17 correctifs [p] (délesté : 3 ou 4 ;
+14 : 1 ou 2 ; 5 : 1 ; 6 : 4 ; 1 : 3 ; 13 : 3 environ).
+- **9, constat délesté** (CA:299-316 ; L, 3 ou 4 correctifs conçus ensemble ; premier du lot, fil du 17 nov.). Les commentaires de S1 (« le
+  rapport final doit être délesté de toutes les informations non nécessaires et tous les éléments non utilisés ») et de S4 (« Penser à
+  supprimer les colonnes inutiles pour que n'apparaissent que les colonnes ayant été cochées ») étendent le souhait 9 : pas de ligne vide
+  (fait par m147), pas de ligne d'appareil absent, pas de colonne sans croix, pas d'information inutile [p : liste à dresser à sa
+  conception]. cadrage-validation-departement (« constat abrégé admis ») règle CA:278, point 6, et le premier risque de CA:303 ; la version
+  courte de repli (CA:301, 307) devient inutile. Délesté par défaut [p] : le complet par défaut de CA:305-307 est à revoir avec ces
+  commentaires ; l'option par étude et le gel à la signature restent. Il suit les nouveautés du constat de la v1.7.2 (lignes sans
+  « Autres : », colonne « Puits », ligne de la boîte, libellés de la boîte en limite) : la rangée du côté de la boîte vide et la colonne
+  « Puits » vide sont candidates au délestage [p]. Une seule marque de gel : c.fige.mise (CA:301) et c.fige.mep (D13) n'en font qu'une [p].
+  Les mentions « Formulaire du Département » (IX:1526) et « Formulaire « Contrôle de Branchement Particulier » du Département » (IX:2163)
+  sont à reformuler [p]. Croquis désactivé ou absent : défaut complet (cadrage-sans-croquis : « valeurs par défaut identiques à la v1.5.1 »)
+  ou délesté (commentaire de S1, S2 b) : à demander à sa conception.
+- **14, plan centré à l'ouverture** (CA:344-361 ; S ou M, 1 ou 2 correctifs ; S12 a). cadrage-14-4 confirme la source, la parcelle du tableau
+  Excel, déjà importée (CA:346), et la parcelle d'abord (CA:356). S12 (17 nov.) : « « parcelle », au moins une fois » : sur les plans de
+  l'utilisateur, le numéro cherché est reconnu comme numéro de parcelle ; son calque l'est donc déjà (CJ:708 : PARCELLETEX ou voisin).
+  Reconnaître un calque du genre PARCELLENUM et le sortir des limites et des contours (CJ:244) n'est plus nécessaire [p]. Restent : centrer
+  le plan sur le numéro de la parcelle du tableau, garder la ligne « Textes reconnus » (CA:346) ; le repli sur l'adresse (CA:359-361) reste
+  incertain : il peut attendre ce que montreront les fonds réels. Il ne touche ni l'analyse, ni le constat, ni le PDF.
 - **5, avant-projet sans les « à supprimer »** (CA:238-252 ; M, 1 correctif). Aucune réponse ne le touche : restent la bulle seule
   (CA:244), l'écran non masqué (CA:247), pas d'ancien plan barré (CA:250). Depuis le cadrage : le défaut de CA:236 est corrigé (m95) ; les
   tests de CA:240 se numérotent à partir de p7 ; les objets venus depuis (drains, destinations, puits, autres appareils, WC + lave-mains,
@@ -869,60 +1085,68 @@ si la photo ne va pas au constat) ; 13, après les réponses.
 - **6, « à supprimer » sur une partie d'un tronçon** (CA:254-274 ; L, 4 correctifs ; après 5). Aucune réponse ne le touche (CA:260-274
   retenus). Depuis le cadrage : un drain coupé garde p.drain et sa couleur sur ses deux parties [p] ; l'escalier, jamais un réseau, ne se
   coupe pas [p], comme collecteurs et limites (CA:256). Le reste « tuyau tracé en deux traits » : question à poser à sa conception.
-- **9, constat sans les lignes absentes** (CA:299-316 ; L, 3 correctifs). cadrage-validation-departement (« constat abrégé admis ») règle
-  CA:278, point 6, et le premier risque de CA:303 ; la version courte de repli (CA:301, 307) devient inutile ; restent l'option par étude,
-  le complet par défaut et le gel à la signature (CA:305-307). L'abrégé suit les nouveautés du constat de la v1.7.2 (lignes sans
-  « Autres : », colonne « Puits », ligne de la boîte, libellés de la boîte en limite) : « sans nouvelle colonne » (CA:303) n'est plus vrai.
-  Une seule marque de gel : c.fige.mise (CA:301) et c.fige.mep (D13) n'en font qu'une [p]. Les mentions « Formulaire du Département »
-  (IX:1526) et « Formulaire « Contrôle de Branchement Particulier » du Département » (IX:2163) sont à reformuler [p].
-- **1, photo de la façade** (CA:280-297 ; M, 2 correctifs, +1 si au constat ; S13). La raison de CA:288 (« le formulaire du Département
-  reste tel quel ») tombe avec « une production de ma société » ; le choix du 7 nov. (fiche Préco et plan PDF) reste appliqué jusqu'à S13.
-  Croquis désactivé : la photo vaut aussi (cadrage-sans-croquis) ; sans photo, les sorties restent celles de la v1.5.1. Restent : une seule
-  photo (CA:289), celle du dossier d'abord (CA:292), facultative (CA:295).
-- **13, réglage par anomalie standard** (CA:278, 318-338 ; de S, 1 correctif, à L, 4 ; S14 à S16). cadrage-13-reserve : cinq réserves
-  par défaut, les candidates de CA:320 sauf « Descente EP (abri) apporte de l'humidité » ; CA:320 (« défaut identique à la v1.6.3 ») ne
-  vaut plus pour elles. cadrage-validation-departement : le Département refuse un barème où une anomalie peut devenir une réserve, et le
-  constat est une production de la société de l'utilisateur ; S14 demande le sens voulu (appliqué en attendant : pas de réglage, cinq
-  réserves d'office, S). « Pas d'anomalie » (CA:324-326) est mis en doute : ne pas le construire avant la réponse [p]. La nature est écrite
-  sur l'anomalie au choix, jamais recalculée (CA:328-329). Croquis désactivé : S15 (v1.5.1 en attendant) ; « obstrué ou encombré » et
-  « racines » en EU : S16 (réserve aussi, en attendant : lecture à la lettre). Restent verrouillés : descente non visitable, tampon béton,
-  by-pass, fosse douteuse (CA:330-332), rejet des EP dans un puits.
+- **1, photo de la façade** (CA:280-297 ; M, 3 correctifs ; S13 c ; après le délesté [p]). S13 (17 nov.) : « Oui, sur le constat complet
+  comme sur l'abrégé » : la photo va aussi au constat, complet ou abrégé, en plus de la fiche Préco et du plan PDF (choix du 7 nov.) ; sa
+  place sur le constat se conçoit avec le délesté [p]. La raison de CA:288 (« le formulaire du Département reste tel quel ») tombe avec « une
+  production de ma société ». Croquis désactivé : la photo vaut aussi (cadrage-sans-croquis) ; sans photo, les sorties restent celles de la
+  v1.5.1 ; la règle « Croquis désactivé ou absent » de CLAUDE.md change avec ce lot (photo au constat). Constat signé : la photo suit la
+  présentation notée à la signature (D13) ; un constat signé avant ce lot se réimprime sans photo [p]. Restent : une seule photo (CA:289),
+  celle du dossier d'abord (CA:292), facultative (CA:295).
+- **13, réglage par anomalie standard** (CA:278, 318-338 ; M, 3 correctifs environ [p] ; S14 b, S15 a, S16 b). S14 (17 nov.) : « Un réglage
+  par anomalie dans les Réglages : non-conformité, réserve ou à arbitrer, jamais « pas d'anomalie » » : le barème du 7 nov. sans le choix qui
+  rend une anomalie conforme (note de b), ce qui donne le sens du « permissif » refusé par cadrage-validation-departement ; « Pas
+  d'anomalie » (CA:324-326) n'est pas construit. (c), où un rejet trouvé par le croquis reste toujours non conforme, n'est pas choisi : ces
+  rejets se règlent aussi [p], sauf ceux qui restent verrouillés (ci-dessous). cadrage-13-reserve : cinq réserves par défaut, les candidates
+  de CA:320 sauf « Descente EP (abri) apporte de l'humidité » ; CA:320 (« défaut identique à la v1.6.3 ») ne vaut plus pour elles. S15 (a) :
+  « Oui, partout : une anomalie type a la même nature dans tous les dossiers » : croquis désactivé ou absent compris ; cela déroge à la
+  v1.5.1, et la règle « Croquis désactivé ou absent » de CLAUDE.md change avec ce lot. S16 (b) : « Non : réserve en EP, non-conformité en
+  EU » : « obstrué ou encombré » et « racines » sont par défaut une réserve sur un ouvrage EP, une non-conformité sur tout autre ouvrage (EU,
+  unitaire, réseau inconnu), comme le tampon béton (CJ:1782-1786, vérifié) ; le réglage a deux lignes pour chacune, EP et autres réseaux
+  (note de S16 b : « Le réglage, s'il existe, aura une ligne par réseau pour ces deux anomalies. »). La nature est écrite sur l'anomalie au
+  choix, jamais recalculée (CA:328-329). Restent verrouillés : descente non visitable, tampon béton, by-pass, fosse douteuse (CA:330-332),
+  rejet des EP dans un puits.
 
-## Questions qui restent (groupe « Suivi » : suivi.json, S1 à S16)
-Ordre de lecture : d'abord celles qui bloquent un correctif proche (S1 à S10, m147 à m154), puis l'escalier (S11) et les souhaits restants
-(S12 à S16). « Appliqué » : choix codé si la réponse n'est pas venue.
-- S1 suivi-e1-portee (Lignes sans « Autres : ») : appliqué et recommandé c (toutes les lignes ajoutées ; la ligne vide garde le mot) ;
-  d = lecture à la lettre de « jamais ». m147.
-- S2 suivi-sans-croquis (Nouveautés du constat, croquis désactivé) : appliqué a (aucune) ; recommandé b (toutes). Déroge à la v1.5.1 (b, c).
-  m147 à m150.
-- S3 suivi-boite-cote-place (Place de la ligne « intérieur ou extérieur ») : appliqué et recommandé a (sous la distance). m149.
-- S4 suivi-puits-colonne (Colonne « Puits » du constat) : appliqué a (croix des EP aussi dans la colonne, verte) [p] ; aucune recommandée.
-  m150.
-- S5 suivi-drain-libelle (Appareil relié à un drain d'infiltration) : appliqué a (rien : garde le libellé refusé en EU) ; aucune
-  recommandée. m150 (m142 fixe les libellés actuels).
-- S6 suivi-noms-proches (Noms de destination proches ; ajoutée, F9) : appliqué a (refusé comme un même nom) ; recommandé b (le signaler et
-  demander). m144 codé avec a ; m151.
-- S7 suivi-fosse (Destination nommée « Fosse ») : appliqué b (comme « Fossé ») ; recommandé a (message M5). m151.
-- S8 suivi-symbole-puits (Manivelles du symbole du puits) : appliqué et recommandé a (en Z) ; b (vers le haut). m152.
-- S9 suivi-e4-niveau (Présélection d'une étiquette commune) : appliqué et recommandé a (sans niveau = même niveau si le porteur n'en a
-  pas). m153.
-- S10 suivi-disque-objets (Objets que le disque fait pivoter) : appliqué a (les trois orientés) ; recommandé b (symboles non ronds). m154.
-- S11 suivi-escalier-ancienne-version (Escalier ouvert sur une ancienne version) : appliqué et recommandé a. m139 codé de toute façon ;
-  b ou c : fusion suivante.
-- S12 parcelle-essai-dxf (Numéro de parcelle sur vos plans DXF) : appliqué b (calque du genre PARCELLENUM à reconnaître) ; aucune
-  recommandée ; essai à faire par l'utilisateur. Souhait 14.
-- S13 facade-constat (Photo de la façade sur le constat) : appliqué a (fiche Préco et plan PDF) ; aucune recommandée. Souhait 1.
-- S14 bareme-permissif (Sens de « barème permissif ») : appliqué a (cinq réserves d'office, pas de réglage) ; aucune recommandée. Touche la
-  v1.5.1. Souhait 13.
-- S15 reserves-sans-croquis (Les trois anomalies types en réserve, croquis désactivé) : appliqué b (v1.5.1) ; aucune recommandée (F11) ;
-  a déroge à la v1.5.1. Souhait 13.
-- S16 reserves-eu (« Obstrué ou encombré » et « racines » sur un ouvrage EU) : appliqué a (réserve en EU aussi, lecture à la lettre) ;
-  aucune recommandée (F11). Souhait 13.
+## Questions du groupe « Suivi » (S1 à S16) : réponses du 17 nov.
+Réponses mot pour mot : section « Réponses de l'utilisateur ». Ce que chacune change (« appliqué » : le choix codé avant la réponse, quand il
+en diffère) :
+- S1 suivi-e1-portee (Lignes sans « Autres : ») : d (appliqué : c) ; aucune ligne n'a plus « Autres : », et les lignes vides du bas de chaque
+  groupe ne sont plus imprimées (commentaire). D14, m147.
+- S2 suivi-sans-croquis (Nouveautés du constat, croquis désactivé) : b (appliqué : a) ; les nouveautés du constat valent aussi croquis
+  désactivé ou absent ; déroge à la v1.5.1 : m147 à m150 complètent la règle de CLAUDE.md. D15.
+- S3 suivi-boite-cote-place (Place de la ligne « intérieur ou extérieur ») : a, comme appliqué ; m149.
+- S4 suivi-puits-colonne (Colonne « Puits » du constat) : a, comme appliqué ; le commentaire (colonnes sans croix) va au constat délesté, au
+  lot suivant. m150.
+- S5 suivi-drain-libelle (Appareil relié à un drain d'infiltration) : a, comme appliqué ; rien ne change. m142.
+- S6 suivi-noms-proches (Noms de destination proches) : b (appliqué : a) ; la question « la même ou une autre ? » (Q). D10, m144.
+- S7 suivi-fosse (Destination nommée « Fosse ») : a (appliqué : b) ; message M5. D10, m144.
+- S8 suivi-symbole-puits (Manivelles du symbole du puits) : a, comme appliqué ; manivelles en Z. m152.
+- S9 suivi-e4-niveau (Présélection d'une étiquette commune) : a, comme appliqué ; m153.
+- S10 suivi-disque-objets (Objets que le disque fait pivoter) : b (appliqué : a) ; aussi les symboles non ronds ; le commentaire demande la
+  rotation degré par degré et un accrochage aux linéaires proches : m154 devient gros (L). D22.
+- S11 suivi-escalier-ancienne-version (Escalier ouvert sur une ancienne version) : a, comme appliqué ; commentaire : les tablettes seront
+  toujours à jour (Règles communes). m139 ; rien pour la suite.
+- S12 parcelle-essai-dxf (Numéro de parcelle sur vos plans DXF) : a (appliqué : b) ; le calque est déjà reconnu. Souhait 14.
+- S13 facade-constat (Photo de la façade sur le constat) : c (appliqué : a) ; la photo va aussi au constat, complet ou abrégé. Souhait 1.
+- S14 bareme-permissif (Sens de « barème permissif ») : b (appliqué : a) ; un réglage par anomalie, jamais « pas d'anomalie ». Souhait 13.
+- S15 reserves-sans-croquis (Les trois anomalies types en réserve, croquis désactivé) : a (appliqué : b) ; même nature dans tous les
+  dossiers, croquis désactivé compris ; déroge à la v1.5.1. Souhait 13.
+- S16 reserves-eu (« Obstrué ou encombré » et « racines » sur un ouvrage EU) : b (appliqué : a) ; réserve en EP, non-conformité en EU.
+  Souhait 13.
+- remarque-libre-suivi : sans réponse.
 - Retirée : suivi-constat-signe (F7 : règle de CLAUDE.md, D13).
-- Présomptions gardées sans question, à signaler dans l'annonce : intersection à 30 m et borne par la diagonale de l'écran (D2) ; repli à
-  120 m si le coût du prolongement est trop grand (D2) ; « Puits perdu » jugé d'après sa fiche, avec un rappel (D19) ; lecture de « Deux
-  points » (D12) ; ordre de l'étiquette au-delà de l'exemple, et le porteur qui perd la tête de la liste (D7) ; puces « Intérieur » et
-  « Extérieur » gardées dans la fiche et au panneau des cotes (D5) ; p.res ignoré et puces « Réseau » masquées pour le drain d'infiltration,
-  « tenir compte du réseau » lu comme « des eaux reçues » (D8) ; ligne venue du croquis sur « Puits » qui suit son anomalie, et conformité
-  fixée à la main gardée (D18) ; boîte unitaire jugée d'après les chemins qui la traversent (D6) ; « Bidet (ligne à son nom) » et cases
-  « int. », « ext. » (D14, D17) ; plan PDF et DXF selon la version qui imprime, dossier signé compris (Règles communes).
+- Question nouvelle, née de m140, à poser à l'utilisateur telle quelle : « En zone unitaire, une boîte sans réseau indiqué dans sa fiche, où
+  arrive un tuyau tracé à l'outil « Tronçon EU », « Tronçon EP » ou « Drain », porte l'étiquette « Boîte de branchement », sans réseau ; sa
+  distance et sa profondeur ne vont pas au constat ; on indique son réseau dans sa fiche. a) Garder ainsi. b) La compter, comme une boîte
+  unitaire, pour le réseau des appareils dont les eaux y passent. » Aujourd'hui : (a), comme en v1.7.1 (D6, m140).
+- Présomptions gardées sans question, à signaler dans l'annonce : intersection à 30 m et borne par la diagonale de l'écran (D2) ; borne de
+  256 côtés et passage unique du prolongement, qui passe d'abord à toute distance (D2, m155) ; « Puits perdu » jugé d'après sa fiche, avec un
+  rappel (D19) ; lecture de « Deux points » (D12) ; ordre de l'étiquette au-delà de l'exemple, et le porteur qui perd la tête de la liste
+  (D7) ; puces « Intérieur » et « Extérieur » gardées dans la fiche et au panneau des cotes (D5) ; p.res ignoré et puces « Réseau » masquées
+  pour le drain d'infiltration, « tenir compte du réseau » lu comme « des eaux reçues » (D8) ; ligne venue du croquis sur « Puits » qui suit
+  son anomalie, et conformité fixée à la main gardée (D18) ; boîte unitaire jugée sur les plus courts chemins de l'analyse jusqu'aux
+  exutoires dessinés (D6, m140) ; « Bidet (ligne à son nom) » et cases « int. », « ext. » (D14, D17) ; hauteurs des lignes du constat sans
+  les lignes vides : celles du formulaire, mises à l'échelle pour remplir le tableau, texte inchangé (D14) ; lignes vides retirées aussi sans
+  croquis (D14, D15) ; ce que fait « La même » selon l'endroit, et M5 pour « Fosse » sans accent (D10) ; accrochage du disque à 5° près,
+  linéaires retenus, tuyaux raccordés compris (D22) ; puces de 15° de la fiche étendues aux symboles non ronds, à côté du disque qui tourne
+  au degré (D22) ; bouts des manivelles du puits à 2,25 du centre (D20) ; plan PDF et DXF selon la version qui imprime, dossier signé compris
+  (Règles communes).
