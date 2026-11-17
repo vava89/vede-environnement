@@ -11,13 +11,16 @@
 // Nouveaux accrochages (m112 ; échoue sur e9e8b5d) : clés accMilieu, accPerp et accParcelle à false dans AIDES_DEFAUT, libellés, puces de la
 // palette ; milieu d'un côté et pied de la perpendiculaire (VCroquis.geo.milieuSegs et piedSegs) : seuils, côtés de 20 cm au plus écartés,
 // égalités, pied hors du côté, point précédent sur la droite du côté, entrées invalides.
-// Nouveaux accrochages, second lot (m113 ; échoue sur 4691c1a) : clés accProl et accInter à false dans AIDES_DEFAUT, libellés (puce courte
-// « Prolongement »), huit puces ; prolongement d'un côté et intersection (VCroquis.geo.prolSegs et interSegs) : bornes de 30 m (et longueur
-// donnée), seuils, entre les bouts c'est le côté (côté aligné compris), un côté qui croise la droite n'empêche pas le prolongement (un côté
-// proche aligné à 5° près l'empêche), angle de plus de 5° (dans les deux sens), coin existant (bouts qui se touchent, T, prolongement qui
-// arrive au bout de l'autre, à 1 cm près ; témoins à 2 cm et à 0,5 m), côtés qui se croisent, égalités (même point par plusieurs côtés : le
-// plus court prolongement, puis le premier), au plus 64 côtés pour l'intersection (ceux dont la droite passe le plus près, où qu'ils soient
-// dans la liste), côtés de 20 cm au plus écartés, entrées invalides (côté démesuré compris).
+// Nouveaux accrochages, second lot (m113 ; échoue sur 4691c1a) : clés accProl et accInter à false dans AIDES_DEFAUT, libellés (puce courte «
+// Prolongement »), explications des Réglages de accProl et de accInter mot pour mot (m138 : « sans limite de longueur » et « à 30 m au plus
+// de leurs bouts » ; échouent sur a3f86c6), huit puces ; prolongement d'un côté et intersection (VCroquis.geo.prolSegs et interSegs) : borne
+// de 30 m de l'intersection (et longueur donnée), prolongement sans limite de longueur quand aucune n'est donnée (m138 ; échoue sur a3f86c6 :
+// 30 m au plus ; témoins : une longueur donnée reste une borne, l'intersection garde 30 m), seuils, entre les bouts c'est le côté (côté
+// aligné compris), un côté qui croise la droite n'empêche pas le prolongement (un côté proche aligné à 5° près l'empêche), angle de plus de
+// 5° (dans les deux sens), coin existant (bouts qui se touchent, T, prolongement qui arrive au bout de l'autre, à 1 cm près ; témoins à 2 cm
+// et à 0,5 m), côtés qui se croisent, égalités (même point par plusieurs côtés : le plus court prolongement, puis le premier), au plus 64
+// côtés pour l'intersection (ceux dont la droite passe le plus près, où qu'ils soient dans la liste), côtés de 20 cm au plus écartés, entrées
+// invalides (côté démesuré compris).
 // usage : node tests/vm/dessin.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, copie, rapport} = require('./charger.js');
@@ -420,8 +423,9 @@ function accrochages(){
 }
 /* Nouveaux accrochages, second lot (m113 ; échoue sur 4691c1a) : clés accProl et accInter à false dans AIDES_DEFAUT, libellés, huit puces
    (les deux nouvelles à la fin) ; prolongement d'un côté et intersection (VCroquis.geo.prolSegs et interSegs) sur des côtés [x0, y0, x1, y1]
-   en mètres. Chaque borne a son témoin, qui ne diffère que par elle : 29,9 m contre 30,1 m, 4,9° contre 5,1°, seuil ± 1 cm, côté de 20 cm
-   contre 30 cm, coin existant contre bouts écartés, 63 copies contre 64 */
+   en mètres. Chaque borne a son témoin, qui ne diffère que par elle : 29,9 m contre 30,1 m (intersection, ou longueur donnée), 4,9° contre
+   5,1°, seuil ± 1 cm, côté de 20 cm contre 30 cm, coin existant contre bouts écartés, 63 copies contre 64. Sans longueur donnée, le
+   prolongement d'un côté n'a plus de limite (m138) */
 function accrochages113(){
   const D = V.AIDES_DEFAUT || {}, L = V.AIDES_LIB || [], A = V.ACCROCHES || [];
   /* [clé, libellé, libellé court de la puce (4e élément, facultatif)] */
@@ -430,6 +434,15 @@ function accrochages113(){
     R.ok(D[k] === false && !!l && l[1] === lib && typeof l[2] === 'string' && l[2].length > 10 && l[3] === court, 'clé ' + k + ' : ' + D[k]
       + ' dans AIDES_DEFAUT (attendu false), libellé ' + JSON.stringify(l ? l[1] : null) + ' et explication dans AIDES_LIB, puce ' + JSON.stringify(l ? l[3] || l[1] : null));
   });
+  /* m138 (échoue sur a3f86c6 : « jusqu'à 30 m ») : explication des Réglages, mot pour mot ; libellés gardés (contrôle ci-dessus) */
+  const lp = L.find(x => x[0] === 'accProl');
+  R.ok(!!lp && lp[2] === 'le point se cale sur le prolongement d\'un côté, au-delà de l\'un de ses bouts, sans limite de longueur',
+    'Réglages : explication de « Prolongement d\'un côté » sans limite de longueur (m138) : ' + JSON.stringify(lp ? lp[2] : null));
+  /* m138 (échoue sur a3f86c6 et sur la première version de m138) : explication de l'Intersection, mot pour mot ; sa borne de 30 m reste
+     dite, à côté du prolongement sans limite */
+  const li = L.find(x => x[0] === 'accInter');
+  R.ok(!!li && li[2] === 'le point se cale où deux côtés, ou leurs prolongements, se croisent, à 30 m au plus de leurs bouts',
+    'Réglages : explication de « Intersection » avec sa borne de 30 m (m138) : ' + JSON.stringify(li ? li[2] : null));
   const ORDRE = ['bati', 'parallele', 'angles', 'accMilieu', 'accPerp', 'accParcelle', 'accProl', 'accInter'];
   R.ok(JSON.stringify(A) === JSON.stringify(ORDRE), 'palette : huit puces, les deux nouvelles à la fin (' + A.join(', ') + ')');
   if (!G || typeof G.prolSegs !== 'function' || typeof G.interSegs !== 'function'){ R.ok(false, 'VCroquis.geo.prolSegs ou interSegs absente (prolongement d\'un côté, intersection)'); return; }
@@ -438,7 +451,7 @@ function accrochages113(){
     : ', bout ' + ecrit(r.bout) + ', prolongement ' + ex(r.ext) + ' m') : String(r);
   const q = (f, att, n) => { const r = sur(f); R.ok(att ? proche(r, att) : r === null, n + ' → ' + (att ? ecrit(att) : 'aucun') + ' (obtenu ' + (r && r.x != null ? ecrit(r) : String(r)) + ')'); return r; };
   const vaut = (a, b) => typeof a === 'number' && Math.abs(a - b) < 1e-12;
-  /* prolongement : au-delà des bouts seulement, jusqu'à 30 m, à 0,25 m au plus de la droite (seuil donné) */
+  /* prolongement : au-delà des bouts seulement, sans limite de longueur (m138), à 0,25 m au plus de la droite (seuil donné) */
   const p1 = q(() => G.prolSegs(P(13, 0.2), [sud], 0.25), P(13, 0), 'prolongement au-delà de B : point à 0,2 m de la droite, 3 m après le bout, seuil 0,25 m');
   R.ok(!!p1 && p1.s === sud && proche(p1.bout, P(10, 0)) && vaut(p1.ext, 3) && vaut(p1.d, 0.2), 'prolongement : côté, bout (10 ; 0), longueur 3 m et distance 0,2 m rendus (' + dit(p1) + ')');
   const p2 = q(() => G.prolSegs(P(-3, -0.2), [sud], 0.25), P(-3, 0), 'prolongement au-delà de A');
@@ -446,7 +459,21 @@ function accrochages113(){
   q(() => G.prolSegs(P(5, 0.2), [sud], 0.25), null, 'prolongement : point entre les bouts, à 0,2 m du côté (c\'est le côté)');
   q(() => G.prolSegs(P(10.15, 0.1), [sud], 0.25), null, 'prolongement : point 0,15 m après le bout, à 0,18 m de lui (c\'est encore le côté)');
   q(() => G.prolSegs(P(39.9, 0.1), [sud], 0.25), P(39.9, 0), 'prolongement : 29,9 m après le bout');
-  q(() => G.prolSegs(P(40.1, 0.1), [sud], 0.25), null, 'prolongement : 30,1 m après le bout (au-delà de 30 m)');
+  q(() => G.prolSegs(P(40.1, 0.1), [sud], 0.25), P(40.1, 0), 'prolongement : 30,1 m après le bout : sur la droite (m138, sans limite ; avant : rien, 30 m au plus)');
+  /* m138 (échoue sur a3f86c6 : 30 m au plus) : sans longueur donnée, aucune limite de longueur. Point à 5 cm de la droite, 40 m après le
+     bout : sur la droite, prolongement de 40 m ; de même 10 km après. Témoins : une longueur donnée reste une borne (30 m : rien ; 40,1 m :
+     sur la droite) ; Infinity donnée vaut l'absence de longueur ; l'intersection garde 30 m (rencontre 40 m après le bout : rien ; avec une
+     longueur donnée de 40,1 m : à la rencontre) */
+  const p40 = q(() => G.prolSegs(P(50, 0.05), [sud], 0.25), P(50, 0), 'prolongement sans longueur donnée : 40 m après le bout, à 5 cm de la droite (m138)');
+  R.ok(!!p40 && p40.s === sud && proche(p40.bout, P(10, 0)) && Math.abs(p40.ext - 40) < 1e-9 && Math.abs(p40.d - 0.05) < 1e-9, 'prolongement de 40 m : côté, bout (10 ; 0), '
+    + 'longueur 40 m et distance 0,05 m rendus (' + dit(p40) + ')');
+  const pkm = q(() => G.prolSegs(P(10010, 0.05), [sud], 0.25), P(10010, 0), 'prolongement sans longueur donnée : 10 km après le bout (m138)');
+  R.ok(!!pkm && Math.abs(pkm.ext - 10000) < 1e-6, 'prolongement de 10 km : longueur rendue (' + dit(pkm) + ')');
+  q(() => G.prolSegs(P(50, 0.05), [sud], 0.25, 30), null, 'prolongement : longueur maximale donnée de 30 m, point 40 m après le bout (témoin : rien)');
+  q(() => G.prolSegs(P(50, 0.05), [sud], 0.25, 40.1), P(50, 0), 'prolongement : longueur maximale donnée de 40,1 m, point 40 m après le bout (témoin)');
+  q(() => G.prolSegs(P(50, 0.05), [sud], 0.25, Infinity), P(50, 0), 'prolongement : longueur Infinity donnée, comme sans longueur (témoin)');
+  q(() => G.interSegs(P(50, 0.01), [sud, [50, 2, 50, 10]], 0.35), null, 'intersection : rencontre 40 m après le bout du premier côté : rien (témoin, 30 m gardés)');
+  q(() => G.interSegs(P(50, 0.01), [sud, [50, 2, 50, 10]], 0.35, 40.1), P(50, 0), 'intersection : la même, longueur maximale donnée de 40,1 m (témoin)');
   q(() => G.prolSegs(P(13, 0.24), [sud], 0.25), P(13, 0), 'prolongement : point à 0,24 m de la droite, seuil 0,25 m');
   q(() => G.prolSegs(P(13, 0.26), [sud], 0.25), null, 'prolongement : point à 0,26 m de la droite, au-delà du seuil');
   q(() => G.prolSegs(P(13, 0.1), [sud], 0.25, 2), null, 'prolongement : longueur maximale donnée de 2 m, point 3 m après le bout');
