@@ -785,21 +785,25 @@ et à tests/LISEZMOI.md.
     reprise par la v1.7.2 si personne n'y a touché [p]. Question pour l'utilisateur : rattacher aussi à ses appareils la boîte que le dessin
     dit mêlée (un « Tronçon EU », un « Tronçon EP » ou un drain y arrive) ?
   - Dépendances : aucune.
-- **m141 Ordre de l'étiquette commune** (ordre-etiquette-commune ; D7 ; X8). Taille S.
-  - Fichiers et fonctions : CJ : ORDRE_ETIQ et rangEtiq (près de rangCatalogue, l. 2399), groupeEtiquette (l. 2400-2415), texteGroupe
-    (l. 2438-2447), comptesGroupe (l. 5485-5494). LISEZMOI.txt l. 252-254. tests/vm/equipements.js, tests/navigateur/equipements.js.
-  - Pour l'utilisateur : « douche, lavabo, WC + lave-mains » quel que soit le porteur, au plan (écran, PDF, DXF) ; « Compté au constat :
-    Salle de bain 1, Évier 1, WC 1 ».
-  - Tests : vm/equipements.js : chaque attente d'ordre du fichier refaite avec ORDRE_ETIQ (X8, lu dans le fichier) [p : à confirmer en
-    codant] : « douche, WC + lave-mains, lavabo » devient « douche, lavabo, WC + lave-mains » (l. 101, 674, 695, 725, 749, 798) ; l. 701
-    « Douche, lavabo, WC + lave-mains (1er étage) » ; l. 703 « baignoire, lavabo » ; l. 717 « lavabo, WC » ; l. 804 « douche (1er étage),
-    lavabo (RDC), WC » ; l. 808 et 814 « douche, baignoire, lavabo, WC » ; l. 810 « Do, Ba, La, Év, WC » ; l. 812 « Do (1er étage), Ba (RDC),
-    La (1er étage), Év (1er étage), WC (1er étage) » ; l. 816 « La, Év, WC, LL, siphon de garage, ? » ; l. 830 « douche, lavabo, évier, WC +
-    lave-mains » ; inchangées : l. 779 (« douche, WC ») et l. 806 (« Lavabo (sous-sol), WC (RDC) »). Cas nouveau, porteur WC : « douche,
-    lavabo, WC + lave-mains » (v1.7.1 : « WC + lave-mains, lavabo, douche ») et g.objets[0] reste le WC. navigateur/equipements.js l. 62 et 76.
-  - Garde : compat 245/245 [p] ; aléatoire contre le commit d'avant : sans écart (pas d'étiquette commune tirée avec --contre) ; sans
-    --contre, les étiquettes communes tirées changent d'ordre (attendu, non comparé).
-  - Risques et [p] : ordre au-delà de l'exemple [p] ; le porteur perd la tête [p]. Dépendances : aucune (m147 et m153 viennent après).
+- **m141 Ordre de l'étiquette commune** (ordre-etiquette-commune ; D7 ; X8). Taille S. Fait : 52b79cc, 17 nov.
+  - Fichiers et fonctions : CJ : ORDRE_ETIQ, rangEtiq et triEtiq (l. 2490-2496, à la place de rangCatalogue, retirée) ; groupeEtiquette
+    (l. 2497-2511 : membres triés par triEtiq, porteur en objets[0]) ; texteGroupe (l. 2536-2544 : copie triée, porteur compris, titre lu sur
+    g.objets[0]) ; comptesGroupe (l. 5646 : copie triée). LISEZMOI.txt l. 260 ; croquis/LISEZMOI.txt l. 21 ; tests/vm/equipements.js (c10 ;
+    attentes de c1, c2, c4, c5 et c6), tests/navigateur/equipements.js (c11 ; attentes de c8 et e3), tests/LISEZMOI.md.
+  - Pour l'utilisateur : « douche, lavabo, WC + lave-mains » quel que soit le porteur, à l'écran, au plan PDF et au DXF ; « Compté au
+    constat : Salle de bain 1, Évier 1, WC 1 » ; « évier, lave-vaisselle ». Ordre : salle de bain, douche, baignoire, lavabo, évier, WC (WC +
+    lave-mains compris), cuisine, lave-vaisselle, lave-linge, chaudière, siphon de garage, attente, autre appareil ; un type absent de la
+    liste vient après ; à égalité, l'id.
+  - Tests : vm/equipements.js (259) : c10 (16 cas) échoue sur 5549078 pour 15 cas (y passent les types d'essai sous la douche porteur, même
+    repli qu'avant) ; 33 attentes d'ordre refaites (X8, fichier lu en entier) ; 211/259 sur 5549078. navigateur/equipements.js (134) : c11
+    (14 cas, WC + lave-mains porteur) échoue sur 5549078 pour 8 cas ; attentes refaites dans c8 (5) et e3 (6) ; 115/134 sur 5549078. Garde :
+    compat 245/245 ; aléatoire 8000 contre 5549078 : sans écart (10 666 analyses ; aucune étiquette commune tirée avec --contre) ;
+    différentiel sur 2 000 croquis : 735 textes de porteurs ne changent que par l'ordre, constat identique.
+  - Relecture : ni défaut bloquant ni défaut majeur ; deux suggestions traitées : test du type absent de la liste (deux types d'essai, au
+    catalogue du test seulement) ; renvoi « décision D7 » précisé (« de la conception v1.7.2 »). Écartée, hors de l'objet de m141 : la même
+    précision pour les renvois de m140 (« décision D6 ») et de m138 (« décision D2 »).
+  - Risques et [p] : ordre au-delà de l'exemple [p] ; le porteur perd la tête de la liste [p]. Dépendances : aucune (m147 et m153 viennent
+    après).
 - **m142 Couleur du drain d'infiltration d'après ses eaux** (drain-infiltration-dessin ; D8). Taille S.
   - Fichiers et fonctions : CJ : boucle des sources de l'analyse (terminaux de drain, l. 1440-1560), an.eauxDrains (l. 1610-1612), resLigne
     (l. 2350-2362). LISEZMOI.txt l. 141 et l. 104-106. tests/vm/drain.js.
