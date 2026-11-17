@@ -66,9 +66,9 @@
 // Nouveaux accrochages, second lot (m113 : souhait 17 ; décisions D3, D9 et D10), décochés d'origine et lus strictement (seul true les
 // coche) : « Prolongement d'un côté » (accProl : droite d'un côté au-delà de ses bouts, sans limite de longueur (m138), seuil de la
 // façade, 10 px) et « Intersection » (accInter : rencontre de deux côtés ou de leurs prolongements, 30 m au plus, angle de plus de 5°,
-// seuil du coin, 14 px). Cibles de m112. Ordre : coin > intersection > milieu > perpendiculaire > prolongement jusqu'à 30 m >
-// redressement > côté > prolongement de plus de 30 m (m138) ; le réseau passe toujours avant. Repères du fond (façade ouest du bâti, de
-// Ks à Kn ; bâti léger ; façade nord du voisin) : bloc m113, plus bas.
+// seuil du coin, 14 px). Cibles de m112. Ordre : coin > intersection > milieu > perpendiculaire > prolongement, à toute distance (m155) >
+// redressement > côté ; le réseau passe toujours avant. Repères du fond (façade ouest du bâti, de Ks à Kn ; bâti léger ; façade nord du
+// voisin) : bloc m113, plus bas.
 // d (étendu) : accProl et accInter valent false (AIDES_DEFAUT, S.aides), leurs cases des Réglages sont décochées ; accProl à null et
 //     accInter à true : seule « Intersection » est cochée, un toucher coche l'autre ; 20 touchers de plus (TOUCHERS113, près des
 //     prolongements et des rencontres) donnent les mêmes points que sur 4691c1a (FIGES113), clés fausses, retirées ou à null ;
@@ -80,10 +80,13 @@
 //     droite passe à moins de 120 m du point : plus de 256 côtés) ; un tronçon, avec en plus un trait parallèle à la façade, à 100 m du
 //     point (à moins du seuil) : façade écartée, sur la droite du trait le plus proche ; l'intersection garde 30 m (témoin : rencontre à
 //     40 m du coin, sous le doigt) et, au zoom large, cherche ses côtés à 120 m au plus, comme en v1.7.1 (témoin : à 0,05 px par mètre,
-//     sous le doigt) ; au-delà
-//     de 30 m, la façade et le redressement passent avant le prolongement (un trait touché près de la façade sud et de la droite d'un
-//     trait, 73,6 m au-delà de son bout : sur la façade ; un tronçon : redressé ; témoins : un point libre près de la même droite, 65 m
-//     au-delà du bout : sur la droite, trait et tronçon) ;
+//     sous le doigt) ; à toute distance, le prolongement passe avant la façade et le redressement (m155 : un trait touché près de la
+//     façade sud et de la droite d'un trait, 73,6 m au-delà de son bout, et la fin d'un tronçon presque parallèle à la façade : sur la
+//     droite ; témoins : un point libre près de la même droite, 65 m au-delà du bout : sur la droite, trait et tronçon) ; de deux
+//     prolongements, celui dont la droite passe le plus près (à 2 px de celle d'un trait, 50 m au-delà de son bout, et à 5 px de celle d'un
+//     autre, 20 m au-delà : sur la première ; témoin, 5 px et 1 px : sur la seconde) ; sommet glissé près de la même droite et dans la
+//     zone du redressement : sur la droite (trait, tronçon, tronçon parti d'un regard qui porte un collecteur proche ; témoin : un
+//     collecteur qui ne porte pas le regard, sur lui) ;
 //     à 9 px : sur la droite, à 11 px : sous le doigt ; entre les bouts, c'est le côté (« façade », comme clé décochée ; « Accroche au
 //     bâti » décochée : sous le doigt) ; un côté qui croise la droite à 6 px du point (façade nord du voisin) ne l'empêche pas : trait,
 //     avec ou sans « Accroche au bâti », et tronçon vont sur la droite, tirets depuis (59 ; 24) (témoins, clé décochée : la façade ou sous
@@ -111,9 +114,11 @@
 // en portrait : la palette coupe la dernière puce). Sur a3f86c6, pl échoue sur le prolongement sans limite de longueur (30 m au plus :
 // à 30,1 m, 40 m et 0,3 m en deçà de la diagonale, et sur les témoins à 65 m du bout d'un trait) et au zoom large (côtés cherchés à
 // 120 m au plus ; fond dense compris). Sur la première version de m138, pl échouait sur le témoin au-delà de la diagonale (seuil du
-// coin et cases de 8 m de la grille comptés en plus), sur l'intersection au zoom large (côtés cherchés jusqu'à une diagonale du canevas)
-// et sur la façade et le redressement au-delà de 30 m (le prolongement prenait ces points). Le tronçon sur le fond dense échoue si la
-// borne de 256 côtés écarte aussi ceux qui sont à moins du seuil (essai fait : la façade prend alors le point).
+// coin et cases de 8 m de la grille comptés en plus) et sur l'intersection au zoom large (côtés cherchés jusqu'à une diagonale du
+// canevas). Le tronçon sur le fond dense échoue si la borne de 256 côtés écarte aussi ceux qui sont à moins du seuil (essai fait : la
+// façade prend alors le point). Sur 58c2ddd (m138 à m140 : au-delà de 30 m, le prolongement passait après la façade et le redressement),
+// pl échoue sur le trait près de la façade sud (la façade), la fin du tronçon (redressée), les deux prolongements (celui de 20 m) et les
+// sommets glissés (redressés) ; les témoins y passent.
 // usage : node tests/navigateur/accroches.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -1113,23 +1118,28 @@ async function fin113(A, d, f, o){
 async function basculer(p, k){ await toucherEl(p, BOUTON); await toucherEl(p, PUCE(k)); const a = await aides(p), e = await etat(p); await toucherEl(p, BOUTON); return {a, e}; }
 /* aimant touché, palette ouverte puis fermée */
 async function aimant(p){ await toucherEl(p, BOUTON); await toucherEl(p, '.vc .vc-nav .vc-aimant'); await toucherEl(p, BOUTON); }
-/* plan avec le seul tracé l (id 'T'), outil Choisir, l choisi, vue centrée sur c ; son second sommet glissé au doigt jusqu'au point (u, v) ;
-   rend ce sommet */
-async function glisserSommet(A, l, u, v, c){
-  const p = A.p;
-  await plan112(A, null, [l]); await vueSur(A, c[0], c[1]);
+/* plan avec le tracé l (id 'T') et les éléments o.autres, outil Choisir, l choisi, vue centrée sur c (à o.s pixels par mètre, 40
+   d'origine) ; son second sommet glissé au doigt jusqu'au point (u, v) ; rend ce sommet, avec dans vue le repère affiché juste avant que
+   le doigt se lève (type, bouts) */
+async function glisserSommet(A, l, u, v, c, o){
+  const p = A.p; o = o || {};
+  await plan112(A, null, [l].concat(o.autres || [])); await vueSur(A, c[0], c[1], o.s);
   const d = await p.evaluate(() => { const ed = window.__vcEd, S = ed.etat; ed.choisirOutil({k: 'main'}); S.sel = {id: 'T'}; ed.synchroniser();
     const w = S.doc.el.find(e => e.id === 'T').v[1], e = S.vue.ecran(w.x, w.y); return {x: Math.round(e.x), y: Math.round(e.y)}; });
   await C.pause(p, 200);
   const q = A.plan(u, v), f = await C.ecranCv(p, q.x, q.y);
-  await C.glisserDoigtCv(p, d, {x: Math.round(f.x), y: Math.round(f.y)}, 400);
-  const l2 = (await C.docCroquis(p)).el.find(e => e.id === 'T');
-  return l2 && l2.v[1];
+  /* le dernier mouvement du doigt n'est traité qu'à l'image suivante (mouvements regroupés par image) : deux images d'attente */
+  let vue = null;
+  await C.glisserDoigtCv(p, d, {x: Math.round(f.x), y: Math.round(f.y)}, 400, {avantLever: async () => { vue = await p.evaluate(() => new Promise(fin => {
+    requestAnimationFrame(() => requestAnimationFrame(() => { const a = window.__vcEd.etat.accrocheVue; fin(a ? {type: a.type || null, bouts: a.bouts || null} : null); })); })); }});
+  const l2 = (await C.docCroquis(p)).el.find(e => e.id === 'T'), w = l2 && l2.v[1];
+  if (w) w.vue = vue;
+  return w;
 }
 
 /* pl : « Prolongement d'un côté » (accProl) : droite d'un côté au-delà de ses bouts, sans limite de longueur (m138 ; 30 m au plus
-   avant), seuil de la façade (10 px) ; entre les bouts, c'est le côté ; une limite avec « Limites de parcelle » seulement ; jamais un
-   escalier ; aimant coupé : rien */
+   avant), seuil de la façade (10 px), avant le redressement et la façade à toute distance (m155) ; entre les bouts, c'est le côté ; une
+   limite avec « Limites de parcelle » seulement ; jamais un escalier ; aimant coupé : rien */
 async function prolongement(){
   const A = await croquisNeuf(), p = A.p;
   try {
@@ -1222,25 +1232,61 @@ async function prolongement(){
     R.ok(libre(n40), 'pl : témoin : l\'intersection garde 30 m : rencontre à 40 m du coin, « Intersection » seule cochée, sous le doigt (' + genre(n40) + ')');
     R.ok(libre(n120), 'pl : témoin : au zoom large, l\'intersection cherche ses côtés comme en v1.7.1 (120 m au plus) : rencontres à moins de 280 m du point, à 0,05 px par mètre, '
       + 'sous le doigt (' + genre(n120) + ')');
-    /* au-delà de 30 m, le prolongement passe après le redressement et la façade (m138, C1 ; jusqu'à 30 m, avant eux : ordre de m113).
-       Trait de complément T9 de (68,7 ; -70) à (68,7 ; -80), à 90° de la façade sud ; vue à 10 px par mètre (seuil de 10 px : 1 m ; T9 est
-       hors de l'écran, à moins d'une diagonale du canevas, 151 m). Premier point d'un trait touché à 4 px de la façade sud, en (68 ; 3,6),
-       et à 7 px de la droite de T9, 73,6 m au-delà de son bout → sur la façade ; fin d'un tronçon de (57,5 ; 2,6) à (68 ; 2), à 3,3° de la
-       façade sud du voisin et à 7 px de la même droite → redressée. Ces deux contrôles échouent sur la première version de m138 (le
-       prolongement prenait ces points). Témoins (échouent sur a3f86c6 : 30 m au plus) : un point libre à 2 px de cette droite, en
-       (68,9 ; -5), 65 m au-delà du bout de T9 → sur la droite, repère depuis ce bout, pour un trait et pour un tronçon */
+    /* le prolongement passe avant le redressement et la façade, à toute distance (m155, décision du 17 nov. 2026 : ordre de m113 ; de
+       m138 à 58c2ddd, au-delà de 30 m, il passait après eux). Trait de complément T9 de (68,7 ; -70) à (68,7 ; -80), à 90° de la façade
+       sud ; vue à 10 px par mètre (seuil de 10 px : 1 m ; T9 est hors de l'écran, à moins d'une diagonale du canevas, 151 m). Premier
+       point d'un trait touché à 4 px de la façade sud, en (68 ; 3,6), et à 7 px de la droite de T9, 73,6 m au-delà de son bout → sur la
+       droite, repère depuis ce bout ; fin d'un tronçon de (57,5 ; 2,6) à (68 ; 2), à 3,3° de la façade sud du voisin et à 7 px de la même
+       droite → de même, sans redressement. Ces deux contrôles échouent sur 58c2ddd (la façade, le redressement). Témoins (échouent sur
+       a3f86c6 : 30 m au plus) : un point libre à 2 px de cette droite, en (68,9 ; -5), 65 m au-delà du bout de T9 → sur la droite, repère
+       depuis ce bout, pour un trait et pour un tronçon */
     const T9 = traitDe('T9', A.plan(68.7, -70), A.plan(68.7, -80)), c9 = segDe(T9), b9 = A.plan(68.7, -70);
     const f9 = await premier113(A, 68, 3.6, {els: [T9], vue: [68, 0], s: 10});
     const r9 = await fin113(A, [57.5, 2.6], [68, 2], {outil: TRONCON, els: [T9], vue: [64, 0], s: 10});
     const l9 = await premier113(A, 68.9, -5, {els: [T9], vue: [68, 0], s: 10}), t9 = await premier113(A, 68.9, -5, {outil: TRONCON, els: [T9], vue: [68, 0], s: 10});
-    const va9 = r => r.n === 1 && !!r.q && r.q.aide === 'prol' && surDroite(r, c9) && !!r.vue && r.vue.type === 'prol' && !!r.vue.bouts && r.vue.bouts.length === 1
+    const va9 = (r, n) => r.n === (n || 1) && !!r.q && r.q.aide === 'prol' && surDroite(r, c9) && !!r.vue && r.vue.type === 'prol' && !!r.vue.bouts && r.vue.bouts.length === 1
       && proche(r.vue.bouts[0], b9, 1e-6);
-    R.ok(f9.n === 1 && !!f9.q && f9.q.aide === 'facade' && horsDroite(f9.q, sud) < 1e-9, 'pl : au-delà de 30 m, la façade passe avant le prolongement (m138) : point à 4 px '
-      + 'de la façade sud et à 7 px de la droite d\'un trait, 73,6 m au-delà de son bout : ' + genre(f9));
-    R.ok(r9.n === 2 && !!r9.q && (r9.q.aide === 'parallele' || r9.q.aide === 'angle') && horsDroite(r9.q, c9) > 0.5, 'pl : au-delà de 30 m, le redressement passe avant le '
-      + 'prolongement (m138) : fin d\'un tronçon presque parallèle à la façade, à 7 px de la même droite : ' + genre(r9));
+    R.ok(va9(f9), 'pl : le prolongement passe avant la façade, à toute distance (m155) : point à 4 px de la façade sud et à 7 px de la droite d\'un trait, 73,6 m au-delà '
+      + 'de son bout : sur la droite, repère depuis ce bout (' + genre(f9) + (f9.q ? ', ' + horsDroite(f9.q, c9).toExponential(1) + ' m de la droite' : '') + ')');
+    R.ok(va9(r9, 2), 'pl : le prolongement passe avant le redressement, à toute distance (m155) : fin d\'un tronçon presque parallèle à la façade, à 7 px de la même droite : '
+      + 'sur la droite, repère depuis le bout (' + genre(r9) + (r9.q ? ', ' + horsDroite(r9.q, c9).toExponential(1) + ' m de la droite' : '') + ')');
     R.ok(va9(l9) && va9(t9), 'pl : témoins : point libre à 2 px de la droite du trait, 65 m au-delà de son bout : sur la droite, repère depuis ce bout, trait (' + genre(l9)
       + ') et tronçon (' + genre(t9) + ')');
+    /* de deux prolongements, celui dont la droite passe le plus près du point, à toute distance (m155 ; règle de m113) : traits tF de
+       (68,7 ; -55) à (68,7 ; -65) et tN de (88,9 ; -5,5) à (92,9 ; -5,5), vue à 10 px par mètre. Premier point touché en (68,9 ; -5), à
+       2 px de la droite de tF, 50 m au-delà de son bout, et à 5 px de celle de tN, 20 m au-delà du sien → sur la droite de tF, repère
+       depuis (68,7 ; -55) (échoue sur 58c2ddd : le prolongement de 30 m au plus passait d'abord, sur tN). Témoin (passe aussi sur
+       58c2ddd) : en (68,2 ; -5,4), à 5 px de la droite de tF et à 1 px de celle de tN → sur la droite de tN, repère depuis (88,9 ; -5,5) */
+    const tF = traitDe('F', A.plan(68.7, -55), A.plan(68.7, -65)), tN = traitDe('N', A.plan(88.9, -5.5), A.plan(92.9, -5.5));
+    const cF = segDe(tF), cN = segDe(tN), bF = A.plan(68.7, -55), bN = A.plan(88.9, -5.5);
+    const deux = (u, v) => premier113(A, u, v, {els: [tF, tN], vue: [68, 0], s: 10});
+    const vaD = (r, c, b) => r.n === 1 && !!r.q && r.q.aide === 'prol' && surDroite(r, c) && !!r.vue && r.vue.type === 'prol' && !!r.vue.bouts && r.vue.bouts.length === 1
+      && proche(r.vue.bouts[0], b, 1e-6);
+    const hd = (r, c) => r.q ? horsDroite(r.q, c).toFixed(3) : '?';
+    const d1 = await deux(68.9, -5), d2 = await deux(68.2, -5.4);
+    R.ok(vaD(d1, cF, bF), 'pl : de deux prolongements, celui dont la droite passe le plus près du point, à toute distance (m155) : à 2 px de la droite d\'un trait, 50 m '
+      + 'au-delà de son bout, et à 5 px de celle d\'un autre, 20 m au-delà du sien : sur la première, repère depuis son bout (' + genre(d1) + ', ' + hd(d1, cF) + ' m de la '
+      + 'première droite, ' + hd(d1, cN) + ' m de la seconde)');
+    R.ok(vaD(d2, cN, bN), 'pl : témoin : à 5 px de la droite du trait prolongé de 50 m et à 1 px de celle du trait prolongé de 20 m : sur la seconde, repère depuis son bout ('
+      + genre(d2) + ', ' + hd(d2, cN) + ' m de la seconde droite, ' + hd(d2, cF) + ' m de la première)');
+    /* sommet glissé (m155 : le prolongement passe aussi avant le redressement, à toute distance) : tracé de (57,5 ; 2,6) à (60,5 ; 1),
+       choisi, son second sommet glissé jusqu'en (68 ; 2), à 3,3° de la façade sud du voisin et à 7 px de la droite de T9, 72 m au-delà de
+       son bout, vue à 10 px par mètre → sur la droite, repère depuis ce bout : trait de complément, tronçon, et tronçon parti d'un regard
+       qui porte aussi un collecteur, passant à 6 px du doigt (il porte un objet du tracé : ce n'est pas une cible, le sommet reçoit les
+       aides d'un point libre). Échoue sur 58c2ddd : redressé, parallèle à la façade. Témoin : un collecteur qui ne porte pas le regard, de
+       (58,5 ; 2,6) à (72 ; 2,6) : le sommet va sur lui (le réseau passe avant) */
+    const gA = A.plan(57.5, 2.6), gZ = A.plan(60.5, 1), gV = A.plan(58.5, 2.6), gU = A.plan(72, 2.6), gR = C.P('R', 'regard', gA.x, gA.y);
+    const gl = (l, autres) => glisserSommet(A, l, 68, 2, [64, 0], {s: 10, autres: [T9].concat(autres || [])});
+    const g1 = await gl(traitDe('T', gA, gZ)), g2 = await gl(C.L('T', 'tr', [[gA.x, gA.y], [gZ.x, gZ.y]], {}, {}));
+    const g3 = await gl(C.L('T', 'tr', ['R', [gZ.x, gZ.y]], {R: gR}, {}), [gR, C.L('U', 'col', ['R', [gU.x, gU.y]], {R: gR}, {})]);
+    const g4 = await gl(C.L('T', 'tr', ['R', [gZ.x, gZ.y]], {R: gR}, {}), [gR, C.L('U', 'col', [[gV.x, gV.y], [gU.x, gU.y]], {}, {})]);
+    const vaG = g => !!g && horsDroite(g, c9) < 1e-9 && dist(g, A.plan(68, 2)) < 1 && !!g.vue && g.vue.type === 'prol' && !!g.vue.bouts && g.vue.bouts.length === 1
+      && proche(g.vue.bouts[0], b9, 1e-6);
+    const dg = g => g ? horsDroite(g, c9).toFixed(3) + ' m de la droite, repère ' + (g.vue ? g.vue.type : 'aucun') : 'aucun sommet';
+    R.ok(vaG(g1) && vaG(g2) && vaG(g3), 'pl : sommet glissé à 7 px de la droite d\'un trait, 72 m au-delà de son bout, et à 3,3° de la façade sud du voisin : sur la droite, '
+      + 'repère depuis ce bout (m155) : trait de complément (' + dg(g1) + '), tronçon (' + dg(g2) + '), tronçon parti d\'un regard qui porte un collecteur proche (' + dg(g3) + ')');
+    R.ok(!!g4 && !!g4.vue && g4.vue.type === 'seg' && horsDroite(g4, {a: gV, b: gU}) < 1e-9, 'pl : témoin : un collecteur qui ne porte pas le regard : le sommet va sur lui ('
+      + (g4 ? horsDroite(g4, {a: gV, b: gU}).toExponential(1) + ' m du collecteur, repère ' + (g4.vue ? g4.vue.type : 'aucun') : 'aucun sommet') + ')');
     /* seuil de la façade (10 px) : premier point touché à 9 px de la droite, 3 m au-delà de Ks → sur la droite ; à 11 px → sous le doigt */
     const s9 = await premier113(A, 65.725, 1), s11 = await premier113(A, 65.775, 1);
     const dp = r => r.q && r.q.doigt ? horsDroite(r.q.doigt, ouest) * 40 : NaN;

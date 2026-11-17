@@ -345,9 +345,9 @@ function piedSegs(p, prec, segs, R){
      Rend {x, y, d, s, s2, ext, ext2, bout, bout2} ; bout (ou bout2) vaut null quand le point est sur le côté même.
    Le plus proche de p ; à 1 mm près (le même point pour le technicien : des côtés alignés donnent la même droite, au bruit du fond près),
    le plus court prolongement ; puis le premier. Sinon, ou pour une entrée invalide, null */
-/* PROL_MAX : 30 m. L'intersection garde cette borne (défaut d'interSegs). Le prolongement d'un côté n'a plus de limite de longueur
-   (m138), mais jusqu'à 30 m seulement il passe avant le redressement et la façade, comme en m113 (accrochesNouvelles passe PROL_MAX à
-   prolSegs) ; au-delà de 30 m, il passe après eux (prolLoin) */
+/* PROL_MAX : 30 m. L'intersection garde cette borne (défaut d'interSegs). Le prolongement d'un côté n'a pas de limite de longueur
+   (m138) et passe, à toute distance, avant le redressement et la façade, dans l'ordre de m113 (m155) : accrochesNouvelles réunit les
+   candidats de 30 m au plus, cherchés près du point (PROL_MAX), et ceux de prolLoin, jusqu'à une diagonale du canevas */
 var PROL_MAX = 30, INTER_SIN = Math.sin(5 * Math.PI / 180), ACC_COIN = .01, ACC_EGAL = .001, INTER_MAX = 64;
 /* longueur du prolongement au paramètre t d'un côté de longueur L (0 entre les bouts) */
 function depasse(t, L){ return t < 0 ? -t * L : t > 1 ? (t - 1) * L : 0; }
@@ -361,9 +361,12 @@ function plusProche(c, v){
   for (i = 0; i < c.length; i++) if (c[i].d <= dmin + ACC_EGAL && (!best || v(c[i]) < v(best) - ACC_EGAL)) best = c[i];
   return best;
 }
-function prolSegs(p, segs, R, Lmax){
+function prolSegs(p, segs, R, Lmax){ return plusProche(prolCands(p, segs, R, Lmax), function(q){ return q.ext; }); }
+/* candidats de prolSegs ({x, y, d, s, bout, ext}, dans l'ordre de segs), avant le choix ; entrée invalide : aucun. accrochesNouvelles
+   en réunit deux listes avant de choisir (m155) */
+function prolCands(p, segs, R, Lmax){
   if (Lmax === undefined) Lmax = Infinity;
-  if (!estPt(p) || !Array.isArray(segs) || !(R >= 0) || typeof Lmax !== 'number' || !(Lmax >= 0)) return null;
+  if (!estPt(p) || !Array.isArray(segs) || !(R >= 0) || typeof Lmax !== 'number' || !(Lmax >= 0)) return [];
   var c = [], pres = [], i, s, a, b, f, e, d, L;
   /* côtés à R au plus de p (entre leurs bouts ou près d'eux) */
   for (i = 0; i < segs.length; i++){
@@ -381,7 +384,7 @@ function prolSegs(p, segs, R, Lmax){
     if (pres.some(function(t){ return presqueParalleles(s, L, t.s, t.L); })) continue;
     c.push({x: f.x, y: f.y, d: d, s: s, bout: f.t < 0 ? a : b, ext: e});
   }
-  return plusProche(c, function(q){ return q.ext; });
+  return c;
 }
 function interSegs(p, segs, R, Lmax){
   if (Lmax === undefined) Lmax = PROL_MAX;
@@ -3787,11 +3790,16 @@ function editeur(racine, opts){
   }
   /* Nouveaux accrochages cochés (m112, m113), aimant actif, sur les cibles de segsCibles, dans cet ordre : intersection de deux côtés ou de
      leurs prolongements (seuil du coin, 14 px), milieu d'un côté (14 px), pied de la perpendiculaire menée du point précédent prec (seuil
-     de la façade, 10 px), prolongement d'un côté jusqu'à PROL_MAX (30 m ; 10 px). Intersection et prolongement prennent les côtés à
-     PROL_MAX plus le seuil du point, une seule fois pour les deux : mêmes cibles et même coût qu'en v1.7.1. Un prolongement de plus de
-     30 m (m138) vient après le redressement et la façade : prolLoin. mur : objet posé sur un mur (descente, trop-plein, té, gargouille),
-     qui ne va que sur le bâti : ni limite de parcelle, ni prolongement, ni intersection. Rien : null. Repère : 'inter' et 'prol' gardent
-     dans bouts les bouts d'où partent leurs prolongements ; sur : côtés sur lesquels tombe une intersection (pour surLeBati) */
+     de la façade, 10 px), prolongement d'un côté (10 px), à toute distance (m155 : avant le redressement et la façade, qui viennent après
+     cette fonction). Intersection et prolongement prennent les côtés à PROL_MAX plus le seuil du point, une seule fois pour les deux : mêmes
+     cibles et même coût qu'en v1.7.1 ; le prolongement y ajoute les candidats de prolLoin (côtés jusqu'à une diagonale du canevas), puis
+     choisit parmi tous, comme prolSegs : le plus proche du point ; à 1 mm près, le moins prolongé ; puis le premier (celui de 30 m au
+     plus d'abord). Sans candidat que prolLoin est seul à donner, c'est le point de m113. prolLoin est seul à donner un prolongement de
+     plus de 30 m. Au zoom très large, il donne aussi celui d'un côté plus loin que segsCibles ne cherche (sous 0,156 px/m environ), ou
+     celui d'un côté qu'un voisin aligné, à plus de 120 m du point, empêche dans la liste de 30 m au plus (sous 0,083 px/m : voir
+     prolLoin) [p]. mur : objet posé sur un mur (descente, trop-plein, té, gargouille), qui ne va que sur le bâti : ni limite de parcelle,
+     ni prolongement, ni intersection. Rien : null. Repère : 'inter' et 'prol' gardent dans bouts les bouts d'où partent leurs
+     prolongements ; sur : côtés sur lesquels tombe une intersection (pour surLeBati) */
   function accrochesNouvelles(m, prec, sauf, mur){
     var R, r, loin = null;
     function cibles(){ return loin || (loin = segsCibles(m, PROL_MAX + 14 / S.vue.s, sauf, mur)); }
@@ -3799,22 +3807,26 @@ function editeur(racine, opts){
       if (r) return {x: r.x, y: r.y, type: 'inter', arete: r.s, arete2: r.s2, bouts: [r.bout, r.bout2].filter(Boolean), sur: [r.ext ? null : r.s, r.ext2 ? null : r.s2].filter(Boolean), aide: true}; }
     if (aideOn('accMilieu')){ R = 14 / S.vue.s; r = milieuSegs(m, segsCibles(m, R, sauf, mur), R); if (r) return {x: r.x, y: r.y, type: 'milieu', arete: r.s, aide: true}; }
     if (prec && aideOn('accPerp')){ R = 10 / S.vue.s; r = piedSegs(m, prec, segsCibles(m, R, sauf, mur), R); if (r) return {x: r.x, y: r.y, type: 'perp', arete: r.s, de: {x: prec.x, y: prec.y}, aide: true}; }
-    if (!mur && aideOn('accProl')){ R = 10 / S.vue.s; r = prolSegs(m, cibles(), R, PROL_MAX); if (r) return {x: r.x, y: r.y, type: 'prol', arete: r.s, bouts: [r.bout], aide: true}; }
+    if (!mur && aideOn('accProl')){ R = 10 / S.vue.s; r = plusProche(prolCands(m, cibles(), R, PROL_MAX).concat(prolLoin(m, sauf)), function(q){ return q.ext; });
+      if (r) return {x: r.x, y: r.y, type: 'prol', arete: r.s, bouts: [r.bout], aide: true}; }
     return null;
   }
-  /* Prolongement d'un côté sans limite de longueur (m138, décision D2), pour un point resté libre : il vient après le redressement et la
-     façade (ou le côté d'une limite) ; jusqu'à 30 m, accrochesNouvelles l'a déjà cherché, avant eux (ordre de m113). Mêmes cibles que
-     segsCibles (bâti, traits de complément, limites si « Limites de parcelle » est cochée), mais jusqu'à une diagonale du canevas du point
-     m (PROL_MAX au moins), mesurée jusqu'au côté : tout côté visible compte ; un côté plus loin ne compte pas. Seuil R : 10 px, 120 m au
-     plus, comme les côtés du fond que la façade examine (segsPres). Coût : un seul passage sur les côtés, sans grille ; ne restent que
-     ceux dont la droite passe à R au plus de m (les seuls qui comptent pour prolSegs : côtés proches et candidats ; 1 µm de marge), groupe
-     par groupe comme segsCibles (bâti, traits de complément, limites), chaque groupe dans l'ordre de sa liste. Au zoom large, sur un fond
-     dense : tous les côtés à R au plus de m (prolSegs en a besoin), et au plus PROL_LOIN_MAX autres, ceux dont la droite passe le plus
-     près de m (à égalité, les premiers), comme INTER_MAX pour l'intersection. mur, clé décochée ou aimant coupé : null */
+  /* Candidats du prolongement d'un côté sans limite de longueur (m138, décision D2), que accrochesNouvelles réunit à ceux de 30 m au plus
+     avant de choisir (m155 : à toute distance, avant le redressement et la façade). Mêmes cibles que segsCibles (bâti, traits de
+     complément, limites si « Limites de parcelle » est cochée), mais jusqu'à une diagonale du canevas du point m (PROL_MAX au moins),
+     mesurée jusqu'au côté : tout côté visible compte ; un côté plus loin ne compte pas. Seuil R : 10 px, 120 m au plus, comme les côtés du
+     fond que la façade examine (segsPres). Ce seuil vaut aussi pour la règle du côté aligné (prolCands). Sous 0,083 px/m, 10 px font plus
+     de 120 m : un côté aligné à plus de 120 m du point, mais à 10 px au plus, n'empêche donc pas ici le prolongement de son voisin. Ce
+     prolongement passe alors avant la façade sur ce côté, que la règle de m113 (10 px) laisserait gagner (vu à 0,05 px/m). Écart gardé
+     [p] : à ce zoom, un bâti de 10 m fait moins d'un pixel. Coût : un seul passage sur les côtés, sans grille ; ne restent que ceux dont
+     la droite passe à R au plus de m (les seuls qui comptent pour prolCands : côtés proches et candidats ; 1 µm de marge), groupe par
+     groupe comme segsCibles (bâti, traits de complément, limites), chaque groupe dans l'ordre de sa liste. Au zoom large, sur un fond
+     dense : tous les côtés à R au plus de m (prolCands en a besoin), et au plus PROL_LOIN_MAX autres, ceux dont la droite passe le plus
+     près de m (à égalité, les premiers), comme INTER_MAX pour l'intersection. Rend la liste de prolCands, vide s'il n'y a rien ; la clé,
+     l'aimant et l'objet de mur sont vus par l'appelant */
   var PROL_LOIN_MAX = 256;
-  function prolLoin(m, sauf, mur){
-    if (mur || !aideOn('accProl')) return null;
-    var R = Math.min(10 / S.vue.s, 120), D = Math.max(PROL_MAX, Math.hypot(S.vue.w, S.vue.h) / S.vue.s), e2 = (R + 1e-6) * (R + 1e-6), out = [], r;
+  function prolLoin(m, sauf){
+    var R = Math.min(10 / S.vue.s, 120), D = Math.max(PROL_MAX, Math.hypot(S.vue.w, S.vue.h) / S.vue.s), e2 = (R + 1e-6) * (R + 1e-6), out = [];
     var x0 = m.x - D, x1 = m.x + D, y0 = m.y - D, y1 = m.y + D, dl = [], v = [], lim, n, k, j;
     /* dl, pour chaque côté gardé : -1 s'il est à R au plus de m (il reste), sinon le carré de la distance de m à sa droite (aussi dans v) */
     function garder(segs){
@@ -3835,20 +3847,18 @@ function editeur(racine, opts){
       for (j = 0; j < out.length; j++) if (dl[j] < lim || (dl[j] === lim && n-- > 0)) k.push(out[j]);
       out = k;
     }
-    r = prolSegs(m, out, R);
-    return r ? {x: r.x, y: r.y, type: 'prol', arete: r.s, bouts: [r.bout], aide: true} : null;
+    return prolCands(m, out, R);
   }
   /* Point libre (traits de complément, escalier, objets de façade) : coin (du bâti ; d'une limite de parcelle si elle est cochée), nouveaux
-     accrochages, redressement, façade (ou côté d'une limite), puis prolongement de plus de 30 m (prolLoin, m138). o.mur : objet posé sur
-     un mur (descente, trop-plein, té, gargouille), qui ne va que sur le bâti : aucune limite de parcelle n'est alors cible (ni coin, ni
-     côté, ni milieu), et ni le prolongement d'un côté ni une intersection ne l'attirent (ce ne sont pas des murs, m113) */
+     accrochages (le prolongement d'un côté à toute distance compris, m155), redressement, façade (ou côté d'une limite). o.mur : objet
+     posé sur un mur (descente, trop-plein, té, gargouille), qui ne va que sur le bâti : aucune limite de parcelle n'est alors cible (ni
+     coin, ni côté, ni milieu), et ni le prolongement d'un côté ni une intersection ne l'attirent (ce ne sont pas des murs, m113) */
   function accrocheLibre(x, y, o){
     o = o || {}; var m = S.vue.monde(x, y), sl = !!o.mur, cc = aideOn('bati') || (!sl && aideOn('accParcelle')), R;
     if (cc){ R = 14 / S.vue.s; var cn = coinProche(m, R, o.saufLigne, segsCoinCote(m, R, o.saufLigne, sl)); if (cn) return {x: cn.x, y: cn.y, type: cn.s[7] === 'limite' ? 'parcelle' : 'coin', arete: cn.s, aide: true}; }
     var nv = accrochesNouvelles(m, o.prec, o.saufLigne, sl); if (nv) return nv;
     if (o.prec){ var rd = redresser(o.prec, m, o.saufLigne); if (rd) return rd; }
     if (cc){ R = 10 / S.vue.s; var ar = areteProche(m, R, o.saufLigne, segsCoinCote(m, R, o.saufLigne, sl)); if (ar) return {x: ar.x, y: ar.y, type: ar.s[7] === 'limite' ? 'parcelle' : 'facade', arete: ar.s, aide: true}; }
-    var pl = prolLoin(m, o.saufLigne, sl); if (pl) return pl;
     return {x: m.x, y: m.y};
   }
   function attache(a){ return !!a && (a.type === 'obj' || a.type === 'som' || a.type === 'seg'); }
@@ -3895,11 +3905,9 @@ function editeur(racine, opts){
     if (best) return best;
     var m = S.vue.monde(x, y);
     /* le réseau passe avant ; puis, pour un point saisi, les nouveaux accrochages cochés (m112, m113 : intersection, milieu, perpendiculaire,
-       prolongement jusqu'à 30 m), avant le redressement (ni coin ni façade : ils restent hors des tronçons) ; après lui, le prolongement de
-       plus de 30 m (m138) */
+       prolongement d'un côté, à toute distance depuis m155), avant le redressement (ni coin ni façade : ils restent hors des tronçons) */
     if (o.saisie){ var nv = accrochesNouvelles(m, o.prec, o.saufLigne); if (nv) return nv; }
     if (o.prec){ var rd = redresser(o.prec, m); if (rd) return rd; }
-    if (o.saisie){ var pl = prolLoin(m, o.saufLigne); if (pl) return pl; }
     return {x: m.x, y: m.y};
   }
 
@@ -4301,12 +4309,13 @@ function editeur(racine, opts){
       var a = !estCanalisation(l.t) ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, saufObjs: siens, prec: prec, col: l.t === 'col', saisie: true, plan: l.p && l.p.st === 'projet' ? 'avp' : 'edl'});
       /* un tracé qui porte un objet du tracé (sortie d'une boîte, collecteur d'un regard ou d'un raccord) n'est pas une cible : s'y raccrocher
          refermerait le tracé sur cet objet. Le doigt dans la zone de l'objet d'un sommet voisin, le coude s'y fond (coude glissé sur la boîte
-         voisine, le doigt sur sa sortie) ; sinon le sommet reste libre */
+         voisine, le doigt sur sa sortie) ; sinon le sommet reste libre : nouveaux accrochages cochés (le prolongement d'un côté, à toute
+         distance, compris : m155), puis redressement */
       var porteurs = (a.type === 'som' || a.type === 'seg') ? l.v.filter(function(w, k){ return k !== c.i && !!w.a && objetSurTrace(w.a, a.ligne); }).map(function(w){ return w.a; }) : [];
       if (porteurs.length){
         var voisin = [l.v[c.i - 1], l.v[c.i + 1]].map(function(w){ return w && w.a; }).filter(function(id){ var z = id && !siens[id] && porteurs.indexOf(id) >= 0 ? zonePt(id) : null; return !!z && Math.hypot(p.x - z.x, p.y - z.y) <= Math.max(z.r, 10) + 12; })[0], ov = voisin && el(voisin);
         if (ov) a = {type: 'obj', id: ov.id, x: ov.x, y: ov.y};
-        else { var m0 = S.vue.monde(p.x, p.y); a = accrochesNouvelles(m0, prec, l.id) || (prec && redresser(prec, m0)) || prolLoin(m0, l.id) || {x: m0.x, y: m0.y}; }
+        else { var m0 = S.vue.monde(p.x, p.y); a = accrochesNouvelles(m0, prec, l.id) || (prec && redresser(prec, m0)) || {x: m0.x, y: m0.y}; }
       }
       /* poignée d'un bout d'un trait de complément de quatre sommets ou plus, à 14 px au plus de l'autre bout : elle en prend les coordonnées
          exactes, le contour est fermé (m139, comme au tracé : surPremier) */

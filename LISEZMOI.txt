@@ -313,9 +313,10 @@ CROQUIS DE TERRAIN (facultatif)
   leurs bouts ; un coin reste un coin), calent les points d'un tracé
   (tronçon compris) et les objets posés sur un mur (sur le bâti
   seulement : ni prolongement ni intersection), après l'accroche au
-  réseau, qui passe toujours avant. Au-delà de 30 m d'un bout, le
-  prolongement passe après les autres aides (accroche au bâti ou à une
-  limite, parallèle au bâti, angles).
+  réseau, qui passe toujours avant. Ordre des aides : coin,
+  intersection, milieu, perpendiculaire, prolongement (à toute distance
+  d'un bout), puis parallèle au bâti et angles, puis façade ou côté
+  d'une limite.
 - Sorties : plan de l'état des lieux et plan d'avant-projet en PDF, plan
   DXF pour la DAO (dans le croquis, « Sorties »), « Plan PDF » sur la page
   du dossier. L'export de l'étude joint le plan PDF dans le dossier. Le
