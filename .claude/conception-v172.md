@@ -556,20 +556,42 @@ nouveau (tests/vm/tropplein.js, si m145 le choisit) s'ajoute à tests/tout.sh et
     navigateur/constat-boite.js) ; message du cas 85.
   - Risques et [p] : texte de la règle de CLAUDE.md, plus précis que celui de la conception [p], à revoir si S2 donne (b) ou (c) ;
     commentaire en fin de ligne d'IX:1909 [p].
-- **m138 Prolongement sans limite** (pr12-9 ; D2 ; X5). Taille S.
-  - Fichiers et fonctions : CJ : contrat et PROL_MAX (l. 336-348), prolSegs (défaut Infinity, l. 361-363), interSegs (défaut gardé, l. 383-385),
-    segsPres et segsCibles (l. 3658-3668 : argument qui lève la borne de 120 m pour cibles() [p : nom]), cibles (l. 3707, commentaire
-    l. 3701), texte des Réglages (l. 3257). LISEZMOI.txt l. 296-297. tests/vm/dessin.js, tests/navigateur/accroches.js.
+- **m138 Prolongement sans limite** (pr12-9 ; D2 ; X5). Taille S. Fait : 80ffc7d, 17 nov.
+  - Fichiers et fonctions : CJ : contrat et commentaire de PROL_MAX (l. 336-351), prolSegs (défaut Infinity, l. 364-366), interSegs (défaut
+    PROL_MAX gardé, l. 386), Réglages (accProl et accInter, l. 3260-3261), traitsComplement (tirée de segsPres, sans changement,
+    l. 3663-3669), accrochesNouvelles (prolSegs avec PROL_MAX, l. 3710-3719), prolLoin et PROL_LOIN_MAX = 256 (nouveaux, l. 3720-3755),
+    appelés par accrocheLibre (après la façade, l. 3766), accroche d'un point saisi d'un tronçon (après le redressement, l. 3817) et le
+    sommet glissé (repli, l. 4224). cibles(), segsCibles et dansGrille : ceux de la v1.7.1 (l'argument qui levait la borne de 120 m pour
+    cibles() a disparu à la correction). LISEZMOI.txt l. 295-303 ; croquis/LISEZMOI.txt l. 27 ; tests/vm/dessin.js,
+    tests/navigateur/accroches.js, tests/LISEZMOI.md.
   - Pour l'utilisateur : « Prolongement d'un côté » cale le point au-delà d'un bout, sans limite de longueur (tout côté visible compte, même
-    à plus de 120 m) ; « Intersection » garde 30 m ; Réglages et LISEZMOI disent « sans limite de longueur ».
-  - Tests : vm/dessin.js : prolSegs sans Lmax, point à 40 m au-delà du bout et à 5 cm de la droite : un point, ext ≈ 40 (v1.7.1 : null) ; avec
-    un Lmax donné : inchangé ; interSegs, rencontre à 40 m : null (témoin). navigateur/accroches.js, cas pl (l. 1114-1149) : les témoins à
-    30,1 m et 40 m se calent sur la droite (v1.7.1 : sous le doigt) ; point à 150 m au-delà du bout d'un côté du bâti du fond, au zoom le
-    plus large : il se cale (v1.7.1 : non, borne de 120 m) ; temps de cibles() à ce zoom mesuré et noté dans la carte.
-  - Garde : compat 245/245 ; aucune sortie comparée ne change ; aléatoire : sans écart (aide au dessin).
-  - Risques et [p] : accroches parasites d'un côté lointain au zoom large ; calcul plus long (parcours des cases occupées de la grille si
-    besoin [p]) ; repli à 120 m si le coût reste trop grand, écrit dans les Réglages, le LISEZMOI et la carte, et signalé à l'utilisateur ;
-    borne par la diagonale de l'écran [p] ; intersection à 30 m [p]. Dépendances : aucune.
+    à plus de 120 m). Jusqu'à 30 m, il garde sa place de m113, avant le redressement et la façade ; au-delà, il passe après eux, et seulement
+    pour un point resté libre. « Intersection » garde 30 m ; son explication des Réglages le dit (« … se croisent, à 30 m au plus de leurs
+    bouts »). Une tablette en v1.7.1 garde 30 m : rien de neuf n'est enregistré dans le croquis.
+  - Tests : vm/dessin.js (187) : prolongement sans longueur donnée à 30,1 m, 40 m et 10 km au-delà du bout, explications des Réglages mot
+    pour mot (échouent sur a3f86c6) ; témoins : une longueur donnée reste une borne, l'intersection garde 30 m. navigateur/accroches.js, cas
+    pl (28 ; fichier : 217) : 29,9 m, 30,1 m et 40 m au-delà du bout ; côté du bâti à 150 m (0,11 px/m) et à 750 m (0,02 px/m) ; fond dense
+    au zoom le plus large, plus de 256 côtés (zd, zp) ; point libre et tronçon calés à 65 m (l9, t9) : échouent sur a3f86c6 ; façade et
+    redressement avant un prolongement de plus de 30 m (f9, r9), intersection qui cherche ses côtés à 120 m au plus au zoom large (n120),
+    borne exacte par la diagonale du canevas (e5) : échouent sur la première version ; témoin : intersection à 30 m. Garde : compat 245/245 ;
+    aléatoire 8000 contre a3f86c6 : sans écart.
+  - Relecture : deux défauts majeurs de la première version, corrigés. (1) Sur un fond dense, de 10 à 20 px/m, le prolongement de côtés
+    lointains prenait la plupart des points redressés ou posés sur une façade (fond fictif « ville », façade à 10 px/m : 84/16 devenait
+    16/84) : au-delà de 30 m, il passe après eux (option 1 du relecteur [p]). (2) Le glissé devenait 9 à 28 fois plus lent (rayon de cibles()
+    porté à une diagonale de l'écran, sans la borne de 120 m) : cibles() a repris celui de la v1.7.1, et prolLoin fait un seul passage sur
+    les côtés, sans la grille. Remarques appliquées : phrase fausse du LISEZMOI du croquis, borne de l'intersection dite dans les Réglages et
+    le LISEZMOI, liste des appels qui gardent 120 m (cibles(), milieu, perpendiculaire, coin, façade, areteProche, coinProche, segsPres(q,
+    .25)).
+  - Mesures (processeur ralenti 4 fois, fond fictif de 60 × 60 bâtis, 7 218 polylignes, limites cochées ; moyenne par mouvement) : glissé
+    avec Prolongement, Intersection et Limites, de 10 à 1 px/m : 0,8 à 2,5 ms (a3f86c6 : 1,1 à 2,5 ; première version : 6,0 à 73) ; point
+    resté libre (prolLoin tourne) : 2,8 à 5,0 ms de 5 à 1 px/m (a3f86c6 : 0,8 à 1,0), jusqu'à 11,7 ms au zoom large (a3f86c6 : 7,3) ;
+    cibles() à 0,02 px/m : 1,6 ms (a3f86c6 : 1,3, même code : bruit [p]) ; demoDxf : 0,6 à 5,6 ms (a3f86c6 : 1,0 à 6,1). Banc Node, pire cas
+    de prolLoin : 4,9 ms avec la borne de 256 côtés, 92 ms sans elle.
+  - Risques et [p] : ordre au-delà de 30 m (option 1 [p] ; autres : « le plus proche du doigt l'emporte », ou l'ordre de m113 gardé et dit
+    dans l'aide : à demander à l'utilisateur) ; sur un fond dense, dès 5 px/m environ, un point resté libre se cale presque toujours sur le
+    prolongement d'un côté lointain (18 sur 18 à 5 px/m, 39 sur 39 à 1 px/m : effet de D2) ; borne par la diagonale du canevas [p] ; seuil de
+    10 px, 120 m au plus, comme la façade [p] ; borne de 256 côtés (4 points sur 2 100 restent libres, à 0,2 px/m, fond de 40 × 40 tourné au
+    hasard) [p] ; intersection à 30 m [p] ; texte de l'explication d'« Intersection » ajouté [p]. Dépendances : aucune.
 - **m139 Escalier : côté et montée proposés ; consigne pour les anciennes tablettes** (pr12-2, escalier-rendu ; D3, D4 ; X6). Taille S.
   - Fichiers et fonctions : CJ : escalierDefauts (l. 1050-1071 : filtre du bâti l. 1055, montée l. 1070), appels de refsCotes (l. 4528,
     5377), distPolygone (l. 136, lue). LISEZMOI.txt l. 166-173 et consigne de mise à jour (l. 366-372). tests/vm/escalier.js,
