@@ -257,7 +257,7 @@ CROQUIS DE TERRAIN (facultatif)
   ses anomalies vont sur sa ligne. Une étiquette commune (bouton
   « Étiquette commune… » de la fiche d'un appareil EU) écrit sur le plan
   une seule étiquette pour les appareils d'une même pièce (« Salle de
-  bain (1er étage) » puis « douche, WC + lave-mains, lavabo ») ; elle ne
+  bain (1er étage) » puis « douche, lavabo, WC + lave-mains ») ; elle ne
   change aucun compte : chaque appareil reste une installation, et un
   lavabo réuni compte comme un évier. Un message le rappelle à
   « Terminé » quand le titre est Salle de bain ou Cuisine : pour une

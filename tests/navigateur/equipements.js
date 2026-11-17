@@ -41,12 +41,12 @@
 // e2 échoue sur 53fe487 (« Autre appareil » absent de la palette ; les contrôles suivants ne sont pas lancés).
 // m134, étiquette commune (souhait 8 ; décision D6 ; c8, à la suite de c1 à c7 de vm/equipements.js : e3 est le test prévu pour m135) :
 // c8 : douche porteur (titre « sdb »), lavabo et WC + lave-mains liés à elle, au 1er étage, étiquettes à placer : à l'écran « Salle de bain
-//      (1er étage) » puis « douche, WC + lave-mains, lavabo », une fois chacune, aucune étiquette propre d'un membre ; témoin « Évier
+//      (1er étage) » puis « douche, lavabo, WC + lave-mains », une fois chacune, aucune étiquette propre d'un membre ; témoin « Évier
 //      (RDC) » à part ; de même au plan PDF de l'état des lieux, produit par la sortie de l'éditeur (textes captés à l'appel de la
 //      bibliothèque PDF, sans les liserés). Le lavabo changé en évier par le sélecteur Type : lien gardé, aucun toast, un pas, « douche,
-//      WC + lave-mains, évier » ; « Annuler » rend le lavabo lié ; la douche changée en baignoire : titre gardé, « baignoire, WC +
-//      lave-mains, lavabo » ; le témoin, au lien et au titre vides (fichier fait à la main), changé en lavabo : aucune de ces clés écrite,
-//      « Lavabo (RDC) » ; aucune erreur dans la console.
+//      évier, WC + lave-mains » ; « Annuler » rend le lavabo lié ; la douche changée en baignoire : titre gardé, « baignoire,
+//      lavabo, WC + lave-mains » ; le témoin, au lien et au titre vides (fichier fait à la main), changé en lavabo : aucune de ces clés
+//      écrite, « Lavabo (RDC) » ; aucune erreur dans la console.
 // c8 échoue sur 344c7b2 (5 cas : chacun son étiquette, à l'écran et au plan PDF ; le changement de type efface lien et titre avec un
 // toast) ; y passent « Annuler » et la console.
 // m135, étiquette commune, 2e partie (souhait 8 ; décisions D6 et D7) :
@@ -60,7 +60,7 @@
 //      porteur : rien. « Terminé » : un pas, L et W liés, lien de D effacé, F sans lien, mode fermé, fiche de D, toast « Lavabo et évier
 //      comptent à part (Évier) ; … » ; à l'écran l'étiquette commune seule ; « Annuler » rend les trois étiquettes, « Rétablir » le groupe.
 //      Fiche du porteur : puces Salle de bain | Salle d'eau | Cuisine | Buanderie | Aucun, aucune pressée ; « Compté au constat : Salle de
-//      bain 1, WC 1, Évier 1 » ; texte indicatif sur une ligne (M3) ; « Modifier le groupe », « Défaire » ; « Salle d'eau » en un pas, à
+//      bain 1, Évier 1, WC 1 » ; texte indicatif sur une ligne (M3) ; « Modifier le groupe », « Défaire » ; « Salle d'eau » en un pas, à
 //      l'écran ; un second toucher retire la clé etiqTitre. M6 : niveau de L changé, étiquette du porteur posée d'office replacée, déplacée à
 //      la main gardée. Fiche de L : « Étiquette réunie avec la Douche », champ, « Affichée » et « Replacer » grisés ; « Voir » choisit D et
 //      centre la vue ; « Séparer » (aussi après « Replacer toutes les étiquettes ») : un pas, lien retiré, étiquette de L posée, le groupe
@@ -80,6 +80,23 @@
 // e3 échoue sur 82f9ae2 (pas de bouton « Étiquette commune… » ; les contrôles suivants ne sont pas lancés) ; sans la correction de la
 // relecture, 6 cas échouent : M7 (état des lieux, avant-projet), M1 (dernier membre séparé, supprimé, nouveau groupe) et « Compté au
 // constat » (M2 et M4) ; le cas M3 et M5 passe aussi sans elle (seul le texte a changé).
+// m141, ordre de l'étiquette commune (réponse ordre-etiquette-commune du 16 nov. 2026, choix b ; décision D7 de
+//      `.claude/conception-v172.md`) : la liste suit l'ordre de l'exemple de la conception (douche, lavabo, WC), porteur compris ; le
+//      porteur garde son rôle. Attentes changées : c8 « douche, lavabo, WC + lave-mains », « douche, évier, WC + lave-mains »,
+//      « baignoire, lavabo, WC + lave-mains » ; e3 « douche, lavabo, WC + lave-mains » et « Compté au constat : Salle de bain 1, Évier 1,
+//      WC 1 ».
+// c11 : WC + lave-mains W porteur, douche D et lavabo L liés à lui, au 1er étage : à l'écran et au plan PDF « Salle de bain (1er étage) »
+//      puis « douche, lavabo, WC + lave-mains », une fois chacune, aucune étiquette propre. Fiche de W : « Compté au constat : Salle de
+//      bain 1, Évier 1, WC 1 », texte indicatif « Salle de bain (1er étage) — douche, lavabo, WC + lave-mains », « Modifier le groupe » et
+//      « Défaire ». Fiche de D : « Étiquette réunie avec le WC + lave-mains », « Voir » vers W. Puce « Salle d'eau » : titre écrit sur W, un
+//      pas, « Salle d'eau (1er étage) » à l'écran. « Modifier le groupe » : mode ouvert pour W, D et L choisis, halos ; « Annuler » du
+//      bandeau : rien d'écrit. D retiré, « Terminé » : un pas, lien retiré, étiquette de D posée, « Lavabo, WC + lave-mains (1er étage) ».
+//      « Défaire », puis W supprimé : un pas, liens retirés, étiquettes des membres posées ; « Annuler » rend le groupe. Aucune erreur dans
+//      la console.
+// c11 échoue sur 5549078 (ordre du catalogue, porteur en tête : « WC + lave-mains, lavabo, douche », « Compté au constat : WC 1, Évier 1,
+// Salle de bain 1 ») : 8 cas sur 14 (écran, plan PDF, compte, texte indicatif, « Salle d'eau », douche retirée, les deux « Annuler ») ; y
+// passent la fiche du membre, « Modifier le groupe », « Annuler » du bandeau, « Défaire », la suppression et la console. De même 5 cas de
+// c8 et 6 de e3, aux attentes changées (avant : « douche, WC + lave-mains, lavabo », « Salle de bain 1, WC 1, Évier 1 »).
 // usage : node tests/navigateur/equipements.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -490,35 +507,35 @@ async function etiquetteCommune(){
       temoin: tx.filter(t => /^(Évier|Lavabo) \(RDC\)$/.test(t)), tx: tx.filter(t => /bain|ouche|avabo|WC|vier|aignoire/.test(t))});
     const vu = async l2 => compte(await textesEcran(p), l2);
     const bien = (r, temoin) => r.t1 === 1 && r.t2 === 1 && !r.propres.length && r.temoin.join() === temoin;
-    let r = await vu('douche, WC + lave-mains, lavabo');
-    R.ok(bien(r, 'Évier (RDC)'), 'c8 douche porteur (titre « sdb »), lavabo et WC + lave-mains liés, au 1er : à l\'écran « ' + T1 + ' » puis « douche, WC + lave-mains, lavabo », '
+    let r = await vu('douche, lavabo, WC + lave-mains');
+    R.ok(bien(r, 'Évier (RDC)'), 'c8 douche porteur (titre « sdb »), lavabo et WC + lave-mains liés, au 1er : à l\'écran « ' + T1 + ' » puis « douche, lavabo, WC + lave-mains », '
       + 'une fois chacune, aucune étiquette propre ; témoin « Évier (RDC) » (obtenu ' + JSON.stringify(r) + ')');
     /* plan PDF de l'état des lieux, par la sortie de l'éditeur : de même (la légende et le tableau de la page 2 nomment chaque appareil,
        sans niveau) */
-    const pd = await textesPdf(p); r = compte(pd.textes, 'douche, WC + lave-mains, lavabo');
-    R.ok(/\.pdf$/.test(pd.fichier) && bien(r, 'Évier (RDC)'), 'c8 plan PDF de l\'état des lieux (sortie de l\'éditeur) : « ' + T1 + ' » puis « douche, WC + lave-mains, lavabo », '
+    const pd = await textesPdf(p); r = compte(pd.textes, 'douche, lavabo, WC + lave-mains');
+    R.ok(/\.pdf$/.test(pd.fichier) && bien(r, 'Évier (RDC)'), 'c8 plan PDF de l\'état des lieux (sortie de l\'éditeur) : « ' + T1 + ' » puis « douche, lavabo, WC + lave-mains », '
       + 'une fois chacune, aucune étiquette propre ; témoin « Évier (RDC) » (fichier ' + JSON.stringify(pd.fichier) + ' ; obtenu ' + JSON.stringify(r) + ')');
 
     /* membre changé de type : le lien reste, aucun toast, un pas ; le texte commun suit */
     const typeVers = async (id, v) => { await choisir(p, id); await effacerToast(p); const s = await p.$('.vc .vc-pcorps select[data-a="type"]'); if (!s) return false;
       await s.selectOption(v); await C.pause(p, 300); return true; };
     let u = await nUndo(p), ok = await typeVers('L', 'evier'), msg = await toastVu(p), e = await elDoc(p, 'L'), u1 = await nUndo(p);
-    r = await vu('douche, WC + lave-mains, évier');
+    r = await vu('douche, évier, WC + lave-mains');
     R.ok(ok && e.t === 'evier' && e.p.etiqAvec === 'D' && !('etiqTitre' in e.p) && !msg && u1 === u + 1 && bien(r, 'Évier (RDC)'),
-      'c8 membre Lavabo → Évier par le sélecteur Type : lien gardé, aucun toast, un pas ; à l\'écran « douche, WC + lave-mains, évier » ('
+      'c8 membre Lavabo → Évier par le sélecteur Type : lien gardé, aucun toast, un pas ; à l\'écran « douche, évier, WC + lave-mains » ('
       + (ok ? '' : 'sélecteur absent, ') + JSON.stringify({t: e.t, p: e.p, toast: msg, pas: u1 - u}) + ' ; ' + JSON.stringify(r) + ')');
     await annuler(p); e = await elDoc(p, 'L');
     R.ok(e.t === 'lavabo' && e.p.etiqAvec === 'D', 'c8 « Annuler » rend le lavabo lié à la douche (' + JSON.stringify({t: e.t, etiqAvec: e.p.etiqAvec}) + ')');
 
     /* porteur changé de type : le titre reste */
     ok = await typeVers('D', 'baignoire'); msg = await toastVu(p); e = await elDoc(p, 'D');
-    r = await vu('baignoire, WC + lave-mains, lavabo');
+    r = await vu('baignoire, lavabo, WC + lave-mains');
     R.ok(ok && e.t === 'baignoire' && e.p.etiqTitre === 'sdb' && !('etiqAvec' in e.p) && !msg && bien(r, 'Évier (RDC)'),
-      'c8 porteur Douche → Baignoire : titre gardé, aucun toast ; à l\'écran « ' + T1 + ' » puis « baignoire, WC + lave-mains, lavabo » ('
+      'c8 porteur Douche → Baignoire : titre gardé, aucun toast ; à l\'écran « ' + T1 + ' » puis « baignoire, lavabo, WC + lave-mains » ('
       + JSON.stringify({t: e.t, p: e.p, toast: msg}) + ' ; ' + JSON.stringify(r) + ')');
 
     /* témoin aux champs vides (fichier fait à la main) : aucune clé vide écrite */
-    ok = await typeVers('E', 'lavabo'); msg = await toastVu(p); e = await elDoc(p, 'E'); r = await vu('baignoire, WC + lave-mains, lavabo');
+    ok = await typeVers('E', 'lavabo'); msg = await toastVu(p); e = await elDoc(p, 'E'); r = await vu('baignoire, lavabo, WC + lave-mains');
     R.ok(ok && e.t === 'lavabo' && !('etiqAvec' in e.p) && !('etiqTitre' in e.p) && !msg && bien(r, 'Lavabo (RDC)'),
       'c8 témoin Évier (lien et titre vides) → Lavabo : ni etiqAvec ni etiqTitre écrits, aucun toast, « Lavabo (RDC) » à l\'écran ('
       + JSON.stringify({t: e.t, p: e.p, toast: msg}) + ' ; ' + JSON.stringify(r.temoin) + ')');
@@ -570,7 +587,7 @@ async function etiquetteReunie(){
       C.P('G', 'descente', cx, cy - 2, {cote: 'avant', visitable: 'oui'}), C.P('J', 'lavabo', cx - 1.5, cy - 2, n1({st: 'projet'})),
       C.P('S', 'lavabo', cx + 1.5, cy - 2, n1({st: 'supprimer'})), C.P('X', 'douche', cx + 3.5, cy - 2, n1()), C.P('Y', 'wc', cx + 3.5, cy - 0.5, n1({etiqAvec: 'X'}))]});
     await C.regler(p, cx, cy, 40);
-    const IDS = ['D', 'L', 'W', 'F', 'G', 'J', 'S', 'X', 'Y'], T1 = 'Salle de bain (1er étage)', L2 = 'douche, WC + lave-mains, lavabo';
+    const IDS = ['D', 'L', 'W', 'F', 'G', 'J', 'S', 'X', 'Y'], T1 = 'Salle de bain (1er étage)', L2 = 'douche, lavabo, WC + lave-mains';
     const PROPRES = ['Douche (1er étage)', 'Lavabo (1er étage)', LM + ' (1er étage)'];
     const touche = async (id, ms) => { const e = await elDoc(p, id); await C.toucher(p, e.x, e.y, ms); };
     /* textes du canevas : titre et liste du groupe, étiquettes propres de D, L et W */
@@ -658,8 +675,8 @@ async function etiquetteReunie(){
     const btMod = await p.$(FICHE + 'button[data-a="etiqModifier"]'), btDef = await p.$(FICHE + 'button[data-a="etiqDefaire"]');
     const TITRES = 'sdb/Salle de bain/false | eau/Salle d\'eau/false | cuisine/Cuisine/false | buanderie/Buanderie/false | aucun/Aucun/false';
     R.ok(titres === TITRES, 'e3 fiche du porteur : puces ' + TITRES + ' (obtenu ' + titres + ')');
-    R.ok(ft.indexOf('Compté au constat : Salle de bain 1, WC 1, Évier 1') >= 0 && !!btMod && !!btDef && (await btMod.textContent()).trim() === 'Modifier le groupe' && (await btDef.textContent()).trim() === 'Défaire',
-      'e3 fiche du porteur : « Compté au constat : Salle de bain 1, WC 1, Évier 1 », « Modifier le groupe » et « Défaire » (' + JSON.stringify(ft.slice(0, 600)) + ')');
+    R.ok(ft.indexOf('Compté au constat : Salle de bain 1, Évier 1, WC 1') >= 0 && !!btMod && !!btDef && (await btMod.textContent()).trim() === 'Modifier le groupe' && (await btDef.textContent()).trim() === 'Défaire',
+      'e3 fiche du porteur : « Compté au constat : Salle de bain 1, Évier 1, WC 1 », « Modifier le groupe » et « Défaire » (' + JSON.stringify(ft.slice(0, 600)) + ')');
     R.ok(ph === T1 + ' — ' + L2, 'e3 fiche du porteur : texte indicatif de l\'étiquette sur une ligne, « ' + T1 + ' — ' + L2 + ' » (M3 ; obtenu ' + JSON.stringify(ph) + ')');
     let u = await nUndo(p); await toucherPuce(p, 'etiqTitre', 'eau'); eD = await elDoc(p, 'D'); r = await vu();
     const eauVu = (await textesEcran(p)).filter(t => t === 'Salle d\'eau (1er étage)').length;
@@ -837,8 +854,87 @@ async function etiquetteReunie(){
   } finally { await A.fermer(); }
 }
 
+/* m141 : ordre de l'étiquette commune (réponse ordre-etiquette-commune du 16 nov. 2026, choix b ; D7 de la conception v1.7.2), le porteur
+   étant un WC + lave-mains : la liste suit l'ordre de l'étiquette, porteur compris ; le porteur garde son rôle (titre, fiche, « Modifier
+   le groupe », « Défaire ») */
+async function ordreEtiquette(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy, n1 = q => Object.assign({niv: 'etage', etage: '1'}, q || {}), ouvert = o => { o.lab = null; return o; };
+    /* W porteur (WC + lave-mains), D (douche) et L (lavabo) liés à lui, au 1er étage, étiquettes à placer */
+    await C.injecter(p, {el: [ouvert(C.P('W', 'wc', cx + 1.5, cy, n1({lm: 'oui'}))), ouvert(C.P('D', 'douche', cx - 1.5, cy, n1({etiqAvec: 'W'}))),
+      ouvert(C.P('L', 'lavabo', cx, cy, n1({etiqAvec: 'W'})))]});
+    await C.regler(p, cx, cy, 40);
+    const T1 = 'Salle de bain (1er étage)', L2 = 'douche, lavabo, WC + lave-mains', AVANT = 'WC + lave-mains, lavabo, douche';
+    const PROPRES = ['Douche (1er étage)', 'Lavabo (1er étage)', LM + ' (1er étage)'];
+    const touche = async id => { const e = await elDoc(p, id); await C.toucher(p, e.x, e.y); };
+    /* textes du canevas ou du plan PDF : titre et liste une fois chacun, étiquettes propres de D, L et W */
+    const compte = tx => ({t1: tx.filter(t => t === T1).length, t2: tx.filter(t => t === L2).length, propres: PROPRES.map(x => tx.filter(t => t === x).length).join(''),
+      tx: tx.filter(t => /bain|eau|ouche|avabo|WC/.test(t))});
+    const bien = r => r.t1 === 1 && r.t2 === 1 && r.propres === '000';
+    let r = compte(await textesEcran(p));
+    R.ok(bien(r), 'c11 WC + lave-mains porteur, douche et lavabo liés, au 1er : à l\'écran « ' + T1 + ' » puis « ' + L2 + ' », une fois chacune, aucune étiquette '
+      + 'propre (v1.7.1 : « ' + AVANT + ' » ; obtenu ' + JSON.stringify(r) + ')');
+    const pd = await textesPdf(p); r = compte(pd.textes);
+    R.ok(/\.pdf$/.test(pd.fichier) && bien(r), 'c11 plan PDF de l\'état des lieux (sortie de l\'éditeur) : « ' + T1 + ' » puis « ' + L2 + ' », une fois chacune, aucune '
+      + 'étiquette propre (fichier ' + JSON.stringify(pd.fichier) + ' ; obtenu ' + JSON.stringify(r) + ')');
+
+    /* fiche du porteur : ce que compte le constat, texte indicatif sur une ligne, boutons */
+    await choisir(p, 'W');
+    const ph = await p.evaluate(() => { const i = document.querySelector('.vc .vc-pcorps input[data-k="etiq"]'); return i ? i.placeholder : null; });
+    let ft = await ficheTxt(p);
+    const CG = 'Compté au constat : Salle de bain 1, Évier 1, WC 1', iCG = ft.indexOf('Compté au constat');
+    const btMod = await p.$(FICHE + 'button[data-a="etiqModifier"]'), btDef = await p.$(FICHE + 'button[data-a="etiqDefaire"]');
+    R.ok(ft.indexOf(CG) >= 0 && !!btMod && !!btDef, 'c11 fiche du porteur (WC + lave-mains) : « ' + CG + ' », « Modifier le groupe » et « Défaire » (v1.7.1 : « … WC 1, '
+      + 'Évier 1, Salle de bain 1 » ; obtenu ' + JSON.stringify(iCG < 0 ? 'absent' : ft.slice(iCG, iCG + 80)) + ', boutons ' + JSON.stringify({modifier: !!btMod, defaire: !!btDef}) + ')');
+    R.ok(ph === T1 + ' — ' + L2, 'c11 fiche du porteur : texte indicatif « ' + T1 + ' — ' + L2 + ' » (obtenu ' + JSON.stringify(ph) + ')');
+    /* fiche d'un membre : il renvoie au WC, le porteur */
+    await choisir(p, 'D'); ft = await ficheTxt(p);
+    const voirW = !!await p.$(FICHE + 'button[data-a="voir"][data-id="W"]');
+    R.ok(ft.indexOf('Étiquette réunie avec le WC + lave-mains') >= 0 && voirW, 'c11 fiche de la douche (membre) : « Étiquette réunie avec le WC + lave-mains », « Voir » vers le WC ('
+      + JSON.stringify({voir: voirW, fiche: ft.slice(Math.max(0, ft.indexOf('Étiquette réunie')), ft.indexOf('Étiquette réunie') + 60)}) + ')');
+
+    /* titre choisi sur le porteur, même s'il n'est plus en tête de la liste */
+    await choisir(p, 'W'); let u = await nUndo(p); await toucherPuce(p, 'etiqTitre', 'eau');
+    let eW = await elDoc(p, 'W'), eD = await elDoc(p, 'D'), eL = await elDoc(p, 'L'), tx = await textesEcran(p);
+    const EAU = 'Salle d\'eau (1er étage)', nEau = tx.filter(t => t === EAU).length, nL2 = tx.filter(t => t === L2).length;
+    R.ok(eW.p.etiqTitre === 'eau' && !('etiqTitre' in eD.p) && await nUndo(p) === u + 1 && nEau === 1 && nL2 === 1, 'c11 puce « Salle d\'eau » du porteur : titre écrit sur le WC, '
+      + 'un pas ; à l\'écran « ' + EAU + ' » puis « ' + L2 + ' » (' + JSON.stringify({W: eW.p.etiqTitre, D: eD.p.etiqTitre, pas: await nUndo(p) - u, eau: nEau, liste: nL2}) + ')');
+    await annuler(p);
+
+    /* « Modifier le groupe » : mode du porteur, la douche et le lavabo choisis ; « Annuler » du bandeau : rien d'écrit */
+    await choisir(p, 'W'); u = await nUndo(p); const j0 = JSON.stringify((await C.docCroquis(p)).el);
+    await bouton(p, FICHE + 'button[data-a="etiqModifier"]');
+    let m = await modeReunir(p), b = await bandeau(p), h = await halos(p, ['W', 'D', 'L']);
+    R.ok(m && m.porteur === 'W' && m.ids.join() === 'D,L' && /^Touchez les appareils à réunir avec le WC \+ lave-mains · 2 choisis\b/.test(b) && h === 'D:choisi L:choisi W:porteur',
+      'c11 « Modifier le groupe » : mode ouvert pour le WC + lave-mains, la douche et le lavabo choisis, halos (' + JSON.stringify({m, b, halos: h}) + ')');
+    await bouton(p, '.vc .vc-aide button[data-a="reunirStop"]'); m = await modeReunir(p);
+    R.ok(!m && await nUndo(p) === u && JSON.stringify((await C.docCroquis(p)).el) === j0, 'c11 « Annuler » du bandeau : mode fermé, rien d\'écrit (' + JSON.stringify({m, pas: await nUndo(p) - u}) + ')');
+
+    /* la douche retirée, « Terminé » : un pas, son lien retiré, son étiquette posée ; le groupe sans titre, sur une ligne */
+    await choisir(p, 'W'); u = await nUndo(p); await bouton(p, FICHE + 'button[data-a="etiqModifier"]'); await touche('D'); await bouton(p, '.vc .vc-aide button[data-a="reunirFin"]');
+    eD = await elDoc(p, 'D'); eL = await elDoc(p, 'L'); tx = await textesEcran(p);
+    const UNE = 'Lavabo, WC + lave-mains (1er étage)', nUne = tx.filter(t => t === UNE).length;
+    R.ok(await nUndo(p) === u + 1 && lie(eD) === 'sans clé' && lie(eL) === 'W' && place(eD) && nUne === 1, 'c11 « Modifier le groupe », douche retirée, « Terminé » : un pas, lien de la '
+      + 'douche retiré, son étiquette posée, le lavabo lié ; à l\'écran « ' + UNE + ' » (v1.7.1 : « WC + lave-mains, lavabo (1er étage) » ; ' + JSON.stringify({pas: await nUndo(p) - u,
+      D: lie(eD), lab: eD.lab, L: lie(eL), une: nUne, tx: tx.filter(t => /ouche|avabo|WC/.test(t))}) + ')');
+    await annuler(p);
+
+    /* « Défaire », puis le porteur supprimé : un pas, liens retirés, étiquettes des membres posées ; « Annuler » rend le groupe */
+    for (const [lib, sel, att] of [['« Défaire »', 'etiqDefaire', '111'], ['WC (porteur) supprimé', 'supprimer', '110']]){
+      await choisir(p, 'W'); u = await nUndo(p); await bouton(p, FICHE + 'button[data-a="' + sel + '"]');
+      eW = await elDoc(p, 'W'); eD = await elDoc(p, 'D'); eL = await elDoc(p, 'L'); r = compte(await textesEcran(p));
+      R.ok(await nUndo(p) === u + 1 && lie(eD) === 'sans clé' && lie(eL) === 'sans clé' && place(eD) && place(eL) && r.propres === att && !r.t1, 'c11 ' + lib + ' : un pas, liens de la '
+        + 'douche et du lavabo retirés, leurs étiquettes posées et affichées (' + JSON.stringify({pas: await nUndo(p) - u, W: !!eW, D: lie(eD), L: lie(eL), r}) + ')');
+      await annuler(p); eD = await elDoc(p, 'D'); eL = await elDoc(p, 'L'); r = compte(await textesEcran(p));
+      R.ok(lie(eD) === 'W' && lie(eL) === 'W' && bien(r), 'c11 « Annuler » après ' + lib + ' : le groupe revient (' + JSON.stringify({D: lie(eD), L: lie(eL), r}) + ')');
+    }
+    erreurs(A, 'c11');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [niveaux, laveMains, autresAppareils, etiquetteCommune, etiquetteReunie]){
+  for (const f of [niveaux, laveMains, autresAppareils, etiquetteCommune, etiquetteReunie, ordreEtiquette]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();

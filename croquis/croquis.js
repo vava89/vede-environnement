@@ -2472,9 +2472,9 @@ function texteLimite(p){
    défait donc sur l'état des lieux, un groupe « À supprimer » sur l'avant-projet. Rien d'autre ne lit le groupe : l'analyse, les
    anomalies, le constat, la légende et la page 2 du plan PDF comptent chaque objet.
    groupeEtiquette(e, an) : null pour un objet seul ; sinon {porteur: son id, objets: le porteur, puis les membres valides dans l'ordre
-   du catalogue (FAMILLES), puis par id}. Les objets se désignent par leur id : la fiche passe une copie de l'objet, prise telle quelle.
-   [p] L'ordre du catalogue met le WC avant le lavabo : « douche, WC + lave-mains, lavabo ». L'exemple de D6 écrit « douche, lavabo, WC +
-   lave-mains » ; la règle de D6 l'emporte ici. */
+   de l'étiquette (ORDRE_ETIQ), puis par id}. Les objets se désignent par leur id : la fiche passe une copie de l'objet, prise telle quelle.
+   objets[0] reste le porteur (titre, « Défaire », « Modifier le groupe », fin du mode « Réunir ») ; le texte du groupe et « Compté au
+   constat » trient une copie de la liste, porteur compris (m141). */
 var TITRES_ETIQ = {sdb: 'Salle de bain', eau: 'Salle d\'eau', cuisine: 'Cuisine', buanderie: 'Buanderie', aucun: ''};
 function aCle(o, k){ return !!o && typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k); }
 function lienEtiq(o){ var x = o && o.p ? o.p.etiqAvec : null; return typeof x === 'string' ? x : ''; }
@@ -2487,7 +2487,13 @@ function porteurEtiq(o, an){
   q = an.objs[id];
   return !lienEtiq(q) && stEtiq(q) === stEtiq(o) && sourceEU(o) && sourceEU(q) ? q : null;
 }
-function rangCatalogue(o){ var i = FAMILLES[0].types.indexOf(o.t); return i < 0 ? FAMILLES[0].types.length : i; }
+/* Ordre des appareils dans l'étiquette commune (m141, décision D7 de la conception v1.7.2, réponse ordre-etiquette-commune du
+   16 nov. 2026, choix b : « L'ordre de l'exemple de la conception ») : « douche, lavabo, WC + lave-mains » et « Salle de bain 1,
+   Évier 1, WC 1 ». Au-delà de la douche, du lavabo et du WC, l'ordre est un choix [p]. Un WC + lave-mains est un WC. Un type absent
+   de la liste vient après ; à égalité, l'id. */
+var ORDRE_ETIQ = ['sdb', 'douche', 'baignoire', 'lavabo', 'evier', 'wc', 'cuisine', 'lavevaisselle', 'lavelinge', 'chaudiere', 'siphon_garage', 'attente', 'autre_eu'];
+function rangEtiq(o){ var i = ORDRE_ETIQ.indexOf(o.t); return i < 0 ? ORDRE_ETIQ.length : i; }
+function triEtiq(a, b){ return rangEtiq(a) - rangEtiq(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); }
 function groupeEtiquette(e, an){
   if (!e || e.k !== 'pt' || !an || !an.objs) return null;
   var por = porteurEtiq(e, an), base = por || e, membres = [], objs = an.objs, ks, i, o;
@@ -2500,7 +2506,7 @@ function groupeEtiquette(e, an){
     if (o.p && o.p.etiqAvec === base.id && o.id !== base.id && porteurEtiq(o, an)) membres.push(o);
   }
   if (!membres.length) return null;
-  membres.sort(function(a, b){ return rangCatalogue(a) - rangCatalogue(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); });
+  membres.sort(triEtiq);
   return {porteur: base.id, objets: [por ? por : e].concat(membres)};
 }
 VC.groupeEtiquette = groupeEtiquette;
@@ -2525,9 +2531,10 @@ function minusculeEtiq(s){ var c = s.charAt(1); return c && c !== c.toLowerCase(
    s'ils diffèrent. Titre d'office « Salle de bain » si le groupe a une douche, une baignoire ou une salle de bain, sinon aucun : une
    seule ligne, initiale en capitale, niveau commun à la fin. Un nom égal au titre n'est pas répété, sauf avec un niveau à lui [p] ; seul
    le premier de la liste est omis : deux salles de bain réunies se lisent encore deux. Au-delà de quatre appareils listés [p], leurs
-   lettres (abObj, telles quelles ; sans lettres, le nom : siphon de garage [p]). */
+   lettres (abObj, telles quelles ; sans lettres, le nom : siphon de garage [p]). La liste suit l'ordre de l'étiquette (ORDRE_ETIQ),
+   porteur compris ; le titre choisi reste celui du porteur, g.objets[0] (m141). */
 function texteGroupe(g, pre){
-  var objs = g.objets, tc = objs[0].p ? objs[0].p.etiqTitre : null, nivs = objs.map(libNiv), items = [], liste;
+  var por = g.objets[0], objs = g.objets.slice().sort(triEtiq), tc = por.p ? por.p.etiqTitre : null, nivs = objs.map(libNiv), items = [], liste;
   var titre = aCle(TITRES_ETIQ, tc) ? TITRES_ETIQ[tc] : objs.some(function(o){ return o.t === 'douche' || o.t === 'baignoire' || o.t === 'sdb'; }) ? 'Salle de bain' : '';
   var commun = nivs.every(function(n){ return n === nivs[0]; }), niv = commun && nivs[0] ? ' (' + nivs[0] + ')' : '', omis = !(commun && titre);
   objs.forEach(function(o, i){ var nom = libDe(o); if (!omis && norm(nom) === norm(titre)){ omis = true; return; } items.push({o: o, nom: nom, nv: nivs[i]}); });
@@ -5632,12 +5639,13 @@ function editeur(racine, opts){
   function deLib(o){ var a = artLib(o); return a.art === 'le' ? 'du ' + a.nom : 'de ' + avecLib(o); }
   /* ligne du constat d'un objet : celle de son type ; un autre appareil, celle choisie dans sa fiche (rowAutre) */
   function rowObj(o){ var ty = T[o.t] || {}; return ty.nomLibre ? rowAutre(o) : ty.row || ''; }
-  /* ce que le constat compte pour les objets du groupe g : ses lignes dans l'ordre du groupe (« Salle de bain 1, WC 1, Évier 1 ») ; une
-     ligne du formulaire sans sa précision entre parenthèses ; une ligne hors du formulaire avec « Autres : » et son libellé entier, comme au
-     constat (« Autres : Piscine (vidange) 1 » : nom saisi par l'opérateur ; M2 et M4 de la relecture) ; aucun compte ne change */
+  /* ce que le constat compte pour les objets du groupe g : ses lignes dans l'ordre de l'étiquette, porteur compris (m141 : « Salle de
+     bain 1, Évier 1, WC 1 ») ; une ligne du formulaire sans sa précision entre parenthèses ; une ligne hors du formulaire avec « Autres : »
+     et son libellé entier, comme au constat (« Autres : Piscine (vidange) 1 » : nom saisi par l'opérateur ; M2 et M4 de la relecture) ;
+     aucun compte ne change */
   function comptesGroupe(g){
     var rows = constatDeduit(S.doc, S.an).rows, vus = [];
-    g.objets.forEach(function(o){
+    g.objets.slice().sort(triEtiq).forEach(function(o){
       for (var i = 0; i < rows.length; i++) if (rows[i].objets.indexOf(o.id) >= 0){
         var r = rows[i], x = vus.filter(function(v){ return v.r === r; })[0];
         if (x) x.n++; else vus.push({r: r, n: 1});
