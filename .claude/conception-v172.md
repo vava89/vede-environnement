@@ -628,22 +628,37 @@ nouveau (tests/vm/tropplein.js, si m145 le choisit) s'ajoute à tests/tout.sh et
     la première puce, qui dit qu'une tablette en v1.7.0 ne connaît pas ces objets (faux pour l'escalier) ; refsEscalier relit le croquis à
     chaque mouvement pendant le tracé ; fond invalide : refsEscalier garde les compléments du croquis, alors que refsCotes ne rend rien [p].
   - Dépendances : aucune ; S11 (suivi-escalier-ancienne-version) ne change pas ce correctif (b et c : fusion suivante).
-- **m140 Boîte en limite et boîte en zone unitaire** (boite-en-limite, pr12-5 ; D5, D6 ; X3, F8). Taille S.
-  - Fichiers et fonctions : CJ : texteLimite (l. 2367-2375), fiche de la boîte (l. 5957), boitesConstat (l. 2320-2342 : réseau d'une boîte
-    sans réseau indiqué d'après les sources dont le chemin la traverse, lu dans an.adj et an.sensPiece [p]). LISEZMOI.txt l. 149-155 et
-    263-266. tests/vm/boite.js, tests/navigateur/boite.js.
-  - Pour l'utilisateur : au plan (écran, PDF, DXF) « à 0,80 m de la limite, à l'intérieur de la propriété » (ou « à l'extérieur ») ; côté
-    seul « à l'intérieur de la propriété » ; fiche « Sur le plan : ≈ 0,80 m, à l'intérieur de la propriété » ; en zone unitaire, une boîte
-    sans réseau indiqué remplit la colonne des appareils dont les eaux y passent ; une boîte dite unitaire dans sa fiche compte pour les deux.
-  - Tests : vm/boite.js : texteLimite int, ext, côté seul (échouent sur la v1.7.1), témoins 0 et distance seule ; collecteur unitaire, B1
-    (WC) et B2 (descente) en parallèle : EU = B1 (distance et profondeur reprises), EP = B2 (v1.7.1 : rien de repris) ; en série (WC → B1 →
-    B2 → collecteur unitaire), avec puis sans descente vers un puisard : B1 et B2 en EU, rien de repris, aucune valeur EP (comme en v1.7.1 ;
-    avec le seul resObj.boite, B1 irait en EP) ; témoins : boîte unitaire qui reçoit les deux → EU et EP ; B1 indiquée EP → EP ; boîte
-    indiquée UN dans sa fiche → EU et EP (F8) ; boîte qu'aucune source ne traverse → EU et EP. navigateur/boite.js : la fiche.
-  - Garde : compat 245/245 ; étiquettes comparées, mais aucun côté dans la garde ni dans le générateur : inchangées ; aléatoire : sans écart.
-  - Risques et [p] : étiquette plus longue (52 caractères au lieu de 32), non replacée : elle peut chevaucher un autre texte ; fiche [p] ;
-    chemins lus dans an.adj et an.sensPiece [p] ; tablette en v1.7.1 qui vide une valeur reprise [p]. La distance du constat garde
-    « 0,80 m intérieur » jusqu'à m149.
+- **m140 Boîte en limite et boîte en zone unitaire** (boite-en-limite, pr12-5 ; D5, D6 ; X3, F8). Taille S. Fait : b5e5215, 17 nov.
+  - Fichiers et fonctions : CJ : coteLimite (nouvelle, l. 2454) et texteLimite (l. 2455) ; boitesConstat (l. 2352), avec traversees
+    (nouvelle, l. 2369 : plus courts chemins de l'analyse de chaque source jusqu'à ses exutoires dessinés, resObj[s].term, dans le sens
+    dessiné des tuyaux ; un drain de collecte part des sommets de ses pièces ; calculé une fois par analyse) ; fiche de la boîte (l. 6102).
+    IX : vcBoiteCle (l. 3870). LISEZMOI.txt l. 149-152, 156-163 et 269-280 ; croquis/LISEZMOI.txt l. 22 et 51 ; tests/vm/boite.js,
+    tests/navigateur/boite.js, tests/navigateur/constat-boite.js, tests/LISEZMOI.md.
+  - Pour l'utilisateur : l'étiquette de la boîte (écran, plan PDF, DXF) écrit « à 0,80 m de la limite, à l'intérieur de la propriété » (ou
+    « …, à l'extérieur de la propriété ») ; côté seul : « à l'intérieur de la propriété » (v1.7.1 : « côté intérieur ») ; « en limite de
+    propriété », la distance seule et le cas sans champ ne changent pas ; fiche : « Sur le plan : ≈ 0,80 m, à l'intérieur de la propriété »,
+    « côté à confirmer » et les puces gardés. En zone unitaire, une boîte sans réseau indiqué que le dessin dit unitaire remplit la colonne
+    du constat des appareils dont les eaux y passent (les deux si elle reçoit des EU et des EP, ou si aucun n'y passe) ; une boîte indiquée
+    unitaire dans sa fiche compte pour les deux (F8) ; une boîte que le dessin dit mêlée n'est pas reprise, comme avant (le LISEZMOI le dit).
+    Le constat garde « 0,80 m intérieur » (m149) ; vcBoiteCle reconnaît la nouvelle écriture recopiée au constat.
+  - Tests : vm/boite.js (142) : l1, l2, l8, l9, l12, l13, l15, l16, e2, e4, s1 à s3 changés (nouvelle écriture) ; c18 changé (avant : deux
+    boîtes en EU et en EP, rien de repris) ; l20 à l23, c19 à c21, c26 à c28, c30 à c32 : échouent sur 1ee93f4 ; témoins l24 à l27, c22 à
+    c25, c29 (boîte mêlée), c33 (boucle : passe sur 1ee93f4, échoue sur la première version). navigateur/boite.js (51) : e, p, a, g, k, b
+    changés, échouent sur 1ee93f4 ; navigateur/constat-boite.js (73) : cas 10, paires m140 (vcBoiteCle), échoue sur 1ee93f4. Garde : compat
+    245/245 ; aléatoire 8000 contre 1ee93f4 : sans écart (10 666 analyses) ; sondes : la boîte, le regard d'arrivée et les exutoires de
+    l'analyse sont toujours sur le chemin de traversees (2000 graines × 3 options, 10 427 sources, 0 écart).
+  - Relecture : ni défaut bloquant ni défaut majeur ; neuf remarques corrigées : M1 (la première version suivait les flèches du plan,
+    an.sensPiece, arbitraires dans une boucle : le réseau de la boîte dépendait du découpage des tuyaux ; traversees suit maintenant les plus
+    courts chemins de l'analyse ; la variante « sensSource seul » cassait c27), M2 (vcBoiteCle), M3 et M7 (c31, c32), M4, M5 et M9 (lignes
+    recoupées, c19 rangé), M6 (LISEZMOI restreints à la boîte dite unitaire ; boîte mêlée non reprise), M8 (présomptions reportées
+    ci-dessous).
+  - Risques et [p] : étiquette de 52 caractères au lieu de 32, non replacée (recours : « Replacer toutes les étiquettes ») ; dans une boucle,
+    une boîte posée sur le tuyau qui relie deux branches n'est sur aucun chemin : EU et EP, comme en v1.7.1 [p] ; une source sans exutoire
+    dessiné (réseau présumé) ne compte pour aucune boîte [p] ; une boîte qu'aucune source ne traverse compte pour les deux [p] ; an.ref n'est
+    jamais atteint dans l'application (c28 est synthétique) ; dossier existant : une valeur EP reprise et non retouchée d'une boîte unitaire
+    seule qui ne reçoit que des EU se vide au suivi, sans écart affiché (voulu par pr12-5) ; tablette en v1.7.1 : n = 2, elle vide une valeur
+    reprise par la v1.7.2 si personne n'y a touché [p]. Question pour l'utilisateur : rattacher aussi à ses appareils la boîte que le dessin
+    dit mêlée (un « Tronçon EU », un « Tronçon EP » ou un drain y arrive) ?
   - Dépendances : aucune.
 - **m141 Ordre de l'étiquette commune** (ordre-etiquette-commune ; D7 ; X8). Taille S.
   - Fichiers et fonctions : CJ : ORDRE_ETIQ et rangEtiq (près de rangCatalogue, l. 2399), groupeEtiquette (l. 2400-2415), texteGroupe
