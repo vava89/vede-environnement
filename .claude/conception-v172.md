@@ -593,18 +593,40 @@ nouveau (tests/vm/tropplein.js, si m145 le choisit) s'ajoute à tests/tout.sh et
     10 px, 120 m au plus, comme la façade [p] ; borne de 256 côtés (4 points sur 2 100 restent libres, à 0,2 px/m, fond de 40 × 40 tourné au
     hasard) [p] ; intersection à 30 m [p] ; texte de l'explication d'« Intersection » ajouté [p]. Dépendances : aucune.
 - **m139 Escalier : côté et montée proposés ; consigne pour les anciennes tablettes** (pr12-2, escalier-rendu ; D3, D4 ; X6). Taille S.
-  - Fichiers et fonctions : CJ : escalierDefauts (l. 1050-1071 : filtre du bâti l. 1055, montée l. 1070), appels de refsCotes (l. 4528,
-    5377), distPolygone (l. 136, lue). LISEZMOI.txt l. 166-173 et consigne de mise à jour (l. 366-372). tests/vm/escalier.js,
-    tests/navigateur/escalier.js.
-  - Pour l'utilisateur : un escalier posé contre une annexe dessinée en contour fermé de « Complément du fond » se propose du bon côté ; un
-    bout posé à 1 cm au plus d'une façade compte comme posé sur le bâti pour la montée ; la consigne de mise à jour cite l'escalier et ce que
-    montre une tablette en v1.6.3. Rien d'autre ne change à l'écran, au plan PDF ni au DXF.
-  - Tests : vm/escalier.js d10 (complément fermé : côté 'd' ; v1.7.1 : 'g'), d11 (départ à 5 mm d'une façade : 'depart' ; v1.7.1 : 'fin'),
-    d12 (départ sur un coin, fin à 5 mm d'une façade : 'fin' ; v1.7.1 : 'depart'), d13 (départ à 2 cm : témoin) ; gardes : l'escalier n'est
-    ni dans an.lignes ni dans an.pieces, resLigne 'LIM', DXF sur VEDE-ESCALIERS et jamais sur un calque de réseau, légende « Escalier » ; la
-    consigne du LISEZMOI cite l'escalier (échoue sur la v1.7.1) [p] ; navigateur/escalier.js : la fiche n'a pas de puce « Réseau ».
-  - Garde : compat 245/245 (aucun escalier) ; aléatoire : sans écart (le générateur ne tire pas d'escalier).
-  - Risques et [p] : seuil de 1 cm compris [p] ; phrase de la consigne [p] ; un escalier contre une annexe change de côté proposé (voulu).
+  Fait : dc6c18f, 17 nov.
+  - Fichiers et fonctions : CJ : ESC_POSE (nouvelle, l. 1060) et escalierDefauts (l. 1061-1099 : lignes retenues, centres des deux côtés,
+    dedans et fond, pres(), côté, règle des cotes, montée ; contrat à jour) ; surPremier (nouvelle, l. 4571), appelée par pointTrace
+    (l. 4573) et par le glissé d'une poignée (l. 4253) ; refsEscalier (nouvelle, l. 5065), par où passent le fantôme (fantomeEscalier,
+    l. 4601) et la pose (l. 5461). LISEZMOI.txt l. 173-178 (outil « Escalier ») et l. 474-478 (consigne de mise à jour) ;
+    croquis/LISEZMOI.txt l. 26 (nouvelle puce « Complément du fond ») et l. 30 (outil « Escalier ») ; tests/vm/escalier.js,
+    tests/navigateur/escalier.js, tests/LISEZMOI.md.
+  - Pour l'utilisateur : un escalier posé contre une annexe dessinée en contour fermé de « Complément du fond » se propose hors de l'annexe.
+    Un contour qui entoure l'escalier (limite redessinée, terrasse autour de la maison) ne compte pas pour le côté, et le côté proposé reste
+    hors du bâti du fond quand c'est possible. Un bout à 1 cm au plus du bâti ou d'un contour fermé compte comme posé pour la montée : un
+    escalier tracé depuis un coin le long d'une façade monte maintenant vers la fin (v1.7.1 : vers le départ). Un contour de « Complément du
+    fond » se ferme en touchant de nouveau son premier point (14 px, même aimant coupé), ou en lâchant la poignée d'un bout sur l'autre
+    bout ; il compte alors aussi pour « Rejet au sol ». La consigne de mise à jour cite l'escalier et ce que montre une tablette en v1.6.3.
+    Rien d'autre ne change à l'écran, au plan PDF ni au DXF ; un escalier déjà posé garde ses valeurs.
+  - Tests : vm/escalier.js (75) : d9 changé (montée « fin ») ; d17, d18, d19, d22, d23, l1, l2, l3 : échouent sur 771b7a7 ; témoins d20,
+    d21 ; gardes nouvelles r1 (ni an.lignes ni an.pieces, resLigne 'LIM') et r2 (DXF : VEDE-ESCALIERS seul, aucun calque de réseau) ; gardes
+    qui existaient : m3 (resLigne 'LIM'), x1, x3 à x6 (VEDE-ESCALIERS), p1, p2, p7, p8 (légende « Escalier »), a1 (analyse identique avec et
+    sans escalier). navigateur/escalier.js (73) : c changé ; k (contour fermé fictif de 12 m², fantôme et escalier posé du même côté, contour
+    ajouté pendant le tracé, fiche sans « Réseau »), h (fermeture au toucher, aimant coupé, poignée ; témoins à 20 px) et e (contour qui
+    entoure) : échouent sur 771b7a7. Garde : compat 245/245 ; aléatoire 8000 contre 771b7a7 : sans écart (10 666 analyses comparées).
+  - Relecture : trois défauts majeurs de la première version, corrigés. (1) Un contour tracé à la main ne se fermait jamais (le redressement
+    « Parallèle au bâti » laissait le dernier point à 4e-5 m du premier) : D3 restait sans effet ; fermeture ajoutée au tracé et au glissé
+    (surPremier), sans tolérance dans lignesRef. (2) et (3) Un contour fermé qui entourait l'escalier ou touchait la maison (limite
+    redessinée, terrasse) faisait proposer le côté situé dans la maison, et la règle des cotes de m108 ne jouait plus (régression sur la
+    v1.7.1) : un complément qui contient les deux centres ne compte plus pour le côté, et le bâti du fond tranche d'abord. Remarques : M1 et
+    M2 notées en [p] ci-dessous ; M3 : place de la consigne dite.
+  - Risques et [p] : pr12-2 d prime sur les points 2 et 3 du « D'accord » à escalier-outil (montée : seules les accroches « coin » et
+    « façade » comptaient ; côté lu sur le seul bâti du fond, « Gauche » fond masqué) ; fond masqué, les contours fermés de complément
+    comptent encore [p] ; seuil de 1 cm compris, pour le départ comme pour la fin [p] ; départ posé par cotes : seul cotes.facade compte
+    [p] ; un contour qui entoure l'escalier compte encore pour la montée, comme un bout accroché à ce trait en v1.7.1 (d23) [p] ; fermeture
+    même aimant coupé, rayon de 14 px (celui du coin), repère « coin du bâti » [p] ; phrases du LISEZMOI [p] ; phrase de la consigne reprise
+    de D4, non vérifiée sur une v1.6.3 [p] ; place de la consigne : puce à part, entre l'étiquette commune et l'anomalie à arbitrer, pas dans
+    la première puce, qui dit qu'une tablette en v1.7.0 ne connaît pas ces objets (faux pour l'escalier) ; refsEscalier relit le croquis à
+    chaque mouvement pendant le tracé ; fond invalide : refsEscalier garde les compléments du croquis, alors que refsCotes ne rend rien [p].
   - Dépendances : aucune ; S11 (suivi-escalier-ancienne-version) ne change pas ce correctif (b et c : fusion suivante).
 - **m140 Boîte en limite et boîte en zone unitaire** (boite-en-limite, pr12-5 ; D5, D6 ; X3, F8). Taille S.
   - Fichiers et fonctions : CJ : texteLimite (l. 2367-2375), fiche de la boîte (l. 5957), boitesConstat (l. 2320-2342 : réseau d'une boîte
