@@ -2095,15 +2095,16 @@ function reconcilier(doc, an, ext, o){
   ext.forEach(function(r){ parId[r.id] = r; });
   /* ligne du constat de l'équipement en cause (WC, gouttières avant…) : l'anomalie rend cette ligne non conforme. Une anomalie posée à la
      main sur un objet (bibliothèque ou saisie libre) va sur la ligne de cet objet, un lavabo sur « Évier » : le mot « lavabo » de son texte
-     ne la range pas en salle de bain. m133 (M2) : un autre appareil compté en « Autres » rend null : l'identifiant de cette ligne au constat,
-     l'application seule le connaît (vcApparier) ; ops.autres[id de l'enregistrement] nomme alors la ligne du croquis (id de constatDeduit),
-     et l'application y range l'anomalie (vcRangerAutres, index.html) */
+     ne la range pas en salle de bain. Un objet compté sur une ligne « Autres » du croquis rend null (m133, M2 : un autre appareil ; m143,
+     décision D9 : toute ligne « Autres », celle d'une chaudière, d'une attente, d'un drain, point ou drain de collecte, d'un siphon de cour
+     ou d'un trop-plein aussi) : l'identifiant de cette ligne au constat, l'application seule le connaît (vcApparier) ; ops.autres[id de
+     l'enregistrement] nomme alors la ligne du croquis (id de constatDeduit), et l'application y range l'anomalie (vcRangerAutres,
+     index.html) */
   function ligneDe(a){
     if (!a.objId || !(REGLES_LIGNE.test(a.cle) || a.manu)) return '';
     if (!lignes){
       lignes = {}; autresG = {};
-      constatDeduit(doc, an).rows.forEach(function(r){ r.objets.forEach(function(id){
-        if (r.std) lignes[id] = r.id; else if (idxD[id] && T[idxD[id].t] && T[idxD[id].t].nomLibre) autresG[id] = r.id; }); });
+      constatDeduit(doc, an).rows.forEach(function(r){ r.objets.forEach(function(id){ if (r.std) lignes[id] = r.id; else autresG[id] = r.id; }); });
     }
     return lignes[a.objId] || (autresG[a.objId] ? null : '');
   }
@@ -2161,9 +2162,10 @@ function reconcilier(doc, an, ext, o){
         if (au.nc !== a.r0.nc){ nAu.nc = a.r0.nc; n++; }
         if (jugeN && VC.ncAnomalie({reseau: resN, observation: ch.observation != null ? ch.observation : r.observation}) !== a.r0.nc){ ch.nc = a.r0.nc; n++; }
       }
-      /* autre appareil compté en « Autres » (m133, M2) : installation laissée à l'application, qui en suit la valeur notée comme ici. Une
-         ligne du formulaire notée ici (l'appareil y était compté, p.row) revient d'abord à vide, comme avant m133, si personne n'y a
-         touché : l'anomalie n'y reste pas en attendant l'application, qui ne range rien sans constat */
+      /* objet compté sur une ligne « Autres » (m133, M2 : un autre appareil ; m143 : toute ligne « Autres ») : installation laissée à
+         l'application, qui en suit la valeur notée comme ici. Une ligne du formulaire notée ici (l'objet y était compté : p.row d'un autre
+         appareil, type changé) revient d'abord à vide, comme avant m133, si personne n'y a touché : l'anomalie n'y reste pas en attendant
+         l'application, qui ne range rien sans constat */
       var li = ligneDe(a);
       if (li === null){
         ops.autres[r.id] = autresG[a.objId];

@@ -85,7 +85,8 @@
 //   terrasse », reliés à la boîte EU ; anomalies saisies dans le croquis sur le bidet suspendu, l'urinoir et la chaudière.
 //   VCroquis.reconcilier n'écrit aucune installation pour un générique compté en « Autres » (création : vide, comme avant ; l'urinoir sur
 //   « wc ») ; rangées ensuite par l'application (identifiants fictifs du constat), la synchro suivante n'y touche pas, et ops.autres nomme
-//   la ligne déduite de chacune (« autre:EU:bidet suspendu », « autre:EP:avaloir de terrasse »), rien pour l'urinoir ni la chaudière ;
+//   la ligne déduite de chacune (« autre:EU:bidet suspendu », « autre:EP:avaloir de terrasse » et, depuis m143, « autre:Chaudière
+//   (purge, condensat) »), rien pour l'urinoir ;
 //   bidet suspendu compté en WC : l'anomalie va sur « wc », sans ops.autres ; revenu en « Autres » : la ligne « wc » notée revient à
 //   vide, ops.autres nomme la ligne, la synchro suivante ne change rien (M1 de la relecture de m133) ; témoin : une installation
 //   retouchée à la main (« evier ») reste, et ops.autres nomme aussi sa ligne.
@@ -159,6 +160,17 @@
 // attentes changées (avant : « douche, WC + lave-mains, lavabo », « lavabo, baignoire », « WC, lavabo », « douche (1er étage), WC,
 // lavabo (RDC) », « douche, WC, lavabo, baignoire », « Do, WC, La, Ba, Év », « WC, lavabo, douche, baignoire », « LL, WC, La, Év,
 // siphon de garage, ? », « douche, WC + lave-mains, lavabo, évier »).
+// m143, anomalies de toute ligne « Autres » (réponse rangement-autres-par-texte du 16 nov. 2026, choix b ; décision D9 de
+// `.claude/conception-v172.md`) : VCroquis.reconcilier nomme dans ops.autres la ligne « Autres » du croquis où est compté l'objet de
+// l'anomalie, quelle qu'elle soit, et non plus celle d'un autre appareil seulement.
+// g11 : chaudière et attente reliées à un puisard, point « Drain », siphon de cour et trop-plein reliés à la boîte EU, drain de collecte
+//   vers un regard puis la boîte EU ; témoins : un WC et un « Bidet » (m133) reliés au puisard. Création : installation et auto vides, le
+//   WC sur « wc » ; synchro suivante : ops.autres nomme « autre:Chaudière (purge, condensat) », « autre:Attente », « autre:Drain » (deux
+//   fois), « autre:Siphon de cour », « autre:Trop-plein » et « autre:EU:bidet », rien pour le WC, rien n'est écrit ; rangées par
+//   l'application, la synchro suivante n'y touche pas ; « Aucune » choisie à la main gardée ; WC changé en chaudière : la ligne « wc »
+//   notée revient à vide, ops.autres nomme la ligne de la chaudière, puis rien ne change.
+// g11 échoue sur f71a6e7 (12 de ses 14 cas : ops.autres sans ces lignes, installations ramenées à vide à la synchro suivante ; y passent
+// la création et la synchro suivante sans écriture) ; de même le cas de g9 dont le résultat attendu change (rien pour la chaudière).
 // usage : node tests/vm/equipements.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rendus, rapport} = require('./charger.js');
@@ -454,12 +466,13 @@ const abObj = e => typeof V.abObj === 'function' ? sur(() => V.abObj(e)) : 'VCro
 const nomRefuse = n => typeof V.nomRefuse === 'function' ? sur(() => V.nomRefuse(n)) : 'VCroquis.nomRefuse absente';
 /* croquis fictif à deux réseaux : boîte EU Bu vers le regard public Rp (collecteur EU), boîte EP Bp vers Rq (collecteur EP) ; objets
    [id, type, p, vers] à 3 m les uns des autres, chacun relié par le tracé 't' + id à la boîte vers ('Bu' ou 'Bp') ; les tracés du
-   croquis lui-même commencent par « x », pour ne pas prendre l'identifiant d'un tracé d'objet (un objet 'U' a le tracé 'tU') */
-function deuxReseaux(objs){
+   croquis lui-même commencent par « x », pour ne pas prendre l'identifiant d'un tracé d'objet (un objet 'U' a le tracé 'tU') ; plus
+   (facultatif, m143) : {o, l}, objets et tracés ajoutés tels quels, au format de doc() */
+function deuxReseaux(objs, plus){
   return doc({o: objs.map(([id, t, p], i) => [id, t, 3 * i - 6, 9, p || {}]).concat([['Bu', 'boite', 0, 2, {res: 'EU'}], ['Rp', 'regard_pub', 0, -2, {res: 'EU'}],
-    ['Bp', 'boite', 30, 2, {res: 'EP'}], ['Rq', 'regard_pub', 30, -2, {res: 'EP'}]]),
+    ['Bp', 'boite', 30, 2, {res: 'EP'}], ['Rq', 'regard_pub', 30, -2, {res: 'EP'}]], plus && plus.o || []),
     l: objs.map(([id, , , vers]) => ['t' + id, 'tr', '', '', [id, vers]]).concat([['xBu', 'tr', '', '', ['Bu', 'Rp']], ['xBp', 'tr', '', '', ['Bp', 'Rq']],
-      ['xC1', 'col', 'EU', '', [[-6, -2], 'Rp', [12, -2]]], ['xC2', 'col', 'EP', '', [[24, -2], 'Rq', [40, -2]]]])});
+      ['xC1', 'col', 'EU', '', [[-6, -2], 'Rp', [12, -2]]], ['xC2', 'col', 'EP', '', [[24, -2], 'Rq', [40, -2]]]], plus && plus.l || [])});
 }
 const constatDe = d => sur(() => { const c = copie(d); return V.constatDeduit(c, V.analyser(c, 'edl')); });
 const rowDe = (cd, id) => (cd && cd.rows || []).find(r => r.id === id) || {};
@@ -634,7 +647,8 @@ function g8(){
 
 /* g9 (m133, M2) : anomalie d'un générique compté en « Autres ». VCroquis.reconcilier ne connaît pas l'identifiant de la ligne « Autres » du
    constat (l'application le donne, vcApparier) : il nomme la ligne déduite dans ops.autres et n'écrit rien dans installation, sauf pour
-   ramener à vide une ligne du formulaire qu'il y avait notée (relecture de m133, M1 : sans constat, l'application ne range rien) */
+   ramener à vide une ligne du formulaire qu'il y avait notée (relecture de m133, M1 : sans constat, l'application ne range rien) ; depuis
+   m143, de même pour la chaudière (ligne « Autres » du croquis, comme toute autre) */
 function g9(){
   const d = deuxReseaux([['G1', 'autre_eu', {nom: 'Bidet'}, 'Bu'], ['G2', 'autre_eu', {nom: 'Bidet suspendu'}, 'Bu'], ['U', 'autre_eu', {nom: 'Urinoir', row: 'wc'}, 'Bu'],
     ['K', 'chaudiere', {}, 'Bu'], ['P', 'autre_ep', {nom: 'Avaloir de terrasse'}, 'Bu']]);
@@ -659,8 +673,11 @@ function g9(){
   const a1 = autres();
   R.ok(!majInst().length && !ops.maj.length && !ops.creer.length && !ops.retirer.length, 'g9 rangées par l\'application : la synchro suivante ne change rien (obtenu '
     + JSON.stringify({maj: majInst(), nMaj: ops.maj.length, creer: ops.creer.length, retirer: ops.retirer.length}) + ')');
-  R.ok(!!a1 && a1[rec('M1').id] === 'autre:EU:bidet suspendu' && a1[rec('ep-eu:P').id] === 'autre:EP:avaloir de terrasse' && Object.keys(a1).length === 2,
-    'g9 ops.autres : « autre:EU:bidet suspendu » et « autre:EP:avaloir de terrasse », rien pour l\'urinoir (wc) ni la chaudière (obtenu ' + JSON.stringify(a1) + ')');
+  /* m143 : la chaudière, comptée sur sa ligne « Autres », est nommée elle aussi (avant : rien) */
+  R.ok(!!a1 && a1[rec('M1').id] === 'autre:EU:bidet suspendu' && a1[rec('ep-eu:P').id] === 'autre:EP:avaloir de terrasse'
+    && a1[rec('M3').id] === 'autre:Chaudière (purge, condensat)' && Object.keys(a1).length === 3,
+    'g9 ops.autres : « autre:EU:bidet suspendu », « autre:EP:avaloir de terrasse » et « autre:Chaudière (purge, condensat) » (m143 ; v1.7.1 : rien '
+    + 'pour la chaudière), rien pour l\'urinoir (wc) (obtenu ' + JSON.stringify(a1) + ')');
   /* le générique passe sur la ligne « WC » (row) : l'anomalie suit, sans ops.autres ; puis revient en « Autres », synchro sans constat ni
      application (relecture de m133, M1) : la ligne « wc », notée par le croquis, revient à vide, comme avant m133 (sinon la ligne WC
      garderait l'anomalie d'un appareil qu'elle ne compte plus), et ops.autres la nomme ; la synchro suivante ne change plus rien */
@@ -688,6 +705,64 @@ function g10(){
   R.ok(JSON.stringify(N) === JSON.stringify(att), 'g10 noms proposés : ' + att.EU.join(', ') + ' (EU) ; ' + att.EP.join(', ') + ' (EP) (obtenu ' + JSON.stringify(N) + ')');
   const mal = [].concat(att.EU, att.EP).filter(n => nomRefuse(n) !== '');
   R.ok(!mal.length, 'g10 aucun nom proposé n\'est refusé (nomRefuse)' + (mal.length ? ' (refusés : ' + JSON.stringify(mal.map(n => [n, nomRefuse(n)])) + ')' : ''));
+}
+
+/* g11 (m143 ; décision D9 de `.claude/conception-v172.md`, réponse rangement-autres-par-texte du 16 nov. 2026, choix b) : l'anomalie de
+   tout objet compté sur une ligne « Autres » du croquis, et non plus du seul autre appareil (m133), est rangée d'après son objet :
+   VCroquis.reconcilier nomme sa ligne dans ops.autres (l'application l'y range, vcRangerAutres). Chaudière et attente reliées à un
+   puisard, point « Drain », siphon de cour et trop-plein reliés à la boîte EU, drain de collecte vers un regard puis la boîte EU ;
+   témoins : un WC (ligne « wc » du formulaire) et un autre appareil « Bidet » (m133), reliés au puisard */
+function g11(){
+  const d = deuxReseaux([['K', 'chaudiere', {}, 'Pu'], ['A', 'attente', {}, 'Pu'], ['D', 'drain', {}, 'Bu'], ['S', 'siphon_cour', {}, 'Bu'], ['TP', 'tropplein', {}, 'Bu'],
+    ['W', 'wc', {}, 'Pu'], ['G', 'autre_eu', {nom: 'Bidet'}, 'Pu']], {o: [['Pu', 'puisard', -20, 9, {}], ['Rg', 'regard', 10, 20, {}]],
+    l: [['xDC', 'tr', 'EP', '', [[0, 20], 'Rg'], 0, {drain: 'collecte', meth: ['eau']}], ['xRg', 'tr', 'EU', '', ['Rg', 'Bu']]]});
+  const ext = [], rec = cle => ext.find(r => r.croquis && r.croquis.cle === cle) || {}, pt = id => d.el.find(e => e.id === id);
+  let k = 0, ops = null;
+  const synchro = () => { ops = V.reconcilier(d, null, ext);
+    ops.retirer.forEach(id => { const i = ext.findIndex(r => r.id === id); if (i >= 0) ext.splice(i, 1); });
+    ops.maj.forEach(m => { const r = ext.find(x => x.id === m.id); if (r) Object.assign(r, m.champs); });
+    ops.creer.forEach(c => { ext.push(Object.assign({id: c.id || ('r' + (++k)), createdAt: c.createdAt || '2026-11-02'}, c)); }); return ops; };
+  const vu = cle => { const r = rec(cle); return JSON.stringify([r.installation, r.croquis && r.croquis.auto && r.croquis.auto.installation]); };
+  const autres = () => ops && ops.autres && typeof ops.autres === 'object' ? ops.autres : {};
+  const majInst = () => (ops.maj || []).filter(m => m.champs && m.champs.installation !== undefined).map(m => ext.find(r => r.id === m.id).croquis.cle + ' → ' + JSON.stringify(m.champs.installation));
+  const bilan = () => JSON.stringify({maj: majInst(), nMaj: ops.maj.length, creer: ops.creer.length, retirer: ops.retirer.length});
+  const CH = 'autre:Chaudière (purge, condensat)', ATT = [['eu-inf:K', CH, 'chaudière'], ['eu-inf:A', 'autre:Attente', 'attente'], ['ep-eu:D', 'autre:Drain', 'point « Drain »'],
+    ['ep-eu:xDC', 'autre:Drain', 'drain de collecte compté'], ['ep-eu:S', 'autre:Siphon de cour', 'siphon de cour'], ['ep-eu:TP', 'autre:Trop-plein', 'trop-plein']];
+  synchro();
+  /* création : comme avant, installation et auto vides (l'application ne range qu'avec le constat) ; le WC sur « wc » */
+  const c0 = ATT.concat([['eu-inf:G']]).map(([cle]) => cle + ' ' + vu(cle));
+  R.ok(ATT.every(([cle]) => !!rec(cle).id) && c0.every(v => / \["",""\]$/.test(v)) && vu('eu-inf:W') === '["wc","wc"]', 'g11 création : les six anomalies et celle du bidet '
+    + 'sans ligne (installation et auto vides), le WC sur « wc » (obtenu ' + c0.join(' ; ') + ' ; eu-inf:W ' + vu('eu-inf:W') + ')');
+  /* synchro suivante, sans application : ops.autres nomme la ligne de chacune, rien n'est écrit */
+  synchro();
+  const a1 = autres();
+  for (const [cle, li, nom] of ATT) R.ok(!!rec(cle).id && a1[rec(cle).id] === li, 'g11 ' + nom + ' : ops.autres nomme la ligne « ' + li + ' » (v1.7.1 : rien ; obtenu '
+    + JSON.stringify(a1[rec(cle).id]) + ')');
+  R.ok(!ops.maj.length && !ops.creer.length && !ops.retirer.length, 'g11 synchro suivante : rien n\'est écrit (obtenu ' + bilan() + ')');
+  R.ok(a1[rec('eu-inf:G').id] === 'autre:EU:bidet' && !(rec('eu-inf:W').id in a1) && Object.keys(a1).length === ATT.length + 1, 'g11 témoins : le bidet (m133) '
+    + '« autre:EU:bidet », rien pour le WC (obtenu ' + JSON.stringify(a1) + ')');
+  /* l'application range chacune sur la ligne liée (identifiants fictifs du constat) : la synchro suivante n'y touche pas (v1.7.1 : elle
+     les ramenait à vide, rangement par le texte) et ops.autres les nomme encore */
+  ATT.forEach(([cle], i) => { const r = rec(cle), li = 'c' + (i + 1); r.installation = li; r.croquis = Object.assign({}, r.croquis, {auto: Object.assign({}, r.croquis.auto, {installation: li})}); });
+  synchro();
+  const a2 = autres();
+  R.ok(!majInst().length && !ops.maj.length && !ops.creer.length && !ops.retirer.length, 'g11 rangées par l\'application : la synchro suivante ne change rien (v1.7.1 : '
+    + 'installation ramenée à vide ; obtenu ' + bilan() + ')');
+  R.ok(ATT.every(([cle, li], i) => a2[rec(cle).id] === li && rec(cle).installation === 'c' + (i + 1)), 'g11 rangées : ops.autres les nomme encore, installations gardées (obtenu '
+    + JSON.stringify(ATT.map(([cle]) => [cle, rec(cle).installation, a2[rec(cle).id]])) + ')');
+  /* ligne choisie à la main (« Aucune ») : gardée ; ops.autres la nomme quand même, l'application voit la retouche (vcAutreSuit) */
+  rec('eu-inf:A').installation = 'aucune'; synchro();
+  R.ok(rec('eu-inf:A').installation === 'aucune' && !majInst().length && autres()[rec('eu-inf:A').id] === 'autre:Attente', 'g11 ligne choisie à la main (« Aucune ») gardée, '
+    + 'ops.autres la nomme (obtenu ' + vu('eu-inf:A') + ' ' + JSON.stringify(majInst()) + ' ' + JSON.stringify(autres()[rec('eu-inf:A').id]) + ')');
+  /* WC changé en chaudière : la ligne « wc » notée revient à vide (l'anomalie n'y reste pas en attendant l'application), ops.autres nomme
+     la ligne de la chaudière (v1.7.1 : vide, sans ops.autres) ; la synchro suivante ne change plus rien */
+  pt('W').t = 'chaudiere'; synchro();
+  const m5 = majInst(), a5 = autres();
+  R.ok(vu('eu-inf:W') === '["",""]' && m5.length === 1 && m5[0] === 'eu-inf:W → ""' && a5[rec('eu-inf:W').id] === CH, 'g11 WC changé en chaudière : la ligne « wc » '
+    + 'notée revient à vide, ops.autres « ' + CH + ' » (obtenu ' + vu('eu-inf:W') + ' ' + JSON.stringify(m5) + ' ' + JSON.stringify(a5[rec('eu-inf:W').id]) + ')');
+  synchro();
+  R.ok(vu('eu-inf:W') === '["",""]' && !majInst().length && autres()[rec('eu-inf:W').id] === CH, 'g11 WC changé en chaudière, synchro suivante : rien ne change (obtenu '
+    + vu('eu-inf:W') + ' ' + JSON.stringify(majInst()) + ')');
 }
 /* m134 : étiquette commune (souhait 8 ; D1 et D6). Membre : p.etiqAvec, l'id du porteur ; porteur : p.etiqTitre ('sdb', 'eau', 'cuisine',
    'buanderie', 'aucun' ; sinon, titre d'office). VCroquis.groupeEtiquette(e, an) : null pour un objet seul ; VCroquis.obstaclesPlan :
@@ -1009,7 +1084,7 @@ async function c10(){
     constatLm();
     await page2Lm();
     await gardeLm();
-    for (const g of [g1, g1bis, g2, g3, g4, g5, g6, g7, g8, g9, g10, c1, c2, c3, c4, c5, c6, c7, c9, c10]){
+    for (const g of [g1, g1bis, g2, g3, g4, g5, g6, g7, g8, g9, g10, g11, c1, c2, c3, c4, c5, c6, c7, c9, c10]){
       try { await g(); } catch (e){ R.ok(false, g.name + ' : exception : ' + (e && e.stack || e).toString().split('\n').slice(0, 3).join(' | ')); }
     }
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }

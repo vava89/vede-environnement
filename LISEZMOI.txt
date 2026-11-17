@@ -258,7 +258,11 @@ CROQUIS DE TERRAIN (facultatif)
   palette est refusé : le message dit quel objet poser. Il compte sur la
   ligne « Autres : <son nom> » (une ligne par nom et par réseau), ou sur
   la ligne du formulaire choisie dans sa fiche (« Compté au constat ») ;
-  ses anomalies vont sur sa ligne. Une étiquette commune (bouton
+  ses anomalies vont sur sa ligne. De même, les anomalies d'une
+  chaudière, d'une attente, d'un drain, d'un siphon de cour ou d'un
+  trop-plein vont sur la ligne « Autres » qui compte cet objet. Une
+  ligne choisie à la main dans l'anomalie reste. Une anomalie saisie au
+  dossier est rangée d'après son texte. Une étiquette commune (bouton
   « Étiquette commune… » de la fiche d'un appareil EU) écrit sur le plan
   une seule étiquette pour les appareils d'une même pièce (« Salle de
   bain (1er étage) » puis « douche, lavabo, WC + lave-mains ») ; elle ne

@@ -93,6 +93,21 @@
 //     croquis désactivé dans les Réglages (83), puis activé, un lavabo dessiné (86) ; les sept autres puces restent, dans l'ordre ; 83 et 86
 //     échouent sur 2f2a638. Témoins : « Douche » proposée, la feuille EP inchangée (84) ; « Lavabo » tapé à la main ajoute sa ligne
 //     « Autres » (85) ; croquis activé, « Douche » proposée et la ligne « Lavabo » saisie reste (87).
+// 88 à 94 (m143, réponse rangement-autres-par-texte du 16 nov. 2026, choix b ; décision D9 de `.claude/conception-v172.md`) : une chaudière
+//     reliée à un puisard et deux points « Drain » reliés à la boîte EU, anomalies du croquis retenues ; elles vont sur la ligne liée à la
+//     ligne « Autres » de leur objet, comme celles d'un autre appareil depuis m133. Constat repris, puis « Chaudière fioul » tapée :
+//     l'anomalie de la chaudière sur « Chaudière (purge, condensat) » (installation et valeur notée), aucune sur « Chaudière fioul » ;
+//     celles des deux drains sur la ligne « Drain » (88) ; croquis rouvert puis refermé : rien « à reporter », aucun rappel ; garde :
+//     constat signé, l'anomalie remise sans ligne n'est rangée ni par la reprise ni par le suivi (89) ; localisation « Chaufferie,
+//     chaudière fioul » : sur la ligne de sa chaudière (90 ; avant : sur aucune ligne, le texte ressemble aux deux) ; constat jamais
+//     repris, « Chaudière fioul » tapée seule : au suivi, avant toute reprise, l'anomalie de la chaudière va sur elle (installation et
+//     valeur notée ; avant : sur aucune ligne), une anomalie saisie au dossier « Chaudière fioul : … » y est rangée par son texte ;
+//     « Reprendre du croquis » les y laisse, sans créer de ligne « Chaudière (purge, condensat) » (91) ; sans ligne « Drain » : rappel
+//     « Drain : 2 anomalies du croquis de terrain ne sont rangées sur aucune ligne du constat ; … », puis « Reprendre du croquis » crée
+//     la ligne et les y range (92) ; garde : lignes choisies par le technicien (« Chaudière fioul », « Aucune ») gardées après le suivi
+//     et la reprise (93) ; témoin du livrable : comme 91, sans l'anomalie saisie au dossier : au suivi, « Chaudière fioul » passe de
+//     « oui » à « non » au constat, croix sous « Non » au PDF du constat (94). 88, 90 à 92 et 94 échouent sur f71a6e7 (installations
+//     vides ; 90 et 91 : sur aucune ligne ; 92 : aucun rappel ; 94 : « oui », croix sous « Oui ») ; 89 et 93 y passent.
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -154,7 +169,9 @@ async function lavabo(){
    constat affiché de nouveau. Rend les lignes actives du constat, les écarts affichés, le texte du bloc du croquis et l'installation de a.
    panneau (relecture de m125) : les phrases du panneau Constat de l'éditeur, lues avant la fermeture du croquis, rendues dans notes.
    o (m132) : o.reprise, « Reprendre du croquis » (action c-croq-fill) puis le constat lu de nouveau ({avant, apres}) ; o.fin(p) : une
-   lecture de plus, rendue dans fin. autres : les lignes « Autres » du constat, libellé, nombre et ligne du croquis liée (croq) */
+   lecture de plus, rendue dans fin ; o.finAvant(p) (m143) : la même lecture, faite au premier affichage du constat, avant la réouverture
+   du croquis et la reprise (rendue dans avant.fin quand l'une d'elles suit). autres : les lignes « Autres » du constat, libellé, nombre
+   et ligne du croquis liée (croq) */
 async function constatVu(nom, objs, traces, prep, apres, panneau, o){
   const A = await C.ouvrir(), p = A.p;
   try {
@@ -183,6 +200,7 @@ async function constatVu(nom, objs, traces, prep, apres, panneau, o){
           autres: (v.constat.rows || []).filter(x => !x.std).map(x => x.label + ' ×' + (String(x.nb == null ? '' : x.nb).trim() || '-') + (x.croq ? ' [' + x.croq + ']' : '')).join(' ; ')}; });
     };
     let e = await etat();
+    if (o && o.finAvant) e.fin = await o.finAvant(p);
     if (apres){ await p.evaluate(() => { location.hash = '#/e/' + window.__VT.S.visites[0].etudeId + '/v/' + window.__VT.S.visites[0].id; }); await p.waitForSelector('[data-act="vc-ouvrir"]');
       await C.ouvrirCroquis(p, {dejaCommence: true}); await p.waitForSelector('#modal-root .vc'); await C.pause(p, 500); await C.fermerCroquis(p); await C.pause(p, 600);
       e = {avant: e, apres: await etat()}; }
@@ -947,6 +965,115 @@ async function suggestionsAutres(){
   } finally { R.ok(!A.erreurs.length, '83 à 87 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
+/* 88 à 94 (m143 ; décision D9 de `.claude/conception-v172.md`, réponse rangement-autres-par-texte du 16 nov. 2026, choix b) : une
+   chaudière reliée à un puisard et deux points « Drain » reliés à la boîte EU ; anomalies du croquis retenues (« Chaudière : rejet dans
+   un puisard », « Drain : rejet au réseau EU »). Elles vont sur la ligne du constat que vcApparier lie à la ligne « Autres » de leur objet
+   (« Chaudière (purge, condensat) », « Drain »), comme celles d'un autre appareil depuis m133, et non plus d'après leur texte */
+const CHD = [['ch', 'chaudiere', -3, 0], ['pu', 'puisard', -3, -5], ['d1', 'drain', 3, 0], ['d2', 'drain', 6, 0], ['B', 'boite', 4.5, -5, {res: 'EU'}]];
+const CHD_TR = [['Tc', 'ch', 'pu'], ['T1', 'd1', 'B'], ['T2', 'd2', 'B']], CHD_L = 'Chaudière (purge, condensat)', FIOUL = 'Chaudière fioul';
+const CHD_DRAIN = 'Drain : 2 anomalies du croquis de terrain ne sont rangées sur aucune ligne du constat ; « Reprendre du croquis » crée la ligne et les y range.';
+/* ligne tapée par le technicien (libellé, nombre), ajoutée par prep */
+const tapee = (lab, nb) => "c.rows.push({id: 'au9', groupe: 'EU', label: '" + lab + "', std: false, nb: '" + nb + "', raccord: 'EU_D', conforme: '', methodes: []});";
+/* anomalie du croquis d'après sa clé, dans prep */
+const ANOM_CROQ = "const croq = k => T.S.anoms.find(x => x.visiteId === v.id && x.croquis && x.croquis.cle === k);";
+/* état relevé : pour chaque anomalie (clé du croquis, ou « dossier »), son installation, sa valeur notée et les lignes où l'application la
+   range (anomRows) ; conformité et nombre d'anomalies des lignes « Autres » actives, leurs identifiants ; anomalies « à reporter ». signe :
+   garde, constat signé (simulé), l'anomalie de la chaudière remise sans ligne : ni la reprise ni le suivi ne la rangent */
+const finChd = (p, signe) => p.evaluate(async signe => {
+  const T = window.__VT, v = T.S.visites[0], c = v.constat || {rows: []}, L = T.S.anoms.filter(a => a.visiteId === v.id), E = T.constatEval(v, L), res = T.VC_RESUMES.get(v.id);
+  const out = {anom: {}, lignes: {}, ids: {}, aReporter: res ? res.aReporter : null};
+  L.forEach(a => { out.anom[a.croquis && a.croquis.cle || 'dossier'] = {inst: a.installation, auto: a.croquis && a.croquis.auto ? a.croquis.auto.installation : null,
+    ligne: T.anomRows(c, a).map(r => r.label).join(' + ') || 'aucune'}; });
+  E.rows.filter(q => !q.r.std && String(q.r.nb || '').trim()).forEach(q => { out.lignes[q.r.label] = JSON.stringify(q.conf) + ' ' + q.anoms.length; });
+  (c.rows || []).filter(r => !r.std).forEach(r => { out.ids[r.label] = r.id; });
+  const a = L.find(x => x.croquis && x.croquis.cle === 'eu-inf:ch');
+  if (signe && a && a.croquis.auto && res){
+    const i0 = a.installation, au0 = a.croquis.auto.installation;
+    a.installation = ''; a.croquis.auto.installation = ''; c.signeLe = '2026-11-15T10:00:00.000Z';
+    let n1 = null, n2 = null; try { n1 = T.constatDepuisCroquis(v, res, false); n2 = T.constatDepuisCroquis(v, res, true); } catch (e){ n1 = 'exception ' + e.message; }
+    out.signe = {n1, n2, inst: a.installation, auto: a.croquis.auto.installation};
+    delete c.signeLe; a.installation = i0; a.croquis.auto.installation = au0;
+  }
+  return out;
+}, !!signe);
+/* croix de la rangée lab au PDF du constat (94), relevées comme dans finBidets : texte, position et page des appels de la bibliothèque */
+const croixPdf = (p, lab) => p.evaluate(async lab => {
+  const T = window.__VT, v = T.S.visites[0], J0 = window.jspdf.jsPDF, rec = [];
+  const W = function(){ const d = new J0(...arguments), ot = d.text;
+    d.text = function(t, x, y){ let pg = 0; try { pg = d.internal.getCurrentPageInfo().pageNumber; } catch (e){}
+      rec.push({t: [].concat(t).join(' '), x, y, pg}); return ot.apply(d, arguments); };
+    return d; };
+  W.API = J0.API; window.jspdf.jsPDF = W;
+  try { await T.constatPdfBlob(v); } finally { window.jspdf.jsPDF = J0; }
+  const r0 = rec.find(r => r.t === lab), hd = h => r0 ? rec.filter(r => r.pg === r0.pg && r.t === h && r.y < r0.y).pop() : null, oui = hd('Oui'), non = hd('Non');
+  if (!r0 || !oui || !non) return 'rangée ou en-têtes absents';
+  return rec.filter(r => r.pg === r0.pg && r.t === 'X' && Math.abs(r.y - r0.y) < 4).map(r => Math.abs(r.x - oui.x) < 3 ? 'Oui' : Math.abs(r.x - non.x) < 3 ? 'Non'
+    : 'raccordement').join(', ') || 'aucune';
+}, lab);
+async function autresParObjet(){
+  const js = x => JSON.stringify(x), dit = 'chaudière reliée à un puisard, deux points « Drain » reliés à la boîte EU';
+  /* 88 et 89 : constat repris du croquis, puis une ligne « Chaudière fioul » ×1 tapée par le technicien ; 89 : croquis rouvert et refermé */
+  let e = await constatVu('88', CHD, CHD_TR, tapee(FIOUL, '1'), true, false, {fin: p => finChd(p, true)}), F = e.fin || {};
+  const A = F.anom || {}, ch = A['eu-inf:ch'] || {}, d1 = A['ep-eu:d1'] || {}, d2 = A['ep-eu:d2'] || {}, idCh = (F.ids || {})[CHD_L], idDr = (F.ids || {}).Drain;
+  R.ok(!!idCh && ch.inst === idCh && ch.auto === idCh && ch.ligne === CHD_L && (F.lignes || {})[CHD_L] === '"non" 1' && (F.lignes || {})[FIOUL] === '"oui" 0',
+    '88 ' + dit + ', constat repris, « ' + FIOUL + ' » tapée : l\'anomalie de la chaudière est rangée sur « ' + CHD_L + ' », la ligne liée à sa chaudière '
+    + '(installation et valeur notée ; v1.7.1 : installation vide, rangée par le texte), aucune sur « ' + FIOUL + ' » (obtenu ' + js({ch, idCh, lignes: F.lignes}) + ')');
+  R.ok(!!idDr && d1.inst === idDr && d2.inst === idDr && d1.auto === idDr && d2.auto === idDr && d1.ligne === 'Drain' && d2.ligne === 'Drain' && (F.lignes || {}).Drain === '"non" 2',
+    '88 ' + dit + ' : les anomalies des deux drains, comptés sur la ligne « Drain », sont rangées sur elle (installation et valeur notée ; v1.7.1 : vides) (obtenu '
+    + js({d1, d2, idDr, drain: (F.lignes || {}).Drain}) + ')');
+  R.ok(F.aReporter === 0 && !!e.apres && !e.apres.ecarts.some(x => /ne suit pas encore|n'est rangée sur aucune ligne/.test(x)), '89 ' + dit + ', croquis rouvert puis refermé : '
+    + 'rien « à reporter », aucun rappel (obtenu ' + js({aReporter: F.aReporter, ecarts: e.apres && e.apres.ecarts}) + ')');
+  R.ok(!!F.signe && F.signe.n1 === 0 && F.signe.n2 === 0 && F.signe.inst === '' && F.signe.auto === '', '89 garde : constat signé, l\'anomalie de la chaudière remise sans ligne '
+    + 'n\'est rangée ni par la reprise ni par le suivi (obtenu ' + js(F.signe) + ')');
+
+  /* 90 : la même, sa localisation nomme la chaudière fioul : le texte ressemble aux deux lignes ; elle va sur celle de sa chaudière */
+  e = await constatVu('90', CHD, CHD_TR, tapee(FIOUL, '1') + ANOM_CROQ + " croq('eu-inf:ch').localisation = 'Chaufferie, chaudière fioul';", false, false, {fin: p => finChd(p)});
+  F = e.fin || {}; const ch90 = (F.anom || {})['eu-inf:ch'] || {}, id90 = (F.ids || {})[CHD_L];
+  R.ok(!!id90 && ch90.inst === id90 && ch90.ligne === CHD_L && (F.lignes || {})[CHD_L] === '"non" 1' && (F.lignes || {})[FIOUL] === '"oui" 0', '90 ' + dit + ', « ' + FIOUL
+    + ' » tapée, localisation « Chaufferie, chaudière fioul » : l\'anomalie de la chaudière va sur « ' + CHD_L + ' » (v1.7.1 : sur aucune ligne, son texte ressemble aux '
+    + 'deux) (obtenu ' + js({ch: ch90, id: id90, lignes: F.lignes}) + ')');
+
+  /* 91 et 92 : constat jamais repris du croquis (jamaisRepris), une ligne « Chaudière fioul » ×1 tapée, et une anomalie saisie au dossier
+     « Chaudière fioul : … », sans croquis ; lus au suivi (premier affichage du constat, finAvant), puis après « Reprendre du croquis » */
+  const jamaisRepris = "c.rows = c.rows.filter(r => r.std); c.rows.forEach(r => { r.nb = ''; r.raccord = ''; r.methodes = []; }); delete c.croqAuto;" + tapee(FIOUL, '1')
+    + " T.S.anoms.filter(x => x.visiteId === v.id && x.croquis).forEach(x => { x.installation = ''; x.croquis = Object.assign({}, x.croquis, {auto: Object.assign({}, x.croquis.auto, {installation: ''})}); });";
+  const prep91 = jamaisRepris + " T.S.anoms.push({id: 'a-fioul', etudeId: v.etudeId, visiteId: v.id, reseau: 'EU', observation: 'Chaudière fioul : fuite au raccord (anomalie fictive)', preconisation: '',"
+    + " localisation: '', installation: '', categorie: 'autre', photos: [], photoNonRequise: true, createdAt: '2026-11-08T08:00:00.000Z', updatedAt: '2026-11-08T08:00:00.000Z'});";
+  e = await constatVu('91', CHD, CHD_TR, prep91, false, false, {finAvant: p => finChd(p), fin: p => finChd(p), reprise: true}); F = e.fin || {};
+  const av = e.avant || {}, ap = e.apres || {}, Fa = av.fin || {}, cha = (Fa.anom || {})['eu-inf:ch'] || {}, dosa = (Fa.anom || {}).dossier || {}, idFa = (Fa.ids || {})[FIOUL];
+  /* au suivi seul (constatDepuisCroquis sans croqAuto, puis vcRangerAutres) : la seule preuve de ce chemin quand une ligne est tapée */
+  R.ok(!!idFa && cha.inst === idFa && cha.auto === idFa && cha.ligne === FIOUL && dosa.inst === '' && dosa.ligne === FIOUL && (Fa.lignes || {})[FIOUL] === '"non" 2'
+    && !(av.ecarts || []).some(x => /^Chaudière.*sur aucune ligne/.test(x)), '91 ' + dit + ', constat jamais repris, « ' + FIOUL + ' » tapée : au suivi, avant toute reprise, '
+    + 'l\'anomalie de la chaudière est rangée sur « ' + FIOUL + ' », la ligne liée à sa chaudière (installation et valeur notée ; v1.7.1 : sur aucune ligne, son texte ne '
+    + 'nomme pas le fioul), aucun rappel ; l\'anomalie saisie au dossier « ' + FIOUL + ' : … » y est rangée par son texte, sans installation écrite (obtenu '
+    + js({ch: cha, dossier: dosa, id: idFa, lignes: Fa.lignes, ecarts: av.ecarts}) + ')');
+  const ch92 = (F.anom || {})['eu-inf:ch'] || {}, dos = (F.anom || {}).dossier || {}, idF = (F.ids || {})[FIOUL];
+  R.ok(!!idF && idF === idFa && ch92.inst === idF && ch92.auto === idF && ch92.ligne === FIOUL && dos.inst === '' && dos.ligne === FIOUL && (F.lignes || {})[FIOUL] === '"non" 2'
+    && !(CHD_L in (F.ids || {})), '91 ' + dit + ', puis « Reprendre du croquis » : l\'anomalie de la chaudière reste sur « ' + FIOUL + ' », aucune ligne « ' + CHD_L
+    + ' » créée ; l\'anomalie saisie au dossier y reste rangée par son texte (obtenu ' + js({ch: ch92, dossier: dos, id: idF, lignes: F.lignes, ids: F.ids}) + ')');
+  R.ok((av.ecarts || []).indexOf(CHD_DRAIN) >= 0 && (ap.ecarts || []).indexOf(CHD_DRAIN) < 0 && ((F.anom || {})['ep-eu:d1'] || {}).ligne === 'Drain'
+    && ((F.anom || {})['ep-eu:d2'] || {}).ligne === 'Drain', '92 ' + dit + ', constat jamais repris, sans ligne « Drain » : rappel « ' + CHD_DRAIN + ' » ; puis « Reprendre '
+    + 'du croquis » : ligne créée, les deux anomalies y sont rangées, plus de rappel (obtenu ' + js({avant: av.ecarts, apres: ap.ecarts, d1: (F.anom || {})['ep-eu:d1'],
+    d2: (F.anom || {})['ep-eu:d2']}) + ')');
+
+  /* 93 (garde) : constat repris, « Chaudière fioul » tapée ; le technicien a mis l'anomalie de la chaudière sur « Chaudière fioul », celle d'un
+     drain sur « Aucune » : ni le suivi ni la reprise n'y touchent */
+  const prep93 = tapee(FIOUL, '1') + ANOM_CROQ + " croq('eu-inf:ch').installation = 'au9'; croq('ep-eu:d1').installation = 'aucune';";
+  e = await constatVu('93', CHD, CHD_TR, prep93, false, false, {fin: p => finChd(p), reprise: true}); F = e.fin || {};
+  const ch93 = (F.anom || {})['eu-inf:ch'] || {}, d93 = (F.anom || {})['ep-eu:d1'] || {};
+  R.ok(ch93.inst === 'au9' && ch93.ligne === FIOUL && d93.inst === 'aucune' && d93.ligne === 'aucune', '93 garde : lignes choisies par le technicien (« ' + FIOUL + ' » pour '
+    + 'la chaudière, « Aucune » pour un drain) gardées après le suivi et la reprise (obtenu ' + js({ch: ch93, d1: d93}) + ')');
+
+  /* 94 (témoin du livrable) : comme 91, sans l'anomalie saisie au dossier, lu au suivi, sans reprise : l'anomalie de la chaudière, rangée sur
+     « Chaudière fioul », rend cette ligne non conforme, au constat comme au PDF du constat (v1.7.1 : sur aucune ligne, la ligne conforme) */
+  e = await constatVu('94', CHD, CHD_TR, jamaisRepris, false, false, {fin: async p => Object.assign(await finChd(p), {pdf: await croixPdf(p, 'Autres : ' + FIOUL)})});
+  F = e.fin || {}; const ch94 = (F.anom || {})['eu-inf:ch'] || {}, id94 = (F.ids || {})[FIOUL], cx = String(F.pdf || '').split(', ');
+  R.ok(!!id94 && ch94.inst === id94 && ch94.ligne === FIOUL && !(F.anom || {}).dossier && (F.lignes || {})[FIOUL] === '"non" 1' && cx.indexOf('Non') >= 0 && cx.indexOf('Oui') < 0,
+    '94 témoin du livrable : ' + dit + ', constat jamais repris, « ' + FIOUL + ' » tapée seule, sans anomalie saisie au dossier : au suivi, l\'anomalie de la chaudière '
+    + 'rend « ' + FIOUL + ' » non conforme, au constat et au PDF du constat, croix sous « Non » (v1.7.1 : « oui », croix sous « Oui ») (obtenu '
+    + js({ch: ch94, id: id94, lignes: F.lignes, pdf: F.pdf}) + ')');
+}
+
 (async () => {
   try {
     await reglagesAides();
@@ -973,6 +1100,7 @@ async function suggestionsAutres(){
     await autresAvantReprise();
     await autresAnomalie();
     await suggestionsAutres();
+    await autresParObjet();
   } catch (e){ R.ok(false, 'exception du test : ' + (e && e.stack || e)); }
   R.fin();
 })();
