@@ -18,7 +18,9 @@
   se dessine en puisard. Une anomalie à arbitrer n'est jamais comptée conforme. Un drain qui reçoit un équipement EP disperse dans le sol (gestion
   des EP à la parcelle, aucun exutoire attendu, étiquette « dispersion dans le sol ») (décisions du 13 nov. 2026).
 - Le PDF est le livrable. Un constat signé n'est jamais modifié. Croquis désactivé ou absent : comportement de la v1.5.1, sauf une anomalie
-  saisie à la main qui nomme un lavabo : ligne « Évier », comme sur le croquis (décision du 7 nov. 2026).
+  saisie à la main qui nomme un lavabo : ligne « Évier », comme sur le croquis (décision du 7 nov. 2026) ; la suggestion « Lavabo » est
+  retirée partout, et une valeur de la boîte trop large pour sa case en 9,5 pt, mais qui tient en 7 pt, s'imprime au constat sur la ligne
+  de son libellé, comme en v1.7.0 (réponses du 16 nov. 2026).
 
 ## Façon de travailler
 - Correctifs numérotés (m76, m77…), au plus 20 sans fusion ; la fusion ne bloque pas le travail. Pour chaque correctif : un test qui

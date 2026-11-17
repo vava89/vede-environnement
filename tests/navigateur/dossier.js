@@ -89,6 +89,10 @@
 // 81 et 82 (relecture de m133, M3) : même constat jamais repris, mais le technicien a mis l'anomalie sur « Aucune » : aucun rappel ne
 //     promet que « Reprendre du croquis » l'y range (81) ; après la reprise, lignes créées, l'anomalie reste sur « Aucune » (82, garde).
 //     81 échoue avant la relecture de m133 (rappel « … n'est rangée sur aucune ligne du constat ; … l'y range »).
+// 83 à 87 (m137, réponse du 16 nov. 2026 à E2, décision D1) : la feuille « Autre installation EU » du constat ne propose plus « Lavabo »,
+//     croquis désactivé dans les Réglages (83), puis activé, un lavabo dessiné (86) ; les sept autres puces restent, dans l'ordre ; 83 et 86
+//     échouent sur 2f2a638. Témoins : « Douche » proposée, la feuille EP inchangée (84) ; « Lavabo » tapé à la main ajoute sa ligne
+//     « Autres » (85) ; croquis activé, « Douche » proposée et la ligne « Lavabo » saisie reste (87).
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -880,6 +884,69 @@ async function autresAnomalie(){
     + 'le choix du technicien (obtenu ' + JSON.stringify({inst: F.inst, auto: F.auto, ligne: F.ligne, ecarts: ap81.ecarts}) + ')');
 }
 
+/* m137 (réponse du 16 nov. 2026 à E2, décision D1) : « Lavabo » retiré des puces de la feuille « Autre installation EU », croquis désactivé
+   compris ; une ligne déjà saisie reste, et le libellé peut toujours être tapé à la main. Un lavabo est dessiné et relié à une boîte EU ;
+   le croquis est désactivé dans les Réglages (case « Utiliser le croquis de terrain »), puis activé de nouveau. */
+const SUGG_EU = ['Chaudière (purge, condensat)', 'Regard EU', 'Attente', 'Douche', 'Lave-vaisselle', 'Ballon d\'eau chaude', 'Fontaine'];
+const SUGG_EP = ['Regard EP', 'Descente EP', 'Puisard', 'Drain', 'Caniveau-grille', 'Siphon de cour', 'Trop-plein'];
+async function suggestionsAutres(){
+  const A = await C.ouvrir(), p = A.p, MOD = '#modal-root .modal';
+  try {
+    await C.etudeEtDossier(p); await C.ouvrirCroquis(p, {fond: false});
+    const v0 = await C.vue(p), els = [C.P('la', 'lavabo', v0.cx, v0.cy), C.P('B', 'boite', v0.cx, v0.cy - 4, {res: 'EU'})], I = C.index(els);
+    els.push(C.L('Bl', 'tr', ['la', 'B'], I));
+    await C.injecter(p, {el: els});
+    await p.evaluate(() => { const S = window.__vcEd.etat; S.doc.rev = (S.doc.rev || 0) + 1; window.__vcEd.enregistrer(); }); await C.pause(p, 500);
+    await C.fermerCroquis(p); await C.pause(p, 600);
+    await p.evaluate(async () => { const T = window.__VT, v = T.S.visites[0]; v.statut = 'visitee'; T.constatDepuisCroquis(v, await T.vcResume(v), false); await T.flushSaves(); });
+    /* case « Utiliser le croquis de terrain » des Réglages cochée (oui) ou décochée, puis le constat du dossier ; croquis activé : bloc et résumé prêts */
+    const croquisActif = async oui => {
+      await p.evaluate(() => { location.hash = '#/reglages'; }); await p.waitForSelector('input[data-act="vc-actif"]');
+      if (await p.$eval('input[data-act="vc-actif"]', x => x.checked) !== oui) await p.click('input[data-act="vc-actif"]');
+      await p.waitForFunction(o => !!window.__VT.S.croq.actif === o, oui); await C.pause(p, 300);
+      await p.evaluate(() => { const v = window.__VT.S.visites[0]; location.hash = '#/e/' + v.etudeId + '/v/' + v.id + '/constat'; });
+      await p.waitForSelector('[data-act="c-addrow"][data-g="EU"]');
+      if (oui){ await p.waitForSelector('.croq-fill'); await p.waitForFunction(() => window.__VT.VC_RESUMES.has(window.__VT.S.visites[0].id)); }
+      await C.pause(p, oui ? 900 : 600);
+    };
+    await croquisActif(false);
+    /* feuille d'une ligne « Autres » : titre, puces, champ de saisie, état du croquis ; refermée par « Annuler », sauf si garder */
+    const feuille = async (g, garder) => {
+      await p.click('[data-act="c-addrow"][data-g="' + g + '"]'); await p.waitForSelector(MOD + ' .m-title');
+      const f = await p.evaluate(M => { const m = document.querySelector(M);
+        return {titre: m.querySelector('.m-title').textContent, puces: [...m.querySelectorAll('[data-m="sg"]')].map(b => b.textContent.trim()), saisie: !!m.querySelector('#m-lab'),
+          bloc: !!document.querySelector('.croq-fill'), actif: !!window.__VT.S.croq.actif}; }, MOD);
+      if (!garder){ await p.click(MOD + ' .m-foot [data-mi="0"]'); await p.waitForSelector(MOD, {state: 'detached'}); await C.pause(p, 300); }
+      return f;
+    };
+    /* lignes « Autres » du constat (réseau, libellé, nombre) et celles que l'écran affiche */
+    const lignes = () => p.evaluate(() => { const v = window.__VT.S.visites[0];
+      return {autres: (v.constat.rows || []).filter(x => !x.std).map(x => x.groupe + ' ' + x.label + ' ×' + x.nb),
+        ecran: [...document.querySelectorAll('[data-act="c-delrow"]')].map(b => b.getAttribute('aria-label'))}; });
+    const vu = f => f.titre + ' : ' + JSON.stringify(f.puces) + (f.actif ? ', croquis activé' : ', croquis désactivé') + (f.bloc ? ', bloc du croquis affiché' : ', sans bloc du croquis');
+    let f = await feuille('EU');
+    R.ok(!f.actif && !f.bloc && f.titre === 'Autre installation EU' && f.puces.indexOf('Lavabo') < 0 && JSON.stringify(f.puces) === JSON.stringify(SUGG_EU),
+      '83 croquis désactivé : la feuille « Autre installation EU » ne propose pas « Lavabo » ; les sept autres puces, dans l\'ordre (' + vu(f) + ')');
+    const fp = await feuille('EP');
+    R.ok(f.puces.indexOf('Douche') >= 0 && f.saisie && fp.titre === 'Autre installation EP' && JSON.stringify(fp.puces) === JSON.stringify(SUGG_EP),
+      '84 témoins, croquis désactivé : « Douche » proposée, avec le champ « Ou saisissez le libellé » ; feuille EP inchangée (' + vu(fp) + ')');
+    /* « Lavabo » tapé à la main, puis « Ajouter » */
+    await feuille('EU', true); await p.fill(MOD + ' #m-lab', 'Lavabo'); await p.click(MOD + ' .m-foot .btn.primary');
+    await p.waitForSelector(MOD, {state: 'detached'}); await C.pause(p, 600);
+    const l1 = await lignes();
+    R.ok(JSON.stringify(l1.autres) === JSON.stringify(['EU Lavabo ×1']) && l1.ecran.indexOf('Supprimer la ligne Lavabo') >= 0,
+      '85 témoin, croquis désactivé : « Lavabo » tapé à la main ajoute la ligne « Lavabo » ×1 aux autres installations EU, affichée au constat (' + JSON.stringify(l1) + ')');
+    /* croquis activé de nouveau dans les Réglages */
+    await croquisActif(true);
+    f = await feuille('EU');
+    R.ok(f.actif && f.bloc && f.titre === 'Autre installation EU' && f.puces.indexOf('Lavabo') < 0 && JSON.stringify(f.puces) === JSON.stringify(SUGG_EU),
+      '86 croquis activé, un lavabo dessiné : la feuille « Autre installation EU » ne propose pas « Lavabo » ; les sept autres puces, dans l\'ordre (' + vu(f) + ')');
+    const l2 = await lignes();
+    R.ok(f.puces.indexOf('Douche') >= 0 && JSON.stringify(l2.autres) === JSON.stringify(['EU Lavabo ×1']) && l2.ecran.indexOf('Supprimer la ligne Lavabo') >= 0,
+      '87 témoins, croquis activé : « Douche » proposée ; la ligne « Lavabo » saisie à la main reste (' + JSON.stringify(l2) + ')');
+  } finally { R.ok(!A.erreurs.length, '83 à 87 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
 (async () => {
   try {
     await reglagesAides();
@@ -905,6 +972,7 @@ async function autresAnomalie(){
     await autresPdf();
     await autresAvantReprise();
     await autresAnomalie();
+    await suggestionsAutres();
   } catch (e){ R.ok(false, 'exception du test : ' + (e && e.stack || e)); }
   R.fin();
 })();
