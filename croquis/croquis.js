@@ -1476,7 +1476,7 @@ function analyser(doc, mode){
      équipement disperse (dispE), et porte l'étiquette « Dispersion dans le sol » (an.drainsDisp ; un point « Drain » la donne au drain qui
      le tient). Un drain qu'aucun équipement n'atteint, ou dont la sortie est dessinée, ne change pas. Les équipements sont donc analysés
      avant les points « Drain », puis les drains de collecte comptés ; les résultats restent rangés dans l'ordre des sources */
-  var dispE = {}, dispA = {}, drainsDisp = {};
+  var dispE = {}, dispA = {}, drainsDisp = {}, eauxDrains = {};
   /* drain source : un drain de collecte compté, ou un point « Drain », même posé hors du drain et relié par un tuyau [p] : il suit le
      drain (dispersion dans le sol seulement là où un équipement disperse), sinon il garde le réseau présumé */
   function estDrainSrc(id){ return !objs[id] || objs[id].t === 'drain'; }
@@ -1500,6 +1500,14 @@ function analyser(doc, mode){
       if (nets.indexOf(t.res) < 0) nets.push(t.res); gests[t.res] = gestDe(t);
       if (!boite) boite = boiteSur(pr, s, t.noeud);
       if (t.col){ var ps = (pr[t.noeud] || []).map(function(q){ return q.n; }).sort(), sb = ps.filter(function(u){ return !boiteSur(pr, s, u); }); entree[t.id] = sb[0] || ps[0] || id; }
+    });
+    /* m142 (décision D8 ; réponse drain-infiltration-dessin du 16 nov. 2026) : eaux reçues par chaque drain d'infiltration que la source
+       atteint (an.eauxDrains) : une de plus à sa nature, EU ou EP ; un drain de collecte compté apporte des EP. Elles donnent sa couleur au
+       drain (resLigne). Le sens du drain et son réseau saisi ne sont pas lus */
+    r.term.forEach(function(t){
+      if (t.via !== 'drain') return;
+      var q = Object.prototype.hasOwnProperty.call(eauxDrains, t.id) ? eauxDrains[t.id] : (eauxDrains[t.id] = {EU: 0, EP: 0});
+      q[!ld && T[objs[id].t].nat === 'EU' ? 'EU' : 'EP']++;
     });
     if (r.term.length){ fosse = fosseDe(s, r, pr, r.term.map(function(t){ return t.noeud; })); if (!ld) noterSens(pr, r.term.map(function(t){ return t.noeud; })); }
     /* m129 (Q7 a) : drain d'infiltration qui atteint aussi un autre exutoire (ouvrage qu'il tient, tuyau parti d'un de ses sommets) : les
@@ -1641,6 +1649,7 @@ function analyser(doc, mode){
   var an = {mode: mode, objs: objs, lignes: lignes, pieces: pieces, adj: adj, resObj: resObj, resPiece: resPiece, sensPiece: sensPiece, sensSource: sensSource, resPt: resPt, boites: boites, dist: dist};
   if (exuX) an.exu = exuX;
   if (Object.keys(drainsDisp).length) an.drainsDisp = drainsDisp;
+  if (Object.keys(eauxDrains).length) an.eauxDrains = eauxDrains;
   /* après l'avant-projet : l'état des lieux sert de référence (numéros d'anomalie, réseau des tracés à supprimer) */
   if (mode === 'avp') an.ref = analyser(doc, 'edl');
   an.anomalies = reglesAnomalies(doc, an);
@@ -2439,8 +2448,17 @@ function resLigne(e, an){
   /* complément du fond, escalier, tracé d'un type inconnu : gris du complément */
   if (e.t !== 'tr') return 'LIM';
   if (e.p.st === 'projet') return 'PRJ';
-  /* drain d'infiltration (m122) : vert, relié ou non (ses segments ne sont pas des pièces de l'analyse ; son p.res n'est pas lu) */
-  if (drainDe(e) === 'infiltration') return 'EP';
+  /* drain d'infiltration : sa couleur suit les eaux qu'il reçoit (m142, décision D8 ; réponse drain-infiltration-dessin du 16 nov. 2026 :
+     « si uniquement des EU alors drain en rouge, si au moins un EP alors vert ») : EP dès qu'une source qui l'atteint est EP, EU si toutes
+     sont EU (an.eauxDrains). Sans source : vert, comme sans analyse (m122) ; sur le plan d'avant-projet, un drain « à supprimer » (absent
+     de cette analyse) garde la couleur qu'il a à l'état des lieux (an.ref), comme un tuyau [p]. Ses segments ne sont pas des pièces de
+     l'analyse ; son p.res n'est pas lu */
+  if (drainDe(e) === 'infiltration'){
+    var q = an && an.eauxDrains && Object.prototype.hasOwnProperty.call(an.eauxDrains, e.id) ? an.eauxDrains[e.id] : null;
+    if (q && q.EP) return 'EP';
+    if (q && q.EU) return 'EU';
+    return an && an.ref && !(an.lignes && Object.prototype.hasOwnProperty.call(an.lignes, e.id)) ? resLigne(e, an.ref) : 'EP';
+  }
   if (RES[e.p.res] && e.p.res !== 'PRJ') return e.p.res;
   if (!an) return 'INC';
   var vu = {}, k = null; an.pieces.forEach(function(p){ if (p.l.id === e.id){ var r = an.resPiece[p.id].res; vu[r] = (vu[r] || 0) + 1; } });

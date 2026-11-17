@@ -103,7 +103,11 @@ CROQUIS DE TERRAIN (facultatif)
   conforme (« Rejet : dispersion dans le sol » ; au constat, la case
   « Infiltration diffuse »), un WC non conforme (« rejet au sol ») ; ses
   bouts libres n'attendent pas d'exutoire. Il est vert, avec l'étiquette
-  « Dispersion dans le sol ». Ce que le drain d'infiltration atteint
+  « Dispersion dans le sol » ; s'il ne reçoit que des eaux usées (un WC,
+  sans descente ni grille qui y mène), il est rouge, son étiquette aussi,
+  à l'écran, au PDF et au DXF. Un tuyau sans réseau qui ne mène qu'à lui
+  reste vert, et un regard posé sur le drain reste un regard EP (tampon
+  béton : réserve). Ce que le drain d'infiltration atteint
   au-delà de lui (trop-plein parti du drain vers une boîte de
   branchement, puits, puisard ou infiltration posés sur le drain) est un
   rejet de plus, jugé selon sa règle : la source disperse dans le sol et,

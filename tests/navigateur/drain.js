@@ -38,6 +38,11 @@
 //   Échoue sur f7c2589 : outils absents (o1 ; exceptions dans o2 à o4). Sans la condition du même p.drain, seuls les trois contrôles
 //   des deux lignes échouent (le drain prolonge le Tronçon EP : « Tronçon ajouté ») ; avec les messages du geste d'avant la relecture
 //   (« Tronçon abandonné »…), seul celui des messages.
+// c1 (m142, décision D8 de la conception v1.7.2) : un WC relié par un tronçon au 1er sommet d'un drain d'infiltration de 10 m. À l'écran,
+//   le trait et les dents du drain sont rouges (#e00000 : au moins 11 segments, aucun vert le long du drain) ; la tête de sa fiche a un
+//   trait rouge, rgb(224,0,0), et garde « Dispersion dans le sol · … », sans puces Réseau ; « Ajouter une anomalie », puis la première
+//   suggestion (« Tronçon : présumé cassé ou déboîté ») : l'anomalie part en EU [p], au croquis et au dossier. Aucune erreur dans la console.
+//   Échoue sur a7635a4 (drain vert, anomalie en EP), sauf l'absence d'erreur dans la console.
 'use strict';
 const C = require('./commun.js');
 const R = C.rapport('drain');
@@ -312,8 +317,64 @@ async function outils(){
   } finally { await A.fermer(); }
 }
 
+/* c1 (m142, décision D8 de la conception v1.7.2) : drain d'infiltration relié au seul WC, rouge à l'écran et dans la tête de sa fiche ;
+   anomalie saisie à la main sur lui : réseau EU [p] */
+const ROUGE = '#e00000', VERT = '#00a050';
+/* segments du canevas redessiné (tous les chemins, avec la couleur du trait) dont les deux bouts sont à moins de r px du segment [a, b] du
+   croquis ; seulement ceux du rouge EU et du vert EP (le fond de plan et le reste ont d'autres couleurs) */
+async function traitsLe(p, a, b, r){
+  await p.evaluate(() => {
+    const P = CanvasRenderingContext2D.prototype; window.__espD = [];
+    if (P.__espDrain) return;
+    const o = P.__espDrain = {beginPath: P.beginPath, moveTo: P.moveTo, lineTo: P.lineTo, stroke: P.stroke}; let cur = [], der = null;
+    P.beginPath = function(){ cur = []; der = null; return o.beginPath.apply(this, arguments); };
+    P.moveTo = function(x, y){ der = [x, y]; return o.moveTo.apply(this, arguments); };
+    P.lineTo = function(x, y){ if (der) cur.push([der, [x, y]]); der = [x, y]; return o.lineTo.apply(this, arguments); };
+    P.stroke = function(){ const E = window.__espD, c = String(this.strokeStyle); if (E && E.length < 20000) cur.forEach(s => E.push({a: s[0], b: s[1], coul: c})); return o.stroke.apply(this, arguments); };
+  });
+  await p.evaluate(() => { window.__espD = []; window.__vcEd.redessiner(); });
+  await C.pause(p, 200);
+  return p.evaluate(([a, b, r]) => {
+    const E = window.__espD || [], V = window.__vcEd.etat.vue, A = V.ecran(a[0], a[1]), B = V.ecran(b[0], b[1]); window.__espD = null;
+    const ux = B.x - A.x, uy = B.y - A.y, L2 = ux * ux + uy * uy;
+    const d = q => { const t = Math.max(0, Math.min(1, ((q[0] - A.x) * ux + (q[1] - A.y) * uy) / L2)); return Math.hypot(q[0] - A.x - t * ux, q[1] - A.y - t * uy); };
+    return E.filter(s => d(s.a) <= r && d(s.b) <= r && /^#(e00000|00a050)$/.test(s.coul)).map(s => s.coul);
+  }, [a, b, r]);
+}
+async function couleur(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p); await C.ouvrirCroquis(p);
+    const w = C.P('w', 'wc', 0, 8), j = C.J('J', 0, 0), I = C.index([w, j]);
+    await C.injecter(p, {el: [w, j, C.L('L', 'tr', ['w', 'J'], I), C.L('T', 'tr', ['J', [10, 0]], I, {drain: 'infiltration'})]});
+    await C.regler(p, 5, 3, 40);
+    const eaux = await p.evaluate(() => { const a = window.__vcEd.etat.an; return a && a.eauxDrains ? JSON.stringify(a.eauxDrains) : 'absent'; });
+    /* le long du drain (à moins de 0,5 m), avant de le choisir (sa sélection se dessine par-dessus) : son trait et ses 10 dents */
+    const t = await traitsLe(p, [0, 0], [10, 0], .5 * 40), n = c => t.filter(x => x === c).length;
+    R.ok(n(ROUGE) >= 11 && !n(VERT),
+      'c1 écran : le drain d\'infiltration relié au seul WC est rouge, trait et dents (' + ROUGE + '), sans trait vert le long du drain (obtenu ' + n(ROUGE) + ' rouge(s), '
+      + n(VERT) + ' vert(s) ; an.eauxDrains ' + eaux + ')');
+    await fiche(p, 'T');
+    const f = await p.evaluate(PAN => {
+      const c = document.querySelector(PAN), s = c && c.querySelector('.vc-ftete svg path'), e = c && c.querySelector('.vc-ftete .vc-etat');
+      return {trait: s ? s.getAttribute('stroke') : '', etat: e ? e.textContent : '', nRes: c ? c.querySelectorAll('button[data-k="res"]').length : -1};
+    }, PAN);
+    R.ok(f.trait === 'rgb(224,0,0)' && /^Dispersion dans le sol · /.test(f.etat) && f.nRes === 0,
+      'c1 tête de la fiche du drain : trait rouge rgb(224,0,0), « Dispersion dans le sol · … » (texte inchangé), puces Réseau toujours masquées (obtenu ' + JSON.stringify(f) + ')');
+    /* « Ajouter une anomalie », puis la première suggestion des tronçons : son réseau suit la couleur du drain [p] */
+    const b1 = await p.$(PAN + ' button[data-a="anomAjout"]'); if (b1){ await b1.click(); await C.pause(p, 250); }
+    const b2 = await p.$(PAN + ' button[data-a="anomLib"][data-i="0"]'); if (b2){ await b2.click(); await C.pause(p, 500); }
+    const m = await p.evaluate(() => (window.__vcEd.doc().anomManu || []).map(a => ({objId: a.objId, reseau: a.reseau, obs: a.obs})));
+    const dos = await C.dossierAnomalies(p), dm = dos.find(a => /présumé cassé ou déboîté/.test(a.obs || ''));
+    R.ok(!!b1 && !!b2 && m.length === 1 && m[0].objId === 'T' && m[0].reseau === 'EU' && m[0].obs === 'Tronçon : présumé cassé ou déboîté' && !!dm && dm.reseau === 'EU',
+      'c1 anomalie saisie à la main sur ce drain (« Tronçon : présumé cassé ou déboîté ») : réseau EU, comme son trait [p] (v1.7.1 : EP), au croquis et au dossier (obtenu '
+      + JSON.stringify(m) + ' ; dossier ' + JSON.stringify(dm || null) + (b1 && b2 ? '' : ' ; bouton absent') + ')');
+    R.ok(!A.erreurs.length, 'c1 aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [puces, methodes, outils]){
+  for (const f of [puces, methodes, outils, couleur]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();
