@@ -25,12 +25,31 @@
 //     exception ;
 // g : au glissé du doigt (aide « Tracer en glissant le doigt » active), de l'appui au lever : contour fantôme pendant le glissé ; même
 //     résultat que t ;
-// c : le long de la façade sud vers l'est : escalier à droite (le côté gauche entrerait dans le bâti), montée vers le départ ;
+// c : le long de la façade sud vers l'est : escalier à droite (le côté gauche entrerait dans le bâti), montée vers la fin (départ au coin,
+//     fin redressée sur la façade : depuis m139, les deux bouts sont posés ; avant : vers le départ) ;
 // v : à la souris, départ posé, survol vers la rue : contour fantôme en tirets ; survol, puis départ posé au doigt : entre deux touchers,
 //     seul le départ est marqué ; la souris qui bouge ensuite montre de nouveau le contour (écran tactile et souris) ; glissé à la souris :
 //     contour fantôme pendant le glissé, escalier au lever ;
 // r : fiche d'un escalier non dessiné : ses champs restent, Longueur grisée si le départ et la fin sont confondus ; Largeur 1,20 répare un
 //     escalier de largeur nulle ; aucune erreur dans la console.
+// m139, contour fermé de « Complément du fond » (rectangle fictif de 12 m² dans le jardin du fond de démonstration) :
+// k : le trait injecté est lu fermé ; départ au coin sud-ouest du contour (aide « coin ») ; le long du côté sud vers l'est, le contour
+//     fantôme et l'escalier posé sont du même côté (à droite), hors du contour, contours confondus à 5 mm près ; montée vers la fin (les
+//     deux bouts sont sur le contour) ; la fiche de l'escalier n'a ni puce « Réseau » ni le mot (témoin : celle d'un tronçon les a) ;
+//     contour ajouté au croquis pendant le tracé, le départ restant posé : le fantôme passe de gauche à droite, l'escalier posé est à droite ;
+//     aucune erreur dans la console.
+// h : la même annexe tracée à l'outil « Complément du fond », au doigt : quatre touchers, un cinquième à 3 px du premier point, puis
+//     « Terminer » : le point reprend exactement le premier (aide « coin »), lignesRef lit le trait fermé (écart nul) ; escalier depuis son
+//     coin sud-ouest, le long du côté sud vers l'est : à droite, hors de l'annexe, montée vers la fin ; témoin : à 20 px, trait ouvert ;
+//     aimant coupé, à 3 px : fermé ; outil « Choisir », poignée du dernier sommet d'un trait ouvert lâchée à 20 px du premier (témoin :
+//     ouvert), puis à 3 px : fermé, écart nul ;
+// e : contour fermé de complément qui entoure le bâti et l'escalier (parcelle redessinée, u 55 à 85, v −6 à 24) : comme c, contour
+//     fantôme et escalier posé à droite, hors du bâti, montée vers la fin ; aucune erreur dans la console.
+// Sur 771b7a7 : c et k échouent (montée ; fantôme, escalier posé, montée, contour ajouté) ; le départ au coin, la fiche sans « Réseau » et la
+// lecture du contour passent ; h échoue (contour jamais fermé ; escalier à gauche, vers le départ), sauf le témoin à 20 px ; e échoue par la
+// montée (vers le départ ; le côté est à droite).
+// Sur m139 avant ses corrections : h échoue comme sur 771b7a7 (point à 1,6 cm du premier, aide « parallele ») ; e échoue (fantôme et
+// escalier posé à gauche, dans le bâti).
 // Sur 6e365ec : o échoue (pas d'outil « Escalier » dans la palette) et les cas m107 suivants ne sont pas lancés ; ceux de m106 passent.
 // Sur 689e83b : d, s, a, n et i échouent (l'objet d'un type inconnu arrête le dessin et la fiche), sauf le témoin du bout déplacé ; m échoue
 // (poignée dessinée, sommet ajouté), sauf le témoin du trait du complément et l'absence d'erreur.
@@ -367,12 +386,14 @@ async function outilEscalier(){
     await C.glisserDoigtCv(p, qDg, qFg, 600, {avantLever: async () => { await releverDebut(p); await p.evaluate(() => window.__vcEd.redessiner()); await C.pause(p, 150); chG = await releverFin(p); }});
     R.ok(fantome(chG, qDg, qFg), 'g : pendant le glissé du doigt, le contour fantôme suit le doigt (' + chG.filter(c => c.ferme && c.tirets).length + ' chemin fermé en tirets relevé)');
     verifier('g', await apres(p), B);
-    /* c : le long de la façade sud vers l'est : le côté gauche entrerait dans le bâti, l'escalier va à droite */
+    /* c : le long de la façade sud vers l'est : le côté gauche entrerait dans le bâti, l'escalier va à droite ; la fin, redressée le long de
+       la façade, est sur elle : depuis m139, elle compte comme posée (à 1 cm au plus), et la montée va vers la fin (avant : vers le départ) */
     await repartir(p, centre);
     await C.toucherCv(p, await C.ecranCv(p, B.so.x, B.so.y)); await C.toucherCv(p, await C.ecranCv(p, finFacade.x, finFacade.y));
     const rc = await apres(p), ecs = rc.e, aS = angle(B.so, B.se), ac = ecs && ecs.v.length === 2 ? Math.abs(normAng(angle(ecs.v[0], ecs.v[1]) - aS)) : NaN;
-    R.ok(rc.nEsc === 1 && !!ecs && ecs.p.cote === 'd' && ecs.p.monte === 'depart' && rc.dedans === false && ac < 1e-3, 'c : le long de la façade sud vers l\'est : à droite (le côté gauche '
-      + 'entrerait dans le bâti), contour hors du bâti, montée vers le départ (obtenu ' + JSON.stringify(ecs && ecs.p) + ', écart à la façade ' + expo(ac) + ' rad, contour dans le bâti : ' + rc.dedans + ')');
+    R.ok(rc.nEsc === 1 && !!ecs && ecs.p.cote === 'd' && ecs.p.monte === 'fin' && rc.dedans === false && ac < 1e-3, 'c : le long de la façade sud vers l\'est : à droite (le côté gauche '
+      + 'entrerait dans le bâti), contour hors du bâti, montée vers la fin (départ au coin, fin redressée sur la façade : les deux bouts sont posés, m139) (obtenu '
+      + JSON.stringify(ecs && ecs.p) + ', écart à la façade ' + expo(ac) + ' rad, contour dans le bâti : ' + rc.dedans + ')');
     /* v : à la souris, entre les deux points, le contour fantôme suit le pointeur ; au doigt, seul le départ est marqué ; pendant un glissé */
     await repartir(p, centre);
     const qD = await C.ecranCv(p, B.so.x, B.so.y);
@@ -421,8 +442,189 @@ async function outilEscalier(){
   } finally { await A.fermer(); }
 }
 
+/* k (m139, décision D3) : contour fermé de « Complément du fond », trait fictif injecté : rectangle de 4 × 3 m dans le jardin de la
+   parcelle du bâti de la démonstration (u 67 à 71, v 17 à 20 : à 3 m du bâti, loin des limites de parcelle) */
+async function complementFerme(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const o = await p.evaluate(() => window.__vcEd.etat.doc.origine);
+    const plan = (u, v) => ({x: DEMO.x + u * Math.cos(DEMO.th) - v * Math.sin(DEMO.th) - o.x, y: DEMO.y + u * Math.sin(DEMO.th) + v * Math.cos(DEMO.th) - o.y});
+    const Q = [plan(67, 17), plan(71, 17), plan(71, 20), plan(67, 20)], centre = plan(69, 18.5), vise = plan(69.5, 17.08);
+    const K = C.L('K1', 'lim', Q.concat([Q[0]]).map(q => [q.x, q.y]), {}, {});
+    /* contour fantôme relevé (départ à 1,5 px de dep) : ses quatre points ramenés au croquis (S.vue.monde), son côté vu du départ vers la
+       fin, son centre dans le complément ou non */
+    const lireFantome = async (chemins, dep) => {
+      const c = chemins.filter(q => q.ferme && q.tirets && q.pts.length === 4 && Math.hypot(q.pts[0].x - dep.x, q.pts[0].y - dep.y) < 1.5).pop();
+      if (!c) return null;
+      return p.evaluate(([pts, Q]) => {
+        const S = window.__vcEd.etat, G = window.VCroquis.geo, m = pts.map(q => S.vue.monde(q.x, q.y));
+        const t = {x: m[1].x - m[0].x, y: m[1].y - m[0].y}, w = {x: m[3].x - m[0].x, y: m[3].y - m[0].y}, c = {x: (m[0].x + m[1].x + m[2].x + m[3].x) / 4, y: (m[0].y + m[1].y + m[2].y + m[3].y) / 4};
+        return {pts: m, cote: t.x * w.y - t.y * w.x > 0 ? 'g' : 'd', dedans: G.dansPolygone(c, Q.concat([Q[0]]))};
+      }, [c.pts, Q]);
+    };
+    /* escalier posé : contour (VCroquis.geo.escalier, avec ses valeurs), centre dans le complément ou non */
+    const lirePose = e => p.evaluate(([e, Q]) => {
+      const G = window.VCroquis.geo, g = G.escalier(e.v[0], e.v[1], e.p.larg, e.p.n, e.p.cote, e.p.monte);
+      if (!g) return null;
+      const c = {x: g.contour.reduce((s, q) => s + q.x, 0) / 4, y: g.contour.reduce((s, q) => s + q.y, 0) / 4};
+      return {pts: g.contour, dedans: G.dansPolygone(c, Q.concat([Q[0]]))};
+    }, [e, Q]);
+    const ecart = (a, b) => a && b && a.length === 4 && b.length === 4 ? Math.max(...a.map((q, i) => Math.hypot(q.x - b[i].x, q.y - b[i].y))) : Infinity;
+    await C.injecter(p, {el: [K]}); await C.outil(p, {k: 'ln', id: 'esc'}); await C.regler(p, centre.x, centre.y, 40);
+    const lu = await p.evaluate(() => (window.VCroquis.geo.lignesRef(window.__vcEd.etat.doc, null, null, ['complement']) || []).map(l => ({ferme: l.ferme, aire: l.aire})));
+    if (!R.ok(lu.length === 1 && lu[0].ferme === true && Math.abs(lu[0].aire - 12) < 1e-6, 'k : le trait injecté est un contour fermé de complément de 12 m² (obtenu ' + JSON.stringify(lu) + ')')) return;
+    /* k : départ au clic sur le coin sud-ouest du complément ; survol vers l'est, à 8 cm au nord de son côté sud : contour fantôme ; clic au
+       même point : escalier posé */
+    const qD = await C.ecranCv(p, Q[0].x, Q[0].y), qV = await C.ecranCv(p, vise.x, vise.y);
+    await C.cliquerCv(p, qD);
+    const b1 = await p.evaluate(() => { const b = window.__vcEd.etat.brouillon; return b ? b.pts.map(q => ({x: q.x, y: q.y, aide: q.aide})) : null; });
+    R.ok(!!b1 && b1.length === 1 && b1[0].aide === 'coin' && Math.hypot(b1[0].x - Q[0].x, b1[0].y - Q[0].y) < 1e-6, 'k : départ posé au coin sud-ouest du complément (aide « coin ») (obtenu '
+      + JSON.stringify(b1) + ')');
+    await releverDebut(p); await C.survolerCv(p, qV); await C.pause(p, 150);
+    const fa = await lireFantome(await releverFin(p), qD);
+    await C.cliquerCv(p, qV);
+    const r = await apres(p), e = r.e, po = e && e.v.length === 2 ? await lirePose(e) : null, dv = ecart(fa && fa.pts, po && po.pts);
+    R.ok(!!fa && fa.cote === 'd' && fa.dedans === false, 'k : contour fantôme à droite, hors du complément (le côté gauche y entrerait ; avant m139 : à gauche, dedans) (obtenu '
+      + JSON.stringify(fa && {cote: fa.cote, dedans: fa.dedans}) + ')');
+    R.ok(r.nEsc === 1 && !!e && !!po && e.p.cote === (fa && fa.cote) && po.dedans === false && dv < 0.005, 'k : escalier posé du même côté que le fantôme (« ' + (e && e.p.cote) + ' »), '
+      + 'hors du complément, contours confondus à 5 mm près (écart ' + (isFinite(dv) ? dv.toExponential(1) : dv) + ' m ; obtenu ' + JSON.stringify(e && e.p) + ', dedans : ' + (po && po.dedans) + ')');
+    R.ok(!!e && e.p.monte === 'fin', 'k : montée vers la fin : départ au coin, fin redressée sur le côté sud, les deux bouts sont sur le contour fermé (avant m139 : vers le départ) (obtenu '
+      + JSON.stringify(e && e.p.monte) + ')');
+    /* fiche de l'escalier posé : pas de puce « Réseau » (garde de la décision D4) ; témoin : la fiche d'un tronçon en a une */
+    const fiche = () => p.evaluate(() => {
+      const c = document.querySelector('.vc .vc-panneau:not([hidden]) .vc-pcorps'), h = document.querySelector('.vc .vc-panneau:not([hidden]) h2');
+      return c ? {titre: h ? h.textContent : null, res: c.querySelectorAll('button[data-a="prop"][data-k="res"]').length, reseau: /Réseau/.test(c.textContent)} : null;
+    });
+    const fE = await fiche();
+    await C.injecter(p, {el: [C.L('T1', 'tr', [[centre.x - 2, centre.y], [centre.x + 2, centre.y]], {}, {})]}); await choisir(p, 'T1');
+    const fT = await fiche();
+    R.ok(!!fE && fE.titre === 'Escalier' && fE.res === 0 && !fE.reseau && !!fT && fT.res > 0 && fT.reseau, 'k : la fiche de l\'escalier n\'a ni puce « Réseau » ni le mot ; témoin : celle d\'un '
+      + 'tronçon a ses puces (obtenu ' + JSON.stringify([fE, fT]) + ')');
+    /* k : complément ajouté au croquis pendant le tracé, départ déjà posé (pas de geste qui remet le tracé à zéro) : le contour fantôme
+       le prend en compte tout de suite, sans changement du fond, et l'escalier posé ensuite aussi */
+    await C.injecter(p, {el: []}); await C.outil(p, {k: 'ln', id: 'esc'}); await C.regler(p, centre.x, centre.y, 40);
+    const qD2 = await C.ecranCv(p, Q[0].x, Q[0].y), qV2 = await C.ecranCv(p, vise.x, vise.y);
+    await C.cliquerCv(p, qD2);
+    await releverDebut(p); await C.survolerCv(p, qV2); await C.pause(p, 150);
+    const f0 = await lireFantome(await releverFin(p), qD2);
+    await p.evaluate(K => { window.__vcEd.etat.doc.el.push(K); }, K);
+    await releverDebut(p); await p.evaluate(() => window.__vcEd.redessiner()); await C.pause(p, 150);
+    const f1 = await lireFantome(await releverFin(p), qD2), nb = await p.evaluate(() => window.__vcEd.etat.brouillon ? window.__vcEd.etat.brouillon.pts.length : 0);
+    await C.cliquerCv(p, qV2);
+    const r2 = await apres(p);
+    R.ok(!!f0 && f0.cote === 'g' && nb === 1 && !!f1 && f1.cote === 'd' && f1.dedans === false && !!r2.e && r2.e.p.cote === 'd', 'k : complément ajouté pendant le tracé : le contour fantôme '
+      + 'passe à droite, hors du complément (à gauche avant l\'ajout, rien autour), le départ restant posé ; l\'escalier posé ensuite est à droite (obtenu '
+      + JSON.stringify([f0 && f0.cote, f1 && {cote: f1.cote, dedans: f1.dedans}, nb, r2.e && r2.e.p.cote]) + ')');
+    erreurs(A, 'k');
+  } finally { await A.fermer(); }
+}
+
+/* h (m139) : contour de « Complément du fond » tracé à la main, à l'outil (annexe fictive de 4 × 3 m dans le jardin, u 67 à 71, v 17 à 20,
+   comme k) ; e (m139) : contour fermé de complément qui entoure le bâti et l'escalier (parcelle redessinée, u 55 à 85, v −6 à 24) */
+async function contourTrace(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const o = await p.evaluate(() => window.__vcEd.etat.doc.origine);
+    const plan = (u, v) => ({x: DEMO.x + u * Math.cos(DEMO.th) - v * Math.sin(DEMO.th) - o.x, y: DEMO.y + u * Math.sin(DEMO.th) + v * Math.cos(DEMO.th) - o.y});
+    const Q = [plan(67, 17), plan(71, 17), plan(71, 20), plan(67, 20)], centre = plan(69, 18.5), vise = plan(69.5, 17.08);
+    /* traits de complément du croquis : sommets, écart du dernier au premier, fermé ou non pour VCroquis.geo.lignesRef */
+    const lireLim = () => p.evaluate(() => {
+      const S = window.__vcEd.etat, G = window.VCroquis.geo, L = G.lignesRef(S.doc, null, null, ['complement']) || [];
+      return S.doc.el.filter(e => e.k === 'ln' && e.t === 'lim').map(l => {
+        const v = l.v, n = v.length, r = L.find(x => x.src && x.src.id === l.id);
+        return {id: l.id, n, ecart: Math.hypot(v[n - 1].x - v[0].x, v[n - 1].y - v[0].y), ferme: r ? r.ferme : null, v: v.map(w => ({x: w.x, y: w.y}))};
+      });
+    });
+    const brouillon = () => p.evaluate(() => { const b = window.__vcEd.etat.brouillon; return b ? b.pts.map(q => ({x: q.x, y: q.y, aide: q.aide})) : null; });
+    const terminer = async () => { await p.click('.vc .vc-aide:not([hidden]) button[data-a="terminerTrace"]'); await C.pause(p, 400); };
+    const court = l => l ? {n: l.n, ecart: expo(l.ecart), ferme: l.ferme} : null;
+    /* annexe tracée au doigt : un toucher à chaque coin, un cinquième à (dx ; dy) px du premier point posé, puis « Terminer » ; aimant :
+       faux pour couper toutes les aides */
+    const tracer = async (dx, dy, aimant) => {
+      await C.injecter(p, {el: []}); await C.outil(p, {k: 'ln', id: 'lim'}); await C.regler(p, centre.x, centre.y, 40);
+      await p.evaluate(a => { window.__vcEd.etat.aides.actives = a; }, aimant !== false);
+      for (const q of Q) await C.toucherCv(p, await C.ecranCv(p, q.x, q.y), 450);
+      const b0 = await brouillon(), e0 = b0 && b0.length ? await C.ecranCv(p, b0[0].x, b0[0].y) : null;
+      if (e0) await C.toucherCv(p, {x: e0.x + dx, y: e0.y + dy}, 450);
+      const b = await brouillon();
+      if (b) await terminer();
+      await p.evaluate(() => { window.__vcEd.etat.aides.actives = true; });
+      return {b, L: await lireLim()};
+    };
+    /* h : cinquième toucher à 3 px du premier point : il le reprend exactement (aide « coin »), le contour est fermé (écart nul) */
+    const t3 = await tracer(3, 0), l3 = t3.L[0], b3 = t3.b;
+    const reprise = !!b3 && b3.length === 5 && b3[4].aide === 'coin' && b3[4].x === b3[0].x && b3[4].y === b3[0].y;
+    R.ok(reprise && t3.L.length === 1 && l3.n === 5 && l3.ecart === 0 && l3.ferme === true, 'h : annexe tracée à l\'outil, cinquième toucher à 3 px du premier point : il reprend '
+      + 'exactement le premier (aide « coin »), le trait est fermé pour lignesRef, écart nul (avant : 4e-5 m environ, trait ouvert) (obtenu '
+      + JSON.stringify({aide: b3 && b3.length ? b3[b3.length - 1].aide : null, reprise, trait: t3.L.map(court)}) + ')');
+    /* h : escalier depuis le coin sud-ouest de l'annexe, le long de son côté sud vers l'est : à droite, hors de l'annexe, montée vers la fin */
+    if (l3){
+      await C.outil(p, {k: 'ln', id: 'esc'}); await C.pause(p, 150);
+      const qD = await C.ecranCv(p, l3.v[0].x, l3.v[0].y), qV = await C.ecranCv(p, vise.x, vise.y);
+      await C.cliquerCv(p, qD); await C.cliquerCv(p, qV);
+      const es = await p.evaluate(P => {
+        const S = window.__vcEd.etat, G = window.VCroquis.geo, e = S.doc.el.filter(x => x.t === 'esc').pop(); if (!e) return null;
+        const g = G.escalier(e.v[0], e.v[1], e.p.larg, e.p.n, e.p.cote, e.p.monte), c = g ? {x: g.contour.reduce((s, q) => s + q.x, 0) / 4, y: g.contour.reduce((s, q) => s + q.y, 0) / 4} : null;
+        return {cote: e.p.cote, monte: e.p.monte, dedans: c ? G.dansPolygone(c, P) : null};
+      }, l3.v);
+      R.ok(!!es && es.cote === 'd' && es.dedans === false && es.monte === 'fin', 'h : escalier depuis le coin de l\'annexe tracée, le long de son côté sud vers l\'est : à droite, '
+        + 'hors de l\'annexe, montée vers la fin (avant : à gauche, dans l\'annexe, vers le départ) (obtenu ' + JSON.stringify(es) + ')');
+    }
+    /* h, témoin : cinquième toucher à 20 px du premier point : point posé à part, trait ouvert */
+    const t20 = await tracer(0, 20), l20 = t20.L[0];
+    R.ok(t20.L.length === 1 && l20.n === 5 && l20.ecart > 0.01 && l20.ferme === false, 'h : témoin, cinquième toucher à 20 px du premier point : il ne s\'y accroche pas, le trait '
+      + 'reste ouvert (obtenu ' + JSON.stringify(t20.L.map(court)) + ')');
+    /* h : aimant coupé (aides au dessin désactivées), cinquième toucher à 3 px : la fermeture joue encore (avant : 7,5 cm d'écart) */
+    const tc = await tracer(3, 0, false), lc = tc.L[0];
+    R.ok(tc.L.length === 1 && lc.n === 5 && lc.ecart === 0 && lc.ferme === true, 'h : aimant coupé, cinquième toucher à 3 px du premier point : contour fermé, écart nul '
+      + '(obtenu ' + JSON.stringify(tc.L.map(court)) + ')');
+    /* h : poignée d'un bout. Annexe laissée ouverte (cinquième point à 1,5 m du premier) ; outil « Choisir », trait choisi : la poignée
+       du dernier sommet glissée au doigt à 20 px du premier (témoin : le trait reste ouvert), puis à 3 px (elle en prend la place exacte) */
+    await C.injecter(p, {el: []}); await C.outil(p, {k: 'ln', id: 'lim'}); await C.regler(p, centre.x, centre.y, 40);
+    for (const q of Q.concat([plan(67, 18.5)])) await C.toucherCv(p, await C.ecranCv(p, q.x, q.y), 450);
+    if (await brouillon()) await terminer();
+    const lo = (await lireLim())[0];
+    let g20 = null, g3 = null;
+    if (lo && lo.n === 5 && lo.ferme === false){
+      await C.outil(p, {k: 'main'}); await choisir(p, lo.id);
+      const glisserBout = async (dx, dy) => {
+        const l = (await lireLim())[0], n = l.v.length, qa = await C.ecranCv(p, l.v[n - 1].x, l.v[n - 1].y), qb = await C.ecranCv(p, l.v[0].x, l.v[0].y);
+        await C.glisserDoigtCv(p, qa, {x: qb.x + dx, y: qb.y + dy}, 600); return (await lireLim())[0];
+      };
+      g20 = await glisserBout(0, 20); g3 = await glisserBout(3, 0);
+    }
+    R.ok(!!lo && lo.ferme === false && !!g20 && g20.n === 5 && g20.ecart > 0.01 && g20.ferme === false && !!g3 && g3.n === 5 && g3.ecart === 0 && g3.ferme === true,
+      'h : poignée du dernier sommet d\'un trait ouvert : lâchée à 20 px du premier sommet, le trait reste ouvert (témoin) ; à 3 px, elle en prend la place exacte, '
+      + 'contour fermé (obtenu ' + JSON.stringify([court(lo), court(g20), court(g3)]) + ')');
+    /* e : contour fermé de complément qui entoure le bâti et l'escalier : le long de la façade sud vers l'est, comme c, le contour fantôme
+       et l'escalier posé sont à droite, hors du bâti (avant les corrections : à gauche, dans le bâti) ; montée vers la fin, comme c */
+    const B = await coinsBati(p, [plan(65.5, 4), plan(74.5, 4), plan(65.5, 14)]), finFacade = plan(68.5, 4.1), centreC = plan(67, 3);
+    if (R.ok(!!B, 'e : bâti de la démonstration lu par VCroquis.geo.lignesRef : coins sud-ouest, sud-est et nord-ouest trouvés')){
+      const QE = [plan(55, -6), plan(85, -6), plan(85, 24), plan(55, 24)], KE = C.L('KE', 'lim', QE.concat([QE[0]]).map(q => [q.x, q.y]), {}, {});
+      await C.injecter(p, {el: [KE]}); await C.outil(p, {k: 'ln', id: 'esc'}); await C.regler(p, centreC.x, centreC.y, 40);
+      const lu = await lireLim();
+      const qD = await C.ecranCv(p, B.so.x, B.so.y), qF = await C.ecranCv(p, finFacade.x, finFacade.y);
+      await C.cliquerCv(p, qD);
+      await releverDebut(p); await C.survolerCv(p, qF); await C.pause(p, 150);
+      const c = (await releverFin(p)).filter(q => q.ferme && q.tirets && q.pts.length === 4 && Math.hypot(q.pts[0].x - qD.x, q.pts[0].y - qD.y) < 1.5).pop();
+      const fa = c ? await p.evaluate(pts => {
+        const S = window.__vcEd.etat, G = window.VCroquis.geo, m = pts.map(q => S.vue.monde(q.x, q.y));
+        const L = (G.lignesRef(S.doc, S.fond, null, ['bati']) || []).filter(l => l.ferme && l.aire !== 0);
+        const t = {x: m[1].x - m[0].x, y: m[1].y - m[0].y}, w = {x: m[3].x - m[0].x, y: m[3].y - m[0].y}, ce = {x: (m[0].x + m[1].x + m[2].x + m[3].x) / 4, y: (m[0].y + m[1].y + m[2].y + m[3].y) / 4};
+        return {cote: t.x * w.y - t.y * w.x > 0 ? 'g' : 'd', dansLeBati: L.some(l => G.dansPolygone(ce, l.P) === true)};
+      }, c.pts) : null;
+      await C.cliquerCv(p, qF);
+      const r = await apres(p), e = r.e;
+      R.ok(lu.length === 1 && lu[0].ferme === true && !!fa && fa.cote === 'd' && fa.dansLeBati === false && r.nEsc === 1 && !!e && e.p.cote === 'd' && e.p.monte === 'fin'
+        && r.dedans === false, 'e : contour fermé de complément qui entoure le bâti et l\'escalier : le long de la façade sud vers l\'est, contour fantôme et escalier posé à '
+        + 'droite, hors du bâti, montée vers la fin (obtenu ' + JSON.stringify({contour: lu.map(court), fantome: fa, pose: e && e.p, dansLeBati: r.dedans}) + ')');
+    }
+    erreurs(A, 'h, e');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [editeur, poignees, outilEscalier]){
+  for (const f of [editeur, poignees, outilEscalier, complementFerme, contourTrace]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();

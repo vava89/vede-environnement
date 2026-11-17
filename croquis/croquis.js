@@ -1037,40 +1037,65 @@ function defautsLn(t, o){
 VC.defautsPt = defautsPt; VC.defautsLn = defautsLn;
 VC.geo.escalier = escalier;
 /* Valeurs d'un escalier neuf (outil « Escalier », m107 ; décision D7) : départ D et fin F posés à l'outil, lignes de référence du plan
-   (VC.geo.lignesRef : seules comptent les lignes de bâti fermées), aides des deux points (« coin », « facade », autre ou rien). Un point
+   (VC.geo.lignesRef : seules sont retenues les lignes fermées et d'aire non nulle de bâti ou, depuis m139, de « Complément du fond » ;
+   un complément ouvert, une limite de parcelle ne comptent pas), aides des deux points (« coin », « facade », autre ou rien). Un point
    calé au milieu d'un côté ou au pied d'une perpendiculaire (m112) sur une façade ou un trait de complément est posé sur le bâti :
    l'éditeur passe alors « facade » ; de même pour une intersection (m113) qui tombe sur l'un d'eux ; sur une limite de parcelle, sur le
    prolongement d'un côté ou à la rencontre de deux prolongements, il ne l'est pas. Largeur 1,00 m ; marches de 0,28 m environ : arrondi de L / 0,28, de 1 à 60 ; côté : celui dont le contour n'entre pas dans le bâti (centre
-   du contour dans une ligne de bâti), « g » si les deux côtés y entrent ou si aucun n'y entre ; montée vers le départ s'il est le seul bout
-   posé sur un coin ou une façade, sinon vers la fin. Rend p, en textes comme la fiche ; null si D et F sont invalides ou confondus.
+   du contour dans une ligne retenue), « g » si les deux côtés y entrent ou si aucun n'y entre. Depuis m139, pour le côté : un complément
+   qui contient les deux centres entoure l'escalier (une limite redessinée, une terrasse autour de la maison) et ne compte pas, comme dans
+   rejetAuSol (m118) ; le bâti du fond tranche d'abord : si un seul des deux centres est dans une ligne de bâti, l'autre côté est proposé,
+   même s'il entre dans un complément. Montée vers le départ s'il est le seul bout posé sur le bâti, sinon vers la fin. Un bout est posé
+   sur le bâti s'il a l'aide « coin » ou « facade », ou (m139) s'il est à ESC_POSE (1 cm) au plus du bord d'une ligne retenue, dedans ou
+   dehors, même sans accrochage : une fin redressée le long d'une façade compte ; un complément qui entoure l'escalier compte ici, comme un
+   bout accroché à ce trait. Rend p, en textes comme la fiche ; null si D et F sont invalides ou confondus.
    Départ posé par cotes (m108) : cotes = {O, w, facade}, facultatif. O est le coin d'origine (gardé pour mémoire, le calcul ne s'en sert
    pas) ; w, la direction de la convention 11.1 (le long : de O vers l'autre coin ; prolongement : de O vers le dehors du côté) ; facade :
    départ posé le long d'une façade ou d'un trait de complément (m115), entre ses deux coins, sans décalage. Côté : celui dont la largeur
    part à l'opposé du coin (nc·w > 0, nc : ccw(t) pour « g », cw(t) pour « d ») ; règle ci-dessus si l'escalier est presque parallèle à w
-   (|nc·w| < 0,1) ou si ce côté entre dans le bâti. Montée : facade tient lieu d'aide du départ (« facade » ou rien), puis même règle. Sans
-   cotes, ou si w est absent, nul ou non fini : comme avant.
+   (|nc·w| < 0,1) ou si ce côté entre dans une ligne retenue (un complément qui entoure l'escalier mis à part). Montée : facade tient
+   lieu d'aide du départ (« facade » ou rien), sans la règle du centimètre pour le départ (la fin la garde), puis même règle. Sans cotes,
+   ou si w est absent, nul ou non fini : comme avant.
    Fonction pure : une ligne invalide est sautée, sans exception. */
+var ESC_POSE = 0.01; /* m : un bout d'escalier à cette distance ou moins du bord d'une ligne retenue y est posé (m139) */
 function escalierDefauts(D, F, lignes, aideDepart, aideFin, cotes){
-  var t = unite(D, F), L, n, bati, dedans = {}, cote, w, k;
+  var t = unite(D, F), L, n, bati, M = {}, dedans = {}, fond = {}, cote, w, k, dep;
   if (!t) return null;
   L = Math.hypot(F.x - D.x, F.y - D.y); if (!(L > GEO_EPS)) return null;
   n = Math.min(60, Math.max(1, Math.round(L / 0.28)));
-  bati = (Array.isArray(lignes) ? lignes : []).filter(function(l){ return !!l && l.nat === 'bati' && l.ferme === true && l.aire !== 0 && !!l.P && typeof l.P.length === 'number'; });
+  /* lignes retenues : bâti ou complément du fond (m139), fermés et d'aire non nulle */
+  bati = (Array.isArray(lignes) ? lignes : []).filter(function(l){
+    return !!l && (l.nat === 'bati' || l.nat === 'complement') && l.ferme === true && l.aire !== 0 && !!l.P && typeof l.P.length === 'number';
+  });
+  /* centre du contour de chaque côté */
   ['g', 'd'].forEach(function(c){
     var G = escalier(D, F, 1, n, c, 'fin'), Q = G ? G.contour : null;
-    var m = Q ? {x: (Q[0].x + Q[1].x + Q[2].x + Q[3].x) / 4, y: (Q[0].y + Q[1].y + Q[2].y + Q[3].y) / 4} : null;
-    dedans[c] = !!m && bati.some(function(l){ return dansPolygone(m, l.P) === true; });
+    M[c] = Q ? {x: (Q[0].x + Q[1].x + Q[2].x + Q[3].x) / 4, y: (Q[0].y + Q[1].y + Q[2].y + Q[3].y) / 4} : null;
+  });
+  function dans(l, c){ return !!M[c] && dansPolygone(M[c], l.P) === true; }
+  /* dedans : centre dans une ligne retenue, sauf un complément qui contient aussi l'autre centre (il entoure l'escalier : une limite
+     redessinée, par exemple ; comme dans rejetAuSol, m118). fond : centre dans le bâti du fond */
+  ['g', 'd'].forEach(function(c){
+    dedans[c] = bati.some(function(l){ return dans(l, c) && !(l.nat === 'complement' && dans(l, c === 'g' ? 'd' : 'g')); });
+    fond[c] = bati.some(function(l){ return l.nat === 'bati' && dans(l, c); });
   });
   function surBati(a){ return a === 'coin' || a === 'facade'; }
-  cote = dedans.g && !dedans.d ? 'd' : 'g';
+  /* bout posé sans accrochage (m139) : à ESC_POSE au plus du bord d'une ligne retenue, dedans ou dehors, un complément qui entoure
+     l'escalier compris (comme un bout accroché à ce trait). distPolygone rend null si un sommet est invalide : la ligne est sautée */
+  function pres(p){ return bati.some(function(l){ var r = distPolygone(p, l.P); return !!r && r.d <= ESC_POSE; }); }
+  /* le bâti du fond tranche d'abord : si un seul centre y est, l'autre côté ; sinon, le côté hors des lignes retenues, « g » à défaut */
+  cote = fond.g !== fond.d ? (fond.g ? 'd' : 'g') : dedans.g && !dedans.d ? 'd' : 'g';
   w = cotes && typeof cotes === 'object' ? unite({x: 0, y: 0}, cotes.w) : null;
   if (w){
-    /* départ posé par cotes (m108) : k = ccw(t)·w ; la largeur part à l'opposé du coin d'origine, si ce côté reste hors du bâti */
+    /* départ posé par cotes (m108) : k = ccw(t)·w ; la largeur part à l'opposé du coin d'origine, si ce côté reste hors du bâti (dedans :
+       un complément qui entoure l'escalier n'y compte pas, m139) */
     k = -t.y * w.x + t.x * w.y;
     if (Math.abs(k) >= 0.1 && !dedans[k > 0 ? 'g' : 'd']) cote = k > 0 ? 'g' : 'd';
     aideDepart = cotes.facade === true ? 'facade' : null;
   }
-  return {larg: '1,00', n: String(n), cote: cote, monte: surBati(aideDepart) && !surBati(aideFin) ? 'depart' : 'fin', st: 'existant'};
+  /* la distance n'est calculée que si l'aide ne suffit pas ; départ posé par cotes : facade seule (m108) */
+  dep = surBati(aideDepart) || (!w && pres(D));
+  return {larg: '1,00', n: String(n), cote: cote, monte: dep && !(surBati(aideFin) || pres(F)) ? 'depart' : 'fin', st: 'existant'};
 }
 VC.geo.escalierDefauts = escalierDefauts;
 /* Tracés : canalisation (tronçon, collecteur), complément du fond (trait, escalier) ; un tracé d'un autre type (croquis d'une version plus
@@ -4223,6 +4248,9 @@ function editeur(racine, opts){
         if (ov) a = {type: 'obj', id: ov.id, x: ov.x, y: ov.y};
         else { var m0 = S.vue.monde(p.x, p.y); a = accrochesNouvelles(m0, prec, l.id) || (prec && redresser(prec, m0)) || prolLoin(m0, l.id) || {x: m0.x, y: m0.y}; }
       }
+      /* poignée d'un bout d'un trait de complément de quatre sommets ou plus, à 14 px au plus de l'autre bout : elle en prend les coordonnées
+         exactes, le contour est fermé (m139, comme au tracé : surPremier) */
+      if (l.t === 'lim' && bout && l.v.length >= 4){ var f0 = surPremier(vpos(l.v[c.i === 0 ? l.v.length - 1 : 0], idx()), p.x, p.y); if (f0) a = f0; }
       l.v[c.i].x = a.x; l.v[c.i].y = a.y; S.accrocheVue = a.type ? a : null; g.accroche = a;
     }
     else if (c.k === 'etiq'){ var e2 = el(c.id); e2.lab = {dx: g.lab0.dx + dP.x, dy: g.lab0.dy + dP.y, E: E(), main: true}; }
@@ -4538,9 +4566,15 @@ function editeur(racine, opts){
     var sa = S.vue.ecran(a.x, a.y), sb = S.vue.ecran(b.x, b.y);
     return !!a.ligne && a.ligne === b.ligne && Math.hypot(sa.x - sb.x, sa.y - sb.y) <= (tol || 12);
   }
+  /* fermeture d'un contour de « Complément du fond » (m139) : le point (x, y) de l'écran à 14 px au plus (rayon du coin) du point q du
+     plan est q, exactement ; lignesRef tient alors le trait pour fermé (GEO_EPS). Rend null sinon */
+  function surPremier(q, x, y){ var s = S.vue.ecran(q.x, q.y); return Math.hypot(x - s.x, y - s.y) <= 14 ? {x: q.x, y: q.y, type: 'coin', aide: true} : null; }
   /* Point de tracé selon l'outil : les traits de complément suivent le bâti, les tronçons s'accrochent au réseau */
   function pointTrace(x, y){
-    var oo = OUTILS_LN[S.outil.id], b = S.brouillon, prec = b && b.pts.length ? b.pts[b.pts.length - 1] : null;
+    var oo = OUTILS_LN[S.outil.id], b = S.brouillon, prec = b && b.pts.length ? b.pts[b.pts.length - 1] : null, f0;
+    /* complément du fond, trois points posés ou plus : revenir sur le premier ferme le contour, avant toute autre accroche et même aimant
+       coupé, comme l'accroche au réseau (m139 ; pas l'escalier, qui n'a que deux points) */
+    if (oo.t === 'lim' && b && b.outil === S.outil.id && b.pts.length >= 3 && (f0 = surPremier(b.pts[0], x, y))) return f0;
     /* complément du fond et escalier : accroche au coin et à la façade, nouveaux accrochages cochés (m112, m113), redressement depuis le point
        précédent ; jamais d'attache. Tronçon : le réseau d'abord, puis les seuls nouveaux accrochages cochés (saisie), puis le redressement */
     return estComplement(oo.t) ? accrocheLibre(x, y, {prec: prec}) : accroche(x, y, {prec: prec, col: oo.t === 'col', saisie: true});
@@ -4561,7 +4595,8 @@ function editeur(racine, opts){
      plan hors de tout geste (S.survol ; pas quand un doigt ou un stylet a appuyé depuis le dernier survol, S.survolPerime : entre deux
      touchers, seul le départ est marqué ; sur un appareil à écran tactile et souris, la souris qui bouge ensuite montre de nouveau le contour).
      Valeurs par défaut de VC.geo.escalierDefauts, avec les données d'un départ posé par cotes (b.cotes, m108) : le contour montre le côté
-     qui sera créé ; les lignes du bâti affiché sont relues quand le fond change (clé de aretesFond).
+     qui sera créé ; les lignes du bâti affiché sont relues quand le fond change (clé de aretesFond), les traits de complément à chaque
+     appel, par refsEscalier comme à la pose (m139 : le croquis peut changer pendant le tracé, par la fiche ouverte depuis Contrôles).
      Rend les quatre coins, ou null */
   function fantomeEscalier(){
     if (!attendFinEscalier()) return null;
@@ -4570,7 +4605,7 @@ function editeur(racine, opts){
     else if (!S.geste && S.survol && !S.survolPerime && S.outil.k === 'ln' && S.outil.id === b.outil) fe = pointTrace(S.survol.x, S.survol.y);
     if (!fe) return null;
     A = aretesFond(); if (!b.bati || b.bati.cle !== A.cle) b.bati = {cle: A.cle, L: refsCotes(['bati'])};
-    pe = escalierDefauts(d0, fe, b.bati.L, aideEscalier(d0), surLeBati(fe) ? 'facade' : fe.aide ? fe.type : null, b.cotes);
+    pe = escalierDefauts(d0, fe, refsEscalier(b.bati.L), aideEscalier(d0), surLeBati(fe) ? 'facade' : fe.aide ? fe.type : null, b.cotes);
     G = pe ? escalier(d0, fe, pe.larg, pe.n, pe.cote, pe.monte) : null;
     return G ? G.contour : null;
   }
@@ -5024,6 +5059,10 @@ function editeur(racine, opts){
   function tolCotes(){ return S.dernierPointeur === 'mouse' ? 10 : 24; }
   /* lignes de référence affichées : celles du fond s'il est visible (décalées comme à l'écran), puis les compléments du croquis */
   function refsCotes(natures){ var f = S.aff.fond ? S.fond : null; return lignesRef(S.doc, f, offFond(f), natures) || []; }
+  /* lignes pour les valeurs d'un escalier neuf (VC.geo.escalierDefauts, m139) : le bâti du fond affiché (bati, déjà lu par le fantôme,
+     sinon relu), puis les traits de complément du croquis, relus à chaque appel. Les mêmes, dans le même ordre, que refsCotes(['bati',
+     'complement']) ; le fantôme et la pose passent par ici, pour proposer le même côté */
+  function refsEscalier(bati){ return (bati || refsCotes(['bati'])).concat(lignesRef(S.doc, null, null, ['complement']) || []); }
   /* sans id : pose avec l'outil d'objet (bouton « Cotes »), ou départ de l'escalier avec l'outil Escalier (m108) ; avec id (m102) : objet
      existant, déplacé, ou mesuré si mesure est vrai */
   function entrerCotes(id, mesure){
@@ -5415,10 +5454,11 @@ function editeur(racine, opts){
     }
     dedoublonner(l);
     if (l.v.length < 2){ S.doc.el = S.doc.el.filter(function(x){ return x.id !== l.id; }); S.undo.pop(); majAide(); redessiner(); return; }
-    /* escalier neuf : largeur, marches, côté hors du bâti affiché et sens de la montée proposés depuis le plan (VC.geo.escalierDefauts) ;
-       départ posé par cotes (m108) : ses données (b.cotes) proposent le côté et la montée, puis s'oublient avec le brouillon. Un bout calé
-       au milieu d'une façade ou au pied d'une perpendiculaire sur elle (m112) compte comme posé sur la façade (aideEscalier) */
-    if (l.t === 'esc'){ var pe = escalierDefauts(l.v[0], l.v[1], refsCotes(['bati']), aideEscalier(b.pts[0]), aideEscalier(b.pts[b.pts.length - 1]), b.cotes); if (pe) l.p = pe; }
+    /* escalier neuf : largeur, marches, côté hors du bâti affiché (et des contours fermés de complément, m139) et sens de la montée proposés
+       depuis le plan (VC.geo.escalierDefauts, mêmes lignes que le fantôme : refsEscalier) ; départ posé par cotes (m108) : ses données
+       (b.cotes) proposent le côté et la montée, puis s'oublient avec le brouillon. Un bout calé au milieu d'une façade ou au pied d'une
+       perpendiculaire sur elle (m112) compte comme posé sur la façade (aideEscalier) */
+    if (l.t === 'esc'){ var pe = escalierDefauts(l.v[0], l.v[1], refsEscalier(), aideEscalier(b.pts[0]), aideEscalier(b.pts[b.pts.length - 1]), b.cotes); if (pe) l.p = pe; }
     analyse();
     if (!l.lab && texteEtiquette(l, S.an)) l.lab = placerEtiquette(S.doc, S.an, l, E(), idx());
     /* fin discrète (arrière-plan, « Retour ») : le panneau ouvert reste tel quel (un choix de fichier en cours n'est pas perdu) */

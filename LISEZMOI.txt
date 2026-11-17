@@ -170,7 +170,12 @@ CROQUIS DE TERRAIN (facultatif)
   départ, puis la fin) ; sa fiche règle la largeur, les marches, la
   longueur, le côté et le sens de la montée. Son bouton « Cotes » pose le
   départ à une distance mesurée d'une façade ou d'une limite ; on touche
-  ensuite la fin.
+  ensuite la fin. Pour le côté et la montée proposés, un contour fermé de
+  « Complément du fond » compte comme le bâti. Pour le côté, un contour
+  qui entoure l'escalier (une limite redessinée, par exemple) ne compte
+  pas, et le côté proposé reste hors du bâti du fond quand c'est
+  possible. On ferme un contour de « Complément du fond » en touchant de
+  nouveau son premier point.
   À la souris, avec l'outil « Choisir », une pause de 0,4 s ou un clic
   droit sur une poignée du tracé choisi ouvre un petit menu près du
   pointeur : « Retirer le point », « Détacher » ou « Ajouter un point ».
@@ -466,6 +471,11 @@ MISE À JOUR DE L'APPLICATION
   de ces appareils y efface son lien au groupe ou le titre choisi, avec
   le message « Type changé ». L'analyse, les anomalies et le constat ne
   changent pas avec l'étiquette commune.
+- Mettez aussi à jour toutes les tablettes avant de dessiner un
+  escalier, et avant d'échanger une sauvegarde ou un dossier qui en
+  contient. Une tablette en v1.6.3, ou plus ancienne, dessine un escalier
+  comme un tronçon « Réseau non déterminé » (sans le compter dans le
+  constat) ; ne l'y modifiez pas.
 - Une tablette restée en v1.7.0, ou plus ancienne, compte encore une
   anomalie à arbitrer comme conforme : elle y laisse « Conformes ». N'y
   signez pas le constat d'un dossier dont une anomalie reste à arbitrer.

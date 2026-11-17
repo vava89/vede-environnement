@@ -7,15 +7,31 @@
 // m1 à m3 : valeurs par défaut d'un escalier ; aucune étiquette (sauf p.etiq) ; gris du complément (resLigne 'LIM').
 // d1 à d9 (m107) : VCroquis.geo.escalierDefauts(D, F, lignes, aideDepart, aideFin), valeurs d'un escalier tracé avec l'outil : marches
 //   arrondi(L / 0,28) de 1 à 60 en texte (3 m → « 11 », 0,10 m → « 1 », 30 m → « 60 ») ; largeur « 1,00 », statut existant ; côté dont le
-//   contour n'entre pas dans le bâti fictif (à gauche, puis à droite ; deux côtés dehors ou dedans : « g ») ; seules les lignes de bâti
-//   fermées comptent (lignesRef comprise) ; montée vers le bout posé au coin ou sur une façade (départ seul : « depart », sinon « fin ») ;
-//   entrées invalides : null ; fonction pure.
+//   contour n'entre pas dans le bâti fictif (à gauche, puis à droite ; deux côtés dehors ou dedans : « g ») ; seules les lignes fermées
+//   de bâti (et de complément depuis m139 : d17) comptent (lignesRef comprise) ; montée vers le bout posé au coin ou sur une façade
+//   (départ seul : « depart », sinon « fin » ; d9 : depuis m139, la fin redressée le long de la façade compte) ; entrées invalides : null ;
+//   fonction pure.
 // d10 à d16 (m108) : sixième argument cotes = {O, w, facade} (départ posé par cotes ; w : direction de la convention 11.1) : la largeur part
 //   à l'opposé du coin d'origine, le long d'un côté (façades sud et ouest, depuis l'un et l'autre coin, départ sur la façade ou devant, fin
 //   en biais) puis dans son prolongement ; escalier presque parallèle à w (|nc·w| < 0,1) : règle de m107 (témoin : |nc·w| = 0,12) ; côté
 //   opposé qui entrerait dans le bâti : règle de m107 ; montée vers le départ s'il est posé le long d'une façade (facade vrai), sauf fin au
 //   coin ou sur une façade ; l'aide du départ est alors ignorée ; sans l'argument ou s'il est invalide : même résultat qu'en m107 ;
 //   fonction pure.
+// d17 à d23 (m139) : contour fermé de « Complément du fond » et bouts posés sans accrochage. d17 : un contour fermé de complément compte
+//   comme le bâti pour le côté (côtés sud et est, contour dans l'autre sens, trait « lim » fermé lu par lignesRef ; bâti du fond d'un côté
+//   et terrasse de l'autre : le bâti du fond tranche, côté terrasse, dans un ordre des lignes ou dans l'autre) ; d18 : départ à 5 mm devant
+//   ou dans la façade, à 1 cm tout juste, sur elle sans aide, à 5 mm d'un complément fermé : montée vers le départ ; d19 : départ au coin,
+//   sur la façade ou par cotes le long d'elle, fin à 5 mm ou redressée sur la façade : vers la fin ; d20, témoins : départ à 2 cm, à 1,1 cm
+//   ou à 2 m dans le bâti, fin à 2 cm, deux bouts à 5 mm ; d21 : complément ouvert, complément sans intérieur, limite de parcelle, bâti
+//   ouvert, départ par cotes hors de la façade : ne comptent pas ; d22 : un contour qui entoure l'escalier (limite ou parcelle redessinée,
+//   terrasse tout autour de la maison) ne compte pas pour le côté (façades sud, nord, est, ouest, avec ou sans aides, ordre des lignes,
+//   départ par cotes depuis un coin ou dans le jardin, annexe dans une parcelle redessinée ; témoins : escalier dans le bâti, contour seul) ;
+//   d23 : il compte pour la montée (départ à 5 mm de son bord : vers le départ ; témoin à 2 cm).
+// r1, r2 : un escalier n'est jamais lu comme un réseau : ni dans an.lignes ni dans an.pieces (état des lieux et avant-projet, avec ou
+//   sans p.res ; témoin : un tronçon y est), resLigne 'LIM' ; DXF : seul VEDE-ESCALIERS gagne des entités, aucun calque de réseau.
+// l1 à l3 : LISEZMOI.txt : la consigne de mise à jour cite « dessiner un escalier » et la phrase sur la v1.6.3, mot pour mot ; le paragraphe
+//   de l'outil « Escalier » parle du contour fermé de « Complément du fond », du contour qui entoure l'escalier et de la fermeture d'un
+//   contour (en touchant de nouveau son premier point).
 // a1, a2 : analyse identique avec et sans escalier, objet ou tracé d'un type inconnu (croquis de démonstration).
 // e1 à e5 : écran : contour, marches et flèche en gris ; marches omises sous 4 px, contour et flèche gardés ; ordre des tracés (escalier
 //   et complément d'abord, jamais NaN) ; emprise du plan avec les quatre coins ; étiquette voisine écartée du bord de l'escalier.
@@ -29,6 +45,8 @@
 // p3, x2, x8, i4, i8, i9.
 // Échoue sur 6e365ec : d (VCroquis.geo.escalierDefauts absente).
 // Échouent sur b08e6cd : d10, d11, d12, d14 et d16 (le sixième argument est ignoré) ; témoins : d13 et d15.
+// Échouent sur 771b7a7 : d9, d17, d18, d19, d22 (annexe dans une parcelle redessinée), d23, l1 à l3 ; témoins et gardes : d20, d21, r1, r2.
+// Échouent sur m139 avant ses corrections (contour qui entoure, fermeture) : d17 (terrasse), d22 et l3.
 // usage : node tests/vm/escalier.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, rapport, rendus} = require('./charger.js');
@@ -162,15 +180,16 @@ function defauts(){
   const h4 = champ(val([2, 0], [2, -3], BATI), 'cote'), c4 = champ(val([10, 6], [13, 9], BATI), 'cote'), i4 = champ(val([2, 2], [5, 2], BATI), 'cote');
   R.ok(h4 === 'g' && c4 === 'g' && i4 === 'g', 'd4 deux côtés hors du bâti (départ sur la façade, d\'équerre, ou au coin, en biais) ou deux côtés dedans : « g » (obtenu '
     + JSON.stringify([h4, c4, i4]) + ')');
-  /* d5 : seules comptent les lignes de bâti fermées */
+  /* d5 : seules comptent les lignes fermées de bâti (et de complément depuis m139 : d17) */
   const LIM = {nat: 'limite', P: [[-5, -5], [15, -5], [15, 10], [-5, 10], [-5, -5]].map(PT), ferme: true, src: {L: 1, i: 1}, aire: 300};
   const OUV = {nat: 'bati', P: [[0, 0], [10, 0], [10, 6], [0, 6]].map(PT), ferme: false, src: {L: 0, i: 2}, aire: 0};
   const CPL = {nat: 'complement', P: [[0, 0], [10, 0], [10, 6], [0, 6], [0, 0]].map(PT), ferme: false, src: {id: 'L1'}, aire: 0};
-  const cas5 = [['limite seule', [LIM], 'g'], ['bâti et limite', [LIM].concat(BATI), 'd'], ['bâti ouvert', [OUV], 'g'], ['complément', [CPL], 'g'],
+  const cas5 = [['limite seule', [LIM], 'g'], ['bâti et limite', [LIM].concat(BATI), 'd'], ['bâti ouvert', [OUV], 'g'], ['complément ouvert', [CPL], 'g'],
     ['aucune ligne', [], 'g'], ['lignes null', null, 'g'], ['lignes en texte', 'bati', 'g'], ['élément null et bâti', [null, {nat: 'bati'}].concat(BATI), 'd'],
     ['sommet invalide', [{nat: 'bati', P: [{x: NaN, y: 0}, {x: 10, y: 0}, {x: 10, y: 6}], ferme: true, aire: 1}], 'g']];
   const ko5 = cas5.filter(c => champ(val([2, 0], [5, 0], c[1]), 'cote') !== c[2]).map(c => c[0] + ' : ' + champ(val([2, 0], [5, 0], c[1]), 'cote'));
-  R.ok(!ko5.length, 'd5 seules les lignes de bâti fermées comptent : limite, bâti ouvert et complément sans effet ; liste absente, vide ou invalide : « g », sans exception'
+  R.ok(!ko5.length, 'd5 seules les lignes fermées de bâti (ou, depuis m139, de complément : d17) comptent : limite, bâti ouvert et complément ouvert sans effet ; '
+    + 'liste absente, vide ou invalide : « g », sans exception'
     + (ko5.length ? ' (écarts : ' + ko5.join(' ; ') + ')' : ''));
   /* d6 : montée vers le bout posé avec une aide coin ou façade */
   const cas6 = [['coin', null, 'depart'], ['facade', null, 'depart'], ['facade', 'parallele', 'depart'], ['coin', 'angle', 'depart'], [null, 'facade', 'fin'],
@@ -195,9 +214,9 @@ function defauts(){
   const D = {x: 2, y: 0}, F = {x: 5, y: 0}, Lc = copie(BATI), avant = JSON.stringify([D, F, Lc]), r9 = sur(() => f(D, F, Lc, 'coin', null));
   const g9 = r9 && typeof r9 === 'object' ? sur(() => V.geo.escalier(D, F, r9.larg, r9.n, r9.cote, r9.monte)) : null;
   const m9 = g9 && g9.contour ? PT([g9.contour.reduce((s, q) => s + q.x, 0) / 4, g9.contour.reduce((s, q) => s + q.y, 0) / 4]) : null;
-  R.ok(JSON.stringify([D, F, Lc]) === avant && !!m9 && m9.y < 0 && r9.monte === 'depart' && r9.n === '11',
-    'd9 fonction pure (départ, fin et lignes inchangés) ; ses valeurs dessinent l\'escalier par VCroquis.geo.escalier, contour hors du bâti (centre '
-    + txtPt(m9) + ', montée ' + champ(r9, 'monte') + ')');
+  R.ok(JSON.stringify([D, F, Lc]) === avant && !!m9 && m9.y < 0 && r9.monte === 'fin' && r9.n === '11',
+    'd9 fonction pure (départ, fin et lignes inchangés) ; ses valeurs dessinent l\'escalier par VCroquis.geo.escalier, contour hors du bâti ; montée vers la fin '
+    + '(depuis m139, la fin posée sur la façade compte, sans accrochage : les deux bouts sont sur le bâti) (centre ' + txtPt(m9) + ', montée ' + champ(r9, 'monte') + ')');
 }
 
 /* d10 à d16 (m108) : départ posé par cotes, sixième argument cotes = {O, w, facade} de VCroquis.geo.escalierDefauts. O : coin d'origine ;
@@ -286,6 +305,124 @@ function departCotes(){
   R.ok(JSON.stringify([D, F, Lc, K]) === avant && champ(r16, 'cote') === 'd' && champ(r16, 'monte') === 'depart' && champ(r16, 'n') === '7' && champ(r16, 'larg') === '1,00'
     && !!r16 && typeof r16 === 'object' && Object.keys(r16).sort().join(', ') === cles,
     'd16 fonction pure (départ, fin, lignes et cotes inchangés) ; mêmes champs qu\'en m107 (' + cles + ') ; obtenu ' + JSON.stringify(r16));
+}
+
+/* d17 à d21 (m139, décision D3) : un contour fermé de « Complément du fond » compte comme le bâti, pour le côté et pour la montée ; un bout
+   à 1 cm au plus (0,01 m) d'un bâti fermé ou d'un contour fermé de complément compte comme posé dessus, même sans accrochage. Ne comptent
+   pas : une limite de parcelle, un complément ou un bâti ouvert ; pour un départ posé par cotes, seul compte cotes.facade (m108). Complément
+   fictif de 4 × 3 m, (0,0) (4,0) (4,3) (0,3), fermé par son premier point répété ; même bâti fictif de 10 × 6 m (façade sud en y = 0). */
+const CPF = {nat: 'complement', P: [[0, 0], [4, 0], [4, 3], [0, 3], [0, 0]].map(PT), ferme: true, src: {id: 'L1'}, aire: 12};
+function contacts(){
+  const f = V.geo && V.geo.escalierDefauts;
+  if (typeof f !== 'function'){ R.ok(false, 'd17 : VCroquis.geo.escalierDefauts est absente'); return; }
+  const champ = (r, k) => r && typeof r === 'object' ? r[k] : String(r);
+  const dir = q => { const l = Math.hypot(q[0], q[1]); return {x: q[0] / l, y: q[1] / l}; };
+  /* cas : [nom, départ, fin, lignes, aide du départ, aide de la fin, valeur attendue du champ k, cotes] ; écarts */
+  const ecarts = (cas, k) => cas.map(c => {
+    const r = champ(sur(() => f(PT(c[1]), PT(c[2]), c[3], c[4], c[5], c[7])), k);
+    return r === c[6] ? null : c[0] + ' : ' + r;
+  }).filter(x => x);
+  const CPW = {nat: 'complement', P: CPF.P.slice().reverse(), ferme: true, src: {id: 'L1'}, aire: -12};
+  /* terrasse fictive au sud de la façade, de (0 ; −3) à (4 ; 0) : un escalier le long de la façade a ses deux côtés dedans */
+  const CPS = {nat: 'complement', P: [[0, -3], [4, -3], [4, 0], [0, 0], [0, -3]].map(PT), ferme: true, src: {id: 'L2'}, aire: 12};
+  /* même contour, trait fermé d'un croquis fictif, lu par VCroquis.geo.lignesRef */
+  const dC = nouveau(); ln(dC, 'L1', 'lim', '', [[0, 0], [4, 0], [4, 3], [0, 3], [0, 0]]);
+  const lrC = sur(() => V.geo.lignesRef(dC, null, null, ['complement']));
+  const lu = Array.isArray(lrC) && lrC.length === 1 && lrC[0].nat === 'complement' && lrC[0].ferme === true && Math.abs(lrC[0].aire - 12) < EPS;
+  /* d17 : côté hors du contour fermé d'un complément */
+  const cas17 = [['le long du côté sud vers l\'est', [1, 0], [3, 0], [CPF], null, null, 'd'],
+    ['le long du côté est vers le nord', [4, 1], [4, 2], [CPF], null, null, 'd'],
+    ['complément décrit dans l\'autre sens', [1, 0], [3, 0], [CPW], null, null, 'd'],
+    ['trait fermé du croquis, lu par lignesRef', [1, 0], [3, 0], lu ? lrC : [], null, null, 'd'],
+    ['bâti au nord, terrasse fermée au sud : le bâti du fond tranche, côté terrasse', [1, 0], [3, 0], BATI.concat([CPS]), null, null, 'd'],
+    ['même cas, ordre des lignes inversé', [1, 0], [3, 0], [CPS].concat(BATI), null, null, 'd'],
+    ['témoin : le long du côté sud vers l\'ouest', [3, 0], [1, 0], [CPF], null, null, 'g']];
+  const ko17 = ecarts(cas17, 'cote');
+  R.ok(lu && !ko17.length, 'd17 contour fermé de complément : le côté qui n\'y entre pas (côtés sud et est, contour dans un sens ou dans l\'autre, trait fermé lu par lignesRef) ; '
+    + 'bâti du fond d\'un côté et complément de l\'autre : le côté du complément (le bâti du fond tranche) ; avant m139 : « g » le long du complément seul'
+    + (lu ? '' : ' (lignesRef : ' + JSON.stringify(lrC) + ')')
+    + (ko17.length ? ' (écarts : ' + ko17.join(' ; ') + ')' : ''));
+  /* d18 : un départ à 1 cm au plus, sans accrochage, compte comme posé : montée vers le départ (avant m139 : vers la fin) */
+  const cas18 = [['départ à 5 mm devant la façade sud, sans aide', [2, -0.005], [2, -3], BATI, null, null, 'depart'],
+    ['départ à 5 mm dans le bâti', [2, 0.005], [2, -3], BATI, null, null, 'depart'],
+    ['départ à 1 cm tout juste', [2, -0.01], [2, -3], BATI, null, null, 'depart'],
+    ['départ sur la façade, sans aide', [2, 0], [2, -3], BATI, null, null, 'depart'],
+    ['départ à 5 mm de la façade ouest, aide parallèle', [-0.005, 2], [-3, 2], BATI, 'parallele', null, 'depart'],
+    ['départ à 5 mm d\'un complément fermé', [2, -0.005], [2, -3], [CPF], null, null, 'depart']];
+  const ko18 = ecarts(cas18, 'monte');
+  R.ok(!ko18.length, 'd18 départ à 1 cm au plus d\'une façade du bâti ou d\'un contour fermé de complément, dehors ou dedans, sans accrochage : montée vers le départ'
+    + (ko18.length ? ' (écarts : ' + ko18.join(' ; ') + ')' : ''));
+  /* d19 : départ au coin et fin à 1 cm au plus : les deux bouts sont posés, montée vers la fin (avant m139 : vers le départ) */
+  const cas19 = [['départ au coin, fin à 5 mm de la façade sud', [0, 0], [3, -0.005], BATI, 'coin', null, 'fin'],
+    ['départ au coin, fin à 5 mm, aide parallèle', [0, 0], [3, -0.005], BATI, 'coin', 'parallele', 'fin'],
+    ['départ au coin, fin redressée sur la façade', [0, 0], [3, 0], BATI, 'coin', 'parallele', 'fin'],
+    ['départ sur la façade, fin à 5 mm dans le bâti', [2, 0], [5, 0.005], BATI, 'facade', null, 'fin'],
+    ['complément fermé : départ au coin, fin à 5 mm', [0, 0], [2, -0.005], [CPF], 'coin', null, 'fin'],
+    ['départ posé par cotes le long de la façade, fin à 5 mm', [3, 0], [6, -0.005], BATI, null, null, 'fin', {O: PT([0, 0]), w: dir([1, 0]), facade: true}]];
+  const ko19 = ecarts(cas19, 'monte');
+  R.ok(!ko19.length, 'd19 départ posé sur le bâti (coin, façade, ou par cotes le long d\'une façade) et fin à 1 cm au plus, sans accrochage : les deux bouts sont posés, montée vers la fin'
+    + (ko19.length ? ' (écarts : ' + ko19.join(' ; ') + ')' : ''));
+  /* d20 : témoins au-delà de 1 cm : comme avant m139 */
+  const cas20 = [['départ à 2 cm', [2, -0.02], [2, -3], BATI, null, null, 'fin'], ['départ à 1,1 cm', [2, -0.011], [2, -3], BATI, null, null, 'fin'],
+    ['départ à 2 m dans le bâti', [2, 2], [2, -3], BATI, null, null, 'fin'], ['départ au coin, fin à 2 cm', [0, 0], [3, -0.02], BATI, 'coin', null, 'depart'],
+    ['départ et fin à 5 mm, sans aide', [2, -0.005], [5, -0.005], BATI, null, null, 'fin']];
+  const ko20 = ecarts(cas20, 'monte');
+  R.ok(!ko20.length, 'd20 témoins : départ à 2 cm, à 1,1 cm ou loin dans le bâti : vers la fin ; départ au coin, fin à 2 cm : vers le départ ; deux bouts à 5 mm : vers la fin'
+    + (ko20.length ? ' (écarts : ' + ko20.join(' ; ') + ')' : ''));
+  /* d21 : ce qui ne compte pas */
+  const CPO = {nat: 'complement', P: [[0, 0], [4, 0], [4, 3], [0, 3]].map(PT), ferme: false, src: {id: 'L3'}, aire: 0};
+  const CP0 = {nat: 'complement', P: [[0, 0], [4, 0], [0, 0]].map(PT), ferme: true, src: {id: 'L4'}, aire: 0};
+  const LIM = {nat: 'limite', P: [[-5, -5], [15, -5], [15, 10], [-5, 10], [-5, -5]].map(PT), ferme: true, src: {L: 1, i: 1}, aire: 300};
+  const OUV = {nat: 'bati', P: [[0, 0], [10, 0], [10, 6], [0, 6]].map(PT), ferme: false, src: {L: 0, i: 2}, aire: 0};
+  const fond = {id: 'fictif', L: [{c: 0, d: 0, n: 4, f: true}, {c: 1, d: 4, n: 4, f: true}], xy: [0, 0, 10, 0, 10, 6, 0, 6, -5, -5, 15, -5, 15, 10, -5, 10],
+    calques: [{nom: 'BATI-FICTIF', vis: true, style: 'bati'}, {nom: 'PARCELLE-FICTIVE', vis: true, style: 'parcelle'}]};
+  const lr = sur(() => V.geo.lignesRef(null, fond, {x: 0, y: 0}, ['bati', 'complement']));
+  const sansLimite = Array.isArray(lr) && lr.length === 1 && lr[0].nat === 'bati';
+  const cas21 = [['complément ouvert : départ à 5 mm', [2, -0.005], [2, -3], [CPO], null, null, 'fin'],
+    ['complément fermé sans intérieur : départ à 5 mm', [2, -0.005], [2, -3], [CP0], null, null, 'fin'],
+    ['limite de parcelle : départ à 5 mm', [2, -5.005], [2, -8], [LIM], null, null, 'fin'],
+    ['bâti ouvert : départ à 5 mm', [2, -0.005], [2, -3], [OUV], null, null, 'fin'],
+    ['départ posé par cotes à 5 mm, facade faux, aide coin ignorée', [2, -0.005], [2, -3], BATI, 'coin', null, 'fin', {O: PT([0, 0]), w: dir([1, 0]), facade: false}],
+    ['départ posé par cotes sur la façade, facade faux', [2, 0], [2, -3], BATI, null, null, 'fin', {O: PT([0, 0]), w: dir([1, 0]), facade: false}],
+    ['lignes de lignesRef (bâti et complément) : départ à 5 mm de la limite', [2, -5.005], [2, -8], sansLimite ? lr : [], null, null, 'fin']];
+  const cas21c = [['complément ouvert : côté', [1, 0], [3, 0], [CPO], null, null, 'g'], ['limite de parcelle : côté', [1, -5], [3, -5], [LIM], null, null, 'g']];
+  const ko21 = ecarts(cas21, 'monte').concat(ecarts(cas21c, 'cote'));
+  R.ok(sansLimite && !ko21.length, 'd21 témoins : un complément ouvert ou sans intérieur, une limite de parcelle, un bâti ouvert ne comptent ni pour le côté ni pour la montée ; '
+    + 'départ posé par cotes : seul cotes.facade compte (m108) ; lignesRef(…, [\'bati\', \'complement\']) ne rend aucune limite'
+    + (sansLimite ? '' : ' (lignesRef : ' + JSON.stringify(lr) + ')') + (ko21.length ? ' (écarts : ' + ko21.join(' ; ') + ')' : ''));
+  /* d22 : un contour fermé de complément qui entoure l'escalier (il contient les deux centres : une limite redessinée, une terrasse tout
+     autour de la maison) ne compte pas pour le côté, comme dans rejetAuSol (m118) ; le bâti du fond tranche d'abord. Contours fictifs :
+     ENT de (−5 ; −8) à (15 ; 10), parcelle redessinée PAR de (−10 ; −10) à (20 ; 16), terrasse TER de (−3 ; −3) à (13 ; 9) */
+  const rect = (x0, y0, x1, y1, id) => ({nat: 'complement', P: [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]].map(PT), ferme: true, src: {id}, aire: (x1 - x0) * (y1 - y0)});
+  const ENT = rect(-5, -8, 15, 10, 'L5'), PAR = rect(-10, -10, 20, 16, 'L6'), TER = rect(-3, -3, 13, 9, 'L7');
+  const cas22 = [['façade sud vers l\'est', [2, 0], [5, 0], BATI.concat([ENT]), null, null, 'd'],
+    ['façade nord vers l\'ouest', [8, 6], [5, 6], BATI.concat([ENT]), null, null, 'd'],
+    ['façade est vers le nord', [10, 1], [10, 4], BATI.concat([ENT]), null, null, 'd'],
+    ['façade ouest vers le sud', [0, 4], [0, 1], BATI.concat([ENT]), null, null, 'd'],
+    ['départ au coin, fin sur la façade (aides)', [0, 0], [3, 0], BATI.concat([ENT]), 'coin', 'facade', 'd'],
+    ['ordre des lignes inversé', [2, 0], [5, 0], [ENT].concat(BATI), null, null, 'd'],
+    ['parcelle redessinée, façade sud', [2, 0], [5, 0], BATI.concat([PAR]), null, null, 'd'],
+    ['parcelle redessinée, façade est', [10, 1], [10, 4], BATI.concat([PAR]), null, null, 'd'],
+    ['terrasse tout autour de la maison', [2, 0], [5, 0], BATI.concat([TER]), null, null, 'd'],
+    ['départ par cotes depuis le coin sud-est, vers le sud', [3, 0], [3, -3], BATI.concat([ENT]), null, null, 'd', {O: PT([10, 0]), w: dir([-1, 0]), facade: true}],
+    ['départ par cotes dans le jardin, parcelle redessinée', [2, -5], [5, -5], BATI.concat([PAR]), null, null, 'd', {O: PT([0, 0]), w: dir([0, -1]), facade: false}],
+    ['annexe dans la parcelle redessinée, le long de son côté sud', [1, 0], [3, 0], [PAR, CPF], null, null, 'd'],
+    ['annexe dans la parcelle, ordre inversé', [1, 0], [3, 0], [CPF, PAR], null, null, 'd'],
+    ['témoin : escalier dans le bâti, contour qui entoure', [2, 2], [5, 2], BATI.concat([ENT]), null, null, 'g'],
+    ['témoin : contour qui entoure, seul', [2, -5], [5, -5], [ENT], null, null, 'g']];
+  const ko22 = ecarts(cas22, 'cote');
+  R.ok(!ko22.length, 'd22 contour fermé de complément qui entoure l\'escalier (limite redessinée, terrasse tout autour) : il ne compte pas pour le côté ; '
+    + 'escalier le long d\'une façade (sud, nord, est, ouest, avec ou sans aides, lignes dans un ordre ou dans l\'autre) : le côté hors du bâti ; départ par cotes : '
+    + 'à l\'opposé du coin (m108) ; annexe dans une parcelle redessinée : le côté hors de l\'annexe ; témoins : escalier dans le bâti, contour seul : « g »'
+    + (ko22.length ? ' (écarts : ' + ko22.join(' ; ') + ')' : ''));
+  /* d23 : pour la montée, le contour qui entoure l'escalier compte (comme un bout accroché à ce trait, qui compte déjà) : départ à 5 mm de
+     son bord, fin loin de tout : vers le départ ; le côté reste celui de d22 */
+  const cas23 = [['départ à 5 mm du bord d\'un contour qui entoure, fin loin', [2, -7.995], [2, -5], [ENT], null, null, 'depart'],
+    ['même départ, avec le bâti', [2, -7.995], [2, -5], BATI.concat([ENT]), null, null, 'depart'],
+    ['témoin : départ à 2 cm du bord', [2, -7.98], [2, -5], BATI.concat([ENT]), null, null, 'fin']];
+  const ko23 = ecarts(cas23, 'monte');
+  R.ok(!ko23.length, 'd23 montée : un départ à 1 cm au plus du bord d\'un contour qui entoure l\'escalier compte comme posé (vers le départ) ; témoin à 2 cm : vers la fin'
+    + (ko23.length ? ' (écarts : ' + ko23.join(' ; ') + ')' : ''));
 }
 
 /* a : analyse */
@@ -440,6 +577,54 @@ function sortiesDxf(){
     + (typeof r8 === 'string' ? ' (' + r8 + ')' : ''));
 }
 
+/* r1, r2 (m139, gardes de la décision D4 : l'escalier n'est jamais lu comme un réseau) : maison fictive avec l'escalier E1, sans ou avec un
+   champ p.res « EU » (croquis altéré) */
+function jamaisReseau(){
+  const cas = [['escalier', avecEscalier()], ['escalier avec p.res « EU »', avecEscalier({res: 'EU'})]], ko1 = [];
+  cas.forEach(([nom, d]) => ['edl', 'avp'].forEach(m => {
+    const an = sur(() => V.analyser(copie(d), m));
+    if (!an || typeof an !== 'object' || !an.lignes || !Array.isArray(an.pieces)){ ko1.push(nom + ', ' + m + ' : analyse ' + String(an)); return; }
+    const lue = id => id in an.lignes || an.pieces.some(q => !!q && !!q.l && q.l.id === id);
+    if (lue('E1') || !lue('tW')) ko1.push(nom + ', ' + m + ' : E1 ' + (lue('E1') ? 'lu' : 'ignoré') + ', tW ' + (lue('tW') ? 'lu' : 'ignoré'));
+    const r = sur(() => V.resLigne(d.el.find(x => x.id === 'E1'), an));
+    if (r !== 'LIM') ko1.push(nom + ', ' + m + ' : resLigne ' + JSON.stringify(r));
+  }));
+  R.ok(!ko1.length, 'r1 analyse (état des lieux et avant-projet) : l\'escalier n\'est ni dans an.lignes ni dans an.pieces, même avec p.res « EU » ; resLigne \'LIM\' ; '
+    + 'témoin : le tronçon tW y est' + (ko1.length ? ' (écarts : ' + ko1.join(' ; ') + ')' : ''));
+  /* r2 : DXF : nombre d'entités de chaque calque, avec et sans escalier ; seul VEDE-ESCALIERS change */
+  const parCalque = r => r.ents.reduce((o, q) => { o[q.cal] = (o[q.cal] || 0) + 1; return o; }, {});
+  const r0 = sur(() => dxf(maison())), ko2 = [];
+  const reseaux = ['VEDE-EU', 'VEDE-EP', 'VEDE-UNITAIRE', 'VEDE-RESEAU-A-PRECISER', 'VEDE-COLLECTEURS', 'VEDE-DRAINS'];
+  cas.forEach(([nom, d]) => {
+    const r = sur(() => dxf(d));
+    if (typeof r === 'string' || typeof r0 === 'string'){ ko2.push(nom + ' : ' + (typeof r === 'string' ? r : r0)); return; }
+    const a = parCalque(r0), b = parCalque(r);
+    Object.keys(Object.assign({}, a, b)).forEach(c => { if (c !== 'VEDE-ESCALIERS' && (a[c] || 0) !== (b[c] || 0)) ko2.push(nom + ' : ' + c + ' ' + (a[c] || 0) + ' → ' + (b[c] || 0)); });
+    if (!(b['VEDE-ESCALIERS'] > 0)) ko2.push(nom + ' : rien sur VEDE-ESCALIERS');
+    reseaux.forEach(c => { if ((b[c] || 0) > (a[c] || 0)) ko2.push(nom + ' : ' + c + ' gagne ' + ((b[c] || 0) - (a[c] || 0))); });
+  });
+  R.ok(!ko2.length, 'r2 DXF : l\'escalier va sur VEDE-ESCALIERS et jamais sur un calque de réseau (' + reseaux.join(', ') + '), même avec p.res « EU » ; les autres calques '
+    + 'ont autant d\'entités qu\'avant (DXF sans escalier)' + (ko2.length ? ' (écarts : ' + ko2.join(' ; ') + ')' : ''));
+}
+
+/* l1 à l3 (m139) : LISEZMOI.txt de l'application lue (--app compris) */
+function lisezmoi(){
+  const fs = require('fs'), path = require('path'), n = s => String(s).replace(/\s+/g, ' ');
+  const t = sur(() => fs.readFileSync(path.join(ch.dir, 'LISEZMOI.txt'), 'utf8')), i = t.indexOf('MISE À JOUR DE L\'APPLICATION'), maj = i >= 0 ? n(t.slice(i)) : '';
+  const PHRASE = 'Une tablette en v1.6.3, ou plus ancienne, dessine un escalier comme un tronçon « Réseau non déterminé » (sans le compter dans le constat) ; ne l\'y modifiez pas.';
+  const a = maj.indexOf('dessiner un escalier') >= 0, b = maj.indexOf(PHRASE) >= 0;
+  R.ok(i >= 0 && a && b, 'l1 LISEZMOI.txt, « MISE À JOUR DE L\'APPLICATION » : « dessiner un escalier », puis, mot pour mot : « ' + PHRASE + ' » (obtenu : section '
+    + (i >= 0 ? 'trouvée' : 'absente') + ', « dessiner un escalier » ' + (a ? 'oui' : 'non') + ', phrase ' + (b ? 'oui' : 'non') + ')');
+  /* l2 : paragraphe de l'outil « Escalier » (du titre de l'outil au paragraphe suivant) : le contour fermé d'un complément */
+  const j = t.indexOf('L\'outil « Escalier »'), k = j >= 0 ? t.indexOf('À la souris, avec l\'outil « Choisir »', j) : -1, par = j >= 0 && k > j ? n(t.slice(j, k)) : '';
+  R.ok(/contour fermé de « Complément du fond »/.test(par), 'l2 LISEZMOI.txt, paragraphe de l\'outil « Escalier » : un contour fermé de « Complément du fond » compte pour le côté et la montée '
+    + 'proposés (obtenu : ' + JSON.stringify(par.slice(0, 60)) + '…)');
+  /* l3 : le même paragraphe dit qu'un contour qui entoure l'escalier ne compte pas pour le côté, et comment on ferme un contour */
+  const e1 = /contour qui entoure l'escalier \([^)]*\) ne compte pas/.test(par), e2 = /en touchant de nouveau son premier point/.test(par);
+  R.ok(e1 && e2, 'l3 LISEZMOI.txt, paragraphe de l\'outil « Escalier » : un contour qui entoure l\'escalier ne compte pas pour le côté ; on ferme un contour en touchant '
+    + 'de nouveau son premier point (obtenu : ' + (e1 ? 'oui' : 'non') + ', ' + (e2 ? 'oui' : 'non') + ')');
+}
+
 /* i : types inconnus */
 async function typesInconnus(){
   const base = () => { const d = maison(); inconnus.forEach(u => { const c = copie(u); if (c.k === 'pt'){ c.x = 4; c.y = 5; } else c.v.forEach(v => { v.y += 9; }); d.el.push(c); }); return d; };
@@ -477,10 +662,13 @@ async function typesInconnus(){
   modele();
   defauts();
   departCotes();
+  contacts();
   analyse();
   ecran();
   await plans();
   sortiesDxf();
+  jamaisReseau();
   await typesInconnus();
+  lisezmoi();
   R.fin();
 })().catch(e => { console.log('ERREUR ' + (e && e.stack || e)); process.exitCode = 1; });
