@@ -115,10 +115,11 @@ F2, réfutés par la réponse « D'accord » du 16 nov. à regard-suit-exutoire 
   présentation des valeurs de la boîte (PR #12, point 11, « Le garder ») ; suggestion « Lavabo » retirée (E2). Toute autre nouveauté du
   constat qui jouerait sans croquis attend S2 (suivi-sans-croquis, D15).
   - La règle de CLAUDE.md (« Croquis désactivé ou absent : comportement de la v1.5.1, sauf une anomalie saisie à la main qui nomme un
-    lavabo… ») ne cite pas les deux dernières exceptions : un relecteur qui l'applique y verrait une faute (F15). m137 la met à jour ;
-    texte proposé [p] : « Croquis désactivé ou absent : comportement de la v1.5.1, sauf une anomalie saisie à la main qui nomme un lavabo :
-    ligne « Évier », comme sur le croquis (décision du 7 nov. 2026) ; la suggestion « Lavabo » est retirée partout, et les valeurs de la
-    boîte gardent au constat la présentation de la v1.7.0 (16 nov. 2026). » À revoir si S2 donne (b) ou (c) [p].
+    lavabo… ») ne citait pas les deux dernières exceptions : un relecteur qui l'appliquait y aurait vu une faute (F15). m137 l'a mise à
+    jour ; texte retenu (précisé à sa relecture) : « Croquis désactivé ou absent : comportement de la v1.5.1, sauf une anomalie saisie à la
+    main qui nomme un lavabo : ligne « Évier », comme sur le croquis (décision du 7 nov. 2026) ; la suggestion « Lavabo » est retirée
+    partout, et une valeur de la boîte trop large pour sa case en 9,5 pt, mais qui tient en 7 pt, s'imprime au constat sur la ligne de son
+    libellé, comme en v1.7.0 (réponses du 16 nov. 2026). » À revoir si S2 donne (b) ou (c) [p].
 - Constat signé : lignes, boîte, croix (`c.fige.conf`) et conclusion ne changent plus (IX:2087-2095, vérifié). Le constat imprimé est
   redessiné à chaque impression [p, comme m115]. Règle de CLAUDE.md : « Le PDF est le livrable. Un constat signé n'est jamais modifié. »
   Une présentation nouvelle (E1, colonne « Puits », ligne de la boîte) ne touche donc pas un constat signé avant la v1.7.2 : la signature
@@ -540,14 +541,21 @@ réponse et touche peu de code (m137 à m142), puis les moyens (m143 à m145) et
 nouveau (tests/vm/tropplein.js, si m145 le choisit) s'ajoute à tests/tout.sh et à tests/LISEZMOI.md.
 
 ### Sans réponse attendue
-- **m137 « Lavabo » retiré des suggestions ; règle de CLAUDE.md** (e2 ; D1 ; F15). Taille S.
-  - Fichiers et fonctions : IX : AUTRES_SUGG.EU (l. 1909). tests/navigateur/dossier.js. CLAUDE.md : règle « Croquis désactivé ou absent »
-    (texte proposé dans les Règles communes).
-  - Pour l'utilisateur : la feuille « Autre installation EU » du constat ne propose plus « Lavabo », croquis activé ou non ; les autres
-    puces restent ; une ligne « Lavabo » déjà saisie reste.
-  - Tests : navigateur/dossier.js : plus de puce « Lavabo », croquis désactivé puis activé (échoue sur la v1.7.1) ; « Douche » présente (témoin).
-  - Garde : compat 245/245 ; aucune sortie comparée ne change ; aléatoire contre 71a4ed6 : sans écart.
-  - Risques et [p] : nul ; texte de la règle de CLAUDE.md [p], à revoir si S2 donne (b) ou (c). Dépendances : aucune.
+- **m137 « Lavabo » retiré des suggestions ; règle de CLAUDE.md** (e2 ; D1 ; F15). Taille S. Fait : 4772d81, 17 nov.
+  - Fichiers : IX : AUTRES_SUGG.EU (l. 1909 ; commentaire en fin de ligne : aucun numéro de ligne ne bouge). CLAUDE.md : règle « Croquis
+    désactivé ou absent » (texte retenu : Règles communes). navigateur/dossier.js 83 à 87 ; tests/LISEZMOI.md. LISEZMOI.txt : rien (la liste
+    des puces n'y figure pas, vérifié) ; CJ inchangé (NOMS_AUTRES, noms d'un « Autre appareil », n'a pas « Lavabo »).
+  - Pour l'utilisateur : la feuille « Autre installation EU » du constat ne propose plus « Lavabo », croquis activé, désactivé ou absent
+    (elle ne lit pas le croquis) ; les sept autres puces restent, dans l'ordre ; une ligne « Lavabo » déjà saisie reste, et le libellé se
+    tape toujours à la main. Une tablette en v1.7.1 propose encore la puce : la ligne créée se lit comme une ligne saisie à la main.
+  - Tests : navigateur/dossier.js 83 (croquis désactivé dans les Réglages) et 86 (croquis activé, un lavabo dessiné) échouent sur 2f2a638 ;
+    témoins 84 (« Douche », feuille EP inchangée), 85 (« Lavabo » tapé à la main), 87 (la ligne reste) ; 146 contrôles. Garde : compat
+    245/245 ; aléatoire 8000 contre 2f2a638 (même code que 71a4ed6) : sans écart.
+  - Relecture : aucun défaut bloquant ni majeur. Trois remarques appliquées : la règle de CLAUDE.md précise « en 9,5 pt, mais qui tient en
+    7 pt » (une valeur plus longue s'imprime sur deux lignes de 7 pt, de part et d'autre du libellé, comme en v1.5.1 ; cas 12 de
+    navigateur/constat-boite.js) ; message du cas 85.
+  - Risques et [p] : texte de la règle de CLAUDE.md, plus précis que celui de la conception [p], à revoir si S2 donne (b) ou (c) ;
+    commentaire en fin de ligne d'IX:1909 [p].
 - **m138 Prolongement sans limite** (pr12-9 ; D2 ; X5). Taille S.
   - Fichiers et fonctions : CJ : contrat et PROL_MAX (l. 336-348), prolSegs (défaut Infinity, l. 361-363), interSegs (défaut gardé, l. 383-385),
     segsPres et segsCibles (l. 3658-3668 : argument qui lève la borne de 120 m pour cibles() [p : nom]), cibles (l. 3707, commentaire
