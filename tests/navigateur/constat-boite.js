@@ -21,7 +21,8 @@
 //     c.croqAuto.puisard) ou une valeur autre que true sont retirés ; échoue sur 52cd3c8 (recup retiré) ; témoin : recup invalides retirés.
 // 10 (entre 7 et 8) : écarts de la boîte comparés sans tenir compte de l'écriture (vcBoiteCle : « 0,8 m int » vaut « 0,80 m intérieur »,
 //     « en limite de propriété » vaut « en limite », « 110 cm » vaut « 1,10 m ») : aucun écart pour des valeurs équivalentes, un écart pour
-//     une autre valeur (« 0,90 » face à « 0,70 m »).
+//     une autre valeur (« 0,90 » face à « 0,70 m »). m140 : l'écriture de l'étiquette du croquis recopiée au constat (« à 0,80 m de la
+//     limite, à l'intérieur de la propriété » vaut « 0,80 m intérieur ») ; échoue sur 1ee93f4 ; témoins : un autre côté reste un écart.
 // 11 : « Reprendre du croquis » sans rien à reprendre : la provenance de la boîte est enregistrée, sans changer la date du dossier ; après un
 //     rechargement de la page, le suivi met la boîte à jour ; témoin : sans constat enregistré, une telle reprise n'en enregistre aucun.
 // Échouent sur ddb0b74 (VCroquis.boitesConstat absente : boîte jamais rappelée, champs vides après « Reprendre du croquis » ; clés inconnues
@@ -226,6 +227,20 @@ async function parcours(){
     }, PAIRES_L4);
     R.ok(!faux4.length, '10 (m115) écritures courantes de la boîte (mètres et centimètres, côté entre parenthèses ou avant la distance), ' + PAIRES_L4.length + ' paires : '
       + (faux4.join(', ') || 'toutes justes'));
+    /* m140 (D5) : l'étiquette du croquis écrit « à l'intérieur de la propriété », « à l'extérieur de la propriété » ; recopiée au constat,
+       elle vaut la valeur reprise (« 0,80 m intérieur ») ; échouent sur 1ee93f4, sauf les témoins : un autre côté reste un écart */
+    const PAIRES_M140 = [['à 0,80 m de la limite, à l\'intérieur de la propriété', '0,80 m intérieur', true],
+      ['à 1,25 m de la limite, à l\'extérieur de la propriété', '1,25 m extérieur', true], ['à l\'intérieur de la propriété', 'intérieur', true],
+      ['à l\'extérieur de la propriété', 'extérieur', true], ['0,80 m, à l\'intérieur de la propriété', '0,80 m intérieur', true],
+      ['à 0,80 m de la limite, à l\'intérieur de la parcelle', '0,80 m intérieur', true],
+      ['à 0,80 m de la limite, à l\'extérieur de la propriété', '0,80 m intérieur', false], ['à l\'intérieur de la propriété', 'extérieur', false],
+      ['en limite de propriété', 'en limite', true]];
+    const faux140 = await p.evaluate(P => {
+      const f = window.__VT.vcBoiteCle; if (typeof f !== 'function') return ['vcBoiteCle absente'];
+      return P.filter(([a, b, eq]) => (f(a) === f(b)) !== eq).map(([a, b, eq]) => '« ' + a + ' » ' + (eq ? 'différent de' : 'égal à') + ' « ' + b + ' »');
+    }, PAIRES_M140);
+    R.ok(!faux140.length, '10 (m140) écriture de l\'étiquette (« à l\'intérieur de la propriété »), ' + PAIRES_M140.length + ' paires : '
+      + (faux140.join(', ') || 'toutes justes'));
     for (const [k, t] of [['distEU', '1,5 m int'], ['profEU', '0,7'], ['distEP', 'en limite de propriété'], ['profEP', '110 cm']]){ await p.fill('[data-cf="boite.' + k + '"]', t); await C.pause(p, 200); }
     await p.evaluate(async () => { await window.__VT.flushSaves(); });
     e = await constat(p);

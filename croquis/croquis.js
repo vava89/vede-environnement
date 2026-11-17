@@ -2340,25 +2340,81 @@ VC.constatDeduit = constatDeduit; VC.RACC_LIB = RACC_LIB;
 /* Boîte de branchement reprise au constat (souhait 10, décision D6, réponse 10.4) : par réseau, le nombre de boîtes existantes (ni « projet »
    ni « à supprimer ») et, s'il y en a exactement une, sa distance à la limite de propriété et sa profondeur, écrites comme dans les champs du
    constat (« 0,80 m intérieur », « en limite », « 0,80 m »). Réseau : p.res, sinon celui que l'analyse déduit du dessin (celui de l'étiquette) ;
-   une boîte unitaire compte en EU et en EP ; une boîte de réseau inconnu ou mêlé ne compte nulle part. p.limCote, p.limDist et p.prof sont lus
+   une boîte indiquée unitaire dans sa fiche compte en EU et en EP ; une boîte de réseau inconnu ou mêlé ne compte nulle part. En zone unitaire
+   (m140, décision D6, réponse pr12-5 du 16 nov. 2026), une boîte sans réseau indiqué que le dessin dit unitaire compte pour le réseau propre
+   des sources dont l'eau la traverse sur les plus courts chemins de l'analyse jusqu'à leurs exutoires dessinés (traversees) : en EU si seules
+   des sources EU y passent, en EP si seules des sources EP y passent, en EU et en EP si les deux y passent ou si aucune n'y passe ; son
+   étiquette reste « unitaire ». p.limCote, p.limDist et p.prof sont lus
    tels qu'ils sont enregistrés, sans recalcul d'après le plan. Distance : deux décimales, 0,00 = « en limite » ; une distance négative ou
    illisible est ignorée, comme sur l'étiquette. Zéro ou plusieurs boîtes sur un réseau : dist et prof vides. nDist et nProf : nombre de
    boîtes du réseau qui portent une distance (ou un côté) et une profondeur ; avec plusieurs boîtes, le constat rappelle ce qui n'est pas
    repris. Ne modifie ni doc ni an. */
 function boitesConstat(doc, an){
-  var out = {EU: {n: 0, dist: '', prof: '', nDist: 0, nProf: 0}, EP: {n: 0, dist: '', prof: '', nDist: 0, nProf: 0}};
+  var out = {EU: {n: 0, dist: '', prof: '', nDist: 0, nProf: 0}, EP: {n: 0, dist: '', prof: '', nDist: 0, nProf: 0}}, vues = [];
   /* distance (côté compris) et profondeur d'une boîte, écrites comme dans les champs du constat */
   function mesures(p){
     var cote = p.limCote === 'int' ? 'intérieur' : p.limCote === 'ext' ? 'extérieur' : '', d = num(p.limDist), pr = num(p.prof), t, dist = cote;
     if (d != null && d >= 0){ t = frNum(d, 2); dist = t === '0,00' ? 'en limite' : t + ' m' + (cote ? ' ' + cote : ''); }
     return {dist: dist, prof: pr != null ? frNum(pr, 2) + ' m' : ''};
   }
+  /* m140 : réseau propre (EU, EP : T[t].nat) des sources dont l'eau traverse chaque nœud de l'analyse A ({nœud : {EU: true, EP: true}}).
+     Le chemin de l'eau d'une source est celui de l'analyse : ses plus courts chemins jusqu'à ses exutoires (A.resObj[s].term), ceux d'où
+     elle tire la boîte, la fosse et le regard d'arrivée (predsDe). Parcours en largeur depuis la source (un drain de collecte compté part
+     des sommets de ses pièces, ceux d'aval s'il a un sens, comme dans l'analyse), dans le sens dessiné des tuyaux, exutoires atteints sans
+     être traversés ; puis retour depuis chaque exutoire, d'un nœud à un nœud plus proche d'un pas de la source. Une pièce sans sens dessiné
+     se suit dans le sens où ces chemins la parcourent ; une pièce qu'ils n'empruntent pas (branche voisine, tuyau qui relie deux branches)
+     ne compte pas, quel que soit le sens des flèches du plan (tiré des distances, il ne dit pas où va l'eau). Une source sans exutoire
+     dessiné (réseau présumé) ne compte pour aucune boîte ; une source de réseau propre inconnu compte pour les deux. Calculé une fois par
+     analyse ; ne modifie pas A. */
+  function traversees(A){
+    for (var i = 0; i < vues.length; i++) if (vues[i].A === A) return vues[i].par;
+    var par = {};
+    vues.push({A: A, par: par});
+    if (!A || !A.resObj || !A.adj || !A.objs || !A.lignes) return par;
+    /* tuyau orienté : il ne se suit pas de n vers son autre bout s'il va dans l'autre sens (règle du parcours de l'analyse) */
+    function aContreSens(p, n){ return p.sens === 1 && p.b === n && p.a !== n || p.sens === -1 && p.a === n && p.b !== n; }
+    Object.keys(A.resObj).forEach(function(s){
+      var o = srcObj(A, s), nat = o && T[o.t] ? T[o.t].nat : '', nats = nat === 'EU' || nat === 'EP' ? [nat] : ['EU', 'EP'];
+      var r = A.resObj[s], l = !A.objs[s] && A.lignes[s], sl = l && l.p ? l.p.sens : 0, fin = {}, dist = {}, vu = {}, file = [];
+      (r && Array.isArray(r.term) ? r.term : []).forEach(function(t){ if (t && t.noeud) fin[t.noeud] = true; });
+      function part(n){ if (n == null || dist[n] != null) return; dist[n] = 0; if (!fin[n]) file.push(n); }
+      if (l) (A.pieces || []).forEach(function(q){ if (q && q.l && q.l.id === s){ if (sl !== -1) part(q.b); if (sl !== 1) part(q.a); } });
+      else part(s);
+      while (file.length){
+        var n = file.shift();
+        (A.adj[n] || []).forEach(function(p){
+          var m = p.a === n ? p.b : p.a;
+          if (dist[m] != null || aContreSens(p, n)) return;
+          dist[m] = dist[n] + 1; if (!fin[m]) file.push(m);
+        });
+      }
+      file = Object.keys(fin).filter(function(t){ return dist[t] != null; }); file.forEach(function(t){ vu[t] = true; });
+      while (file.length){
+        var v = file.shift();
+        (A.adj[v] || []).forEach(function(p){
+          var u = p.a === v ? p.b : p.a;
+          if (u === v || vu[u] || dist[u] == null || dist[u] + 1 !== dist[v] || fin[u] || aContreSens(p, u)) return;
+          vu[u] = true; file.push(u);
+        });
+      }
+      Object.keys(vu).forEach(function(n){ var q = par[n] || (par[n] = {}); nats.forEach(function(g){ q[g] = true; }); });
+    });
+    return par;
+  }
   (doc && Array.isArray(doc.el) ? doc.el : []).forEach(function(e){
     if (!e || e.k !== 'pt' || !T[e.t] || !T[e.t].boite) return;
     var p = e.p && typeof e.p === 'object' ? e.p : {};
     if (p.st === 'projet' || p.st === 'supprimer') return;
-    var res = /^(EU|EP|UN)$/.test(p.res) ? p.res : an && an.resPt ? an.resPt[e.id] || (an.ref && an.ref.resPt && an.ref.resPt[e.id]) : '', m = mesures(p);
-    (res === 'UN' ? ['EU', 'EP'] : res === 'EU' || res === 'EP' ? [res] : []).forEach(function(g){
+    var ind = /^(EU|EP|UN)$/.test(p.res), res = ind ? p.res : an && an.resPt ? an.resPt[e.id] || (an.ref && an.ref.resPt && an.ref.resPt[e.id]) : '', m = mesures(p);
+    var rs = res === 'UN' ? ['EU', 'EP'] : res === 'EU' || res === 'EP' ? [res] : [];
+    /* m140 : boîte unitaire d'après le dessin seulement : réseau des sources dont l'eau la traverse (les deux si aucune n'y passe). Les
+       chemins sont lus dans l'analyse qui donne le réseau : an.ref quand an ne porte pas la boîte (cela n'arrive pas dans l'application :
+       une boîte existante a toujours un réseau dans l'analyse donnée) */
+    if (res === 'UN' && !ind){
+      var t = traversees(an.resPt[e.id] ? an : an.ref)[e.id];
+      if (t && (t.EU || t.EP)) rs = rs.filter(function(g){ return t[g]; });
+    }
+    rs.forEach(function(g){
       var o = out[g]; o.n++;
       if (m.dist) o.nDist++;
       if (m.prof) o.nProf++;
@@ -2390,16 +2446,20 @@ function resLigne(e, an){
   return k || 'INC';
 }
 /* Boîte en limite de propriété (souhait 10, décision D4) : ligne de l'étiquette, d'après p.limCote ('int' | 'ext') et p.limDist (en mètres,
-   « 0 » : en limite). La distance s'écrit avec deux décimales ; une distance qui s'écrit 0,00 est « en limite ». Une distance négative ou
-   illisible (la fiche la refuse : croquis altéré) est ignorée. Rien si aucun des deux champs n'est donné. */
+   « 0 » : en limite). Le côté s'écrit en toutes lettres (m140, réponse boite-en-limite du 16 nov. 2026, coteLimite) : « à 0,80 m de la
+   limite, à l'intérieur de la propriété » (ou « …, à l'extérieur de la propriété ») ; sans distance, le côté seul (« à l'intérieur de la
+   propriété ») ; sans côté, « à 0,80 m de la limite ». La distance s'écrit avec deux décimales ; une distance qui s'écrit 0,00 est « en
+   limite de propriété », avec ou sans côté. Une distance négative ou illisible (la fiche la refuse : croquis altéré) est ignorée. Rien si
+   aucun des deux champs n'est donné. Le constat garde son écriture courte (« 0,80 m intérieur » : boitesConstat). */
+function coteLimite(c){ return c === 'int' ? 'à l\'intérieur de la propriété' : c === 'ext' ? 'à l\'extérieur de la propriété' : ''; }
 function texteLimite(p){
   p = p || {};
-  var cote = p.limCote === 'int' ? 'intérieur' : p.limCote === 'ext' ? 'extérieur' : '', d = num(p.limDist);
+  var cote = coteLimite(p.limCote), d = num(p.limDist);
   if (d != null && d >= 0){
     var t = frNum(d, 2);
     return t === '0,00' ? 'en limite de propriété' : 'à ' + t + ' m de la limite' + (cote ? ', ' + cote : '');
   }
-  return cote ? 'côté ' + cote : '';
+  return cote;
 }
 /* Étiquette commune (souhait 8, m134 ; décisions D1 et D6) : les appareils d'une pièce partagent l'étiquette de l'un d'eux, le porteur.
    Chaque membre porte p.etiqAvec (l'id du porteur), le porteur p.etiqTitre ('sdb', 'eau', 'cuisine', 'buanderie' ou 'aucun' ; absent,
@@ -6032,13 +6092,14 @@ function editeur(racine, opts){
         + '<p class="vc-muet">Lave-mains intégré au WC ; raccordé à part : dessinez un Lavabo.</p>');
       if (ty.boite || e.t === 'regard_pub') h += champ('Réseau', chipsHtml('res', [['EU', 'EU'], ['EP', 'EP'], ['UN', 'Unitaire']], e.p.res), RES[e.p.res] ? '' : 'déduit du dessin tant qu\'il n\'est pas indiqué');
       /* boîte en limite de propriété (souhait 10) : côté et distance, facultatifs, repris sur l'étiquette (texteLimite). Mesure lue sur le
-         plan (limitePlan) : ligne « Sur le plan », côté proposé en pointillé tant que le technicien n'en a choisi aucun (sûr seulement),
-         « Reprendre la mesure » et « Placer sur le plan » ; sans parcelle de l'installation, ni ligne ni proposition, boutons grisés */
+         plan (limitePlan) : ligne « Sur le plan : ≈ 0,80 m, à l'intérieur de la propriété » (m140 ; « ≈ 0,20 m côté à confirmer » si le côté
+         est douteux), côté proposé en pointillé tant que le technicien n'en a choisi aucun (sûr seulement), « Reprendre la mesure » et
+         « Placer sur le plan » ; sans parcelle de l'installation, ni ligne ni proposition, boutons grisés */
       if (ty.boite){
         var limP = limitePlan(e), limD = num(e.p.limDist), limOk = !!limP && limD != null && limD >= 0 && (e.p.limCote === 'int' || e.p.limCote === 'ext');
         h += champ('Limite de propriété', chipsHtml('limCote', [['int', 'Intérieur'], ['ext', 'Extérieur']], e.p.limCote || '', {label: 'Côté de la limite de propriété', propose: !e.p.limCote && limP && !limP.douteux ? limP.cote : null})
           + saisie('limDist', e.p.limDist, {num: true, ph: 'distance, ex. 0,80', lab: 'Distance à la limite de propriété en mètres'})
-          + (limP ? '<p class="vc-fixe vc-limplan">Sur le plan : ≈ ' + frNum(limP.d, 2) + ' m ' + (limP.douteux ? 'côté à confirmer' : limP.cote === 'int' ? 'intérieur' : 'extérieur') + '</p>' : '')
+          + (limP ? '<p class="vc-fixe vc-limplan">Sur le plan : ≈ ' + frNum(limP.d, 2) + ' m' + (limP.douteux ? ' côté à confirmer' : ', ' + coteLimite(limP.cote === 'int' ? 'int' : 'ext')) + '</p>' : '')
           + '<div class="vc-chips vc-limbt"><button type="button" class="vc-chip" data-a="limMesure"' + (limP ? '' : ' disabled') + '>Reprendre la mesure</button>'
           + '<button type="button" class="vc-chip" data-a="limPlacer"' + (limOk ? '' : ' disabled') + '>Placer sur le plan</button></div>', 'côté de la boîte, distance en mètres (0 : en limite)');
       }

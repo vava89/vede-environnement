@@ -146,20 +146,21 @@ CROQUIS DE TERRAIN (facultatif)
   tracé depuis le bout d'un « Tronçon EP » forme un second tracé, relié
   au premier par un raccord.
   Dans la fiche de la boîte de branchement, on indique sa position par
-  rapport à la limite de propriété (côté intérieur ou extérieur, distance
-  en mètres) ; l'étiquette du plan la reprend, par exemple « à 0,80 m de
-  la limite, intérieur ».
+  rapport à la limite de propriété (côté, à l'intérieur ou à l'extérieur
+  de la propriété, et distance en mètres) ; l'étiquette du plan la
+  reprend, par exemple « à 0,80 m de la limite, à l'intérieur de la
+  propriété » (sans distance : « à l'intérieur de la propriété »).
   Avec le fond de plan, la fiche mesure la boîte dans la parcelle de
   l'installation : la parcelle fermée qui contient le plus d'objets
   existants dessinés (sans elle, en cas d'égalité par exemple, rien
-  n'est mesuré). La fiche écrit « Sur le plan : ≈ 0,80 m intérieur »
-  et propose le côté en pointillé ; à moins de 0,30 m de la limite,
-  elle écrit « côté à confirmer » et ne propose rien. « Reprendre la
-  mesure » recopie cette mesure, arrondie à 5 cm, et le côté s'il est
-  sûr. « Placer sur le plan », actif une fois la distance et le côté
-  saisis, pose la boîte à cette distance et de ce côté. Près d'un coin,
-  si la boîte arrivait plus près d'un autre bord, elle ne bouge pas et
-  un message le dit.
+  n'est mesuré). La fiche écrit « Sur le plan : ≈ 0,80 m, à l'intérieur
+  de la propriété » et propose le côté en pointillé ; à moins de 0,30 m
+  de la limite, elle écrit « côté à confirmer » et ne propose rien.
+  « Reprendre la mesure » recopie cette mesure, arrondie à 5 cm, et le
+  côté s'il est sûr. « Placer sur le plan », actif une fois la distance
+  et le côté saisis, pose la boîte à cette distance et de ce côté. Près
+  d'un coin, si la boîte arrivait plus près d'un autre bord, elle ne
+  bouge pas et un message le dit.
   Le bouton « Cotes » pose un objet à une distance mesurée d'une façade ou
   d'une limite de parcelle, dans son prolongement ou le long d'elle.
   Dans la fiche d'un objet, « Mesurer depuis une façade » redonne ses
@@ -265,10 +266,18 @@ CROQUIS DE TERRAIN (facultatif)
   de branchement, réseau par réseau, quand le croquis porte une seule
   boîte existante (ni « projet » ni « à supprimer ») sur ce réseau :
   distance à la limite et côté (« 0,80 m intérieur », « en limite »),
-  profondeur (« 0,80 m »). Une boîte unitaire compte pour les deux
-  réseaux ; une boîte sans réseau (ni indiqué dans sa fiche, ni déduit du
-  dessin) n'est pas reprise. En zone unitaire, avec une boîte pour les EU
-  et une pour les EP, on indique le réseau dans la fiche de chaque boîte.
+  profondeur (« 0,80 m »). Une boîte indiquée unitaire dans sa fiche
+  compte pour les deux réseaux. En zone unitaire, une boîte sans réseau
+  indiqué, que le dessin dit unitaire (étiquette « Boîte de branchement
+  unitaire »), compte pour le réseau des appareils dont les eaux y
+  passent pour rejoindre l'exutoire dessiné : pour les deux si elle
+  reçoit des EU et des EP, ou si aucun appareil n'y passe. Le réseau
+  indiqué dans la fiche l'emporte. Une boîte que le dessin dit mêlée
+  (étiquette « Boîte de branchement » seule, par exemple quand un tuyau
+  tracé à l'outil « Tronçon EU », « Tronçon EP » ou « Drain » y arrive)
+  n'est pas reprise : on indique alors son réseau dans sa fiche. Une
+  boîte sans réseau (ni indiqué dans sa fiche, ni déduit du dessin)
+  n'est pas reprise non plus.
   Avec deux boîtes ou plus sur un réseau, rien n'y est repris (une valeur
   reprise avant, et non modifiée, est vidée) ; le constat rappelle de les
   saisir avant la signature. Ensuite ces valeurs suivent le croquis tant

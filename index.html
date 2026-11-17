@@ -3864,11 +3864,14 @@ function constatDepuisCroquis(v, res, suivi){
    « intérieur », « ext » ou « extérieur » ; « en limite », « en limite de propriété » et une distance nulle donnent « en limite », comme
    VCroquis.boitesConstat. Un texte non reconnu est comparé tel quel. m115 : écritures courantes reconnues aussi : le côté entre parenthèses
    (« 0,80 m (intérieur) »), le côté écrit avant la distance (« intérieur, 0,80 m », « int. 0,80 m »), les mètres suivis des centimètres
-   (« 1m20 », « 1 m 20 », « 0m80 » ; « 1m5 » : un seul chiffre après le « m » compte des dizaines de centimètres, 1,50 m). */
+   (« 1m20 », « 1 m 20 », « 0m80 » ; « 1m5 » : un seul chiffre après le « m » compte des dizaines de centimètres, 1,50 m). m140 : l'écriture
+   de l'étiquette du croquis est reconnue aussi (« à 0,80 m de la limite, à l'intérieur de la propriété », « à l'extérieur de la
+   propriété ») : « de la propriété » ou « de la parcelle » après le côté est ignoré. */
 function vcBoiteCle(t){
   var s = norm(t).replace(/’/g, '\'').replace(/\s+/g, ' ').trim(), m, d, u;
   var cote = function(x){ return x.charAt(0) === 'i' ? 'interieur' : 'exterieur'; };
-  u = s.replace(/\(((?:(?:cote|a l') ?)?(?:int|interieur|ext|exterieur)\.?)\)/g, ' $1 ').replace(/\s+/g, ' ').trim();
+  u = s.replace(/\b(interieur|exterieur) de (?:la )?(?:propriete|parcelle)\b/g, '$1');
+  u = u.replace(/\(((?:(?:cote|a l') ?)?(?:int|interieur|ext|exterieur)\.?)\)/g, ' $1 ').replace(/\s+/g, ' ').trim();
   m = /^((?:(?:cote|a l') ?)?(?:int|interieur|ext|exterieur)\.?),? ((?:a )?\d.*)$/.exec(u);
   if (m) u = m[2] + ' ' + m[1];
   u = u.replace(/^(a )?(\d+) ?m ?(\d{1,2})\b/, function(x, a0, a, b){ return (a0 || '') + a + ',' + (b.length === 1 ? b + '0' : b) + ' m'; });
