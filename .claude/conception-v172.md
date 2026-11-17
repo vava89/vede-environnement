@@ -1023,28 +1023,35 @@ et à tests/LISEZMOI.md.
   - Dépendances : aucune.
 
 ### Ajouté le 17 nov. (fil)
-- **m155 Prolongement toujours d'abord** (fil du 17 nov. ; D2). Taille S.
-  - Réponse : « Prolongement toujours d'abord » (« L'ordre de la v1.7.0 (m113), même au-delà de 30 m, et l'aide le dit. ») ; le choix
-    recommandé était « Garder cet ordre (Recommandé) ». Ordre : juste après m140, avant m141 [p].
-  - Fichiers et fonctions (numéros de 1ee93f4) : CJ : prolLoin et PROL_LOIN_MAX (commentaire compris, l. 3745-3780) : ses candidats entrent à
-    l'étape prol d'accrochesNouvelles (l. 3735), avec ceux de prolSegs jusqu'à 30 m, et ses trois appels sont retirés : accrocheLibre
-    (l. 3785-3793, appel l. 3791, après celui d'accrochesNouvelles l. 3788), point saisi d'un tronçon (l. 3842, après l. 3840), sommet glissé
-    (l. 4249, sur la ligne de l'appel d'accrochesNouvelles) ; entre deux prolongements, la règle de plusProche (le plus proche du doigt) ;
-    commentaires (l. 348-350, 3732, 3782, 3837-3839) ; contrat de PROL_MAX. m140 a décalé ces lignes d'environ +60, sauf les l. 348-350 : à
-    retrouver par recherche. LISEZMOI.txt : la phrase « Au-delà de 30 m d'un bout, le prolongement passe après les autres aides (accroche au
-    bâti ou à une limite, parallèle au bâti, angles). » est remplacée par l'ordre de m113, dit en clair ; croquis/LISEZMOI.txt l. 28 (deux
-    phrases d'ordre) ; tests/navigateur/accroches.js (cas pl : f9 et r9 renversés), tests/vm/dessin.js au besoin, tests/LISEZMOI.md.
+- **m155 Prolongement toujours d'abord** (fil du 17 nov. ; D2). Taille S. Fait : 9b7e772, 17 nov.
+  - Fichiers et fonctions : CJ : contrat de PROL_MAX (l. 348-350) ; prolSegs (l. 364, même API) et prolCands (nouvelle, l. 367 : les
+    candidats avant le choix) ; accrochesNouvelles (l. 3803 ; étape du prolongement l. 3810 : candidats de 30 m au plus sur cibles() et ceux
+    de prolLoin, départagés par plusProche) ; prolLoin (l. 3828 : rend des candidats, sans garde) ; appels de prolLoin retirés dans
+    accrocheLibre (l. 3856), au point saisi d'un tronçon (l. 3909) et au sommet glissé (l. 4318). LISEZMOI.txt l. 316-319 ;
+    croquis/LISEZMOI.txt l. 28 ; tests/navigateur/accroches.js (cas pl, glisserSommet), tests/LISEZMOI.md.
   - Pour l'utilisateur : le prolongement d'un côté passe avant le redressement « Parallèle au bâti » et l'accroche à la façade, à toute
-    distance, comme en v1.7.0 ; l'aide le dit.
-  - Tests : f9 et r9 renversés : au-delà de 30 m, le prolongement l'emporte sur la façade et sur le redressement (échouent sur le commit
-    d'avant) ; témoins jusqu'à 30 m ; gardés : l9, t9, zd, zp, e5, n120 ; mesures de m138 refaites (coût du glissé, part des points calés sur
-    un prolongement).
-  - Garde : compat 245/245 ; aléatoire 8000 contre le commit d'avant : sans écart (aide au dessin, non comparée).
-  - Risques et [p] : sur un fond dense, un point libre se calera le plus souvent sur un prolongement (16/84 attendu [p], au lieu de 84/16 :
-    mesure de m138 sur sa première version ; m155 la refait) : effet du choix, non montré dans la question, à dire à l'utilisateur à la
-    livraison de m155 et dans l'annonce ; coût : les 2,8 à 11,7 ms de prolLoin (mesure de m138) s'ajoutent aux points redressés ou posés sur
-    une façade, à mesurer au tracé et au glissé, seuil de 16 ms par mouvement [p] ; borne de 256 côtés gardée ; entre deux prolongements, le
-    plus proche du doigt l'emporte [p].
+    distance, comme en v1.7.0 ; entre deux prolongements, celui dont la droite passe le plus près du point ; l'aide le dit (LISEZMOI :
+    « Ordre des aides : coin, intersection, milieu, perpendiculaire, prolongement (à toute distance d'un bout), puis parallèle au bâti et
+    angles, puis façade ou côté d'une limite. »).
+  - Mesures (fond fictif « ville » de m138, 3 200 lignes, limites cochées ; gestionnaire pointermove, processeur ralenti 4 fois) : façade /
+    prolongement pour 100 points touchés à 4 px d'une façade : 22/78 à 10 px/m (71 prolongements de plus de 30 m), 77/23 à 20 px/m, 94/6 à
+    40 px/m (58c2ddd : 84/16, 95/5, 95/5 ; attendu [p] : 16/84) ; le point finit jusqu'à 13 px de la façade, le bout du côté prolongé souvent
+    hors de l'écran ; points redressés pris par un prolongement, sur 60 : 52, 36, 14 (58c2ddd : 30, 17, 12). Coût : de 5 à 40 px/m, médiane
+    de 2,3 à 3,3 ms (+0,8 à +1,7 ms), 95e centile de 4,1 à 7,6 ms (58c2ddd : 2,3 à 4,3 ms) ; zoom large : moins cher que 58c2ddd (médianes de
+    5,3 à 7,7 ms contre 7,6 à 13 ms) ; 95e centile sous 16 ms, sauf une passe à 18,8 ms non reproduite (12,6 ms). Scripts et sorties :
+    dossier m155 du scratchpad.
+  - Tests : navigateur/accroches.js (221) : pl : f9 et r9 renversés, d1 (deux prolongements, 50 m contre 20 m) et g1 à g3 (sommet glissé :
+    trait, tronçon, tronçon parti d'un regard qui porte un collecteur proche) échouent sur 58c2ddd (pl 28/32) ; témoins l9, t9, d2, g4 :
+    passent sur les deux. Garde : compat 245/245 ; aléatoire 8000 contre 58c2ddd : sans écart (10 666 analyses ; le générateur ne passe pas
+    par les accroches).
+  - Relecture : ni défaut bloquant ni défaut majeur ; trois remarques : M1 (sous 0,083 px/m, la règle du côté aligné ne voit, pour prolLoin,
+    que les côtés à 120 m au plus : un trait touché près d'un côté aligné à plus de 120 m va sur le prolongement de son voisin, 58c2ddd sur
+    la façade ; reproduit à 0,05 px/m ; gardé, dit en [p] dans les commentaires) ; M2 (phrase d'ordre du LISEZMOI) ; M3 (chiffres de
+    l'annonce, recalculés).
+  - Risques et [p] : sur un fond dense, un point libre près d'une façade se cale le plus souvent sur un prolongement (effet du choix, dit à
+    l'utilisateur) ; au zoom très large (sous 0,156 px/m environ), un candidat de 30 m au plus que seul prolLoin voit passe aussi avant le
+    redressement et la façade [p] ; réunion des candidats exacte par raisonnement sur plusProche, vérifiée par les témoins et un différentiel
+    de 6 600 points [p] ; test du glissé : repère lu deux images avant le lever du doigt [p].
   - Dépendances : m138.
 
 ### Attendront la fusion suivante
