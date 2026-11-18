@@ -581,6 +581,15 @@ recherche.
 - Tablette en v1.7.1 (X9, vérifié) : raccOk y rejette PUITS en EU et en EP (IX:1957 : `/^(EP|UN)_|^GARG$|^MILIEU$/`) : une ligne
   « Puits » y est « non » d'office, même anomalie écartée, sans la préconisation suppMilieu (IX:2012 : seul MILIEU l'ajoute) ; valeur vide
   dans la liste, pas de croix [p] ; son suivi remet MILIEU, puis la v1.7.2 remet PUITS.
+- Après la relecture de m150 [p] : une ligne qui va à un puits et à un rejet codé MILIEU (milieu naturel, autre destination ; en EU, aussi
+  puisard, infiltration au sol, drain d'infiltration) prend « Puits » : le puits, non conforme par règle, l'emporte, comme le milieu naturel
+  avant m150 (M1, M4 : elle passait à « plusieurs », raccordement vidé) ; avec un troisième code, « plusieurs », comme avant. Une ligne
+  retenue dont le dossier fait une réserve est « oui » (M3). Croquis désactivé ou absent, l'arbitrage du croquis n'est pas lu (vcArbitrage
+  rend null : limite de m119, pour toute ligne) : une ligne EP posée sur « Puits » par le croquis dont l'anomalie est à arbitrer reçoit
+  « oui », comme le milieu naturel avant m150 (M2, M6 : documenté ; à dire à l'annonce, correctif à part si souhaité). L'exception du croquis
+  ne dépend pas de vcPret() : un constat signé ne paraît pas changé quand on désactive le croquis. Une ligne remise à la main sur « Puits »,
+  égale à la valeur posée par le croquis, compte comme venue du croquis. Une ligne EP mise à la main sur « Puits » ne propose aucune
+  préconisation (M8, écarté : hors de la spécification ; de même pour la fosse septique en EP).
 - Compat : inchangé (aucun puits dans la garde). Différentiel : écarts attendus, code MILIEU → PUITS des lignes vers un puits dans le constat
   déduit (le générateur tire des puits), et rien d'autre.
 
@@ -1074,30 +1083,38 @@ et à tests/LISEZMOI.md.
     elle n'affiche ni n'imprime le côté, son « Sans objet » l'efface et sa reprise réécrit « 0,80 m intérieur ». Dépendances : après m147
     (constatMep).
 - **m150 Colonne « Puits » au constat** (puits-milieu-naturel, drain-infiltration-constat ; D18, D8 ; X1, F1, F3, F4, X9 ; S4 a, S5 a, S2 b).
-  Taille M.
-  - Réponses : S4 (a) « Dans la colonne « Puits », verte comme « Milieu naturel » et « Gargouille » » (son commentaire, les colonnes sans
-    croix : lot suivant, souhait 9) ; S5 (a) : le libellé du drain d'infiltration ne change pas, rien dans ce correctif ; S2 (b) : croquis
-    activé, désactivé ou absent. Constat signé : règle (D13).
-  - Fichiers et fonctions : CJ : table, ligne PUITS (l. 794-796), RACC_LIB (l. 2217), note du panneau Constat (l. 6105-6125). IX : RACC
-    (l. 1904), raccOk (l. 1957 : PUITS « non » d'office, sauf ligne venue du croquis [p : raccOk reçoit le constat]), constatEval
-    (l. 2034-2038), vcProvenance (l. 3738, lue), precosAuto (l. 2012), drawConstatTable (l. 2999-3038), instRowHtml (l. 2146), vcValeurs
-    (l. 3721). LISEZMOI.txt (colonnes du constat). CLAUDE.md (D15). tests/vm/rejets.js (l. 448-470, 480), tests/navigateur/rejets.js
-    (l. 451), tests/navigateur/dossier.js (PDF et conformité). Numéros de 71a4ed6 : à retrouver par recherche.
-  - Pour l'utilisateur : une colonne « Puits », verte, au constat imprimé, entre « Milieu naturel » et « Gargouille » : croix des rejets dans
-    un puits, en EU comme en EP ; option « Puits » à l'écran ; panneau « Puits » ; une ligne mise à la main sur « Puits » est non conforme ;
-    croquis activé, désactivé ou absent.
-  - Tests : vm/rejets.js q1 (l. 448-470 : PUITS et « Puits » au lieu de MILIEU ; échoue sur le commit d'avant) et contrôle de la table
-    (l. 480) ; navigateur/rejets.js l. 451 ; PDF : en-tête « Puits » vers x 445,2 et la croix dessous, une ligne MILIEU vers x 413,3 ;
-    navigateur/dossier.js : ligne « Gouttière(s) » EP mise à la main sur « Puits », sans anomalie : « non », croquis activé puis désactivé
-    (X1, F1) ; ligne venue du croquis, anomalie ep-puits écartée dans les Contrôles : « oui », retenue : « non » ; suivi : MILIEU posé par le
-    croquis → PUITS, valeur retouchée gardée avec le message ; croquis désactivé : quatre colonnes et option « Puits » (échoue sur le commit
-    d'avant) ; constat signé sans marque : trois colonnes.
-  - Garde : compat 245/245 (aucun puits) ; aléatoire contre le commit d'avant : écarts attendus, code MILIEU → PUITS des lignes vers un puits
-    dans le constat déduit, rien d'autre ; chacun vérifié.
-  - Règle de CLAUDE.md : « colonne « Puits » » ajouté à la liste des nouveautés (D15) : le texte proposé y est alors entier.
-  - Risques et [p] : en-têtes serrés (31,9 pt), à voir sur un PDF imprimé ; raccOk qui reçoit le constat [p] ; conformité fixée à la main
-    gardée [p] ; tablette en v1.7.1 : une ligne « Puits » y est non conforme d'office, sans suppMilieu, jusqu'au suivi (X9 ; information).
-  - Dépendances : m147 (présentation, règle de CLAUDE.md).
+  Taille M. Fait : 2d04b09, 18 nov.
+  - Fichiers et fonctions : CJ : table des exutoires, ligne PUITS (l. 818-823 : cEU et cEP {code 'PUITS', lib 'Puits : rejet dans un
+    puits'} ; les autres rejets gardent MILIEU) ; RACC_LIB (l. 2472 : PUITS 'Puits') ; raccInfo (commentaire, l. 2478-2482) ; constatDeduit
+    (l. 2563 : une ligne qui va à un puits et à un rejet codé MILIEU prend PUITS) ; note du panneau Constat (l. 6724-6733 : PUITS jugé comme
+    le milieu naturel). IX : RACC (l. 1905 : ['PUITS', 'Puits'] après MILIEU) ; raccOk(r, c) (l. 1964 : PUITS « non » d'office, sauf la ligne
+    EP posée par le croquis) et puitsDuCroquis (l. 1970 : c.croqAuto.rows, forme vérifiée) ; precosAuto (l. 2041 : suppMilieu pour une ligne
+    EU sur PUITS) ; constatEval (l. 2069) et constatIssues (l. 2158) passent le constat ; drawConstatTable (l. 3059 : VCOL l. 3076, en-têtes
+    en 8 pt, COLX l. 3102, selon constatMep). instRowHtml et vcValeurs connaissent PUITS par RACC. CLAUDE.md (règle « Croquis désactivé ou
+    absent », D15), LISEZMOI.txt, croquis/LISEZMOI.txt, tests/LISEZMOI.md.
+  - Pour l'utilisateur : au constat imprimé, une colonne « Puits », verte, entre « Milieu naturel » et « Gargouille », les quatre colonnes
+    dans la largeur des trois d'avant, titres en 8 pt sur deux lignes ; la croix d'un rejet dans un puits, EU comme EP, y va. Option
+    « Puits » du raccordement de chaque ligne ; une ligne mise à la main sur « Puits » est non conforme ; la ligne d'une source EP que le
+    croquis pose sur « Puits » suit son anomalie (écartée : conforme ; retenue : non conforme, ou conforme si le dossier en fait une
+    réserve ; à arbitrer : vide) ; une ligne EU sur « Puits » propose la suppression du rejet. Dossiers existants : « Milieu naturel » posé
+    par le croquis pour un puits devient « Puits » au suivi ; retouché ou choisi à la main, il reste, avec le rappel de l'écart. Un constat
+    signé avant la v1.7.2 garde ses trois colonnes. Croquis désactivé ou absent : la colonne et l'option aussi.
+  - Tests : vm/rejets.js (180 contrôles ; q1 et q2 changés, q4 nouveau : ligne mêlée et témoins) : 172/180 sur 3035f1d, 178/180 sur la
+    première version ; navigateur/rejets.js (109 contrôles ; p2 changé, p3 nouveau : PDF, en-tête « Puits » et croix vers x 445,2) : 104/109
+    sur 3035f1d ; navigateur/dossier.js (237 contrôles ; 59, 60 et 65 changés ; 132 à 142 nouveaux, dont 141 témoin du constat signé sans
+    marque) : 223/237 sur 3035f1d. Gardes : compat 245/245 ; aléatoire 8000 contre 3035f1d : 408 écarts sur 10 666 analyses, tous attendus
+    (code MILIEU → PUITS et libellé des lignes vers un puits ; ramenés à MILIEU, aucun écart) ; PDF d'un constat signé sans marque identique
+    octet pour octet. Batterie verte (25 min).
+  - Relecture : aucun défaut bloquant ni majeur. Mineurs corrigés : une ligne qui mêlait un puits et un rejet codé MILIEU passait à
+    « plusieurs », raccordement vidé (M1, M4 : le puits l'emporte, comme le milieu naturel avant) ; documentation (M3, M5, M7 : réserve au
+    dossier, croquis/LISEZMOI.txt, ligne coupée court). Documentés seulement : M2 et M6 (croquis désactivé ou absent, une ligne posée sur
+    « Puits » par le croquis dont l'anomalie est à arbitrer reçoit « oui » : l'arbitrage du croquis n'est pas lu, limite de m119 pour toute
+    ligne). Écartée : M8 (préconisation pour une ligne EP mise à la main sur « Puits » : hors de la spécification).
+  - Risques et [p] : le puits l'emporte dans une ligne mêlée ; places et coupure des titres (« Gar- / gouille ») ; la préconisation
+    suppMilieu garde « … en milieu naturel » ; une ligne remise à la main sur « Puits », égale à la valeur posée par le croquis, compte comme
+    venue du croquis ; l'exception du croquis ne dépend pas de vcPret() (un constat signé ne paraît pas changé quand on désactive le
+    croquis) ; M2 et M6 à dire à l'annonce ; tablette en v1.7.1 (information, non essayé) : une ligne « Puits » y est non conforme d'office,
+    sans suppMilieu ni croix, jusqu'au suivi. Dépendances : après m147 (constatMep).
 - **m151 « Puits » venu d'un fichier** (puits-venu-fichier ; D19 ; F6). Taille S.
   - Réponses : noms proches (S6 b) et « Fosse » (S7 a) sont codés par m144 ; il ne reste que D19.
   - Fichiers et fonctions : CJ : nomPuits [p] (rend 'puits', 'perdu' ou '' ; partagé par champDest, l. 856-857, et l'analyse, l. 1149-1153),
