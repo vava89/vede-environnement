@@ -847,32 +847,42 @@ et à tests/LISEZMOI.md.
     dans l'ordre du constat reçoit toutes les anomalies, seul l'écart de nombre est rappelé [p] ; dossier existant : au premier suivi,
     l'installation des anomalies qui suivent le croquis est écrite (date de l'étude changée ; constat signé inchangé) ; tablettes en v1.7.1
     et v1.7.2 sur un même dossier : la ligne peut changer d'une tablette à l'autre [p]. Dépendances : aucune.
-- **m144 Destinations de même nom refusées ; noms proches et « Fosse »** (destinations-meme-nom ; D10 ; F9 ; S6 b, S7 a). Taille M à L [p].
-  - Réponses : S6 (b) et S7 (a), du 17 nov., codées directement : un nom proche reçoit la question « la même ou une autre ? » (Q) ; « Fosse »
-    reçoit M5.
-  - Fichiers et fonctions : CJ : canonDest, distDest, refusNomDest (près de champDest, l. 856-885), destSaisie (l. 873 : 3e argument
-    facultatif), export (l. 938), enregistrement de « + Nouvelle destination » (l. 5770), destTxt (l. 6559-6575), question Q [p : forme] et
-    une fonction exportée qui applique la réponse à Q [p : nom], testée par n6 et n7. IX : vcExuModifier (l. 3574-3600). LISEZMOI.txt
-    l. 70-80. tests/vm/rejets.js, tests/navigateur/rejets.js. Numéros de 71a4ed6 : à retrouver par recherche.
-  - Pour l'utilisateur : M1, M3, M4 et M5 (D10) dans la palette, la fiche et les Réglages ; un nom proche d'une destination existante ou d'un
-    objet de la palette reçoit Q : « La même » reprend l'existante (palette : elle est posée ; fiche : son nom exact, son abréviation, son
-    article et ses jugements sont repris, d'où un seul rejet au constat ; Réglages : l'ancien nom reste) [p], « Une autre » garde le nom
-    tapé ; pour un objet de la palette, « Le même » prend son outil (palette), garde l'ancien nom avec M4 (fiche), ne crée ni ne renomme
-    aucun modèle (Réglages) [p], « Un autre » garde le nom tapé ; « Fosse » : M5 ; « Fossé » accepté.
-  - Tests : vm/rejets.js n1 (42 paires), n2 (« etang » face au modèle « Étang » : M1 ; v1.7.1 : accepté), n3 (« Fosse » : M5, avec ou sans
-    « Fossé » existant ; « Fossé » seul : accepté ; « Fossé » face à « Fossé » : M1), n4 (deux modèles « Étang » et « etang » gardés au
-    chargement), n5 (destination posée : même nom et mêmes jugements acceptés, autres jugements M3), n6 (« Fossé de la rue » face à « Fossé
-    de la route » : Q ; « Une autre » garde « Fossé de la rue » ; « La même » reprend « Fossé de la route » ; dans la fiche, deux
-    destinations aux jugements différents : « La même » reprend aussi l'abréviation, l'article et les jugements, d'où un seul rejet au
-    constat), n7 (« Puisart » face à l'objet Puisard : Q, boutons « Le même » et « Un autre ») ; navigateur/rejets.js : « + Nouvelle
-    destination » « Étang » puis « etang » : M1 et un seul modèle ; Q dans la palette, la fiche et les Réglages, pour une destination et pour
-    un objet de la palette.
-  - Garde : compat 245/245 ; aléatoire : sans écart (noms écrits sans la saisie).
-  - Risques et [p] : faux négatifs (deux fautes) ; doublons venus d'une autre tablette, que seul M3 voit ; forme de Q et de ses boutons [p] ;
-    ce que fait « La même » dans les Réglages [p] ; « Le même » d'un objet de la palette [p] ; si m144 se scinde [p] : M1, M3, M4 et M5 dans
-    m144, Q dans le numéro de réserve (m156) ; un second correctif à scinder se demande à l'utilisateur (« Attendront ») ; M5 pour « Fosse »
-    sans accent seulement [p] ; textes [p].
-  - Dépendances : aucune (m151 ne garde que le « Puits » venu d'un fichier).
+- **m144 Destinations de même nom refusées ; noms proches et « Fosse »** (destinations-meme-nom ; D10 ; F9 ; S6 b, S7 a). Taille L. Fait :
+  6a50c46, 18 nov.
+  - Fichiers et fonctions : CJ : canonDest, distDest, degreFormes, degreDest, DEST_OBJETS, REFUS_FOSSE, refusObjet, refusNomDest,
+    reponseNomProche (après destSaisie, qui prend un 3e argument facultatif l : sans lui, résultat inchangé ; avec lui, champ et q) ; exports
+    VC.canonDest, distDest, degreDest, refusNomDest, reponseNomProche ; éditeur : demander (o.cls, o.sansAnnuler, o.annulerFn, d.vcFermer ;
+    rend le dialogue), questionNom, listesDest (avec nom0), nouvelleDestination (creer), destTxt, ecrireDestTxt, reprendreDest, fermerNiveau
+    (le dialogue du dessus), ouvrir (tous les dialogues retirés), palette (« Autre destination » non pressée quand l'outil porte un modèle).
+    IX : vcExuModifier (listes ; close d'onMount), vcExuQuestion ; commentaires de m133 (autresAnom, vcRangerAutres, constatDepuisCroquis,
+    rappel des anomalies sans ligne) mis à jour, laissés par m143. LISEZMOI.txt (paragraphe des destinations), croquis/LISEZMOI.txt,
+    tests/vm/rejets.js, tests/navigateur/rejets.js, tests/LISEZMOI.md.
+  - Pour l'utilisateur : deux noms qui ne diffèrent que par les accents, les majuscules, les signes, l'article du début, une lettre doublée
+    ou le pluriel sont le même ; un numéro ou une lettre seule distingue toujours deux noms. Refusés, avec un toast de 4 s, la saisie gardée
+    (fiche : la valeur rendue) : « Fosse » sans accent (texte de S7 a) ; le nom d'un objet de la palette ; un même nom (palette : modèle,
+    « choisissez-la dans la palette » ; destination seulement posée : acceptée si écrite de même, de même abréviation, ou laissée vide, et de
+    mêmes jugements, sinon « déjà posée sur ce plan » ; fiche : écrite comme une autre de mêmes jugements, elle en prend l'abréviation et
+    l'article, sinon « écrivez « … » pour la même » ; corriger accents, majuscules ou espaces y est accepté ; Réglages : « existe déjà dans
+    la liste »). Nom proche : la question « Nom proche » ; « La même » arme l'outil de l'existante (palette), reprend ses cinq champs en un
+    pas d'annulation, d'où un seul rejet au constat (fiche), remet l'ancien nom avec le toast, la fenêtre restant ouverte (Réglages) ; « Une
+    autre » garde le nom tapé ; face à un objet, « Le même » arme son outil (palette), donne le refus de l'objet et l'ancien nom (fiche,
+    Réglages). Rien n'est comparé au chargement, à la restauration ni à l'import.
+  - Tests : vm/rejets.js (176) : n1 à n7 ; 152/176 sur 769d1af (n4, garde du chargement, et les témoins passent). navigateur/rejets.js
+    (106) : m4 à m7 ; 87/102 sur 769d1af (m5 s'arrête : sans la question, Échap ferme l'éditeur). Garde : compat 245/245 ; aléatoire 8000
+    contre 769d1af : sans écart (10 666 analyses ; le générateur écrit les noms sans la saisie).
+  - Relecture : ni défaut bloquant ni défaut majeur ; huit mineurs et trois suggestions. Corrigés : M1 (orthographe corrigée dans la fiche :
+    même nomCle que le nom d'avant), M2 et M11 (« Autre destination » pressée après « La même »), M3 et M9 (« La même » des Réglages : toast,
+    ancien nom remis, fenêtre ouverte), M5 (abréviation laissée vide reprise), M7 (fiche : une destination posée de même texte passe avant le
+    modèle), M10 (LISEZMOI.txt). Écartés : M4 (fiche face à un modèle de même texte et d'autres jugements : « choisissez-la dans la palette »
+    gardé, là où D10 dit M3, qui parle d'une destination posée [p]) ; M6 (« Puisard 2 », « Fosse 2 », « Fosse septique 2 » acceptés : un
+    numéro distingue deux noms, lettre de D10) ; M8 (textes à faire valider ; face à une ancienne « Fosse », les refus renvoient de « Fossé »
+    à « Fosse »).
+  - Risques et [p] : faux négatifs (deux fautes sous 10 lettres, une sous 5 ; une lettre élidée au milieu devient un repère : « Étang
+    d'Ouest » et « Étang Ouest » sont différents) ; doublons venus d'une autre tablette, que seul le refus « déjà posée sur ce plan » voit ;
+    forme de la question (titre « Nom proche », « La même » en bouton principal, le focus sur « Une autre », sans « Annuler », Échap ou le
+    fond la ferment seule) [p] ; M5 pour « Fosse » sans accent seulement (« Fosse 1 », « Fosse du jardin » acceptés) [p] ; objets reconnus
+    par leur seul libellé (« Infiltration » acceptée) [p] ; textes des messages [p]. Dépendances : aucune (m151 ne garde que le « Puits »
+    venu d'un fichier).
 - **m145 Trop-plein d'un puisard ou d'une infiltration suivi** (q7-trop-plein ; D11). Taille M.
   - Fichiers et fonctions : CJ : parcours (l. 1212-1235, option [p]), terminal (l. 1200-1208), bloc Q7 (l. 1468-1487), resObj[id].apres
     (l. 1552-1558), rejetsDe et auDelaTxt (l. 921-923), texte « Rejet : … » (l. 2205), page 2 du plan (l. 7277), an.eauxDrains (m142).
