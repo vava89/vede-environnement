@@ -2564,24 +2564,29 @@ function constatDeduit(doc, an){
 }
 VC.constatDeduit = constatDeduit; VC.RACC_LIB = RACC_LIB;
 /* Boîte de branchement reprise au constat (souhait 10, décision D6, réponse 10.4) : par réseau, le nombre de boîtes existantes (ni « projet »
-   ni « à supprimer ») et, s'il y en a exactement une, sa distance à la limite de propriété et sa profondeur, écrites comme dans les champs du
-   constat (« 0,80 m intérieur », « en limite », « 0,80 m »). Réseau : p.res, sinon celui que l'analyse déduit du dessin (celui de l'étiquette) ;
+   ni « à supprimer ») et, s'il y en a exactement une, sa distance à la limite de propriété, son côté et sa profondeur, écrits comme dans les
+   champs du constat (« 0,80 m », « en limite » ; 'intérieur', 'extérieur' ; « 0,80 m »). m149 (décision D17, réponse pr12-11 du 16 nov.
+   2026) : la distance s'écrit seule et le côté à part, dans cote (avant : « 0,80 m intérieur ») ; en limite, pas de côté ; un côté sans
+   distance donne une distance vide et son côté. Réseau : p.res, sinon celui que l'analyse déduit du dessin (celui de l'étiquette) ;
    une boîte indiquée unitaire dans sa fiche compte en EU et en EP ; une boîte de réseau inconnu ou mêlé ne compte nulle part. En zone unitaire
    (m140, décision D6, réponse pr12-5 du 16 nov. 2026), une boîte sans réseau indiqué que le dessin dit unitaire compte pour le réseau propre
    des sources dont l'eau la traverse sur les plus courts chemins de l'analyse jusqu'à leurs exutoires dessinés (traversees) : en EU si seules
    des sources EU y passent, en EP si seules des sources EP y passent, en EU et en EP si les deux y passent ou si aucune n'y passe ; son
    étiquette reste « unitaire ». p.limCote, p.limDist et p.prof sont lus
    tels qu'ils sont enregistrés, sans recalcul d'après le plan. Distance : deux décimales, 0,00 = « en limite » ; une distance négative ou
-   illisible est ignorée, comme sur l'étiquette. Zéro ou plusieurs boîtes sur un réseau : dist et prof vides. nDist et nProf : nombre de
-   boîtes du réseau qui portent une distance (ou un côté) et une profondeur ; avec plusieurs boîtes, le constat rappelle ce qui n'est pas
-   repris. Ne modifie ni doc ni an. */
+   illisible est ignorée, comme sur l'étiquette. Zéro ou plusieurs boîtes sur un réseau : dist, cote et prof vides. nDist et nProf : nombre de
+   boîtes du réseau qui portent une distance et une profondeur ; avec plusieurs boîtes, le constat rappelle ce qui n'est pas repris (m149 :
+   un côté seul n'est plus une distance, il ne compte pas dans nDist). Ne modifie ni doc ni an. */
 function boitesConstat(doc, an){
-  var out = {EU: {n: 0, dist: '', prof: '', nDist: 0, nProf: 0}, EP: {n: 0, dist: '', prof: '', nDist: 0, nProf: 0}}, vues = [];
-  /* distance (côté compris) et profondeur d'une boîte, écrites comme dans les champs du constat */
+  var out = {EU: {n: 0, dist: '', cote: '', prof: '', nDist: 0, nProf: 0}, EP: {n: 0, dist: '', cote: '', prof: '', nDist: 0, nProf: 0}}, vues = [];
+  /* distance, côté (à part depuis m149) et profondeur d'une boîte, écrits comme dans les champs du constat ; en limite, pas de côté */
   function mesures(p){
-    var cote = p.limCote === 'int' ? 'intérieur' : p.limCote === 'ext' ? 'extérieur' : '', d = num(p.limDist), pr = num(p.prof), t, dist = cote;
-    if (d != null && d >= 0){ t = frNum(d, 2); dist = t === '0,00' ? 'en limite' : t + ' m' + (cote ? ' ' + cote : ''); }
-    return {dist: dist, prof: pr != null ? frNum(pr, 2) + ' m' : ''};
+    var cote = p.limCote === 'int' ? 'intérieur' : p.limCote === 'ext' ? 'extérieur' : '', d = num(p.limDist), pr = num(p.prof), t, dist = '';
+    if (d != null && d >= 0){
+      t = frNum(d, 2);
+      if (t === '0,00'){ dist = 'en limite'; cote = ''; } else dist = t + ' m';
+    }
+    return {dist: dist, cote: cote, prof: pr != null ? frNum(pr, 2) + ' m' : ''};
   }
   /* m140 : réseau propre (EU, EP : T[t].nat) des sources dont l'eau traverse chaque nœud de l'analyse A ({nœud : {EU: true, EP: true}}).
      Le chemin de l'eau d'une source est celui de l'analyse : ses plus courts chemins jusqu'à ses exutoires (A.resObj[s].term), ceux d'où
@@ -2645,7 +2650,7 @@ function boitesConstat(doc, an){
       if (m.dist) o.nDist++;
       if (m.prof) o.nProf++;
       /* les valeurs de la seule boîte du réseau ; dès la deuxième, rien */
-      o.dist = o.n === 1 ? m.dist : ''; o.prof = o.n === 1 ? m.prof : '';
+      o.dist = o.n === 1 ? m.dist : ''; o.cote = o.n === 1 ? m.cote : ''; o.prof = o.n === 1 ? m.prof : '';
     });
   });
   return out;
@@ -2685,7 +2690,8 @@ function resLigne(e, an){
    limite, à l'intérieur de la propriété » (ou « …, à l'extérieur de la propriété ») ; sans distance, le côté seul (« à l'intérieur de la
    propriété ») ; sans côté, « à 0,80 m de la limite ». La distance s'écrit avec deux décimales ; une distance qui s'écrit 0,00 est « en
    limite de propriété », avec ou sans côté. Une distance négative ou illisible (la fiche la refuse : croquis altéré) est ignorée. Rien si
-   aucun des deux champs n'est donné. Le constat garde son écriture courte (« 0,80 m intérieur » : boitesConstat). */
+   aucun des deux champs n'est donné. Le constat écrit la distance seule (« 0,80 m ») et le côté sur sa propre rangée (m149 :
+   boitesConstat). */
 function coteLimite(c){ return c === 'int' ? 'à l\'intérieur de la propriété' : c === 'ext' ? 'à l\'extérieur de la propriété' : ''; }
 function texteLimite(p){
   p = p || {};

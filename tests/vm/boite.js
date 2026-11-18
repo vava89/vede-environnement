@@ -31,19 +31,21 @@
 //   le côté 0 (m1) ; à 0,20 m : douteux (m2) ; à 0,30 m : pas douteux, seuil strict (m3) ; à l'extérieur : 'ext' (m4) ; côté le plus proche
 //   (m5) ; sur la limite : 0, 'ext', douteux (m6) ; ligne ouverte, point ou ligne invalide : null sans exception (m7).
 // p et m échouent sur 5026c32 (VCroquis.geo.parcelleInstallation et distanceLimite absentes).
-// c1 à c18 (m105) : VCroquis.boitesConstat(doc, an) : {EU: {n, dist, prof, nDist, nProf}, EP: {…}} d'après les boîtes existantes ; aucune
-//   boîte (c1) ; une boîte EU : « 0,80 m intérieur » et « 0,80 m » (c2) ; deux boîtes EU : rien de repris en EU (c3) ; une boîte par réseau
-//   (c4) ; boîte unitaire comptée en EU et en EP (c5), avec une boîte EP en plus : rien en EP (c6) ; réseau déduit du dessin, en EU et en EP
-//   (c7) ; boîte sans réseau, ni indiqué ni déduit : comptée nulle part (c8) ; boîtes « projet » et « à supprimer » ignorées (c9) ; boîte
-//   « présumée » comptée (c10) ; regard et regard public ignorés (c11) ; distance : « 1,25 m extérieur », « en limite » (avec ou sans côté),
-//   « 0,80 m » (sans côté), « intérieur » (sans distance), rien, deux décimales et la virgule, distance négative ou illisible ignorée (c12) ;
+// c1 à c18 (m105) : VCroquis.boitesConstat(doc, an) : {EU: {n, dist, cote, prof, nDist, nProf}, EP: {…}} d'après les boîtes existantes ;
+//   aucune boîte (c1) ; une boîte EU : « 0,80 m », côté « intérieur », et « 0,80 m » (c2) ; deux boîtes EU : rien de repris en EU (c3) ;
+//   une boîte par réseau (c4) ; boîte unitaire comptée en EU et en EP (c5), avec une boîte EP en plus : rien en EP (c6) ; réseau déduit du
+//   dessin, en EU et en EP (c7) ; boîte sans réseau, ni indiqué ni déduit : comptée nulle part (c8) ; boîtes « projet » et « à supprimer »
+//   ignorées (c9) ; boîte « présumée » comptée (c10) ; regard et regard public ignorés (c11) ; distance et côté : « 1,25 m » et
+//   « extérieur », « en limite » sans côté (la fiche en ait un ou non), « 0,80 m » (sans côté), côté « intérieur » sans distance, rien,
+//   deux décimales et la virgule, distance négative ou illisible ignorée (c12) ;
 //   profondeur : « 0,80 m », deux décimales, rien si elle manque ou est illisible (c13) ; ni le croquis ni l'analyse ne changent (c14) ;
 //   sans analyse, le réseau indiqué seul (c15) ; entrées invalides sans exception (c16) ; nDist et nProf, nombre de boîtes du réseau qui
-//   portent une distance ou une profondeur (c17) ; zone unitaire : deux boîtes sans réseau indiqué, B1 qui reçoit le WC, B2 la descente, en
-//   parallèle, sont unitaires d'après leur étiquette ; m140 : B1 compte en EU, B2 en EP, leurs valeurs sont reprises (avant m140 : deux
-//   boîtes en EU et en EP, rien de repris) ; le réseau indiqué dans leur fiche les sépare, sans anomalie de collecteur (c18). Échouent sur
-//   ddb0b74 (VCroquis.boitesConstat absente), sauf les témoins de c18 (étiquettes, anomalie). Le constat garde « 0,80 m intérieur » (c2,
-//   c12 : m149 séparera le côté).
+//   portent une distance et une profondeur (c17 ; m149 : un côté seul ne compte pas dans nDist) ; zone unitaire : deux boîtes sans réseau
+//   indiqué, B1 qui reçoit le WC, B2 la descente, en parallèle, sont unitaires d'après leur étiquette ; m140 : B1 compte en EU, B2 en EP,
+//   leurs valeurs sont reprises (avant m140 : deux boîtes en EU et en EP, rien de repris) ; le réseau indiqué dans leur fiche les sépare,
+//   sans anomalie de collecteur (c18). Échouent sur ddb0b74 (VCroquis.boitesConstat absente), sauf les témoins de c18 (étiquettes,
+//   anomalie). m149 : la distance s'écrit seule et le côté à part (avant : « 0,80 m intérieur ») ; c1 à c33 vérifient aussi le côté, sauf
+//   c13 (profondeur), c14 et c17.
 // c19 à c30 (m140, réponse pr12-5 du 16 nov. 2026, décision D6) : en zone unitaire, une boîte sans réseau indiqué que le dessin dit unitaire
 //   compte pour le réseau des sources dont l'eau la traverse : B1 (WC) et B2 (descente) en parallèle, tuyaux réunis sur un raccord avant le
 //   regard public : B1 en EU, B2 en EP (c19) ; en série, WC → B1 → B2 → collecteur unitaire, avec une descente vers un puisard (c20) ou sans
@@ -58,6 +60,13 @@
 //   ne reçoit rien : deux en EU, B3 seule en EP (c32) ; c31 et c32 échouent sur 1ee93f4. Boucle : boîte sur le tuyau qui relie la branche
 //   du WC à celle de la descente, hors des plus courts chemins des deux sources : EU et EP, quel que soit le sens des flèches du plan (c33,
 //   avec un témoin sur ces flèches ; passe sur 1ee93f4, échouait sur la première version de m140, qui suivait les flèches).
+// c34 à c38 (m149, décision D17, réponses pr12-11 du 16 nov. et S3 du 17 nov. 2026) : la distance s'écrit seule et le côté à part, dans
+//   cote ('intérieur', 'extérieur' ou '') : « 0,80 m » et « intérieur » (c34) ; en limite : pas de côté (c35) ; deux boîtes sur le réseau,
+//   toutes deux à l'intérieur : ni distance ni côté (c36) ; côté sans distance : distance vide, côté gardé (c37). Échouent sur edae8d8
+//   (« 0,80 m intérieur », pas de côté à part ; 88/148), comme c1 à c33, sauf c13, c14, c17 (hors de ses deux cas m149) et les témoins
+//   (étiquettes, analyse inchangée, flèches du plan). Les deux cas m149 de c17 (boîtes avec un côté seul, défaut M1 de la relecture)
+//   échouent aussi sur la première version de m149, qui comptait un côté seul comme une distance (146/148). Témoin : l'étiquette du plan et
+//   texteLimite gardent « à 0,80 m de la limite, à l'intérieur de la propriété » (c38).
 // usage : node tests/vm/boite.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, rapport} = require('./charger.js');
@@ -287,28 +296,31 @@ function parcelle(){
   nuls.forEach(([n, f]) => { const vu = sur(f); R.ok(vu === null, 'm7 ' + n + ' : null, sans exception (obtenu ' + JSON.stringify(vu) + ')'); });
 }
 
-/* m105 : boîte reprise au constat (VCroquis.boitesConstat), par réseau : n boîtes existantes, distance (côté compris) et profondeur si n = 1 */
+/* m105 : boîte reprise au constat (VCroquis.boitesConstat), par réseau : n boîtes existantes, distance, côté (à part depuis m149) et
+   profondeur si n = 1 */
 function constat(){
   if (typeof V.boitesConstat !== 'function'){ R.ok(false, 'c : VCroquis.boitesConstat est absente (' + typeof V.boitesConstat + ')'); return; }
   /* résultat de boitesConstat après l'analyse de l'état des lieux, comme l'hôte (vcResumeCalc) */
   const bc = d => { const dd = copie(d); return sur(() => V.boitesConstat(dd, V.analyser(dd, 'edl'))); };
   const vu = x => typeof x === 'string' ? x : JSON.stringify(x);
-  const attendu = (eu, ep) => ({EU: {n: eu[0], dist: eu[1], prof: eu[2]}, EP: {n: ep[0], dist: ep[1], prof: ep[2]}});
+  /* eu, ep : [nombre de boîtes, distance, profondeur, côté (m149 : 'intérieur', 'extérieur' ; '' s'il manque)] */
+  const attendu = (eu, ep) => ({EU: {n: eu[0], dist: eu[1], prof: eu[2], cote: eu[3] || ''}, EP: {n: ep[0], dist: ep[1], prof: ep[2], cote: ep[3] || ''}});
   const pareil = (x, a) => !!x && typeof x === 'object' && Object.keys(x).sort().join() === 'EP,EU'
-    && ['EU', 'EP'].every(r => !!x[r] && x[r].n === a[r].n && x[r].dist === a[r].dist && x[r].prof === a[r].prof);
+    && ['EU', 'EP'].every(r => !!x[r] && x[r].n === a[r].n && x[r].dist === a[r].dist && x[r].prof === a[r].prof && x[r].cote === a[r].cote);
   const cas = (n, d, eu, ep) => { const x = bc(d), a = attendu(eu, ep); R.ok(pareil(x, a), n + ' → ' + vu(a) + ' (obtenu ' + vu(x) + ')'); };
-  const RIEN = [0, '', ''], EU80 = [1, '0,80 m intérieur', '0,80 m'];
+  const RIEN = [0, '', ''], EU80 = [1, '0,80 m', '0,80 m', 'intérieur'];
   /* boîte EP en limite, reliée à une descente (EP) */
   const boiteEP = (d, id, p) => { pt(d, 'D' + id, 'descente', 6, 10); pt(d, id, 'boite', 6, 4, Object.assign({res: 'EP', prof: '1,10', limCote: 'ext', limDist: '0'}, p || {})); ln(d, 't' + id, 'tr', '', ['D' + id, id]); };
 
   /* c1 à c6 : nombre de boîtes par réseau */
   const d1 = nouveau(); pt(d1, 'W', 'wc', 0, 10); pt(d1, 'Rp', 'regard_pub', 0, 0, {res: 'EU'}); ln(d1, 'tW', 'tr', 'EU', ['W', 'Rp']); ln(d1, 'C', 'col', 'EU', [[-10, 0], 'Rp', [10, 0]]);
   cas('c1 aucune boîte : rien, en EU comme en EP', d1, RIEN, RIEN);
-  cas('c2 une boîte EU, intérieur, 0,80, profondeur 0,80 : « 0,80 m intérieur » et « 0,80 m »', maison(LIMITE), EU80, RIEN);
+  cas('c2 une boîte EU, intérieur, 0,80, profondeur 0,80 : « 0,80 m », côté « intérieur » (m149 ; avant : « 0,80 m intérieur ») et « 0,80 m »',
+    maison(LIMITE), EU80, RIEN);
   const d3 = maison(LIMITE); pt(d3, 'B2', 'boite', 3, 4, {res: 'EU', prof: '0,60', limCote: 'ext', limDist: '1,00'}); ln(d3, 'tB2', 'tr', '', ['B2', 'Rp']);
-  cas('c3 deux boîtes EU : rien de repris en EU', d3, [2, '', ''], RIEN);
+  cas('c3 deux boîtes EU : rien de repris en EU (ni distance, ni côté, ni profondeur)', d3, [2, '', ''], RIEN);
   const d4 = maison(LIMITE); boiteEP(d4, 'B3');
-  cas('c4 une boîte EU et une boîte EP : chacune son réseau (EP : « en limite », « 1,10 m »)', d4, EU80, [1, 'en limite', '1,10 m']);
+  cas('c4 une boîte EU et une boîte EP : chacune son réseau (EP : « en limite », sans côté, « 1,10 m »)', d4, EU80, [1, 'en limite', '1,10 m']);
   cas('c5 une boîte unitaire : comptée en EU et en EP', maison(Object.assign({res: 'UN'}, LIMITE)), EU80, EU80);
   const d6 = maison(Object.assign({res: 'UN'}, LIMITE)); boiteEP(d6, 'B3');
   cas('c6 une boîte unitaire et une boîte EP : EU d\'après l\'unitaire, EP : deux boîtes, rien', d6, EU80, [2, '', '']);
@@ -337,26 +349,27 @@ function constat(){
   Object.assign(elDe(d11, 'Rp').p, LIMITE, {prof: '1,50'});
   cas('c11 regard et regard public avec ces champs : pas des boîtes (la boîte sans limite : profondeur seule)', d11, [1, '', '0,80 m'], RIEN);
 
-  /* c12 : distance à la limite, côté compris (une boîte EU) */
-  [['intérieur, 0,80', {limCote: 'int', limDist: '0,80'}, '0,80 m intérieur'],
-    ['extérieur, 1,25', {limCote: 'ext', limDist: '1,25'}, '1,25 m extérieur'],
-    ['intérieur, 0', {limCote: 'int', limDist: '0'}, 'en limite'],
-    ['extérieur, « 0,00 »', {limCote: 'ext', limDist: '0,00'}, 'en limite'],
-    ['0 sans côté', {limDist: '0'}, 'en limite'],
-    ['distance sans côté', {limCote: '', limDist: '0,80'}, '0,80 m'],
-    ['côté intérieur sans distance', {limCote: 'int'}, 'intérieur'],
-    ['côté extérieur, distance vide', {limCote: 'ext', limDist: ''}, 'extérieur'],
-    ['aucun champ', {}, ''],
-    ['champs vides', {limCote: '', limDist: ''}, ''],
-    ['« 0,8 »', {limCote: 'int', limDist: '0,8'}, '0,80 m intérieur'],
-    ['« 2 »', {limDist: '2'}, '2,00 m'],
-    ['« 0.5 », extérieur', {limCote: 'ext', limDist: '0.5'}, '0,50 m extérieur'],
-    ['« 1,5 » entouré d\'espaces', {limCote: 'int', limDist: ' 1,5 '}, '1,50 m intérieur'],
-    ['« -1 » (croquis altéré) : distance ignorée', {limCote: 'int', limDist: '-1'}, 'intérieur'],
-    ['texte non numérique (croquis altéré) : distance ignorée', {limDist: 'loin'}, ''],
-    ['côté inconnu (croquis altéré) : ignoré', {limCote: 'nord', limDist: '0,80'}, '0,80 m']].forEach(([n, p, att]) => {
-    const x = bc(maison(p)), d = x && x.EU ? x.EU.dist : x;
-    R.ok(d === att && !!x && !!x.EU && x.EU.n === 1, 'c12 distance, ' + n + ' → ' + JSON.stringify(att) + ' (obtenu ' + vu(d) + ')');
+  /* c12 : distance à la limite et côté, à part depuis m149 (une boîte EU) ; en limite, pas de côté */
+  [['intérieur, 0,80', {limCote: 'int', limDist: '0,80'}, '0,80 m', 'intérieur'],
+    ['extérieur, 1,25', {limCote: 'ext', limDist: '1,25'}, '1,25 m', 'extérieur'],
+    ['intérieur, 0', {limCote: 'int', limDist: '0'}, 'en limite', ''],
+    ['extérieur, « 0,00 »', {limCote: 'ext', limDist: '0,00'}, 'en limite', ''],
+    ['0 sans côté', {limDist: '0'}, 'en limite', ''],
+    ['distance sans côté', {limCote: '', limDist: '0,80'}, '0,80 m', ''],
+    ['côté intérieur sans distance', {limCote: 'int'}, '', 'intérieur'],
+    ['côté extérieur, distance vide', {limCote: 'ext', limDist: ''}, '', 'extérieur'],
+    ['aucun champ', {}, '', ''],
+    ['champs vides', {limCote: '', limDist: ''}, '', ''],
+    ['« 0,8 »', {limCote: 'int', limDist: '0,8'}, '0,80 m', 'intérieur'],
+    ['« 2 »', {limDist: '2'}, '2,00 m', ''],
+    ['« 0.5 », extérieur', {limCote: 'ext', limDist: '0.5'}, '0,50 m', 'extérieur'],
+    ['« 1,5 » entouré d\'espaces', {limCote: 'int', limDist: ' 1,5 '}, '1,50 m', 'intérieur'],
+    ['« -1 » (croquis altéré) : distance ignorée, côté gardé', {limCote: 'int', limDist: '-1'}, '', 'intérieur'],
+    ['texte non numérique (croquis altéré) : distance ignorée', {limDist: 'loin'}, '', ''],
+    ['côté inconnu (croquis altéré) : ignoré', {limCote: 'nord', limDist: '0,80'}, '0,80 m', '']].forEach(([n, p, att, cote]) => {
+    const x = bc(maison(p)), d = x && x.EU ? x.EU.dist : x, c = x && x.EU ? x.EU.cote : x;
+    R.ok(d === att && c === cote && !!x && !!x.EU && x.EU.n === 1, 'c12 distance, ' + n + ' → ' + JSON.stringify(att) + ', côté ' + JSON.stringify(cote)
+      + ' (obtenu ' + vu(d) + ', ' + vu(c) + ')');
   });
   /* c13 : profondeur (une boîte EU) */
   [['« 0,80 »', '0,80', '0,80 m'], ['« 0,8 »', '0,8', '0,80 m'], ['« 1.2 »', '1.2', '1,20 m'], ['« 2 »', '2', '2,00 m'], ['vide', '', ''], ['texte', 'profonde', '']].forEach(([n, prof, att]) => {
@@ -377,8 +390,8 @@ function constat(){
     const x = sur(f); R.ok(pareil(x, i < 2 ? attendu(RIEN, RIEN) : attendu(EU80, RIEN)), 'c16 ' + n + ' : sans exception (obtenu ' + vu(x) + ')');
   });
 
-  /* c17 : nDist et nProf, nombre de boîtes du réseau qui portent une distance (ou un côté) et une profondeur (rappel au constat quand il y a
-     plusieurs boîtes sur le réseau) */
+  /* c17 : nDist et nProf, nombre de boîtes du réseau qui portent une distance et une profondeur (rappel au constat quand il y a plusieurs
+     boîtes sur le réseau) ; m149 : un côté seul n'est plus une distance, il ne compte pas dans nDist (avant : la distance « intérieur ») */
   const mesures = (n, d, eu, ep) => {
     const x = bc(d), ok = !!x && !!x.EU && !!x.EP && x.EU.nDist === eu[0] && x.EU.nProf === eu[1] && x.EP.nDist === ep[0] && x.EP.nProf === ep[1];
     R.ok(ok, n + ' → EU ' + eu.join(' et ') + ', EP ' + ep.join(' et ') + ' (obtenu ' + (x && x.EU && x.EP ? 'EU ' + x.EU.nDist + ' et ' + x.EU.nProf + ', EP ' + x.EP.nDist + ' et ' + x.EP.nProf : vu(x)) + ')');
@@ -387,7 +400,9 @@ function constat(){
   mesures('c17 une boîte EU, distance et profondeur', maison(LIMITE), [1, 1], [0, 0]);
   mesures('c17 deux boîtes EU, chacune avec distance et profondeur', d3, [2, 2], [0, 0]);
   const d17 = maison(LIMITE); pt(d17, 'B2', 'boite', 3, 4, {res: 'EU', limCote: 'ext'}); ln(d17, 'tB2', 'tr', '', ['B2', 'Rp']);
-  mesures('c17 deux boîtes EU, la seconde avec un côté seul', d17, [2, 1], [0, 0]);
+  mesures('c17 (m149) deux boîtes EU, la seconde avec un côté seul : seule la première porte une distance', d17, [1, 1], [0, 0]);
+  const d17c = maison({limCote: 'int', prof: ''}); pt(d17c, 'B2', 'boite', 3, 4, {res: 'EU', limCote: 'ext'}); ln(d17c, 'tB2', 'tr', '', ['B2', 'Rp']);
+  mesures('c17 (m149) deux boîtes EU, chacune avec un côté seul : aucune distance', d17c, [0, 0], [0, 0]);
   const d17b = maison({prof: ''}); pt(d17b, 'B2', 'boite', 3, 4, {res: 'EU'}); ln(d17b, 'tB2', 'tr', '', ['B2', 'Rp']);
   mesures('c17 deux boîtes EU sans distance ni profondeur', d17b, [0, 0], [0, 0]);
   mesures('c17 une boîte unitaire et une boîte EP : comptées en EP toutes les deux', d6, [1, 1], [2, 2]);
@@ -412,7 +427,7 @@ function constat(){
   cas('c22 témoin : une boîte qui reçoit le WC et la descente : en EU et en EP', unitaireUne(null, true), EU80, EU80);
   cas('c23 témoin : boîte indiquée EP dans sa fiche, qui reçoit le WC : en EP seulement', unitaireUne({res: 'EP'}, false), RIEN, EU80);
   cas('c24 témoin (F8) : boîte indiquée unitaire dans sa fiche, qui ne reçoit que le WC : en EU et en EP', unitaireUne({res: 'UN'}, false), EU80, EU80);
-  const B3 = [1, '0,80 m intérieur', '0,90 m'];
+  const B3 = [1, '0,80 m', '0,90 m', 'intérieur'];
   cas('c25 témoin : boîte unitaire qu\'aucune source ne traverse (appareils non dessinés, tuyau laissé libre côté maison) : en EU et en EP',
     unitaireSansAppareil(), B3, B3);
   cas('c26 autre appareil (EU) vers B1, autre ouvrage EP vers B2 (m132) : B1 en EU, B2 en EP',
@@ -446,6 +461,23 @@ function constat(){
     + [a33, b33].map(a => a.resPt.B + ' ' + a.resObj.W.boite + ' ' + a.resObj.D.boite).join(' ; ') + ')');
   cas('c33 boucle, boîte sur le tuyau qui relie les deux branches : en EU et en EP', unitaireBoucle(false), EU80, EU80);
   cas('c33 boucle, raccord de plus sur la branche du WC : en EU et en EP', unitaireBoucle(true), EU80, EU80);
+
+  /* c34 à c38 (m149, D17) : la distance s'écrit seule, le côté à part ; il n'est repris que s'il n'y a qu'une boîte sur le réseau */
+  const champs = x => x && x.EU ? {dist: x.EU.dist, cote: x.EU.cote} : x;
+  const x34 = bc(maison(LIMITE));
+  R.ok(!!x34 && !!x34.EU && x34.EU.dist === '0,80 m' && x34.EU.cote === 'intérieur',
+    'c34 boîte EU à 0,80 m, à l\'intérieur : distance « 0,80 m » et côté « intérieur », à part (obtenu ' + vu(champs(x34)) + ')');
+  const x35 = bc(maison({limCote: 'int', limDist: '0'})), x35b = bc(maison({limCote: 'ext', limDist: '0,00'}));
+  R.ok([x35, x35b].every(x => !!x && !!x.EU && x.EU.dist === 'en limite' && x.EU.cote === ''),
+    'c35 boîte en limite, côté intérieur ou extérieur dans la fiche : « en limite », pas de côté (obtenu ' + vu(champs(x35)) + ' ; ' + vu(champs(x35b)) + ')');
+  const d36 = maison(LIMITE); pt(d36, 'B2', 'boite', 3, 4, {res: 'EU', prof: '0,80', limCote: 'int', limDist: '0,80'}); ln(d36, 'tB2', 'tr', '', ['B2', 'Rp']);
+  cas('c36 deux boîtes EU, toutes deux à 0,80 m, à l\'intérieur : ni distance ni côté', d36, [2, '', ''], RIEN);
+  const x37 = bc(maison({limCote: 'ext', limDist: ''}));
+  R.ok(!!x37 && !!x37.EU && x37.EU.dist === '' && x37.EU.cote === 'extérieur',
+    'c37 côté sans distance : distance vide, côté « extérieur » (obtenu ' + vu(champs(x37)) + ')');
+  const e38 = String(etiquette(maison(LIMITE), 'B1')).split('\n').pop(), t38 = sur(() => V.texteLimite(LIMITE));
+  R.ok(e38 === 'à 0,80 m de la limite, à l\'intérieur de la propriété' && t38 === e38, 'c38 témoin : l\'étiquette du plan et texteLimite gardent'
+    + ' « à 0,80 m de la limite, à l\'intérieur de la propriété » (obtenu ' + JSON.stringify(e38) + ' ; ' + JSON.stringify(t38) + ')');
 }
 
 /* c18, zone unitaire : WC vers la boîte B1, descente vers la boîte B2, chacune vers un regard public du collecteur (unitaire, sinon col) ;

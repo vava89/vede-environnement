@@ -48,10 +48,12 @@ CROQUIS DE TERRAIN (facultatif)
   croquis déjà dessinés restent sur la tablette et dans les sauvegardes,
   et les anomalies qu'ils ont créées restent dans les dossiers, avec leurs
   préconisations. Toutefois, avec ou sans croquis, le constat imprimé
-  n'a ni « Autres : » ni ligne vide (voir « Constat » plus bas), et la
+  n'a ni « Autres : » ni ligne vide (voir « Constat » plus bas), la
   pièce nommée avec un lavabo ou un évier dans une anomalie saisie à la
-  main le situe seulement quand la ligne « Évier » est comptée (voir
-  plus bas).
+  main le situe seulement quand la ligne « Évier » est comptée, et la
+  section Boîte de branchement a sa ligne « Boîte à l'intérieur ou à
+  l'extérieur de la propriété » (sans croquis, vide d'office ; voir plus
+  bas).
 - Dans un dossier : « Commencer le croquis ». Choisissez le fond de plan :
   un plan cadastral DXF déjà chargé dans l'étude, un DXF de la tablette
   (cadastre.gouv.fr), ou aucun pour l'instant. Le fond reste sur la
@@ -317,8 +319,10 @@ CROQUIS DE TERRAIN (facultatif)
   « Reprendre du croquis » remplit aussi la section Boîte
   de branchement, réseau par réseau, quand le croquis porte une seule
   boîte existante (ni « projet » ni « à supprimer ») sur ce réseau :
-  distance à la limite et côté (« 0,80 m intérieur », « en limite »),
-  profondeur (« 0,80 m »). Une boîte indiquée unitaire dans sa fiche
+  distance à la limite, seule (« 0,80 m », « en limite »), côté de la
+  boîte (ligne « Boîte à l'intérieur ou à l'extérieur de la
+  propriété », voir plus bas ; en limite, aucun) et profondeur
+  (« 0,80 m »). Une boîte indiquée unitaire dans sa fiche
   compte pour les deux réseaux. En zone unitaire, une boîte sans réseau
   indiqué, que le dessin dit unitaire (étiquette « Boîte de branchement
   unitaire »), compte pour le réseau des appareils dont les eaux y
@@ -351,6 +355,21 @@ CROQUIS DE TERRAIN (facultatif)
   écrire à la main, avec ou sans croquis ; un constat signé avant la
   v1.7.2 garde à la réimpression « Autres : » et ses lignes vides
   (présentation de la v1.7.1).
+  La ligne « Boîte à l'intérieur ou à l'extérieur de la propriété »
+  suit la distance, avec ou sans croquis. À l'écran, deux boutons
+  « Intérieur » et « Extérieur » par réseau ; toucher le bouton choisi
+  le décoche. « Sans objet (pas de boîte en limite) » y écrit « sans
+  objet », en clair ; un toucher le remplace. Au constat imprimé, la
+  section garde son cadre, avec quatre lignes un peu resserrées, et deux
+  cases « int. » et « ext. » par réseau : la case choisie porte une
+  croix. Une valeur trop longue pour une ligne s'imprime sur deux
+  lignes, en plus petit (au-delà, la seconde finit par « … »). Une
+  distance tapée n'est jamais découpée (« 0,80 m intérieur » tapé reste
+  tel quel) ; si elle porte un côté, celui du croquis ne se coche que
+  s'il est le même. Dans un dossier d'avant la v1.7.2, la distance
+  « 0,80 m intérieur » reprise du croquis, et non modifiée, devient
+  « 0,80 m » et le côté se coche. Un constat signé avant la v1.7.2 garde
+  à la réimpression ses trois lignes (présentation de la v1.7.1).
 - Aides au dessin (Réglages, ou bouton aimant et palette d'accrochage
   dans le croquis) : traits parallèles au côté de bâti le plus proche,
   angles droits, accroche aux coins et façades, fin automatique d'un

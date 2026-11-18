@@ -23,7 +23,8 @@
   de son libellé, comme en v1.7.0 (réponses du 16 nov. 2026) ; les nouveautés du constat de la v1.7.2 y valent aussi : ni « Autres : »
   ni ligne laissée vide pour écrire à la main, une anomalie qui nomme l'évier ou le lavabo (« c'est pareil », réponse du 18 nov. 2026) et la cuisine
   ou la salle de bain (texte ou localisation) compte sur la ligne de la pièce, ou seulement sur la ligne « Évier » quand celle-ci est comptée, sauf si
-  elle nomme aussi un appareil de la pièce (lave-vaisselle ; douche ou baignoire) (réponses du 17 nov. 2026).
+  elle nomme aussi un appareil de la pièce (lave-vaisselle ; douche ou baignoire),
+  ligne « Boîte à l'intérieur ou à l'extérieur de la propriété » (réponses du 17 nov. 2026).
 
 ## Façon de travailler
 - Correctifs numérotés (m76, m77…), au plus 20 sans fusion ; la fusion ne bloque pas le travail. Pour chaque correctif : un test qui
