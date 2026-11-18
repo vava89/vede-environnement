@@ -917,16 +917,40 @@ et à tests/LISEZMOI.md.
     en v1.7.1 (trop-pleins orientés : non conformes) [p] ; « par le trop-plein » dit aussi pour le drain d'infiltration qui tient le puisard
     [p] ; un évier peut gagner « rejet au milieu naturel » par le drain qui tient son puisard (graine 1014) ; noms traverserInf et apresPar
     [p]. Dépendances : m142 (an.eauxDrains).
-- **m146 « Deux points » : poser par deux cotes** (remarque-libre ; D12). Taille L.
-  - Fichiers et fonctions : CJ : VC.geo.deuxCotes (près de l. 410-413), mode Cotes (l. 4962-5393 : état, aideCotes, cotesHtml, dessinerCotes,
-    pose, déplacement, départ). LISEZMOI.txt l. 166-173 et 290-298 [p]. tests/vm/dessin.js, tests/navigateur/cotes.js.
-  - Pour l'utilisateur : bouton « Deux points » au premier pas du mode Cotes ; deux points, deux distances, « Solution 1 » ou « Solution 2 »,
-    « Poser » ; textes de D12.
-  - Tests : vm/dessin.js deuxCotes : l'exemple (3,6 ; ±4,8), sans solution, tangence, points confondus (la v1.7.1 n'a pas la fonction) ;
-    navigateur/cotes.js : un regard posé en (3,6 ; 4,8) à 1 cm près, puis « Solution 2 » en (3,6 ; −4,8).
-  - Garde : compat 245/245 ; aléatoire : sans écart (rien de l'analyse).
-  - Risques et [p] : lecture de « deux cotes » [p] ; points acceptés [p] ; côté de la Solution 1 [p]. Dépendances : aucune. À scinder si la
-    relecture le demande (calcul, puis mode Cotes).
+- **m146 « Deux points » : poser par deux cotes** (remarque-libre ; D12). Taille L. Fait : 52dd926, 18 nov.
+  - Fichiers et fonctions : CJ : VC.geo.deuxCotes (près de la l. 420 ; DEUX_TOL 1 mm, DEUX_JEU 5 mm, DEUX_MIN 1 cm ; cercles qui se
+    manquent : la place est sur la droite des deux points et partage l'écart entre les deux cotes), ICO.deux, redessiner ; mode Cotes : état
+    (S.cotes.deux = {A, B, d1, d2, sol}, absent hors de ce mode ; t0 remis à l'heure du toucher de « Deux points »), abandonnerCotes,
+    tAutreCotes (posé par autreCoteCotes, qui ne fait rien en mode deux points), deuxPointsCotes (garde de 0,5 s), tapCotes → tapDeux,
+    pointDeuxSous, aideCotes → aideDeux (bouton cotesDeux), cotesHtml → deuxHtml, deuxValeurs, msgDeux, solsDeuxHtml, majSolsDeux, pointDeux,
+    actionCotes, saisieCotes → saisieDeux, angleCotes, poserParCotes, poserDepartParCotes, deplacerParCotes, dessinerCotes → dessinerDeux,
+    clic de la barre d'aide, majPanneau. LISEZMOI.txt (l. 209-213), croquis/LISEZMOI.txt, tests/vm/dessin.js (deuxPoints),
+    tests/navigateur/cotes.js (deuxPointsCotes, deuxPointsEtroit, deuxTouchers ; fond fictif dxfDeux), tests/LISEZMOI.md.
+  - Pour l'utilisateur : « Cotes » d'un objet, puis « Deux points » (au premier pas, sauf pour « Mesurer depuis une façade ») ; toucher le
+    point 1, puis le point 2 (un coin des lignes de référence ou un objet ponctuel ; à égalité, l'objet) ; panneau « Regard posé depuis deux
+    points (à 10,00 m l'un de l'autre). », deux distances, « Solution 1 » (choisie d'abord) ou « Solution 2 », puis « Poser » ; sans
+    croisement, le message de D12, dans le panneau et en toast si l'on pose ; tangence, ou cercles qui se manquent de 5 mm au plus : une
+    seule place. Aussi pour « Déplacer par cotes » (valeurs de départ : les distances et le côté de l'objet ; « Déplacer » sans rien changer
+    ne le bouge pas) et pour le départ d'un escalier (« Poser le départ »). Un double toucher est ignoré pendant 0,5 s. Pas de « Deux
+    points » sans ligne de référence affichée (« Cotes » refuse d'entrer, comme avant). Inchangés : les autres pas du mode Cotes, la façade,
+    l'analyse, les données, le PDF.
+  - Tests : vm/dessin.js (210 contrôles, dont 23 de deuxPoints : l'exemple de D12 et ses symétriques, sans croisement, tangences, jeu de 3 et
+    4 mm, entrées refusées, plan tourné) : 187/188 sur 72fd069 (« deuxCotes absente »). navigateur/cotes.js : w1 à w26, sur un fond fictif ;
+    w1 échoue sur 72fd069 ; les doubles touchers de w2 et w21 sont deux touchers sans les attentes de p.click (retouche : avant, w2 dépendait
+    de la vitesse de la machine). Garde : compat 245/245 ; aléatoire 8000 contre 72fd069 : aucun écart sur 10 666 analyses.
+  - Relecture : aucun défaut bloquant ni majeur. Six mineurs corrigés : M1 (double toucher sur « Abandonner », venu à la place de « Deux
+    points » sur un écran étroit : t0 remis à l'heure du toucher ; w26), M2 (« Déplacer » sans rien changer bougeait un objet à moins de 1 mm
+    de la droite des deux points ; w25), M4 (chemins sans test : w21 à w24), M5 (« Poser » dans la documentation), M6 (message de refus
+    contradictoire pour des cercles qui se manquent de moins que le centimètre affiché : jeu de 5 mm [p]), M7 (« absent hors de ce mode »).
+    Écartés : M3 et M8 (« Deux points » sans ligne de référence affichée : question de portée, pour un éventuel correctif à part). Retouche
+    après la relecture : la place unique de M6, prise sur l'axe radical, s'écartait de 4 cm des cotes pour des points à 1 m l'un de l'autre ;
+    elle partage l'écart (4 tests vm, qui échouent sur la version relue).
+  - Risques et [p] : textes nouveaux (en-tête du panneau, aide de l'étape de saisie, « Saisissez les deux distances. », toast d'un
+    déplacement, aria-label, LISEZMOI) [p] ; icône « deux » [p] ; points acceptés : tous les objets ponctuels, dont une zone suspecte et un
+    objet projeté ou « à supprimer » [p] ; à égalité, l'objet l'emporte sur le coin [p] ; angle d'un objet orientable : la rotation du plan,
+    même avec l'orientation automatique [p] ; départ d'escalier sans b.cotes [p] ; garde de 0,5 s, aussi après « Autre trait » et après
+    « Deux points » [p] ; jeu de 5 mm et partage de l'écart [p] ; « Annuler » sans historique ne finit pas le mode, comme pour la façade.
+    Dépendances : aucune.
 
 ### Réponse « Suivi » venue le 17 nov. (codés avec elle)
 - **m147 Constat sans « Autres : » ni ligne vide ; présentation notée à la signature** (e1, T1 ; D13, D14, D15 ; X2, F7 ; S1 d, S2 b). Taille
