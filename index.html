@@ -1557,7 +1557,8 @@ function anomHtml(){
   h += '<label class="field"><span class="lbl">Préconisation de travaux</span><textarea data-af="preconisation" rows="3" placeholder="Une ligne par travaux : chaque ligne apparaît séparément sur la fiche, sans puce">' + esc(a.preconisation || '') + '</textarea></label>';
   h += '<label class="field"><span class="lbl">Localisation <span class="opt">facultatif</span></span><input type="text" data-af="localisation" value="' + esc(a.localisation || '') + '" placeholder="ex. descente en façade arrière"></label>';
   if (v.constat && v.constat.signeLe) h += '<p class="inline-warn">Le constat de ce dossier est signé : les modifications d\'anomalies n\'y figureront pas sans une nouvelle signature.</p>';
-  var cR = (v.constat || newConstat(v)).rows, autoR = anomRow({rows: cR}, Object.assign({}, a, {installation: ''}));
+  /* « Automatique » : la ligne où le constat range l'anomalie ; signé sans la marque de la v1.7.2, celle de la v1.7.1, comme constatEval (m148) */
+  var c0 = v.constat || newConstat(v), cR = c0.rows, autoR = anomRow({rows: cR}, Object.assign({}, a, {installation: ''}), !!c0.signeLe && constatMep(c0) < 2);
   h += '<div class="grid2"><label class="field"><span class="lbl">Installation du constat <span class="opt">rend la ligne non conforme</span></span><select data-af="installation"><option value="">Automatique' + (autoR ? ' : ' + esc(autoR.label) : ', aucune trouvée') + '</option><option value="aucune"' + (a.installation === 'aucune' ? ' selected' : '') + '>Aucune</option>'
     + cR.filter(function(r){ return r.groupe === a.reseau; }).map(function(r){ return '<option value="' + esc(r.id) + '"' + (a.installation === r.id ? ' selected' : '') + '>' + esc(r.label) + '</option>'; }).join('') + '</select></label>'
     + '<label class="check"><input type="checkbox" data-af="nc"' + (anomNC(a) ? ' checked' : '') + '><span>Non-conformité <span class="opt">décochée : simple réserve</span></span></label></div>';
@@ -1976,9 +1977,14 @@ var ROW_KW = [['gout_av', function(o, s){ return !!s.avant; }], ['gout_ar', func
   /* un lavabo se confond avec l'évier, comme sur le croquis (décision du 7 novembre 2026 ; avant, il rangeait l'anomalie en salle de bain) */
   ['evier', /\beviers?\b|\blavabos?\b/],
   /* m115 : la pièce nommée avec un lavabo le situe, elle ne lie pas sa ligne (« Lavabo de la salle de bain », localisation « Cuisine » :
-     ligne « Évier » seule) ; une douche, une baignoire ou un lave-vaisselle nommés avec lui lient toujours la leur ; sans lavabo, rien ne change */
-  ['sdb', function(o){ return /\bdouches?\b|\bbaignoires?\b/.test(o) || (/\bsalle de bain/.test(o) && !/\blavabos?\b/.test(o)); }],
-  ['cuisine', function(o){ return /\blave vaisselle\b/.test(o) || (/\bcuisine\b/.test(o) && !/\blavabos?\b/.test(o)); }]];
+     ligne « Évier » seule). m148 : de même pour l'évier (« Évier : siphon fuyard », localisation « Cuisine » : ligne « Évier » seule ;
+     réponse du 16 nov. 2026 à pr12-10 : « Oui, ne garder que « Évier » »), croquis activé, désactivé ou absent (S2, 17 nov. 2026), quand
+     la ligne « Évier » est comptée ; sans elle, l'évier comme le lavabo reste sur la ligne de sa pièce (« Cuisine (évier, lave-vaisselle) »,
+     « Salle de bain (douche ou baignoire et lavabo) » ; réponse du 18 nov. 2026 : « évier ou lavabo, c'est pareil »). sans, posé par
+     anomRows : les appareils que la pièce nommée avec eux situe seulement (null : aucun). Une douche, une baignoire ou un lave-vaisselle
+     nommés avec eux lient toujours la leur ; sans lavabo ni évier, rien ne change */
+  ['sdb', function(o, s, sans){ return /\bdouches?\b|\bbaignoires?\b/.test(o) || (/\bsalle de bain/.test(o) && !(sans && sans.test(o))); }],
+  ['cuisine', function(o, s, sans){ return /\blave vaisselle\b/.test(o) || (/\bcuisine\b/.test(o) && !(sans && sans.test(o))); }]];
 function rowFits(r, a){ return !!r && r.groupe === a.reseau; }
 /* Une ligne « Autres » correspond si tous les mots principaux de son libellé figurent dans le texte (mots entre parenthèses facultatifs) ; « Regard EP » exige « regard ep » */
 function autresMatch(r, o){
@@ -1991,18 +1997,24 @@ function autresMatch(r, o){
   }
   return true;
 }
-/* Lignes du constat concernées par une anomalie : le choix fait sur l'anomalie, sinon une ligne « Autres » précise, sinon les mots-clés ; en cas de doute, aucune */
-function anomRows(c, a){
+/* Lignes du constat concernées par une anomalie : le choix fait sur l'anomalie, sinon une ligne « Autres » précise, sinon les mots-clés ; en cas de doute, aucune.
+   v171 : règle de la v1.7.1, où la pièce nommée avec un lavabo ne lie jamais sa ligne et où l'évier lie aussi celle de la sienne (constat signé sans la marque
+   de la v1.7.2 : constatEval, et l'option « Automatique » de l'éditeur de l'anomalie) */
+function anomRows(c, a, v171){
   if (a.installation === 'aucune') return [];
   if (a.installation){ var r0 = rowById(c, a.installation); if (rowFits(r0, a)) return [r0]; }
   var obs = norm(a.observation).replace(/[-']/g, ' '), loc = norm(a.localisation || '').replace(/[-']/g, ' '), o = obs + ' ' + loc;
   var cand = c.rows.filter(function(r){ return !r.std && rowFits(r, a) && rowActive(r) && autresMatch(r, o); });
   if (cand.length === 1) return cand;
-  var sides = rowSides(obs, loc), out = [];
-  ROW_KW.forEach(function(k){ if (!(typeof k[1] === 'function' ? k[1](o, sides) : k[1].test(o))) return; var r = rowById(c, k[0]); if (rowFits(r, a) && rowActive(r)) out.push(r); });
+  /* sans : les appareils que la pièce nommée avec eux situe seulement, sans lier sa ligne (ROW_KW) : en v1.7.1, le lavabo ; sinon, quand
+     la ligne « Évier » est comptée, l'évier et le lavabo, qui y vont seuls (m115, m148) ; sans elle, aucun : ils restent sur la ligne de
+     leur pièce (réponse du 18 nov. 2026) */
+  var sides = rowSides(obs, loc), out = [], rEv = rowById(c, 'evier');
+  var sans = v171 ? /\blavabos?\b/ : (rowFits(rEv, a) && rowActive(rEv) ? /\blavabos?\b|\beviers?\b/ : null);
+  ROW_KW.forEach(function(k){ if (!(typeof k[1] === 'function' ? k[1](o, sides, sans) : k[1].test(o))) return; var r = rowById(c, k[0]); if (rowFits(r, a) && rowActive(r)) out.push(r); });
   return out;
 }
-function anomRow(c, a){ return anomRows(c, a)[0] || null; }
+function anomRow(c, a, v171){ return anomRows(c, a, v171)[0] || null; }
 function precosAuto(c, L){
   var s = new Set();
   c.rows.forEach(function(r){
@@ -2024,7 +2036,13 @@ function precosAuto(c, L){
 }
 function constatEval(v, list){
   var c = migrerConstat(v.constat, v) || newConstat(v), L = list.filter(function(a){ return !a.brouillon; }), link = new Map();
-  L.forEach(function(a){ anomRows(c, a).forEach(function(r){ if (!link.has(r.id)) link.set(r.id, []); link.get(r.id).push(a); }); });
+  /* constat signé sans la marque de la v1.7.2 (constatMep 1 : signé avant elle, ou gelé par constatGeler) : anomalies rangées comme en
+     v1.7.1, sans l'exception de l'évier de m148 ni la ligne de sa pièce pour le lavabo sans ligne « Évier » comptée (réponse du 18 nov.
+     2026), pour que ses lignes gardent leurs anomalies liées (ou n'en aient toujours aucune) et que le dossier ne paraisse pas changé
+     depuis la signature ; l'éditeur de l'anomalie y propose de même la ligne d'alors (anomHtml) ; non signé ou signé avec la marque :
+     règle du jour */
+  var v171 = !!c.signeLe && constatMep(c) < 2;
+  L.forEach(function(a){ anomRows(c, a, v171).forEach(function(r){ if (!link.has(r.id)) link.set(r.id, []); link.get(r.id).push(a); }); });
   /* anomalies du croquis restées « à arbitrer » (m119, consigne du 13 nov. 2026 : jamais comptées conformes). Constat non signé : celles du
      résumé du croquis (vcArbitrage). Constat signé : celles que la signature a vues (c.fige.arbitrer), pour que le dossier ne paraisse pas
      changé depuis ; signé sans elles (avant m119, ou rien à arbitrer), rien ne change */
@@ -2931,7 +2949,8 @@ function cLogo(doc, src, x, y, w, h, alias){ if (!src) return; try { var ip = do
 /* Présentation du constat imprimé (m147, D13) : 2 (v1.7.2 : ni « Autres : » ni ligne laissée vide) pour un constat non signé, croquis
    activé, désactivé ou absent (S2 b) ; un constat signé garde celle que le geste de signature a notée (c.fige.mep) ; signé sans marque
    (avant la v1.7.2, ou gelé plus tard par constatGeler) : 1, celle de la v1.7.1 : il garde à la réimpression « Autres : » et ses lignes
-   vides */
+   vides ; constatEval y range aussi ses anomalies comme en v1.7.1, et l'éditeur de l'anomalie y propose la même ligne (m148 : l'évier
+   lie la ligne de sa pièce, le lavabo jamais) */
 function constatMep(c){
   if (!c || !c.signeLe) return 2;
   return c.fige && Number(c.fige.mep) >= 2 ? 2 : 1;

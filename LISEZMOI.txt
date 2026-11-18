@@ -47,8 +47,11 @@ CROQUIS DE TERRAIN (facultatif)
   l'application fonctionne comme avant (pages, constat, exports) ; les
   croquis déjà dessinés restent sur la tablette et dans les sauvegardes,
   et les anomalies qu'ils ont créées restent dans les dossiers, avec leurs
-  préconisations. Le constat imprimé n'a toutefois, avec ou sans croquis,
-  ni « Autres : » ni ligne vide (voir « Constat » plus bas).
+  préconisations. Toutefois, avec ou sans croquis, le constat imprimé
+  n'a ni « Autres : » ni ligne vide (voir « Constat » plus bas), et la
+  pièce nommée avec un lavabo ou un évier dans une anomalie saisie à la
+  main le situe seulement quand la ligne « Évier » est comptée (voir
+  plus bas).
 - Dans un dossier : « Commencer le croquis ». Choisissez le fond de plan :
   un plan cadastral DXF déjà chargé dans l'étude, un DXF de la tablette
   (cadastre.gouv.fr), ou aucun pour l'instant. Le fond reste sur la
@@ -333,14 +336,19 @@ CROQUIS DE TERRAIN (facultatif)
   qu'on n'y touche pas (à la fermeture du croquis et à l'ouverture du
   constat). Une anomalie posée sur un objet du croquis rend non conforme
   la ligne de cet objet (un lavabo : « Évier », comme une anomalie saisie
-  à la main qui nomme un lavabo). La pièce nommée avec le lavabo, dans le
-  texte ou la localisation (« Lavabo de la salle de bain », « Cuisine »),
-  le situe seulement : la ligne reste « Évier ». Une douche, une baignoire
-  ou un lave-vaisselle nommés avec lui ont aussi leur ligne. Les écarts
-  entre le croquis et le constat sont rappelés avant la signature. Un
-  constat signé n'est jamais modifié, et le croquis n'y rappelle plus
-  d'écart. Le constat imprimé n'a ni « Autres : » ni ligne laissée vide
-  pour écrire à la main, avec ou sans croquis ; un constat signé avant la
+  à la main qui nomme un lavabo). La pièce nommée avec le lavabo ou
+  l'évier, dans le texte ou la localisation (« Lavabo de la salle de
+  bain », « Cuisine »), le situe seulement, avec ou sans croquis : la
+  ligne reste « Évier ». Une douche, une baignoire ou un lave-vaisselle
+  nommés avec lui ont aussi leur ligne. Sans ligne « Évier » comptée,
+  l'évier comme le lavabo reste sur la ligne de sa pièce. Un constat
+  signé avant la v1.7.2 garde la règle d'alors (l'évier sur les lignes
+  de l'évier et de sa pièce, le lavabo jamais sur celle de sa pièce) :
+  il ne paraît pas changé depuis la signature. Les écarts entre le
+  croquis et le constat sont rappelés avant la signature. Un constat
+  signé n'est jamais modifié, et le croquis n'y rappelle plus d'écart.
+  Le constat imprimé n'a ni « Autres : » ni ligne laissée vide pour
+  écrire à la main, avec ou sans croquis ; un constat signé avant la
   v1.7.2 garde à la réimpression « Autres : » et ses lignes vides
   (présentation de la v1.7.1).
 - Aides au dessin (Réglages, ou bouton aimant et palette d'accrochage
