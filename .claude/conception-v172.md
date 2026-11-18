@@ -485,13 +485,16 @@ recherche.
   la v1.5.1 », comme pour les nouveautés du cadrage et pour la boîte). Cela déroge à la v1.5.1 : la règle « Croquis désactivé ou absent » de
   CLAUDE.md change avec m147 à m150.
 - Texte proposé pour CLAUDE.md, une fois m147 à m150 faits [p] : la règle actuelle, dont le point final devient « ; les nouveautés du constat
-  de la v1.7.2 y valent aussi : ni « Autres : » ni ligne laissée vide pour écrire à la main, une anomalie qui nomme l'évier et la cuisine ou
-  la salle de bain (texte ou localisation) ne compte plus sur la ligne de la pièce, sauf si elle nomme aussi un appareil de celle-ci
-  (lave-vaisselle ; douche ou baignoire), ligne « Boîte à l'intérieur ou à l'extérieur de la propriété », colonne « Puits » (réponses du 17
-  nov. 2026). » m147 écrit d'abord « ; les nouveautés du constat de la v1.7.2 y valent aussi : ni « Autres : » ni ligne laissée vide pour
-  écrire à la main (réponses du 17 nov. 2026). », et m148, m149, m150 ajoutent chacun la sienne, avec ces mots. La phrase de m148 suit D16
-  (une douche, une baignoire ou un lave-vaisselle nommés avec l'évier gardent leur ligne ; « Lave-vaisselle : fuite », localisée « Cuisine »,
-  reste sur Cuisine) ; « « Évier » seul » la trahissait.
+  de la v1.7.2 y valent aussi : ni « Autres : » ni ligne laissée vide pour écrire à la main, une anomalie qui nomme l'évier ou le lavabo
+  (« c'est pareil », réponse du 18 nov. 2026) et la cuisine ou la salle de bain (texte ou localisation) compte sur la ligne de la pièce, ou
+  seulement sur la ligne « Évier » quand celle-ci est comptée, sauf si elle nomme aussi un appareil de la pièce (lave-vaisselle ; douche ou
+  baignoire), ligne « Boîte à l'intérieur ou à l'extérieur de la propriété », colonne « Puits » (réponses du 17 nov. 2026). » m147 écrit
+  d'abord « ; les nouveautés du constat de la v1.7.2 y valent aussi : ni « Autres : » ni ligne laissée vide pour écrire à la main (réponses
+  du 17 nov. 2026). », et m148, m149, m150 ajoutent chacun la sienne, avec ces mots. La phrase de m148 suit D16 (une douche, une baignoire ou
+  un lave-vaisselle nommés avec l'évier gardent leur ligne ; « Lave-vaisselle : fuite », localisée « Cuisine », reste sur Cuisine) ;
+  « « Évier » seul » la trahissait. « compte sur la ligne de la pièce, ou seulement sur la ligne « Évier » quand celle-ci est comptée »
+  (d'abord « ne compte plus sur la ligne de la pièce ») : écrit par m148 après ses relectures ; « ou le lavabo (« c'est pareil », réponse du
+  18 nov. 2026) » : ajouté par m148 après la réponse de l'utilisateur du 18 nov. (D16).
 - Coût : un cas de test « croquis désactivé » par correctif (m147 à m150) ; la présentation notée à la signature (D13) reste, pour les
   constats signés avant la v1.7.2.
 
@@ -502,6 +505,17 @@ recherche.
 - S2 (b, 17 nov.) : croquis activé, désactivé ou absent ; la règle ne lit pas vcPret().
 - Textes : LISEZMOI l. 273-276 (« La pièce nommée avec le lavabo ou l'évier… le situe seulement »). Données : aucune ; une anomalie dont la
   ligne n'a pas été choisie à la main est rangée de nouveau à l'ouverture [p]. Constat signé : c.fige.conf, rien ne bouge (IX:2089, vérifié).
+- Après la relecture de m148 [p] : l'évier ne quitte la ligne de sa pièce que si la ligne « Évier » est comptée (même réseau, nombre non vide
+  et différent de 0) ; sinon il y reste, comme en v1.7.1 (« Cuisine (évier, lave-vaisselle) » ; la question pr12-10 ne posait que le cas des
+  deux lignes touchées). Question posée ensuite dans le fil : « Quand aucune ligne « Évier » n'est comptée, une anomalie de l'évier reste sur
+  la ligne de sa pièce, comme en v1.7.1. Celle d'un lavabo, elle, n'est rangée sur aucune ligne. Faut-il aligner les deux ? » Réponse de
+  l'utilisateur, le 18 nov. 2026, mot pour mot : « évier ou lavabo, c'est pareil ». Le lavabo suit donc l'évier [p : le sens de l'alignement,
+  pour qu'aucune anomalie ne soit perdue ; la ligne « Salle de bain (douche ou baignoire et lavabo) » nomme le lavabo] : sans ligne « Évier »
+  comptée, il reste sur la ligne de sa pièce (avant, aucune ligne : m115, dit dans la PR #12). Un constat signé sans la marque de la v1.7.2
+  (constatMep 1 : signé avant elle, ou gelé par constatGeler) range ses anomalies comme en v1.7.1 (anomRows(c, a, v171), appelé par
+  constatEval : la pièce nommée avec un lavabo n'y lie jamais sa ligne, l'évier lie aussi la sienne) : ses lignes gardent leurs anomalies
+  liées et il ne paraît pas changé depuis la signature ; l'éditeur de l'anomalie y propose la même ligne (option « Automatique » ;
+  anomRow(c, a, v171)).
 - Tablette en v1.7.1 : Évier et Cuisine. Compat : inchangé (ROW_KW est dans IX). Différentiel : sans effet.
 
 ### D17 Ligne « Boîte à l'intérieur ou à l'extérieur de la propriété » (pr12-11 ; EA § 10)
@@ -982,20 +996,44 @@ et à tests/LISEZMOI.md.
     ligne type ; « ni ligne vide » sans croquis (D14) ; textes nouveaux (puce, rappel, LISEZMOI) ; la marque n'entre pas dans constatEval ;
     une tablette restée en v1.7.1 imprime un constat, même signé en v1.7.2, dans la présentation 1 (information, S11). Dépendances : après
     m141 (comptesGroupe).
-- **m148 Anomalie « Évier » localisée « Cuisine » : « Évier » seul** (pr12-10 ; D16 ; S2 b). Taille S.
-  - Réponse : S2 (b) : croquis activé, désactivé ou absent.
-  - Fichiers et fonctions : IX : ROW_KW (l. 1978-1981). LISEZMOI.txt l. 273-276. CLAUDE.md (D15). tests/navigateur/dossier.js (près des cas
-    64-68).
-  - Pour l'utilisateur : une anomalie saisie « Évier : siphon fuyard », localisation « Cuisine », ne touche plus que la ligne « Évier »,
-    croquis activé, désactivé ou absent.
-  - Tests : dossier.js : croquis activé : Évier seul (échoue sur le commit d'avant) ; croquis désactivé : Évier seul (échoue aussi) ; témoins
-    « Lave-vaisselle de la cuisine » → Cuisine, « Évier et lave-vaisselle » → Évier et Cuisine, « Cuisine : … » → Cuisine.
-  - Garde : compat 245/245 ; aléatoire : sans écart.
-  - Règle de CLAUDE.md : « une anomalie qui nomme l'évier et la cuisine ou la salle de bain (texte ou localisation) ne compte plus sur la
-    ligne de la pièce, sauf si elle nomme aussi un appareil de celle-ci (lave-vaisselle ; douche ou baignoire) » ajouté à la liste des
-    nouveautés (D15).
-  - Risques et [p] : une ligne Cuisine non conforme à tort redevient conforme à la réouverture d'un dossier non signé (voulu ; à dire dans
-    l'annonce) ; salle de bain [p]. Dépendances : après m147 (texte de la règle de CLAUDE.md).
+- **m148 Anomalie « Évier » localisée « Cuisine » : « Évier » seul** (pr12-10 ; D16 ; S2 b). Taille S. Fait : 13a5b0e, 18 nov.
+  - Fichiers et fonctions : IX : ROW_KW (l. 1975 ; 'sdb' l. 1986 et 'cuisine' l. 1987 reçoivent sans, les appareils que la pièce nommée avec
+    eux situe seulement : la seule pièce ne s'allume plus quand le texte nomme l'un d'eux), anomRows(c, a, v171) (l. 2003 : sans vaut le
+    lavabo en v1.7.1 ; sinon l'évier et le lavabo quand la ligne « Évier » est comptée, rowFits et rowActive, même réseau et nombre non vide
+    et différent de 0 ; sans elle, aucun), anomRow(c, a, v171) (l. 2017), constatEval (l. 2037 : v171 pour un constat signé sans la marque de
+    la v1.7.2, constatMep 1), éditeur de l'anomalie (anomHtml, l. 1561 : option « Automatique » avec la même règle), commentaires de m115 et
+    de constatMep (l. 2954). CLAUDE.md : deuxième partie de la règle « Croquis désactivé ou absent » (D15), les deux cas écrits en clair,
+    avec le lavabo (réponse du 18 nov.). LISEZMOI.txt (l. 50-54 et 339-351), tests/LISEZMOI.md ; tests/navigateur/dossier.js (lavaboPiece,
+    lireEvier, evierPiece, lavaboConstat).
+  - Pour l'utilisateur : une anomalie qui nomme l'évier ou le lavabo et la cuisine ou la salle de bain (« Évier : siphon fuyard » localisée
+    « Cuisine », « Évier de la cuisine : siphon fuyard », « Lavabo : siphon fuyard » localisée « Salle de bain ») ne touche que la ligne
+    « Évier » quand celle-ci est comptée, croquis activé, désactivé ou absent ; nommés avec eux, un lave-vaisselle, une douche ou une
+    baignoire gardent la ligne de leur pièce ; sans ligne « Évier » comptée, l'évier comme le lavabo reste sur la ligne de sa pièce (avant,
+    le lavabo n'allait sur aucune ligne) ; sans pièce nommée, aucune ligne. Dans un dossier non signé, la ligne de la pièce que la seule
+    anomalie de l'évier rendait non conforme redevient conforme quand la ligne « Évier » est comptée, et celle de la pièce d'un lavabo
+    devient non conforme quand elle ne l'est pas (visible à la réouverture). Un constat signé avant la v1.7.2 range ses anomalies comme en
+    v1.7.1, et l'éditeur de l'anomalie y propose la même ligne : il ne paraît pas changé depuis la signature ; une anomalie supprimée ensuite
+    reste signalée.
+  - Tests : navigateur/dossier.js (215 contrôles ; cas 36, 37 et 40 réécrits ; nouveaux 103 à 131 : texte et localisation, cuisine et salle
+    de bain, évier et lavabo, croquis activé, désactivé et absent, aucun évier compté, constat signé par le geste de signature (marque 2) ou
+    gelé en v1.7.1 (sans marque), anomalie supprimée après la signature, éditeur) : 199/215 sur 7f750a8 (36, 37, 40, 103, 104, 109, 110 deux
+    fois, 116, 119, 120, 124 à 127, 130) ; témoins 105 à 108, 111 à 115, 117, 118, 121 à 123, 128, 129 et 131 : passent sur 7f750a8 (131
+    échoue sans la règle de la v1.7.1 dans l'éditeur). Hors dépôt : un dossier signé par la vraie v1.7.1 (2d12bee), rouvert par m148 avant
+    l'ajout du lavabo : ni rappel ni anomalie déliée ; changement signalé si l'on supprime l'anomalie ; sonde de anomRows (435 456 cas
+    fictifs) : seul change le lavabo qui gagne la ligne de sa pièce (4 864 cas). Garde : compat 245/245 ; aléatoire 8000 contre 7f750a8 :
+    aucun écart sur 10 666 analyses.
+  - Relecture : deux défauts majeurs confirmés et corrigés : un constat signé avant la v1.7.2 avec une anomalie de l'évier localisée
+    « Cuisine » se disait changé depuis la signature (C1, C2 : anomRows(c, a, v171), passé par constatEval) ; sans ligne « Évier » comptée,
+    l'anomalie n'allait sur aucune ligne et la pièce s'imprimait conforme (C3). Deux mineurs corrigés : M1 (réglé par C3) et M2 (LISEZMOI,
+    croquis décoché). Écartés : accepter le rappel, la double comparaison, le témoin « aucune ». Ajout du lavabo (réponse du 18 nov.), relu
+    par deux relecteurs : aucun défaut bloquant ni majeur ; mineurs corrigés : éditeur d'un constat signé avant la v1.7.2 (règle du jour),
+    tests trop larges (rangée introuvable, croix de raccordement), commentaires, CLAUDE.md (les deux cas en clair) ; écartés, antérieurs :
+    l'élision « alors que une anomalie liée » (rappel de signature) et les pièces nommées autrement (« SDB », « salle d'eau », pluriels), non
+    reconnues.
+  - Risques et [p] : la salle de bain suit la cuisine ; le sens de l'alignement du lavabo sur l'évier (aucune anomalie perdue) ; un constat
+    signé sur la branche entre m147 et m148 (marque, ancienne règle) paraîtrait changé (versions d'essai seulement) ; [p, d'après la
+    relecture] un constat signé en v1.6.3 ou avant avec une anomalie de lavabo se dit changé depuis la v1.7.0 (m96, m115), sans marque pour
+    le distinguer : non traité. Dépendances : après m147 (constatMep).
 - **m149 Ligne « Boîte à l'intérieur ou à l'extérieur de la propriété »** (pr12-11 ; D17 ; S3 a, S2 b). Taille M.
   - Réponses : S3 (a) « Juste sous la distance, les quatre lignes du tableau un peu resserrées dans le même cadre » ; S2 (b) : croquis
     activé, désactivé ou absent. Constat signé : règle (D13).
