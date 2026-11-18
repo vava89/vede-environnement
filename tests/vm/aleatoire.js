@@ -18,6 +18,8 @@
 // n'entre ni dans l'analyse, ni dans les anomalies, ni dans le constat.
 // Contre 00f4ac5 (m128), les écarts attendus viennent de m129 : sources reliées au bout libre d'un drain de collecte (Q6 b), sources
 // qu'un drain d'infiltration mène aussi à un autre exutoire (Q7 a), et ces drains eux-mêmes ; avec --sans=drains, aucun écart.
+// Contre f537268 (m144), les écarts attendus viennent de m145 (D11) : sources dont le parcours ordinaire atteint un puisard ou une
+// infiltration au sol d'où part un autre tuyau (trop-plein suivi : r.apres, r.apresPar, ou « multiple ») ; avec --sans=puisard,infiltration, aucun écart.
 // Les croquis ont aussi des drains (option drains du générateur, m124) : des tronçons tirés deviennent des drains de collecte ou
 // d'infiltration, d'autres passent par un regard, un équipement ou un raccord neuf (nœud du milieu), orientés ou non, ou sont libres ; un
 // point « Drain » est parfois posé sur le premier sommet libre d'un drain de collecte (un bout, ou un coude au milieu du drain : ce point
@@ -25,7 +27,9 @@
 // actif, d'au moins deux sommets, sans point « Drain » sur un sommet, a son résultat ; un drain d'infiltration n'en a pas ; la ligne
 // « Autres : Drain » du constat en compte un par drain compté et par point « Drain » analysé ; une source n'atteint la dispersion dans le
 // sol (DISP) que par un drain d'infiltration ou, depuis m129, par le bout libre d'un drain de collecte (r.drains) ; ce qu'un drain
-// d'infiltration atteint au-delà de lui (r.apres, m129) est un exutoire dessiné qu'elle atteint ; aucun nœud « dr: » ni pièce virtuelle ne reste. Échoue sur f7c2589 (le générateur
+// d'infiltration atteint au-delà de lui (r.apres, m129) est un exutoire dessiné qu'elle atteint (ou que le trop-plein d'un ouvrage qu'il
+// tient atteint, m145) ; ce que le trop-plein d'un puisard ou d'une infiltration au sol atteint (r.apres, r.apresPar 'tp', m145) suit cet
+// ouvrage, rejet de la source ; aucun nœud « dr: » ni pièce virtuelle ne reste. Échoue sur f7c2589 (le générateur
 // ne tire aucun drain). --sans=drains retire l'option : mêmes croquis qu'avant m124 (aucun tirage de plus).
 // Sans --contre, les sources tirées comptent aussi les autres appareils (m132, option sources du générateur : « autre_eu » et
 // « autre_ep », nom fictif parfois absent, blanc, long ou à balises, abréviation et ligne du constat parfois fausses). Ils changent
@@ -101,12 +105,18 @@ function comptageDrains(d, mode){
   const rd = V.constatDeduit(copie(d), an).rows.find(r => r.id === 'autre:Drain'), nb = rd ? rd.nb : 0;
   if (nb !== att.length + pts) ko.push('ligne « Autres : Drain » ×' + nb + ', au lieu de ×' + (att.length + pts));
   /* m129 : la dispersion dans le sol vient d'un drain d'infiltration, ou du bout libre d'un drain de collecte (r.drains : drains de collecte
-     actifs, ni EU ni unitaires) ; ce qu'un drain d'infiltration atteint au-delà de lui (r.apres) est un exutoire dessiné atteint */
+     actifs, ni EU ni unitaires) ; ce qu'un drain d'infiltration atteint au-delà de lui (r.apres) est un exutoire dessiné atteint, ou que
+     le trop-plein d'un ouvrage qu'il tient atteint (m145). m145 : ce que le trop-plein d'un puisard ou d'une infiltration au sol atteint
+     (r.apres, r.apresPar 'tp') suit cet ouvrage, rejet de la source */
   Object.keys(an.resObj).forEach(id => { const r = an.resObj[id];
     if ((r.nets || []).indexOf('DISP') >= 0 && !(r.drains ? r.res === 'DISP' && !r.presume && r.drains.length > 0
       && r.drains.every(k => L[k] && V.drainDe(L[k]) === 'collecte' && !/^(EU|UN)$/.test(L[k].p.res || '')) : inf.some(k => L[k].v.length >= 2))) ko.push('DISP sans drain d\'infiltration ni bout de drain de collecte : ' + id);
-    if (r.apres && !(r.res === 'DISP' && r.term.some(t => t.res === 'DISP') && r.apres.length > 0 && r.apres.every(x => x.res !== 'DISP' && r.term.some(t => t.res === x.res))))
-      ko.push('au-delà du drain sans drain d\'infiltration ni exutoire dessiné : ' + id);
+    const infSol = r.term.some(t => /^(INF|SOL)$/.test(t.res));
+    if (r.apres && !(r.apres.length > 0 && (r.apresPar === 'tp'
+      ? /^(INF|SOL)$/.test(r.res) && r.term.some(t => t.res === r.res) && r.apres.every(x => x.res !== r.res)
+      : r.res === 'DISP' && r.term.some(t => t.res === 'DISP') && r.apres.every(x => x.res !== 'DISP' && (infSol || r.term.some(t => t.res === x.res))))))
+      ko.push('au-delà du drain ou du trop-plein sans drain d\'infiltration, ouvrage ni exutoire dessiné : ' + id);
+    if (r.apresPar && (r.apresPar !== 'tp' || !r.apres)) ko.push('r.apresPar sans trop-plein lu : ' + id);
   });
   if (/dr:/.test(JSON.stringify(an.resObj)) || Object.keys(an.sensSource).concat(Object.keys(an.adj)).some(x => /^dr:/.test(x)) || Object.keys(an.adj).some(x => an.adj[x].some(p => p.virt)))
     ko.push('nœud « dr: » ou pièce virtuelle restés');

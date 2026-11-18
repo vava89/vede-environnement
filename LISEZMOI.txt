@@ -147,13 +147,19 @@ CROQUIS DE TERRAIN (facultatif)
   sur le drain compte, même derrière un autre (une boîte EP, puis un
   puits plus loin sur le drain : non conforme). Si la source atteint un
   autre exutoire avant le drain, ou deux autres destinations au-delà de
-  lui, elle est reliée à plusieurs réseaux, à compléter. Un drain de
-  collecte compte au constat comme un équipement (ligne « Autres :
-  Drain »), sans point à poser : l'eau qu'il recueille part de chacun de
-  ses bouts, regards et raccords (vers l'aval si son sens est indiqué) et
-  suit les règles des eaux pluviales ; sa sortie non dessinée est
-  présumée au réseau de son tracé (le plus souvent les eaux pluviales),
-  sans message ; au réseau « Déduit », elle est à dessiner (à compléter).
+  lui, elle est reliée à plusieurs réseaux, à compléter. Le trop-plein
+  d'un puisard ou d'une infiltration au sol est suivi de même : chaque
+  exutoire qu'il atteint compte avec sa règle (réseau EU ou puits : non
+  conforme). La fiche le dit (« Rejet : puisard (infiltration) et, par le
+  trop-plein, réseau EU départemental »). Un tuyau sans sens par où l'eau
+  d'un appareil peut arriver au puisard n'est pas suivi : indiquez le
+  sens du trop-plein. Un drain de collecte compte au constat comme un
+  équipement (ligne « Autres : Drain »), sans point à poser : l'eau qu'il
+  recueille part de chacun de ses bouts, regards et raccords (vers l'aval
+  si son sens est indiqué) et suit les règles des eaux pluviales ; sa
+  sortie non dessinée est présumée au réseau de son tracé (le plus
+  souvent les eaux pluviales), sans message ; au réseau « Déduit », elle
+  est à dessiner (à compléter).
   Un équipement relié à un drain de collecte dont la sortie n'est pas
   dessinée disperse dans le sol, comme au drain d'infiltration : une
   descente est conforme (« Rejet : dispersion dans le sol », case
