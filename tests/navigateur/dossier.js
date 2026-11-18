@@ -52,7 +52,8 @@
 // 59 et 60 (m120, décision du 13 nov. 2026 : un rejet EP dans un puits est une non-conformité) : descente avant reliée à un puits :
 //     l'anomalie créée au dossier va sur la ligne « Gouttière(s) avant », « non », case gestEP cochée, préconisation « Suppression du rejet
 //     dans le puits ; … » (59) ; réserve choisie au dossier : la ligne devient « oui », « Conformes avec réserves », sans rappel « non
-//     conforme sur le croquis » (60). Échouent sur 7df0996 (type « puits » absent : aucune anomalie, ligne sans raccordement).
+//     conforme sur le croquis » (60). Échouent sur 7df0996 (type « puits » absent : aucune anomalie, ligne sans raccordement). Depuis
+//     m150 (décision D18), la ligne est en PUITS (colonne « Puits ») : 59 et 60 échouent sur 3035f1d (MILIEU).
 // 61 et 62 (m125, décisions D6 et D7) : descente avant reliée à une autre destination, un étang aux EP non conformes, à la case MILIEU du
 //     constat (objet écrit dans le croquis, comme le pose l'outil de m127) : l'anomalie ep-exu créée au dossier va sur la ligne « Gouttière(s)
 //     avant », « non », case gestEP cochée, préconisation « Suppression du rejet dans l'étang ; … » (61) ; réserve choisie au dossier : la
@@ -62,9 +63,9 @@
 //     formulaire (milieu naturel, gargouille) : étang à la case MILIEU, la phrase le promet (61, et 62 le vérifie) ; étang à la case
 //     « autre » (la case par défaut d'une autre destination), EP non conformes puis réserve choisie au dossier (63), ou EP en réserve dans
 //     sa fiche (64) : ligne sans raccordement ni conformité, la phrase dit « à cocher à la main », sans promettre « oui » ; deux descentes
-//     avant vers un puits et un puisard (ligne sans code), une descente arrière vers le puits (ligne MILIEU) : la phrase prudente seule ;
-//     réserves choisies au dossier : ligne avant vide, ligne arrière « oui » (65). 63 à 65 échouent sur la première version de m125 (la
-//     phrase promet « oui »).
+//     avant vers un puits et un puisard (ligne sans code), une descente arrière vers le puits (ligne PUITS depuis m150, MILIEU avant) : la
+//     phrase prudente seule ; réserves choisies au dossier : ligne avant vide, ligne arrière « oui » (65). 63 à 65 échouent sur la première
+//     version de m125 (la phrase promet « oui ») ; 65 sur 3035f1d (ligne arrière MILIEU).
 // 66 à 68 (m131, décision D4) : WC à lave-mains intégré relié à une boîte EU : ligne « WC » ×1, aucun évier ; une ligne
 //     « Lave-mains » saisie à la main est rappelée comme un double compte possible (66, échoue sur 824fabf), « Lavabo du WC » aussi,
 //     comme avant (67) ; « Lavabo » ne l'est pas (68, témoin).
@@ -165,6 +166,23 @@
 //     Salle de bain (douche ou baignoire et lavabo) » avec la marque (130 ; échoue sur 7f750a8 : « Automatique, aucune trouvée »),
 //     « Automatique, aucune trouvée » pour le gel de la v1.7.1, comme en v1.7.1 (131, témoin, y passe ; échoue sans la règle de la v1.7.1
 //     dans l'éditeur).
+// 132 à 142 (m150, décision D18 et réponses S4 a, S2 b du 17 nov. 2026 : colonne « Puits » au constat, verte, entre « Milieu naturel » et
+//     « Gargouille » ; règle « Rejet des EP dans un puits = NC » de CLAUDE.md) : ligne « Gouttière(s) avant » (EP) mise à la main sur
+//     « Puits », sans anomalie, croquis activé : l'option « Puits » est dans la liste, la ligne est « non » (constatEval, bouton « Non »
+//     proposé), le PDF du constat a quatre colonnes (traits à 397,4, 429,3 et 461,1 ; en-têtes en 8 pt) et la croix sous « Puits » (445,2)
+//     et sous « Non » ; conformité fixée à la main sur « Oui » : gardée (« fixé »), avec le rappel « déclarée conforme alors que son
+//     raccordement (puits) ne l'est pas » (132) ; croquis désactivé dans les Réglages : la même chose (133) ; croquis absent : « non » et
+//     les quatre colonnes (134). Ligne venue du croquis (descente avant reliée à un puits) : anomalie ep-puits écartée dans Contrôles,
+//     ligne PUITS « oui » (135) ; mise à arbitrer : pas « oui » (136) ; retenue d'office : « non » (59). Suivi d'un dossier de la v1.7.1 :
+//     MILIEU posé par le croquis et non retouché devient PUITS à l'affichage du constat, sans écart (137) ; « Milieu naturel » choisi à la
+//     main ou retouché reste, et l'écart le dit : « Gouttière(s) avant : raccordement « Puits » sur le croquis de terrain, « Milieu
+//     naturel » au constat. » (138). WC relié à un puits : ligne PUITS « non », préconisation suppMilieu proposée (139). Constat signé par
+//     cette version (marque de la v1.7.2) : quatre colonnes, croix de la fosse vers 381,4, du milieu naturel vers 413,3, de la gargouille
+//     vers 477,1 (140) ; signé sans marque (gel de la v1.7.1 simulé) : les trois colonnes de la v1.7.1, traits, en-têtes et croix à leur
+//     place d'alors, aucun « Puits » (141, témoin, y passe). Ligne mêlée : deux descentes avant, vers un puits et vers le milieu naturel :
+//     PUITS, « non », au suivi d'un dossier de la v1.7.1 sans écart ; anomalie écartée : « oui » (142). 132 à 140 et 142 échouent sur
+//     3035f1d (pas d'option ni de colonne « Puits » ; ligne MILIEU) ; 142 aussi sur la première version de m150 (raccordement vidé).
+//     Dossier fictif (12 rue Fictive, Ville-Exemple).
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -228,7 +246,8 @@ async function lavabo(){
    o (m132) : o.reprise, « Reprendre du croquis » (action c-croq-fill) puis le constat lu de nouveau ({avant, apres}) ; o.fin(p) : une
    lecture de plus, rendue dans fin ; o.finAvant(p) (m143) : la même lecture, faite au premier affichage du constat, avant la réouverture
    du croquis et la reprise (rendue dans avant.fin quand l'une d'elles suit). autres : les lignes « Autres » du constat, libellé, nombre
-   et ligne du croquis liée (croq) */
+   et ligne du croquis liée (croq). o.decisions (m150) : décisions de Contrôles posées dans le croquis avant son enregistrement
+   ({clé : {st}}) */
 async function constatVu(nom, objs, traces, prep, apres, panneau, o){
   const A = await C.ouvrir(), p = A.p;
   try {
@@ -237,6 +256,7 @@ async function constatVu(nom, objs, traces, prep, apres, panneau, o){
     traces.forEach(([id, a, b]) => els.push(C.L(id, 'tr', [a, b], I)));
     /* o.anomManu : anomalies saisies à la main dans le croquis (75, 76) */
     await C.injecter(p, {el: els, anomManu: o && o.anomManu});
+    if (o && o.decisions) await p.evaluate(d => { const ed = window.__vcEd; ed.etat.doc.decisions = d; ed.synchroniser(); }, o.decisions);
     await p.evaluate(() => { const S = window.__vcEd.etat; S.doc.rev = (S.doc.rev || 0) + 1; window.__vcEd.enregistrer(); }); await C.pause(p, 500);
     const notes = panneau ? await p.evaluate(() => { const ed = window.__vcEd; ed.ouvrirPanneau('constat');
       const n = [...document.querySelectorAll('.vc-panneau .vc-pcorps p.vc-muet')].map(x => x.textContent.trim()); ed.ouvrirPanneau(null); return n; }) : null;
@@ -305,19 +325,19 @@ async function puits(){
   const ncC = x => x.ecarts.filter(t => /non conforme sur le croquis de terrain/.test(t)), vu = x => JSON.stringify({rows: x.rows, conf: x.conf, auto: x.auto, inst: x.inst,
     nc: x.nc, precos: x.precos, preco: x.preco, ecarts: x.ecarts});
   let e = await constatVu('59', O, L, '');
-  R.ok(e.rows === 'gout_av ×1 MILIEU' && e.conf === 'gout_av "non"' && e.auto === 'non_conformes' && e.inst === 'gout_av' && e.nc === true && /(^|,)gestEP(,|$)/.test(e.precos)
+  R.ok(e.rows === 'gout_av ×1 PUITS' && e.conf === 'gout_av "non"' && e.auto === 'non_conformes' && e.inst === 'gout_av' && e.nc === true && /(^|,)gestEP(,|$)/.test(e.precos)
     && e.preco === PRE && !ncC(e).length, '59 descente reliée à un puits : anomalie au dossier sur la ligne « Gouttière(s) avant », « non », case gestEP, préconisation (' + vu(e) + ')');
   e = await constatVu('60', O, L, 'if (a) a.nc = false;');
-  R.ok(e.rows === 'gout_av ×1 MILIEU' && e.conf === 'gout_av "oui"' && e.auto === 'reserves' && e.nc === false && !ncC(e).length,
+  R.ok(e.rows === 'gout_av ×1 PUITS' && e.conf === 'gout_av "oui"' && e.auto === 'reserves' && e.nc === false && !ncC(e).length,
     '60 réserve choisie au dossier : ligne « oui », « Conformes avec réserves », aucun rappel « non conforme sur le croquis » (' + vu(e) + ')');
   /* 65 (relecture de m125) : deux descentes avant, vers le puits et vers un puisard (ligne sans code du formulaire : rejets différents), une
-     descente arrière vers le puits (ligne MILIEU) : le panneau Constat de l'éditeur n'a que la phrase prudente, sans promettre « oui » ;
+     descente arrière vers le puits (ligne PUITS, m150) : le panneau Constat de l'éditeur n'a que la phrase prudente, sans promettre « oui » ;
      réserves choisies au dossier : ligne avant sans conformité, ligne arrière « oui » */
   const O3 = [['d', 'descente', 0, 0, {cote: 'avant', visitable: 'oui'}], ['d2', 'descente', 4, 0, {cote: 'avant', visitable: 'oui'}],
     ['d3', 'descente', -4, 0, {cote: 'arriere', visitable: 'oui'}], ['W', 'puits', 0, -5], ['P', 'puisard', 4, -5]];
   const MAIN = 'Rejet dans un puits : au constat, la ligne EP suit son anomalie. « Non » si elle reste non conforme ; sinon, la conformité reste à cocher à la main.';
   e = await constatVu('65', O3, [['Lw', 'd', 'W'], ['Lp', 'd2', 'P'], ['L3', 'd3', 'W']], 'T.S.anoms.filter(x => x.visiteId === v.id).forEach(x => { x.nc = false; });', false, true);
-  R.ok(e.rows === 'gout_av ×2 -, gout_ar ×1 MILIEU' && e.conf === 'gout_av "", gout_ar "oui"' && e.auto === 'reserves' && (e.notes || []).indexOf(MAIN) >= 0
+  R.ok(e.rows === 'gout_av ×2 -, gout_ar ×1 PUITS' && e.conf === 'gout_av "", gout_ar "oui"' && e.auto === 'reserves' && (e.notes || []).indexOf(MAIN) >= 0
     && !(e.notes || []).some(t => /« oui »/.test(t)), '65 descentes avant vers le puits et un puisard, arrière vers le puits : le panneau dit « à cocher à la main », sans promettre « oui » ;'
     + ' réserves au dossier : ligne avant vide, ligne arrière « oui » (' + JSON.stringify({rows: e.rows, conf: e.conf, auto: e.auto, notes: e.notes}) + ')');
 }
@@ -1616,6 +1636,160 @@ async function constatSansCroquis(){
   finally { R.ok(!A.erreurs.length, '97 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
+/* m150 (décision D18) : constat lu avec son PDF. constatEval : conformité des lignes comptées, préconisations proposées ; rappels avant
+   signature (constatIssues) ; écran : liste « Raccordée sur » de la ligne (option « Puits » présente, valeur), bouton pressé et étiquette
+   « proposé » ou « fixé » ; PDF du constat, page 1 : traits verticaux des colonnes de « Fosse septique » à « Gargouille » (x de 365 à 494,
+   jusqu'au bas du tableau, avec leur haut : 371 ou 360), textes de leurs en-têtes (texte@x/y/taille, couleur de « Réseau EU » ou de
+   « Réseau EP »), croix de quelques rangées (x des « X » de la bande, comme tablePdf ; lue par le début du libellé, sans accents).
+   sansModule : croquis absent, le module retiré le temps de la lecture (écran non lu) */
+const lirePuits = (p, sansModule) => p.evaluate(async sm => {
+  const T = window.__VT, v = T.S.visites[0], L = T.S.anoms.filter(a => a.visiteId === v.id), M = Object.getOwnPropertyDescriptor(window, 'VCroquis');
+  const J0 = window.jspdf.jsPDF, tx = [], ln = [], page = d => { try { return d.internal.getCurrentPageInfo().pageNumber; } catch (e){ return 0; } };
+  const W = function(){ const d = new J0(...arguments), ot = d.text, ol = d.line;
+    d.text = function(t, x, y){ tx.push({t: [].concat(t).join(' '), x, y, sz: d.getFontSize(), col: String(d.getTextColor()), pg: page(d)}); return ot.apply(d, arguments); };
+    d.line = function(x1, y1, x2, y2){ ln.push({x1, y1, x2, y2, pg: page(d)}); return ol.apply(d, arguments); };
+    return d; };
+  W.API = J0.API; window.jspdf.jsPDF = W;
+  /* module retiré sans passer par le crochet de commun.js (son setter), puis remis tel quel */
+  if (sm) Object.defineProperty(window, 'VCroquis', {value: undefined, configurable: true, writable: true});
+  let E, pret, issues;
+  try { pret = !!(T.S.croq && T.S.croq.actif && window.VCroquis && window.VCroquis.editeur && window.VCroquis.reconcilier); E = T.constatEval(v, L);
+    issues = T.constatIssues(v, L); await T.constatPdfBlob(v); }
+  finally { window.jspdf.jsPDF = J0; if (sm){ if (M) Object.defineProperty(window, 'VCroquis', M); else delete window.VCroquis; } }
+  const sa = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, ''), r1 = x => Math.round(x * 10) / 10, p1 = tx.filter(r => r.pg === 1);
+  const coul = t => (p1.find(r => r.t === t && r.y < 402) || {}).col, eu = coul('Réseau EU'), ep = coul('Réseau EP');
+  const ys = ln.filter(l => l.pg === 1 && l.x1 === 65 && l.x2 === 544 && l.y1 === l.y2 && l.y1 > 401.99 && l.y1 < 620.51).map(l => l.y1).sort((a, b) => a - b);
+  const croix = debut => {
+    const r0 = p1.find(r => Math.abs(r.x - 70.8) < 0.01 && r.y > 402 && r.y < 620.5 && sa(r.t).indexOf(debut) === 0);
+    const i = r0 ? ys.findIndex((y, k) => k < ys.length - 1 && r0.y > y && r0.y < ys[k + 1]) : -1;
+    return i < 0 ? 'rangée introuvable' : p1.filter(r => r.t === 'X' && r.y > ys[i] && r.y < ys[i + 1]).map(r => r1(r.x)).join(' ') || 'aucune';
+  };
+  const ecran = id => { const s = document.querySelector('select[data-cr="raccord"][data-row="' + id + '"]'), el = s && s.closest('.inst');
+    return !el ? 'absente' : {puits: [...s.options].some(o => o.value === 'PUITS' && o.textContent === 'Puits'), val: s.value,
+      conf: [...el.querySelectorAll('[data-act="c-conf"][aria-pressed="true"]')].map(x => x.dataset.v).join('') || '-', tag: (el.querySelector('.tag-auto') || {}).textContent || ''}; };
+  const c = v.constat || {};
+  return {pret, conf: E.rows.filter(x => String(x.r.nb || '').trim()).map(x => x.r.id + ' ' + (x.conf || '-')).join(', '),
+    precos: Object.keys(E.precos).filter(k => E.precos[k]).join(','), issues, signe: !!c.signeLe, mep: !c.fige ? 'sans gel' : c.fige.mep == null ? 'sans marque' : c.fige.mep,
+    ecran: sm ? null : {gout_av: ecran('gout_av')},
+    cols: ln.filter(l => l.pg === 1 && l.x1 === l.x2 && l.x1 > 365 && l.x1 < 494 && l.y2 === 620.5).sort((a, b) => a.x1 - b.x1).map(l => r1(l.x1) + '@' + l.y1).join(' '),
+    tetes: p1.filter(r => r.y > 371 && r.y < 402 && r.x > 365.5 && r.x < 493).map(r => r.t + '@' + r1(r.x) + '/' + r1(r.y) + '/' + r.sz + (r.col === ep ? ' EP' : r.col === eu ? ' EU' : ' ?')).join(' | '),
+    pdf: {wc: croix('WC'), gout_av: croix('Gouttiere(s) avant'), gout_ar: croix('Gouttiere(s) arriere')}};
+}, !!sansModule);
+/* présentation 2 (v1.7.2) : quatre colonnes dans la largeur des trois, traits à 397,4, 429,3 et 461,1 ; en-têtes en 8 pt, « Fosse /
+   septique » rouge (couleur de « Réseau EU »), les autres verts (couleur de « Réseau EP ») ; présentation 1 (v1.7.1) : les trois colonnes,
+   leurs en-têtes en 10 pt (« Gargouille » aussi : la taille de l'italique l'emporte) */
+const COLS4 = '365.5@371 397.4@371 429.3@371 461.1@371 493@360', COLS3 = '365.5@371 408@371 450.5@371 493@360';
+const TETES4 = 'Fosse@381.4/385.7/8 EU | septique@381.4/394.2/8 EU | Milieu@413.3/385.7/8 EP | naturel@413.3/394.2/8 EP | Puits@445.2/389.9/8 EP'
+  + ' | Gar-@477.1/385.7/8 EP | gouille@477.1/394.2/8 EP';
+const TETES3 = 'Fosse@386.9/384.6/10 EU | septique@386.9/395.2/10 EU | Milieu@429.4/384.6/10 EP | naturel@429.4/395.2/10 EP | Gargouille@471.8/389.9/10 EP';
+const vuPuits = e => JSON.stringify({pret: e.pret, conf: e.conf, precos: e.precos, mep: e.mep, ecran: e.ecran, cols: e.cols, tetes: e.tetes, pdf: e.pdf,
+  issues: (e.issues || []).filter(t => /^Gouttière/.test(t))});
+/* 132 à 134 : « Gouttière(s) avant » (EP) mise à la main sur « Puits », sans anomalie ; 140 et 141 : constat signé */
+const RAP_PUITS = 'Gouttière(s) avant : déclarée conforme alors que son raccordement (puits) ne l\'est pas.';
+async function puitsMain(){
+  const A = await C.ouvrir(), p = A.p, SEL = 'select[data-cr="raccord"][data-row="gout_av"]';
+  /* ligne lue « non » d'office, croix sous « Puits » (445,2) et sous « Non » (531,3), quatre colonnes */
+  const nonPuits = e => e.conf === 'gout_av non' && e.cols === COLS4 && e.tetes === TETES4 && e.pdf.gout_av === '445.2 531.3'
+    && (!e.ecran || (e.ecran.gout_av.puits && e.ecran.gout_av.val === 'PUITS' && e.ecran.gout_av.conf === 'non' && e.ecran.gout_av.tag === 'proposé'));
+  try {
+    await C.etudeEtDossier(p);
+    /* dossier visité, « Gouttière(s) avant » comptée une fois, sans raccordement ni anomalie, puis le constat affiché */
+    await p.evaluate(() => { const T = window.__VT, v = T.S.visites[0]; v.statut = 'visitee'; v.constat = T.constatEval(v, []).c;
+      v.constat.rows.forEach(x => { if (x.id === 'gout_av') x.nb = '1'; });
+      location.hash = '#/e/' + v.etudeId + '/v/' + v.id + '/constat'; });
+    await p.waitForSelector(SEL); await C.pause(p, 600);
+    /* « Puits » choisi dans la liste, comme le technicien */
+    const choisir = async () => { const ok = await p.$eval(SEL, s => [...s.options].some(o => o.value === 'PUITS'));
+      if (ok){ await p.selectOption(SEL, 'PUITS'); await C.pause(p, 600); } return ok; };
+    const opt = await choisir(), e132 = await lirePuits(p);
+    R.ok(opt && e132.pret && nonPuits(e132), '132 « Gouttière(s) avant » (EP) mise à la main sur « Puits », sans anomalie, croquis activé : option « Puits » '
+      + 'dans la liste, ligne « non » (bouton « Non » proposé), PDF du constat à quatre colonnes, croix sous « Puits » et sous « Non » (échoue sur 3035f1d : '
+      + 'pas d\'option « Puits »)' + (opt ? '' : ' (option « Puits » absente)') + ' (' + vuPuits(e132) + ')');
+    /* conformité fixée à la main : un geste du constat, gardé ; le rappel avant signature dit pourquoi le raccordement ne l'est pas */
+    await p.click('[data-act="c-conf"][data-row="gout_av"][data-v="oui"]'); await C.pause(p, 500);
+    const f132 = await lirePuits(p);
+    R.ok(opt && f132.conf === 'gout_av oui' && f132.ecran.gout_av.tag === 'fixé' && f132.issues.indexOf(RAP_PUITS) >= 0 && f132.pdf.gout_av === '445.2 505.8',
+      '132 conformité fixée à la main sur « Oui » : gardée (« fixé », croix sous « Oui »), avec le rappel « ' + RAP_PUITS + ' » (' + vuPuits(f132) + ')');
+    await p.click('[data-act="c-conf"][data-row="gout_av"][data-v="oui"]'); await C.pause(p, 500);
+    /* 133 : croquis désactivé dans les Réglages */
+    await reglageCroquis(p, false);
+    const e133 = await lirePuits(p);
+    R.ok(opt && !e133.pret && nonPuits(e133), '133 croquis désactivé dans les Réglages : option « Puits », ligne « non », quatre colonnes au PDF du constat '
+      + '(échoue sur 3035f1d) (' + vuPuits(e133) + ')');
+    /* 134 : croquis absent (module retiré le temps de la lecture) */
+    await reglageCroquis(p, true);
+    const e134 = await lirePuits(p, true);
+    R.ok(opt && !e134.pret && nonPuits(e134), '134 croquis absent (module du croquis retiré le temps de la lecture, croquis activé dans les Réglages) : '
+      + 'ligne « non », quatre colonnes et croix sous « Puits » au PDF du constat (échoue sur 3035f1d) (' + vuPuits(e134) + ')');
+  } catch (err){ R.ok(false, '132 à 134 exception du test : ' + (err && err.stack || err)); }
+  finally { R.ok(!A.erreurs.length, '132 à 134 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+/* 135 à 139 : lignes venues du croquis (descente avant ou WC reliés à un puits) */
+async function puitsCroquis(){
+  const O = [['d', 'descente', 0, 0, {cote: 'avant', visitable: 'oui'}], ['W', 'puits', 0, -5]], L = [['Lw', 'd', 'W']];
+  const vu = x => JSON.stringify({rows: x.rows, conf: x.conf, auto: x.auto, inst: x.inst, nc: x.nc, precos: x.precos, ecarts: x.ecarts});
+  const MSG = 'Gouttière(s) avant : raccordement « Puits » sur le croquis de terrain, « Milieu naturel » au constat.';
+  const rac = x => x.ecarts.filter(t => /raccordement « /.test(t));
+  /* 135 : anomalie ep-puits écartée dans Contrôles : ligne « oui » (le dossier ne la retient pas) */
+  let e = await constatVu('135', O, L, '', false, false, {decisions: {'ep-puits:d': {st: 'ecartee'}}});
+  R.ok(e.rows === 'gout_av ×1 PUITS' && e.conf === 'gout_av "oui"' && e.inst === null && !rac(e).length,
+    '135 descente avant reliée à un puits, anomalie écartée dans Contrôles : ligne PUITS « oui » (échoue sur 3035f1d : MILIEU) (' + vu(e) + ')');
+  /* 136 : mise à arbitrer : jamais « oui » */
+  e = await constatVu('136', O, L, '', false, false, {decisions: {'ep-puits:d': {st: 'arbitrer'}}});
+  R.ok(e.rows === 'gout_av ×1 PUITS' && e.conf === 'gout_av ""' && !rac(e).length,
+    '136 anomalie mise à arbitrer : ligne PUITS, pas « oui » (échoue sur 3035f1d : MILIEU) (' + vu(e) + ')');
+  /* 137 : dossier de la v1.7.1 (MILIEU posé par le croquis, non retouché) : PUITS au suivi, à l'affichage du constat, sans écart */
+  e = await constatVu('137', O, L, "const r = c.rows.find(x => x.id === 'gout_av'); r.raccord = 'MILIEU'; c.croqAuto.rows.gout_av.raccord = 'MILIEU';");
+  R.ok(e.rows === 'gout_av ×1 PUITS' && e.conf === 'gout_av "non"' && !rac(e).length,
+    '137 suivi d\'un dossier de la v1.7.1, MILIEU posé par le croquis et non retouché : PUITS à l\'affichage du constat, « non », aucun écart (échoue sur '
+    + '3035f1d) (' + vu(e) + ')');
+  /* 138 : « Milieu naturel » choisi à la main (le croquis n'a rien posé), puis retouché (le croquis avait posé EP_D) : gardé, l'écart le dit */
+  e = await constatVu('138', O, L, "const r = c.rows.find(x => x.id === 'gout_av'); r.raccord = 'MILIEU'; delete c.croqAuto.rows.gout_av.raccord;");
+  const e2 = await constatVu('138', O, L, "const r = c.rows.find(x => x.id === 'gout_av'); r.raccord = 'MILIEU'; c.croqAuto.rows.gout_av.raccord = 'EP_D';");
+  R.ok(e.rows === 'gout_av ×1 MILIEU' && rac(e).join() === MSG && e2.rows === 'gout_av ×1 MILIEU' && rac(e2).join() === MSG,
+    '138 « Milieu naturel » choisi à la main, puis retouché : gardé, l\'écart dit « ' + MSG + ' » (échoue sur 3035f1d) (' + vu(e) + ' ; ' + vu(e2) + ')');
+  /* 139 : WC relié à un puits : ligne EU PUITS « non », suppMilieu proposé (avec raccEUsep, de l'anomalie) */
+  e = await constatVu('139', [['w', 'wc', 0, 0], ['W', 'puits', 0, -5]], [['Lw', 'w', 'W']], '');
+  R.ok(e.rows === 'wc ×1 PUITS' && e.conf === 'wc "non"' && /(^|,)suppMilieu(,|$)/.test(e.precos) && /(^|,)raccEUsep(,|$)/.test(e.precos),
+    '139 WC relié à un puits : ligne PUITS « non », préconisations suppMilieu et raccEUsep proposées (échoue sur 3035f1d : MILIEU) (' + vu(e) + ')');
+  /* 142 : ligne mêlée : deux descentes avant, l'une reliée à un puits, l'autre au milieu naturel : PUITS, le puits l'emporte (avant m150 :
+     MILIEU ; la première version de m150 vidait le raccordement). Suivi d'un dossier de la v1.7.1 (MILIEU posé par le croquis, non
+     retouché) : PUITS, anomalie retenue d'office, « non », sans écart ; anomalie écartée dans Contrôles : « oui » */
+  const OM = [['d', 'descente', -3, 0, {cote: 'avant', visitable: 'oui'}], ['d2', 'descente', 3, 0, {cote: 'avant', visitable: 'oui'}], ['W', 'puits', -3, -5],
+    ['M', 'milieu', 3, -5]], LM = [['Lw', 'd', 'W'], ['Lm', 'd2', 'M']];
+  e = await constatVu('142', OM, LM, "const r = c.rows.find(x => x.id === 'gout_av'); r.raccord = 'MILIEU'; c.croqAuto.rows.gout_av.raccord = 'MILIEU';");
+  const e3 = await constatVu('142', OM, LM, '', false, false, {decisions: {'ep-puits:d': {st: 'ecartee'}}});
+  R.ok(e.rows === 'gout_av ×2 PUITS' && e.conf === 'gout_av "non"' && !rac(e).length && e3.rows === 'gout_av ×2 PUITS' && e3.conf === 'gout_av "oui"'
+    && !rac(e3).length, '142 deux descentes avant, vers un puits et vers le milieu naturel : PUITS, « non » au suivi d\'un dossier de la v1.7.1, sans écart ; '
+    + 'anomalie écartée : « oui » (échoue sur 3035f1d : MILIEU ; sur la première version de m150 : raccordement vidé) (' + vu(e) + ' ; ' + vu(e3) + ')');
+}
+/* 140 et 141 : constat signé, lignes saisies à la main : WC sur une fosse septique, gouttières avant sur le milieu naturel, arrière sur
+   une gargouille */
+async function puitsSigne(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p);
+    await p.evaluate(() => { const T = window.__VT, v = T.S.visites[0]; v.statut = 'visitee'; v.constat = T.constatEval(v, []).c;
+      const R0 = {wc: 'FOSSE', gout_av: 'MILIEU', gout_ar: 'GARG'};
+      v.constat.rows.forEach(x => { if (R0[x.id]){ x.nb = '1'; x.raccord = R0[x.id]; x.methodes = ['visuel']; } });
+      location.hash = '#/e/' + v.etudeId + '/v/' + v.id + '/constat'; });
+    await p.waitForSelector('[data-act="c-conf"][data-row="gout_ar"]'); await C.pause(p, 600);
+    /* 140 : signé par cette version (marque de la v1.7.2) : quatre colonnes */
+    await signerAffiche(p);
+    const e140 = await lirePuits(p);
+    R.ok(e140.signe && e140.mep === 2 && e140.cols === COLS4 && e140.tetes === TETES4 && e140.pdf.wc === '381.4 531.3' && e140.pdf.gout_av === '413.3 505.8'
+      && e140.pdf.gout_ar === '477.1 505.8', '140 constat signé par cette version (marque de la v1.7.2) : quatre colonnes, croix de la fosse vers 381,4, du milieu '
+      + 'naturel vers 413,3, de la gargouille vers 477,1 (échoue sur 3035f1d) (' + vuPuits(e140) + ')');
+    /* 141 : signé sans marque (gel de la v1.7.1 simulé) : les trois colonnes de la v1.7.1 */
+    await p.evaluate(async () => { const T = window.__VT, c = T.S.visites[0].constat; delete c.fige.mep; await T.flushSaves(); T.render(); }); await C.pause(p, 600);
+    const e141 = await lirePuits(p);
+    R.ok(e141.signe && e141.mep === 'sans marque' && e141.cols === COLS3 && e141.tetes === TETES3 && e141.pdf.wc === '386.8 531.3' && e141.pdf.gout_av === '429.3 505.8'
+      && e141.pdf.gout_ar === '471.8 505.8', '141 constat signé sans marque (gel de la v1.7.1 simulé) : les trois colonnes de la v1.7.1, traits à 408 et 450,5, '
+      + 'en-têtes en 10 pt, croix vers 386,8, 429,3 et 471,8, aucun « Puits » (témoin, comme sur 3035f1d) (' + vuPuits(e141) + ')');
+  } catch (err){ R.ok(false, '140 et 141 exception du test : ' + (err && err.stack || err)); }
+  finally { R.ok(!A.erreurs.length, '140 et 141 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
 (async () => {
   try {
     await reglagesAides();
@@ -1647,6 +1821,9 @@ async function constatSansCroquis(){
     await autresParObjet();
     await constatImprime();
     await constatSansCroquis();
+    await puitsMain();
+    await puitsCroquis();
+    await puitsSigne();
   } catch (e){ R.ok(false, 'exception du test : ' + (e && e.stack || e)); }
   R.fin();
 })();

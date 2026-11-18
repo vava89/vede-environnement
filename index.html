@@ -1902,7 +1902,7 @@ async function downloadFichePdf(vid){
 }
 
 /* ---------- Constat de visite : formulaire « Contrôle de Branchement Particulier » du Département, rempli sur la tablette ---------- */
-var RACC = [['EU_D', 'Réseau EU départemental'], ['EU_T', 'Réseau EU territorial'], ['EP_D', 'Réseau EP départemental'], ['EP_T', 'Réseau EP territorial'], ['UN_D', 'Réseau unitaire départemental'], ['UN_T', 'Réseau unitaire territorial'], ['FOSSE', 'Fosse septique'], ['MILIEU', 'Milieu naturel'], ['GARG', 'Gargouille']];
+var RACC = [['EU_D', 'Réseau EU départemental'], ['EU_T', 'Réseau EU territorial'], ['EP_D', 'Réseau EP départemental'], ['EP_T', 'Réseau EP territorial'], ['UN_D', 'Réseau unitaire départemental'], ['UN_T', 'Réseau unitaire territorial'], ['FOSSE', 'Fosse septique'], ['MILIEU', 'Milieu naturel'], ['PUITS', 'Puits'], ['GARG', 'Gargouille']];
 var METH = [['visuel', 'Visuel', 'V'], ['eau', 'À l\'eau', 'E'], ['fluo', 'Fluorescéine', 'Fl'], ['fumee', 'Fumée', 'Fu'], ['reso', 'Résonance', 'R']];
 /* Le siphon de garage se raccorde aux EU ; le siphon de sol figure côté EP */
 var INSTALL_STD = [['wc', 'EU', 'WC'], ['lavelinge', 'EU', 'Lave-linge'], ['evier', 'EU', 'Évier'], ['sdb', 'EU', 'Salle de bain (douche ou baignoire et lavabo)'], ['cuisine', 'EU', 'Cuisine (évier, lave-vaisselle)'], ['siphon', 'EU', 'Siphon de garage'],
@@ -1954,8 +1954,24 @@ function completerConstat(v){
   Object.keys(src).forEach(function(k){ if (src[k] && !String(c[k] == null ? '' : c[k]).trim()) c[k] = src[k]; });
 }
 function rowActive(r){ var n = String(r.nb == null ? '' : r.nb).trim(); return n !== '' && n !== '0'; }
-/* Conformité d'une installation d'après son raccordement : EU sur EU ou unitaire ; EP sur EP, unitaire, gargouille ou milieu naturel */
-function raccOk(r){ if (!r.raccord) return null; if (r.groupe === 'EU') return /^(EU|UN)_/.test(r.raccord); return /^(EP|UN)_|^GARG$|^MILIEU$/.test(r.raccord); }
+/* Conformité d'une installation d'après son raccordement : EU sur EU ou unitaire ; EP sur EP, unitaire, gargouille ou milieu naturel.
+   Puits (PUITS, m150, décision D18) : « non » d'office, en EU comme en EP, croquis activé, désactivé ou absent ; une ligne mise à la main
+   sur « Puits » n'est jamais conforme. Seule une ligne EP dont le croquis a posé « Puits » (valeur non retouchée, c.croqAuto) suit son
+   anomalie « rejet des EP dans un puits », comme le milieu naturel en m120 : écartée, « oui » ; retenue, « non », ou « oui » si le dossier
+   en fait une réserve ; à arbitrer, ni l'un ni l'autre (constatEval). Croquis désactivé ou absent, l'arbitrage du croquis n'est pas lu
+   (vcArbitrage rend null), comme pour toute autre ligne : seule l'anomalie du dossier compte alors. c : le constat de la ligne (lu, jamais
+   modifié) */
+function raccOk(r, c){
+  if (!r.raccord) return null;
+  if (r.raccord === 'PUITS') return r.groupe === 'EP' && puitsDuCroquis(r, c);
+  if (r.groupe === 'EU') return /^(EU|UN)_/.test(r.raccord); return /^(EP|UN)_|^GARG$|^MILIEU$/.test(r.raccord);
+}
+/* raccordement « Puits » posé par le croquis et non retouché : la dernière valeur posée (c.croqAuto.rows, forme vérifiée sans rien modifier) */
+function puitsDuCroquis(r, c){
+  var P = c && c.croqAuto, R = P && typeof P === 'object' && !Array.isArray(P) ? P.rows : null;
+  var a = R && typeof R === 'object' && !Array.isArray(R) && Object.prototype.hasOwnProperty.call(R, r.id) ? R[r.id] : null;
+  return !!(a && typeof a === 'object' && !Array.isArray(a) && a.raccord === 'PUITS' && r.raccord === 'PUITS');
+}
 /* Règles du Département : toute anomalie est une non-conformité, sauf le tampon béton en EP (simple réserve) ; le choix fait sur l'anomalie prime */
 var NC_MOTIFS = /non visitable|invisitable|non accessible|inaccessible|absen|sans cunette|pas de cunette|cass|fissur|obstru|bouch|encombr|racine|retention|effondr|fuyard|fuite|ecras|deboit|scell|impossible a ouvrir|rejet|inversion|non conforme|non reglementaire|raccordee?s? (sur|au|a|vers) (le |la |les |l )?(reseau |regard |branchement )?eu\b|vers (le |les )?(reseau )?eu\b/;
 /* Toute anomalie est une non-conformité, sauf un tampon béton en EP sans autre défaut (simple réserve) ; le choix fait sur l'anomalie prime */
@@ -2021,7 +2037,8 @@ function precosAuto(c, L){
     if (!rowActive(r) || !r.raccord) return;
     if (r.groupe === 'EU'){
       if (/^EP_/.test(r.raccord)){ s.add('sepEU'); s.add('raccEUsep'); }
-      if (r.raccord === 'MILIEU') s.add('suppMilieu');
+      /* puits (m150) : comme le milieu naturel, supprimer le rejet */
+      if (r.raccord === 'MILIEU' || r.raccord === 'PUITS') s.add('suppMilieu');
       if (r.raccord === 'FOSSE') s.add('suppFosse');
       if (r.raccord === 'GARG') s.add('decoGarg');
     } else if (/^EU_/.test(r.raccord)){ s.add('decoEP'); s.add('raccEPep'); }
@@ -2049,7 +2066,7 @@ function constatEval(v, list){
   var F0 = c.signeLe && c.fige, A = c.signeLe ? (F0 && F0.arbitrer && typeof F0.arbitrer === 'object' ? F0.arbitrer : null) : vcArbitrage(v, c);
   var AL = A && Array.isArray(A.lignes) ? A.lignes : [];
   var rows = c.rows.map(function(r){
-    var la = link.get(r.id) || [], ok = raccOk(r), auto = '', arb = AL.indexOf(r.id) >= 0;
+    var la = link.get(r.id) || [], ok = raccOk(r, c), auto = '', arb = AL.indexOf(r.id) >= 0;
     if (la.some(anomNC)) auto = 'non'; else if (rowActive(r) && ok !== null) auto = ok ? 'oui' : 'non';
     /* une anomalie de la ligne reste à arbitrer : jamais « oui » d'office, même raccordement ressaisi ; « non » reste */
     if (arb && auto === 'oui') auto = '';
@@ -2138,7 +2155,7 @@ function constatIssues(v, list){
     if (rowActive(r) && !r.raccord) out.push(lab + ' : raccordement non précisé.');
     if (rowActive(r) && !(r.methodes || []).length) out.push(lab + ' : méthode de contrôle non précisée.');
     if (!rowActive(r) && (r.raccord || x.anoms.length)) out.push(lab + ' : nombre non précisé.');
-    if (r.conforme === 'oui' && x.auto === 'non') out.push(lab + ' : déclarée conforme alors que ' + (raccOk(r) === false ? 'son raccordement (' + raccLabel(r.raccord).toLowerCase() + ') ne l\'est pas.' : 'une anomalie liée est une non-conformité.'));
+    if (r.conforme === 'oui' && x.auto === 'non') out.push(lab + ' : déclarée conforme alors que ' + (raccOk(r, c) === false ? 'son raccordement (' + raccLabel(r.raccord).toLowerCase() + ') ne l\'est pas.' : 'une anomalie liée est une non-conformité.'));
     else if (r.conforme === 'oui' && x.arbitrer) out.push(lab + ' : déclarée conforme alors qu\'une anomalie reste à arbitrer : décidez dans le croquis (Contrôles).');
   });
   if (!c.reseau) out.push('Réseau desservant non précisé : départemental ou territorial.');
@@ -3053,18 +3070,36 @@ function drawConstatTable(doc, E){
   doc.setFillColor(255, 255, 204); doc.rect(493, 360, 51, bottom - 360, 'F');
   doc.setDrawColor(P.violet[0], P.violet[1], P.violet[2]); doc.setLineWidth(0.6);
   doc.line(65, 360, 544, 360); doc.line(195.5, 371, 544, 371); doc.line(195.5, 391, 365.5, 391); doc.line(65, 402, 544, 402);
-  [[65, 360], [172.5, 360], [195.5, 360], [223.5, 391], [252, 371], [280.5, 391], [309, 371], [337, 391], [365.5, 371], [408, 371], [450.5, 371], [493, 360], [518.5, 371], [544, 360]].forEach(function(l){ doc.line(l[0], l[1], l[0], bottom); });
+  /* colonnes après le réseau unitaire. Présentation 1 (constat signé sans marque) : Fosse septique, Milieu naturel, Gargouille, comme en
+     v1.7.1 (tracé inchangé) ; présentation 2 (m150, décision D18) : la colonne « Puits » en plus, les quatre dans la largeur des trois
+     (365,5 à 493, 31,875 pt chacune) */
+  var VCOL = mep === 1 ? [[408, 371], [450.5, 371]] : [[397.4, 371], [429.3, 371], [461.1, 371]];
+  [[65, 360], [172.5, 360], [195.5, 360], [223.5, 391], [252, 371], [280.5, 391], [309, 371], [337, 391], [365.5, 371]].concat(VCOL, [[493, 360], [518.5, 371], [544, 360]]).forEach(function(l){ doc.line(l[0], l[1], l[0], bottom); });
   var y = top; hs.forEach(function(h){ y += h; doc.line(65, y, 544, y); });
   var it = {f: 'times', st: 'italic', sz: 10};
   cTxt(doc, 'Raccordée sur', 344.2, 369, Object.assign({al: 'center'}, it)); cTxt(doc, 'Conforme', 518.5, 369, Object.assign({al: 'center'}, it));
   cTxt(doc, 'Installation', 118.8, 384.4, Object.assign({al: 'center'}, it)); cTxt(doc, 'Nb', 184, 384.4, Object.assign({al: 'center'}, it));
   cTxt(doc, 'Réseau EU', 223.8, 384.3, Object.assign({al: 'center', col: P.rouge}, it)); cTxt(doc, 'Réseau EP', 280.5, 384.3, Object.assign({al: 'center', col: P.vert}, it));
   cTxt(doc, 'Réseau', 337.3, 379.8, Object.assign({al: 'center', col: P.bleu}, it)); cTxt(doc, 'Unitaire', 337.3, 390.5, Object.assign({al: 'center', col: P.bleu}, it));
-  cTxt(doc, 'Fosse', 386.9, 384.6, Object.assign({al: 'center', col: P.rouge}, it)); cTxt(doc, 'septique', 386.9, 395.2, Object.assign({al: 'center', col: P.rouge}, it));
-  cTxt(doc, 'Milieu', 429.4, 384.6, Object.assign({al: 'center', col: P.vert}, it)); cTxt(doc, 'naturel', 429.4, 395.2, Object.assign({al: 'center', col: P.vert}, it));
-  cTxt(doc, 'Gargouille', 471.8, 389.9, Object.assign({al: 'center', col: P.vert, sz: 9}, it)); cTxt(doc, 'Oui', 505.8, 389.9, Object.assign({al: 'center'}, it)); cTxt(doc, 'Non', 531.3, 389.9, Object.assign({al: 'center'}, it));
+  if (mep === 1){
+    cTxt(doc, 'Fosse', 386.9, 384.6, Object.assign({al: 'center', col: P.rouge}, it)); cTxt(doc, 'septique', 386.9, 395.2, Object.assign({al: 'center', col: P.rouge}, it));
+    cTxt(doc, 'Milieu', 429.4, 384.6, Object.assign({al: 'center', col: P.vert}, it)); cTxt(doc, 'naturel', 429.4, 395.2, Object.assign({al: 'center', col: P.vert}, it));
+    cTxt(doc, 'Gargouille', 471.8, 389.9, Object.assign({al: 'center', col: P.vert, sz: 9}, it));
+  } else {
+    /* en 8 pt, sur deux lignes : « Fosse septique » en rouge comme « Réseau EU » ; « Milieu naturel », « Puits » et « Gargouille » en vert
+       comme « Réseau EP » (réponse S4 a du 17 nov. 2026) */
+    var t8 = function(col){ return Object.assign({}, it, {al: 'center', col: col, sz: 8}); };
+    cTxt(doc, 'Fosse', 381.4, 385.7, t8(P.rouge)); cTxt(doc, 'septique', 381.4, 394.2, t8(P.rouge));
+    cTxt(doc, 'Milieu', 413.3, 385.7, t8(P.vert)); cTxt(doc, 'naturel', 413.3, 394.2, t8(P.vert));
+    cTxt(doc, 'Puits', 445.2, 389.9, t8(P.vert));
+    cTxt(doc, 'Gar-', 477.1, 385.7, t8(P.vert)); cTxt(doc, 'gouille', 477.1, 394.2, t8(P.vert));
+  }
+  cTxt(doc, 'Oui', 505.8, 389.9, Object.assign({al: 'center'}, it)); cTxt(doc, 'Non', 531.3, 389.9, Object.assign({al: 'center'}, it));
   [[209.5, 'D', P.rouge], [237.8, 'T', P.rouge], [266.3, 'D', P.vert], [294.8, 'T', P.vert], [323, 'D', P.bleu], [351.3, 'T', P.bleu]].forEach(function(d){ cTxt(doc, d[1], d[0], 399.8, Object.assign({al: 'center', col: d[2]}, it)); });
+  /* place de la croix « Raccordée sur ». Présentation 2 : le rejet dans un puits, EU comme EP, sous « Puits » (m150) ; présentation 1 : les
+     places de la v1.7.1, sans « Puits » (une ligne « Puits » n'y a pas de croix, comme en v1.7.1) */
   var COLX = {EU_D: 209.5, EU_T: 237.8, EP_D: 266.3, EP_T: 294.8, UN_D: 323, UN_T: 351.3, FOSSE: 386.8, MILIEU: 429.3, GARG: 471.8}, conf = {};
+  if (mep !== 1){ COLX.FOSSE = 381.4; COLX.MILIEU = 413.3; COLX.PUITS = 445.2; COLX.GARG = 477.1; }
   E.rows.forEach(function(x){ conf[x.r.id] = x; });
   var lsz = n > 14 ? 8 : 9.5;
   y = top;

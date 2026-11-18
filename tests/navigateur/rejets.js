@@ -34,7 +34,11 @@
 //     jugement à régler. Échoue sur 7df0996 (type « puits » absent), sauf l'absence d'erreur dans la console.
 // p2 (décision D7) : panneau Constat de l'éditeur, descente avant et WC reliés au puits : la case « Conf. » de la descente reste vide, celle
 //     du WC dit « Non », et une phrase dit que la ligne EP suit son anomalie ; anomalie de la descente écartée : « Oui », sans la phrase ;
-//     mise à arbitrer : case vide, avec la phrase. Le premier et le troisième cas échouent sans la phrase (première version de m120).
+//     mise à arbitrer : case vide, avec la phrase. Le premier et le troisième cas échouent sans la phrase (première version de m120). Libellé
+//     des deux lignes depuis m150 (décision D18) : « Puits : rejet dans un puits » (avant : « Puits : rejet en milieu naturel », 3035f1d).
+// p3 (m150, décision D18) : PDF du constat de l'application, repris du croquis : en-tête « Puits » vers x 445,2, en 8 pt, vert ; croix de
+//     la descente avant et du WC reliés au puits dessous ; témoin, descente arrière reliée au milieu naturel dessiné : croix sous « Milieu
+//     naturel », vers x 413,3. Échoue sur 3035f1d (trois colonnes ; croix sous « Milieu naturel », vers 429,3).
 // Autre destination (m127, décision D10) :
 // a1 : « Autre destination » est dans la palette Équipements, juste après « Puits » ; l'outil choisi par son bouton, l'aide dit « Touchez le
 //     plan pour poser : Autre destination. » ; posée au toucher, sa fiche s'ouvre : sélecteur « Type » puis cinq champs, nom « Autre
@@ -471,7 +475,7 @@ async function puits(){
         .filter(c => c[1]).map(c => c.slice(0, 4).join(' | '));
       return {lignes, notes: [...document.querySelectorAll('.vc-panneau .vc-pcorps p.vc-muet')].map(x => x.textContent.trim())};
     }, st);
-    const lgD = 'EP Gouttière(s) avant | 1 | Puits : rejet en milieu naturel | ', lgW = 'EU WC | 1 | Puits : rejet en milieu naturel | Non';
+    const lgD = 'EP Gouttière(s) avant | 1 | Puits : rejet dans un puits | ', lgW = 'EU WC | 1 | Puits : rejet dans un puits | Non';
     let c = await constat('');
     R.ok(c.lignes.indexOf(lgD) >= 0 && c.lignes.indexOf(lgW) >= 0 && c.notes.indexOf(NOTE) >= 0,
       'p2 panneau Constat, rejet retenu : descente sans conformité, WC « Non », la phrase dit pourquoi (' + JSON.stringify(c) + ')');
@@ -481,6 +485,49 @@ async function puits(){
     c = await constat('arbitrer');
     R.ok(c.lignes.indexOf(lgD) >= 0 && c.notes.indexOf(NOTE) >= 0, 'p2 anomalie de la descente à arbitrer : sans conformité, la phrase (' + JSON.stringify(c) + ')');
     R.ok(!A.erreurs.length, 'p1 et p2 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
+/* p3 (m150, décision D18) : PDF du constat de l'application, repris du croquis : descente avant et WC reliés à un puits, descente arrière
+   reliée au milieu naturel dessiné (témoin) ; page 1 : en-tête « Puits » vers x 445,2, en 8 pt, vert comme « Réseau EP » ; croix de
+   raccordement de la descente avant et du WC dessous ; celle de la descente arrière sous « Milieu naturel », vers x 413,3 */
+async function puitsPdf(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p); await C.ouvrirCroquis(p, {fond: false});
+    const v0 = await C.vue(p), o = (x, y) => [v0.cx + x, v0.cy + y];
+    const els = [C.P('W', 'puits', ...o(0, -5)), C.P('M', 'milieu', ...o(10, -5)), C.P('d', 'descente', ...o(-4, 0), {cote: 'avant', visitable: 'oui'}),
+      C.P('w', 'wc', ...o(4, 0)), C.P('d2', 'descente', ...o(10, 0), {cote: 'arriere', visitable: 'oui'})], I = C.index(els);
+    els.push(C.L('Ld', 'tr', ['d', 'W'], I), C.L('Lw', 'tr', ['w', 'W'], I), C.L('Lm', 'tr', ['d2', 'M'], I));
+    await C.injecter(p, {el: els});
+    await p.evaluate(() => { const S = window.__vcEd.etat; S.doc.rev = (S.doc.rev || 0) + 1; window.__vcEd.enregistrer(); }); await C.pause(p, 500);
+    await C.fermerCroquis(p); await C.pause(p, 600);
+    const r = await p.evaluate(async () => {
+      const T = window.__VT, v = T.S.visites[0]; v.statut = 'visitee'; T.constatDepuisCroquis(v, await T.vcResume(v), false);
+      const J0 = window.jspdf.jsPDF, tx = [], ln = [], page = d => { try { return d.internal.getCurrentPageInfo().pageNumber; } catch (e){ return 0; } };
+      const W = function(){ const d = new J0(...arguments), ot = d.text, ol = d.line;
+        d.text = function(t, x, y){ tx.push({t: [].concat(t).join(' '), x, y, sz: d.getFontSize(), col: String(d.getTextColor()), pg: page(d)}); return ot.apply(d, arguments); };
+        d.line = function(x1, y1, x2, y2){ ln.push({x1, y1, x2, y2, pg: page(d)}); return ol.apply(d, arguments); };
+        return d; };
+      W.API = J0.API; window.jspdf.jsPDF = W;
+      try { await T.constatPdfBlob(v); } finally { window.jspdf.jsPDF = J0; }
+      const sa = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, ''), r1 = x => Math.round(x * 10) / 10, p1 = tx.filter(q => q.pg === 1);
+      const ys = ln.filter(l => l.pg === 1 && l.x1 === 65 && l.x2 === 544 && l.y1 === l.y2 && l.y1 > 401.99 && l.y1 < 620.51).map(l => l.y1).sort((a, b) => a - b);
+      const croix = debut => {
+        const r0 = p1.find(q => Math.abs(q.x - 70.8) < 0.01 && q.y > 402 && q.y < 620.5 && sa(q.t).indexOf(debut) === 0);
+        const i = r0 ? ys.findIndex((y, k) => k < ys.length - 1 && r0.y > y && r0.y < ys[k + 1]) : -1;
+        return i < 0 ? 'rangée introuvable' : p1.filter(q => q.t === 'X' && q.y > ys[i] && q.y < ys[i + 1]).map(q => r1(q.x)).join(' ') || 'aucune';
+      };
+      const ep = (p1.find(q => q.t === 'Réseau EP' && q.y < 402) || {}).col, pu = p1.filter(q => q.t === 'Puits' && q.y > 371 && q.y < 402);
+      return {rows: v.constat.rows.filter(x => String(x.nb || '').trim()).map(x => x.id + ' ×' + x.nb + ' ' + (x.raccord || '-')).join(', '),
+        puits: pu.map(q => r1(q.x) + '/' + q.sz + (q.col === ep ? ' vert' : ' ' + q.col)).join(' | ') || 'absent',
+        gout_av: croix('Gouttiere(s) avant'), wc: croix('WC'), gout_ar: croix('Gouttiere(s) arriere')};
+    });
+    R.ok(r.rows === 'wc ×1 PUITS, gout_av ×1 PUITS, gout_ar ×1 MILIEU' && r.puits === '445.2/8 vert' && r.gout_av.split(' ')[0] === '445.2' && r.wc.split(' ')[0] === '445.2',
+      'p3 PDF du constat repris du croquis : en-tête « Puits » vers x 445,2, en 8 pt, vert ; croix de la descente avant et du WC reliés au puits dessous (échoue '
+      + 'sur 3035f1d : trois colonnes, croix sous « Milieu naturel ») (' + JSON.stringify(r) + ')');
+    R.ok(r.gout_ar.split(' ')[0] === '413.3', 'p3 témoin : descente arrière reliée au milieu naturel dessiné, croix sous « Milieu naturel », vers x 413,3 (' + JSON.stringify(r) + ')');
+    R.ok(!A.erreurs.length, 'p3 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
   } finally { await A.fermer(); }
 }
 
@@ -1256,7 +1303,7 @@ async function destinationProcheReglages(){
 }
 
 (async () => {
-  for (const f of [apercu, boutonRejetSol, rejetPresDunRegard, rejetSansFacade, rejetPresDesMurs, rejetPresDunComplement, puits, destination, destinationModele, destinationNature,
+  for (const f of [apercu, boutonRejetSol, rejetPresDunRegard, rejetSansFacade, rejetPresDesMurs, rejetPresDunComplement, puits, puitsPdf, destination, destinationModele, destinationNature,
     regardNature, destinationTexte, destinationNouvelle, destinationReglages, destinationSauvegarde, destinationMemeNom, destinationProchePalette, destinationProcheFiche,
     destinationProcheReglages]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }

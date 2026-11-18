@@ -44,17 +44,24 @@
 //   de z1 et la seconde vérification de z5 (NC retenue, retenue, écartée). z6 et le témoin « retenue » de z2 (gardes) n'y échouent que
 //   parce que VCroquis.etatSource y est absente. z8 y passe. z9 échoue aussi sur la première version de m119 (ligne du WC sans marque).
 // Puits (m120, décision du 13 nov. 2026 : un rejet EP dans un puits est une non-conformité ; décisions D6 à D9) :
-// q1 : descente vers un puits : ep-puits retenue d'office, « Non conformes », fiche « anomalie n° 1 » ; au constat, ligne en MILIEU, ok null
-//   (le dossier la juge par l'anomalie), aucune case des ouvrages EP ; écartée : « conformes », ligne « oui » ; mise à arbitrer :
-//   « arbitrer », ligne MILIEU gardée, ok null, marquée « à arbitrer » (m119) ; WC vers un puits : eu-puits, ligne MILIEU « non ».
+// q1 : descente vers un puits : ep-puits retenue d'office, « Non conformes », fiche « anomalie n° 1 » ; au constat, ligne en PUITS (colonne
+//   « Puits », m150, décision D18), libellé « Puits : rejet dans un puits », ok null (le dossier la juge par l'anomalie), aucune case des
+//   ouvrages EP ; écartée : « conformes », ligne « oui » ; mise à arbitrer : « arbitrer », ligne PUITS gardée, ok null, marquée « à arbitrer »
+//   (m119) ; WC vers un puits : eu-puits, ligne PUITS « non ».
 // q2 : le type (après « Rejet en milieu naturel » dans la palette Équipements, rappel du puits perdu), la ligne PUITS de la table (règles
-//   EU et EP non conformes, cat « inversion » et « autre », place MILIEU), le symbole (deux cercles concentriques verts, rayon 2,1, l'intérieur
-//   loin de celui du puisard) ; DXF : bloc VEDE_PUITS de deux cercles, INSERT sur VEDE-SYMBOLES, tuyau sur VEDE-EP ; écran : tuyau et
-//   étiquette verts ; plan PDF : « Puits » une fois à la légende, « puits · anomalie n° … » au « Rejet constaté » de la page 2.
+//   EU et EP non conformes, cat « inversion » et « autre », place PUITS au constat depuis m150, « Puits » dans VCroquis.RACC_LIB), le
+//   symbole (deux cercles concentriques verts, rayon 2,1, l'intérieur loin de celui du puisard) ; DXF : bloc VEDE_PUITS de deux cercles,
+//   INSERT sur VEDE-SYMBOLES, tuyau sur VEDE-EP ; écran : tuyau et étiquette verts ; plan PDF : « Puits » une fois à la légende,
+//   « puits · anomalie n° … » au « Rejet constaté » de la page 2.
 // q3 : avant-projet qui garde le puits : préconisation au tableau, « Reste après travaux : Descente EP : rejet dans un puits » ; témoin : le
 //   rejet supprimé par le projet, plus rien ne reste ; au dossier (reconcilier), ep-puits créée en catégorie « autre », sur la ligne
 //   « Gouttière(s) avant », non conforme, case gestEP.
-// Échouent sur 7df0996 (type « puits » absent) : q1 à q3, sauf le témoin de q3.
+// q4 : ligne mêlée (m150, décision D18) : deux descentes de la façade avant, vers un puits et vers le milieu naturel : PUITS (codes PUITS
+//   et MILIEU, les deux libellés), conformité vide (le dossier la juge par l'anomalie) ; deux WC, vers un puits et vers un puisard ou le
+//   milieu naturel : PUITS, « non ». Témoins : un puits et une gargouille, « plusieurs » ; en EP, un puits et un puisard, raccordement vide.
+// Échouent sur 7df0996 (type « puits » absent) : q1 à q3, sauf le témoin de q3. Sur 3035f1d (avant m150 : place MILIEU, libellé « Puits :
+//   rejet en milieu naturel », pas de code PUITS) : q1, q2 et q4 (MILIEU), sauf les témoins de q4. q4 échoue aussi sur la première version
+//   de m150 (raccordement « plusieurs »), sauf ses témoins.
 // Autre destination (m125, décisions D3, D5 à D7 ; objets écrits dans le croquis ; dans la palette Équipements depuis m127, juste après « Puits ») :
 // x1 : constat déduit d'une descente vers un étang aux EP non conformes, ep-exu retenue : ligne ok null (le dossier la juge par l'anomalie),
 //   case « autre » des ouvrages EP, « Étang (rejet des EP) », fiche « Rejet : étang · anomalie n° 1 » ; écartée, ou EP conformes : ligne
@@ -476,24 +483,24 @@ async function arbitrage(){
 /* ---------- m120 : puits (décision du 13 nov. 2026 : un rejet EP dans un puits est une non-conformité) ---------- */
 /* source S (type t) reliée par un tronçon sans réseau au puits W, avec les décisions dec */
 const versPuits = (t, dec) => decide(doc({o: [['S', t, 0, 10], ['W', 'puits', 0, 4]], l: [['t1', 'tr', '', '', ['S', 'W']]]}), dec);
-const RPU = 'Rejet : puits', PUL = 'Puits : rejet en milieu naturel', PRE_EP = 'Suppression du rejet dans le puits ; raccordement au branchement EP ou gestion à la parcelle';
+const RPU = 'Rejet : puits', PUL = 'Puits : rejet dans un puits', PRE_EP = 'Suppression du rejet dans le puits ; raccordement au branchement EP ou gestion à la parcelle';
 /* q1 : constat déduit, conclusion et fiche de la source : ep-puits retenue d'office, écartée, mise à arbitrer ; WC vers un puits */
 async function puitsConstat(){
   const o = await bilan(versPuits('descente'), 'gout_av');
   R.ok(o.st === 'ep-puits:S retenue' && o.c === 'non_conformes' && o.plan === CP + 'Non conformes' && o.etat === 'ko « ' + RPU + ' · anomalie n° 1 »',
     'q1 descente vers un puits : ep-puits retenue d\'office, « Non conformes », fiche « anomalie n° 1 » (' + vu(o, ['st', 'c', 'plan', 'etat']) + ')');
-  R.ok(o.ligne === 'MILIEU | [null] | ""' && o.libs === PUL && o.recup === '{}',
-    'q1 constat : la ligne de la descente en MILIEU, ok null (le dossier la juge par l\'anomalie), aucune case des ouvrages EP (' + vu(o, ['ligne', 'libs', 'recup']) + ')');
+  R.ok(o.ligne === 'PUITS | [null] | ""' && o.libs === PUL && o.recup === '{}',
+    'q1 constat : la ligne de la descente en PUITS, ok null (le dossier la juge par l\'anomalie), aucune case des ouvrages EP (' + vu(o, ['ligne', 'libs', 'recup']) + ')');
   const e = await bilan(versPuits('descente', {'ep-puits:S': 'ecartee'}), 'gout_av');
-  R.ok(e.st === 'ep-puits:S ecartee' && e.c === 'conformes' && e.ligne === 'MILIEU | [true] | "oui"' && e.etat === 'ok « ' + RPU + ' »',
-    'q1 anomalie écartée dans Contrôles : « conformes », ligne MILIEU « oui », fiche ok (' + vu(e, ['st', 'c', 'ligne', 'etat']) + ')');
+  R.ok(e.st === 'ep-puits:S ecartee' && e.c === 'conformes' && e.ligne === 'PUITS | [true] | "oui"' && e.etat === 'ok « ' + RPU + ' »',
+    'q1 anomalie écartée dans Contrôles : « conformes », ligne PUITS « oui », fiche ok (' + vu(e, ['st', 'c', 'ligne', 'etat']) + ')');
   const a = await bilan(versPuits('descente', {'ep-puits:S': 'arbitrer'}), 'gout_av');
-  R.ok(a.st === 'ep-puits:S arbitrer' && a.c === 'arbitrer' && a.plan === CP + 'À compléter : une anomalie reste à arbitrer' && a.ligne === 'MILIEU | [null] | "" | à arbitrer'
+  R.ok(a.st === 'ep-puits:S arbitrer' && a.c === 'arbitrer' && a.plan === CP + 'À compléter : une anomalie reste à arbitrer' && a.ligne === 'PUITS | [null] | "" | à arbitrer'
     && a.etat === 'att « ' + RPU + ' · anomalie à arbitrer »',
-    'q1 mise à arbitrer : « arbitrer », ligne MILIEU gardée, ok null, marquée « à arbitrer » ; fiche en attente (' + vu(a, ['st', 'c', 'plan', 'ligne', 'etat']) + ')');
+    'q1 mise à arbitrer : « arbitrer », ligne PUITS gardée, ok null, marquée « à arbitrer » ; fiche en attente (' + vu(a, ['st', 'c', 'plan', 'ligne', 'etat']) + ')');
   const w = await bilan(versPuits('wc'), 'wc');
-  R.ok(w.st === 'eu-puits:S retenue' && w.c === 'non_conformes' && w.ligne === 'MILIEU | [false] | "non"' && w.libs === PUL,
-    'q1 WC vers un puits : eu-puits retenue, ligne du WC en MILIEU, non conforme (' + vu(w, ['st', 'c', 'ligne', 'libs']) + ')');
+  R.ok(w.st === 'eu-puits:S retenue' && w.c === 'non_conformes' && w.ligne === 'PUITS | [false] | "non"' && w.libs === PUL,
+    'q1 WC vers un puits : eu-puits retenue, ligne du WC en PUITS, non conforme (' + vu(w, ['st', 'c', 'ligne', 'libs']) + ')');
 }
 /* q2 : le type, sa place, la ligne PUITS de la table, le symbole ; DXF, couleurs, légende et page 2 du plan PDF */
 async function puitsRendu(){
@@ -505,8 +512,14 @@ async function puitsRendu(){
   R.ok(!!(X && X.eu && X.ep && X.cEU && X.cEP) && X.lib === 'puits' && X.res === 'EP' && X.eu.cle === 'eu-puits' && X.eu.obs === 'rejet dans un puits' && X.eu.nc === true
     && X.eu.cat === 'inversion' && X.eu.codes.join() === 'raccEUsep' && X.eu.preco === 'Suppression du rejet dans le puits et raccordement au branchement EU'
     && X.ep.cle === 'ep-puits' && X.ep.obs === 'rejet dans un puits' && X.ep.nc === true && X.ep.cat === 'autre' && X.ep.codes.join() === 'gestEP' && X.ep.preco === PRE_EP
-    && X.cEU.code === 'MILIEU' && X.cEU.lib === PUL && X.cEP.code === 'MILIEU' && X.cEP.lib === PUL && !X.cEP.recup,
-    'q2 table des exutoires, ligne PUITS : règles EU et EP non conformes, place MILIEU au constat (' + JSON.stringify(X || null) + ')');
+    && X.cEU.code === 'PUITS' && X.cEU.lib === PUL && X.cEP.code === 'PUITS' && X.cEP.lib === PUL && !X.cEP.recup,
+    'q2 table des exutoires, ligne PUITS : règles EU et EP non conformes, place PUITS au constat (' + JSON.stringify(X || null) + ')');
+  /* m150 : le code PUITS a son libellé ; les autres exutoires qui infiltrent ou rejettent dehors gardent MILIEU (puisard, infiltration au
+     sol, milieu naturel ; drain d'infiltration) */
+  const L = V.RACC_LIB || {}, gardent = ['INF', 'SOL', 'MILIEU', 'DISP'].filter(k => V.EXU && V.EXU[k]).map(k => k + ':' + V.EXU[k].cEU.code);
+  R.ok(L.PUITS === 'Puits' && L.MILIEU === 'Milieu naturel' && gardent.length === 4 && gardent.every(x => /:MILIEU$/.test(x)),
+    'q2 m150 : VCroquis.RACC_LIB.PUITS « Puits » ; puisard, infiltration au sol, milieu naturel, drain d\'infiltration gardent MILIEU en EU ('
+    + JSON.stringify({PUITS: L.PUITS, MILIEU: L.MILIEU, gardent}) + ')');
   /* symbole : deux cercles concentriques verts, tracés, l'extérieur blanc dedans (rayon 2,1) ; l'intérieur nettement plus grand que celui
      du puisard, pour ne pas les confondre */
   const prim = t => V.primitives({k: 'pt', t, p: {st: 'existant', obs: ''}}, V.RES.EP.rgb, 0), P = prim('puits'), Q = prim('puisard');
@@ -556,6 +569,25 @@ async function puitsProjet(){
     && c.preconisation === PRE_EP && c.croquis.codes.join() === 'gestEP' && c.croquis.auto.installation === 'gout_av',
     'q3 dossier : ep-puits créée, catégorie « autre », ligne « Gouttière(s) avant », non conforme, case gestEP ('
     + (typeof ops === 'string' ? ops : cr.map(q => (q.croquis && q.croquis.cle) + ' ' + q.categorie + ' ' + JSON.stringify(q.installation) + (q.nc ? ' NC' : ' réserve')).join(', ') || 'rien de créé') + ')');
+}
+
+/* q4 : ligne mêlée (m150, décision D18) : sur une même ligne, un objet vers un puits et un autre vers un rejet codé MILIEU (milieu naturel ;
+   en EU, aussi puisard) : PUITS, le puits l'emporte (avant m150, MILIEU ; la première version de m150 vidait le raccordement). Témoins :
+   un puits et une gargouille, « plusieurs » ; en EP, un puits et un puisard (case des ouvrages EP, sans code), raccordement vide */
+function puitsMele(){
+  const ligne = (t, x, id) => {
+    const d = doc({o: [['S', t, -3, 10], ['S2', t, 3, 10], ['W', 'puits', -3, 4], ['X', x, 3, 4]], l: [['t1', 'tr', '', '', ['S', 'W']], ['t2', 'tr', '', '', ['S2', 'X']]]});
+    const r = V.constatDeduit(copie(d), V.analyser(copie(d), 'edl')).rows.find(q => q.id === id);
+    return r ? r.raccord + ' | ' + r.codes.join(',') + ' | ' + JSON.stringify(r.conforme) + ' | ' + r.libs.join(' ; ') : 'ligne absente';
+  };
+  const ep = ligne('descente', 'milieu', 'gout_av'), sol = ligne('wc', 'puisard', 'wc'), mil = ligne('wc', 'milieu', 'wc');
+  R.ok(ep === 'PUITS | PUITS,MILIEU | "" | ' + PUL + ' ; Milieu naturel',
+    'q4 deux descentes, l\'une vers un puits, l\'autre vers le milieu naturel : PUITS, conformité vide (le dossier la juge par l\'anomalie) (' + ep + ')');
+  R.ok(sol === 'PUITS | PUITS,MILIEU | "non" | ' + PUL + ' ; Puisard : rejet au sol (milieu naturel)' && mil === 'PUITS | PUITS,MILIEU | "non" | ' + PUL + ' ; Milieu naturel',
+    'q4 deux WC, l\'un vers un puits, l\'autre vers un puisard ou le milieu naturel : PUITS, « non » (' + vu({puisard: sol, milieu: mil}) + ')');
+  const g = ligne('descente', 'gargouille', 'gout_av').split(' | ')[0], p = ligne('descente', 'puisard', 'gout_av').split(' | ')[0];
+  R.ok(g === 'plusieurs' && p === '',
+    'q4 témoins : un puits et une gargouille, « plusieurs » ; un puits et un puisard des EP (sans code), raccordement vide (' + vu({gargouille: g, puisard: p}) + ')');
 }
 
 /* ---------- m125 : autre destination (décisions D3, D5 à D7) ---------- */
@@ -1163,6 +1195,7 @@ function nomsObjets(){
     await puitsConstat();
     await puitsRendu();
     await puitsProjet();
+    puitsMele();
     await destConstat();
     destPlusieurs();
     destOrdre();

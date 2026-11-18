@@ -814,12 +814,13 @@ var EXU = {
   MILIEU: {lib: 'milieu naturel', res: 'EP',
     eu: {cle: 'eu-milieu', obs: 'rejet en milieu naturel', preco: 'Suppression du rejet en milieu naturel et raccordement au branchement EU', nc: true, codes: ['suppMilieu'], cat: 'inversion'},
     cEU: {code: 'MILIEU'}, cEP: {code: 'MILIEU'}},
-  /* puits (m120) : EU et EP non conformes (décision D6) ; au constat, le milieu naturel (D7) : la conformité d'une ligne EP suit l'anomalie
-     (raccInfo). Un puits perdu, qui infiltre les eaux, se dessine en puisard */
+  /* puits (m120) : EU et EP non conformes (décision D6) ; au constat, la colonne « Puits » (m150, décision D18 ; le milieu naturel avant) :
+     une ligne mise à la main sur « Puits » n'y est jamais conforme ; celle d'une source EP que le croquis y pose suit l'anomalie (raccInfo).
+     Un puits perdu, qui infiltre les eaux, se dessine en puisard */
   PUITS: {lib: 'puits', res: 'EP',
     eu: {cle: 'eu-puits', obs: 'rejet dans un puits', preco: 'Suppression du rejet dans le puits et raccordement au branchement EU', nc: true, codes: ['raccEUsep'], cat: 'inversion'},
     ep: {cle: 'ep-puits', obs: 'rejet dans un puits', preco: 'Suppression du rejet dans le puits ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['gestEP'], cat: 'autre'},
-    cEU: {code: 'MILIEU', lib: 'Puits : rejet en milieu naturel'}, cEP: {code: 'MILIEU', lib: 'Puits : rejet en milieu naturel'}},
+    cEU: {code: 'PUITS', lib: 'Puits : rejet dans un puits'}, cEP: {code: 'PUITS', lib: 'Puits : rejet dans un puits'}},
   /* drain d'infiltration (m122) : exutoire linéaire, qui disperse les eaux dans le sol (gestion des EP à la parcelle, décision du 13 nov.
      2026) ; EU non conforme, comme l'infiltration au sol ; au constat, la case « Infiltration diffuse » */
   DISP: {lib: 'dispersion dans le sol', res: 'EP',
@@ -2468,7 +2469,7 @@ VC.etatSource = etatSourceDe;
 /* ---------- Constat déduit : lignes de l'application (nombre, raccordement, conformité, méthodes) ---------- */
 var ROWS_STD = [['wc', 'EU', 'WC'], ['lavelinge', 'EU', 'Lave-linge'], ['evier', 'EU', 'Évier'], ['sdb', 'EU', 'Salle de bain (douche ou baignoire et lavabo)'], ['cuisine', 'EU', 'Cuisine (évier, lave-vaisselle)'], ['siphon', 'EU', 'Siphon de garage'],
   ['gout_av', 'EP', 'Gouttière(s) avant'], ['gout_ar', 'EP', 'Gouttière(s) arrière'], ['grilles', 'EP', 'Grilles'], ['siphon_sol', 'EP', 'Siphon de sol']];
-var RACC_LIB = {EU_D: 'Réseau EU départemental', EU_T: 'Réseau EU territorial', EP_D: 'Réseau EP départemental', EP_T: 'Réseau EP territorial', UN_D: 'Réseau unitaire départemental', UN_T: 'Réseau unitaire territorial', FOSSE: 'Fosse septique', MILIEU: 'Milieu naturel', GARG: 'Gargouille', INF: 'Puisard (infiltration)'};
+var RACC_LIB = {EU_D: 'Réseau EU départemental', EU_T: 'Réseau EU territorial', EP_D: 'Réseau EP départemental', EP_T: 'Réseau EP territorial', UN_D: 'Réseau unitaire départemental', UN_T: 'Réseau unitaire territorial', FOSSE: 'Fosse septique', MILIEU: 'Milieu naturel', PUITS: 'Puits', GARG: 'Gargouille', INF: 'Puisard (infiltration)'};
 /* cases des ouvrages de récupération des EP du constat (EP_RECUP de l'application), dans l'ordre du formulaire : texte du panneau */
 var RECUP_LIB = [['puisard', 'puisard'], ['recup', 'récupérateur'], ['infil', 'infiltration diffuse'], ['autre', 'indéterminé/autres']];
 /* Raccordement d'un équipement pour le constat : code de l'application (vide si le formulaire n'en a pas), libellé, conformité d'après le réseau atteint.
@@ -2476,7 +2477,9 @@ var RECUP_LIB = [['puisard', 'puisard'], ['recup', 'récupérateur'], ['infil', 
    ok false reste, m119).
    etEP : état de l'anomalie de la règle EP fixe de l'exutoire (puits, m120 ; etatAnomalie) : absente ou écartée, la ligne EP est conforme ;
    sinon (retenue, à arbitrer), ok null : le dossier la juge par l'anomalie (« non » si elle est NC ; si on en fait une réserve, « oui » quand
-   la ligne a un code du formulaire, milieu naturel ou gargouille, sinon la conformité reste à cocher à la main) ;
+   la ligne a un code du formulaire, milieu naturel, puits (m150 : ligne que le croquis y pose, valeur non retouchée) ou gargouille, sinon
+   la conformité reste à cocher à la main). Le code du raccordement n'entre pas ici : le puits (PUITS) suit cette règle comme le milieu
+   naturel avant m150 ;
    de même pour l'anomalie EP d'une autre destination (m125, décision D7 : jamais d'après son jugement).
    an : l'analyse, qui porte les champs d'une autre destination (an.exu) */
 function raccInfo(r, groupe, arb, arbL, etEP, an){
@@ -2554,6 +2557,10 @@ function constatDeduit(doc, an){
     /* chaque objet dessiné compte pour une installation : une salle de bain ou une cuisine se dessine d'un seul objet (règle du 6 novembre 2026) */
     r.nb = r.objets.length;
     var c = r.codes.filter(Boolean), uniq = c.filter(function(x, i){ return c.indexOf(x) === i; });
+    /* m150 (décision D18) : le puits a son code, PUITS ; les autres rejets codés MILIEU le restent (milieu naturel, autre destination ; en
+       EU, aussi puisard, infiltration au sol, drain d'infiltration). Une ligne qui va à un puits et à l'un d'eux prend « Puits », comme
+       elle prenait « Milieu naturel » avant m150 : le puits, non conforme par règle, l'emporte. Le panneau Constat garde les deux libellés */
+    if (uniq.length === 2 && uniq.indexOf('PUITS') >= 0 && uniq.indexOf('MILIEU') >= 0) uniq = ['PUITS'];
     r.raccord = uniq.length > 1 ? 'plusieurs' : uniq.length === 1 && c.length === r.codes.length ? uniq[0] : '';
     r.conforme = !r.objets.length ? '' : r.oks.some(function(x){ return x === false; }) ? 'non' : r.oks.length && r.oks.every(function(x){ return x === true; }) ? 'oui' : '';
     r.meth.sort(function(a, b){ return METH.map(function(m){ return m[0]; }).indexOf(a) - METH.map(function(m){ return m[0]; }).indexOf(b); });
@@ -6716,12 +6723,14 @@ function editeur(racine, opts){
     if (cd.rows.some(function(r){ return r.nb && !r.raccord && r.libs.length; })) h += '<p class="vc-muet">Un raccordement sans code du formulaire (réseau privé, puisard, infiltration ou autre destination des EP) reste à cocher à la main dans le constat.</p>';
     /* ligne EP sans conformité parce que son rejet a une règle EP (puits, m120 ; autre destination, m125) dont l'anomalie est retenue ou à arbitrer : le constat
        de l'application la juge par cette anomalie (décision D7) ; la case « Conf. » reste vide, la phrase dit pourquoi. Une réserve ne donne « oui »
-       que si la ligne a un code que le constat juge (raccOk de l'application : milieu naturel, gargouille) ; sans code (case des ouvrages de
-       récupération des EP, la case par défaut d'une autre destination, ou rejets différents sur la ligne), la conformité reste à cocher à la main */
+       que si la ligne a un code que le constat juge (raccOk de l'application : milieu naturel, gargouille et, depuis m150, puits : la ligne
+       que le croquis pose sur « Puits » y suit son anomalie, écartée « oui », retenue « non » ; une ligne mise à la main sur « Puits » n'y est
+       jamais conforme) ; sans code (case des ouvrages de récupération des EP, la case par défaut d'une autre destination, ou rejets
+       différents sur la ligne), la conformité reste à cocher à la main */
     var fixes = [], aMain = [];
     rows.forEach(function(r){
       if (r.groupe === 'EU' || r.conforme) return;
-      var l = /^(EP|UN)_|^GARG$|^MILIEU$/.test(r.raccord) ? fixes : aMain;
+      var l = /^(EP|UN)_|^GARG$|^MILIEU$|^PUITS$/.test(r.raccord) ? fixes : aMain;
       r.objets.forEach(function(id){
         var rs = S.an.resObj[id]; if (!rs || rs.etat !== 'ok') return;
         /* m129 : aussi chaque exutoire que le drain d'infiltration ou le trop-plein (m145) atteint au-delà de lui */

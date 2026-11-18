@@ -50,10 +50,11 @@ CROQUIS DE TERRAIN (facultatif)
   préconisations. Toutefois, avec ou sans croquis, le constat imprimé
   n'a ni « Autres : » ni ligne vide (voir « Constat » plus bas), la
   pièce nommée avec un lavabo ou un évier dans une anomalie saisie à la
-  main le situe seulement quand la ligne « Évier » est comptée, et la
+  main le situe seulement quand la ligne « Évier » est comptée, la
   section Boîte de branchement a sa ligne « Boîte à l'intérieur ou à
   l'extérieur de la propriété » (sans croquis, vide d'office ; voir plus
-  bas).
+  bas), et le tableau des installations a sa colonne « Puits » : une
+  ligne mise à la main sur « Puits » y est non conforme.
 - Dans un dossier : « Commencer le croquis ». Choisissez le fond de plan :
   un plan cadastral DXF déjà chargé dans l'étude, un DXF de la tablette
   (cadastre.gouv.fr), ou aucun pour l'instant. Le fond reste sur la
@@ -64,7 +65,21 @@ CROQUIS DE TERRAIN (facultatif)
   puits se dessine avec l'objet « Puits » (palette Équipements) : il est
   non conforme, pour les eaux usées comme pour les eaux pluviales, et sa
   fiche n'a rien à régler ; l'anomalie se retient, se met à arbitrer ou
-  s'écarte dans Contrôles, comme toute autre. Un puits perdu, qui
+  s'écarte dans Contrôles, comme toute autre. Au constat, la ligne va
+  dans la colonne « Puits » (verte, entre « Milieu naturel » et
+  « Gargouille »), pour les eaux usées comme pour les eaux pluviales.
+  Une ligne d'eaux pluviales que le croquis y met suit son anomalie
+  (écartée : conforme ; retenue : non conforme, ou conforme si le dossier
+  en fait une réserve ; à arbitrer : conformité laissée vide ; croquis
+  désactivé, seule compte l'anomalie du dossier) ; une ligne mise à la
+  main sur « Puits » est non conforme ; une ligne d'eaux usées l'est
+  toujours, avec la préconisation « Suppression de(s) rejet(s) EU en
+  milieu naturel ». Une ligne dont certains équipements vont dans un puits
+  et d'autres vers un rejet que le constat met en « Milieu naturel » prend
+  « Puits » : le puits l'emporte. Dans un dossier d'avant la v1.7.2, le
+  « Milieu naturel » que le croquis avait mis pour un puits devient
+  « Puits » s'il n'a pas été modifié ; modifié ou choisi à la main, il
+  reste, et l'écart est rappelé avant la signature. Un puits perdu, qui
   infiltre les eaux, se dessine en « Puisard ». Un rejet dans un étang, un
   fossé, une mare… se dessine avec l'objet « Autre destination » (palette
   Équipements, juste après « Puits »). Sa fiche règle son nom (refusé
@@ -355,6 +370,12 @@ CROQUIS DE TERRAIN (facultatif)
   écrire à la main, avec ou sans croquis ; un constat signé avant la
   v1.7.2 garde à la réimpression « Autres : » et ses lignes vides
   (présentation de la v1.7.1).
+  Le tableau des installations a une colonne « Puits », avec ou sans
+  croquis : « Fosse septique » (en rouge), « Milieu naturel », « Puits »
+  et « Gargouille » (en vert) tiennent dans la largeur des trois
+  colonnes d'avant, leurs titres en plus petit, sur deux lignes. Un
+  constat signé avant la v1.7.2 garde à la réimpression ses trois
+  colonnes (présentation de la v1.7.1).
   La ligne « Boîte à l'intérieur ou à l'extérieur de la propriété »
   suit la distance, avec ou sans croquis. À l'écran, deux boutons
   « Intérieur » et « Extérieur » par réseau ; toucher le bouton choisi
@@ -500,7 +521,13 @@ MISE À JOUR DE L'APPLICATION
   « Plan PDF : » suivi d'une erreur), et leur fiche ne s'ouvre pas dans
   le croquis ; la fiche et le constat du dossier sortent, comme le plan
   PDF d'un croquis qui n'a que des drains. N'y signez aucun constat de
-  ces dossiers : un constat signé ne change plus.
+  ces dossiers : un constat signé ne change plus. Une tablette restée en
+  v1.7.1 n'a pas la colonne « Puits » : une ligne « Puits » d'un dossier
+  venu d'une tablette à jour y est non conforme d'office, sans la
+  préconisation « Suppression de(s) rejet(s) EU en milieu naturel » ni
+  croix sous « Raccordée sur » au constat imprimé, jusqu'au suivi du
+  croquis sur cette tablette, qui remet en « Milieu naturel » une ligne
+  que le croquis avait mise sur « Puits ».
 - Une tablette remise en v1.7.0, ou plus ancienne, garde les
   destinations ajoutées (« + Nouvelle destination ») sans les proposer,
   puis les efface dès qu'un réglage du croquis y change (une aide au
