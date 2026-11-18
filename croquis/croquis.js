@@ -413,10 +413,30 @@ function interSegs(p, segs, R, Lmax){
   }
   return plusProche(c, function(q){ return q.ext + q.ext2; });
 }
+/* Pose par deux cotes (m146) : les places à d1 du point A et à d2 du point B, où les deux cercles se croisent. Rend [] (pas de croisement,
+   valeur absente ou points confondus), [P] (les cercles se touchent : moins de 1 mm entre les deux places) ou [P1, P2] : P1 à gauche de
+   la droite A → B (Solution 1), P2 à droite (Solution 2). Deux cercles qui se manquent de 5 mm au plus se touchent : les cotes se
+   saisissent et s'affichent au centimètre, et un refus montre ainsi toujours un écart visible (msgDeux). Leur place est alors le point
+   de la droite A B qui partage l'écart entre les deux cotes, à 2,5 mm au plus de chacune (le point M de D12 s'en écarte d'autant plus que
+   les deux points sont proches : 4 cm pour des points à 1 m et des cotes de 10 et 11,004 m) ; aucun arrondi */
+var DEUX_TOL = 0.001, DEUX_JEU = 0.005, DEUX_MIN = 0.01; /* m : tangence, cercles qui se manquent, points confondus */
+function deuxCotes(A, B, d1, d2){
+  if (!estPt(A) || !estPt(B) || typeof d1 !== 'number' || typeof d2 !== 'number' || !isFinite(d1) || !isFinite(d2) || d1 < 0 || d2 < 0) return [];
+  var d = Math.hypot(B.x - A.x, B.y - A.y);
+  if (!(d >= DEUX_MIN) || !isFinite(d) || d > d1 + d2 + DEUX_JEU || d < Math.abs(d1 - d2) - DEUX_JEU) return [];
+  var u = {x: (B.x - A.x) / d, y: (B.y - A.y) / d}, n = ccw(u), a = (d1 * d1 - d2 * d2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, d1 * d1 - a * a));
+  /* cercles qui se manquent (h nul) : dehors, entre les deux points ; l'un dans l'autre, au-delà du centre du petit cercle */
+  if (d > d1 + d2) a = (d + d1 - d2) / 2;
+  else if (d < d2 - d1) a = (d - d1 - d2) / 2;
+  else if (d < d1 - d2) a = (d + d1 + d2) / 2;
+  var M = {x: A.x + a * u.x, y: A.y + a * u.y}, out = h < DEUX_TOL ? [M] : [{x: M.x + h * n.x, y: M.y + h * n.y}, {x: M.x - h * n.x, y: M.y - h * n.y}];
+  /* valeurs démesurées (un dossier abîmé) : les carrés ne sont plus des nombres finis */
+  return isFinite(h) && out.every(estPt) ? out : [];
+}
 VC.geo = {cw: cw, ccw: ccw, unite: unite, placer: placer, mesurer: mesurer, coinGauche: coinGauche, cotesAlignes: cotesAlignes,
   dansPolygone: dansPolygone, distPolygone: distPolygone, piedPerp: piedPerp, interDroites: interDroites, milieu: milieu,
   lignesRef: lignesRef, normaleExt: normaleExt, parcelleInstallation: parcelleInstallation, distanceLimite: distanceLimite,
-  milieuSegs: milieuSegs, piedSegs: piedSegs, prolSegs: prolSegs, interSegs: interSegs};
+  milieuSegs: milieuSegs, piedSegs: piedSegs, prolSegs: prolSegs, interSegs: interSegs, deuxCotes: deuxCotes};
 
 /* ---------- Couleurs AutoCAD (ACI), approchées : 1 à 9 exactes, 10 à 249 par teinte, 250 à 255 en gris ---------- */
 var ACI = (function(){
@@ -3491,7 +3511,8 @@ var ICO = {
   aimant: '<path d="M6 4v8a6 6 0 0 0 12 0V4"/><path d="M6 8h4M14 8h4"/>',
   cible: '<circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="1.2"/>',
   relier: '<circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="6" r="2.2"/><path d="M7 18h12V8.2"/>', lien: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
-  cotes: '<path d="M4 7v10M20 7v10M4 12h16M7 9.5L4 12l3 2.5M17 9.5l3 2.5-3 2.5"/>'
+  cotes: '<path d="M4 7v10M20 7v10M4 12h16M7 9.5L4 12l3 2.5M17 9.5l3 2.5-3 2.5"/>',
+  deux: '<circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M6.2 16.4L12 6l5.8 10.4"/><circle cx="12" cy="6" r="1.4"/>'
 };
 function ico(n, s){ return '<svg viewBox="0 0 24 24" width="' + (s || 22) + '" height="' + (s || 22) + '" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICO[n] || '') + '</svg>'; }
 VC.ico = ico;
@@ -3871,7 +3892,7 @@ function editeur(racine, opts){
     }
     if (S.relier){ var rd = S.vue.ecran(S.relier.x, S.relier.y); ctx.beginPath(); ctx.arc(rd.x, rd.y, 16, 0, 2 * Math.PI); ctx.strokeStyle = ac; ctx.lineWidth = 3; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]); }
     if (S.aligner){ S.aligner.forEach(function(p){ var q = S.vue.ecran(p.x, p.y); ctx.beginPath(); ctx.arc(q.x, q.y, 9, 0, 2 * Math.PI); ctx.fillStyle = '#d4650a'; ctx.fill(); }); }
-    if (S.cotes && S.cotes.ref) dessinerCotes();
+    if (S.cotes && (S.cotes.ref || S.cotes.deux)) dessinerCotes();
     ctx.restore();
   }
   /* Nord et barre d'échelle à l'écran */
@@ -5341,7 +5362,12 @@ function editeur(racine, opts){
      Départ d'un escalier (m108, bouton « Cotes » de l'outil Escalier, sans départ posé) : pour = {esc: true}, sans id. Mêmes étapes ; dans
      le panneau, « Poser le départ » pose le seul point du brouillon au point calculé, sans accroche ni redressement, et sans pas
      d'annulation. Le mode prend fin, l'outil Escalier attend la fin. Les données du départ (cotesDepart) restent sur le brouillon (b.cotes)
-     et s'oublient avec lui : « Point », « Abandonner », un autre outil, Échap, l'ouverture d'un croquis. */
+     et s'oublient avec lui : « Point », « Abandonner », un autre outil, Échap, l'ouverture d'un croquis.
+     Deux points (m146, D12 ; bouton « Deux points » de l'étape 'cote', sauf pour une mesure) : deux = {A, B, d1, d2, sol}, absent sinon ;
+     ref et c restent null ; t0 prend l'heure du toucher de « Deux points » (garde de « Abandonner »). Étape 'p1' : le technicien touche le
+     point 1, un coin d'une ligne de référence ou un objet (A : copie de sa position) ; étape 'p2' : le point 2 (B) ; étape 'saisie' : il
+     donne dans le panneau « Cotes » les distances d1 et d2 et choisit la place (sol : 1 à gauche de la droite A → B, 2 à droite ;
+     VC.geo.deuxCotes). Mêmes boutons et même fin de mode que depuis une façade. */
   var NAT_COTES = {bati: 'Façade', limite: 'Limite de parcelle', complement: 'Complément'}, RANG_NAT = {bati: 0, limite: 1, complement: 2};
   /* tolérance du toucher sur une ligne, en pixels : 10 à la souris, 24 au doigt ou au stylet */
   function tolCotes(){ return S.dernierPointeur === 'mouse' ? 10 : 24; }
@@ -5375,13 +5401,25 @@ function editeur(racine, opts){
     majAide(); redessiner();
   }
   /* « Abandonner » (barre d'aide) : il prend la place de « Cotes » ; ignoré pendant 0,5 s après l'entrée dans le mode, le temps du second
-     toucher d'un double toucher sur « Cotes » */
+     toucher d'un double toucher sur « Cotes » (de même après « Deux points », qui remet t0 à l'heure de son toucher, m146) */
   function abandonnerCotes(){ if (S.cotes && Date.now() - S.cotes.t0 < 500) return; quitterCotes(); }
+  /* heure du dernier « Autre trait » : « Deux points » apparaît à sa place (m146 ; garde de deuxPointsCotes) */
+  var tAutreCotes = 0;
   /* « Autre trait » : retour à l'étape 'cote' (le panneau se ferme, les cotes réglées sont oubliées) */
   function autreCoteCotes(){
-    var C = S.cotes; if (!C) return;
+    var C = S.cotes; if (!C || C.deux) return;
+    tAutreCotes = Date.now();
     C.etape = 'cote'; C.cands = null; C.k = 0; C.w0 = null; C.ref = null; C.c = null; C.essai = null;
     if (S.panneau === 'cotes'){ S.panneau = null; majPanneau(); }
+    majAide(); redessiner();
+  }
+  /* « Deux points » (m146, D12) : la place se donne par ses distances à deux points touchés. Ignoré pendant 0,5 s après l'apparition du
+     bouton (entrée dans le mode, « Autre trait »), le temps du second toucher d'un double toucher. t0 prend l'heure de ce toucher :
+     « Abandonner », qui vient à sa place sur un écran étroit, est ignoré à son tour pendant 0,5 s (abandonnerCotes) */
+  function deuxPointsCotes(){
+    var C = S.cotes; if (!C || C.etape !== 'cote' || C.pour.mesure || C.deux) return;
+    if (Date.now() - Math.max(C.t0, tAutreCotes) < 500) return;
+    C.deux = {A: null, B: null, d1: null, d2: null, sol: 1}; C.etape = 'p1'; C.t0 = Date.now();
     majAide(); redessiner();
   }
   /* Lignes de référence à tolM mètres au plus du point w : [{l, k, d, i}] ; k : rang du segment le plus proche de la ligne l (de P[k] à
@@ -5418,6 +5456,7 @@ function editeur(racine, opts){
     var C = S.cotes, w = S.vue.monde(x, y), tol = tolCotes();
     /* objet existant (m102) supprimé entre-temps : fin du mode, rien n'est changé */
     if (C.pour.id && !el(C.pour.id)){ quitterCotes(); return; }
+    if (C.deux){ tapDeux(w, tol); return; }
     /* nouveau toucher au même point du trait : la ligne superposée suivante (étape 'endroit' ; panneau d'une mesure ouvert : elle est mesurée) */
     var e0 = C.etape !== 'cote' && C.cands && C.cands.length > 1 && C.w0 && S.vue.ecran(C.w0.x, C.w0.y), suivante = !!e0 && Math.hypot(x - e0.x, y - e0.y) <= tol;
     if (C.etape === 'saisie'){
@@ -5435,6 +5474,36 @@ function editeur(racine, opts){
     }
     if (suivante){ C.k = (C.k + 1) % C.cands.length; choisirRefCotes(); majAide(); redessiner(); return; }
     endroitCotes(w);
+  }
+  /* m146 : point sous le doigt, à tolM mètres au plus de w : le plus proche des sommets des lignes de référence affichées et des objets
+     ponctuels, sauf l'objet déplacé ; à égalité, l'objet. Rend une copie de sa position, ou null */
+  function pointDeuxSous(w, tolM){
+    var C = S.cotes, coin = null, obj = null;
+    refsCotes().forEach(function(l){ l.P.forEach(function(q){ if (!estPt(q)) return; var d = Math.hypot(q.x - w.x, q.y - w.y); if (!coin || d < coin.d) coin = {d: d, x: q.x, y: q.y}; }); });
+    S.doc.el.forEach(function(e){ if (e.k !== 'pt' || e.id === C.pour.id || !estPt(e)) return; var d = Math.hypot(e.x - w.x, e.y - w.y); if (!obj || d < obj.d) obj = {d: d, x: e.x, y: e.y}; });
+    var q = obj && (!coin || obj.d <= coin.d) ? obj : coin;
+    return q && q.d <= tolM ? {x: q.x, y: q.y} : null;
+  }
+  /* m146 : toucher en mode deux points. Étapes 'p1' et 'p2' : le coin ou l'objet sous le doigt ; le point 2 ouvre le panneau « Cotes »
+     (objet déplacé : ses distances actuelles, exactes, et la place de son côté de la droite, Solution 1 s'il est sur elle) */
+  function tapDeux(w, tol){
+    var C = S.cotes, D = C.deux;
+    if (C.etape === 'saisie'){
+      toast(C.pour.id ? 'Réglez les cotes dans le panneau, puis « Déplacer » ; « Fermer » revient à la fiche.'
+        : 'Réglez les cotes dans le panneau, puis « ' + (C.pour.esc ? 'Poser le départ' : 'Poser') + ' » ; « Fermer » quitte la pose par cotes.', 3500); return;
+    }
+    var q = pointDeuxSous(w, tol / S.vue.s);
+    if (!q){ toast('Touchez un coin ou un objet'); return; }
+    if (C.etape === 'p1'){ D.A = q; C.etape = 'p2'; majAide(); redessiner(); return; }
+    if (Math.hypot(q.x - D.A.x, q.y - D.A.y) <= DEUX_MIN){ toast('Touchez deux points différents'); return; }
+    D.B = q;
+    var o = C.pour.id ? el(C.pour.id) : null;
+    if (o){
+      D.d1 = Math.hypot(o.x - D.A.x, o.y - D.A.y); D.d2 = Math.hypot(o.x - D.B.x, o.y - D.B.y);
+      D.sol = (D.B.x - D.A.x) * (o.y - D.A.y) - (D.B.y - D.A.y) * (o.x - D.A.x) >= 0 ? 1 : 2;
+    }
+    C.etape = 'saisie'; C.essai = null;
+    S.sel = null; S.panneau = 'cotes'; fermerPalette(); majPanneau(); majAide(); redessiner();
   }
   /* « Mesurer depuis une façade » (m102) : le panneau rempli par la mesure exacte de la position de l'objet (affichée au centimètre) */
   function mesurerCotes(){
@@ -5495,14 +5564,24 @@ function editeur(racine, opts){
     var nat = r ? '<strong>' + esc(NAT_COTES[r.nat] || '') + '</strong>' + (nb > 1 ? ' (' + (C.k + 1) + ' sur ' + nb + ')' : '') : '';
     var autre = '<button type="button" class="vc-b vc-bt" data-a="cotesAutre">' + ico('retour', 18) + 'Autre trait</button>';
     var titre = mes ? 'Mesurer depuis une façade' : id ? 'Déplacer par cotes' : 'Pose par cotes';
-    if (C.etape === 'cote') h = '<span><strong>' + (dep ? 'Départ de l\'escalier par cotes' : titre) + '</strong>' + (dep ? '' : ' (' + esc(id ? libPour(C.pour).lib : nomPose(C.pour.t, C.pour.modele).lib) + ')')
-      + '. Touchez la façade ou la limite de référence.</span>';
+    if (C.deux) h = aideDeux();
+    else if (C.etape === 'cote') h = '<span><strong>' + (dep ? 'Départ de l\'escalier par cotes' : titre) + '</strong>' + (dep ? '' : ' (' + esc(id ? libPour(C.pour).lib : nomPose(C.pour.t, C.pour.modele).lib) + ')')
+      + '. Touchez la façade ou la limite de référence.</span>'
+      + (mes ? '' : '<button type="button" class="vc-b vc-bt" data-a="cotesDeux">' + ico('deux', 18) + 'Deux points</button>');
     else if (C.etape === 'endroit') h = '<span>' + nat + '. Touchez ' + (dep ? 'l\'endroit du départ' : (id ? 'le nouvel endroit' : 'l\'endroit') + ' de l\'objet') + (nb > 1 ? ' ; touchez de nouveau le même point du trait pour la ligne suivante' : '') + '.</span>' + autre;
     else h = '<span>' + nat + ' : réglez les cotes dans le panneau, puis « ' + (id ? 'Déplacer' : dep ? 'Poser le départ' : 'Poser') + ' »'
       + (mes && nb > 1 ? ' ; touchez de nouveau le même point du trait pour mesurer depuis la ligne suivante' : '') + '.</span>' + autre;
     return h + '<button type="button" class="vc-b vc-bt" data-a="cotesStop">' + ico('fermer', 18) + 'Abandonner</button>';
   }
+  /* m146 : aide du mode deux points ; « Abandonner » suit */
+  function aideDeux(){
+    var C = S.cotes;
+    if (C.etape === 'p1') return '<span>Touchez le point 1 (coin ou objet).</span>';
+    if (C.etape === 'p2') return '<span>Touchez le point 2.</span>';
+    return '<span><strong>Deux points</strong> : réglez les cotes dans le panneau, puis « ' + (C.pour.id ? 'Déplacer' : C.pour.esc ? 'Poser le départ' : 'Poser') + ' ».</span>';
+  }
   function cotesHtml(){
+    if (S.cotes.deux) return deuxHtml();
     var C = S.cotes, r = C.ref, c = C.c, prol = c.mode === 'prol', g = coinGauche(r) || 'A';
     var cotes = prol ? [['droite', 'Droite'], ['gauche', 'Gauche']] : r.nat === 'limite' && r.dedans ? [['derriere', 'Intérieur'], ['devant', 'Extérieur']] : [['devant', 'Devant'], ['derriere', 'Derrière']];
     /* objet existant (m102) : « mesuré » ou « déplacé », et « Déplacer » à la place de « Poser » ; départ d'un escalier (m108) : « Poser le départ » */
@@ -5519,11 +5598,61 @@ function editeur(racine, opts){
       + '<div class="vc-fact">' + ok
       + '<button type="button" class="vc-b vc-bt" data-a="cotesFermer">' + ico('fermer', 18) + 'Fermer</button></div>';
   }
+  /* m146 : panneau « Cotes » en mode deux points : en-tête, les deux distances, puis les deux places (seulement s'il y en a deux) ou le
+     message sans croisement, et les boutons de la façade. solsDeuxVus : ce que montre la partie des places (majSolsDeux) */
+  var solsDeuxVus = '';
+  function deuxHtml(){
+    var C = S.cotes, D = C.deux, dep = !!C.pour.esc, id = C.pour.id, ty = dep ? {lib: 'Départ de l\'escalier'} : id ? libPour(C.pour) : nomPose(C.pour.t, C.pour.modele);
+    var ok = id ? '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesDeplacer">' + ico('valider', 18) + 'Déplacer</button>'
+      : '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesPoser">' + ico('valider', 18) + (dep ? 'Poser le départ' : 'Poser') + '</button>';
+    solsDeuxVus = solsDeuxHtml();
+    return '<p class="vc-muet">' + esc(ty.sujet || ty.lib || '') + (id ? ' déplacé' : ' posé') + (ty.g === 'f' ? 'e' : '') + ' depuis deux points (à '
+        + frNum(Math.hypot(D.B.x - D.A.x, D.B.y - D.A.y), 2) + ' m l\'un de l\'autre).</p>'
+      + champ('Distance depuis le point 1 (m)', saisie('d1', frNum(D.d1, 2), {a: 'cotesNum', num: true, lab: 'Distance depuis le point 1 en mètres'}))
+      + champ('Distance depuis le point 2 (m)', saisie('d2', frNum(D.d2, 2), {a: 'cotesNum', num: true, lab: 'Distance depuis le point 2 en mètres'}))
+      + '<div class="vc-deuxsol">' + solsDeuxVus + '</div>'
+      + '<div class="vc-fact">' + ok
+      + '<button type="button" class="vc-b vc-bt" data-a="cotesFermer">' + ico('fermer', 18) + 'Fermer</button></div>';
+  }
+  /* m146 : distances de l'aperçu (la frappe en cours, sinon la saisie enregistrée) */
+  function deuxValeurs(){
+    var C = S.cotes, D = C.deux, e = C.essai;
+    return {d1: e && e.k === 'd1' ? e.v : D.d1, d2: e && e.k === 'd2' ? e.v : D.d2};
+  }
+  function msgDeux(){ var D = S.cotes.deux; return 'Les deux cotes ne se croisent pas : les deux points sont à ' + frNum(Math.hypot(D.B.x - D.A.x, D.B.y - D.A.y), 2) + ' m l\'un de l\'autre.'; }
+  /* places : rien tant qu'une distance manque ou si les cercles se touchent (une seule place) ; le message sans croisement ; sinon les puces */
+  function solsDeuxHtml(){
+    var D = S.cotes.deux, v = deuxValeurs(); if (v.d1 == null || v.d2 == null) return '';
+    var s = deuxCotes(D.A, D.B, v.d1, v.d2);
+    if (!s.length) return '<p class="vc-muet"><strong>' + esc(msgDeux()) + '</strong></p>';
+    if (s.length < 2) return '';
+    return '<div class="vc-champ">' + chipsHtml('sol', [['1', 'Solution 1'], ['2', 'Solution 2']], String(D.sol), {a: 'cotes', label: 'Solution'}) + '</div>';
+  }
+  /* pendant la frappe : seule la partie des places est refaite, et seulement si elle change (le champ garde le focus, une puce touchée reste) */
+  function majSolsDeux(){
+    var z = pcorps.querySelector('.vc-deuxsol'), h = solsDeuxHtml();
+    if (!z || h === solsDeuxVus) return;
+    solsDeuxVus = h; z.innerHTML = h;
+  }
+  /* m146 : la place choisie (la seule si les cercles se touchent) ; toast et null si une distance manque ou sans croisement. Objet déplacé à
+     moins de 1 mm de la seule place (il est à moins de 1 mm de la droite des deux points) : sa position, pour que « Déplacer » sans rien
+     changer ne le bouge pas */
+  function pointDeux(){
+    var C = S.cotes, D = C.deux, s, o;
+    if (D.d1 == null || D.d2 == null){ toast('Saisissez les deux distances.'); return null; }
+    s = deuxCotes(D.A, D.B, D.d1, D.d2);
+    if (!s.length){ toast(msgDeux(), 4000); return null; }
+    if (s.length > 1) return s[D.sol === 2 ? 1 : 0];
+    o = C.pour.id ? el(C.pour.id) : null;
+    return o && Math.hypot(o.x - s[0].x, o.y - s[0].y) < DEUX_TOL ? {x: o.x, y: o.y} : s[0];
+  }
   function actionCotes(a, b){
-    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c) return;
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !(C.c || C.deux)) return;
     if (a === 'cotesFermer'){ quitterCotes(); return; }
     if (a === 'cotesPoser'){ if (C.pour.esc) poserDepartParCotes(); else if (!C.pour.id) poserParCotes(); return; }
     if (a === 'cotesDeplacer'){ if (C.pour.id) deplacerParCotes(); return; }
+    /* m146 : place choisie */
+    if (C.deux){ if (b.dataset.k === 'sol' && (b.dataset.v === '1' || b.dataset.v === '2')){ C.deux.sol = +b.dataset.v; majPanneau(); redessiner(); } return; }
     var k = b.dataset.k, v = b.dataset.v, c = C.c;
     if (k === 'mode' && (v === 'prol' || v === 'long')){ if (v !== c.mode){ c.cote = coteEquivalente(C.ref, c, v); c.mode = v; } }
     else if (k === 'coin' && (v === 'A' || v === 'B')) c.coin = v;
@@ -5534,18 +5663,29 @@ function editeur(racine, opts){
   /* distance ou décalage : nombre positif ou nul (virgule ou point) ; fin : saisie enregistrée (événement change), sinon aperçu seulement.
      Valeur refusée : toast des valeurs refusées, la valeur précédente reste ; la valeur saisie est gardée telle quelle, affichée à 1 cm. */
   function saisieCotes(b, fin){
-    var C = S.cotes, k = b.dataset.k; if (!C || C.etape !== 'saisie' || !C.c || (k !== 'd' && k !== 'e')) return;
+    var C = S.cotes, k = b.dataset.k; if (!C || C.etape !== 'saisie') return;
+    if (C.deux){ saisieDeux(b, fin); return; }
+    if (!C.c || (k !== 'd' && k !== 'e')) return;
     var x = num(String(b.value).trim());
     if (!fin){ C.essai = x != null && x >= 0 ? {k: k, v: x} : null; redessiner(); return; }
     C.essai = null;
     if (x == null || x < 0){ C.refus = Date.now(); toast('Nombre attendu, par exemple 0,80'); b.value = frNum(C.c[k], 2); redessiner(); return; }
     C.c[k] = x; b.value = frNum(x, 2); redessiner();
   }
+  /* m146 : distance depuis le point 1 ou 2, comme saisieCotes ; les places du panneau et l'aperçu suivent la frappe */
+  function saisieDeux(b, fin){
+    var C = S.cotes, D = C.deux, k = b.dataset.k; if (k !== 'd1' && k !== 'd2') return;
+    var x = num(String(b.value).trim());
+    if (!fin){ C.essai = x != null && x >= 0 ? {k: k, v: x} : null; majSolsDeux(); redessiner(); return; }
+    C.essai = null;
+    if (x == null || x < 0){ C.refus = Date.now(); toast('Nombre attendu, par exemple 0,80'); b.value = frNum(D[k], 2); majSolsDeux(); redessiner(); return; }
+    D[k] = x; b.value = frNum(x, 2); majSolsDeux(); redessiner();
+  }
   /* angle d'un objet orientable posé par cotes, comme poserObjet : avec l'orientation automatique, celui du côté (une gargouille : celui
      de la normale, vers le dehors de la ligne, ou vers le côté touché d'un trait ouvert) ; sans, celui de la rotation du plan */
   function angleCotes(t, r){
     if (!T[t] || !T[t].oriente) return null;
-    if (!aideOn('orienter')) return Math.round(((S.doc.rot || 0) * 180 / Math.PI) * 10) / 10;
+    if (!aideOn('orienter') || !r) return Math.round(((S.doc.rot || 0) * 180 / Math.PI) * 10) / 10;
     var u = unite(r.A, r.B); if (!u) return null;
     var a = u;
     if (t === 'gargouille' && r.n){ var g = cw(u); a = r.n.x * g.x + r.n.y * g.y > 0 ? g : ccw(u); }
@@ -5557,10 +5697,11 @@ function editeur(racine, opts){
      un mur ; valeurs par défaut de poserObjet ; une seule annulation ; puis sa fiche, et fin du mode */
   function poserParCotes(){
     quitterSaisie();
-    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c) return;
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !(C.c || C.deux)) return;
     /* une valeur vient d'être refusée en quittant le champ (toucher sur « Poser ») : rien n'est posé, le toast l'explique */
     if (C.refus && Date.now() - C.refus < 800) return;
-    var t = C.pour.t, P = placer(C.ref, C.c);
+    var t = C.pour.t, P = C.deux ? pointDeux() : placer(C.ref, C.c);
+    if (C.deux && !P) return;
     if (!T[t] || !P){ toast('Position incalculable : vérifiez les cotes.'); return; }
     instantane();
     var o = {id: uid(), k: 'pt', t: t, x: P.x, y: P.y, p: defautsPt(t, C.pour.modele), lab: null}, ang = angleCotes(t, C.ref);
@@ -5579,14 +5720,17 @@ function editeur(racine, opts){
      après une valeur refusée ; D1 : point dans le bâti, avertissement sans refus. */
   function poserDepartParCotes(){
     quitterSaisie();
-    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c || !C.pour.esc) return;
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !(C.c || C.deux) || !C.pour.esc) return;
     if (C.refus && Date.now() - C.refus < 800) return;
     var o = S.outil; if (o.k !== 'ln' || !OUTILS_LN[o.id] || OUTILS_LN[o.id].t !== 'esc'){ quitterCotes(); return; }
-    var P = placer(C.ref, C.c), dc = P ? cotesDepart(C.ref, C.c) : null;
-    if (!P || !dc){ toast('Position incalculable : vérifiez les cotes.'); return; }
+    /* m146 : par deux points, ni données de départ (b.cotes), ni aide, ni bâti : le côté et la montée se proposent comme pour un départ touché */
+    var P = C.deux ? pointDeux() : placer(C.ref, C.c), dc = P && !C.deux ? cotesDepart(C.ref, C.c) : null;
+    if (C.deux && !P) return;
+    if (!P || (!dc && !C.deux)){ toast('Position incalculable : vérifiez les cotes.'); return; }
     var dedans = dansBati(P);
     S.cotes = null; S.panneau = null; S.sel = null;
-    S.brouillon = {outil: o.id, pts: [{x: P.x, y: P.y, snap: null, aide: dc.facade ? 'facade' : null, surBati: dc.facade === true, doigt: null}], cotes: dc};
+    S.brouillon = dc ? {outil: o.id, pts: [{x: P.x, y: P.y, snap: null, aide: dc.facade ? 'facade' : null, surBati: dc.facade === true, doigt: null}], cotes: dc}
+      : {outil: o.id, pts: [{x: P.x, y: P.y, snap: null, aide: null, surBati: false, doigt: null}]};
     majPanneau(); majAide(); redessiner(); vibrer();
     if (dedans) toast('Le point tombe dans le bâti : le départ est posé quand même. Vérifiez les cotes (« Point » le retire).', 5000);
   }
@@ -5595,10 +5739,10 @@ function editeur(racine, opts){
      l'objet reste choisi et sa fiche se rouvre. Même garde-fou que « Poser » après une valeur refusée. */
   function deplacerParCotes(){
     quitterSaisie();
-    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c || !C.pour.id) return;
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !(C.c || C.deux) || !C.pour.id) return;
     if (C.refus && Date.now() - C.refus < 800) return;
     var id = C.pour.id; if (!el(id)){ quitterCotes(); return; }
-    var P = placer(C.ref, C.c); if (!P){ toast('Position incalculable : vérifiez les cotes.'); return; }
+    var P = C.deux ? pointDeux() : placer(C.ref, C.c); if (!P){ if (!C.deux) toast('Position incalculable : vérifiez les cotes.'); return; }
     var dedans = dansBati(P);
     S.cotes = null; S.sel = {id: id, sommet: null}; S.panneau = 'fiche';
     var bouge = deplacerObjet(id, P.x, P.y);
@@ -5611,6 +5755,7 @@ function editeur(racine, opts){
   /* repères temporaires (surcouche) : le côté retenu surligné et son prolongement en tirets ; à l'étape de saisie, l'objet fantôme au point
      calculé (départ d'un escalier : une petite croix) et les deux cotes en tirets (d le long du côté ou du prolongement, e perpendiculaire) */
   function dessinerCotes(){
+    if (S.cotes.deux){ dessinerDeux(); return; }
     var C = S.cotes, r = C.ref, A = S.vue.ecran(r.A.x, r.A.y), B = S.vue.ecran(r.B.x, r.B.y), L = Math.hypot(B.x - A.x, B.y - A.y);
     if (!(L > 0)) return;
     var ux = (B.x - A.x) / L, uy = (B.y - A.y) / L, loin = S.vue.w + S.vue.h, or = '#d4650a', ac = '#0F5C63';
@@ -5644,6 +5789,42 @@ function editeur(racine, opts){
       else dessinerPrims(ctx, primitives(e, couleurPt(e, o ? S.an : null), angleSymbole(ty, ang, S.doc.rot || 0)), eP.x, eP.y, Math.max(S.vue.s * E() / 1000, (ty === 'jonction' ? 4 : 8.5) / rayonSymbole(ty)));
       ctx.globalAlpha = 1;
     }
+    ctx.restore();
+  }
+  /* m146 : repères du mode deux points (écran seulement) : les points touchés, numérotés ; à l'étape de saisie, les cercles des distances
+     données, en tirets, et l'objet fantôme à chaque place possible, la choisie en plein (une seule si les cercles se touchent, aucune sans
+     croisement) */
+  function dessinerDeux(){
+    var C = S.cotes, D = C.deux, or = '#d4650a', ac = '#0F5C63', v = deuxValeurs(), o = null, ty = null, e = null, ang = null;
+    if (!C.pour.esc){ o = C.pour.id ? el(C.pour.id) : null; ty = o ? o.t : C.pour.t; e = o || {k: 'pt', t: ty, p: defautsPt(ty, C.pour.modele)}; ang = o ? (o.p && o.p.a) || 0 : angleCotes(ty, null); }
+    ctx.save(); ctx.lineCap = 'round';
+    if (C.etape === 'saisie' && D.A && D.B){
+      [[D.A, v.d1], [D.B, v.d2]].forEach(function(q){
+        if (q[1] == null) return;
+        var c = S.vue.ecran(q[0].x, q[0].y), r = q[1] * S.vue.s; if (!(r >= 0.5)) return;
+        ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, 2 * Math.PI); ctx.setLineDash([6, 4]); ctx.strokeStyle = ac; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+      });
+      var s = v.d1 != null && v.d2 != null ? deuxCotes(D.A, D.B, v.d1, v.d2) : [], ch = s.length === 1 || D.sol !== 2 ? 0 : 1;
+      s.forEach(function(P, i){
+        var eP = S.vue.ecran(P.x, P.y);
+        ctx.globalAlpha = i === ch ? 1 : .35;
+        /* départ d'un escalier : une petite croix, comme depuis une façade */
+        if (C.pour.esc){
+          ctx.beginPath(); ctx.moveTo(eP.x - 7, eP.y - 7); ctx.lineTo(eP.x + 7, eP.y + 7); ctx.moveTo(eP.x - 7, eP.y + 7); ctx.lineTo(eP.x + 7, eP.y - 7);
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.stroke(); ctx.strokeStyle = ac; ctx.lineWidth = 2.5; ctx.stroke();
+        }
+        else if (ty === 'zone'){ ctx.beginPath(); ctx.arc(eP.x, eP.y, Math.max(10, (num(e.p.r) || 1.5) * S.vue.s), 0, 2 * Math.PI); ctx.setLineDash([5, 4]); ctx.strokeStyle = rgbCss(RES.ANN.rgb); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); }
+        else dessinerPrims(ctx, primitives(e, couleurPt(e, o ? S.an : null), angleSymbole(ty, ang, S.doc.rot || 0)), eP.x, eP.y, Math.max(S.vue.s * E() / 1000, (ty === 'jonction' ? 4 : 8.5) / rayonSymbole(ty)));
+        ctx.globalAlpha = 1;
+      });
+    }
+    ctx.font = '700 12px Barlow, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    [D.A, D.B].forEach(function(q, i){
+      if (!q) return;
+      var c = S.vue.ecran(q.x, q.y);
+      ctx.beginPath(); ctx.arc(c.x, c.y, 6, 0, 2 * Math.PI); ctx.fillStyle = or; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+      ctx.lineWidth = 3; ctx.strokeText(String(i + 1), c.x, c.y - 9); ctx.fillText(String(i + 1), c.x, c.y - 9);
+    });
     ctx.restore();
   }
   function poserTexte(x, y){
@@ -6032,7 +6213,7 @@ function editeur(racine, opts){
     else if (o.k === 'tx') h = '<span>Touchez le plan à l\'endroit du texte.</span>';
     aide.innerHTML = h; aide.hidden = !h; placerBarres();
   }
-  aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') abandonnerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } else if (a === 'placerStop'){ S.placer = null; majAide(); } else if (a === 'relierStop'){ S.relier = null; majAide(); redessiner(); } else if (a === 'reunirFin') terminerReunir(); else if (a === 'reunirStop') quitterReunir(); else if (a === 'cotes') boutonCotes(); else if (a === 'cotesAutre') autreCoteCotes(); else if (a === 'cotesStop') abandonnerCotes(); });
+  aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') abandonnerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } else if (a === 'placerStop'){ S.placer = null; majAide(); } else if (a === 'relierStop'){ S.relier = null; majAide(); redessiner(); } else if (a === 'reunirFin') terminerReunir(); else if (a === 'reunirStop') quitterReunir(); else if (a === 'cotes') boutonCotes(); else if (a === 'cotesAutre') autreCoteCotes(); else if (a === 'cotesDeux') deuxPointsCotes(); else if (a === 'cotesStop') abandonnerCotes(); });
   R.querySelector('.vc-outils').addEventListener('click', function(ev){
     var b = ev.target.closest('.vc-o'); if (!b) return;
     if (b.dataset.outil === 'main'){ choisirOutil({k: 'main'}); return; }
@@ -6659,7 +6840,7 @@ function editeur(racine, opts){
     /* objet existant (m102) supprimé, ou un choix fait pendant le mode (S.sel reste vide jusqu'à la fin) : fin du mode, rien n'est changé */
     if (S.cotes && S.cotes.pour.id && (S.sel || !el(S.cotes.pour.id))){ S.cotes = null; majAide(); redessiner(); }
     /* panneau « Cotes » (m101) : seulement à l'étape de saisie ; un autre panneau, ou sa fermeture, met fin au mode */
-    if (n === 'cotes' && !(S.cotes && S.cotes.etape === 'saisie' && S.cotes.c)) n = S.panneau = null;
+    if (n === 'cotes' && !(S.cotes && S.cotes.etape === 'saisie' && (S.cotes.c || S.cotes.deux))) n = S.panneau = null;
     if (S.cotes && S.cotes.etape === 'saisie' && n !== 'cotes'){ S.cotes = null; majAide(); redessiner(); }
     R.querySelectorAll('.vc-barre [data-p]').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.p === n ? 'true' : 'false'); });
     if (!n){ pan.hidden = true; pan.dataset.id = ''; R.classList.remove('vc-avecpanneau'); placerBarres(); return; }

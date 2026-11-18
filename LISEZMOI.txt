@@ -206,6 +206,11 @@ CROQUIS DE TERRAIN (facultatif)
   cotes (au centimètre) et « Déplacer par cotes » le place de la même
   façon. On peut changer les cotes, puis « Déplacer » : seule la
   position change, les tuyaux attachés suivent, une annulation suffit.
+  Avec « Deux points », on touche deux points (coins ou objets), puis on
+  donne la distance de l'objet à chacun ; « Déplacer par cotes » et le
+  départ d'un escalier l'offrent aussi. Si deux places sont possibles,
+  on choisit « Solution 1 » ou « Solution 2 ». On finit par « Poser »
+  (ou « Déplacer », « Poser le départ »).
   L'outil « Escalier » des Tracés dessine un escalier en deux touchers (le
   départ, puis la fin) ; sa fiche règle la largeur, les marches, la
   longueur, le côté et le sens de la montée. Son bouton « Cotes » pose le

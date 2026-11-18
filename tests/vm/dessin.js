@@ -21,6 +21,15 @@
 // et à 0,5 m), côtés qui se croisent, égalités (même point par plusieurs côtés : le plus court prolongement, puis le premier), au plus 64
 // côtés pour l'intersection (ceux dont la droite passe le plus près, où qu'ils soient dans la liste), côtés de 20 cm au plus écartés, entrées
 // invalides (côté démesuré compris).
+// Pose par deux cotes (VCroquis.geo.deuxCotes, m146 ; décision D12 de .claude/conception-v172.md ; échoue sur 72fd069) : exemple de D12
+// (Solution 1 à gauche de 1 → 2, puis Solution 2) ; de B vers A, les solutions échangent leur côté ; cercles trop éloignés, cercle dans
+// l'autre, cercles qui se manquent de 6 mm : aucune solution ; tangences extérieure et intérieure, distance nulle, cercles qui se
+// manquent de 0,5 mm, cercles qui se manquent de 3 mm (6 et 4 entre des points à 10,003 m : la moitié du centimètre saisi n'est pas
+// un refus ; la place partage l'écart entre les deux cotes, même entre des points à 1 m, cotes de 10 et 11,004 m : à 2 mm de chacune,
+// où le point M de D12 serait à 4 cm), places à 0,9 mm de la droite des deux points : une seule (à 1,1 mm : deux) ; points confondus ou
+// à 5 mm (témoin : à 2 cm),
+// distance négative, valeur non numérique, point absent, valeurs démesurées : aucune, sans exception ; plan tourné : les deux places à
+// d1 et d2 près de 1e-9, Solution 1 à gauche de 1 → 2.
 // usage : node tests/vm/dessin.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, copie, rapport} = require('./charger.js');
@@ -570,10 +579,73 @@ function accrochages113(){
   const res = bad.map(f => sur(f));
   R.ok(res.every(r => r === null), 'prolongement et intersection, entrées invalides : null sans exception (' + res.map(r => r === null ? 'null' : String(r && r.x != null ? ecrit(r) : r)).join(', ') + ')');
 }
+/* m146 : pose par deux cotes (VCroquis.geo.deuxCotes, D12) : [], [P] ou [P1, P2] ; P1 (Solution 1) à gauche de 1 → 2 */
+function deuxPoints(){
+  const D = (A, B, d1, d2) => sur(() => G.deuxCotes(A, B, d1, d2));
+  const dit = s => Array.isArray(s) ? '[' + s.map(ecrit).join(', ') + ']' : String(s);
+  const A = P(0, 0), B = P(10, 0);
+  /* exemple de D12 : Solution 1, à gauche de 1 → 2, puis Solution 2 */
+  const s1 = D(A, B, 6, 8);
+  R.ok(Array.isArray(s1) && s1.length === 2 && proche(s1[0], P(3.6, 4.8)) && proche(s1[1], P(3.6, -4.8)),
+    'deux cotes : A (0 ; 0), B (10 ; 0), 6 et 8 : [(3,6 ; 4,8), (3,6 ; -4,8)], Solution 1 puis Solution 2 (' + dit(s1) + ')');
+  R.ok(JSON.stringify([A, B]) === '[{"x":0,"y":0},{"x":10,"y":0}]', 'deux cotes : les deux points donnés ne changent pas (' + JSON.stringify([A, B]) + ')');
+  /* de B vers A : les mêmes places, les solutions échangent leur côté */
+  const s2 = D(B, A, 8, 6);
+  R.ok(Array.isArray(s2) && s2.length === 2 && proche(s2[0], P(3.6, -4.8)) && proche(s2[1], P(3.6, 4.8)),
+    'deux cotes : de B vers A (8 et 6) : les solutions échangent leur côté, [(3,6 ; -4,8), (3,6 ; 4,8)] (' + dit(s2) + ')');
+  /* cercles sans point commun : aucune solution (des cercles qui se manquent de plus de 5 mm, ici 6 mm, ne se touchent pas) */
+  for (const [d1, d2, lib] of [[3, 4, 'cercles trop éloignés (3 + 4 < 10)'], [20, 5, 'cercle du point 2 dans celui du point 1'], [2, 15, 'cercle du point 1 dans celui du point 2'],
+    [6, 3.994, 'cercles qui se manquent de 6 mm, dehors'], [16.006, 6, 'cercles qui se manquent de 6 mm, dedans']]){
+    const s = D(A, B, d1, d2);
+    R.ok(Array.isArray(s) && s.length === 0, 'deux cotes : ' + lib + ' : aucune solution (' + dit(s) + ')');
+  }
+  /* tangences : une seule solution, sur la droite des deux points ; des cercles qui se manquent de 0,5 mm aussi */
+  for (const [d1, d2, M, tol, lib] of [[6, 4, P(6, 0), 1e-9, 'tangence extérieure (6 + 4 = 10)'], [16, 6, P(16, 0), 1e-9, 'tangence intérieure (16 - 6 = 10)'],
+    [6, 16, P(-6, 0), 1e-9, 'tangence intérieure, avant le point 1'], [0, 10, P(0, 0), 1e-9, 'distance nulle depuis le point 1'],
+    [6, 3.9995, P(6, 0), 0.001, 'cercles qui se manquent de 0,5 mm, dehors'], [16.0005, 6, P(16, 0), 0.001, 'cercles qui se manquent de 0,5 mm, dedans']]){
+    const s = D(A, B, d1, d2);
+    R.ok(Array.isArray(s) && s.length === 1 && proche(s[0], M, tol), 'deux cotes : ' + lib + ' : une seule solution, ' + ecrit(M) + ' (' + dit(s) + ')');
+  }
+  /* cotes au centimètre, cercles qui se manquent de 3 ou 4 mm : une seule solution, le point de la droite des deux points qui partage
+     l'écart entre les deux cotes (refusé à 1 mm près, le message « à 10,00 m l'un de l'autre » contredisait 6 + 4 = 10 ; au point M de
+     D12, sur l'axe radical, l'écart grandit quand les points sont proches : 4,4 et 4 cm pour des points à 1 m, cotes de 10 et 11,004 m) */
+  for (const [Bx, d1, d2, M, ec, lib] of [[10.003, 6, 4, P(6.0015, 0), 0.0015, '6 et 4 entre des points à 10,003 m (dehors)'],
+    [9.997, 16, 6, P(15.9985, 0), 0.0015, '16 et 6 entre des points à 9,997 m (dedans)'],
+    [1, 10, 11.004, P(-10.002, 0), 0.002, '10 et 11,004 entre des points à 1 m (avant le point 1)'],
+    [1, 11.004, 10, P(11.002, 0), 0.002, '11,004 et 10 entre des points à 1 m (après le point 2)']]){
+    const B1 = P(Bx, 0), s = D(A, B1, d1, d2), q = Array.isArray(s) && s.length === 1 ? s[0] : null;
+    const e = q && isFinite(q.x) && isFinite(q.y) ? [Math.abs(Math.hypot(q.x - A.x, q.y - A.y) - d1), Math.abs(Math.hypot(q.x - B1.x, q.y - B1.y) - d2)] : null;
+    R.ok(!!e && proche(q, M) && e.every(x => x <= ec + 1e-9), 'deux cotes : ' + lib + ' : une seule solution, ' + ecrit(M)
+      + ', à ' + (ec * 1000).toFixed(1).replace('.', ',') + ' mm de chaque cote (' + dit(s) + (e ? ', écarts ' + e.map(x => (x * 1000).toFixed(2)).join(' / ') + ' mm' : '') + ')');
+  }
+  /* seuil de la tangence (D12 : h sous 1 mm) : places à 0,9 mm de la droite des deux points, une seule sur elle ; à 1,1 mm, deux */
+  for (const [h, n] of [[0.0009, 1], [0.0011, 2]]){
+    const Q = P(6, h), s = D(A, B, Math.hypot(Q.x - A.x, Q.y - A.y), Math.hypot(Q.x - B.x, Q.y - B.y));
+    R.ok(Array.isArray(s) && s.length === n && (n === 1 ? proche(s[0], P(6, 0)) : proche(s[0], Q) && proche(s[1], P(6, -h))),
+      'deux cotes : place à ' + (h * 1000).toFixed(1).replace('.', ',') + ' mm de la droite des deux points : ' + (n === 1 ? 'une seule solution, sur elle' : 'deux solutions') + ' (' + dit(s) + ')');
+  }
+  /* entrées refusées : aucune solution, sans exception ; témoin : deux points à 2 cm */
+  const refus = [[A, P(0, 0), 3, 3, 'points confondus'], [A, P(0.005, 0), 3, 3, 'points à 5 mm'], [A, B, -6, 8, 'distance 1 négative'], [A, B, 6, -8, 'distance 2 négative'],
+    [A, B, '6', 8, 'distance en texte'], [A, B, NaN, 8, 'NaN'], [A, B, 6, Infinity, 'distance infinie'], [A, B, 6, undefined, 'distance absente'], [A, B, null, 8, 'distance null'],
+    [null, B, 6, 8, 'point 1 absent'], [A, {x: '10', y: 0}, 6, 8, 'coordonnée en texte'], [A, P(10, NaN), 6, 8, 'coordonnée NaN'], [A, 'B', 6, 8, 'point en texte'],
+    [A, P(1e155, 0), 1e155, 1e155, 'valeurs démesurées']];
+  const r = refus.map(x => ({lib: x[4], s: D(x[0], x[1], x[2], x[3])}));
+  R.ok(r.every(x => Array.isArray(x.s) && x.s.length === 0), 'deux cotes : entrées refusées, aucune solution, sans exception (' + r.map(x => x.lib + ' ' + dit(x.s)).join(', ') + ')');
+  const s5 = D(A, P(0.02, 0), 3, 3);
+  R.ok(Array.isArray(s5) && s5.length === 2, 'deux cotes : témoin, deux points à 2 cm : deux solutions (' + dit(s5) + ')');
+  /* plan tourné : les deux places à d1 et d2 près de 1e-9, Solution 1 à gauche de 1 → 2 */
+  const A2 = P(12.3, -4.5), B2 = P(-7.1, 20.2), s6 = D(A2, B2, 15, 18), cr = q => (B2.x - A2.x) * (q.y - A2.y) - (B2.y - A2.y) * (q.x - A2.x);
+  const ec = q => [Math.hypot(q.x - A2.x, q.y - A2.y) - 15, Math.hypot(q.x - B2.x, q.y - B2.y) - 18];
+  R.ok(Array.isArray(s6) && s6.length === 2 && s6.every(q => ec(q).every(e => Math.abs(e) <= 1e-9)) && cr(s6[0]) > 0 && cr(s6[1]) < 0,
+    'deux cotes, plan tourné : A (12,3 ; -4,5), B (-7,1 ; 20,2), 15 et 18 : les deux places à 15 et 18 m près de 1e-9, Solution 1 à gauche de 1 → 2 (' + dit(s6)
+    + (Array.isArray(s6) && s6.every(q => q && isFinite(q.x)) ? ', écarts ' + s6.map(q => ec(q).map(e => e.toExponential(1)).join(' / ')).join(', ') : '') + ')');
+}
 if (!G || typeof G.placer !== 'function') R.ok(false, 'VCroquis.geo absent (fonctions de géométrie du plan)');
 else { try { essais(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); } }
 if (!G || typeof G.lignesRef !== 'function' || typeof G.normaleExt !== 'function') R.ok(false, 'VCroquis.geo.lignesRef ou normaleExt absente (lignes de référence du plan)');
 else { try { lignes(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); } }
 try { accrochages(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
 try { accrochages113(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
+if (!G || typeof G.deuxCotes !== 'function') R.ok(false, 'VCroquis.geo.deuxCotes absente (pose par deux cotes, m146)');
+else { try { deuxPoints(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); } }
 R.fin();
