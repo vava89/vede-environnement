@@ -954,31 +954,34 @@ et à tests/LISEZMOI.md.
 
 ### Réponse « Suivi » venue le 17 nov. (codés avec elle)
 - **m147 Constat sans « Autres : » ni ligne vide ; présentation notée à la signature** (e1, T1 ; D13, D14, D15 ; X2, F7 ; S1 d, S2 b). Taille
-  M.
-  - Réponses : S1 (d) et son commentaire : aucune ligne n'a « Autres : », et les lignes vides du bas de chaque groupe ne sont plus
-    imprimées ; S2 (b) : croquis activé, désactivé ou absent (sans croquis, « ni ligne vide » est une présomption [p] : D14). Constat signé :
-    règle de CLAUDE.md (D13), sans question.
-  - Fichiers et fonctions : IX : constatRowsForPrint (l. 2931 : grp et minAutres, vérifié), drawConstatTable (l. 2999-3044 : hauteurs
-    l. 3001, chaque ligne type à sa hauteur du formulaire, une ligne ajoutée à 17,5, le tout mis à l'échelle pour remplir 218,5 pt [p] ;
-    ligne vide l. 3022, libellé l. 3023), présentation du constat (fonction nouvelle [p]), geste de signature c-lock (l. 4346 : c.fige.mep
-    posé après constatFigeCalc [p : nom]), constatFigeCalc et constatGeler (l. 2087-2102, sans la marque), vcEcarts (l. 3908). CJ :
-    comptesGroupe (l. 5494), fiche de l'autre appareil (l. 5904). LISEZMOI.txt l. 118, 248-250, 431. CLAUDE.md (règle « Croquis désactivé ou
-    absent », D15). tests/navigateur/dossier.js, tests/navigateur/equipements.js. Numéros de 71a4ed6 : à retrouver par recherche.
-  - Pour l'utilisateur : au constat imprimé, les lignes ajoutées portent leur seul nom (« Bidet », « Drain », « Chaudière (purge,
-    condensat) ») et les lignes vides du bas de chaque groupe disparaissent, croquis activé, désactivé ou absent ; fiche « Bidet (ligne à son
-    nom) » ; « Compté au constat : … Bidet 1 » ; message « … sur sa propre ligne … ». Un constat signé avant la v1.7.2 se réimprime avec
-    « Autres : » et ses lignes vides.
-  - Tests : navigateur/dossier.js cas 74 (l. 733-756) réécrit : mêmes libellés sans le mot, ni « Autres : » ni ligne vide au PDF (échoue sur
-    le commit d'avant) ; croquis désactivé : pareil (S2 b ; échoue aussi) ; constat signé sans marque : « Autres : » et lignes vides gardés ;
-    constat signé sans c.fige (signé avant le gel), croquis activé : à l'ouverture du croquis, constatGeler le gèle sans marque, et le PDF
-    garde « Autres : » (X2) ; signé en v1.7.2 puis croquis désactivé : présentation gardée ; hauteurs des 10 lignes du cas courant : celles
-    du formulaire × 218,5/183,5 (× 1,19 environ), texte en 9,5 pt [p] ; navigateur/equipements.js l. 389 et cas de la l. 76.
-  - Garde : compat 245/245 (impression hors de la garde) ; aléatoire : sans écart.
-  - Règle de CLAUDE.md : « ; les nouveautés du constat de la v1.7.2 y valent aussi : ni « Autres : » ni ligne laissée vide pour écrire à la
-    main (réponses du 17 nov. 2026). » au bout de la règle « Croquis désactivé ou absent » (D15).
-  - Risques et [p] : nom de la marque [p] ; hauteurs sans les lignes vides, mises à l'échelle (D14) [p] ; une ligne tapée « Autres : X »
-    garde son texte ; tablette en v1.7.1 : « Autres : » et lignes vides, même pour un constat signé en v1.7.2 (information).
-  - Dépendances : après m141 (comptesGroupe).
+  M. Fait : 6b01068, 18 nov.
+  - Fichiers et fonctions : IX : constatMep (nouvelle, l. 2935 : 2 pour un constat non signé ou signé avec la marque, 1 sinon),
+    constatRowsForPrint(c, mep) (l. 2942 : présentation 1, « Autres : » et lignes vides ; 2, ni l'un ni l'autre), drawConstatTable (l. 3011 :
+    hauteurs ; présentation 2 : Évier 18 pt, Salle de bain et Cuisine 21,5, les autres et les lignes ajoutées 17,5, mis à l'échelle de bottom
+    − top), geste c-lock (l. 4393 : c.fige.mep = 2 après constatFigeCalc), vcEcarts (l. 3935 : « sur sa propre ligne »). CJ : comptesGroupe
+    (l. 6040 : sans « Autres : »), autreHtml (l. 6494 : puce « <nom> (ligne à son nom) »), commentaire de constatDeduit. CLAUDE.md (règle
+    « Croquis désactivé ou absent », D15). LISEZMOI.txt (l. 50-51, 158, 299-300, 304, 342-345, 501, 513-514, 519), croquis/LISEZMOI.txt,
+    tests/LISEZMOI.md ; tests/navigateur/dossier.js (constatImprime ; tablePdf, tableauAttendu, ecartTableau, sans2, signerSansMarque,
+    modifierSigne, taperEU), tests/navigateur/equipements.js (e2, e3) ; messages des tests vm (constat, aleatoire, drain, equipements) et de
+    navigateur/drain.js.
+  - Pour l'utilisateur : au constat imprimé, une ligne ajoutée (reprise du croquis ou tapée) porte son seul nom (« Bidet », « Drain »,
+    « Chaudière (purge, condensat) ») et les lignes vides du bas de chaque groupe disparaissent, croquis activé, désactivé ou absent ; une
+    ligne tapée « Autres : X » garde son texte ; chaque ligne garde la hauteur du formulaire, mise à l'échelle du tableau. Fiche d'un autre
+    appareil : « Bidet (ligne à son nom) » ; « Compté au constat : … Bidet 1 » ; rappel « … figure aussi au constat, sur sa propre ligne :
+    vérifiez qu'il n'est pas compté deux fois ». Un constat signé avant la v1.7.2 (ou gelé sans marque) se réimprime avec « Autres : » et ses
+    lignes vides, octet pour octet. Inchangés : l'écran du constat, la case « Indéterminé/Autres » des ouvrages EP, l'analyse, le croquis.
+  - Tests : navigateur/dossier.js (181 contrôles ; nouveaux 95 à 102 : tableau du PDF rangée par rangée, libellé, hauteur à 0,01 pt et taille
+    du texte ; réécrits 9 à 12, 66 à 68, 74 à 77 et 94) : 162/181 sur daf662b ; témoins 98 (signé sans marque) et 99 (signé sans gel, gelé à
+    l'ouverture du croquis) : passent sur daf662b ; navigateur/equipements.js (e2, e3) : 129/134 sur daf662b. Hors dépôt : quatre PDF signés
+    sans marque identiques entre daf662b et m147. Garde : compat 245/245 ; aléatoire 8000 contre daf662b : aucun écart sur 10 666 analyses.
+  - Relecture : aucun défaut bloquant ni majeur. Un mineur et quatre suggestions appliqués : M1 (présentation 1 vérifiée à 12 rangées
+    seulement et limite des 14 rangées non éprouvée : cas 102), M2 (« se réimprime comme le jour de sa signature » ramené à ce que fait le
+    code), M3 et M4 (messages et commentaires des tests qui nommaient « Autres : X »), M5 (cas 97 : croquis désactivé, réactivé sans croquis
+    commencé, puis absent).
+  - Risques et [p] : marque c.fige.mep = 2 (nom et valeur de D13) ; constatMep (2 ou plus lu comme 2) ; hauteurs reconnues par l'id de la
+    ligne type ; « ni ligne vide » sans croquis (D14) ; textes nouveaux (puce, rappel, LISEZMOI) ; la marque n'entre pas dans constatEval ;
+    une tablette restée en v1.7.1 imprime un constat, même signé en v1.7.2, dans la présentation 1 (information, S11). Dépendances : après
+    m141 (comptesGroupe).
 - **m148 Anomalie « Évier » localisée « Cuisine » : « Évier » seul** (pr12-10 ; D16 ; S2 b). Taille S.
   - Réponse : S2 (b) : croquis activé, désactivé ou absent.
   - Fichiers et fonctions : IX : ROW_KW (l. 1978-1981). LISEZMOI.txt l. 273-276. CLAUDE.md (D15). tests/navigateur/dossier.js (près des cas
