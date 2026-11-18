@@ -883,19 +883,40 @@ et à tests/LISEZMOI.md.
     fond la ferment seule) [p] ; M5 pour « Fosse » sans accent seulement (« Fosse 1 », « Fosse du jardin » acceptés) [p] ; objets reconnus
     par leur seul libellé (« Infiltration » acceptée) [p] ; textes des messages [p]. Dépendances : aucune (m151 ne garde que le « Puits »
     venu d'un fichier).
-- **m145 Trop-plein d'un puisard ou d'une infiltration suivi** (q7-trop-plein ; D11). Taille M.
-  - Fichiers et fonctions : CJ : parcours (l. 1212-1235, option [p]), terminal (l. 1200-1208), bloc Q7 (l. 1468-1487), resObj[id].apres
-    (l. 1552-1558), rejetsDe et auDelaTxt (l. 921-923), texte « Rejet : … » (l. 2205), page 2 du plan (l. 7277), an.eauxDrains (m142).
-    LISEZMOI.txt après l. 104-118. tests/vm/rejets.js [p : ou tests/vm/tropplein.js].
-  - Pour l'utilisateur : « Rejet : puisard et, par le trop-plein, réseau EU départemental », non conforme, avec l'anomalie du réseau atteint ;
-    au constat, la ligne suit.
-  - Tests : t1 (descente → puisard → collecteur EU : apres [EU], anomalie ep-eu, ligne « non » ; v1.7.1 : conforme), t2 (infiltration au sol),
-    t3 (trop-plein vers EP : conforme), t4 (tuyau orienté vers le puisard : rien), t5 (deux destinations : multiple), t6 (bifurcation avant :
-    multiple, comme en v1.7.1), t7 (puisard → puisard → EU), t8 (le texte) ; garde-fou du tuyau sans sens ; drain atteint par un trop-plein
-    compté dans an.eauxDrains.
-  - Garde : compat 245/245 (sonde) ; aléatoire contre le commit d'avant : écarts attendus, seulement sur les sources qui atteignent un puisard
-    ou une infiltration prolongés par un tuyau ; chacun vérifié (sources, anomalies, conclusion, constat), aucune exception.
-  - Risques et [p] : tuyau sans sens [p] ; nom de l'option et de la marque [p] ; tablette en v1.7.1 [p]. Dépendances : m142.
+- **m145 Trop-plein d'un puisard ou d'une infiltration suivi** (q7-trop-plein ; D11). Taille M. Fait : ee6a15c, 18 nov.
+  - Fichiers et fonctions : CJ : parcours (option traverserInf : un puisard ou une infiltration au sol atteint est compté, puis la marche
+    continue par ses autres tuyaux, dans leur sens ; trav ; garde-fou : depuis l'ouvrage traversé, un tuyau sans sens n'est pas pris s'il est
+    d'un drain de collecte compté ou si arriveeVers le dit ; un tuyau orienté qui part de l'ouvrage est toujours pris ; les liens du drain
+    d'infiltration qui tient l'ouvrage suivent la règle de m129), arriveeVers (nouvelle, interne à analyser : marche à rebours qui traverse
+    puisards et infiltrations au sol, sans les liens d'un drain), analyser (second parcours rx seulement si la source atteint INF ou SOL,
+    gardé s'il atteint plus d'exutoires ; bloc Q7 de m129 pour DISP, INF et SOL ; r.apresPar 'tp' ; gestionnaire : gests, sinon celui du
+    premier exutoire ; an.eauxDrains d'après rx ; sorties libres de l'avant-projet d'après r seul), rejetsDe et auDelaTxt (« et, par le
+    trop-plein, »), commentaires de reglesAnomalies, constatDeduit et de la fiche. LISEZMOI.txt (phrase de D11 mot pour mot ; paragraphe
+    recomposé à 73 caractères au plus), croquis/LISEZMOI.txt, tests/vm/tropplein.js (nouveau), tests/vm/drain.js, tests/vm/aleatoire.js,
+    tests/tout.sh, tests/LISEZMOI.md.
+  - Pour l'utilisateur : « Rejet : puisard (infiltration) et, par le trop-plein, réseau EU départemental », non conforme, avec l'anomalie du
+    réseau atteint (« Descente EP : rejet au réseau EU ») ; la ligne du constat suit (« non ») ; trop-plein vers le réseau EP : conforme ;
+    vers un puits : non conforme ; deux autres destinations : « relié à plusieurs réseaux ». Un tuyau sans sens par où l'eau d'un appareil
+    peut arriver n'est pas suivi : indiquer le sens du trop-plein. Inchangés : boîte (pas de « pas de boîte » pour un collecteur que seul le
+    trop-plein atteint), entrée, fosse, flèches, réseau présumé, sorties libres, données. Changement visible sur des dossiers existants : un
+    puisard posé sur un drain d'infiltration affiche « … et, par le trop-plein, dispersion dans le sol » (conforme). Une tablette en v1.7.1
+    juge sans le trop-plein (information, S11).
+  - Tests : vm/tropplein.js (48) : t1 à t16, chacun avec le résultat de la source, toutes ses anomalies, la conclusion et la ligne du
+    constat ; 11/48 sur f537268 (les témoins). vm/drain.js (146) : d17 inversé, exceptions de d13 et g1 ; 144/146 sur f537268.
+    vm/aleatoire.js : invariant de r.apres et r.apresPar. Garde : compat 245/245 ; aléatoire 8000 contre f537268 : 156 analyses en écart sur
+    10 666 (137 croquis, 243 sources : 238 par le trop-plein, 5 au-delà d'un drain qui tient l'ouvrage, aucune « multiple » ; vérifiées une à
+    une par un script hors dépôt) ; avec --sans=puisard,infiltration, aucun écart.
+  - Relecture : deux défauts majeurs, contre-vérifiés et corrigés : C1 (le garde-fou valait aussi pour les liens d'un drain d'infiltration,
+    dont le sens n'est jamais lu : faux « conforme » que l'opérateur ne pouvait pas corriger ; retiré pour ces liens) ; C2 (la marche à
+    rebours ne voyait pas un appareil derrière un second puisard : faux « non conforme » ; elle traverse puisards et infiltrations au sol,
+    lecture de D11 [p]). Six mineurs et deux suggestions corrigés : M1 (gestionnaire au-delà du drain : gests, sinon le premier exutoire),
+    M2, M4 et M8 (tests : seuls INF et SOL traversés, garde-fou détaillé, toutes les anomalies, la conclusion et la ligne de chaque cas,
+    témoins S1 à S3), M3 et M5 (largeur des lignes de LISEZMOI.txt), M6 (puce de croquis/LISEZMOI.txt), M7 (page 2 du plan : SOL vers EP).
+    Aucun écarté.
+  - Risques et [p] : en Y (deux puisards reliés sans sens à un troisième qui déborde au réseau EU), les deux sources restent conformes, comme
+    en v1.7.1 (trop-pleins orientés : non conformes) [p] ; « par le trop-plein » dit aussi pour le drain d'infiltration qui tient le puisard
+    [p] ; un évier peut gagner « rejet au milieu naturel » par le drain qui tient son puisard (graine 1014) ; noms traverserInf et apresPar
+    [p]. Dépendances : m142 (an.eauxDrains).
 - **m146 « Deux points » : poser par deux cotes** (remarque-libre ; D12). Taille L.
   - Fichiers et fonctions : CJ : VC.geo.deuxCotes (près de l. 410-413), mode Cotes (l. 4962-5393 : état, aideCotes, cotesHtml, dessinerCotes,
     pose, déplacement, départ). LISEZMOI.txt l. 166-173 et 290-298 [p]. tests/vm/dessin.js, tests/navigateur/cotes.js.
