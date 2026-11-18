@@ -28,8 +28,9 @@
 // e2 : « Autre appareil » est le dernier item de la palette Appareils EU ; posé au toucher, il est sans nom, en un pas, et sa fiche
 //      s'ouvre sur le champ Nom, en tête et vide, sans focus ni dialogue ; puces des noms proposés : ceux du cadrage, puis « Bidet
 //      suspendu », déjà donné à un autre objet du croquis, mais pas « Lavabo », nom refusé venu d'un fichier ; puces EU | EP ;
-//      « Compté au constat » : « Autres : Autre appareil » pressée, puis les lignes EU du formulaire ; texte indicatif de l'abréviation
-//      « ? » (sans nom). Puce « Bidet » : nom écrit en un pas, en-tête « Bidet », puce pressée, « Autres : Bidet », texte indicatif « Bi » ;
+//      « Compté au constat » : « Autre appareil (ligne à son nom) » pressée, puis les lignes EU du formulaire ; texte indicatif de
+//      l'abréviation « ? » (sans nom). Puce « Bidet » : nom écrit en un pas, en-tête « Bidet », puce pressée, « Bidet (ligne à son
+//      nom) », texte indicatif « Bi » (m147 : la puce ne dit plus « Autres : <nom> » ; échoue sur daf662b) ;
 //      étiquette « Bidet », posée et dessinée ; un second toucher sur la puce pressée ne fait rien. Noms tapés « Lavabo », « Douche
 //      italienne », « Puits perdu » : refusés avec le toast qui nomme l'objet à poser, « Bidet » rendu, aucun pas. Abréviation « BD » en
 //      un pas (lettres du symbole) ; « Ω », illisible au PDF, refusée avec un toast, « BD » rendue. « Compté au constat » WC : row « wc »
@@ -73,10 +74,10 @@
 //      Nouveau croquis : douche au lien orphelin (« ZZ », absent) : bouton, un toucher, « Terminé » : un pas, clé retirée, groupe formé
 //      (M6) ; évier titré « cuisine », son dernier membre séparé puis supprimé : titre retiré dans le même pas, « Annuler » le rend ; puis
 //      nouveau groupe évier + lave-linge : aucun titre, aucune puce pressée, pas de toast (M1) ; douche réunie avec une chaudière et deux
-//      autres appareils : « Compté au constat : Salle de bain 1, Autres : Chaudière (purge, condensat) 1, Autres : Piscine (vidange) 1,
-//      Autres : Piscine 1 » (M2 et M4) ; « Séparer » de ces membres : étiquette masquée gardée masquée, déplacée à la main gardée en
-//      place, posée d'office replacée (M3 et M5 : ce que dit le LISEZMOI) ; sur l'avant-projet, le bouton d'un appareil « À supprimer »
-//      n'ouvre pas le mode, toast « … ; réunissez-le sur l'état des lieux » (M7).
+//      autres appareils : « Compté au constat : Salle de bain 1, Chaudière (purge, condensat) 1, Piscine (vidange) 1, Piscine 1 » (M2 et
+//      M4 ; sans « Autres : » depuis m147, échoue sur daf662b) ; « Séparer » de ces membres : étiquette masquée gardée masquée,
+//      déplacée à la main gardée en place, posée d'office replacée (M3 et M5 : ce que dit le LISEZMOI) ; sur l'avant-projet, le bouton
+//      d'un appareil « À supprimer » n'ouvre pas le mode, toast « … ; réunissez-le sur l'état des lieux » (M7).
 // e3 échoue sur 82f9ae2 (pas de bouton « Étiquette commune… » ; les contrôles suivants ne sont pas lancés) ; sans la correction de la
 // relecture, 6 cas échouent : M7 (état des lieux, avant-projet), M1 (dernier membre séparé, supprimé, nouveau groupe) et « Compté au
 // constat » (M2 et M4) ; le cas M3 et M5 passe aussi sans elle (seul le texte a changé).
@@ -403,16 +404,16 @@ async function autresAppareils(){
     const nomsAttendus = SUGG_EU.concat(['Bidet suspendu']).map(x => x + '/' + x + '/false').join(' | ');
     R.ok(f.noms.join(' | ') === nomsAttendus, 'e2 noms proposés : ceux du cadrage, puis « Bidet suspendu », déjà employé ; pas « Lavabo », nom refusé venu d\'un fichier ('
       + f.noms.join(' | ') + ')');
-    R.ok(f.nat.join(' | ') === 'autre_eu/EU/true | autre_ep/EP/false' && f.row.join(' | ') === '/Autres : Autre appareil/true | ' + LIGNES_EU.split(' | ').map(x => x + '/false').join(' | ')
-      && f.abPh === '?', 'e2 puces EU | EP, « Compté au constat » : « Autres : Autre appareil » pressée, puis les lignes EU du formulaire ; texte indicatif de '
+    R.ok(f.nat.join(' | ') === 'autre_eu/EU/true | autre_ep/EP/false' && f.row.join(' | ') === '/Autre appareil (ligne à son nom)/true | ' + LIGNES_EU.split(' | ').map(x => x + '/false').join(' | ')
+      && f.abPh === '?', 'e2 puces EU | EP, « Compté au constat » : « Autre appareil (ligne à son nom) » pressée, puis les lignes EU du formulaire ; texte indicatif de '
       + 'l\'abréviation « ? » (' + JSON.stringify({nat: f.nat, row: f.row, abPh: f.abPh}) + ')');
 
-    /* puce « Bidet » : nom, en-tête, étiquette dessinée, « Autres : Bidet », texte indicatif de l'abréviation « Bi » ; second toucher : rien */
+    /* puce « Bidet » : nom, en-tête, étiquette dessinée, « Bidet (ligne à son nom) », texte indicatif de l'abréviation « Bi » ; second toucher : rien */
     let u = await nUndo(p), ok = await cliquer(p, 'button.vc-chip[data-a="autreNom"][data-v="Bidet"]'), e = await elDoc(p, o.id), u1 = await nUndo(p);
     f = await ficheAutre(p);
     const etq = await texteEtq(p, o.id), tx = await textesEcran(p);
-    R.ok(ok && e.p.nom === 'Bidet' && u1 === u + 1 && f.tete === 'Bidet' && f.nom === 'Bidet' && f.noms[0] === 'Bidet/Bidet/true' && f.row[0] === '/Autres : Bidet/true'
-      && f.abPh === 'Bi', 'e2 puce « Bidet » : nom écrit en un pas, en-tête « Bidet », puce pressée, « Autres : Bidet », texte indicatif « Bi » (' + brief(e)
+    R.ok(ok && e.p.nom === 'Bidet' && u1 === u + 1 && f.tete === 'Bidet' && f.nom === 'Bidet' && f.noms[0] === 'Bidet/Bidet/true' && f.row[0] === '/Bidet (ligne à son nom)/true'
+      && f.abPh === 'Bi', 'e2 puce « Bidet » : nom écrit en un pas, en-tête « Bidet », puce pressée, « Bidet (ligne à son nom) », texte indicatif « Bi » (' + brief(e)
       + ', pas ' + (u1 - u) + ', ' + JSON.stringify({tete: f.tete, nom: f.nom, nom0: f.noms[0], row0: f.row[0], abPh: f.abPh}) + ')');
     R.ok(etq === 'Bidet' && !!(e.lab && !e.lab.off) && tx.indexOf('Bidet') >= 0, 'e2 étiquette « Bidet », posée et dessinée à l\'écran (texte ' + JSON.stringify(etq)
       + ', lab ' + JSON.stringify(e.lab) + ', textes ' + JSON.stringify(tx.filter(t => /idet|utre/.test(t))) + ')');
@@ -439,7 +440,7 @@ async function autresAppareils(){
     u = await nUndo(p); ok = await cliquer(p, 'button.vc-chip[data-k="row"][data-v="wc"]'); e = await elDoc(p, o.id); u1 = await nUndo(p); f = await ficheAutre(p);
     const lig = await p.evaluate(id => { const S = window.__vcEd.etat, r = window.VCroquis.constatDeduit(S.doc, S.an).rows;
       return {wc: (r.find(x => x.id === 'wc') || {objets: []}).objets.indexOf(id) >= 0, autres: r.filter(x => !x.std && x.objets.indexOf(id) >= 0).map(x => x.label)}; }, o.id);
-    R.ok(ok && e.p.row === 'wc' && u1 === u + 1 && f.row.join(' | ') === '/Autres : Bidet/false | ' + LIGNES_EU.split(' | ').map(x => x + '/' + (x.split('/')[0] === 'wc')).join(' | ')
+    R.ok(ok && e.p.row === 'wc' && u1 === u + 1 && f.row.join(' | ') === '/Bidet (ligne à son nom)/false | ' + LIGNES_EU.split(' | ').map(x => x + '/' + (x.split('/')[0] === 'wc')).join(' | ')
       && lig.wc && !lig.autres.length, 'e2 « Compté au constat » WC : row « wc » en un pas, puce pressée, le bidet compté en WC (' + brief(e) + ', pas ' + (u1 - u) + ', '
       + f.row.join(' | ') + ', ' + JSON.stringify(lig) + ')');
     ok = await cliquer(p, 'button.vc-chip[data-k="row"][data-v="wc"]'); e = await elDoc(p, o.id); f = await ficheAutre(p);
@@ -449,7 +450,7 @@ async function autresAppareils(){
     await effacerToast(p); u = await nUndo(p);
     ok = await cliquer(p, 'button.vc-chip[data-a="autreNat"][data-v="autre_ep"]'); t = await toastVu(p); e = await elDoc(p, o.id); f = await ficheAutre(p);
     R.ok(ok && e.t === 'autre_ep' && e.p.nom === 'Bidet' && e.p.ab === 'BD' && e.p.row === '' && t === TOAST_TYPE && await nUndo(p) === u + 1
-      && f.nat.join(' | ') === 'autre_eu/EU/false | autre_ep/EP/true' && f.row.join(' | ') === '/Autres : Bidet/true | ' + LIGNES_EP.split(' | ').map(x => x + '/false').join(' | ')
+      && f.nat.join(' | ') === 'autre_eu/EU/false | autre_ep/EP/true' && f.row.join(' | ') === '/Bidet (ligne à son nom)/true | ' + LIGNES_EP.split(' | ').map(x => x + '/false').join(' | ')
       && f.noms.join(' | ') === SUGG_EP.map(x => x + '/' + x + '/false').join(' | '), 'e2 EU → EP : un pas, nom et abréviation gardés, row vidé, toast « ' + TOAST_TYPE + ' » ; puces EP '
       + '(' + brief(e) + ', toast ' + JSON.stringify(t) + ', ' + JSON.stringify({nat: f.nat, row: f.row, noms: f.noms}) + ')');
     await annuler(p); e = await elDoc(p, o.id);
@@ -820,9 +821,9 @@ async function etiquetteReunie(){
     R.ok(lie(eB) === 'E' && tE === 'sans clé' && pressees === 0 && !/^Lavabo et évier/.test(msg), 'e3 nouveau groupe évier + lave-linge après « Séparer » le dernier membre : aucun titre, '
       + 'aucune puce de titre pressée, pas de toast « Lavabo et évier… » (M1 ; ' + JSON.stringify({B: lie(eB), titre: tE, pressees, toast: msg}) + ')');
 
-    /* M2 et M4 : « Compté au constat » du porteur garde le libellé entier d'une ligne « Autres », comme le constat */
+    /* M2 et M4 : « Compté au constat » du porteur garde le libellé entier d'une ligne « Autres », comme le constat ; sans « Autres : » depuis m147 */
     await choisir(p, 'H'); ft = await ficheTxt(p);
-    const CG = 'Compté au constat : Salle de bain 1, Autres : Chaudière (purge, condensat) 1, Autres : Piscine (vidange) 1, Autres : Piscine 1', iCG = ft.indexOf('Compté au constat');
+    const CG = 'Compté au constat : Salle de bain 1, Chaudière (purge, condensat) 1, Piscine (vidange) 1, Piscine 1', iCG = ft.indexOf('Compté au constat');
     R.ok(ft.indexOf(CG) >= 0, 'e3 fiche du porteur, membres sur des lignes « Autres » : « ' + CG + ' » (M2 et M4 ; obtenu ' + JSON.stringify(iCG < 0 ? 'absent' : ft.slice(iCG, iCG + 150)) + ')');
 
     /* M3 et M5 : « Séparer » laisse telle quelle une étiquette masquée ou déplacée à la main, et replace celle posée d'office, comme le dit

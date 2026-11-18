@@ -2928,12 +2928,24 @@ function cFill(doc, value, x1, x2, y, o){
   cTxt(doc, f.s, x1, y, Object.assign({col: CPC.val}, o, {sz: f.sz}));
 }
 function cLogo(doc, src, x, y, w, h, alias){ if (!src) return; try { var ip = doc.getImageProperties(src), s = Math.min(w / ip.width, h / ip.height); doc.addImage(src, /png/i.test(src.slice(0, 30)) ? 'PNG' : 'JPEG', x, y, ip.width * s, ip.height * s, alias, 'FAST'); } catch(e){} }
-function constatRowsForPrint(c){
+/* Présentation du constat imprimé (m147, D13) : 2 (v1.7.2 : ni « Autres : » ni ligne laissée vide) pour un constat non signé, croquis
+   activé, désactivé ou absent (S2 b) ; un constat signé garde celle que le geste de signature a notée (c.fige.mep) ; signé sans marque
+   (avant la v1.7.2, ou gelé plus tard par constatGeler) : 1, celle de la v1.7.1 : il garde à la réimpression « Autres : » et ses lignes
+   vides */
+function constatMep(c){
+  if (!c || !c.signeLe) return 2;
+  return c.fige && Number(c.fige.mep) >= 2 ? 2 : 1;
+}
+/* Rangées du tableau des installations : les lignes du formulaire, puis les lignes ajoutées, de chaque groupe. Présentation 1 (v1.7.1) :
+   une ligne ajoutée s'imprime « Autres : <libellé> » (autres) et des lignes vides (blank) complètent le groupe, la première libellée
+   « Autres : » s'il n'a aucune ligne ajoutée ; présentation 2 (m147, D14) : sous son seul libellé, sans ligne vide */
+function constatRowsForPrint(c, mep){
+  var m = mep || constatMep(c);
   function grp(g, minAutres){
     var std = c.rows.filter(function(r){ return r.groupe === g && r.std; }), au = c.rows.filter(function(r){ return r.groupe === g && !r.std; });
     var out = std.map(function(r){ return {g: g, r: r}; });
-    au.forEach(function(r){ out.push({g: g, r: r, autres: true}); });
-    for (var i = au.length; i < minAutres; i++) out.push({g: g, blank: true, autres: i === 0});
+    au.forEach(function(r){ out.push(m === 1 ? {g: g, r: r, autres: true} : {g: g, r: r}); });
+    for (var i = au.length; m === 1 && i < minAutres; i++) out.push({g: g, blank: true, autres: i === 0});
     return out;
   }
   var nEUstd = c.rows.filter(function(r){ return r.groupe === 'EU' && r.std; }).length;
@@ -2997,8 +3009,16 @@ function drawConstatP1(doc, v, E){
   if (imgData(c.croquis) && !E.nonEffectue){ try { doc.addImage(imgData(c.croquis), 'PNG', CROQ.x0, CROQ.y0, CROQ.w, CROQ.h, 'croquis-' + v.id + '-' + fnv32(c.croquis), 'FAST'); } catch(e){} }
 }
 function drawConstatTable(doc, E){
-  var c = E.c, P = CPC, top = 402, bottom = 620.5, rows = constatRowsForPrint(c), n = rows.length;
-  var hs = n === 12 ? [17.5, 17.5, 18, 21.5, 21.5, 17.5, 17.5, 17.5, 17.5, 17.5, 17.5, 17.5] : rows.map(function(){ return (bottom - top) / n; });
+  var c = E.c, P = CPC, top = 402, bottom = 620.5, mep = constatMep(c), rows = constatRowsForPrint(c, mep), n = rows.length, hs;
+  /* hauteurs des rangées. Présentation 1 : celles du formulaire à 12 rangées (par leur place), sinon à parts égales. Présentation 2 (m147,
+     D15) : chaque ligne du formulaire garde la sienne, reconnue par la ligne elle-même (Évier 18 pt, Salle de bain et Cuisine 21,5, les
+     autres 17,5), une ligne ajoutée 17,5, le tout mis à l'échelle de la hauteur du tableau */
+  if (mep === 1) hs = n === 12 ? [17.5, 17.5, 18, 21.5, 21.5, 17.5, 17.5, 17.5, 17.5, 17.5, 17.5, 17.5] : rows.map(function(){ return (bottom - top) / n; });
+  else {
+    var HF = {evier: 18, sdb: 21.5, cuisine: 21.5}, h0 = rows.map(function(pr){ return (pr.r && pr.r.std && HF[pr.r.id]) || 17.5; });
+    var som = h0.reduce(function(a, h){ return a + h; }, 0);
+    hs = h0.map(function(h){ return h * (bottom - top) / som; });
+  }
   doc.setFillColor(255, 255, 204); doc.rect(493, 360, 51, bottom - 360, 'F');
   doc.setDrawColor(P.violet[0], P.violet[1], P.violet[2]); doc.setLineWidth(0.6);
   doc.line(65, 360, 544, 360); doc.line(195.5, 371, 544, 371); doc.line(195.5, 391, 365.5, 391); doc.line(65, 402, 544, 402);
@@ -3935,7 +3955,7 @@ function vcEcarts(v, c){
     if (!s.std && refus[s.id]) return;
     var r = lien[s.id] || null, vals = vcValeurs(s), lab = r ? r.label : s.label, dbl = vcAutresDouble(c, s);
     /* appareil de la même sorte aussi compté en « Autres » : à vérifier, sans rien retirer ni remplir à la place du technicien */
-    var aussi = dbl ? ' ; « ' + dbl.label + ' » (' + (String(dbl.nb == null ? '' : dbl.nb).trim() || '0') + ') figure aussi au constat, en « Autres » : vérifiez qu\'il n\'est pas compté deux fois' : '';
+    var aussi = dbl ? ' ; « ' + dbl.label + ' » (' + (String(dbl.nb == null ? '' : dbl.nb).trim() || '0') + ') figure aussi au constat, sur sa propre ligne : vérifiez qu\'il n\'est pas compté deux fois' : '';
     if (!r || !rowActive(r)){ out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + (r && String(r.nb == null ? '' : r.nb).trim() === '0' ? '0' : 'nombre non renseigné') + ' au constat' + aussi + '.');
       if (!r && !s.std) sansLigne(s, lab); return; }
     if (String(r.nb).trim() !== vals.nb) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + String(r.nb).trim() + ' au constat' + aussi + '.');
@@ -4374,6 +4394,9 @@ var CONSTAT_ACTIONS = {
     if (curVisit()){ await croquisAJour(curVisit()); await vcResumeSiBesoin(curVisit()); }
     var v = curVisit(), c = v.constat; if (!c || !c.sigTech) return;
     c.fige = constatFigeCalc(v);
+    /* présentation du constat imprimé notée à la signature (m147, D13), jamais au gel (constatGeler) : celle de la v1.7.2 ; signer de nouveau
+       après « Modifier » (c-unlock, qui efface c.fige) note celle du jour */
+    c.fige.mep = 2;
     c.signeLe = nowISO(); constatTouch(v); await flushSaves(); toast('Constat validé et verrouillé'); render();
   },
   'c-unlock': async function(){ var v = curVisit(), c = constatOf(v); if (!(await confirmModal('Modifier le constat signé ?', 'Les signatures du technicien et du propriétaire seront effacées : il faudra faire signer à nouveau.', 'Modifier', true))) return; c.signeLe = ''; c.sigTech = ''; c.sigProp = ''; delete c.fige; if (c.soussigneAuto){ c.soussigne = ''; delete c.soussigneAuto; } constatTouch(v); await flushSaves(); render(); },

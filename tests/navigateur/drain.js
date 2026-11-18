@@ -24,7 +24,7 @@
 // o1 palette « Tracés » : les deux outils juste après « Projet », les autres dans le même ordre (« Complément du fond » et « Escalier »
 //   toujours voisins) ; pictogrammes à peigne (deux chemins), du vert du « Tronçon EP », différents ; choisis : barre d'aide « Drain : … ».
 // o2 drain entre deux points libres : p.drain 'collecte', p.res 'EP', aucun objet ajouté, un pas d'annulation ; toast « Drain ajouté » ;
-//   barre d'aide « le drain se termine sur un objet » ; second toucher d'habitude : « Drain déjà terminé » ; une ligne « Autres : Drain »
+//   barre d'aide « le drain se termine sur un objet » ; second toucher d'habitude : « Drain déjà terminé » ; une ligne « Drain »
 //   au constat déduit ; « Annuler » rend le dessin d'avant (JSON).
 // o3 drain d'infiltration depuis une descente : p.res '', étiquette « Dispersion dans le sol » placée, descente ok:DISP, toast « Drain
 //   d'infiltration ajouté ».
@@ -222,7 +222,7 @@ async function o2(p){
   R.ok(/^Drain déjà terminé\./.test(t2), 'o2 second toucher juste après la fin : « Drain déjà terminé. » (obtenu ' + JSON.stringify(t2) + ')');
   const cd = await p.evaluate(() => { const V = window.VCroquis, c = () => JSON.parse(JSON.stringify(window.__vcEd.doc())), r = V.constatDeduit(c(), V.analyser(c(), 'edl'));
     return r.rows.filter(x => !x.std && x.nb).map(x => x.label + ' ×' + x.nb); });
-  R.ok(cd.join() === 'Drain ×1', 'o2 constat déduit : une ligne « Autres : Drain » (obtenu ' + (cd.join(', ') || 'aucune ligne « Autres »') + ')');
+  R.ok(cd.join() === 'Drain ×1', 'o2 constat déduit : une ligne « Drain » (obtenu ' + (cd.join(', ') || 'aucune ligne « Autres »') + ')');
   const ok = await annuler(p), apres = await etatDessin(p);
   R.ok(ok && apres === avant, 'o2 une annulation rend le dessin d\'avant (JSON identique)' + (apres === avant ? '' : ' : ' + apres.slice(0, 200)));
 }

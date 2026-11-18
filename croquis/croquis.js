@@ -2527,7 +2527,7 @@ function constatDeduit(doc, an){
   Object.keys(an.resObj).forEach(function(id){
     /* exutoire à règle EP fixe (puits) : l'état de l'anomalie de cette règle pour cette source (décision D7, m120) */
     var rs = an.resObj[id], xe = rs && rs.etat === 'ok' ? ligneExu(rs.res, an) : null, etEP = xe && xe.ep ? etatAnomalie(doc, an, xe.ep.cle + ':' + id) : '';
-    /* un drain de collecte compté (m123) se lit comme un point « Drain » : ligne « Autres : Drain », méthodes de son tracé */
+    /* un drain de collecte compté (m123) se lit comme un point « Drain » : ligne « Drain », méthodes de son tracé */
     var o = srcObj(an, id), row = ligne(o), arbL = ligneArbitrer(doc, an, id), ri = raccInfo(rs, row ? row.groupe : T[o.t].nat || 'EP', fosseArbitrage(doc, an, id), arbL, etEP, an);
     /* m129 (Q7 a) : chaque exutoire que le drain d'infiltration ou le trop-plein (m145) atteint au-delà de lui compte aussi sur la ligne
        (code, conformité, case des ouvrages EP), sauf quand la fosse septique fait le raccordement (retenue ou à arbitrer) */
@@ -6034,9 +6034,9 @@ function editeur(racine, opts){
   /* ligne du constat d'un objet : celle de son type ; un autre appareil, celle choisie dans sa fiche (rowAutre) */
   function rowObj(o){ var ty = T[o.t] || {}; return ty.nomLibre ? rowAutre(o) : ty.row || ''; }
   /* ce que le constat compte pour les objets du groupe g : ses lignes dans l'ordre de l'étiquette, porteur compris (m141 : « Salle de
-     bain 1, Évier 1, WC 1 ») ; une ligne du formulaire sans sa précision entre parenthèses ; une ligne hors du formulaire avec « Autres : »
-     et son libellé entier, comme au constat (« Autres : Piscine (vidange) 1 » : nom saisi par l'opérateur ; M2 et M4 de la relecture) ;
-     aucun compte ne change */
+     bain 1, Évier 1, WC 1 ») ; une ligne du formulaire sans sa précision entre parenthèses ; une ligne hors du formulaire avec son libellé
+     entier, comme au constat (« Piscine (vidange) 1 » : nom saisi par l'opérateur ; M2 et M4 de la relecture), sans « Autres : » depuis
+     m147 (D14) ; aucun compte ne change */
   function comptesGroupe(g){
     var rows = constatDeduit(S.doc, S.an).rows, vus = [];
     g.objets.slice().sort(triEtiq).forEach(function(o){
@@ -6046,7 +6046,7 @@ function editeur(racine, opts){
         return;
       }
     });
-    return vus.map(function(v){ return (v.r.std ? String(v.r.label).replace(/\s*\([^)]*\)$/, '') : 'Autres : ' + v.r.label) + ' ' + v.n; }).join(', ');
+    return vus.map(function(v){ return (v.r.std ? String(v.r.label).replace(/\s*\([^)]*\)$/, '') : v.r.label) + ' ' + v.n; }).join(', ');
   }
   /* texte indicatif du champ Étiquette : celui d'office ; celui du porteur sur une ligne (M3) ; un membre renvoie à l'étiquette commune */
   function texteIndicatif(e){
@@ -6489,10 +6489,10 @@ function editeur(racine, opts){
   /* fiche d'un autre appareil (m133 ; D2 et D4 de .claude/conception-equipements.md), en tête : le nom, saisi (enregistré en quittant le
      champ) ou touché parmi les noms proposés (ceux du cadrage, puis ceux déjà employés pour ce type par les autres objets du croquis, dans
      l'ordre du dessin, sans doublon ni nom refusé [p]) ; l'abréviation (vide : tirée du nom, montrée en texte indicatif) ; le réseau (EU |
-     EP : l'autre générique, changerType) ; la ligne du constat qui le compte : « Autres : <nom> », ou une ligne du formulaire du même
-     réseau (p.row), libellée sans ses parenthèses [p] */
+     EP : l'autre générique, changerType) ; la ligne du constat qui le compte : la ligne à son nom (puce « <nom> (ligne à son nom) »,
+     m147 [p]), ou une ligne du formulaire du même réseau (p.row), libellée sans ses parenthèses [p] */
   function autreHtml(e, ty){
-    var nm = nomLibre(e.p), vus = {}, noms = [], lignes = [['', 'Autres : ' + libDe(e)]];
+    var nm = nomLibre(e.p), vus = {}, noms = [], lignes = [['', libDe(e) + ' (ligne à son nom)']];
     function proposer(x){ var c = norm(x).replace(/\s+/g, ' ').trim(); if (!c || vus[c] || nomRefuse(x)) return; vus[c] = true; noms.push([x, x]); }
     (NOMS_AUTRES[ty.nat] || []).forEach(proposer);
     S.doc.el.forEach(function(o){ if (o.k === 'pt' && o.t === e.t && o.id !== e.id) proposer(nomLibre(o.p)); });

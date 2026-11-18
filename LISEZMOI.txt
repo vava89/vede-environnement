@@ -47,7 +47,8 @@ CROQUIS DE TERRAIN (facultatif)
   l'application fonctionne comme avant (pages, constat, exports) ; les
   croquis déjà dessinés restent sur la tablette et dans les sauvegardes,
   et les anomalies qu'ils ont créées restent dans les dossiers, avec leurs
-  préconisations.
+  préconisations. Le constat imprimé n'a toutefois, avec ou sans croquis,
+  ni « Autres : » ni ligne vide (voir « Constat » plus bas).
 - Dans un dossier : « Commencer le croquis ». Choisissez le fond de plan :
   un plan cadastral DXF déjà chargé dans l'étude, un DXF de la tablette
   (cadastre.gouv.fr), ou aucun pour l'instant. Le fond reste sur la
@@ -154,7 +155,7 @@ CROQUIS DE TERRAIN (facultatif)
   trop-plein, réseau EU départemental »). Un tuyau sans sens par où l'eau
   d'un appareil peut arriver au puisard n'est pas suivi : indiquez le
   sens du trop-plein. Un drain de collecte compte au constat comme un
-  équipement (ligne « Autres : Drain »), sans point à poser : l'eau qu'il
+  équipement (ligne « Drain »), sans point à poser : l'eau qu'il
   recueille part de chacun de ses bouts, regards et raccords (vers l'aval
   si son sens est indiqué) et suit les règles des eaux pluviales ; sa
   sortie non dessinée est présumée au réseau de son tracé (le plus
@@ -295,12 +296,12 @@ CROQUIS DE TERRAIN (facultatif)
   sa fiche sur le Nom : puces Bidet, Urinoir, Ballon d'eau chaude… en EU,
   Évacuation de balcon, Avaloir de terrasse, Cour anglaise en EP, puis les
   noms déjà donnés dans le croquis. Un nom qui désigne un objet de la
-  palette est refusé : le message dit quel objet poser. Il compte sur la
-  ligne « Autres : <son nom> » (une ligne par nom et par réseau), ou sur
+  palette est refusé : le message dit quel objet poser. Il compte sur une
+  ligne à son nom (une ligne par nom et par réseau), ou sur
   la ligne du formulaire choisie dans sa fiche (« Compté au constat ») ;
   ses anomalies vont sur sa ligne. De même, les anomalies d'une
   chaudière, d'une attente, d'un drain, d'un siphon de cour ou d'un
-  trop-plein vont sur la ligne « Autres » qui compte cet objet. Une
+  trop-plein vont sur la ligne qui compte cet objet. Une
   ligne choisie à la main dans l'anomalie reste. Une anomalie saisie au
   dossier est rangée d'après son texte. Une étiquette commune (bouton
   « Étiquette commune… » de la fiche d'un appareil EU) écrit sur le plan
@@ -338,7 +339,10 @@ CROQUIS DE TERRAIN (facultatif)
   ou un lave-vaisselle nommés avec lui ont aussi leur ligne. Les écarts
   entre le croquis et le constat sont rappelés avant la signature. Un
   constat signé n'est jamais modifié, et le croquis n'y rappelle plus
-  d'écart.
+  d'écart. Le constat imprimé n'a ni « Autres : » ni ligne laissée vide
+  pour écrire à la main, avec ou sans croquis ; un constat signé avant la
+  v1.7.2 garde à la réimpression « Autres : » et ses lignes vides
+  (présentation de la v1.7.1).
 - Aides au dessin (Réglages, ou bouton aimant et palette d'accrochage
   dans le croquis) : traits parallèles au côté de bâti le plus proche,
   angles droits, accroche aux coins et façades, fin automatique d'un
@@ -494,7 +498,7 @@ MISE À JOUR DE L'APPLICATION
   les a écrites ; une tablette à jour leur rend « WC + lave-mains : … »,
   elle aussi à l'ouverture du croquis. Le WC y compte comme sur une
   tablette à jour (un WC, sans évier) ; seul y manque le rappel d'une
-  ligne « Autres : Lave-mains » saisie à côté.
+  ligne « Lave-mains » saisie à côté.
 - Mettez aussi à jour toutes les tablettes avant de poser un « Autre
   appareil » ou un « Autre ouvrage EP », et avant d'échanger une
   sauvegarde ou un dossier qui en contient. Une tablette restée en
@@ -506,13 +510,13 @@ MISE À JOUR DE L'APPLICATION
   urinoir relié aux EP ou une évacuation de balcon reliée aux EU, non
   conformes sur une tablette à jour, n'y donnent aucune anomalie, et le
   plan comme le constat peuvent y paraître conformes. Dès l'ouverture du
-  Constat, ou à la fermeture du croquis, elle retire du constat leurs
-  lignes « Autres » reprises du croquis que personne n'a modifiées, et
+  Constat, ou à la fermeture du croquis, elle retire du constat les
+  lignes à leur nom reprises du croquis que personne n'a modifiées, et
   une ligne du formulaire choisie dans leur fiche (« Compté au
   constat ») y baisse d'autant ; l'ouverture du croquis y retire du
   dossier leurs anomalies que personne n'a modifiées. Sur une tablette à
   jour, les anomalies reviennent à l'ouverture du croquis, la ligne du
-  formulaire à l'ouverture du Constat, les lignes « Autres » seulement
+  formulaire à l'ouverture du Constat, les lignes à leur nom seulement
   par « Reprendre du croquis » ; d'ici là, le Constat les rappelle. En
   v1.6.3, ou plus ancienne, le plan PDF et le DXF d'un croquis qui en
   contient ne sortent pas (message d'erreur), et leur fiche ne s'ouvre

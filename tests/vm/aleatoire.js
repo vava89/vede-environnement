@@ -25,7 +25,7 @@
 // point « Drain » est parfois posé sur le premier sommet libre d'un drain de collecte (un bout, ou un coude au milieu du drain : ce point
 // n'est pas compté comme un nœud du milieu). Ils comptent comme m121 à m123 le disent : un drain de collecte
 // actif, d'au moins deux sommets, sans point « Drain » sur un sommet, a son résultat ; un drain d'infiltration n'en a pas ; la ligne
-// « Autres : Drain » du constat en compte un par drain compté et par point « Drain » analysé ; une source n'atteint la dispersion dans le
+// « Drain » du constat en compte un par drain compté et par point « Drain » analysé ; une source n'atteint la dispersion dans le
 // sol (DISP) que par un drain d'infiltration ou, depuis m129, par le bout libre d'un drain de collecte (r.drains) ; ce qu'un drain
 // d'infiltration atteint au-delà de lui (r.apres, m129) est un exutoire dessiné qu'elle atteint (ou que le trop-plein d'un ouvrage qu'il
 // tient atteint, m145) ; ce que le trop-plein d'un puisard ou d'une infiltration au sol atteint (r.apres, r.apresPar 'tp', m145) suit cet
@@ -103,7 +103,7 @@ function comptageDrains(d, mode){
   const inf = Object.keys(L).filter(id => V.drainDe(L[id]) === 'infiltration');
   if (inf.some(id => an.resObj[id])) ko.push('drain d\'infiltration compté comme une source');
   const rd = V.constatDeduit(copie(d), an).rows.find(r => r.id === 'autre:Drain'), nb = rd ? rd.nb : 0;
-  if (nb !== att.length + pts) ko.push('ligne « Autres : Drain » ×' + nb + ', au lieu de ×' + (att.length + pts));
+  if (nb !== att.length + pts) ko.push('ligne « Drain » ×' + nb + ', au lieu de ×' + (att.length + pts));
   /* m129 : la dispersion dans le sol vient d'un drain d'infiltration, ou du bout libre d'un drain de collecte (r.drains : drains de collecte
      actifs, ni EU ni unitaires) ; ce qu'un drain d'infiltration atteint au-delà de lui (r.apres) est un exutoire dessiné atteint, ou que
      le trop-plein d'un ouvrage qu'il tient atteint (m145). m145 : ce que le trop-plein d'un puisard ou d'une infiltration au sol atteint

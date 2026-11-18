@@ -47,15 +47,15 @@
 // (« Autre ouvrage EP », EP), hors palette : p.nom (40 caractères au plus ; blanc ou autre chose qu'un texte : sans nom), p.ab (1 à 3
 // caractères), p.row (ligne du formulaire du même groupe). VCroquis.abObj(e) : lettres du symbole d'un objet ; VCroquis.nomRefuse(nom) :
 // '' si la fiche (m133) accepte le nom, sinon le texte de son refus.
-// g1 : deux « Bidet » (l'un entouré d'espaces) et un « bidet » reliés à la boîte EU : une ligne « Autres : Bidet » (clé autre:EU:bidet),
+// g1 : deux « Bidet » (l'un entouré d'espaces) et un « bidet » reliés à la boîte EU : une ligne « Bidet » (clé autre:EU:bidet),
 //   nb 3, raccordement EU_D, conforme « oui », aucune ligne du formulaire ; « bidet » dessiné d'abord : libellé « bidet » (premier objet).
 // g1 bis : « Climatisation » en EU et en EP : deux lignes (autre:EU:… et autre:EP:…), chacune jugée sur son réseau (EU_D « oui », EP_D
 //   « oui ») ; les deux reliées à la boîte EU : l'EU « oui », l'EP « non ».
 // g2 : « Urinoir » de row « wc » : ligne « WC » 1, types ["Urinoir"] ; avec un WC : 2, ["WC","Urinoir"] ; relié à la boîte EP, son
 //   anomalie « Urinoir : rejet au réseau EP » va sur l'installation « wc » (VCroquis.reconcilier) ; row d'un autre groupe (gout_av,
-//   grilles), inconnu (zz, 12) ou nom d'une propriété des objets du langage (constructor, toString) : ignoré (« Autres : Bidet ») ;
+//   grilles), inconnu (zz, 12) ou nom d'une propriété des objets du langage (constructor, toString) : ignoré (« Bidet ») ;
 //   « Avaloir de terrasse » de row « grilles » : ligne « Grilles », types ["Avaloir de terrasse"] ; de row « wc » : « Autres ».
-// g3 : sans nom (absent, '', blancs, 12, null) : une ligne « Autres : Autre appareil » (EU) et une « Autres : Autre ouvrage EP » (EP) ;
+// g3 : sans nom (absent, '', blancs, 12, null) : une ligne « Autre appareil » (EU) et une « Autre ouvrage EP » (EP) ;
 //   contrôle « Autre appareil : nom à indiquer » (« Autre ouvrage EP : … »), niveau « manque », pour chacun ; aucun une fois nommés, et la
 //   conclusion ne change pas ; un nom de 60 caractères est coupé à 40 (libellé, ligne, étiquette).
 // g4 : étiquettes « Bidet (RDC) », « Autre appareil », « ? » et « Bi » (la règle « égal à l'abréviation » ne vaut pas), « Avaloir de
@@ -72,7 +72,7 @@
 //   (purge, condensat) », « Autre appareil », « Lave-mains », « Salle d'eau », « Siphon de cour », « Trop-pleins », « Vasque », « Bac à
 //   laver »… refusés, de même « Salle d’eau » et « Lave’linge » (apostrophe typographique, celle du clavier de l'iPad) et
 //   « Lave‑mains » (trait d'union insécable) ; « Bidet », « Urinoir », « Avaloir de terrasse », « Climatisation », '' et null permis ;
-//   textes du refus de « Douche italienne » et de « Puits perdu » ; un nom refusé venu d'un fichier est lu tel quel (« Autres : Douche
+//   textes du refus de « Douche italienne » et de « Puits perdu » ; un nom refusé venu d'un fichier est lu tel quel (« Douche
 //   italienne »).
 // g8 : 200 croquis du générateur avec des génériques (option sources, D10 ; nom, abréviation et ligne tirés d'une suite à part) :
 //   la moitié au moins des génériques analysés (une source a un résultat, reliée ou non : seuls ceux « Projet » de l'état des lieux n'en
@@ -484,7 +484,7 @@ function g1(){
   const d = deuxReseaux([['G1', 'autre_eu', {nom: 'Bidet'}, 'Bu'], ['G2', 'autre_eu', {nom: '  Bidet '}, 'Bu'], ['G3', 'autre_eu', {nom: 'bidet'}, 'Bu']]), cd = constatDe(d);
   const r = rowDe(cd, 'autre:EU:bidet'), std = typeof cd === 'string' ? [] : cd.rows.filter(x => x.std && x.nb), aut = typeof cd === 'string' ? [] : cd.rows.filter(x => !x.std && x.nb);
   R.ok(r.nb === 3 && r.label === 'Bidet' && r.groupe === 'EU' && r.std === false && r.raccord === 'EU_D' && r.conforme === 'oui' && !std.length && aut.length === 1,
-    'g1 deux « Bidet » et un « bidet » : une ligne « Autres : Bidet » (autre:EU:bidet), nb 3, EU_D, « oui », aucune ligne du formulaire (obtenu ' + vueRows(cd) + ')');
+    'g1 deux « Bidet » et un « bidet » : une ligne « Bidet » (autre:EU:bidet), nb 3, EU_D, « oui », aucune ligne du formulaire (obtenu ' + vueRows(cd) + ')');
   const d2 = deuxReseaux([['G3', 'autre_eu', {nom: 'bidet'}, 'Bu'], ['G1', 'autre_eu', {nom: 'Bidet'}, 'Bu']]), c2 = constatDe(d2), r2 = rowDe(c2, 'autre:EU:bidet');
   R.ok(r2.nb === 2 && r2.label === 'bidet', 'g1 « bidet » dessiné d\'abord : libellé « bidet », celui du premier objet (obtenu ' + vueRows(c2) + ')');
 }
@@ -511,7 +511,7 @@ function g2(){
     + (a ? JSON.stringify([a.observation, a.installation]) : typeof ops === 'string' ? ops : 'aucune') + ')');
   const rows = ['gout_av', 'grilles', 'zz', 12, 'constructor', 'toString'], c3 = constatDe(deuxReseaux(rows.map((row, i) => ['B' + i, 'autre_eu', {nom: 'Bidet', row}, 'Bu'])));
   R.ok(rowDe(c3, 'autre:EU:bidet').nb === rows.length && !(c3.rows || []).some(x => x.std && x.nb), 'g2 row d\'un autre groupe, inconnu ou nom d\'une propriété des objets du langage ('
-    + rows.join(', ') + ') : ignoré, « Autres : Bidet » ×' + rows.length + ' (obtenu ' + vueRows(c3) + ')');
+    + rows.join(', ') + ') : ignoré, « Bidet » ×' + rows.length + ' (obtenu ' + vueRows(c3) + ')');
   const c4 = constatDe(deuxReseaux([['A', 'autre_ep', {nom: 'Avaloir de terrasse', row: 'grilles'}, 'Bp'], ['A2', 'autre_ep', {nom: 'Avaloir de terrasse', row: 'wc'}, 'Bp']])), g = rowDe(c4, 'grilles');
   R.ok(g.nb === 1 && JSON.stringify(g.types) === '["Avaloir de terrasse"]' && rowDe(c4, 'autre:EP:avaloir de terrasse').nb === 1 && rowDe(c4, 'wc').nb === 0,
     'g2 « Avaloir de terrasse » de row « grilles » : ligne « Grilles » ; de row « wc » (groupe EU) : « Autres » (obtenu ' + vueRows(c4) + ')');
@@ -521,7 +521,7 @@ function g3(){
   const sans = [['A0', {}], ['A1', {nom: ''}], ['A2', {nom: '   '}], ['A3', {nom: 12}], ['A4', {nom: null}]];
   const d = deuxReseaux(sans.map(([id, p]) => [id, 'autre_eu', p, 'Bu']).concat([['P0', 'autre_ep', {}, 'Bp'], ['P1', 'autre_ep', {nom: ' '}, 'Bp']])), cd = constatDe(d);
   const e = rowDe(cd, 'autre:EU:autre appareil'), p = rowDe(cd, 'autre:EP:autre ouvrage ep'), aut = typeof cd === 'string' ? [] : cd.rows.filter(x => !x.std && x.nb);
-  R.ok(aut.length === 2 && e.nb === 5 && e.label === 'Autre appareil' && p.nb === 2 && p.label === 'Autre ouvrage EP', 'g3 sans nom : « Autres : Autre appareil » ×5 et « Autres : Autre ouvrage EP » ×2 (obtenu '
+  R.ok(aut.length === 2 && e.nb === 5 && e.label === 'Autre appareil' && p.nb === 2 && p.label === 'Autre ouvrage EP', 'g3 sans nom : « Autre appareil » ×5 et « Autre ouvrage EP » ×2 (obtenu '
     + vueRows(cd) + ')');
   const an = sur(() => V.analyser(copie(d), 'edl')), ctl = an.controles ? an.controles.filter(c => /^nom:/.test(c.cle)).map(c => c.cle + ' ' + c.niveau + ' ' + c.txt).sort() : [an];
   const att = sans.map(([id]) => 'nom:' + id + ' manque Autre appareil : nom à indiquer').concat(['nom:P0 manque Autre ouvrage EP : nom à indiquer', 'nom:P1 manque Autre ouvrage EP : nom à indiquer']).sort();
@@ -607,7 +607,7 @@ function g7(){
     ['Vasque', 'Vasque : se dessine en Lavabo, compté Évier ; le lave-mains d\'un WC est sa puce « + lave-mains ».']])
     R.ok(nomRefuse(n) === att, 'g7 refus de « ' + n + ' » : « ' + att + ' » (obtenu ' + JSON.stringify(nomRefuse(n)) + ')');
   const d = deuxReseaux([['G', 'autre_eu', {nom: 'Douche italienne'}, 'Bu']]), cd = constatDe(d);
-  R.ok(libDe(elDe(d, 'G')) === 'Douche italienne' && rowDe(cd, 'autre:EU:douche italienne').nb === 1 && rowDe(cd, 'sdb').nb === 0, 'g7 nom refusé venu d\'un fichier : lu tel quel, « Autres : '
+  R.ok(libDe(elDe(d, 'G')) === 'Douche italienne' && rowDe(cd, 'autre:EU:douche italienne').nb === 1 && rowDe(cd, 'sdb').nb === 0, 'g7 nom refusé venu d\'un fichier : lu tel quel, « '
     + 'Douche italienne », salle de bain 0 (obtenu ' + vueRows(cd) + ')');
 }
 /* g8 : croquis du générateur avec des génériques (option sources) */
