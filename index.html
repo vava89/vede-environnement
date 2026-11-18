@@ -3570,10 +3570,13 @@ function croqReglagesHtml(){
   return h + '</section>';
 }
 /* destinations ajoutées (m128) : modèle modifié dans les Réglages, avec les refus de la fiche du croquis (VCroquis.destSaisie) ; seules les
-   poses suivantes en tiennent compte */
+   poses suivantes en tiennent compte. m144 (D10, S6 b, S7 a) : un nom changé est comparé aux autres modèles de la liste et aux objets de la
+   palette (VCroquis.refusNomDest) : même nom, « Fosse » : refusés, la fenêtre reste ouverte ; nom proche : la question (vcExuQuestion) ;
+   « La même » (« Le même ») remet l'ancien nom dans la fenêtre, qui reste ouverte */
 async function vcExuModifier(id){
   var V = window.VCroquis; if (!S.croq || !vcModule() || !V.modelesDe) return;
-  var m = V.modelesDe(S.croq.exutoires).filter(function(x){ return x.id === id; })[0]; if (!m) return;
+  var tous = V.modelesDe(S.croq.exutoires), m = tous.filter(function(x){ return x.id === id; })[0]; if (!m) return;
+  var listes = V.refusNomDest ? {ou: 'reglages', modeles: tous.filter(function(x){ return x.id !== id; })} : undefined, fermer = null;
   var opt = function(l, val){ return l.map(function(x){ return '<option value="' + esc(x[0]) + '"' + (x[0] === val ? ' selected' : '') + '>' + esc(x[1]) + '</option>'; }).join(''); };
   var champ = function(lib, html){ return '<label class="field"><span class="lbl">' + lib + '</span>' + html + '</label>'; };
   var res = await openModal({title: 'Modifier la destination',
@@ -3585,19 +3588,40 @@ async function vcExuModifier(id){
       + '<p class="muted small">Seules les prochaines poses en tiennent compte : une destination déjà posée garde ses champs.</p>',
     actions: [{label: 'Annuler', value: null}, {label: 'Enregistrer', cls: 'primary', collect: function(w){
       var q = function(s){ return w.querySelector(s).value; };
-      var r = V.destSaisie({nom: q('#m-dnom'), ab: q('#m-dab'), art: q('#m-dart'), ep: q('#m-dep'), cst: q('#m-dcst')}, m);
+      var r = V.destSaisie({nom: q('#m-dnom'), ab: q('#m-dab'), art: q('#m-dart'), ep: q('#m-dep'), cst: q('#m-dcst')}, m, listes);
       if (r.refus){ toast(r.refus, 4000); return false; }
+      if (r.q){
+        vcExuQuestion(r, function(x){
+          if (x.m){ if (fermer) fermer(x.m); return; }
+          /* « La même », « Le même » : le modèle garde son ancien nom, remis dans la fenêtre avec son article ; elle reste ouverte, les
+             autres champs tels quels (relecture M3, M9) */
+          var n = w.querySelector('#m-dnom'), a = w.querySelector('#m-dart');
+          if (n && n.isConnected){ n.value = m.nom; if (a) a.value = m.art; n.focus(); }
+          if (x.refus) toast(x.refus, 4000);
+        });
+        return false;
+      }
       return r.m;
     }}],
     /* l'article suit le nom tapé, comme dans la fiche courte du croquis : la fenêtre montre celui qui sera enregistré (« le » devant une
        consonne, au lieu de « l' » : à changer en « la » s'il le faut) */
-    onMount: function(w){
+    onMount: function(w, close){
+      fermer = close;
       var n = w.querySelector('#m-dnom'), a = w.querySelector('#m-dart');
       if (n && a && V.artDevant) n.addEventListener('input', function(){ a.value = V.artDevant(a.value, n.value.replace(/\s+/g, ' ').trim()); });
     }});
   if (!res || !S.croq) return;
   S.croq.exutoires = V.modelesDe(S.croq.exutoires).map(function(x){ return x.id === id ? {id: id, nom: res.nom, ab: res.ab, art: res.art, ep: res.ep, cst: res.cst} : x; });
   await croqCfgEcrire(); toast('Destination modifiée : les prochaines poses en tiendront compte.'); render();
+}
+/* question d'un nom proche (m144, S6 b), par-dessus « Modifier la destination » : fn reçoit la réponse tranchée (VCroquis.reponseNomProche) :
+   « Une autre » (« Un autre ») : les champs tapés, à enregistrer ; « La même » (« Le même » pour un objet de la palette) : le toast, le
+   modèle garde son ancien nom. Le focus va sur « Une autre » ; Échap ou le fond : la question seule se ferme */
+function vcExuQuestion(r, fn){
+  var V = window.VCroquis;
+  openModal({title: 'Nom proche', html: '<p>' + esc(r.q.texte) + '</p>', actions: [{label: r.q.non, value: 'non'}, {label: r.q.oui, value: 'oui', cls: 'primary'}], noAutofocus: true,
+    onMount: function(w){ var b = w.querySelector('[data-mi="0"]'); if (b) setTimeout(function(){ if (b.isConnected) b.focus(); }, 30); }})
+    .then(function(v){ if (v !== 'oui' && v !== 'non') return; fn(V.reponseNomProche(r, v === 'oui')); });
 }
 async function vcExuRetirer(id){
   var V = window.VCroquis; if (!S.croq || !vcModule() || !V.modelesDe) return;
@@ -3642,8 +3666,9 @@ function vcResumeCalc(v, doc){
   var rc = {}; EP_RECUP.forEach(function(q){ if (q[0] !== 'puisard' && cd.epRecup && cd.epRecup[q[0]]) rc[q[0]] = true; });
   if (Object.keys(rc).length) r.recup = rc;
   /* anomalies du dossier restées intactes que le dessin d'aujourd'hui met à jour (texte, réseau, nature, ligne du constat), par exemple un
-     dossier commencé avant une mise à jour qui range autrement un lavabo : l'éditeur les reporte à son ouverture. m133 (M2) : autresAnom, les
-     anomalies d'un autre appareil compté en « Autres » ({id de l'anomalie : id de la ligne du croquis}), que vcRangerAutres range */
+     dossier commencé avant une mise à jour qui range autrement un lavabo : l'éditeur les reporte à son ouverture. m133 (M2), m143 :
+     autresAnom, les anomalies d'un objet compté en « Autres » (autre appareil ; depuis m143, aussi chaudière, attente, drain, siphon de cour,
+     trop-plein ; {id de l'anomalie : id de la ligne du croquis}), que vcRangerAutres range */
   try { var dc = JSON.parse(JSON.stringify(doc)), ops = V.reconcilier(dc, null, anomsOf(v.id), {});
     r.aReporter = (ops.maj || []).filter(function(m){ return ['observation', 'preconisation', 'reseau', 'nc', 'installation'].some(function(k){ return m.champs && m.champs[k] !== undefined; }); }).length;
     r.autresAnom = ops.autres && typeof ops.autres === 'object' ? ops.autres : {}; } catch(e){ r.aReporter = 0; r.autresAnom = {}; }
@@ -3759,8 +3784,9 @@ var VC_BOITE_CHAMPS = ['distEU', 'distEP', 'profEU', 'profEP'];
 /* anomalie dont la ligne suit encore le croquis : installation égale à la valeur notée par le croquis. Seule celle-là est rangée, ou
    rappelée par vcEcarts ; une ligne choisie par le technicien, « Aucune » comprise, reste la sienne (relecture de m133, M3) */
 function vcAutreSuit(a){ var au = a && a.croquis && a.croquis.auto; return !!au && typeof au === 'object' && (a.installation || '') === au.installation; }
-/* m133 (M2 de la relecture de m132) : anomalie d'un autre appareil compté en « Autres » (bidet, urinoir…), rangée sur la ligne du constat
-   que vcApparier lie à la ligne du croquis de cet appareil (res.autresAnom, que donne VCroquis.reconcilier) ; sans ligne liée, sur aucune
+/* m133 (M2 de la relecture de m132), m143 : anomalie d'un objet compté en « Autres » (autre appareil : bidet, urinoir… ; depuis m143,
+   aussi chaudière, attente, drain, siphon de cour, trop-plein), rangée sur la ligne du constat que vcApparier lie à la ligne du croquis de
+   cet objet (res.autresAnom, que donne VCroquis.reconcilier) ; sans ligne liée, sur aucune
    (vcEcarts le rappelle). La valeur écrite est notée dans croquis.auto.installation, comme celles que l'éditeur écrit : ni retouche, ni
    « à reporter ». Une ligne choisie par le technicien (installation autre que la valeur notée) reste la sienne ; un constat signé n'est
    jamais modifié, ses anomalies non plus. Rend le nombre d'anomalies rangées */
@@ -3782,8 +3808,8 @@ function vcRangerAutres(v, c, res){
 }
 function constatDepuisCroquis(v, res, suivi){
   if (!res || !vcPret() || (v.constat && v.constat.signeLe) || constatNonEffectue(v)) return 0;
-  /* constat jamais repris du croquis : le croquis n'y touche pas ; les anomalies des autres appareils vont quand même sur leur ligne, s'il
-     en a une (m133) */
+  /* constat jamais repris du croquis : le croquis n'y touche pas ; les anomalies des objets comptés en « Autres » vont quand même sur
+     leur ligne, s'il en a une (m133, m143) */
   if (suivi && !(v.constat && v.constat.croqAuto)) return v.constat ? vcRangerAutres(v, v.constat, res) : 0;
   var neuf = !v.constat, c = constatOf(v), P = vcProvenance(c), n = 0, vus = {}, boiteNeuve = false;
   /* valeurs reprises d'un autre croquis (supprimé puis recommencé) : elles restent, comme saisies par le technicien */
@@ -3851,7 +3877,8 @@ function constatDepuisCroquis(v, res, suivi){
       });
     });
   }
-  /* anomalies des autres appareils (m133) : rangées sur leur ligne, celle que cet appel vient de créer comprise ; comptées dans le total */
+  /* anomalies des objets comptés en « Autres » (m133, m143) : rangées sur leur ligne, celle que cet appel vient de créer comprise ;
+     comptées dans le total */
   var k = vcRangerAutres(v, c, res);
   if (n) constatTouch(v);
   /* « Reprendre du croquis » sans rien à reprendre : la provenance de la boîte, créée ici, est enregistrée quand même (sans changer la date
@@ -3894,7 +3921,7 @@ function vcEcarts(v, c){
   var conf = {}; try { constatEval(v, anomsOf(v.id)).rows.forEach(function(x){ conf[x.r.id] = x.conf; }); } catch(e){}
   /* m132 : même appariement que la reprise (vcApparier), sans poser de lien : deux lignes du croquis ne se comparent plus à la même ligne */
   var lien = vcApparier(c, res);
-  /* m133 (M2) : anomalies d'un autre appareil compté en « Autres » qui ne sont rangées sur aucune ligne, faute de la ligne de l'appareil au
+  /* m133 (M2), m143 : anomalies d'un objet compté en « Autres » qui ne sont rangées sur aucune ligne, faute de la ligne de l'objet au
      constat (vcRangerAutres n'a rien pour elles) ; seulement celles que la reprise y rangera (vcAutreSuit) : une anomalie que le technicien
      a mise sur « Aucune » n'est pas rappelée */
   var LA = anomsOf(v.id).filter(function(a){ return !a.brouillon; }), AA = res.autresAnom && typeof res.autresAnom === 'object' ? res.autresAnom : {};

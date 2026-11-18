@@ -875,18 +875,159 @@ function champDest(k, val, nom0){
 /* modèle de destination saisi (fiche courte de l'éditeur, Réglages de l'application ; m128) : s, les cinq champs tels que saisis ; m0, le
    modèle d'avant (Réglages) : quand le nom change, une abréviation tirée de l'ancien nom et restée telle quelle suit le nouveau, et un
    article resté tel quel se règle sur lui, comme dans la fiche. Rend {m, refus} : m, les cinq champs retenus (lus par destDe), ou null ;
-   refus, le texte du toast de la fiche ('' : accepté) */
-function destSaisie(s, m0){
+   refus, le texte du toast de la fiche ('' : accepté).
+   m144 (D10) : l, facultatif, dit où l'on saisit et ce qui existe déjà ({ou: 'palette' ou 'reglages', modeles, plan} : voir refusNomDest).
+   Avec lui, un nom nouveau (dans les Réglages : changé) est aussi comparé aux autres destinations ; un refus dit son champ (champ : 'nom' ou
+   'ab', où mettre le focus) ; un nom proche rend la question à poser (q, avec m : les champs tapés) ; une destination posée de même nom,
+   même abréviation (ou l'abréviation laissée vide) et mêmes jugements est acceptée et donne son abréviation et son article. Sans l, le
+   résultat ne change pas */
+function destSaisie(s, m0, l){
   s = s || {};
   var rN = champDest('nom', s.nom), ab = s.ab == null ? '' : String(s.ab), art = s.art;
-  if (rN.refus) return {m: null, refus: rN.refus};
+  var refus = function(t, champ){ return l ? {m: null, refus: t, champ: champ} : {m: null, refus: t}; };
+  if (rN.refus) return refus(rN.refus, 'nom');
   if (m0 && rN.v !== m0.nom){
     if (ab.replace(/\s+/g, ' ').trim() === m0.ab && (m0.ab === abDe(m0.nom) || m0.ab === m0.nom.slice(0, 2))) ab = '';
     if (art === m0.art) art = artDevant(m0.art, rN.v);
   }
   var rA = champDest('ab', ab, rN.v);
-  if (rA.refus) return {m: null, refus: rA.refus};
-  return {m: destDe({p: {nom: rN.v, ab: rA.v, art: art, ep: s.ep, cst: s.cst}}), refus: ''};
+  if (rA.refus) return refus(rA.refus, 'ab');
+  var m = destDe({p: {nom: rN.v, ab: rA.v, art: art, ep: s.ep, cst: s.cst}});
+  if (l && !(m0 && rN.v === m0.nom)){
+    /* une abréviation laissée vide est passée vide : refusNomDest reprend alors celle de la destination posée de même nom (relecture M5) */
+    var rq = refusNomDest(ab.replace(/\s+/g, ' ').trim() ? m : Object.assign({}, m, {ab: ''}), l);
+    if (rq && rq.refus) return refus(rq.refus, 'nom');
+    if (rq && rq.q) return {m: m, refus: '', q: rq.q};
+    if (rq && rq.reprise){ m.ab = rq.reprise.ab; m.art = rq.reprise.art; }
+  }
+  return {m: m, refus: ''};
+}
+/* noms de destination comparés (m144 ; D10, réponses du 16 nov. 2026, S6 b et S7 a). Forme d'un nom (canonDest) : accents ôtés et
+   minuscules (œ, æ : oe, ae), signes changés en espaces, articles de tête ôtés (le, la, les, l, un, une, des, du, de, d ; jamais le dernier
+   mot), lettre doublée comptée une fois, s ou x final ôté d'un mot sans chiffre de 4 lettres ou plus, mots collés ; repères : les mots qui
+   portent un chiffre ou n'ont qu'une lettre, triés. « L'Étang-du-Bas 2 » : etangdubas2, repère 2. nomCle et cleDest (clé du rejet) ne
+   changent pas */
+function canonDest(nom){
+  var s = String(nom == null ? '' : nom).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/\u0153/g, 'oe').replace(/\u00e6/g, 'ae').replace(/[^a-z0-9]+/g, ' ').trim();
+  var m = s ? s.split(' ') : [];
+  while (m.length > 1 && /^(le|la|les|l|un|une|des|du|de|d)$/.test(m[0])) m.shift();
+  m = m.map(function(w){ return /^[a-z]+$/.test(w) ? w.replace(/([a-z])\1+/g, '$1') : w; });
+  m = m.map(function(w){ return w.length >= 4 && /^[a-z]+$/.test(w) ? w.replace(/[sx]$/, '') : w; });
+  return {forme: m.join(''), reperes: m.filter(function(w){ return /[0-9]/.test(w) || w.length === 1; }).sort().join(' ')};
+}
+/* distance entre deux formes : lettres ôtées, ajoutées, changées ou deux voisines inversées (Damerau restreinte, dite OSA) */
+function distDest(a, b){
+  a = String(a == null ? '' : a); b = String(b == null ? '' : b);
+  var d = [], i, j, c;
+  for (i = 0; i <= a.length; i++) d[i] = [i];
+  for (j = 0; j <= b.length; j++) d[0][j] = j;
+  for (i = 1; i <= a.length; i++) for (j = 1; j <= b.length; j++){
+    c = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1;
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + c);
+    if (i > 1 && j > 1 && a.charAt(i - 1) === b.charAt(j - 2) && a.charAt(i - 2) === b.charAt(j - 1)) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+  }
+  return d[a.length][b.length];
+}
+/* degré de deux noms : 'meme' (même forme ; deux formes vides : même nomCle), 'proche' (mêmes repères, une faute au plus de 5 à 9 lettres,
+   deux dès 10, comptées sur la forme la plus courte ; jamais sous 5 lettres), sinon '' */
+function degreFormes(a, b, x, y){
+  if (a.forme === b.forme) return a.forme || nomCle(x) === nomCle(y) ? 'meme' : '';
+  if (a.reperes !== b.reperes) return '';
+  var n = Math.min(a.forme.length, b.forme.length), lim = n < 5 ? 0 : n < 10 ? 1 : 2;
+  return lim && distDest(a.forme, b.forme) <= lim ? 'proche' : '';
+}
+function degreDest(x, y){ return degreFormes(canonDest(x), canonDest(y), x, y); }
+/* objets de la palette qu'un nom de destination ne doit pas doubler (comparés par leur libellé) ; refus de « Fosse » (S7 a) */
+var DEST_OBJETS = ['puisard', 'infiltration', 'gargouille', 'milieu', 'fosse', 'exutoire'];
+var REFUS_FOSSE = 'Pour une fosse septique, posez l\'objet Fosse septique ; pour un fossé, écrivez « Fossé ».';
+function refusObjet(lib){ return '« ' + lib + ' » est un objet de la palette : posez l\'objet ' + lib + '.'; }
+/* nom d'une destination comparé à ceux qui existent (m144 ; D10, F9, S6 b, S7 a) : s, la destination saisie (ses champs, ou son seul nom) ;
+   l.ou, où on la saisit : 'palette' (« + Nouvelle destination »), 'fiche' (destination posée renommée) ou 'reglages' (modèle renommé) ;
+   l.modeles, les modèles de la tablette (dans les Réglages : sauf celui qu'on renomme) ; l.plan, les champs des destinations posées sur le
+   plan ouvert, sauf celle qu'on renomme (ni dans les Réglages, ni au chargement, à la restauration, à l'import ou d'une tablette à l'autre :
+   rien n'y est comparé) ; l.nom0 (fiche), le nom d'avant de la destination qu'on renomme. Dans l'ordre :
+   - « Fosse » sans accent (forme « fose ») : refusé (REFUS_FOSSE) ; « Fossé » est un autre nom ;
+   - même nom qu'un objet de la palette : refusé (refusObjet) ;
+   - palette : même nom qu'un modèle : refusé (« choisissez-la dans la palette ») ; même nom qu'une destination posée : accepté, avec son
+     abréviation et son article (reprise), s'il est écrit de même, de même abréviation (ou l'abréviation laissée vide : s.ab vide ;
+     relecture M5) et de mêmes jugements, sinon refusé (« déjà posée sur ce plan ») ;
+   - Réglages : même nom qu'un autre modèle : refusé (« existe déjà dans la liste ») ;
+   - fiche : écrit comme une destination posée de mêmes jugements, ou, si aucune destination posée n'est écrite de même, comme un modèle
+     de mêmes jugements : accepté, avec son abréviation et son article (reprise) ; un nom qui ne change que par les accents, les majuscules
+     ou les espaces garde sa clé de rejet (même nomCle que l.nom0) : accepté, sans autre comparaison (relecture M1 : une orthographe se
+     corrige même quand une autre destination ou un modèle garde l'ancienne) ; écrit comme une destination posée d'autres jugements :
+     refusé (« déjà posée sur ce plan » ; relecture M7 : même si un modèle écrit de même a les mêmes jugements), comme un modèle d'autres
+     jugements : refusé (« choisissez-la dans la palette ») ; écrit autrement : refusé (« écrivez « … » pour la même ») ;
+   - nom proche (objets, modèles, puis destinations posées ; le plus proche, à égalité dans cet ordre) : la question (q : texte, libellés
+     des deux réponses, objet : le type de l'objet ou '', ou, cible : l'objet, le modèle ou la destination), que reponseNomProche tranche.
+   Rend null (accepté), {refus}, {reprise: {ab, art}} ou {q} */
+function refusNomDest(s, l){
+  l = l || {};
+  var brut = typeof s === 'string' ? s : s && s.nom;
+  if (typeof brut !== 'string' || !brut.replace(/\s+/g, ' ').trim()) return null;
+  var sd = destDe({p: typeof s === 'string' ? {nom: s} : s}), c = canonDest(sd.nom), ou = l.ou;
+  if (c.forme === 'fose' && !/[\u0300-\u036f]/.test(sd.nom.normalize('NFD'))) return {refus: REFUS_FOSSE};
+  var cands = [];
+  DEST_OBJETS.forEach(function(t){ var ty = Object.prototype.hasOwnProperty.call(T, t) ? T[t] : null; if (ty) cands.push({sorte: 'objet', t: t, nom: ty.lib}); });
+  (Array.isArray(l.modeles) ? l.modeles : []).forEach(function(x){ if (x && typeof x.nom === 'string') cands.push({sorte: 'modele', m: x, nom: destDe({p: x}).nom}); });
+  if (ou !== 'reglages') (Array.isArray(l.plan) ? l.plan : []).forEach(function(x){ if (x && typeof x.nom === 'string') cands.push({sorte: 'plan', m: x, nom: destDe({p: x}).nom}); });
+  cands.forEach(function(x){ x.deg = degreFormes(c, canonDest(x.nom), sd.nom, x.nom); });
+  var memes = function(sorte){ return cands.filter(function(x){ return x.deg === 'meme' && (!sorte || x.sorte === sorte); }); };
+  var pareil = function(x){ var d = destDe({p: x.m}); return d.ep === sd.ep && d.cst === sd.cst; };
+  var obj = memes('objet')[0]; if (obj) return {refus: refusObjet(obj.nom)};
+  if (ou === 'palette'){
+    var mo = memes('modele')[0]; if (mo) return {refus: 'Une destination « ' + mo.nom + ' » existe déjà : choisissez-la dans la palette.'};
+    var abVide = typeof s === 'string' || !(typeof s.ab === 'string' && s.ab.replace(/\s+/g, ' ').trim());
+    var pls = memes('plan'), pl = pls.filter(function(x){ var dp = destDe({p: x.m}); return dp.nom === sd.nom && (abVide || dp.ab === sd.ab) && pareil(x); })[0];
+    if (pl){ var dp = destDe({p: pl.m}); return {reprise: {ab: dp.ab, art: dp.art}}; }
+    if (pls.length) return {refus: 'Une destination « ' + pls[0].nom + ' » est déjà posée sur ce plan : reprenez ce nom et ses jugements, ou choisissez un nom bien différent.'};
+  } else if (ou === 'reglages'){
+    var mr = memes('modele')[0]; if (mr) return {refus: 'Une destination « ' + mr.nom + ' » existe déjà dans la liste.'};
+  } else if (ou === 'fiche'){
+    var exact = function(x){ return x.nom === sd.nom; }, exP = memes('plan').filter(exact), exM = memes('modele').filter(exact);
+    var rep = exP.filter(pareil)[0] || (exP.length ? null : exM.filter(pareil)[0]);
+    if (rep){ var dr = destDe({p: rep.m}); return {reprise: {ab: dr.ab, art: dr.art}}; }
+    if (typeof l.nom0 === 'string' && nomCle(l.nom0) === nomCle(sd.nom)) return null;
+    if (exP.length) return {refus: 'Une destination « ' + exP[0].nom + ' » est déjà posée sur ce plan : reprenez ce nom et ses jugements, ou choisissez un nom bien différent.'};
+    if (exM.length) return {refus: 'Une destination « ' + exM[0].nom + ' » existe déjà : choisissez-la dans la palette.'};
+    var f = memes('modele')[0] || memes('plan')[0];
+    if (f) return {refus: 'Une destination « ' + f.nom + ' » existe déjà : écrivez « ' + f.nom + ' » pour la même, ou un nom bien différent.'};
+  }
+  var pr = null, dmin = Infinity;
+  cands.forEach(function(x){ if (x.deg !== 'proche') return; var dx = distDest(c.forme, canonDest(x.nom).forme); if (dx < dmin){ dmin = dx; pr = x; } });
+  if (!pr) return null;
+  return {q: pr.sorte === 'objet'
+    ? {texte: 'Nom proche de « ' + pr.nom + ' », objet de la palette : est-ce le même ?', oui: 'Le même', non: 'Un autre', objet: pr.t, ou: ou, cible: {t: pr.t, nom: pr.nom}}
+    : {texte: 'Nom proche de « ' + pr.nom + ' », qui existe déjà : est-ce la même destination ?', oui: 'La même', non: 'Une autre', objet: '', ou: ou,
+      cible: pr.sorte === 'modele' ? Object.assign({}, destDe({p: pr.m}), {id: pr.m.id}) : destDe({p: pr.m})}};
+}
+/* réponse à la question d'un nom proche (m144, S6 b) : r, le résultat qui la porte (destSaisie, ou refusNomDest dans la fiche) ; oui, « La
+   même » (« Le même »). Rend {m, pose, refus} :
+   - palette : « La même » : pose, l'outil du modèle (avec son identifiant) ou de la destination posée (ses champs, sans modèle) ; « Le
+     même » d'un objet : son outil ({k, t} ; la palette s'y ajoute) ; « Une autre » : m, les champs tapés, à enregistrer ;
+   - fiche : « La même » : m, les cinq champs de l'autre destination, à reprendre ; « Le même » d'un objet : refus, l'ancien nom reste ;
+     « Une autre » : rien (le nom tapé s'écrit) ;
+   - Réglages : « La même », « Le même » : refus, le toast (« existe déjà dans la liste », ou celui de l'objet) ; le modèle garde son
+     ancien nom, que l'application remet dans la fenêtre restée ouverte, les autres champs tels quels (relecture M3, M9) ; « Une autre » :
+     m, les champs tapés */
+function reponseNomProche(r, oui){
+  var q = r && r.q, rien = {m: null, pose: null, refus: ''};
+  if (!q) return rien;
+  if (q.ou === 'palette'){
+    if (!oui) return {m: r.m || null, pose: null, refus: ''};
+    if (q.objet) return {m: null, pose: {k: 'pt', t: q.objet}, refus: ''};
+    var pose = {k: 'pt', t: 'exutoire', modele: destDe({p: q.cible})}; if (q.cible && q.cible.id) pose.mid = q.cible.id;
+    return {m: null, pose: pose, refus: ''};
+  }
+  if (q.ou === 'fiche'){
+    if (!oui) return rien;
+    if (q.objet) return {m: null, pose: null, refus: refusObjet(q.cible.nom)};
+    var c = destDe({p: q.cible});
+    return {m: {nom: c.nom, ab: c.ab, art: c.art, ep: c.ep, cst: c.cst}, pose: null, refus: ''};
+  }
+  if (!oui) return {m: r.m || null, pose: null, refus: ''};
+  return {m: null, pose: null, refus: q.objet ? refusObjet(q.cible.nom) : 'Une destination « ' + q.cible.nom + ' » existe déjà dans la liste.'};
 }
 /* destinations ajoutées (m128 ; D3, D10) : modèles de la tablette, lus dans la liste l (Réglages de l'application, croquisConfig.exutoires ;
    labo, 'vcl-exutoires'). Gardés : ceux dont l'identifiant est sûr (lettres, chiffres, - et _ : ni « : » ni guillemet ; tiré par
@@ -942,6 +1083,8 @@ VC.EXU = EXU; VC.libExu = libExu; VC.destDe = destDe; VC.estDest = estDest;
 /* destinations ajoutées (m128) : pour les Réglages de l'application */
 VC.DEST_EP = DEST_EP; VC.DEST_CST = DEST_CST; VC.DEST_ARTS = DEST_ARTS; VC.DEST_EPS = DEST_EPS; VC.DEST_CSTS = DEST_CSTS;
 VC.champDest = champDest; VC.destSaisie = destSaisie; VC.modelesDe = modelesDe; VC.artDevant = artDevant;
+/* noms de destination comparés (m144) : pour les Réglages de l'application et les tests */
+VC.canonDest = canonDest; VC.distDest = distDest; VC.degreDest = degreDest; VC.refusNomDest = refusNomDest; VC.reponseNomProche = reponseNomProche;
 /* Codes de l'application (constat) ; caméra et déclaré s'y ajoutent */
 var METH = [['visuel', 'Visuel', 'V'], ['eau', 'Eau', 'E'], ['fluo', 'Colorant', 'Fl'], ['fumee', 'Fumée', 'Fu'], ['reso', 'Résonance', 'R'], ['camera', 'Caméra', 'Ca'], ['declare', 'Déclaré', 'D']];
 /* puces du Niveau de la fiche (m130 ; D7) : p.niv garde ses trois codes ('ss', 'rdc', 'etage'), l'étage précis se lit en valeur composée
@@ -5618,12 +5761,13 @@ function editeur(racine, opts){
     S.palette = k; var P = PALETTES[k], items = [];
     /* destinations ajoutées (m128 ; D10) : après « Autre destination », un item par modèle de la tablette ('pt:exutoire:<id>'), puis
        « + Nouvelle destination » ; ajoutés à chaque ouverture (PALETTES est figé au chargement). Nom, symbole et état actif viennent du
-       modèle ; « Autre destination » n'est active que sans modèle de la tablette */
+       modèle ; « Autre destination » n'est active que sans modèle de la tablette, ni les champs d'une destination posée (m144, « La même »
+       face à une destination absente de la palette : l'outil porte ses champs, sans identifiant ; relecture M2, M11) */
     P.items.forEach(function(it){ items.push(it); if (it === 'pt:exutoire'){ S.exutoires.forEach(function(m){ items.push('pt:exutoire:' + m.id); }); items.push('nv:exutoire'); } });
     pal.innerHTML = '<h3>' + esc(P.lib) + '</h3><div class="vc-pgrille">' + items.map(function(it){
       var q = it.split(':'), lib, sous = '', svg, actif = false, m = q[0] === 'pt' && q[2] ? modeleExu(q[2]) : null;
       if (m){ lib = m.nom; svg = symboleSvg(q[1], 38, defautsPt(q[1], m)); actif = S.outil.k === 'pt' && S.outil.t === q[1] && S.outil.mid === m.id; }
-      else if (q[0] === 'pt'){ lib = T[q[1]].lib; svg = symboleSvg(q[1], 38); actif = S.outil.k === 'pt' && S.outil.t === q[1] && !S.outil.mid; }
+      else if (q[0] === 'pt'){ lib = T[q[1]].lib; svg = symboleSvg(q[1], 38); actif = S.outil.k === 'pt' && S.outil.t === q[1] && !S.outil.mid && !S.outil.modele; }
       else if (q[0] === 'nv'){ lib = '+ Nouvelle destination'; svg = '<span class="vc-ptx">' + ico('plus', 30) + '</span>'; }
       else if (q[0] === 'ln'){ var oo = OUTILS_LN[q[1]]; lib = oo.lib; sous = oo.sous || ''; svg = oo.relier ? '<span class="vc-ptx">' + ico('relier', 30) + '</span>' : oo.t === 'esc' ? escalierSvg(38) : sorteDrain(oo.p && oo.p.drain) ? drainSvg(oo.p.drain, 38) : traitSvg(oo.res, oo.st, 38); actif = S.outil.k === 'ln' && S.outil.id === q[1]; }
       else { lib = 'Texte libre'; svg = '<span class="vc-ptx">' + ico('texte', 30) + '</span>'; actif = S.outil.k === 'tx'; }
@@ -5899,18 +6043,24 @@ function editeur(racine, opts){
   }
   var tToast = null;
   function toast(msg, ms){ var t = R.querySelector('.vc-toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(tToast); tToast = setTimeout(function(){ t.classList.remove('on'); }, ms || 2600); }
+  /* dialogue de l'éditeur. m144 : o.cls, classe de plus ; o.sansAnnuler, sans bouton « Annuler » (le focus va sur o.autre) ; o.annulerFn,
+     appelée quand il se ferme sans réponse (Échap, fond, fermerNiveau par d.vcFermer) ; rend le dialogue */
   function demander(titre, val, fn, o){
     o = o || {};
-    var d = document.createElement('div'); d.className = 'vc-modal';
+    var d = document.createElement('div'); d.className = 'vc-modal' + (o.cls ? ' ' + o.cls : '');
     d.innerHTML = '<div class="vc-mboite" role="dialog" aria-modal="true" aria-label="' + esc(titre) + '"><h3>' + esc(titre) + '</h3>' + (o.texte ? '<p>' + esc(o.texte) + '</p>' : '')
       + (o.confirmer ? '' : (o.long ? '<textarea rows="3"></textarea>' : '<input type="text" autocomplete="off"' + (o.num ? ' inputmode="numeric"' : '') + '>'))
-      + '<div class="vc-mact"><button type="button" class="vc-b vc-bt" data-r="0">Annuler</button>' + (o.autre ? '<button type="button" class="vc-b vc-bt" data-r="2">' + esc(o.autre) + '</button>' : '')
+      + '<div class="vc-mact">' + (o.sansAnnuler ? '' : '<button type="button" class="vc-b vc-bt" data-r="0">Annuler</button>') + (o.autre ? '<button type="button" class="vc-b vc-bt" data-r="2">' + esc(o.autre) + '</button>' : '')
       + '<button type="button" class="vc-b vc-bt vc-prim' + (o.danger ? ' vc-danger' : '') + '" data-r="1">' + esc(o.ok || 'Valider') + '</button></div></div>';
     R.appendChild(d);
     var inp = d.querySelector('input,textarea');
     if (inp){ inp.value = val || ''; setTimeout(function(){ inp.focus(); inp.select && inp.select(); }, 30); }
-    else setTimeout(function(){ var b0 = d.querySelector('[data-r="0"]'); if (b0 && d.isConnected) b0.focus(); }, 30);
-    function fermer(r){ d.remove(); if (r === '1') fn(inp ? inp.value : true); else if (r === '2' && o.autreFn) o.autreFn(); }
+    else setTimeout(function(){ var b0 = d.querySelector(o.sansAnnuler ? '[data-r="2"]' : '[data-r="0"]'); if (b0 && d.isConnected) b0.focus(); }, 30);
+    function fermer(r){
+      if (!d.isConnected) return; d.remove();
+      if (r === '1') fn(inp ? inp.value : true); else if (r === '2' && o.autreFn) o.autreFn(); else if (r === '0' && o.annulerFn) o.annulerFn();
+    }
+    d.vcFermer = function(){ fermer('0'); };
     /* au doigt, le clic que le navigateur produit à la fin du toucher qui a ouvert ce dialogue tombe dessus : sans appui sur le dialogue, il est avalé (400 ms) ;
        le clavier n'est jamais filtré (Entrée ou Espace sur un bouton) */
     var t0 = Date.now(), appui = false;
@@ -5919,13 +6069,30 @@ function editeur(racine, opts){
     d.addEventListener('click', function(ev){ var b = ev.target.closest('[data-r]'); if (b) fermer(b.dataset.r); else if (ev.target === d) fermer('0'); });
     /* Entrée valide depuis le champ seulement : sur un bouton, c'est le bouton choisi qui agit (jamais « Valider » à la place d'« Annuler ») */
     d.addEventListener('keydown', function(ev){ if (ev.key === 'Escape'){ ev.stopPropagation(); fermer('0'); } else if (ev.key === 'Enter' && inp && ev.target === inp && inp.tagName !== 'TEXTAREA'){ ev.preventDefault(); fermer('1'); } });
+    return d;
+  }
+  /* question d'un nom proche (m144, S6 b) : « Nom proche », deux réponses sans « Annuler » : q.oui (« La même », « Le même »), bouton
+     principal, et q.non (« Une autre », « Un autre »), qui garde le nom tapé et prend le focus ; fn(oui) ; Échap, le fond : annule() seul */
+  function questionNom(q, fn, annule){
+    return demander('Nom proche', '', function(){ fn(true); }, {texte: q.texte, confirmer: true, ok: q.oui, autre: q.non, autreFn: function(){ fn(false); },
+      sansAnnuler: true, annulerFn: annule, cls: 'vc-mnom'});
+  }
+  /* ce à quoi comparer le nom d'une destination (m144 ; refusNomDest) : les modèles de la tablette et les destinations posées sur le plan
+     ouvert, sauf e (celle qu'on renomme), et le nom d'avant de e (nom0) */
+  function listesDest(ou, e){
+    var l = {ou: ou, modeles: S.exutoires, plan: ((S.doc && S.doc.el) || []).filter(function(x){ return x !== e && x.k === 'pt' && estDest(x.t); }).map(function(x){ return destDe(x); })};
+    if (e) l.nom0 = destDe(e).nom;
+    return l;
   }
   /* « + Nouvelle destination » (m128 ; D3, D10) : fiche courte des cinq champs d'une destination. Au départ : nom vide, abréviation tirée
      du nom tant qu'on ne la saisit pas, « le », « à arbitrer » (à trancher dans le croquis, Contrôles), « autre » ; l'article suit le nom
      saisi (artDevant), comme dans la fiche. Un nom vide, qui contient « puits » ou illisible au PDF, une abréviation de longueur fausse ou
      illisible : refusés avec le toast de la fiche, la fiche courte reste ouverte avec la saisie. « Enregistrer » ajoute le modèle à ceux de
      la tablette (identifiant tiré ici, jamais le nom ; opts.enregistrerExutoires) et arme l'outil de pose. Un modèle ne sert qu'à la pose :
-     le changer ou le retirer ne touche aucun objet posé */
+     le changer ou le retirer ne touche aucun objet posé.
+     m144 (D10, S6 b, S7 a) : le nom est comparé aux modèles, aux destinations posées et aux objets de la palette (destSaisie, refusNomDest) :
+     même nom, « Fosse » : refusés de même ; nom proche : la question, par-dessus la fiche courte ; « La même » arme l'outil de l'existante
+     (« Le même » : celui de l'objet), sans modèle de plus ; « Une autre » enregistre le nom tapé ; Échap : la question seule se ferme */
   function nouvelleDestination(pal){
     var d = document.createElement('div'), v = {art: 'le', ep: 'arbitrer', cst: 'autre'}, abSaisie = false;
     d.className = 'vc-modal vc-mdest';
@@ -5948,11 +6115,24 @@ function editeur(racine, opts){
     });
     /* abréviation vidée : elle suit de nouveau le nom */
     iA.addEventListener('input', function(){ abSaisie = !!iA.value.trim(); });
+    var qEl = null;
     function enregistrer(){
-      var r = destSaisie({nom: iN.value, ab: abSaisie ? iA.value : '', art: v.art, ep: v.ep, cst: v.cst});
-      if (r.refus){ toast(r.refus, 4000); (champDest('nom', iN.value).refus ? iN : iA).focus(); return; }
+      if (qEl && qEl.isConnected) return;
+      var r = destSaisie({nom: iN.value, ab: abSaisie ? iA.value : '', art: v.art, ep: v.ep, cst: v.cst}, null, listesDest('palette'));
+      if (r.refus){ toast(r.refus, 4000); (r.champ === 'ab' ? iA : iN).focus(); return; }
+      if (r.q){
+        qEl = questionNom(r.q, function(oui){
+          if (!d.isConnected) return;
+          var x = reponseNomProche(r, oui);
+          if (x.pose){ d.remove(); choisirOutil(Object.assign({pal: pal || 'equ'}, x.pose)); } else if (x.m) creer(x.m);
+        }, function(){ if (d.isConnected) iN.focus(); });
+        return;
+      }
+      creer(r.m);
+    }
+    function creer(c){
       var id; do { id = uid(); } while (modeleExu(id));
-      var m = {id: id, nom: r.m.nom, ab: r.m.ab, art: r.m.art, ep: r.m.ep, cst: r.m.cst};
+      var m = {id: id, nom: c.nom, ab: c.ab, art: c.art, ep: c.ep, cst: c.cst};
       S.exutoires = S.exutoires.concat([m]);
       if (opts.enregistrerExutoires) try { opts.enregistrerExutoires(S.exutoires.map(function(x){ return Object.assign({}, x); })); } catch(e){}
       d.remove();
@@ -6686,6 +6866,29 @@ function editeur(racine, opts){
     suivreCommun(e);
     changement(o);
   }
+  /* nom ou abréviation d'une destination écrits depuis la fiche (m127), d0 : ses champs d'avant. m144 : rep, l'abréviation et l'article
+     d'une autre destination écrite de même (refusNomDest) : repris, chacun seulement s'il diffère, sans le toast de l'article */
+  function ecrireDestTxt(e, d0, kT, sT, rep){
+    instantane(); e.p[kT] = sT;
+    var artT = kT === 'nom' ? (rep ? rep.art : artDevant(d0.art, sT)) : d0.art;
+    if (kT === 'nom'){
+      if (rep){ if (destDe(e).ab !== rep.ab) e.p.ab = rep.ab; }
+      else if (d0.ab === abDe(d0.nom) || d0.ab === d0.nom.slice(0, 2)) e.p.ab = abDe(sT);
+      if (destDe(e).art !== artT) e.p.art = artT;
+    }
+    apresProp(e, {garderPanneau: true});
+    if (!rep && d0.art === 'l\'' && artT === 'le') toast('Article « le » : touchez « la » s\'il le faut', 4000);
+    majPanneauBientot();
+  }
+  /* « La même » (m144, S6 b) : la destination e reprend les cinq champs c d'une autre (nom, abréviation, article, jugement, case), d'où
+     une seule clé de rejet ; un pas d'annulation, seuls les champs qui diffèrent sont écrits ; le jugement changé retire les décisions des
+     rejets qui y aboutissent (oublierJugement) */
+  function reprendreDest(e, c){
+    var ep0 = destDe(e).ep; instantane();
+    ['nom', 'ab', 'art', 'ep', 'cst'].forEach(function(k){ if (destDe(e)[k] !== c[k]) e.p[k] = c[k]; });
+    if (destDe(e).ep !== ep0) oublierJugement(e.id);
+    apresProp(e, {garderPanneau: true}); majPanneauBientot();
+  }
   /* changement de type par le sélecteur Type de la fiche (extrait du gestionnaire en m130) : un pas d'annulation ; les champs du nouveau type
      reprennent la valeur qu'ils avaient ; meth, niv, obs, st et etiq sont gardés ; a suit le nouveau type (repris s'il est orienté, sinon
      effacé), sans toast ; tout autre champ non vide est effacé, avec un toast. m130 : p.etage, compagnon de niv, est gardé lui aussi quand
@@ -6737,7 +6940,12 @@ function editeur(racine, opts){
        écrire deux caractères (pdfTxt les vide : émoji, « Ω »). Est refusée une abréviation d'une autre longueur ou illisible au PDF. Le refus
        fait un toast et rend la valeur affichée ; rien ne change. L'abréviation vidée est tirée du nom (abDe) ; celle qui l'était suit le
        nouveau nom [p]. L'article se règle sur la première lettre du nouveau nom (artDevant) ; « le » mis à la place de « l' » est signalé.
-       Seuls les champs changés sont écrits (Q8 b) */
+       Seuls les champs changés sont écrits (Q8 b).
+       m144 (D10, F9, S6 b, S7 a) : un nom changé est comparé à ceux des autres destinations du plan, des modèles et des objets de la palette
+       (refusNomDest) : écrit comme une autre de mêmes jugements, il en reprend l'abréviation et l'article ; changé seulement par les
+       accents, les majuscules ou les espaces (même clé de rejet) : accepté ; même nom autrement, « Fosse » ou un objet : refusé de même
+       (toast, valeur rendue) ; nom proche : la question, dont la réponse ne vaut que si la destination n'a pas changé entre-temps ; « La
+       même » reprend les cinq champs de l'autre, en un pas d'annulation ; Échap : la valeur rendue */
     if (a === 'destTxt' && e && estDest(e.t)){
       var kT = b.dataset.k, d0 = destDe(e);
       if (kT !== 'nom' && kT !== 'ab') return;
@@ -6745,15 +6953,19 @@ function editeur(racine, opts){
       var rT = champDest(kT, v, d0.nom), sT = rT.v, refus = rT.refus;
       if (refus){ toast(refus, 4000); b.value = d0[kT]; return; }
       if (d0[kT] === sT){ b.value = sT; return; }
-      instantane(); e.p[kT] = sT;
-      var artT = kT === 'nom' ? artDevant(d0.art, sT) : d0.art;
-      if (kT === 'nom'){
-        if (d0.ab === abDe(d0.nom) || d0.ab === d0.nom.slice(0, 2)) e.p.ab = abDe(sT);
-        if (destDe(e).art !== artT) e.p.art = artT;
+      var rq = kT === 'nom' ? refusNomDest(Object.assign({}, d0, {nom: sT}), listesDest('fiche', e)) : null;
+      if (rq && rq.refus){ toast(rq.refus, 4000); b.value = d0.nom; return; }
+      if (rq && rq.q){
+        var eQ = e, docQ = S.doc;
+        questionNom(rq.q, function(oui){
+          if (S.doc !== docQ || S.doc.el.indexOf(eQ) < 0 || !estDest(eQ.t) || destDe(eQ).nom !== d0.nom) return;
+          var x = reponseNomProche(rq, oui);
+          if (x.refus){ toast(x.refus, 4000); if (b.isConnected) b.value = d0.nom; return; }
+          if (x.m) reprendreDest(eQ, x.m); else ecrireDestTxt(eQ, d0, 'nom', sT);
+        }, function(){ if (b.isConnected) b.value = d0.nom; });
+        return;
       }
-      apresProp(e, {garderPanneau: true});
-      if (d0.art === 'l\'' && artT === 'le') toast('Article « le » : touchez « la » s\'il le faut', 4000);
-      majPanneauBientot(); return;
+      ecrireDestTxt(e, d0, kT, sT, rq && rq.reprise); return;
     }
     if (a === 'texteLibre' && e){ if (!String(v).trim()){ toast('Le texte est vide'); b.value = e.txt; return; } instantane(); e.txt = String(v).trim(); changement({garderPanneau: true}); majPanneauBientot(); return; }
     if (a === 'escNum' && e && e.t === 'esc'){ saisieEscalier(b, e); return; }
@@ -6845,7 +7057,8 @@ function editeur(racine, opts){
      peut alors fermer l'éditeur */
   function fermerNiveau(){
     if (fermerMenu()) return true;
-    var m = R.querySelector('.vc-modal'); if (m){ m.remove(); return true; }
+    /* m144 : le dialogue du dessus (la question d'un nom proche passe avant la fiche courte qu'elle couvre), fermé comme par Échap */
+    var ms = R.querySelectorAll('.vc-modal'), m = ms.length ? ms[ms.length - 1] : null; if (m){ if (m.vcFermer) m.vcFermer(); else m.remove(); return true; }
     if (S.palette){ fermerPalette(); return true; }
     if (S.accroches){ fermerAccroches(); return true; }
     if (S.sel || S.panneau){ fermerPanneau(); return true; }
@@ -6860,7 +7073,7 @@ function editeur(racine, opts){
     if (o.aides) S.aides = Object.assign({}, AIDES_DEFAUT, o.aides);
     /* destinations ajoutées de la tablette (m128) : celles de l'hôte à chaque ouverture ; sans elles, celles déjà connues de l'éditeur */
     if (o.exutoires) S.exutoires = modelesDe(o.exutoires);
-    S.placer = null; S.cotes = null; S.reunir = null; S.noteEtiq = null; var m0 = R.querySelector('.vc-modal'); if (m0) m0.remove();
+    S.placer = null; S.cotes = null; S.reunir = null; S.noteEtiq = null; R.querySelectorAll('.vc-modal').forEach(function(m0){ m0.remove(); });
     S.doc = doc; S.fond = fond || null; S.reseau = reseau || null; S.undo = []; S.redo = []; S.sel = null; S.brouillon = null; S.panneau = null; S.mode = 'edl'; S.ajoutAnom = null; S.aligner = null;
     S.ptr = {}; S.geste = null; S.apercu = null; S.accrocheVue = null; S.survol = null;
     /* palette d'accrochage fermée, appuis avalés oubliés (m111) */

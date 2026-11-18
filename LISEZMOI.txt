@@ -83,7 +83,36 @@ CROQUIS DE TERRAIN (facultatif)
   poses à venir, « Retirer » l'ôte de la palette ; aucune destination
   déjà posée ne change. Les destinations ajoutées restent sur la
   tablette : la sauvegarde ne les emporte pas. Une destination déjà
-  posée garde son nom et ses jugements sur toute tablette. Dans la fiche
+  posée garde son nom et ses jugements sur toute tablette. Deux
+  destinations ne portent pas le même nom : les accents, les majuscules,
+  l'article du début, une lettre doublée ou le pluriel n'en font pas un
+  autre (« etang », « L'Étang » et « Étangs » sont « Étang »). Un nom
+  déjà pris est refusé, avec un message, et la saisie reste (dans la
+  fiche, le nom d'avant revient) : dans « + Nouvelle destination »,
+  choisissez la destination dans la palette ; si elle est seulement
+  posée sur le plan, écrivez son nom comme elle, avec ses jugements et
+  son abréviation (une abréviation laissée vide prend la sienne) ; dans
+  la fiche, écrivez-le comme l'autre destination, avec ses jugements :
+  elle en prend l'abréviation et l'article ; dans les Réglages, il est
+  déjà dans la liste. Dans la fiche, corriger seulement les accents, les
+  majuscules ou les espaces d'un nom est accepté, même quand une autre
+  destination garde l'ancienne écriture. Le nom d'un objet de la palette
+  (Puisard, Infiltration au sol, Gargouille, Rejet en milieu naturel,
+  Fosse septique, Autre destination) est refusé : posez l'objet.
+  « Fosse » est refusé aussi : pour une fosse septique, posez l'objet
+  « Fosse septique » ; pour un fossé, écrivez « Fossé ». Un nom proche
+  d'un autre (une faute de frappe ; deux pour un nom de 10 lettres ou
+  plus ; jamais pour un nom de moins de 5 lettres) fait demander si
+  c'est la même destination : « La même » reprend l'autre (dans la
+  palette, son outil ; dans la fiche, ses cinq champs ; dans les
+  Réglages, le modèle garde son nom, qui revient dans la fenêtre restée
+  ouverte), « Une autre » garde le nom tapé ; face à un objet de la
+  palette, « Le même » arme l'outil de l'objet (dans la fiche, l'ancien
+  nom reste ; dans les Réglages, il revient dans la fenêtre). Un numéro
+  ou une lettre seule distingue toujours deux noms (« Noue 1 » et
+  « Noue 2 »). Rien n'est comparé à l'ouverture d'un dossier, d'une
+  sauvegarde ou d'un fichier : deux destinations de même nom venues
+  d'une autre tablette restent telles quelles. Dans la fiche
   d'une descente, d'une grille, d'un siphon de sol ou d'une autre source
   d'eaux pluviales qu'aucun tronçon ne relie, le bouton « Rejet au sol »
   pose d'un toucher une infiltration au sol à 1 m, et le tronçon qui l'y

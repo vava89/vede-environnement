@@ -111,6 +111,34 @@
 // Échouent sur ebd5589 (type « exutoire » absent : bout libre) : x1, x2, x3 et x5, sauf la garde de x3 et le témoin de x5.
 // Échouent sur 4a55a83 (cercle par défaut sans texte, bloc VEDE_EXUTOIRE, légende « Autre destination », symboleSvg sans p) : les onze
 //   cas de x4. « étang » en page 2 et l'étiquette (le nom écrit tel quel) y étaient déjà justes.
+// n1 à n7 (m144, décision D10 ; réponses du 16 nov. 2026, S6 b et S7 a) : destinations de même nom refusées, noms proches, « Fosse ».
+// n1 : 42 paires de noms (21 de même nom, 5 proches, 16 différentes), dans les deux sens : degreDest ; canonDest et distDest sur
+//   quelques exemples ; le premier nom tapé dans « + Nouvelle destination » face au modèle de l'autre : même nom refusé, nom proche :
+//   la question, sinon accepté.
+// n2 : etang, ETANG, L'étang, Étangs, « étang » face au modèle Étang : refusés dans la palette (« choisissez-la dans la palette »,
+//   champ nom), dans les Réglages (« existe déjà dans la liste ») et dans la fiche (« écrivez « Étang » pour la même »). Témoins :
+//   sans listes, accepté, résultat inchangé ({m, refus}) ; Réglages, nom inchangé : accepté.
+// n3 : Fosse, FOSSE, fosse, La fosse, Fosses, avec ou sans un modèle Fossé : « Pour une fosse septique, posez l'objet Fosse septique ;
+//   pour un fossé, écrivez « Fossé ». » dans la palette, les Réglages et la fiche ; « Fossé » seul : accepté (témoin) ; Fossé, fossé,
+//   Fossés, FOSSÉ, le Fossé face au modèle Fossé : refusés ; « Fosse du puits », « Puits » : le refus du puits d'abord. Fiche d'une
+//   ancienne Fosse, face à une autre Fosse posée et au modèle Fosse : « Fossé » accepté (même clé de rejet), « fosse » refusé.
+// n4 (garde) : modelesDe garde Étang et etang, Fosse, Fossé et fossé, Puisard (les dossiers et la tablette ne sont pas filtrés).
+// n5 : destination Étang posée sur le plan, absente de la palette : même nom exact, même abréviation (saisie ou vide), mêmes jugements :
+//   accepté ; autre jugement, autre case, autre abréviation, etang, Étangs : « déjà posée sur ce plan ». Fiche de la Mare : « Étang »,
+//   mêmes jugements : reprise (abréviation « Ét », article « l' ») ; autre jugement : « déjà posée » ; « etang » : « écrivez « Étang » ».
+//   Fiche : la destination posée d'autres jugements passe avant le modèle de mêmes jugements (« déjà posée » ; témoin : sans elle, le
+//   modèle est repris). Palette : l'abréviation laissée vide reprend celle de la destination posée (EG) ; une autre, tapée : « déjà
+//   posée ». Fiche d'une Etang posée, face à une autre Etang posée et au modèle Etang : Étang, ÉTANG acceptés (même clé de rejet) ;
+//   Étangs, ou sans le nom d'avant : « écrivez « Etang » » ; l'autre déjà écrite Étang : reprise.
+// n6 : nom proche (Fossé de la rue, de la route) : la question dans la palette (modèle, puis destination posée), dans la fiche et dans les
+//   Réglages ; « La même », « Une autre » : l'outil du modèle ou de la destination, les cinq champs repris (une seule clé et un seul
+//   rejet au constat : « 1 clé(s) ; Fossé de la route (rejet des EP) »), le nom tapé gardé ; dans les Réglages, « La même » : rien
+//   d'enregistré, le toast « existe déjà dans la liste ».
+// n7 : objets de la palette : « Puisart » : la question face à l'objet Puisard dans les trois lieux, chaque réponse (l'outil de l'objet,
+//   l'ancien nom gardé avec le refus, dans les Réglages rien d'enregistré, avec le même refus) ; Puisard, puisards, Gargouile,
+//   « l'infiltration au sol », Rejet en milieu naturel, Fosse septique, Autre destination : « est un objet de la palette ».
+// Échouent sur 769d1af : n1 à n3, n5 à n7, sauf les témoins de n2 et de n3 et l'acceptation de n5 ; n4 y passe. Échouent sur m144
+//   tel que relu (avant ses corrections) : les cas des relectures M1, M5 et M7 (n3, n5) et les Réglages de n6 et de n7 (M3, M9).
 // usage : node tests/vm/rejets.js [-v] [--app=<dossier>]
 'use strict';
 const fs = require('fs'), path = require('path');
@@ -924,6 +952,198 @@ async function sansType(){
   } finally { if (T0) V.TYPES.infiltration = T0; }
 }
 
+/* ---------- m144 : destinations de même nom, noms proches, « Fosse » (D10 ; réponses du 16 nov. 2026, S6 b et S7 a) ---------- */
+/* appel d'une fonction de VCroquis, protégé ; absente : son nom */
+const fx = (f, ...a) => typeof V[f] === 'function' ? sur(() => V[f](...a)) : 'VCroquis.' + f + ' absente';
+const M1 = n => 'Une destination « ' + n + ' » existe déjà : choisissez-la dans la palette.';
+const M3 = n => 'Une destination « ' + n + ' » est déjà posée sur ce plan : reprenez ce nom et ses jugements, ou choisissez un nom bien différent.';
+const M4 = n => '« ' + n + ' » est un objet de la palette : posez l\'objet ' + n + '.';
+const M5 = 'Pour une fosse septique, posez l\'objet Fosse septique ; pour un fossé, écrivez « Fossé ».';
+const MF = n => 'Une destination « ' + n + ' » existe déjà : écrivez « ' + n + ' » pour la même, ou un nom bien différent.';
+const MR = n => 'Une destination « ' + n + ' » existe déjà dans la liste.';
+const QD = n => 'Nom proche de « ' + n + ' », qui existe déjà : est-ce la même destination ?';
+const QO = n => 'Nom proche de « ' + n + ' », objet de la palette : est-ce le même ?';
+const PUITS_R = 'Pour un puits, posez l\'objet Puits (EP non conformes) ; pour un puits perdu, un Puisard.';
+/* modèle de la tablette ; destination saisie (cinq champs) ; saisie dans la palette (« + Nouvelle destination »), les Réglages (modèle m0
+   renommé) et la fiche (destination posée renommée : refusNomDest ; nom0, son nom d'avant, comme le donne l'éditeur) */
+const modele = (id, nom, o) => Object.assign({id, nom, ab: 'Zz', art: 'le', ep: 'arbitrer', cst: 'autre'}, o);
+const saisieD = (nom, o) => Object.assign({nom, ab: '', art: 'le', ep: 'arbitrer', cst: 'autre'}, o);
+const palette = (s, modeles, plan) => fx('destSaisie', s, null, {ou: 'palette', modeles: modeles || [], plan: plan || []});
+const reglages = (s, m0, modeles) => fx('destSaisie', s, m0, {ou: 'reglages', modeles: modeles || []});
+const ficheNom = (s, modeles, plan, nom0) => fx('refusNomDest', s, Object.assign({ou: 'fiche', modeles: modeles || [], plan: plan || []}, nom0 != null ? {nom0} : {}));
+/* objet écrit clés triées (comparaisons) ; verdict court : refus (texte), question (texte et boutons), reprise, sinon « accepté » */
+const cn = o => o && typeof o === 'object' ? '{' + Object.keys(o).sort().map(k => k + ':' + cn(o[k])).join(',') + '}' : JSON.stringify(o);
+const verdict = r => r == null ? 'accepté' : typeof r !== 'object' ? String(r) : r.refus ? 'refus « ' + r.refus + ' »'
+  : r.q ? 'question « ' + r.q.texte + ' » [' + r.q.oui + '|' + r.q.non + ']' + (r.q.objet ? ' objet' : '') : r.reprise ? 'reprise ' + cn(r.reprise) : 'accepté' + (r.m ? ' ' + r.m.nom : '');
+/* les 42 paires de la conception (essais/noms.js), avec leur degré : 'meme', 'proche' ou '' (différentes) */
+const PAIRES = [['meme', 'Étang', 'etang'], ['meme', 'L\'étang', 'Étang'], ['meme', 'Étangs', 'Étang'], ['meme', 'Fosse', 'Fossé'], ['meme', 'Mare', 'Mares'],
+  ['meme', 'Ruisseau', 'Ruisseaux'], ['meme', 'Ruisseau', 'Ruiseau'], ['meme', 'Rivière', 'La riviere'], ['meme', 'Lac', 'Lacs'], ['meme', 'Ru', 'Rû'],
+  ['meme', 'Bassin 1', 'Bassin  1'], ['meme', 'Étang du bas', 'Étang-du-bas'], ['meme', 'Mare', 'La Mare'], ['meme', 'Noue', 'Noues'],
+  ['meme', 'Bassin de rétention', 'Bassin de retention'], ['meme', 'Bassin de rétention', 'Bassin de rétentions'], ['meme', 'Marre', 'Mare'],
+  ['meme', 'Fosé', 'Fossé'], ['meme', 'Etang', 'ETANG'], ['meme', 'Fossé', 'Fossés'], ['meme', 'La Mare', 'Le Mare'],
+  ['proche', 'Etagn', 'Étang'], ['proche', 'Fossé communal', 'Fossé communale'], ['proche', 'Fossé de la rue', 'Fossé de la route'], ['proche', 'Etnag', 'Étang'],
+  ['proche', 'Puisart', 'Puisard'],
+  ['', 'Mare', 'Marc'], ['', 'Cuve', 'Cave'], ['', 'Noue 1', 'Noue 2'], ['', 'Noue A', 'Noue B'], ['', 'Noue est', 'Noue ouest'], ['', 'Fossé nord', 'Fossé sud'],
+  ['', 'Fossé est', 'Fossé ouest'], ['', 'Bassin d\'orage', 'Bassin d\'arrosage'], ['', 'Marais', 'Mare'], ['', 'Canal', 'Chenal'], ['', 'Étang du bas', 'Etang du haut'],
+  ['', 'Citerne', 'Citerne enterrée'], ['', 'Étang', 'Étang 2'], ['', 'Mare', 'Marne'], ['', 'Bassin', 'Bassin 1'], ['', 'Noue 1', 'Noue 11']];
+/* n1 : degrés des 42 paires, dans les deux sens ; forme et repères ; distance OSA (restreinte) ; nom tapé dans la palette face au modèle de l'autre */
+function nomsPaires(){
+  const nb = {meme: 0, proche: 0, '': 0}, faux = [], fauxP = [];
+  PAIRES.forEach(([att, a, b]) => {
+    nb[att]++;
+    const d1 = fx('degreDest', a, b), d2 = fx('degreDest', b, a);
+    if (d1 !== att || d2 !== att) faux.push(a + ' / ' + b + ' : ' + JSON.stringify(d1) + ', ' + JSON.stringify(d2));
+    const v = verdict(palette(saisieD(a), [modele('b1', b)]));
+    if (!(att === 'meme' ? /^refus /.test(v) : att === 'proche' ? /^question /.test(v) : /^accepté/.test(v))) fauxP.push(a + ' face à ' + b + ' : ' + v);
+  });
+  const liste = (l, n) => l.length ? ' : ' + l.slice(0, n).join(' ; ') + (l.length > n ? ' ; … (' + l.length + ' en tout)' : '') : '';
+  R.ok(PAIRES.length === 42 && nb.meme === 21 && nb.proche === 5 && nb[''] === 16 && !faux.length,
+    'n1 les 42 paires de la conception gardent leur degré, dans les deux sens (VCroquis.degreDest : 21 de même nom, 5 proches, 16 différentes)' + liste(faux, 5));
+  const c = fx('canonDest', 'L\'Étang-du-Bas  2'), c2 = fx('canonDest', 'Œillet A'), d = [['etang', 'etagn'], ['ca', 'abc'], ['fose', 'fosse'], ['', 'mare']].map(([x, y]) => fx('distDest', x, y));
+  R.ok(cn(c) === cn({forme: 'etangdubas2', reperes: '2'}) && cn(c2) === cn({forme: 'oeileta', reperes: 'a'}) && JSON.stringify(d) === '[1,3,1,4]',
+    'n1 canonDest : « L\'Étang-du-Bas  2 » → etangdubas2, repère 2 ; « Œillet A » → oeileta, repère a ; distDest (OSA, Damerau restreinte) : etang/etagn 1, ca/abc 3, fose/fosse 1, vide/mare 4 ('
+    + [cn(c), cn(c2), JSON.stringify(d)].join(' ; ') + ')');
+  R.ok(!fauxP.length, 'n1 le premier nom de chaque paire tapé dans la palette face au modèle de l\'autre : même nom refusé (M1, ou M5 pour « Fosse »), nom proche : la question, sinon accepté' + liste(fauxP, 4));
+}
+/* n2 : « etang » et ses variantes face au modèle « Étang » : palette (M1, sur le nom), Réglages (R), fiche (F) ; témoins */
+function nomsEtang(){
+  const ET = modele('e1', 'Étang', {ab: 'Ét', art: 'l\'', ep: 'nc'}), MA = modele('m1', 'Mare', {ab: 'Ma', art: 'la'}), MAP = {nom: 'Mare', ab: 'Ma', art: 'la', ep: 'conforme', cst: 'recup'};
+  const noms = ['etang', 'ETANG', 'L\'étang', 'Étangs', ' étang '];
+  const pal = noms.map(n => { const r = palette(saisieD(n, {ep: 'nc'}), [ET]); return n + ' : ' + (r && r.refus === M1('Étang') && r.m === null && r.champ === 'nom' ? 'M1' : verdict(r)); });
+  R.ok(pal.every(s => / : M1$/.test(s)), 'n2 palette : « etang », « ETANG », « L\'étang », « Étangs », « étang » face au modèle « Étang » : M1, le focus sur le nom (' + pal.join(' ; ') + ')');
+  const reg = noms.map(n => { const r = reglages(saisieD(n), MA, [ET]); return n + ' : ' + (r && r.refus === MR('Étang') && r.m === null ? 'R' : verdict(r)); });
+  R.ok(reg.every(s => / : R$/.test(s)), 'n2 Réglages : modèle « Mare » renommé « etang », « ETANG »… face au modèle « Étang » : « existe déjà dans la liste » (' + reg.join(' ; ') + ')');
+  const fi = noms.map(n => { const r = ficheNom(Object.assign({}, MAP, {nom: n}), [ET], []); return n + ' : ' + (r && r.refus === MF('Étang') ? 'F' : verdict(r)); });
+  R.ok(fi.every(s => / : F$/.test(s)), 'n2 fiche : une Mare posée renommée « etang », « ETANG »… face au modèle « Étang » : « écrivez « Étang » pour la même » (' + fi.join(' ; ') + ')');
+  const t = sur(() => V.destSaisie({nom: 'etang', ep: 'nc', cst: 'autre'})), t2 = reglages(saisieD('Étang', {ab: 'Ét', art: 'l\'', ep: 'conforme'}), ET, [MA]);
+  R.ok(!!t && t.refus === '' && !!t.m && t.m.nom === 'etang' && Object.keys(t).sort().join() === 'm,refus' && !!t2 && t2.refus === '' && !!t2.m && t2.m.ep === 'conforme' && !t2.q,
+    'n2 témoins : sans listes, destSaisie accepte « etang » comme avant ({m, refus}) ; Réglages, nom inchangé (« Étang », jugement changé) : accepté (' + verdict(t) + ' ; ' + verdict(t2) + ')');
+}
+/* n3 : « Fosse » (M5) partout, avec ou sans « Fossé » ; « Fossé » seul accepté ; « Fossé » face à « Fossé » : M1 ; le refus du puits d'abord */
+function nomsFosse(){
+  const FO = modele('f1', 'Fossé', {ab: 'Fo', ep: 'reserve', cst: 'MILIEU'}), MA = modele('m1', 'Mare');
+  const vus = [];
+  ['Fosse', 'FOSSE', 'fosse', 'La fosse', 'Fosses'].forEach(n => [[], [FO]].forEach(l => {
+    const r = [palette(saisieD(n), l), reglages(saisieD(n), MA, l), ficheNom(saisieD(n), l, [])];
+    vus.push(n + (l.length ? ' (avec « Fossé »)' : '') + ' : ' + r.map(x => x && x.refus === M5 ? 'M5' : verdict(x)).join('/'));
+  }));
+  R.ok(vus.every(s => / : M5\/M5\/M5$/.test(s)), 'n3 « Fosse », « FOSSE », « fosse », « La fosse », « Fosses », sans ou avec un modèle « Fossé » : M5 dans la palette, les Réglages et la fiche ('
+    + vus.filter(s => !/ : M5\/M5\/M5$/.test(s)).slice(0, 3).join(' ; ') + ')');
+  const seul = palette(saisieD('Fossé'), []);
+  R.ok(!!seul && seul.refus === '' && !!seul.m && seul.m.nom === 'Fossé' && !seul.q, 'n3 témoin : « Fossé » seul est accepté (' + verdict(seul) + ')');
+  const fs = ['Fossé', 'fossé', 'Fossés', 'FOSSÉ', 'le Fossé'].map(n => { const r = palette(saisieD(n), [FO]); return n + ' : ' + (r && r.refus === M1('Fossé') ? 'M1' : verdict(r)); });
+  R.ok(fs.every(s => / : M1$/.test(s)), 'n3 « Fossé », « fossé », « Fossés », « FOSSÉ », « le Fossé » face au modèle « Fossé » : M1 (' + fs.join(' ; ') + ')');
+  const pu = ['Fosse du puits', 'Puits'].map(n => { const r = palette(saisieD(n), [FO]); return n + ' : ' + (r && r.refus === PUITS_R ? 'puits' : verdict(r)); });
+  R.ok(pu.every(s => / : puits$/.test(s)), 'n3 témoin : « Fosse du puits », « Puits » : le refus du puits, toujours le premier (' + pu.join(' ; ') + ')');
+  /* une ancienne « Fosse » (d'un plan et d'une tablette d'avant m144) renommée dans sa fiche, face à une autre « Fosse » posée et au
+     modèle « Fosse » : « Fossé » garde sa clé de rejet, accepté (relecture M1) ; « fosse » : M5 */
+  const FOP = {nom: 'Fosse', ab: 'Fo', art: 'la', ep: 'reserve', cst: 'MILIEU'}, FOM = modele('f0', 'Fosse', {ab: 'Fo', art: 'la', ep: 'reserve', cst: 'MILIEU'});
+  const vf = ['Fossé', 'fosse'].map(n => [n, ficheNom(Object.assign({}, FOP, {nom: n}), [FOM], [FOP], 'Fosse')]);
+  R.ok(vf[0][1] === null && !!vf[1][1] && vf[1][1].refus === M5,
+    'n3 fiche d\'une ancienne « Fosse », face à une autre « Fosse » posée et au modèle « Fosse » : « Fossé » accepté (même clé de rejet ; relecture M1), « fosse » : M5 ('
+    + vf.map(([n, r]) => n + ' : ' + (r && r.refus === M5 ? 'M5' : verdict(r))).join(' ; ') + ')');
+}
+/* n4 (garde) : au chargement, modelesDe ne compare pas les noms */
+function nomsChargement(){
+  const l = sur(() => V.modelesDe([modele('a', 'Étang'), modele('b', 'etang'), modele('c', 'Fosse'), modele('d', 'Fossé de la route'), modele('e', 'Fossé de la rue'), modele('f', 'Puisard')]));
+  R.ok(Array.isArray(l) && l.map(m => m.id + '=' + m.nom).join(' ') === 'a=Étang b=etang c=Fosse d=Fossé de la route e=Fossé de la rue f=Puisard',
+    'n4 (garde) au chargement, modelesDe garde « Étang » et « etang », « Fosse », « Fossé de la route » et « Fossé de la rue », « Puisard » (' + (Array.isArray(l) ? l.map(m => m.nom).join(', ') : l) + ')');
+}
+/* n5 : destination posée « Étang », absente de la palette : palette (acceptée telle quelle, sinon M3) ; fiche (reprise, M3, F) */
+function nomsPlan(){
+  const POSE = {nom: 'Étang', ab: 'Ét', art: 'l\'', ep: 'nc', cst: 'autre'};
+  const ok = [saisieD('Étang', {ab: 'Ét', art: 'l\'', ep: 'nc'}), saisieD('Étang', {ab: 'Ét', ep: 'nc'}), saisieD('Étang', {ep: 'nc'})].map(s => palette(s, [], [POSE]));
+  R.ok(ok.every(r => !!r && r.refus === '' && !!r.m && r.m.nom === 'Étang' && r.m.ab === 'Ét' && !r.q),
+    'n5 palette, « Étang » (Ét, NC, autre) posée sur le plan, absente de la palette : « Étang » de même abréviation (saisie ou tirée du nom) et mêmes jugements, article « l\' » ou « le » : accepté ('
+    + ok.map(verdict).join(' ; ') + ')');
+  const ko = [['jugement conforme', saisieD('Étang', {ab: 'Ét', ep: 'conforme'})], ['case milieu naturel', saisieD('Étang', {ab: 'Ét', ep: 'nc', cst: 'MILIEU'})],
+    ['abréviation « Et »', saisieD('Étang', {ab: 'Et', ep: 'nc'})], ['« etang »', saisieD('etang', {ab: 'Ét', ep: 'nc'})], ['« Étangs »', saisieD('Étangs', {ab: 'Ét', ep: 'nc'})]]
+    .map(([lib, s]) => { const r = palette(s, [], [POSE]); return lib + ' : ' + (r && r.refus === M3('Étang') && r.champ === 'nom' ? 'M3' : verdict(r)); });
+  R.ok(ko.every(s => / : M3$/.test(s)), 'n5 palette, la même destination posée : autre jugement, autre case, autre abréviation, « etang », « Étangs » : M3 (' + ko.join(' ; ') + ')');
+  const MAP = {nom: 'Mare', ab: 'Ma', art: 'la', ep: 'nc', cst: 'autre'};
+  const fA = ficheNom(Object.assign({}, MAP, {nom: 'Étang'}), [], [POSE]), fB = ficheNom(Object.assign({}, MAP, {nom: 'Étang', ep: 'conforme'}), [], [POSE]);
+  const fC = ficheNom(Object.assign({}, MAP, {nom: 'etang'}), [], [POSE]);
+  R.ok(!!fA && !!fA.reprise && fA.reprise.ab === 'Ét' && fA.reprise.art === 'l\'' && !fA.refus && !fA.q && !!fB && fB.refus === M3('Étang') && !!fC && fC.refus === MF('Étang'),
+    'n5 fiche, une Mare (NC, autre) posée renommée : « Étang », de mêmes jugements, accepté, il reprend « Ét » et « l\' » ; jugement conforme : M3 ; « etang » : F ('
+    + [verdict(fA), verdict(fB), verdict(fC)].join(' ; ') + ')');
+  /* relecture M7 : la destination posée « Étang » (NC) passe avant le modèle « Étang » (conforme) ; témoin : sans elle, le modèle donne
+     son abréviation et son article */
+  const ETC = modele('e1', 'Étang', {ab: 'Eg', art: 'l\'', ep: 'conforme'}), MAC = Object.assign({}, MAP, {ep: 'conforme'});
+  const g7 = ficheNom(Object.assign({}, MAC, {nom: 'Étang'}), [ETC], [POSE], 'Mare'), g7t = ficheNom(Object.assign({}, MAC, {nom: 'Étang'}), [ETC], [], 'Mare');
+  R.ok(!!g7 && g7.refus === M3('Étang') && !!g7t && !!g7t.reprise && g7t.reprise.ab === 'Eg' && g7t.reprise.art === 'l\'',
+    'n5 fiche, une Mare conforme renommée « Étang », face à « Étang » posée (NC) et au modèle « Étang » (conforme) : M3 (relecture M7) ; témoin, sans la destination posée : '
+    + 'le modèle donne « Eg » et « l\' » (' + [verdict(g7), verdict(g7t)].join(' ; ') + ')');
+  /* relecture M5 : dans la palette, l'abréviation laissée vide reprend celle de la destination posée (« EG », qui ne se tire pas du nom) ;
+     une autre abréviation tapée : M3 ; la même : acceptée */
+  const PEG = Object.assign({}, POSE, {ab: 'EG'});
+  const a5 = [saisieD('Étang', {ep: 'nc'}), saisieD('Étang', {ab: 'Ét', ep: 'nc'}), saisieD('Étang', {ab: 'EG', ep: 'nc'})].map(s => palette(s, [], [PEG]));
+  const vu5 = r => verdict(r) + (r && r.m ? ' ' + r.m.ab + ', ' + r.m.art : '');
+  R.ok(!!a5[0] && a5[0].refus === '' && !!a5[0].m && a5[0].m.ab === 'EG' && a5[0].m.art === 'l\'' && !a5[0].q && !!a5[1] && a5[1].refus === M3('Étang')
+    && !!a5[2] && a5[2].refus === '' && !!a5[2].m && a5[2].m.ab === 'EG' && !a5[2].q,
+    'n5 palette, « Étang » posée avec l\'abréviation « EG » : « Étang » sans abréviation, accepté, il reprend « EG » et « l\' » (relecture M5) ; « Ét » tapée : M3 ; « EG » tapée : '
+    + 'accepté (' + a5.map(vu5).join(' ; ') + ')');
+  /* relecture M1 : une destination posée « Etang » renommée « Étang » ou « ÉTANG » (même clé de rejet) : acceptée, même face à une autre
+     « Etang » posée et au modèle « Etang » ; « Étangs », ou sans le nom d'avant : F ; l'autre déjà écrite « Étang », mêmes jugements : reprise */
+  const EA = {nom: 'Etang', ab: 'Et', art: 'l\'', ep: 'nc', cst: 'autre'}, EM = modele('e2', 'Etang', {ab: 'Et', art: 'l\'', ep: 'nc'});
+  const m1 = [['Étang', 'Etang', EA], ['ÉTANG', 'Etang', EA], ['Étangs', 'Etang', EA], ['Étang', null, EA], ['Étang', 'Etang', Object.assign({}, EA, {nom: 'Étang', ab: 'Ét'})]]
+    .map(([n, n0, autre]) => verdict(ficheNom(Object.assign({}, EA, {nom: n}), [EM], [autre], n0)));
+  const att1 = ['accepté', 'accepté', 'refus « ' + MF('Etang') + ' »', 'refus « ' + MF('Etang') + ' »', 'reprise ' + cn({ab: 'Ét', art: 'l\''})];
+  R.ok(m1.every((v, i) => v === att1[i]),
+    'n5 fiche, une destination posée « Etang » renommée, face à une autre « Etang » posée et au modèle « Etang » : « Étang », « ÉTANG » acceptés (même clé de rejet ; '
+    + 'relecture M1) ; « Étangs » : F ; « Étang » sans le nom d\'avant : F ; l\'autre déjà écrite « Étang » : reprise de son abréviation (' + m1.join(' ; ') + ')');
+}
+/* deux descentes « avant », chacune vers sa destination (E1 « Fossé de la route », E2 aux champs p2) ; clés des rejets et libellés de la ligne */
+const deuxDest = p2 => doc({o: [['S1', 'descente', 0, 10, {cote: 'avant'}], ['E1', 'exutoire', 0, 4, {nom: 'Fossé de la route', ab: 'Fo', art: 'le', ep: 'nc', cst: 'autre'}],
+  ['S2', 'descente', 8, 10, {cote: 'avant'}], ['E2', 'exutoire', 8, 4, p2]], l: [['t1', 'tr', '', '', ['S1', 'E1']], ['t2', 'tr', '', '', ['S2', 'E2']]]});
+const rejetsAvant = d => sur(() => { const an = V.analyser(copie(d), 'edl'), r = V.constatDeduit(copie(d), an).rows.find(x => x.id === 'gout_av');
+  return Object.keys(an.exu).length + ' clé(s) ; ' + (r ? r.libs.join(' ; ') : 'ligne absente'); });
+/* n6 : nom proche d'une destination : la question, puis chaque réponse, dans la palette, la fiche et les Réglages */
+function nomsProches(){
+  const RO = modele('r1', 'Fossé de la route', {ab: 'Fo', art: 'le', ep: 'nc', cst: 'autre'}), ROD = {nom: 'Fossé de la route', ab: 'Fo', art: 'le', ep: 'nc', cst: 'autre'};
+  const s = saisieD('Fossé de la rue', {ep: 'conforme', cst: 'MILIEU'}), r = palette(s, [RO]);
+  R.ok(!!r && r.refus === '' && !!r.q && r.q.texte === QD('Fossé de la route') && r.q.oui === 'La même' && r.q.non === 'Une autre' && !r.q.objet && !!r.m && r.m.nom === 'Fossé de la rue',
+    'n6 palette : « Fossé de la rue » face au modèle « Fossé de la route » : la question « ' + QD('Fossé de la route') + ' », « La même », « Une autre » (' + verdict(r) + ')');
+  const ok = !!r && !!r.q, non = ok ? fx('reponseNomProche', r, false) : null, oui = ok ? fx('reponseNomProche', r, true) : null;
+  R.ok(!!non && !!non.m && cn(non.m) === cn(r.m) && !non.pose && !non.refus && !!oui && !oui.m && !oui.refus && cn(oui.pose) === cn({k: 'pt', t: 'exutoire', modele: ROD, mid: 'r1'}),
+    'n6 palette : « Une autre » crée le modèle sous le nom tapé ; « La même » arme l\'outil du modèle « Fossé de la route » (' + [cn(non), cn(oui)].join(' ; ') + ')');
+  const rP = palette(s, [], [ROD]), ouiP = rP && rP.q ? fx('reponseNomProche', rP, true) : null;
+  R.ok(!!rP && !!rP.q && rP.q.texte === QD('Fossé de la route') && !!ouiP && !ouiP.m && cn(ouiP.pose) === cn({k: 'pt', t: 'exutoire', modele: ROD}),
+    'n6 palette, face à une destination posée (absente de la palette) : la question ; « La même » arme l\'outil de ses champs, sans modèle (' + [verdict(rP), cn(ouiP)].join(' ; ') + ')');
+  const E2 = {nom: 'Mare', ab: 'Ma', art: 'la', ep: 'conforme', cst: 'MILIEU'}, rF = ficheNom(Object.assign({}, E2, {nom: 'Fossé de la rue'}), [], [ROD]);
+  const xF = rF && rF.q ? fx('reponseNomProche', rF, true) : null, nF = rF && rF.q ? fx('reponseNomProche', rF, false) : null;
+  const avant = rejetsAvant(deuxDest(E2)), apres = xF && xF.m ? rejetsAvant(deuxDest(Object.assign({}, E2, xF.m))) : 'rien de repris';
+  R.ok(!!rF && !!rF.q && rF.q.texte === QD('Fossé de la route') && rF.q.oui === 'La même' && !!xF && cn(xF.m) === cn(ROD) && apres === '1 clé(s) ; Fossé de la route (rejet des EP)'
+    && !!nF && !nF.m && !nF.refus && !nF.pose,
+    'n6 fiche, deux destinations aux jugements différents (la Mare, conforme, milieu naturel, renommée « Fossé de la rue ») : la question ; « La même » reprend nom, abréviation, article '
+    + 'et jugements de l\'autre, d\'où une seule clé et un seul rejet au constat ; « Une autre » : rien de repris (avant : ' + avant + ' ; après : ' + apres + ' ; ' + cn(nF) + ')');
+  const MA = modele('m1', 'Mare', {ab: 'Ma', art: 'la', ep: 'conforme', cst: 'recup'});
+  const rR = reglages(saisieD('Fossé de la rue', {ab: 'Ma', art: 'la', ep: 'conforme', cst: 'recup'}), MA, [RO]);
+  const ouiR = rR && rR.q ? fx('reponseNomProche', rR, true) : null, nonR = rR && rR.q ? fx('reponseNomProche', rR, false) : null;
+  R.ok(!!rR && !!rR.q && rR.q.texte === QD('Fossé de la route') && rR.q.oui === 'La même' && !!ouiR && !ouiR.m && !ouiR.pose && ouiR.refus === MR('Fossé de la route')
+    && !!nonR && !!nonR.m && nonR.m.nom === 'Fossé de la rue',
+    'n6 Réglages, « Mare » renommée « Fossé de la rue » : la question ; « La même » : rien à enregistrer, le toast « ' + MR('Fossé de la route') + ' » (le modèle garde son ancien '
+    + 'nom ; relecture M3, M9) ; « Une autre » enregistre le nom tapé (' + [verdict(rR), cn(ouiR), cn(nonR)].join(' ; ') + ')');
+}
+/* n7 : nom proche d'un objet de la palette (« Puisart ») : la question, chaque réponse ; noms des objets : M4 */
+function nomsObjets(){
+  const MA = modele('m1', 'Mare'), s = saisieD('Puisart'), rP = palette(s, []), rG = reglages(s, MA, []), rF = ficheNom(s, [], []);
+  const q = [rP, rG, rF].map(r => r && r.q ? r.q.texte + ' [' + r.q.oui + '|' + r.q.non + ']' + (r.q.objet ? ' objet' : '') : verdict(r));
+  R.ok(q.every(x => x === QO('Puisard') + ' [Le même|Un autre] objet'), 'n7 « Puisart » : la question « ' + QO('Puisard') + ' », « Le même », « Un autre », dans la palette, les Réglages et la fiche ('
+    + q.join(' ; ') + ')');
+  const rep = (r, oui) => r && r.q ? fx('reponseNomProche', r, oui) : null;
+  const oP = rep(rP, true), nP = rep(rP, false), oF = rep(rF, true), nF = rep(rF, false), oG = rep(rG, true), nG = rep(rG, false);
+  R.ok(!!oP && !oP.m && cn(oP.pose) === cn({k: 'pt', t: 'puisard'}) && !!nP && !!nP.m && nP.m.nom === 'Puisart' && !nP.pose,
+    'n7 palette : « Le même » arme l\'outil Puisard, sans modèle ; « Un autre » crée le modèle « Puisart » (' + [cn(oP), cn(nP)].join(' ; ') + ')');
+  R.ok(!!oF && !oF.m && oF.refus === M4('Puisard') && !!nF && !nF.m && !nF.refus, 'n7 fiche : « Le même » : M4, l\'ancien nom reste ; « Un autre » : le nom tapé (' + [cn(oF), cn(nF)].join(' ; ') + ')');
+  R.ok(!!oG && !oG.m && !oG.pose && oG.refus === M4('Puisard') && !!nG && !!nG.m && nG.m.nom === 'Puisart',
+    'n7 Réglages : « Le même » ne crée ni ne renomme aucun modèle, avec le toast M4 (relecture M3, M9) ; « Un autre » enregistre « Puisart » (' + [cn(oG), cn(nG)].join(' ; ') + ')');
+  const m4 = [['Puisard', 'Puisard'], ['puisards', 'Puisard'], ['Gargouile', 'Gargouille'], ['l\'infiltration au sol', 'Infiltration au sol'], ['Rejet en milieu naturel', 'Rejet en milieu naturel'],
+    ['Fosse septique', 'Fosse septique'], ['Autre destination', 'Autre destination']].map(([n, lib]) => n + ' : '
+      + [palette(saisieD(n), []), reglages(saisieD(n), MA, []), ficheNom(saisieD(n), [], [])].map(r => r && r.refus === M4(lib) ? 'M4' : verdict(r)).join('/'));
+  R.ok(m4.every(x => / : M4\/M4\/M4$/.test(x)), 'n7 « Puisard », « puisards », « Gargouile », « l\'infiltration au sol », « Rejet en milieu naturel », « Fosse septique », « Autre destination » : '
+    + 'M4 dans la palette, les Réglages et la fiche (' + m4.filter(x => !/ : M4\/M4\/M4$/.test(x)).slice(0, 3).join(' ; ') + ')');
+}
+
 (async () => {
   try {
     lignes();
@@ -951,6 +1171,13 @@ async function sansType(){
     destNature();
     natureJugee();
     await sansType();
+    nomsPaires();
+    nomsEtang();
+    nomsFosse();
+    nomsChargement();
+    nomsPlan();
+    nomsProches();
+    nomsObjets();
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }
   R.fin();
 })();
