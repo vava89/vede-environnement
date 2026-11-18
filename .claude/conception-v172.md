@@ -537,6 +537,13 @@ recherche.
   reprise ou au suivi ; une distance tapée ou retouchée reste, côté vide.
 - Croquis désactivé ou absent (S2 b) : la même rangée, vide d'office (rien n'est repris) ; une distance tapée qui porte le côté (« 0,80 m
   intérieur ») reste telle quelle, côté vide [p]. Constat signé sans marque : trois rangées (D13).
+- Après la relecture de m149 [p] : une distance tapée ou retouchée n'est jamais découpée ; le côté du croquis se coche pourtant là où rien
+  n'est saisi, si elle ne porte pas de côté ou porte le même ; il n'est pas repris si elle porte le côté opposé (vcBoiteCoteDist ; C1 : le
+  côté se cochait à l'opposé et le PDF se contredisait). « Côté vide » (ci-dessus, dossiers existants) ne vaut donc que pour le côté opposé
+  [p, à dire à l'annonce]. Une valeur trop large pour une ligne de 5,5 pt s'imprime sur deux lignes de 5,5 pt, la seconde finie par « … » si
+  deux ne suffisent pas (C2 : la v1.7.1 l'imprimait en entier sur deux lignes ; deux lignes de 6 pt touchaient les traits de la rangée avec
+  la police Jost). Un constat d'essai signé sur la branche avec m147 ou m148 se réimprime en quatre rangées (M5, écarté : versions d'essai
+  seulement).
 - Tablette en v1.7.1 : n'affiche ni n'imprime le côté ; efface sa provenance (vcProvenance, IX:3738) [p] ; son « Sans objet » efface le
   côté ; sa reprise réécrit « 0,80 m intérieur ». Compat : inchangé (boitesConstat hors de la garde). Différentiel : sans effet.
 
@@ -1034,26 +1041,38 @@ et à tests/LISEZMOI.md.
     signé sur la branche entre m147 et m148 (marque, ancienne règle) paraîtrait changé (versions d'essai seulement) ; [p, d'après la
     relecture] un constat signé en v1.6.3 ou avant avec une anomalie de lavabo se dit changé depuis la v1.7.0 (m96, m115), sans marque pour
     le distinguer : non traité. Dépendances : après m147 (constatMep).
-- **m149 Ligne « Boîte à l'intérieur ou à l'extérieur de la propriété »** (pr12-11 ; D17 ; S3 a, S2 b). Taille M.
-  - Réponses : S3 (a) « Juste sous la distance, les quatre lignes du tableau un peu resserrées dans le même cadre » ; S2 (b) : croquis
-    activé, désactivé ou absent. Constat signé : règle (D13).
-  - Fichiers et fonctions : CJ : boitesConstat (l. 2320-2342 sur 71a4ed6 ; m140 y a ajouté traversees, et coteLimite près de texteLimite).
-    IX : écran de la boîte (l. 2196-2200), « Sans objet » (l. 4323), VC_BOITE_CHAMPS (l. 3756), vcProvenance (l. 3738), reprise
-    (l. 3840-3852), résumé (l. 3651), vcBoiteCle (l. 3868 ; m140 lui fait déjà ignorer « de la propriété »), vcEcarts (l. 3933-3939),
-    drawConstatP2 (l. 3045-3064). LISEZMOI.txt l. 260-262. CLAUDE.md (D15). tests/navigateur/constat-boite.js, tests/vm/boite.js. Numéros de
-    71a4ed6 : à retrouver par recherche.
-  - Pour l'utilisateur : la distance s'écrit seule (« 0,80 m ») ; juste sous elle, une rangée « Boîte à l'intérieur ou à l'extérieur de la
-    propriété », deux boutons par réseau à l'écran, deux cases « int. » et « ext. » au constat imprimé, les quatre rangées resserrées dans le
-    même cadre ; croquis désactivé ou absent : la même rangée, vide d'office.
-  - Tests : constat-boite.js : boîte côté intérieur à 0,80 m : distance « 0,80 m », côté « intérieur », croix dans « int. » au PDF (avant :
-    « 0,80 m intérieur » ; échoue) ; « Sans objet » ; valeur retouchée gardée ; deux boîtes ; croquis désactivé : quatre rangées, côté vide
-    (échoue sur le commit d'avant) ; constat signé sans marque : trois rangées. vm/boite.js : boitesConstat rend la distance et le côté à
-    part ; en limite, pas de côté ; l'étiquette du plan garde « à 0,80 m de la limite, à l'intérieur de la propriété » (m140).
-  - Garde : compat 245/245 ; aléatoire : sans écart (boitesConstat non comparé).
-  - Règle de CLAUDE.md : « ligne « Boîte à l'intérieur ou à l'extérieur de la propriété » » ajouté à la liste des nouveautés (D15).
-  - Risques et [p] : page 2 pleine (13,25 pt par rangée) ; cases petites ; valeurs sur une ligne [p] ; une distance tapée qui porte le côté
-    reste telle quelle [p] ; tablette en v1.7.1 (information).
-  - Dépendances : m140 (mêmes mots), m147 (présentation, règle de CLAUDE.md).
+- **m149 Ligne « Boîte à l'intérieur ou à l'extérieur de la propriété »** (pr12-11 ; D17 ; S3 a, S2 b). Taille M. Fait : 0bc2577, 18 nov.
+  - Fichiers et fonctions : CJ : VC.boitesConstat (l. 2580) rend {n, dist, cote, prof, nDist, nProf} : la distance seule (« 0,80 m », « en
+    limite ») et le côté à part (« intérieur », « extérieur » ou vide ; en limite, aucun), repris s'il n'y a qu'une boîte sur le réseau ;
+    nDist ne compte que les boîtes qui portent une distance ; texteLimite (l. 2696) inchangée. IX : VC_BOITE_CHAMPS (l. 3882 : distEU,
+    distEP, coteEU, coteEP, profEU, profEP) ; constatDepuisCroquis (l. 3910 : distance, côté et profondeur ; le côté n'est pas repris si
+    vcBoiteCoteDist (l. 4024) lit dans la distance un côté opposé) ; vcBoiteCle (l. 4005) ; vcEcarts (l. 4026 : distance et côté comparés à
+    part) ; boiteCoteHtml (l. 2181) et constatHtml (l. 2189) : boutons c-set boite.coteEU et boite.coteEP, « Sans objet » écrit « sans
+    objet » ; drawConstatP2 (l. 3159) : drawBoiteMep2 (l. 3124 : quatre rangées de 13,25 pt, cases boiteCases l. 3152) si constatMep(c) vaut
+    2, sinon drawBoiteMep1 (l. 3098, le code d'avant) ; CSS .bcote et .bso (l. 350). CLAUDE.md (règle « Croquis désactivé ou absent », D15),
+    LISEZMOI.txt, croquis/LISEZMOI.txt, tests/LISEZMOI.md.
+  - Pour l'utilisateur : au constat, sous la distance de la boîte en limite, une rangée « Boîte à l'intérieur ou à l'extérieur de la
+    propriété », deux boutons « Intérieur » et « Extérieur » par réseau (un second toucher décoche), cochés d'après le croquis quand il n'y a
+    qu'une boîte sur le réseau ; « Sans objet (pas de boîte en limite) » y écrit « sans objet ». Au PDF (page 2), quatre rangées dans le
+    cadre des trois d'avant, deux cases « int. » et « ext. » par réseau ; une valeur longue s'imprime en plus petit, sur deux lignes au
+    besoin. La distance reprise du croquis devient « 0,80 m » (avant : « 0,80 m intérieur ») ; une distance tapée n'est jamais découpée. Un
+    constat signé avant la v1.7.2 se réimprime avec ses trois rangées. Croquis désactivé ou absent : la même rangée, vide d'office.
+  - Tests : vm/boite.js (148 contrôles ; c1 à c33 vérifient aussi le côté ; c34 à c38 nouveaux ; c17 : un côté seul ne compte pas) : 88/148
+    sur edae8d8, 146/148 sur la première version ; navigateur/constat-boite.js (112 contrôles ; cas 15 à 20 nouveaux ; cas 12 réécrit, encre
+    calculée d'après les glyphes de Jost) : 61/112 sur edae8d8, 102/112 sur la première version, 107/112 avec deux lignes de 6 pt. Gardes :
+    compat 245/245 ; aléatoire 8000 contre edae8d8 : aucun écart sur 10 666 analyses ; PDF d'un constat signé sans marque identique octet
+    pour octet. Batterie verte (24 min).
+  - Relecture : deux défauts majeurs confirmés et corrigés : le côté se cochait d'après le croquis à l'opposé d'une distance tapée ou
+    retouchée qui porte le côté, et le PDF se contredisait (C1 : vcBoiteCoteDist, cas 20) ; en présentation 2, une valeur de plus de 22
+    caractères environ était coupée par « … », quand la v1.7.1 l'imprimait en entier (C2 : repli sur deux lignes). Mineurs corrigés : M1 et
+    M4 (nDist), M2 (doublon de C2), M3 (aide de l'écran) ; écarté : M5 (un constat d'essai signé avec m147 ou m148 se réimprime en quatre
+    rangées). Retouche après la relecture : deux lignes de 6 pt touchaient les traits de la rangée (capitale accentuée en tête, jambage en
+    bas, police Jost) ; en 5,5 pt, l'encre reste à 0,23 pt des traits (rendu à 1200 ppp).
+  - Risques et [p] : une distance tapée qui porte le côté du croquis laisse le côté se cocher (D17 disait « côté vide ») ; opposé, il n'est
+    pas repris ; cases dessinées même vides ; « sans objet » en clair ; un second toucher décoche ; valeurs longues sur deux lignes de 5,5
+    pt, la seconde finie par « … » au-delà ; page 2 plus serrée ; M5 (versions d'essai seulement) ; tablette en v1.7.1 (information, D17) :
+    elle n'affiche ni n'imprime le côté, son « Sans objet » l'efface et sa reprise réécrit « 0,80 m intérieur ». Dépendances : après m147
+    (constatMep).
 - **m150 Colonne « Puits » au constat** (puits-milieu-naturel, drain-infiltration-constat ; D18, D8 ; X1, F1, F3, F4, X9 ; S4 a, S5 a, S2 b).
   Taille M.
   - Réponses : S4 (a) « Dans la colonne « Puits », verte comme « Milieu naturel » et « Gargouille » » (son commentaire, les colonnes sans
