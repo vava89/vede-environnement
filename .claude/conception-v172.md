@@ -609,6 +609,14 @@ recherche.
 - « Fosse » : S7 (a, 17 nov.), message M5, codé par m144 (D10) ; (c), une clé des exutoires qui sépare « Fosse » et « Fossé » dans les
   dossiers faits, n'est pas choisi. Noms proches : S6 (b), codé par m144 (D10).
 - Dossiers existants : un « Puits » jugé conforme devient non conforme à l'ouverture (voulu). Tablette en v1.7.1 : le jugement de la fiche [p].
+- Après la relecture de m151 [p] : nomPuits rend 'perdu' quand chaque puits nommé est suivi de « perdu » (« Puits perdu », « puits perdus »,
+  « Puit perdu ») ; dans le doute, un puits : « Étangpuits », « Puits non perdu » et « Puits perdu2 » (M3) sont jugés comme un puits ;
+  « Puit_jardin » n'est ni refusé ni jugé comme un puits (comme en m127). « Puits d'infiltration », « Puits filtrant », « Puits canadien » :
+  jugés comme un puits, donc non conformes (M5 : à poser à l'utilisateur avec l'annonce ; s'il le veut, ces mots rejoindront le motif de
+  « perdu »). Dans la fiche d'un puits, les aides de l'article, du jugement et de la case, devenues fausses, se taisent (M2, M4). Une
+  destination nommée comme un puits prend les textes de PUITS (« Descente EP : rejet dans un puits ») et garde le symbole de la destination ;
+  les anciennes décisions ep-exu restent sans effet, l'anomalie ep-puits, nouvelle, est retenue d'office. Le plan PDF d'un dossier signé suit
+  la version qui imprime (règle commune).
 - Compat : inchangé (aucune destination dans la garde). Différentiel : sans écart (le générateur ne nomme aucune destination « Puits » ni
   « Fosse », vérifié : generateur.js l. 130).
 
@@ -1115,18 +1123,34 @@ et à tests/LISEZMOI.md.
     venue du croquis ; l'exception du croquis ne dépend pas de vcPret() (un constat signé ne paraît pas changé quand on désactive le
     croquis) ; M2 et M6 à dire à l'annonce ; tablette en v1.7.1 (information, non essayé) : une ligne « Puits » y est non conforme d'office,
     sans suppMilieu ni croix, jusqu'au suivi. Dépendances : après m147 (constatMep).
-- **m151 « Puits » venu d'un fichier** (puits-venu-fichier ; D19 ; F6). Taille S.
-  - Réponses : noms proches (S6 b) et « Fosse » (S7 a) sont codés par m144 ; il ne reste que D19.
-  - Fichiers et fonctions : CJ : nomPuits [p] (rend 'puits', 'perdu' ou '' ; partagé par champDest, l. 856-857, et l'analyse, l. 1149-1153),
-    contrôles de la destination (l. 1019-1020), fiche de la destination. LISEZMOI.txt (destinations). tests/vm/regles.js, tests/vm/rejets.js.
-    Numéros de 71a4ed6 : à retrouver par recherche.
-  - Pour l'utilisateur : une « Autre destination » « Puits » venue d'un fichier est jugée comme un puits, non conforme, avec le message « À
-    vérifier » ; « Puits perdu » garde le jugement de sa fiche, avec son rappel (D19).
-  - Tests : vm/regles.js l. 110-113 (« Puits » : règle du puits ; échouent sur le commit d'avant) ; « Puit », « Ancien puits » (puits),
-    « Puits perdu » (jugement de sa fiche, rappel), « Puisard » (témoin : jugement de la fiche) ; le refus de la fiche et le jugement par la
-    même fonction.
-  - Garde : compat 245/245 ; aléatoire : sans écart.
-  - Risques et [p] : rappel du « Puits perdu » [p] ; objet laissé tel quel [p]. Dépendances : m144 (même champ de saisie).
+- **m151 « Puits » venu d'un fichier** (puits-venu-fichier ; D19 ; F6). Taille S. Fait : 34227da, 19 nov.
+  - Fichiers et fonctions : CJ : nomPuits(s) (l. 891 : 'puits', 'perdu' ou '', d'après le nom normalisé par nomCle ; 'perdu' quand chaque
+    puits nommé est suivi de « perdu » ; dans le doute, un puits) et rappelPuits(nom) (l. 898 : les textes « À vérifier » de D19), exportées
+    (l. 1129) ; champDest (l. 907 : le refus REFUS_PUITS passe par nomPuits, inchangé) ; analyser (l. 1373 : un nom de puits prend
+    cleX = 'PUITS', sans exutoire de destination) ; controles (l. 2119 : rappel de niveau info, clé destpuits) ; fiche de la destination
+    (l. 6568 : rappel au-dessus du jugement des EP ; pour un puits, aides de l'article, du jugement et de la case tues) ; commentaires de la
+    ligne X de EXU et de destDe (l. 855). LISEZMOI.txt (destinations, l. 136-148), croquis/LISEZMOI.txt (l. 14 et 44), tests/LISEZMOI.md.
+  - Pour l'utilisateur : une « Autre destination » dont le nom nomme un puits (« Puits », « Puit », « Ancien puits », « PUITS du jardin »…),
+    venue d'un fichier fait à la main, est jugée comme l'objet Puits : rejet des EP non conforme (« Descente EP : rejet dans un puits »,
+    colonne « Puits » au constat, qui suit l'anomalie comme en m150) ; son jugement et sa case n'ont plus d'effet ; rappel « À vérifier » et
+    le même texte dans sa fiche, au-dessus des champs du jugement, laissés visibles. Un « Puits perdu » garde le jugement de sa fiche, avec
+    son rappel (il se dessine en Puisard). Le refus à la saisie ne change pas. Dossiers existants : une destination « Puits » jugée conforme
+    devient non conforme à l'ouverture (voulu) ; un constat signé ne change pas. Croquis désactivé : sans objet.
+  - Tests : vm/regles.js (51 cas ; les deux cas « Puits » d'avant réécrits selon D19, cinq nouveaux, dont le témoin « Puisard ») : 45/51 sur
+    93bbb5f ; vm/rejets.js (194 contrôles ; f1 à f4 nouveaux : nom, rappels, objet laissé tel quel, constat, avec trois fiches de plus) :
+    182/194 sur 93bbb5f ; navigateur/rejets.js (116 contrôles ; p4 nouveau : fichier fait à la main, fiche et aides tues) : 112/116 sur
+    93bbb5f, et p4 6/7 sur une copie qui garde les aides. Gardes : compat 245/245 ; aléatoire 8000 contre 93bbb5f : aucun écart sur 10 666
+    analyses. Batterie verte (25 min).
+  - Relecture : aucun défaut bloquant ni majeur. Mineurs corrigés : aides de la fiche d'une destination « Puits » qui décrivaient un effet
+    qu'elle n'a plus (M2, M4 : tues) ; place du commentaire de p3 (M1, M6) ; « Puits perdu2 » figé comme un puits (M3 : dans le doute, un
+    puits) ; commentaires de destDe et de la ligne X de EXU (M7) ; trois fiches de plus essayées (M8). Laissé à l'utilisateur (M5) : « Puits
+    d'infiltration », « Puits filtrant » ou « Puits canadien » sont jugés comme un puits, donc non conformes ; s'il le veut, ces mots
+    rejoindront le motif de « perdu ».
+  - Risques et [p] : « perdu » seulement quand chaque puits nommé en est suivi ; « Étangpuits » et « Puits perdu2 » jugés comme un puits ;
+    « Puit_jardin » ni refusé ni jugé comme un puits (comme en m127) ; aides tues pour un puits ; les anciennes décisions ep-exu restent sans
+    effet, l'anomalie ep-puits, nouvelle, est retenue d'office ; deux destinations « Puits » donnent un seul rejet PUITS ; le plan PDF d'un
+    dossier signé suit la version qui imprime (règle commune) ; tablette en v1.7.1 : le jugement de la fiche (information). Dépendances :
+    m144 (même champ de saisie ; noms proches, S6 b, et « Fosse », S7 a, codés par m144).
 - **m152 Symbole du puits du cadastre** (symbole-puits ; D20). Taille S.
   - Réponse : S8 (a) « En Z : vers le haut à gauche, vers le bas à droite » ; l'axe y des primitives monte (vérifié, D20) : la manivelle de
     gauche monte.
