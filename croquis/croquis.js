@@ -828,7 +828,8 @@ var EXU = {
     cEU: {code: 'MILIEU', lib: 'Drain d\'infiltration : rejet au sol (milieu naturel)'}, cEP: {code: '', lib: 'Drain d\'infiltration (dispersion dans le sol)', recup: 'infil'}},
   /* autre destination (m125, décisions D3, D5 à D7) : un étang, un fossé… que l'opérateur nomme et juge dans sa fiche. Son rejet est une clé
      « X:NOM:ep:cst » (terminal) ; ses textes, ses règles et sa place au constat viennent de ses champs (an.exu[clé], ligneDest) : cette
-     ligne ne donne que le réseau (EP) et le repère dest. Aucune règle ne compare un rejet à 'X' */
+     ligne ne donne que le réseau (EP) et le repère dest. Aucune règle ne compare un rejet à 'X'. Sauf un nom de puits (nomPuits 'puits' ;
+     m151, décision D19) : analyser lui donne la clé PUITS, il se juge comme l'objet Puits, et ses champs n'y entrent pas */
   X: {lib: 'autre destination', res: 'EP', dest: true}
 };
 /* code d'un rejet : la partie avant le premier « : », sinon le rejet entier */
@@ -844,7 +845,9 @@ function resTrace(res){ var x = exuDe(res); return x ? x.res : res; }
      qu'il sait écrire, comme la fiche (abDe : « 💧 Mare » donne « Ma ») ;
    - art : 'le', 'la' ou « l' », sinon 'le' (pour les textes, jamais pour la clé) ;
    - ep, jugement des EP : 'conforme', 'reserve', 'nc' ou 'arbitrer', sinon 'arbitrer' ; jamais d'après le nom ;
-   - cst, case du constat en EP : 'MILIEU', 'GARG', 'puisard', 'recup', 'infil' ou 'autre', sinon 'autre'. */
+   - cst, case du constat en EP : 'MILIEU', 'GARG', 'puisard', 'recup', 'infil' ou 'autre', sinon 'autre'.
+   Un nom de puits (nomPuits 'puits' ; m151, décision D19) garde ces champs, mais ils ne le jugent pas : analyser lui donne la clé PUITS,
+   comme à l'objet Puits. */
 /* valeurs permises du jugement et de la case, avec leurs libellés, qui distinguent deux destinations de même nom (libsRejets ; cases des
    ouvrages : ceux de RECUP_LIB) */
 var DEST_EP = {conforme: 'conforme', reserve: 'réserve', nc: 'non conforme', arbitrer: 'à arbitrer'};
@@ -878,14 +881,30 @@ var DEST_EPS = [['conforme', 'Conforme'], ['reserve', 'Réserve'], ['nc', 'Non c
 var DEST_CSTS = [['MILIEU', 'Milieu naturel'], ['GARG', 'Gargouille'], ['puisard', 'Puisard'], ['recup', 'Récupérateur'], ['infil', 'Infiltration diffuse'], ['autre', 'Indéterminé/Autres']];
 /* nom ou abréviation saisis pour une destination (fiche, fiche courte, Réglages ; m128) : la valeur retenue (espaces réduits, nom coupé à
    40 caractères ; abréviation vide : tirée du nom nom0) et le refus, texte du toast de la fiche ('' : acceptée). Refusés : un nom vide,
-   qui contient « puits » une fois normalisé comme la clé (décision D3), ou illisible au PDF ; une abréviation de longueur fausse ou
-   illisible au PDF */
+   qui nomme un puits (nomPuits ; décision D3), ou illisible au PDF ; une abréviation de longueur fausse ou illisible au PDF */
 var REFUS_PUITS = 'Pour un puits, posez l\'objet Puits (EP non conformes) ; pour un puits perdu, un Puisard.';
+/* m151 (décision D19 ; réponse puits-venu-fichier du 16 nov. 2026) : un nom de destination qui nomme un puits, une fois normalisé comme la
+   clé (nomCle) : « puits » partout, ou « puit » comme mot. Une seule fonction pour le refus de la saisie (champDest) et le jugement
+   (analyser) : 'puits' ; 'perdu' quand chaque puits nommé est suivi de « perdu » (« Puits perdu », « puits perdus », « Puit perdu ») ;
+   sinon ''. Dans le doute, un puits : son rejet des EP n'est jamais conforme (« Puits non perdu » ; « Puits perdu2 » : un chiffre collé
+   fait de « perdu2 » un autre mot) */
+function nomPuits(s){
+  var c = nomCle(s), P = /PUIT(S|\b)/;
+  if (!P.test(c)) return '';
+  return P.test(c.replace(/PUITS?[^A-Z0-9]*PERDU(E|ES|S)?(?![A-Z0-9])/g, ' ')) ? 'puits' : 'perdu';
+}
+/* rappel « À vérifier » (contrôles) et de la fiche d'une destination nommée comme un puits (nom tel qu'écrit sur l'objet, destDe) : un
+   puits est jugé comme l'objet Puits ; un puits perdu, d'après sa fiche ; '' pour un autre nom */
+function rappelPuits(nom){
+  var k = nomPuits(nom);
+  return k === 'puits' ? 'Autre destination « ' + nom + ' » : jugée comme un puits (rejet des EP non conforme). Pour un puits, posez l\'objet Puits ; pour un puits perdu, un Puisard.'
+    : k === 'perdu' ? 'Autre destination « ' + nom + ' » : jugée d\'après sa fiche. Un puits perdu (qui infiltre les eaux) se dessine en Puisard.' : '';
+}
 function champDest(k, val, nom0){
   var s = String(val == null ? '' : val).replace(/\s+/g, ' ').trim(), refus = '', LONG = 'Abréviation de 2 ou 3 caractères, par exemple Ét';
   if (k === 'nom'){
     s = s.slice(0, 40).trim();
-    refus = !s ? 'Le nom ne peut pas être vide' : /PUIT(S|\b)/.test(nomCle(s)) ? REFUS_PUITS
+    refus = !s ? 'Le nom ne peut pas être vide' : nomPuits(s) ? REFUS_PUITS
       : abDe(s).length < 2 ? 'Nom illisible au PDF : employez au moins deux lettres latines ou chiffres' : '';
   } else if (k === 'ab'){
     if (!s){ s = abDe(nom0 == null ? '' : String(nom0)); if (s.length < 2) refus = LONG; }
@@ -1106,6 +1125,8 @@ VC.EXU = EXU; VC.libExu = libExu; VC.destDe = destDe; VC.estDest = estDest;
 /* destinations ajoutées (m128) : pour les Réglages de l'application */
 VC.DEST_EP = DEST_EP; VC.DEST_CST = DEST_CST; VC.DEST_ARTS = DEST_ARTS; VC.DEST_EPS = DEST_EPS; VC.DEST_CSTS = DEST_CSTS;
 VC.champDest = champDest; VC.destSaisie = destSaisie; VC.modelesDe = modelesDe; VC.artDevant = artDevant;
+/* m151 : nom de destination qui nomme un puits, et son rappel */
+VC.nomPuits = nomPuits; VC.rappelPuits = rappelPuits;
 /* noms de destination comparés (m144) : pour les Réglages de l'application et les tests */
 VC.canonDest = canonDest; VC.distDest = distDest; VC.degreDest = degreDest; VC.refusNomDest = refusNomDest; VC.reponseNomProche = reponseNomProche;
 /* Codes de l'application (constat) ; caméra et déclaré s'y ajoutent */
@@ -1342,11 +1363,15 @@ function analyser(doc, mode){
   doc.el.forEach(function(e){ if (!actif(e, mode)) return; if (e.k === 'pt' && T[e.t]) objs[e.id] = e; else if (e.k === 'ln' && (e.t === 'tr' || e.t === 'col')) lignes[e.id] = e; });
   /* autres destinations (m125, décision D5) : clé du rejet de chaque objet (terminal) ; an.exu : clé → champs (destDe) du premier objet de
      cette clé dans l'ordre des identifiants, pas du dessin. La table n'existe que si le plan porte une destination : un ancien croquis ne
-     reçoit aucune clé nouvelle */
+     reçoit aucune clé nouvelle. m151 (D19) : une destination nommée comme un puits (nomPuits 'puits' ; fichier fait à la main, la fiche
+     refuse ce nom) se juge comme l'objet Puits : clé PUITS, sans entrée dans an.exu ; ni son jugement ni sa case n'y entrent, l'objet ne
+     change pas. Un puits perdu garde le jugement de sa fiche */
   var cleX = {}, exuX = null;
   Object.keys(objs).sort().forEach(function(id){
     var o = objs[id], x = exuDe(T[o.t].exu); if (!T[o.t].exu || !x || !x.dest) return;
-    var d = destDe(o), k = cleDest(codeExu(T[o.t].exu), d); cleX[id] = k;
+    var d = destDe(o), k;
+    if (nomPuits(d.nom) === 'puits'){ cleX[id] = 'PUITS'; return; }
+    k = cleDest(codeExu(T[o.t].exu), d); cleX[id] = k;
     if (!exuX) exuX = {}; if (!Object.prototype.hasOwnProperty.call(exuX, k)) exuX[k] = d;
   });
   function lier(n, p){ (adj[n] = adj[n] || []).push(p); }
@@ -2090,6 +2115,8 @@ function controles(doc, an){
     }
     if (ty.regard && o.t !== 'regard_pub' && !o.p.tampon) c(id, 'info', lib + ' : tampon à indiquer', 'tampon');
     if (ty.boite && !/^(EU|EP|UN)$/.test(o.p.res || '') && an.resPt[id] === 'INC') c(id, 'manque', 'Boîte de branchement : réseau à indiquer', 'boiteres');
+    /* destination nommée comme un puits (m151, D19), reliée ou non : comment elle est jugée, et l'objet à poser */
+    var rpu = estDest(o.t) ? rappelPuits(destDe(o).nom) : ''; if (rpu) c(id, 'info', rpu, 'destpuits');
   });
   Object.keys(an.resObj).forEach(function(id){ if (an.objs[id]) return; var o = srcObj(an, id); if (o) source(id, o, libObj(o), an.resObj[id]); });
   var dits = {};
@@ -6535,13 +6562,17 @@ function editeur(racine, opts){
       /* autre destination (m127 ; D3, D10) : ses cinq champs, aux valeurs que lisent les règles (destDe), un pas d'annulation chacun ; le nom
          et l'abréviation s'enregistrent en quittant le champ (destTxt), les puces aussitôt (dest) */
       if (estDest(e.t)){
-        var dd = destDe(e);
+        /* nom qui nomme un puits, venu d'un fichier (m151, D19) : le rappel de Contrôles, au-dessus des champs du jugement, qui restent. Un
+           puits se juge comme l'objet Puits : les aides de l'article (texte du rejet), du jugement et de la case, qui décrivent un effet
+           qu'ils n'ont plus, se taisent (pu ; relecture de m151, M2 et M4) */
+        var dd = destDe(e), rpD = rappelPuits(dd.nom), pu = nomPuits(dd.nom) === 'puits';
         h += champ('Nom', saisie('nom', dd.nom, {a: 'destTxt', lab: 'Nom de la destination', max: 40}), 'étang, fossé, mare… (40 caractères au plus)');
         h += champ('Abréviation', saisie('ab', dd.ab, {a: 'destTxt', lab: 'Abréviation du symbole', max: 3}), '2 ou 3 caractères, dans le symbole');
-        h += champ('Article', chipsHtml('art', DEST_ARTS, dd.art, {a: 'dest', label: 'Article'}), esc(ligneDest(dd).eu.obs));
+        h += champ('Article', chipsHtml('art', DEST_ARTS, dd.art, {a: 'dest', label: 'Article'}), pu ? '' : esc(ligneDest(dd).eu.obs));
+        if (rpD) h += '<p class="vc-muet">' + esc(rpD) + '</p>';
         h += champ('Jugement des EP', chipsHtml('ep', DEST_EPS, dd.ep, {a: 'dest', label: 'Jugement des EP'}),
-          'les EU y sont toujours non conformes ; le changer efface les décisions de Contrôles sur les rejets des EP');
-        h += champ('Case du constat', chipsHtml('cst', DEST_CSTS, dd.cst, {a: 'dest', label: 'Case du constat'}), 'en EP ; hors milieu naturel et gargouille, le raccordement reste à cocher, comme pour l\'infiltration');
+          pu ? '' : 'les EU y sont toujours non conformes ; le changer efface les décisions de Contrôles sur les rejets des EP');
+        h += champ('Case du constat', chipsHtml('cst', DEST_CSTS, dd.cst, {a: 'dest', label: 'Case du constat'}), pu ? '' : 'en EP ; hors milieu naturel et gargouille, le raccordement reste à cocher, comme pour l\'infiltration');
       }
       if (ty.role === 'source' || e.t === 'test') h += champ('Méthode de test', chipsHtml('meth', METH.map(function(m){ return [m[0], m[1]]; }), e.p.meth || [], {label: 'Méthode de test'}), ty.role === 'source' ? 'comment l\'écoulement a été établi' : '');
       if (e.t === 'descente'){ h += champ('Façade', chipsHtml('cote', [['avant', 'Avant'], ['arriere', 'Arrière']], e.p.cote)); h += champ('Visitable', chipsHtml('visitable', OUI_NON, e.p.visitable)); }

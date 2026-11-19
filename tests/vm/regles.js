@@ -11,15 +11,20 @@
 // Puits (m120, décision du 13 nov. 2026 : un rejet EP dans un puits est une non-conformité) : descente non conforme (ep-puits), WC non
 // conforme (eu-puits), et l'un et l'autre par un regard au tampon béton (le regard suit l'exutoire : réserve en EP). Ces quatre cas
 // échouent sur 7df0996 (type inconnu : bout libre).
-// Autre destination (m125, décisions D3, D5 et D6 : le jugement des EP vient de la fiche de l'objet, jamais de son nom) : descente vers un
+// Autre destination (m125, décisions D3, D5 et D6 : le jugement des EP vient de la fiche de l'objet) : descente vers un
 // étang aux EP conformes (aucune anomalie), en réserve (ep-exu en réserve), non conformes (ep-exu NC), à arbitrer (ep-exu NC à arbitrer,
-// conclusion « exu ») ; WC et descente vers une destination sans champ (« l'autre destination », EP à arbitrer), une destination nommée
-// « Puits » dans un fichier fait à la main (à arbitrer, ou conforme si sa fiche le dit : jamais ep-puits) ; descente vers un regard au
+// conclusion « exu ») ; WC et descente vers une destination sans champ (« l'autre destination », EP à arbitrer) ; descente vers un regard au
 // tampon béton et sans cunette, puis un étang aux EP conformes, en Tronçon, en Tronçon EP, puis en avant-projet avec un Tronçon EP laissé
 // libre au regard : regard et pièces EP, aucune contredite, seule anomalie « Regard EP : tampon béton » en réserve, ni « contredit » ni
 // « sortielibre » (témoin : vers un puisard) ; un WC sur ce regard : la même réserve et eu-exu NC. Champs facultatifs d'un cas : mode
 // (d'analyse), pt (réseau attendu des objets), pc (réseau attendu de chaque pièce, aucune contredite), sans (contrôles absents). Ces cas
 // échouent sur ebd5589 (type inconnu : bout libre, aucun rejet établi), sauf le témoin.
+// Destination nommée comme un puits, venue d'un fichier fait à la main (m151, décision D19 : la fiche refuse ce nom ; un rejet des EP dans
+// un puits est toujours non conforme) : « Puits » sans jugement ou aux EP conformes, « Puit » et « Ancien puits » aux EP conformes, jugés
+// comme un puits (ep-puits NC, conclusion « Non conformes ») avec le rappel « À vérifier » ; un WC vers « Puits » : eu-puits ; « Puits
+// perdu » aux EP conformes : le jugement de sa fiche, avec son rappel ; « Puisard » aux EP conformes (témoin) : le jugement de sa fiche,
+// sans rappel. Champ facultatif info : textes des rappels attendus (contrôles « destpuits » de niveau « info », aucun autre). Ces cas
+// échouent sur 93bbb5f (rejet dans « le puits » à arbitrer, ou conforme ; aucun rappel), sauf le témoin.
 // usage : node tests/vm/regles.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rapport} = require('./charger.js');
@@ -35,6 +40,10 @@ const versDest = (s, p) => doc({o: [['s', s, 0, 8], ['X', 'exutoire', 0, 0, p]],
 const parRegard = (s, t, p, res, libre) => doc({o: [['s', s, 0, 8], ['R', 'regard', 0, 4, {tampon: 'beton', cunette: 'non'}], ['X', t, 0, 0, p]],
   l: [['L1', 'tr', res, '', ['s', 'R']], ['L2', 'tr', res, '', ['R', 'X']]].concat(libre ? [['L3', 'tr', 'EP', '', ['R', [4, 4]]]] : [])});
 const REG = {pt: {R: 'EP', X: 'EP'}, pc: 'EP', sans: ['contredit', 'sortielibre']}, TB = ['tampon:R', false, 'Regard EP : tampon béton'];
+/* m151 : rappels « À vérifier » d'une destination nommée comme un puits (nom écrit comme sur l'objet), anomalies du puits */
+const RPU = n => 'Autre destination « ' + n + ' » : jugée comme un puits (rejet des EP non conforme). Pour un puits, posez l\'objet Puits ; pour un puits perdu, un Puisard.';
+const RPP = n => 'Autre destination « ' + n + ' » : jugée d\'après sa fiche. Un puits perdu (qui infiltre les eaux) se dessine en Puisard.';
+const EPU = ['ep-puits:s', true, 'Descente EP : rejet dans un puits'];
 const cas = [
   {n: 'siphon de garage vers la boîte EU', d: vers('siphon_garage', 'EU'), et: 's=ok:EU', a: [], c: 'conformes'},
   {n: 'siphon de garage vers la boîte EP', d: vers('siphon_garage', 'EP'), et: 's=ok:EP', a: [['eu-ep:s', true, 'Siphon de garage : rejet au réseau EP']], c: 'non_conformes'},
@@ -107,10 +116,21 @@ const cas = [
     a: [['eu-exu:s', true, 'WC : rejet dans l\'autre destination']], c: 'non_conformes'},
   {n: 'descente vers une destination sans champ (EP à arbitrer)', d: versDest('descente', {}), et: 's=ok:X:AUTRE DESTINATION:arbitrer:autre',
     a: [['ep-exu:s', true, 'Descente EP : rejet dans l\'autre destination', 'arbitrer']], c: 'exu'},
-  {n: 'descente vers une destination nommée « Puits » sans jugement (fichier fait à la main) : à arbitrer, pas ep-puits', d: versDest('descente', {nom: 'Puits'}),
-    et: 's=ok:X:PUITS:arbitrer:autre', a: [['ep-exu:s', true, 'Descente EP : rejet dans le puits', 'arbitrer']], c: 'exu'},
-  {n: 'descente vers une destination nommée « Puits » aux EP conformes (fichier fait à la main) : le jugement de sa fiche', d: versDest('descente', {nom: 'Puits', ep: 'conforme'}),
-    et: 's=ok:X:PUITS:conforme:autre', a: [], c: 'conformes'},
+  /* destination nommée comme un puits, d'un fichier fait à la main (m151, D19) : jugée comme un puits ; un puits perdu, d'après sa fiche */
+  {n: 'descente vers une destination nommée « Puits » sans jugement (fichier fait à la main) : comme un puits (ep-puits)', d: versDest('descente', {nom: 'Puits'}),
+    et: 's=ok:PUITS', a: [EPU], c: 'non_conformes', info: [RPU('Puits')]},
+  {n: 'descente vers une destination nommée « Puits » aux EP conformes (fichier fait à la main) : comme un puits, malgré sa fiche', d: versDest('descente', {nom: 'Puits', ep: 'conforme'}),
+    et: 's=ok:PUITS', a: [EPU], c: 'non_conformes', info: [RPU('Puits')]},
+  {n: 'descente vers une destination nommée « Puit » aux EP conformes : comme un puits', d: versDest('descente', {nom: 'Puit', ep: 'conforme'}),
+    et: 's=ok:PUITS', a: [EPU], c: 'non_conformes', info: [RPU('Puit')]},
+  {n: 'descente vers une destination nommée « Ancien puits » aux EP conformes : comme un puits', d: versDest('descente', {nom: 'Ancien puits', ep: 'conforme'}),
+    et: 's=ok:PUITS', a: [EPU], c: 'non_conformes', info: [RPU('Ancien puits')]},
+  {n: 'WC vers une destination nommée « Puits » : eu-puits', d: versDest('wc', {nom: 'Puits'}),
+    et: 's=ok:PUITS', a: [['eu-puits:s', true, 'WC : rejet dans un puits']], c: 'non_conformes', info: [RPU('Puits')]},
+  {n: 'descente vers une destination nommée « Puits perdu » aux EP conformes : le jugement de sa fiche, avec son rappel', d: versDest('descente', {nom: 'Puits perdu', ep: 'conforme'}),
+    et: 's=ok:X:PUITS PERDU:conforme:autre', a: [], c: 'conformes', info: [RPP('Puits perdu')]},
+  {n: 'descente vers une destination nommée « Puisard » aux EP conformes (témoin) : le jugement de sa fiche, sans rappel', d: versDest('descente', {nom: 'Puisard', ep: 'conforme'}),
+    et: 's=ok:X:PUISARD:conforme:autre', a: [], c: 'conformes'},
   {n: 'descente vers un puisard par un regard au tampon béton et sans cunette (témoin)', d: parRegard('descente', 'puisard', {}, ''), et: 's=ok:INF', a: [TB], c: 'reserves', ...REG},
   {n: 'descente vers un étang aux EP conformes par un regard au tampon béton et sans cunette, en Tronçon', d: parRegard('descente', 'exutoire', etang('conforme'), ''),
     et: 's=ok:X:ETANG:conforme:autre', a: [TB], c: 'reserves', ...REG},
@@ -133,6 +153,9 @@ cas.forEach(k => {
   Object.keys(k.pt || {}).forEach(id => { if (an.resPt[id] !== k.pt[id]) ecarts.push('réseau de ' + id + ' : ' + an.resPt[id]); });
   if (k.pc) an.pieces.forEach(p => { const rp = an.resPiece[p.id] || {}; if (rp.res !== k.pc || rp.contredit) ecarts.push('pièce ' + p.id + ' : ' + rp.res + (rp.contredit ? ', contredite' : '')); });
   (an.controles || []).forEach(x => { if ((k.sans || []).indexOf(x.cle.split(':')[0]) >= 0) ecarts.push('contrôle ' + x.cle); });
+  /* m151 : rappels d'une destination nommée comme un puits (contrôles « destpuits »), mot pour mot, de niveau « info », aucun autre */
+  const rap = (an.controles || []).filter(x => x.cle.split(':')[0] === 'destpuits').map(x => x.niveau + ' ' + x.txt);
+  if (JSON.stringify(rap) !== JSON.stringify((k.info || []).map(t => 'info ' + t))) ecarts.push('rappels : ' + (rap.length ? rap.join(' / ') : 'aucun'));
   R.ok(et === k.et && !ecarts.length && c === k.c, k.n + ' : ' + et + ' | ' + c + (ecarts.length ? ' | ' + ecarts.join(' ; ') : ''));
 });
 R.fin();

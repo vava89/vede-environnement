@@ -146,6 +146,25 @@
 //   « l'infiltration au sol », Rejet en milieu naturel, Fosse septique, Autre destination : « est un objet de la palette ».
 // Échouent sur 769d1af : n1 à n3, n5 à n7, sauf les témoins de n2 et de n3 et l'acceptation de n5 ; n4 y passe. Échouent sur m144
 //   tel que relu (avant ses corrections) : les cas des relectures M1, M5 et M7 (n3, n5) et les Réglages de n6 et de n7 (M3, M9).
+// f1 à f4 (m151, décision D19 ; réponse puits-venu-fichier du 16 nov. 2026) : destination nommée comme un puits, venue d'un fichier fait à
+//   la main (la fiche refuse ce nom depuis m127).
+// f1 : le refus de la fiche (champDest) et le jugement (analyser) viennent de la même fonction, VCroquis.nomPuits : « Puits du jardin »,
+//   « PUITS », « le puîts », « Puit du jardin », « Mare aux PuÏts », « Étangpuits », « puit » : refusés, jugés comme un puits (rejet
+//   PUITS) ; « Puits perdu », « puits perdus », « Puit perdu », « PUITS-PERDU » : refusés, jugés d'après leur fiche ; dans le doute,
+//   « Puits perdu et puits », « Puits non perdu » et « Puits perdu2 » (un numéro collé à « perdu » en fait un autre mot ; relecture de
+//   m151, M3) : comme un puits. Témoins : « Étang », « Fossé », « Puisard », « Puiterie » : acceptés, d'après leur fiche.
+// f2 : rappels « À vérifier » (niveau « info », clé destpuits), mot pour mot, le nom écrit comme sur l'objet : « PUITS du Jardin »
+//   reliée, « Puits » posée seule, « Puits perdu » reliée ; témoins : « Étang » et « Puisard », sans rappel. Garde : ils ne demandent rien
+//   (aucun contrôle « manque » sur les destinations).
+// f3 : l'analyse ne modifie ni l'objet (type, nom, champs) ni son type ; sans autre destination, aucune clé an.exu ; à côté d'un étang,
+//   la seule clé de l'étang ; libellé du rejet : « puits ».
+// f4 : conclusion, constat, plan PDF et fiche de la source d'une descente vers une destination « Puits » aux EP conformes : ceux d'une
+//   descente vers l'objet Puits (ep-puits retenue d'office, ligne PUITS, ok null, jamais « oui » avant l'écart ; écartée : « oui » ;
+//   mise à arbitrer : marquée) ; WC : eu-puits, ligne PUITS « non » ; page 2 du plan PDF : « puits · anomalie n° 1 ». De même quels que
+//   soient le jugement et la case de sa fiche (relecture de m151, M8) : réserve et milieu naturel, non conforme et gargouille, à arbitrer
+//   et récupérateur (descente, WC, page 2 du plan PDF).
+// Échouent sur 93bbb5f (VCroquis.nomPuits absente ; destination jugée d'après sa fiche, sans rappel) : f1 à f4, sauf les gardes de f2
+//   et de f3.
 // usage : node tests/vm/rejets.js [-v] [--app=<dossier>]
 'use strict';
 const fs = require('fs'), path = require('path');
@@ -1176,6 +1195,86 @@ function nomsObjets(){
     + 'M4 dans la palette, les Réglages et la fiche (' + m4.filter(x => !/ : M4\/M4\/M4$/.test(x)).slice(0, 3).join(' ; ') + ')');
 }
 
+/* ---------- m151 : destination nommée comme un puits, venue d'un fichier (D19 ; réponse puits-venu-fichier du 16 nov. 2026) ---------- */
+/* rappels attendus (nom écrit comme sur l'objet) ; rejet d'une descente vers une destination aux champs p (jugement de l'analyse) */
+const RAP_PU = n => 'Autre destination « ' + n + ' » : jugée comme un puits (rejet des EP non conforme). Pour un puits, posez l\'objet Puits ; pour un puits perdu, un Puisard.';
+const RAP_PP = n => 'Autre destination « ' + n + ' » : jugée d\'après sa fiche. Un puits perdu (qui infiltre les eaux) se dessine en Puisard.';
+const rejetDest = p => sur(() => V.analyser(versDest('descente', p), 'edl').resObj.S.res);
+/* f1 : même fonction pour le refus de la fiche et le jugement : nom, refus, nomPuits, jugement ('puits' : rejet PUITS ; 'fiche' : X:…) */
+function puitsVenuNom(){
+  const N = [['Puits du jardin', 'puits'], ['PUITS', 'puits'], [' le puîts ', 'puits'], ['Puit du jardin', 'puits'], ['Mare\u00a0aux\u00a0PuÏts ', 'puits'],
+    ['Étangpuits', 'puits'], ['puit', 'puits'], ['Puits perdu', 'perdu'], ['puits perdus', 'perdu'], ['Puit perdu', 'perdu'], ['PUITS-PERDU', 'perdu'],
+    ['Puits perdu et puits', 'puits'], ['Puits non perdu', 'puits'], ['Puits perdu2', 'puits'], ['Étang', ''], ['Fossé', ''], ['Puisard', ''], ['Puiterie', '']];
+  const vus = N.map(([n, k]) => {
+    const r = fx('champDest', 'nom', n), rf = r && r.refus === PUITS_R ? 'refusé' : r && r.refus ? 'refus « ' + r.refus + ' »' : r && typeof r === 'object' ? 'accepté' : String(r);
+    const res = rejetDest({nom: n, ep: 'conforme'}), j = res === 'PUITS' ? 'puits' : /^X:/.test(res) ? 'fiche' : String(res);
+    const ok = rf === (k ? 'refusé' : 'accepté') && fx('nomPuits', n) === k && j === (k === 'puits' ? 'puits' : 'fiche');
+    return {ok, txt: JSON.stringify(n) + ' : ' + rf + ', ' + JSON.stringify(fx('nomPuits', n)) + ', ' + j};
+  });
+  R.ok(vus.every(v => v.ok), 'f1 refus de la fiche et jugement d\'une même fonction (VCroquis.nomPuits) : sept noms de puits refusés et jugés comme un puits, '
+    + 'quatre de puits perdu refusés et jugés d\'après leur fiche, trois douteux (deux mêlés, un numéro collé à « perdu ») refusés et jugés comme un puits ; '
+    + 'Étang, Fossé, Puisard, Puiterie acceptés ('
+    + (vus.filter(v => !v.ok).map(v => v.txt).slice(0, 4).join(' ; ') || vus.length + ' noms') + ')');
+}
+/* f2 : rappels « À vérifier » d'un plan qui porte trois destinations nommées comme un puits (dont une posée seule) et deux témoins */
+function puitsVenuRappels(){
+  const d = doc({o: [['S', 'descente', 0, 10], ['E', 'exutoire', 0, 4, {nom: 'PUITS du Jardin', ep: 'conforme'}], ['E2', 'exutoire', 20, 4, {nom: 'Puits'}],
+    ['S3', 'descente', 40, 10], ['E3', 'exutoire', 40, 4, {nom: 'Puits perdu', ep: 'conforme'}], ['S4', 'descente', 60, 10], ['E4', 'exutoire', 60, 4, etang('conforme')],
+    ['S5', 'descente', 80, 10], ['E5', 'exutoire', 80, 4, {nom: 'Puisard', ep: 'conforme'}]],
+    l: [['t1', 'tr', '', '', ['S', 'E']], ['t3', 'tr', '', '', ['S3', 'E3']], ['t4', 'tr', '', '', ['S4', 'E4']], ['t5', 'tr', '', '', ['S5', 'E5']]]});
+  const an = sur(() => V.analyser(d, 'edl')), cs = (an && an.controles) || [];
+  const vus = cs.filter(x => /^destpuits:/.test(x.cle)).map(x => x.id + ' ' + x.niveau + ' ' + x.cle + ' ' + x.txt).sort();
+  const att = ['E info destpuits:E ' + RAP_PU('PUITS du Jardin'), 'E2 info destpuits:E2 ' + RAP_PU('Puits'), 'E3 info destpuits:E3 ' + RAP_PP('Puits perdu')];
+  R.ok(JSON.stringify(vus) === JSON.stringify(att), 'f2 rappels « À vérifier » mot pour mot, le nom écrit comme sur l\'objet ; aucun pour l\'étang ni le puisard ('
+    + (vus.join(' / ') || 'aucun rappel') + ')');
+  R.ok(!cs.some(x => /^destpuits:/.test(x.cle) && x.niveau !== 'info') && cs.filter(x => x.niveau === 'manque' && /^E\d?$/.test(x.id)).length === 0,
+    'f2 les rappels ne demandent rien (niveau « info », aucun « manque » sur les destinations) (' + cs.map(x => x.cle + ' ' + x.niveau).join(', ') + ')');
+}
+/* f3 : l'objet et son type ne changent pas ; an.exu sans entrée pour la destination « Puits » ; libellé du rejet */
+function puitsVenuObjet(){
+  const vf = (p, t) => { const d = versDest(t || 'descente', p), avant = JSON.stringify(d.el), ty = JSON.stringify(V.TYPES.exutoire);
+    const an = sur(() => { const a = V.analyser(d, 'edl'); V.anomaliesDoc(d, a, null); V.constatDeduit(d, a); return a; });
+    return {meme: JSON.stringify(d.el) === avant && JSON.stringify(V.TYPES.exutoire) === ty, an}; };
+  const P = {nom: 'Puits', ab: 'Pu', art: 'le', ep: 'conforme', cst: 'autre'}, a = vf(P), t = vf(etang('conforme')), w = vf(P, 'wc');
+  R.ok(a.meme && w.meme && t.meme, 'f3 (garde) l\'analyse, les anomalies et le constat ne changent ni l\'objet « Puits » (descente, WC) ni son type ; '
+    + 'de même pour l\'étang (' + JSON.stringify([a.meme, w.meme, t.meme]) + ')');
+  R.ok(!!(a.an && a.an.resObj) && a.an.resObj.S.res === 'PUITS' && !a.an.exu, 'f3 rejet PUITS, aucune clé an.exu pour la destination « Puits » ('
+    + JSON.stringify({res: a.an && a.an.resObj && a.an.resObj.S.res, exu: a.an && a.an.exu ? Object.keys(a.an.exu) : null}) + ')');
+  const d = doc({o: [['S', 'descente', 0, 10], ['E', 'exutoire', 0, 4, P], ['S2', 'descente', 20, 10], ['E2', 'exutoire', 20, 4, etang('conforme')]],
+    l: [['t1', 'tr', '', '', ['S', 'E']], ['t2', 'tr', '', '', ['S2', 'E2']]]});
+  const an = sur(() => V.analyser(d, 'edl')), k = an && an.exu ? Object.keys(an.exu) : [], r = an && an.resObj ? an.resObj.S.res : String(an);
+  R.ok(JSON.stringify(k) === '["X:ETANG:conforme:autre"]' && r === 'PUITS' && libExu(r, an) === 'puits' && libExu(an.resObj.S2.res, an) === 'étang',
+    'f3 à côté d\'un étang : la seule clé de l\'étang dans an.exu ; libellés des rejets « puits » et « étang » (' + JSON.stringify({exu: k, res: r, lib: libExu(r, an)}) + ')');
+}
+/* f4 : la destination « Puits » aux EP conformes se juge et se reporte comme l'objet Puits (bilans égaux, ceux de q1) */
+async function puitsVenuConstat(){
+  const P = {nom: 'Puits', ep: 'conforme'}, C = [
+    ['retenue d\'office', 'descente', null, 'gout_av', 'PUITS | [null] | ""'],
+    ['écartée', 'descente', {'ep-puits:S': 'ecartee'}, 'gout_av', 'PUITS | [true] | "oui"'],
+    ['mise à arbitrer', 'descente', {'ep-puits:S': 'arbitrer'}, 'gout_av', 'PUITS | [null] | "" | à arbitrer'],
+    ['WC', 'wc', null, 'wc', 'PUITS | [false] | "non"']];
+  for (const [n, t, dec, ligne, att] of C){
+    const a = await bilan(versDest(t, P, dec), ligne), b = await bilan(versPuits(t, dec), ligne);
+    R.ok(vu(a) === vu(b) && a.ligne === att, 'f4 destination « Puits » aux EP conformes, ' + n + ' : comme l\'objet Puits (' + vu(a)
+      + (vu(a) === vu(b) ? '' : ' ; objet Puits : ' + vu(b)) + ')');
+  }
+  const p = await pdf(versDest('descente', P), {mode: 'edl'}), rej = p.txt.filter(s => /^puits\b/.test(s)), code = p.txt.filter(s => /\bPUITS\b/.test(s));
+  R.ok(!p.err.length && rej.length === 1 && rej[0] === 'puits · anomalie n° 1' && !code.length,
+    'f4 plan PDF : « puits · anomalie n° 1 » au « Rejet constaté » de la page 2, jamais le code (' + (p.err.join(' | ') || rej.concat(code).map(s => JSON.stringify(s)).join(', ') || 'rien') + ')');
+  /* relecture de m151, M8 : quels que soient le jugement et la case de sa fiche (réserve et milieu naturel, non conforme et gargouille, à
+     arbitrer et récupérateur) : descente (ep-puits retenue d'office), WC (eu-puits) et page 2 du plan PDF comme l'objet Puits */
+  const dP = await bilan(versPuits('descente'), 'gout_av'), wP = await bilan(versPuits('wc'), 'wc');
+  for (const f of [{ep: 'reserve', cst: 'MILIEU'}, {ep: 'nc', cst: 'GARG'}, {ep: 'arbitrer', cst: 'recup'}]){
+    const Q = Object.assign({nom: 'Puits'}, f), dD = await bilan(versDest('descente', Q), 'gout_av'), wD = await bilan(versDest('wc', Q), 'wc');
+    const q = await pdf(versDest('descente', Q), {mode: 'edl'}), rq = q.txt.filter(s => /^puits\b/.test(s)), cq = q.txt.filter(s => /\bPUITS\b/.test(s));
+    R.ok(vu(dD) === vu(dP) && dD.ligne === 'PUITS | [null] | ""' && vu(wD) === vu(wP) && wD.ligne === 'PUITS | [false] | "non"'
+      && !q.err.length && rq.length === 1 && rq[0] === 'puits · anomalie n° 1' && !cq.length,
+      'f4 destination « Puits » ' + f.ep + ' / ' + f.cst + ' : descente, WC et page 2 du plan PDF comme l\'objet Puits ('
+      + (vu(dD) === vu(dP) ? '' : 'descente ' + vu(dD) + ' ; objet Puits ' + vu(dP) + ' ; ') + (vu(wD) === vu(wP) ? '' : 'WC ' + vu(wD) + ' ; objet Puits ' + vu(wP) + ' ; ')
+      + 'lignes ' + dD.ligne + ' / ' + wD.ligne + ' ; page 2 : ' + (q.err.join(' | ') || rq.concat(cq).map(s => JSON.stringify(s)).join(', ') || 'rien') + ')');
+  }
+}
+
 (async () => {
   try {
     lignes();
@@ -1211,6 +1310,10 @@ function nomsObjets(){
     nomsPlan();
     nomsProches();
     nomsObjets();
+    puitsVenuNom();
+    puitsVenuRappels();
+    puitsVenuObjet();
+    await puitsVenuConstat();
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }
   R.fin();
 })();

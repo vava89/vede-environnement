@@ -39,6 +39,12 @@
 // p3 (m150, décision D18) : PDF du constat de l'application, repris du croquis : en-tête « Puits » vers x 445,2, en 8 pt, vert ; croix de
 //     la descente avant et du WC reliés au puits dessous ; témoin, descente arrière reliée au milieu naturel dessiné : croix sous « Milieu
 //     naturel », vers x 413,3. Échoue sur 3035f1d (trois colonnes ; croix sous « Milieu naturel », vers 429,3).
+// p4 (m151, décision D19) : destination « Puits » aux EP conformes, venue d'un fichier fait à la main, reliée à une descente avant : sa fiche
+//     porte le rappel « Autre destination « Puits » : jugée comme un puits… » au-dessus des champs du jugement, qui restent, sans les
+//     aides de l'article, du jugement et de la case (relecture de m151, M2 et M4 : elles décrivent un effet qu'ils n'ont plus) ; Contrôles
+//     le donne sous « À vérifier (1) » ; le panneau Constat met la descente en « Puits : rejet dans un puits », sans conformité, avec la
+//     phrase du puits (comme en p2). Témoin : la fiche d'un étang posé à côté, sans rappel, avec ces trois aides. Échoue sur 93bbb5f (aucun
+//     rappel ; aides gardées ; constat « Puits (rejet des EP) », « Oui »), sauf le témoin et l'absence d'erreur dans la console.
 // Autre destination (m127, décision D10) :
 // a1 : « Autre destination » est dans la palette Équipements, juste après « Puits » ; l'outil choisi par son bouton, l'aide dit « Touchez le
 //     plan pour poser : Autre destination. » ; posée au toucher, sa fiche s'ouvre : sélecteur « Type » puis cinq champs, nom « Autre
@@ -531,12 +537,59 @@ async function puitsPdf(){
   } finally { await A.fermer(); }
 }
 
+/* p4 : destination « Puits » d'un fichier fait à la main, reliée à une descente : fiche, Contrôles, panneau Constat ; témoin : un étang */
+async function puitsVenuFichier(){
+  const A = await croquisTourne(), p = A.p;
+  const RAP = 'Autre destination « Puits » : jugée comme un puits (rejet des EP non conforme). Pour un puits, posez l\'objet Puits ; pour un puits perdu, un Puisard.';
+  const NOTE = 'Rejet dans un puits : au constat, la ligne EP suit son anomalie. « Non » si elle reste non conforme, « oui » si le dossier en fait une réserve.';
+  try {
+    await p.evaluate(() => { for (let k = 0; k < 5 && window.__vcEd.fermerNiveau(); k++); });
+    await C.outil(p, {k: 'main'});
+    const q = A.plan(70, -3), qd = A.plan(66, -3), qe = A.plan(78, -3);
+    const els = [C.P('X', 'exutoire', q.x, q.y, {nom: 'Puits', ab: 'Pu', art: 'le', ep: 'conforme', cst: 'autre'}), C.P('d', 'descente', qd.x, qd.y, {cote: 'avant', visitable: 'oui'}),
+      C.P('E', 'exutoire', qe.x, qe.y, {nom: 'Étang', ab: 'Ét', art: 'l\'', ep: 'conforme', cst: 'autre'})];
+    els.push(C.L('Ld', 'tr', ['d', 'X'], C.index(els)));
+    await C.injecter(p, {el: els}); await vue(A);
+    await fiche(p, 'X');
+    const tp = await textePanneau(p), iR = tp.indexOf(RAP), iJ = tp.indexOf('Jugement des EP'), iC = tp.indexOf('Case du constat');
+    R.ok(iR >= 0 && iJ > iR && iC > iJ, 'p4 fiche de la destination « Puits » : le rappel, au-dessus des champs du jugement, qui restent ('
+      + JSON.stringify(tp.slice(Math.max(0, iR - 60), iR + RAP.length + 80) || tp.slice(0, 300)) + ')');
+    /* relecture de m151, M2 et M4 : les aides de l'article (texte du rejet), du jugement et de la case décrivent un effet qu'ils n'ont plus */
+    const fX = await ficheDest(p);
+    R.ok(fX.champs.indexOf(CHAMPS_DEST) >= 0 && fX.puces === 'art=le ep=conforme cst=autre' && !fX.aides.some(a => a === AIDE_EP || a === AIDE_CST || /^rejet dans/.test(a))
+      && fX.aides.indexOf(AIDE_NOM) >= 0, 'p4 fiche de la destination « Puits » : article, jugement et case gardés, sans leurs aides (texte du rejet, '
+      + 'effet du jugement, raccordement à cocher) ; l\'aide du nom reste (' + JSON.stringify(fX) + ')');
+    await fiche(p, 'E');
+    const te = await textePanneau(p), fE = await ficheDest(p);
+    R.ok(te.indexOf('Jugement des EP') >= 0 && !/jugée comme un puits|puits perdu/.test(te), 'p4 témoin : la fiche de l\'étang, sans rappel (' + JSON.stringify(te.slice(0, 200)) + ')');
+    R.ok(fE.aides.indexOf('rejet dans l\'étang') >= 0 && fE.aides.indexOf(AIDE_EP) >= 0 && fE.aides.indexOf(AIDE_CST) >= 0,
+      'p4 témoin : la fiche de l\'étang garde les aides de l\'article, du jugement et de la case (' + JSON.stringify(fE.aides) + ')');
+    const ctl = await p.evaluate(() => {
+      window.__vcEd.ouvrirPanneau('controles');
+      const c = document.querySelector('.vc .vc-panneau:not([hidden]) .vc-pcorps');
+      return c ? {titres: [...c.querySelectorAll('h4')].map(h => h.textContent.trim()), info: [...c.querySelectorAll('ul.vc-ctl.info li')].map(li => li.textContent.trim())} : null;
+    });
+    R.ok(!!ctl && ctl.titres.indexOf('À vérifier (1)') >= 0 && ctl.info.length === 1 && ctl.info[0] === RAP,
+      'p4 Contrôles : le rappel sous « À vérifier (1) » (' + JSON.stringify(ctl) + ')');
+    const cst = await p.evaluate(() => {
+      window.__vcEd.ouvrirPanneau('constat');
+      const lignes = [...document.querySelectorAll('.vc-panneau .vc-pcorps table.vc-tab tbody tr')].map(tr => [...tr.cells].map(c => c.textContent.trim()))
+        .filter(c => c[1]).map(c => c.slice(0, 4).join(' | '));
+      return {lignes, notes: [...document.querySelectorAll('.vc-panneau .vc-pcorps p.vc-muet')].map(x => x.textContent.trim())};
+    });
+    R.ok(cst.lignes.indexOf('EP Gouttière(s) avant | 1 | Puits : rejet dans un puits | ') >= 0 && cst.notes.indexOf(NOTE) >= 0,
+      'p4 panneau Constat : la descente en « Puits : rejet dans un puits », sans conformité, avec la phrase du puits (' + JSON.stringify(cst) + ')');
+    R.ok(!A.erreurs.length, 'p4 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
 /* --- autre destination (m127, décision D10) : palette, poses, fiche --- */
 const PUITS_T = 'Pour un puits, posez l\'objet Puits (EP non conformes) ; pour un puits perdu, un Puisard.';
 const VIDE_T = 'Le nom ne peut pas être vide', PDFN_T = 'Nom illisible au PDF : employez au moins deux lettres latines ou chiffres';
 const PDFA_T = 'Abréviation illisible au PDF : employez des lettres latines ou des chiffres', LONG_T = 'Abréviation de 2 ou 3 caractères, par exemple Ét';
 const CHAMPS_DEST = 'Type|Nom|Abréviation|Article|Jugement des EP|Case du constat|';
 const AIDE_EP = 'les EU y sont toujours non conformes ; le changer efface les décisions de Contrôles sur les rejets des EP';
+const AIDE_CST = 'en EP ; hors milieu naturel et gargouille, le raccordement reste à cocher, comme pour l\'infiltration', AIDE_NOM = 'étang, fossé, mare… (40 caractères au plus)';
 const toastVu = p => p.evaluate(() => { const t = document.querySelector('.vc .vc-toast'); return t && t.classList.contains('on') ? t.textContent : ''; });
 /* toast effacé avant une saisie : il reste affiché quelques secondes, on ne lit ensuite que celui de cette saisie */
 const effacerToast = p => p.evaluate(() => { const t = document.querySelector('.vc .vc-toast'); if (t){ t.classList.remove('on'); t.textContent = ''; } });
@@ -1303,7 +1356,7 @@ async function destinationProcheReglages(){
 }
 
 (async () => {
-  for (const f of [apercu, boutonRejetSol, rejetPresDunRegard, rejetSansFacade, rejetPresDesMurs, rejetPresDunComplement, puits, puitsPdf, destination, destinationModele, destinationNature,
+  for (const f of [apercu, boutonRejetSol, rejetPresDunRegard, rejetSansFacade, rejetPresDesMurs, rejetPresDunComplement, puits, puitsPdf, puitsVenuFichier, destination, destinationModele, destinationNature,
     regardNature, destinationTexte, destinationNouvelle, destinationReglages, destinationSauvegarde, destinationMemeNom, destinationProchePalette, destinationProcheFiche,
     destinationProcheReglages]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
