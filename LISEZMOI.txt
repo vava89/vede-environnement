@@ -340,7 +340,10 @@ CROQUIS DE TERRAIN (facultatif)
   change aucun compte : chaque appareil reste une installation, et un
   lavabo réuni compte comme un évier. Un message le rappelle à
   « Terminé » quand le titre est Salle de bain ou Cuisine : pour une
-  seule installation, dessinez l'objet Salle de bain ou Cuisine.
+  seule installation, dessinez l'objet Salle de bain ou Cuisine. Le
+  bouton choisit d'avance les appareils EU voisins (à 3 m au plus de
+  l'appareil, au même niveau) : un message le dit, un toucher en retire
+  un, et rien n'est réuni avant « Terminé ».
   « Reprendre du croquis » remplit aussi la section Boîte
   de branchement, réseau par réseau, quand le croquis porte une seule
   boîte existante (ni « projet » ni « à supprimer ») sur ce réseau :

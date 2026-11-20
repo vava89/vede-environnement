@@ -54,7 +54,8 @@
 // e3 : douche D au lien vers elle-même (M4), lavabo L et WC + lave-mains W voisins, lave-linge F à 3,8 m, descente EP, lavabo « Projet »,
 //      lavabo « À supprimer », douche X et son WC Y réunis, au 1er étage. Fiche de la douche seule : bouton « Étiquette commune… » ;
 //      absent de la fiche de la descente, présent sur celle du lavabo « Projet ». Le bouton ouvre le mode : fiche fermée, bandeau « Touchez
-//      les appareils à réunir avec la Douche · 0 choisi », « Terminé », « Annuler ». Toucher sur L : « 1 choisi » ; le zoom garde le mode ;
+//      les appareils à réunir avec la Douche · 2 choisis » (L et W, voisins choisis d'avance depuis m153 ; avant : « 0 choisi »),
+//      « Terminé », « Annuler » ; un toucher sur chacun : « 0 choisi ». Toucher sur L : « 1 choisi » ; le zoom garde le mode ;
 //      W : « 2 choisis », halos du porteur (orange) et des deux choisis, seulement ; rien d'écrit, aucun pas. Double toucher sur F : ajouté
 //      une fois, toast « Loin du porteur : le plan ne le désignera que par la liste. » ; un toucher de plus le retire. Refus, avec leur toast,
 //      dans l'ordre de D7 : descente EP, lavabo « Projet », lavabo « À supprimer », WC d'un autre groupe, porteur d'un autre groupe ; sur le
@@ -71,9 +72,10 @@
 //      groupe » sans choix : groupe défait, titre compris. « Annuler » de la barre ferme le mode. « Défaire » : un pas, liens et titre
 //      effacés, trois étiquettes posées ; « Annuler » les rend ; aucune erreur dans la console.
 //      Après la relecture : le bouton du lavabo « Projet » n'ouvre pas le mode, toast « … ; réunissez-le sur l'avant-projet » (M7).
-//      Nouveau croquis : douche au lien orphelin (« ZZ », absent) : bouton, un toucher, « Terminé » : un pas, clé retirée, groupe formé
-//      (M6) ; évier titré « cuisine », son dernier membre séparé puis supprimé : titre retiré dans le même pas, « Annuler » le rend ; puis
-//      nouveau groupe évier + lave-linge : aucun titre, aucune puce pressée, pas de toast (M1) ; douche réunie avec une chaudière et deux
+//      Nouveau croquis : douche au lien orphelin (« ZZ », absent) : bouton, le lavabo voisin choisi d'avance (m153 ; avant : un toucher),
+//      « Terminé » : un pas, clé retirée, groupe formé (M6) ; évier titré « cuisine », son dernier membre séparé puis supprimé : titre
+//      retiré dans le même pas, « Annuler » le rend ; puis nouveau groupe évier + lave-linge (le WC séparé, choisi d'avance lui aussi,
+//      retiré d'un toucher : m153) : aucun titre, aucune puce pressée, pas de toast (M1) ; douche réunie avec une chaudière et deux
 //      autres appareils : « Compté au constat : Salle de bain 1, Chaudière (purge, condensat) 1, Piscine (vidange) 1, Piscine 1 » (M2 et
 //      M4 ; sans « Autres : » depuis m147, échoue sur daf662b) ; « Séparer » de ces membres : étiquette masquée gardée masquée,
 //      déplacée à la main gardée en place, posée d'office replacée (M3 et M5 : ce que dit le LISEZMOI) ; sur l'avant-projet, le bouton
@@ -98,6 +100,36 @@
 // Salle de bain 1 ») : 8 cas sur 14 (écran, plan PDF, compte, texte indicatif, « Salle d'eau », douche retirée, les deux « Annuler ») ; y
 // passent la fiche du membre, « Modifier le groupe », « Annuler » du bandeau, « Défaire », la suppression et la console. De même 5 cas de
 // c8 et 6 de e3, aux attentes changées (avant : « douche, WC + lave-mains, lavabo », « Salle de bain 1, WC 1, Évier 1 »).
+// m153, voisins d'une étiquette commune choisis d'avance (réponse e4 du 16 nov. 2026, choix b : « Présélection des appareils EU à moins
+//      de 3 m et au même niveau, à retirer d'un toucher » ; réponse S9 du 17 nov. 2026, choix a ; décision D21 de
+//      `.claude/conception-v172.md`) : à la création, le mode « Réunir » s'ouvre avec les appareils EU à 3 m au plus du porteur, au même
+//      niveau, déjà choisis ; un toucher en retire un ; rien n'est écrit avant « Terminé » ; « Modifier le groupe » reprend le groupe tel
+//      qu'il est. Attentes changées dans e3 (trois cas, un de plus) : à l'entrée du mode pour la douche, « 2 choisis » (le lavabo et le WC,
+//      à 1,5 m, au 1er étage comme elle) au lieu de « 0 choisi » ; cas ajouté : un toucher sur chacun les retire, « 0 choisi », et la
+//      suite repart d'un choix vide ; M6 : le lavabo, choisi d'avance, n'est plus touché ; M1 : le lave-linge et le WC séparé, voisins
+//      sans niveau de l'évier, sont choisis d'avance, le WC est retiré d'un toucher au lieu du lave-linge touché. Le cas du lave-linge
+//      seul (« Terminé » sans choix) dit en plus qu'aucun voisin n'est choisi d'avance : le lavabo et le WC Y, à 2,5 m de lui, sont
+//      déjà réunis avec une douche.
+// c13 : le plan du cas c12 de vm/equipements.js, autour du centre de la vue : WC porteur au RDC ; lavabo à 2 m et douche à 2,83 m, au
+//      RDC ; évier à 4 m ; baignoire du 1er étage, lave-linge « Projet », descente EP, WC réuni avec une autre douche, cette douche,
+//      lavabo sans niveau. « Étiquette commune… » du WC : mode ouvert, le lavabo puis la douche choisis, eux seuls, bandeau « … avec le
+//      WC · 2 choisis », fiche fermée ; halos du porteur et des deux choisis, seulement ; toast « 2 appareils à moins de 3 m, au même
+//      niveau : déjà choisis. Touchez-en un pour le retirer. », affiché 4 s. « Annuler » du bandeau : rien d'écrit, fiche du WC. Nouvelle
+//      entrée, toucher sur le lavabo : retiré, « 1 choisi », rien d'écrit ; « Terminé » : un pas, la douche liée au WC, rien d'autre de
+//      changé, groupe WC et douche seulement, « Salle de bain (RDC) » puis « douche, WC » ; constat déduit du croquis inchangé, chaque
+//      appareil compté à sa ligne (« Ne jamais fusionner des appareils ensemble », commentaire de la réponse e4) ; « Annuler » de la
+//      barre : le croquis revient tel quel. Groupe existant (douche réunie avec le WC, lavabo libre) : « Modifier le groupe » : la douche
+//      seule, le lavabo voisin n'est pas ajouté, aucun toast ; « Étiquette commune… » du lavabo : l'évier seul, « 1 choisi », toast
+//      « 1 appareil à moins de 3 m, au même niveau : déjà choisi. Touchez-le pour le retirer. » ; baignoire du 1er étage, lavabo sans
+//      niveau à 1 m du WC (S9 a) : « 0 choisi », aucun toast ; rien d'écrit par ces entrées. Ordre des refus d'un toucher (m153 met en
+//      commun les tests du mode « Réunir », dans le même ordre) : un appareil qui a deux raisons d'être refusé reçoit le message de la
+//      première : descente EP « Projet » : « seuls les appareils des eaux usées » ; lavabo « Présumé » réuni avec une douche
+//      « Présumé », puis cette douche : « Statut différent de celui du WC ». Aucune erreur dans la console.
+// c13 échoue sur 5730857 (« 0 choisi » à l'entrée, ni halo de choix ni toast) : 8 cas sur 19 (l'entrée, les halos, le toast et sa durée,
+// le toucher sur le lavabo, « Terminé », le texte de l'étiquette, l'entrée du lavabo) ; y passent les deux « Annuler », le constat
+// inchangé, « Modifier le groupe », les deux entrées sans voisin, « rien d'écrit », l'ordre des refus (une garde : les messages
+// d'avant) et la console. De même e3 : ses 4 cas aux attentes changées ou ajouté, puis la suite du cas, en cascade (39 cas en tout :
+// sur la base, les deux touchers qui retirent les voisins les ajoutent).
 // usage : node tests/navigateur/equipements.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -610,14 +642,19 @@ async function etiquetteReunie(){
       'e3 bouton du lavabo « Projet » sur l\'état des lieux : mode non ouvert, toast « … ; réunissez-le sur l\'avant-projet », rien d\'écrit, fiche gardée (M7 ; '
       + JSON.stringify({m: mJ, toast: msgJ, fiche: fJ}) + ')');
 
-    /* mode « Réunir » : bandeau, panneau fermé, rien d'écrit */
+    /* mode « Réunir » : bandeau, panneau fermé, rien d'écrit ; depuis m153, le lavabo et le WC, voisins de la douche (à 1,5 m, au même
+       niveau), sont choisis d'avance */
     await choisir(p, 'D'); const u0 = await nUndo(p);
     await bouton(p, FICHE + 'button[data-a="etiqReunir"]');
     let m = await modeReunir(p), b = await bandeau(p), fd = await ficheDe(p);
     const btFin = await p.$('.vc .vc-aide button[data-a="reunirFin"]'), btStop = await p.$('.vc .vc-aide button[data-a="reunirStop"]');
-    R.ok(m && m.porteur === 'D' && !m.ids.length && /^Touchez les appareils à réunir avec la Douche · 0 choisi\b/.test(b) && !!btFin && !!btStop && !fd,
-      'e3 « Étiquette commune… » : mode ouvert pour la douche, bandeau « Touchez les appareils à réunir », « 0 choisi », « Terminé » et « Annuler », fiche fermée ('
-      + JSON.stringify({m, b, fiche: fd}) + ')');
+    R.ok(m && m.porteur === 'D' && m.ids.join() === 'L,W' && /^Touchez les appareils à réunir avec la Douche · 2 choisis\b/.test(b) && !!btFin && !!btStop && !fd,
+      'e3 « Étiquette commune… » : mode ouvert pour la douche, bandeau « Touchez les appareils à réunir », « 2 choisis » (le lavabo et le WC, voisins choisis d\'avance : m153 ; '
+      + 'avant : « 0 choisi »), « Terminé » et « Annuler », fiche fermée (' + JSON.stringify({m, b, fiche: fd}) + ')');
+    /* un toucher sur chacun les retire : la suite du cas repart d'un choix vide, comme avant m153 */
+    await touche('L'); await touche('W'); m = await modeReunir(p); b = await bandeau(p);
+    R.ok(m && !m.ids.length && /· 0 choisi\b/.test(b) && await nUndo(p) === u0, 'e3 un toucher sur le lavabo, un sur le WC, choisis d\'avance : retirés, « 0 choisi », rien d\'écrit ('
+      + JSON.stringify({m, b, pas: await nUndo(p) - u0}) + ')');
 
     /* touchers : le lavabo, puis (après un zoom) le WC ; halos ; rien d'écrit */
     await touche('L'); m = await modeReunir(p); b = await bandeau(p);
@@ -757,11 +794,14 @@ async function etiquetteReunie(){
       + 'l\'étiquette du porteur replacée, le WC reste lié (' + JSON.stringify({pas: await nUndo(p) - u, W: lie(eW), lab: eD.lab, r}) + ')');
     await annuler(p); await p.evaluate(() => { window.__vcEd.etat.doc.el.find(e => e.id === 'D').lab = null; window.__vcEd.redessiner(); });
 
-    /* aucun appareil choisi : « Terminé » n'écrit rien pour un nouveau groupe ; « Modifier le groupe » : le groupe est défait, titre compris */
-    await choisir(p, 'F'); u = await nUndo(p); await bouton(p, FICHE + 'button[data-a="etiqReunir"]'); await bouton(p, '.vc .vc-aide button[data-a="reunirFin"]');
+    /* aucun appareil choisi : « Terminé » n'écrit rien pour un nouveau groupe ; « Modifier le groupe » : le groupe est défait, titre compris.
+       Depuis m153, le mode s'ouvre ici sans voisin choisi d'avance : à 3 m au plus du lave-linge, le lavabo (à 2,5 m) est réuni avec la
+       douche D, et le WC Y (à 2,5 m) avec la douche X */
+    await choisir(p, 'F'); u = await nUndo(p); await bouton(p, FICHE + 'button[data-a="etiqReunir"]'); const mF = await modeReunir(p);
+    await bouton(p, '.vc .vc-aide button[data-a="reunirFin"]');
     F = await elDoc(p, 'F'); m = await modeReunir(p); fd = await ficheDe(p);
-    R.ok(await nUndo(p) === u && lie(F) === 'sans clé' && !m && fd === 'F', 'e3 « Terminé » sans appareil choisi (lave-linge seul) : rien d\'écrit, aucun pas, fiche du lave-linge ('
-      + JSON.stringify({pas: await nUndo(p) - u, F: lie(F), m, fiche: fd}) + ')');
+    R.ok(!!mF && !mF.ids.length && await nUndo(p) === u && lie(F) === 'sans clé' && !m && fd === 'F', 'e3 « Terminé » sans appareil choisi (lave-linge seul, aucun voisin choisi d\'avance) : '
+      + 'rien d\'écrit, aucun pas, fiche du lave-linge (' + JSON.stringify({choisis: mF && mF.ids, pas: await nUndo(p) - u, F: lie(F), m, fiche: fd}) + ')');
     await choisir(p, 'D'); await toucherPuce(p, 'etiqTitre', 'sdb'); u = await nUndo(p);
     await bouton(p, FICHE + 'button[data-a="etiqModifier"]'); await touche('L'); await touche('W'); await bouton(p, '.vc .vc-aide button[data-a="reunirFin"]');
     eD = await elDoc(p, 'D'); eL = await elDoc(p, 'L'); eW = await elDoc(p, 'W'); r = await vu();
@@ -792,12 +832,14 @@ async function etiquetteReunie(){
       ouvert(C.P('U', 'autre_eu', cx + 3, cy + 1.5, {nom: 'Piscine (vidange)', etiqAvec: 'H'})), ouvert(C.P('Z', 'autre_eu', cx + 4.5, cy + 1.5, {nom: 'Piscine', etiqAvec: 'H'}))]});
     await C.regler(p, cx, cy, 40);
 
-    /* M6 : porteur au lien orphelin, bouton présent ; un toucher, « Terminé » : un pas, sa clé etiqAvec retirée, le groupe formé */
+    /* M6 : porteur au lien orphelin, bouton présent ; le lavabo voisin est choisi d'avance (m153 ; avant : un toucher) ; « Terminé » : un
+       pas, sa clé etiqAvec retirée, le groupe formé */
     await choisir(p, 'O'); const btO = !!await p.$(FICHE + 'button[data-a="etiqReunir"]'); u = await nUndo(p);
-    await bouton(p, FICHE + 'button[data-a="etiqReunir"]'); await touche('K'); await bouton(p, '.vc .vc-aide button[data-a="reunirFin"]');
+    await bouton(p, FICHE + 'button[data-a="etiqReunir"]'); const mO = await modeReunir(p); await bouton(p, '.vc .vc-aide button[data-a="reunirFin"]');
     const eO = await elDoc(p, 'O'), eK = await elDoc(p, 'K'); fd = await ficheDe(p); const btModO = !!await p.$(FICHE + 'button[data-a="etiqModifier"]');
-    R.ok(btO && await nUndo(p) === u + 1 && lie(eO) === 'sans clé' && lie(eK) === 'O' && fd === 'O' && btModO, 'e3 douche au lien orphelin (« ZZ », absent) : bouton « Étiquette commune… » ; '
-      + 'lavabo touché, « Terminé » : un pas, clé etiqAvec de la douche retirée, groupe formé (M6 ; ' + JSON.stringify({bouton: btO, pas: await nUndo(p) - u, O: lie(eO), K: lie(eK), fiche: fd, modifier: btModO}) + ')');
+    R.ok(btO && !!mO && mO.ids.join() === 'K' && await nUndo(p) === u + 1 && lie(eO) === 'sans clé' && lie(eK) === 'O' && fd === 'O' && btModO, 'e3 douche au lien orphelin (« ZZ », absent) : bouton '
+      + '« Étiquette commune… » ; lavabo voisin choisi d\'avance (m153), « Terminé » : un pas, clé etiqAvec de la douche retirée, groupe formé (M6 ; '
+      + JSON.stringify({bouton: btO, choisis: mO && mO.ids, pas: await nUndo(p) - u, O: lie(eO), K: lie(eK), fiche: fd, modifier: btModO}) + ')');
 
     /* M1 : le dernier membre séparé, puis supprimé : le titre « cuisine » de l'évier retiré dans le même pas ; « Annuler » le rend */
     const titreE = async () => { const x = await elDoc(p, 'E'); return x && x.p && 'etiqTitre' in x.p ? x.p.etiqTitre : 'sans clé'; };
@@ -813,13 +855,16 @@ async function etiquetteReunie(){
       + JSON.stringify({pas: await nUndo(p) - u, V: !!eV, titre: tE}) + ')');
     await annuler(p); tE = await titreE(); eV = await elDoc(p, 'V');
     R.ok(tE === 'cuisine' && lie(eV) === 'E', 'e3 « Annuler » après la suppression du dernier membre : le WC, son lien et le titre rendus (M1 ; ' + JSON.stringify({titre: tE, V: lie(eV)}) + ')');
-    /* puis un nouveau groupe, évier et lave-linge : titre d'office (aucun), aucune puce de titre pressée, pas de toast « Lavabo et évier… » */
+    /* puis un nouveau groupe, évier et lave-linge : titre d'office (aucun), aucune puce de titre pressée, pas de toast « Lavabo et évier… ».
+       Depuis m153, le lave-linge et le WC séparé, voisins de l'évier (à 1,5 m, sans niveau comme lui), sont choisis d'avance : le WC est
+       retiré d'un toucher, le lave-linge n'est plus touché */
     await choisir(p, 'V'); await bouton(p, FICHE + 'button[data-a="etiqSeparer"]');
-    await choisir(p, 'E'); await bouton(p, FICHE + 'button[data-a="etiqReunir"]'); await touche('B'); await effacerToast(p);
-    await bouton(p, '.vc .vc-aide button[data-a="reunirFin"]'); msg = await toastVu(p); tE = await titreE();
+    await choisir(p, 'E'); await bouton(p, FICHE + 'button[data-a="etiqReunir"]'); const mE = await modeReunir(p); await touche('V'); await effacerToast(p);
+    await bouton(p, '.vc .vc-aide button[data-a="reunirFin"]'); msg = await toastVu(p); tE = await titreE(); eV = await elDoc(p, 'V');
     const eB = await elDoc(p, 'B'), pressees = await p.evaluate(() => document.querySelectorAll('.vc .vc-pcorps button.vc-chip[data-k="etiqTitre"][aria-pressed="true"]').length);
-    R.ok(lie(eB) === 'E' && tE === 'sans clé' && pressees === 0 && !/^Lavabo et évier/.test(msg), 'e3 nouveau groupe évier + lave-linge après « Séparer » le dernier membre : aucun titre, '
-      + 'aucune puce de titre pressée, pas de toast « Lavabo et évier… » (M1 ; ' + JSON.stringify({B: lie(eB), titre: tE, pressees, toast: msg}) + ')');
+    R.ok(!!mE && mE.ids.join() === 'B,V' && lie(eB) === 'E' && lie(eV) === 'sans clé' && tE === 'sans clé' && pressees === 0 && !/^Lavabo et évier/.test(msg), 'e3 nouveau groupe évier + lave-linge après '
+      + '« Séparer » le dernier membre (lave-linge et WC choisis d\'avance, le WC retiré d\'un toucher : m153) : aucun titre, aucune puce de titre pressée, pas de toast « Lavabo et évier… » (M1 ; '
+      + JSON.stringify({choisis: mE && mE.ids, B: lie(eB), V: lie(eV), titre: tE, pressees, toast: msg}) + ')');
 
     /* M2 et M4 : « Compté au constat » du porteur garde le libellé entier d'une ligne « Autres », comme le constat ; sans « Autres : » depuis m147 */
     await choisir(p, 'H'); ft = await ficheTxt(p);
@@ -934,8 +979,138 @@ async function ordreEtiquette(){
   } finally { await A.fermer(); }
 }
 
+/* m153 : voisins choisis d'avance à la création d'une étiquette commune (réponse e4 du 16 nov. 2026, choix b ; réponse S9 du 17 nov. 2026,
+   choix a ; D21 de la conception v1.7.2) : le mode « Réunir » s'ouvre avec les appareils EU à 3 m au plus du porteur, au même niveau, déjà
+   choisis ; un toucher en retire un ; rien n'est écrit avant « Terminé » ; « Modifier le groupe » reprend le groupe tel qu'il est */
+/* mode « Réunir » tel que l'éditeur le tient : appareils choisis dans leur ordre (le plus proche d'abord), « Modifier le groupe » ou non */
+const modeBrut = p => p.evaluate(() => { const r = window.__vcEd.etat.reunir; return r ? {porteur: r.porteur, ids: r.ids.slice(), modif: r.modif} : null; });
+/* durée d'affichage du prochain toast, en ms : de la pose de la classe « on » à son retrait, relevées dans la page. armerToast avant le
+   geste (toast effacé) ; dureeToast après : elle attend le retrait (null : aucun toast, ou toast resté plus de 9 s) */
+const armerToast = p => p.evaluate(() => {
+  const t = document.querySelector('.vc .vc-toast'); let on = t.classList.contains('on');
+  if (window.__toastObs) window.__toastObs.disconnect();
+  window.__toastPas = [];
+  window.__toastObs = new MutationObserver(() => { const x = t.classList.contains('on'); if (x !== on){ on = x; window.__toastPas.push({on: x, t: performance.now()}); } });
+  window.__toastObs.observe(t, {attributes: true, attributeFilter: ['class']});
+});
+async function dureeToast(p){
+  try { await p.waitForFunction(() => window.__toastPas.some(x => !x.on), null, {timeout: 9000}); } catch (e){ /* aucun retrait vu */ }
+  return p.evaluate(() => { const a = window.__toastPas.find(x => x.on), b = window.__toastPas.find(x => !x.on); window.__toastObs.disconnect(); return a && b ? Math.round(b.t - a.t) : null; });
+}
+async function voisinsChoisis(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const v0 = await C.vue(p), cx = v0.cx, cy = v0.cy, RDC = {niv: 'rdc'};
+    /* le plan du cas c12 de vm/equipements.js, autour du centre de la vue. P : WC porteur, au RDC ; L (lavabo, à 2 m) et D (douche, à
+       2,83 m) au RDC : ses deux voisins ; E (évier) à 4 m ; B (baignoire, à 1 m) au 1er étage ; M (lave-linge, à 1,41 m) « Projet » ;
+       G descente EP, à 1 m ; X douche à 2 m, porteur de W (WC, à 1,41 m) ; S lavabo sans niveau, à 1 m. lie : D déjà réunie avec P */
+    const plan = lie => [C.P('P', 'wc', cx, cy, RDC), C.P('L', 'lavabo', cx + 2, cy, RDC), C.P('D', 'douche', cx + 2, cy + 2, lie ? {niv: 'rdc', etiqAvec: 'P'} : RDC),
+      C.P('E', 'evier', cx + 4, cy, RDC), C.P('B', 'baignoire', cx + 1, cy, {niv: 'etage', etage: '1'}), C.P('M', 'lavelinge', cx + 1, cy + 1, {niv: 'rdc', st: 'projet'}),
+      C.P('G', 'descente', cx, cy + 1, {niv: 'rdc', cote: 'avant', visitable: 'oui'}), C.P('X', 'douche', cx - 2, cy, RDC), C.P('W', 'wc', cx + 1, cy - 1, {niv: 'rdc', etiqAvec: 'X'}),
+      C.P('S', 'lavabo', cx, cy - 1)];
+    const IDS = ['P', 'L', 'D', 'E', 'B', 'M', 'G', 'X', 'W', 'S'];
+    const T2 = '2 appareils à moins de 3 m, au même niveau : déjà choisis. Touchez-en un pour le retirer.';
+    const T1 = '1 appareil à moins de 3 m, au même niveau : déjà choisi. Touchez-le pour le retirer.';
+    const REUNIR = FICHE + 'button[data-a="etiqReunir"]', FIN = '.vc .vc-aide button[data-a="reunirFin"]', STOP = '.vc .vc-aide button[data-a="reunirStop"]';
+    const jsonEl = async () => JSON.stringify((await C.docCroquis(p)).el);
+    const touche = async id => { const e = await elDoc(p, id); await C.toucher(p, e.x, e.y); };
+    /* liens etiqAvec de tous les objets ; groupe du WC (ids, porteur en tête) */
+    const liens = async () => { const d = (await C.docCroquis(p)).el; return IDS.map(id => id + ':' + lie(d.find(e => e.id === id))).join(' '); };
+    const groupeP = () => p.evaluate(() => { const S = window.__vcEd.etat, g = window.VCroquis.groupeEtiquette(S.doc.el.find(e => e.id === 'P'), S.an); return g ? g.objets.map(o => o.id).join() : 'aucun'; });
+    /* constat déduit du croquis : eu, les lignes EU qui comptent un objet (ligne:nombre:objets) ; tout, toutes les lignes, en JSON */
+    const constat = () => p.evaluate(() => { const S = window.__vcEd.etat, r = window.VCroquis.constatDeduit(S.doc, S.an).rows;
+      return {eu: r.filter(x => x.groupe === 'EU' && x.objets.length).map(x => x.id + ':' + x.nb + ':' + x.objets.join()).join(' '), tout: JSON.stringify(r)}; });
+    await C.injecter(p, {el: plan(false)}); await C.regler(p, cx, cy, 40);
+
+    /* « Étiquette commune… » du WC : les deux voisins déjà choisis, le plus proche d'abord ; bandeau, fiche fermée, halos, toast de 4 s */
+    await choisir(p, 'P'); const u0 = await nUndo(p), j0 = await jsonEl(), k0 = await constat();
+    await effacerToast(p); await armerToast(p);
+    const bt = await bouton(p, REUNIR);
+    let m = await modeBrut(p), b = await bandeau(p), fd = await ficheDe(p), msg = await toastVu(p), h = await halos(p, IDS);
+    R.ok(bt && m && m.porteur === 'P' && m.ids.join() === 'L,D' && m.modif === false && /^Touchez les appareils à réunir avec le WC · 2 choisis\b/.test(b) && !fd,
+      'c13 « Étiquette commune… » du WC : mode ouvert, le lavabo (à 2 m) puis la douche (à 2,83 m) déjà choisis, eux seuls, bandeau « … avec le WC · 2 choisis », fiche fermée '
+      + '(v1.7.1 : « 0 choisi » ; obtenu ' + JSON.stringify({bouton: bt, m, b, fiche: fd}) + ')');
+    if (!bt || !m){ erreurs(A, 'c13'); return; }
+    R.ok(h === 'D:choisi L:choisi P:porteur', 'c13 halos du porteur (orange) et des deux appareils choisis d\'avance, seulement (obtenu ' + JSON.stringify(h) + ')');
+    R.ok(msg === T2, 'c13 toast à l\'entrée, mot pour mot : « ' + T2 + ' » (obtenu ' + JSON.stringify(msg) + ')');
+    const duree = msg ? await dureeToast(p) : null;
+    R.ok(duree !== null && duree >= 3900 && duree <= 5000, 'c13 ce toast reste affiché 4 s (obtenu ' + (duree === null ? 'aucun toast' : duree + ' ms') + ')');
+    /* « Annuler » du bandeau : rien d'écrit, la fiche du WC se rouvre */
+    await bouton(p, STOP); m = await modeBrut(p); fd = await ficheDe(p);
+    R.ok(!m && await nUndo(p) === u0 && await jsonEl() === j0 && fd === 'P', 'c13 « Annuler » du bandeau, les voisins encore choisis : mode fermé, rien d\'écrit, aucun pas, fiche du WC ('
+      + JSON.stringify({m, pas: await nUndo(p) - u0, fiche: fd}) + ')');
+
+    /* nouvelle entrée : mêmes voisins ; un toucher sur le lavabo le retire */
+    await bouton(p, REUNIR); await touche('L'); m = await modeBrut(p); b = await bandeau(p); h = await halos(p, IDS);
+    R.ok(m && m.ids.join() === 'D' && /· 1 choisi\b/.test(b) && h === 'D:choisi P:porteur' && await nUndo(p) === u0 && await jsonEl() === j0,
+      'c13 nouvelle entrée, toucher sur le lavabo choisi d\'avance : retiré, « 1 choisi », halos du porteur et de la douche ; rien d\'écrit (' + JSON.stringify({m, b, halos: h}) + ')');
+    /* « Terminé » : un pas ; la douche liée au WC, rien d'autre de changé ; groupe WC et douche seulement */
+    await effacerToast(p); await bouton(p, FIN); m = await modeBrut(p); fd = await ficheDe(p);
+    let ln = await liens(), g = await groupeP(), tx = await texteEtq(p, 'P');
+    const d1 = (await C.docCroquis(p)).el, autres = JSON.stringify(d1.filter(e => e.id !== 'D')) === JSON.stringify(JSON.parse(j0).filter(e => e.id !== 'D'));
+    R.ok(await nUndo(p) === u0 + 1 && ln === 'P:sans clé L:sans clé D:P E:sans clé B:sans clé M:sans clé G:sans clé X:sans clé W:X S:sans clé' && autres && g === 'P,D' && !m && fd === 'P',
+      'c13 « Terminé » : un pas, la douche liée au WC, le lavabo retiré et les autres objets inchangés, groupe WC et douche seulement, mode fermé, fiche du WC ('
+      + JSON.stringify({pas: await nUndo(p) - u0, liens: ln, autres, groupe: g, m, fiche: fd}) + ')');
+    R.ok(tx === 'Salle de bain (RDC)\ndouche, WC', 'c13 étiquette commune du WC : « Salle de bain (RDC) » puis « douche, WC » (obtenu ' + JSON.stringify(tx) + ')');
+    /* « Ne jamais fusionner des appareils ensemble » (commentaire de la réponse e4 ; D21) : le groupe ne change que l'étiquette du plan ;
+       chaque appareil reste une installation, comptée à sa ligne du constat (WC : P et W ; Évier : L, E et S ; Salle de bain : D, B et X) */
+    const k1 = await constat();
+    R.ok(k1.eu === 'wc:2:P,W evier:3:L,E,S sdb:3:D,B,X' && k1.tout === k0.tout, 'c13 « Ne jamais fusionner » : après « Terminé », le constat déduit du croquis est le même qu\'avant, '
+      + 'chaque appareil compté à sa ligne (WC 2, Évier 3, Salle de bain 3 ; obtenu ' + JSON.stringify(k1.eu) + (k1.tout === k0.tout ? '' : ', lignes changées depuis l\'entrée : ' + JSON.stringify(k0.eu)) + ')');
+    /* « Annuler » de la barre : le groupe disparaît en un pas */
+    await annuler(p); g = await groupeP();
+    R.ok(await nUndo(p) === u0 && await jsonEl() === j0 && g === 'aucun', 'c13 « Annuler » de la barre : le groupe disparaît en un pas, le croquis revient tel quel ('
+      + JSON.stringify({pas: await nUndo(p) - u0, groupe: g}) + ')');
+
+    /* groupe existant (la douche réunie avec le WC) ; le lavabo, voisin recevable du WC, reste libre */
+    await C.injecter(p, {el: plan(true)}); await C.regler(p, cx, cy, 40);
+    const u1 = await nUndo(p), j1 = await jsonEl();
+    /* « Modifier le groupe » : ses membres seulement, aucun voisin ajouté, pas de toast */
+    await choisir(p, 'P'); await effacerToast(p);
+    const btM = await bouton(p, FICHE + 'button[data-a="etiqModifier"]');
+    m = await modeBrut(p); b = await bandeau(p); msg = await toastVu(p); h = await halos(p, IDS);
+    R.ok(btM && m && m.porteur === 'P' && m.modif === true && m.ids.join() === 'D' && /avec le WC · 1 choisi\b/.test(b) && msg === '' && h === 'D:choisi P:porteur',
+      'c13 « Modifier le groupe » du WC (douche réunie, lavabo libre à 2 m) : la douche seule, « 1 choisi », le lavabo voisin n\'est pas ajouté, aucun toast ('
+      + JSON.stringify({bouton: btM, m, b, toast: msg, halos: h}) + ')');
+    await bouton(p, STOP);
+    /* un seul voisin : le lavabo n'a que l'évier (le WC est porteur, la douche réunie avec lui) ; message au singulier */
+    await choisir(p, 'L'); await effacerToast(p); await bouton(p, REUNIR);
+    m = await modeBrut(p); b = await bandeau(p); msg = await toastVu(p); h = await halos(p, IDS);
+    R.ok(m && m.porteur === 'L' && m.ids.join() === 'E' && /avec le Lavabo · 1 choisi\b/.test(b) && msg === T1 && h === 'E:choisi L:porteur',
+      'c13 « Étiquette commune… » du lavabo (WC porteur et douche réunie écartés) : l\'évier seul, « 1 choisi », toast « ' + T1 + ' » (' + JSON.stringify({m, b, toast: msg, halos: h}) + ')');
+    await bouton(p, STOP);
+    /* aucun voisin : pas de message */
+    for (const [id, lib, re] of [['B', 'de la baignoire du 1er étage, seule à son niveau', /avec la Baignoire · 0 choisi\b/], ['S', 'du lavabo sans niveau, à 1 m du WC du RDC (S9 a)', /avec le Lavabo · 0 choisi\b/]]){
+      await choisir(p, id); await effacerToast(p); await bouton(p, REUNIR);
+      m = await modeBrut(p); b = await bandeau(p); msg = await toastVu(p); h = await halos(p, IDS);
+      R.ok(m && m.porteur === id && !m.ids.length && re.test(b) && msg === '' && h === id + ':porteur', 'c13 « Étiquette commune… » ' + lib + ' : « 0 choisi », aucun toast ('
+        + JSON.stringify({m, b, toast: msg, halos: h}) + ')');
+      await bouton(p, STOP);
+    }
+    R.ok(await nUndo(p) === u1 && await jsonEl() === j1, 'c13 après ces entrées, fermées par « Annuler » du bandeau : rien d\'écrit, aucun pas (pas : ' + (await nUndo(p) - u1) + ')');
+
+    /* ordre des refus d'un toucher : m153 met en commun les tests du mode « Réunir » (refusEtiq, dans l'ordre de D7 de m135) ; un appareil
+       qui a deux raisons d'être refusé reçoit le message de la première. GP : descente EP « Projet » (ni appareil des eaux usées, ni sur
+       l'état des lieux, ni du statut du porteur) ; XS : douche « Présumé », porteur de LS, lavabo « Présumé » (autre statut que le WC, et
+       déjà réunis entre eux). Le lavabo « Projet » du cas e3 garde l'ordre « absent du plan », puis « statut ». Garde : ces messages
+       sont ceux de la version d'avant */
+    await C.injecter(p, {el: [C.P('P', 'wc', cx, cy, RDC), C.P('GP', 'descente', cx + 2, cy, {niv: 'rdc', st: 'projet', cote: 'avant', visitable: 'oui'}),
+      C.P('XS', 'douche', cx - 2, cy + 1.5, {niv: 'rdc', st: 'presume'}), C.P('LS', 'lavabo', cx - 2, cy - 1.5, {niv: 'rdc', st: 'presume', etiqAvec: 'XS'})]});
+    await C.regler(p, cx, cy, 40);
+    await choisir(p, 'P'); await bouton(p, REUNIR);
+    for (const [id, re, lib] of [['GP', /^Étiquette commune : seuls les appareils des eaux usées/, 'une descente EP « Projet » : « seuls les appareils des eaux usées », avant « en projet » et « statut différent »'],
+      ['LS', /^Statut différent de celui du WC/, 'un lavabo « Présumé » réuni avec une douche « Présumé » : « Statut différent de celui du WC », avant « déjà réuni »'],
+      ['XS', /^Statut différent de celui du WC/, 'cette douche « Présumé », porteur : « Statut différent de celui du WC », avant « porte déjà une étiquette commune »']]){
+      await effacerToast(p); await touche(id); m = await modeBrut(p); msg = await toastVu(p);
+      R.ok(m && m.porteur === 'P' && !m.ids.length && re.test(msg), 'c13 ordre des refus, toucher sur ' + lib + ' (' + JSON.stringify({m, toast: msg}) + ')');
+    }
+    await bouton(p, STOP);
+    erreurs(A, 'c13');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [niveaux, laveMains, autresAppareils, etiquetteCommune, etiquetteReunie, ordreEtiquette]){
+  for (const f of [niveaux, laveMains, autresAppareils, etiquetteCommune, etiquetteReunie, ordreEtiquette, voisinsChoisis]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();

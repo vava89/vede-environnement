@@ -2782,6 +2782,43 @@ function groupeEtiquette(e, an){
   return {porteur: base.id, objets: [por ? por : e].concat(membres)};
 }
 VC.groupeEtiquette = groupeEtiquette;
+/* Raison du refus de l'appareil o pour le porteur P sur le plan analysé an (m153 ; les tests du mode « Réunir », dans l'ordre de D7 de
+   m135) : 'eu' (pas un appareil des eaux usées), 'plan' (absent du plan affiché), 'statut' (autre statut que le porteur), 'reuni' (déjà
+   réuni avec un autre porteur), 'porteur' (porte déjà une étiquette commune) ; '' s'il peut être réuni. Les messages restent dans
+   l'éditeur (refusReunir). */
+function refusEtiq(o, P, an){
+  var q, g;
+  if (!sourceEU(o)) return 'eu';
+  if (!aCle(an.objs, o.id)) return 'plan';
+  if (stEtiq(o) !== stEtiq(P)) return 'statut';
+  q = porteurEtiq(o, an);
+  if (q && q.id !== P.id) return 'reuni';
+  g = groupeEtiquette(o, an);
+  return g && g.porteur === o.id ? 'porteur' : '';
+}
+/* Voisins du porteur P que le mode « Réunir » choisit d'avance à la création d'une étiquette commune (m153 ; réponse e4 du 16 nov. 2026,
+   choix b : « Présélection des appareils EU à moins de 3 m et au même niveau, à retirer d'un toucher » ; décision D21 de la conception
+   v1.7.2) : les objets du croquis, sauf P, que refusEtiq accepte, au même niveau affiché que P (libNiv ; réponse S9 du 17 nov. 2026,
+   choix a : deux appareils sans niveau sont au même niveau, un appareil sans niveau ne l'est pas d'un appareil qui en a un, « étage »
+   sans numéro n'est pas « 1er étage ») et à 3 m au plus de centre à centre (la mesure du toast « Loin du porteur ») ; du plus proche au
+   plus loin, puis par id. Rien n'est écrit, ni dans le croquis ni dans l'analyse : l'opérateur retire d'un toucher ce qu'il ne veut pas,
+   et rien n'est réuni avant « Terminé ». Le porteur se désigne par son id (la fiche passe une copie). Sans croquis, sans analyse ou
+   pour un porteur qui n'est pas un appareil des eaux usées : aucun voisin. */
+function voisinsEtiquette(doc, an, P){
+  var vus = [], nP;
+  if (!P || !sourceEU(P) || !an || !an.objs) return vus;
+  nP = libNiv(P);
+  (doc && Array.isArray(doc.el) ? doc.el : []).forEach(function(o){
+    var d;
+    if (!o || o.k !== 'pt' || o.id === P.id) return;
+    d = Math.hypot(o.x - P.x, o.y - P.y);
+    if (!(d <= 3) || libNiv(o) !== nP || refusEtiq(o, P, an)) return;
+    vus.push({o: o, d: d});
+  });
+  vus.sort(function(a, b){ return a.d - b.d || (a.o.id < b.o.id ? -1 : a.o.id > b.o.id ? 1 : 0); });
+  return vus.map(function(v){ return v.o; });
+}
+VC.voisinsEtiquette = voisinsEtiquette;
 /* Étiquette commune (m135 ; D7) : retire les liens vers le porteur id (clé etiqAvec supprimée, jamais une valeur vide), liens périmés
    compris (membre d'un autre statut, ouvrage EP) ; rend les objets déliés. Le porteur garde ses propres clés. */
 function delierPorteur(doc, id){
@@ -6109,26 +6146,33 @@ function editeur(racine, opts){
   /* mode « Réunir » (sur le modèle de S.placer) : S.reunir = {porteur, ids : appareils choisis, modif : « Modifier le groupe », dernier :
      objet du dernier toucher}. Rien n'est écrit avant « Terminé » ; « Annuler », un autre outil, Échap, « Annuler » ou « Rétablir » de la
      barre, un panneau qui s'ouvre, l'ouverture d'un croquis ou la disparition du porteur le ferment sans rien écrire. Zoom et
-     déplacement du plan restent permis */
+     déplacement du plan restent permis.
+     À la création (m153 ; réponse e4 du 16 nov. 2026, choix b ; D21 de la conception v1.7.2), ids reçoit les voisins du porteur
+     (voisinsEtiquette : à 3 m au plus, au même niveau), déjà choisis : un toast de 4 s le dit, un toucher en retire un. « Modifier le
+     groupe » reprend le groupe tel qu'il est, sans toast */
   function entrerReunir(id, ids, modif){
     if (!el(id)) return;
     fermerPanneau(); choisirOutil({k: 'main'});
     S.reunir = {porteur: id, ids: (ids || []).slice(), modif: !!modif, dernier: null};
     majAide(); redessiner();
+    var n = S.reunir.ids.length;
+    if (!modif && n) toast(n > 1 ? n + ' appareils à moins de 3 m, au même niveau : déjà choisis. Touchez-en un pour le retirer.'
+      : '1 appareil à moins de 3 m, au même niveau : déjà choisi. Touchez-le pour le retirer.', 4000);
   }
   function fermerReunir(){ if (!S.reunir) return false; S.reunir = null; majAide(); redessiner(); return true; }
   /* « Annuler » du bandeau : rien n'est écrit, la fiche du porteur se rouvre */
   function quitterReunir(){ var id = S.reunir && S.reunir.porteur; fermerReunir(); if (id && el(id)) selectionner(id); }
   /* appareil absent du plan affiché (hors de an.objs) : « Projet » sur l'état des lieux, « À supprimer » sur l'avant-projet */
   function horsPlan(){ return S.mode === 'avp' ? 'Appareil à supprimer : il ne figure pas sur l\'avant-projet' : 'Appareil en projet : il ne figure pas sur l\'état des lieux'; }
-  /* raison du refus de l'appareil o pour le porteur P, dans l'ordre de D7 ; '' s'il peut être réuni */
+  /* raison du refus de l'appareil o pour le porteur P, dans l'ordre de D7 ; '' s'il peut être réuni. Les tests sont ceux de refusEtiq
+     (m153 : un seul jeu de tests, pour le toucher et pour les voisins choisis d'avance) ; ici, le message de chaque refus */
   function refusReunir(o, P){
-    if (!sourceEU(o)) return 'Étiquette commune : seuls les appareils des eaux usées (WC, lavabo, douche…) se réunissent';
-    if (!aCle(S.an.objs, o.id)) return horsPlan();
-    if (stEtiq(o) !== stEtiq(P)) return 'Statut différent de celui ' + deLib(P) + ' : seuls les appareils de même statut se réunissent';
-    var q = porteurEtiq(o, S.an);
-    if (q && q.id !== P.id) return 'Cet appareil est déjà réuni avec ' + avecLib(q) + ' : séparez-le d\'abord (sa fiche)';
-    if (estPorteur(o)) return 'Cet appareil porte déjà une étiquette commune : défaites-la d\'abord (sa fiche)';
+    var c = refusEtiq(o, P, S.an);
+    if (c === 'eu') return 'Étiquette commune : seuls les appareils des eaux usées (WC, lavabo, douche…) se réunissent';
+    if (c === 'plan') return horsPlan();
+    if (c === 'statut') return 'Statut différent de celui ' + deLib(P) + ' : seuls les appareils de même statut se réunissent';
+    if (c === 'reuni') return 'Cet appareil est déjà réuni avec ' + avecLib(porteurEtiq(o, S.an)) + ' : séparez-le d\'abord (sa fiche)';
+    if (c === 'porteur') return 'Cet appareil porte déjà une étiquette commune : défaites-la d\'abord (sa fiche)';
     return '';
   }
   /* toucher pendant le mode : ajoute ou retire l'appareil touché ; le second toucher d'un double toucher sur le même objet est ignoré (il ne
@@ -7004,13 +7048,14 @@ function editeur(racine, opts){
       apresProp(e); return;
     }
     if (a === 'tailleTexte' && e){ var tt = parseFloat(b.dataset.v) || 2.5; if ((num(e.taille) || 2.5) === tt) return; instantane(); e.taille = tt; changement(); return; }
-    /* étiquette commune (m135 ; D7) : mode « Réunir » (nouveau groupe, ou « Modifier le groupe » avec ses membres choisis), « Défaire »,
-       « Séparer » ; « Affichée » et « Replacer » ne font rien pour un membre (grisés) */
+    /* étiquette commune (m135 ; D7) : mode « Réunir » (nouveau groupe, avec les voisins du porteur choisis d'avance depuis m153, ou
+       « Modifier le groupe » avec ses membres choisis, eux seuls), « Défaire », « Séparer » ; « Affichée » et « Replacer » ne font rien
+       pour un membre (grisés) */
     if (a === 'etiqReunir' && e){
       if (e.k !== 'pt' || !sourceEU(e) || groupeEtiquette(e, S.an)) return;
       /* appareil absent du plan affiché (M7 de la relecture) : le mode n'y accepterait aucun appareil ; le message dit où le réunir */
       if (S.an && !aCle(S.an.objs, e.id)){ toast(horsPlan() + ' ; réunissez-le sur ' + (S.mode === 'avp' ? 'l\'état des lieux' : 'l\'avant-projet'), 4000); return; }
-      entrerReunir(e.id, [], false); return;
+      entrerReunir(e.id, voisinsEtiquette(S.doc, S.an, e).map(function(o){ return o.id; }), false); return;
     }
     if (a === 'etiqModifier' && e){ var gM = e.k === 'pt' ? groupeEtiquette(e, S.an) : null; if (gM && gM.porteur === e.id) entrerReunir(e.id, gM.objets.slice(1).map(function(o){ return o.id; }), true); return; }
     if (a === 'etiqDefaire' && e){ if (e.k === 'pt') defaireGroupe(e); return; }

@@ -171,6 +171,26 @@
 //   notée revient à vide, ops.autres nomme la ligne de la chaudière, puis rien ne change.
 // g11 échoue sur f71a6e7 (12 de ses 14 cas : ops.autres sans ces lignes, installations ramenées à vide à la synchro suivante ; y passent
 // la création et la synchro suivante sans écriture) ; de même le cas de g9 dont le résultat attendu change (rien pour la chaudière).
+// m153, voisins d'une étiquette commune choisis d'avance (réponse e4 du 16 nov. 2026, choix b : « Présélection des appareils EU à moins
+// de 3 m et au même niveau, à retirer d'un toucher » ; réponse S9 du 17 nov. 2026, choix a ; décision D21 de
+// `.claude/conception-v172.md`) : VCroquis.voisinsEtiquette(doc, an, P) rend les objets du croquis que le mode « Réunir » choisit
+// d'avance pour le porteur P : ceux qu'il accepterait d'un toucher (appareil EU, sur le plan affiché, du même statut, ni réuni avec un
+// autre porteur ni porteur lui-même), au même niveau affiché que P (VCroquis.libNiv) et à 3 m au plus de centre à centre, du plus
+// proche au plus loin, puis par id. Rien n'est écrit, ni dans le croquis ni dans l'analyse.
+// c12 : porteur WC en (0 ; 0) au RDC : le lavabo en (2 ; 0), puis la douche en (2 ; 2), au RDC, et eux seuls ; ni l'évier en (4 ; 0),
+//   ni la baignoire du 1er étage en (1 ; 0), ni le lave-linge « Projet » en (1 ; 1), ni la descente EP en (0 ; 1), ni le second WC en
+//   (1 ; −1) réuni avec une autre douche, ni cette douche (porteur, à 2 m), ni un lavabo sans niveau en (0 ; −1), ni le porteur ; même
+//   liste pour le croquis dessiné à l'envers, pour une copie du porteur et sur l'avant-projet. Témoin de chaque refus, l'obstacle
+//   levé : évier à 3 m pile choisi (à 3,01 m : non ; de même en (0 ; 3,01), droit au-dessus, et en (2,2 ; 2,2), à 3,11 m en diagonale :
+//   la distance se compte de centre à centre, pas le long d'un axe), baignoire au RDC, lave-linge existant, descente changée en évier,
+//   second WC sans lien (sa douche, qui n'est plus porteur, est choisie aussi), lavabo sans niveau mis au RDC ; un lavabo « À
+//   supprimer » : non (choisi seul si le porteur l'est aussi) ; porteur « Projet » : le lave-linge « Projet » seul sur l'avant-projet,
+//   rien sur l'état des lieux.
+//   Niveau (S9 a) : porteur sans niveau : le lavabo sans niveau seul ; « étage » sans numéro et « 1er étage » ne sont pas le même
+//   niveau, dans les deux sens ; deux « étage » sans numéro : même niveau affiché. À égalité de distance, l'ordre des ids ; le plus
+//   proche d'abord. Croquis et analyse identiques avant et après (empreintes JSON), les voisins rendus sont les objets du croquis.
+//   Sans croquis, sans analyse, sans porteur, ou pour un porteur qui n'est pas un appareil EU : aucun voisin, aucune exception.
+// c12 échoue sur 5730857 (VCroquis.voisinsEtiquette absente : ses 26 cas).
 // usage : node tests/vm/equipements.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, doc, copie, rendus, rapport} = require('./charger.js');
@@ -1071,6 +1091,73 @@ async function c10(){
     }
   } finally { delete V.TYPES.essaiA; delete V.TYPES.essaiB; }
 }
+/* c12 (m153 ; réponse e4 du 16 nov. 2026, choix b ; réponse S9 du 17 nov. 2026, choix a ; D21 de la conception v1.7.2) :
+   VCroquis.voisinsEtiquette(doc, an, P), les appareils que le mode « Réunir » choisit d'avance pour le porteur P : ceux qu'il accepterait
+   d'un toucher, au même niveau affiché que P et à 3 m au plus, du plus proche au plus loin, puis par id ; rien n'est écrit */
+function c12(){
+  const RDC = {niv: 'rdc'}, ABS = 'VCroquis.voisinsEtiquette absente';
+  const idsDe = r => Array.isArray(r) ? r.map(o => o && o.id).join(', ') : js(r);
+  /* ids des voisins du porteur « P », dans l'ordre rendu ; l'analyse vient d'une copie du croquis, le porteur du croquis */
+  const vois = (d, mode) => typeof V.voisinsEtiquette !== 'function' ? ABS : sur(() => idsDe(V.voisinsEtiquette(d, V.analyser(copie(d), mode || 'edl'), elDe(d, 'P'))));
+  /* porteur WC « P » en (0 ; 0) au RDC et les objets autour de lui ; f retouche le croquis (de(id) : un de ses objets) */
+  const plan = f => {
+    const d = doc({o: [['P', 'wc', 0, 0, RDC], ['L', 'lavabo', 2, 0, RDC], ['D', 'douche', 2, 2, RDC], ['E', 'evier', 4, 0, RDC], ['B', 'baignoire', 1, 0, N1],
+      ['M', 'lavelinge', 1, 1, {niv: 'rdc', st: 'projet'}], ['G', 'descente', 0, 1, RDC], ['X', 'douche', -2, 0, RDC], ['W', 'wc', 1, -1, {niv: 'rdc', etiqAvec: 'X'}],
+      ['S', 'lavabo', 0, -1]]});
+    if (f) f(id => elDe(d, id), d);
+    return d;
+  };
+  /* lavabo « À supprimer » au RDC, à 1 m du porteur */
+  const K = () => doc({o: [['K', 'lavabo', -1, 0, {niv: 'rdc', st: 'supprimer'}]]}).el[0];
+  /* [cas, croquis, voisins attendus, plan affiché (état des lieux sans mention)] */
+  [['porteur WC en (0 ; 0) au RDC : le lavabo à 2 m, puis la douche en (2 ; 2), eux seuls (ni l\'évier à 4 m, ni la baignoire du 1er étage, ni le lave-linge « Projet », ni la '
+      + 'descente EP, ni le WC réuni avec une autre douche, ni cette douche, ni le lavabo sans niveau, ni le porteur)', plan(), 'L, D'],
+    ['croquis dessiné à l\'envers : même liste, même ordre', plan((de, d) => { d.el.reverse(); }), 'L, D'],
+    ['sur l\'avant-projet : le lave-linge « Projet » y figure, mais son statut n\'est pas celui du porteur', plan(), 'L, D', 'avp'],
+    ['un texte libre, un tronçon du WC au lavabo et un objet de type inconnu, à moins de 1 m du porteur : ignorés', plan((de, d) => {
+      d.el.push({id: 'T', k: 'tx', x: 0.5, y: 0.5, txt: 'Texte fictif', taille: 2.5}, {id: 'Q', k: 'pt', t: 'zz', x: 0, y: 0.5, p: {st: 'existant', niv: 'rdc'}, lab: {off: true}},
+        {id: 'N', k: 'ln', t: 'tr', v: [{x: 0, y: 0, a: 'P'}, {x: 2, y: 0, a: 'L'}], p: {res: '', st: 'existant', sens: 0, obs: ''}, lab: {off: true}}); }), 'L, D'],
+    ['évier à 3 m pile : choisi, après la douche', plan(de => { de('E').x = 3; }), 'L, D, E'],
+    ['évier à 3,01 m : non', plan(de => { de('E').x = 3.01; }), 'L, D'],
+    /* de centre à centre : l'écart compte aussi en y, et en diagonale (ni x seul, ni un carré de 3 m de demi-côté) */
+    ['évier en (0 ; 3,01), droit au-dessus du porteur : non', plan(de => { de('E').x = 0; de('E').y = 3.01; }), 'L, D'],
+    ['évier en (2,2 ; 2,2), à 3,11 m en diagonale : non', plan(de => { de('E').x = 2.2; de('E').y = 2.2; }), 'L, D'],
+    ['baignoire mise au RDC, à 1 m : choisie, en tête', plan(de => { de('B').p.niv = 'rdc'; }), 'B, L, D'],
+    ['lave-linge existant, à 1,41 m : choisi', plan(de => { de('M').p.st = 'existant'; }), 'M, L, D'],
+    ['descente changée en évier, à 1 m : choisie', plan(de => { de('G').t = 'evier'; }), 'G, L, D'],
+    ['second WC sans lien : choisi ; sa douche, qui n\'est plus porteur, aussi (à 2 m comme le lavabo : l\'id les départage)', plan(de => { delete de('W').p.etiqAvec; }), 'W, L, X, D'],
+    ['lavabo sans niveau mis au RDC, à 1 m : choisi', plan(de => { de('S').p.niv = 'rdc'; }), 'S, L, D'],
+    ['un lavabo « À supprimer » au RDC, à 1 m : non (autre statut que le porteur)', plan((de, d) => { d.el.push(K()); }), 'L, D'],
+    ['porteur « À supprimer » lui aussi : ce lavabo seul', plan((de, d) => { d.el.push(K()); de('P').p.st = 'supprimer'; }), 'K'],
+    ['porteur « Projet », sur l\'avant-projet : le lave-linge « Projet » seul', plan(de => { de('P').p.st = 'projet'; }), 'M', 'avp'],
+    ['porteur « Projet », sur l\'état des lieux (il n\'y figure pas) : aucun', plan(de => { de('P').p.st = 'projet'; }), ''],
+    ['porteur sans niveau : le lavabo sans niveau seul (S9 a)', plan(de => { delete de('P').p.niv; }), 'S'],
+    ['porteur « étage » sans numéro : pas la baignoire du 1er étage', plan(de => { de('P').p.niv = 'etage'; }), ''],
+    ['porteur au 1er étage : la baignoire du 1er étage, pas un lavabo « étage » sans numéro', plan(de => { Object.assign(de('P').p, N1); de('S').p.niv = 'etage'; }), 'B'],
+    ['porteur et lavabo « étage » sans numéro : même niveau affiché', plan(de => { de('P').p.niv = 'etage'; de('S').p.niv = 'etage'; }), 'S'],
+    ['trois appareils à 2 m, dessinés dans l\'ordre c, a, b, et un quatrième à 1 m, tous sans niveau : le plus proche, puis l\'ordre des ids',
+      doc({o: [['P', 'wc', 0, 0], ['c', 'lavabo', 2, 0], ['a', 'douche', 0, 2], ['b', 'evier', -2, 0], ['z', 'lavelinge', 0, -1]]}), 'z, a, b, c'],
+  ].forEach(([lib, d, att, mode]) => { const x = vois(d, mode); R.ok(x === att, 'c12 ' + lib + ' → ' + js(att) + ' (obtenu ' + js(x) + ')'); });
+  /* la fiche passe une copie de l'objet : le porteur s'écarte par son id, pas par l'objet */
+  { const d = plan(), x = sur(() => idsDe(V.voisinsEtiquette(d, V.analyser(copie(d), 'edl'), copie(elDe(d, 'P')))));
+    R.ok(x === 'L, D', 'c12 porteur passé en copie, comme le fait la fiche : il n\'est pas son propre voisin → "L, D" (obtenu ' + js(x) + ')'); }
+  /* rien n'est écrit ; les voisins rendus sont les objets du croquis */
+  for (const [lib, lui] of [['analyse d\'une copie du croquis', false], ['analyse du croquis lui-même, comme dans l\'éditeur', true]]){
+    const d = plan(), dA = lui ? d : copie(d), an = V.analyser(dA, 'edl'), j0 = js(d), jA = js(dA), a0 = js(an), r = sur(() => V.voisinsEtiquette(d, an, elDe(d, 'P')));
+    const vu = {voisins: idsDe(r), duCroquis: Array.isArray(r) && r.every(o => d.el.indexOf(o) >= 0), croquis: js(d) === j0 && js(dA) === jA, analyse: js(an) === a0};
+    R.ok(vu.voisins === 'L, D' && vu.duCroquis && vu.croquis && vu.analyse, 'c12 ' + lib + ' : rien n\'est écrit (mêmes empreintes JSON du croquis et de l\'analyse avant et après) ; '
+      + 'les voisins rendus sont les objets du croquis (obtenu ' + js(vu) + ')');
+  }
+  /* appels sans croquis, sans analyse ou sans porteur valable : une liste vide, aucune exception */
+  { const d = plan(), an = V.analyser(copie(d), 'edl'), P = elDe(d, 'P'), f = (...a) => V.voisinsEtiquette(...a);
+    const mal = [['sans croquis', () => f(null, an, P)], ['croquis sans éléments', () => f({}, an, P)], ['sans analyse', () => f(d, null, P)], ['analyse sans objets', () => f(d, {}, P)],
+      ['sans porteur', () => f(d, an, null)], ['porteur qui n\'est pas un appareil EU (la descente)', () => f(d, an, elDe(d, 'G'))],
+      ['porteur sans place (ni x ni y)', () => f(d, an, {id: 'P', k: 'pt', t: 'wc', p: {niv: 'rdc'}})]]
+      .map(([lib, g]) => { const r = sur(g); return Array.isArray(r) && !r.length ? '' : lib + ' : ' + js(r); }).filter(Boolean);
+    R.ok(!mal.length, 'c12 sans croquis, sans éléments, sans analyse, sans porteur, porteur qui n\'est pas un appareil EU ou sans place : aucun voisin, aucune exception'
+      + (mal.length ? ' (obtenu ' + mal.join(' ; ') + ')' : ''));
+  }
+}
 (async () => {
   try {
     etiquettes();
@@ -1084,7 +1171,7 @@ async function c10(){
     constatLm();
     await page2Lm();
     await gardeLm();
-    for (const g of [g1, g1bis, g2, g3, g4, g5, g6, g7, g8, g9, g10, g11, c1, c2, c3, c4, c5, c6, c7, c9, c10]){
+    for (const g of [g1, g1bis, g2, g3, g4, g5, g6, g7, g8, g9, g10, g11, c1, c2, c3, c4, c5, c6, c7, c9, c10, c12]){
       try { await g(); } catch (e){ R.ok(false, g.name + ' : exception : ' + (e && e.stack || e).toString().split('\n').slice(0, 3).join(' | ')); }
     }
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }
