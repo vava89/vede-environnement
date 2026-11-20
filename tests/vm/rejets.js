@@ -50,9 +50,20 @@
 //   (m119) ; WC vers un puits : eu-puits, ligne PUITS « non ».
 // q2 : le type (après « Rejet en milieu naturel » dans la palette Équipements, rappel du puits perdu), la ligne PUITS de la table (règles
 //   EU et EP non conformes, cat « inversion » et « autre », place PUITS au constat depuis m150, « Puits » dans VCroquis.RACC_LIB), le
-//   symbole (deux cercles concentriques verts, rayon 2,1, l'intérieur loin de celui du puisard) ; DXF : bloc VEDE_PUITS de deux cercles,
-//   INSERT sur VEDE-SYMBOLES, tuyau sur VEDE-EP ; écran : tuyau et étiquette verts ; plan PDF : « Puits » une fois à la légende,
-//   « puits · anomalie n° … » au « Rejet constaté » de la page 2.
+//   symbole, semblable à celui du cadastre (m152, décision D20 ; réponses symbole-puits du 16 nov. 2026 et S8 a du 17 nov.) : un cercle
+//   de rayon 1,4, blanc dedans, puis une ligne ouverte de quatre points, la barre diamétrale (±2,1) et ses manivelles en Z (à gauche
+//   vers le haut, à droite vers le bas), du vert des EP ; rayon du symbole gardé à 2,1 ; plan tourné : la ligne tourne, le cercle
+//   reste ; aperçu SVG (palette, fiche) : un cercle et un tracé de quatre points, en Z ; écran (dessinerPrims, sur un canevas factice qui
+//   relève aussi les arcs) : un cercle et une ligne de quatre points, en Z ; plan tourné, la barre tourne comme celle du té ; plan PDF :
+//   la ligne en Z au plan et à la légende ; témoins : le puisard garde ses deux cercles (2,1 et 1,1), à l'écran aussi ; DXF : bloc
+//   VEDE_PUITS d'un CIRCLE de rayon 1,4 et d'une POLYLINE ouverte de 4 VERTEX, INSERT sur VEDE-SYMBOLES en couleur 3, tuyau sur VEDE-EP ;
+//   écran : tuyau et étiquette verts ; plan PDF : « Puits » une fois à la légende, « puits · anomalie n° … » au « Rejet constaté » de la
+//   page 2 ; trait de l'étiquette (relecture de m152) : il part à 2,7 mm du centre, au-delà des manivelles ; au plan PDF, étiquette à sa
+//   place d'office (calculée au tracé au 1/100, au 1/200 et au 1/500, enregistrée à la pose) ou à la même place à gauche : aucun trait
+//   d'étiquette, rien ne prolonge la barre ; étiquette tirée à la main vers le bout de la manivelle de droite : départ à 2,7 du centre,
+//   0,45 après ce bout ; écran à 60 px par mètre (texte large de 10 px sur le canevas factice) : départ à 2,7, détaché de la barre ;
+//   témoins : le trait du puisard part toujours de 2,1, au plan PDF et à l'écran ; témoin d'un plan tourné d'un demi-radian : la barre à
+//   −0,5 rad au plan PDF, droite à la légende, INSERT du DXF à la rotation du plan (code 50), comme celui du té.
 // q3 : avant-projet qui garde le puits : préconisation au tableau, « Reste après travaux : Descente EP : rejet dans un puits » ; témoin : le
 //   rejet supprimé par le projet, plus rien ne reste ; au dossier (reconcilier), ep-puits créée en catégorie « autre », sur la ligne
 //   « Gouttière(s) avant », non conforme, case gestEP.
@@ -61,7 +72,11 @@
 //   milieu naturel : PUITS, « non ». Témoins : un puits et une gargouille, « plusieurs » ; en EP, un puits et un puisard, raccordement vide.
 // Échouent sur 7df0996 (type « puits » absent) : q1 à q3, sauf le témoin de q3. Sur 3035f1d (avant m150 : place MILIEU, libellé « Puits :
 //   rejet en milieu naturel », pas de code PUITS) : q1, q2 et q4 (MILIEU), sauf les témoins de q4. q4 échoue aussi sur la première version
-//   de m150 (raccordement « plusieurs »), sauf ses témoins.
+//   de m150 (raccordement « plusieurs »), sauf ses témoins. Sur b4c9e3b (avant m152 : deux cercles concentriques, 2,1 et 1,6) : onze
+//   contrôles de q2 : les sept du symbole (primitives, plan tourné, aperçu SVG, écran, écran tourné, bloc DXF, plan PDF), les trois du
+//   trait de l'étiquette du puits et le témoin du plan tourné (aucune barre à y mesurer) ; les témoins du puisard passent. Sur la
+//   première version de m152 (trait de l'étiquette parti du bout de la barre, à 2,1) : les trois contrôles du trait de l'étiquette du
+//   puits (place d'office au plan PDF, étiquette tirée à la main, écran), sauf leurs témoins.
 // Autre destination (m125, décisions D3, D5 à D7 ; objets écrits dans le croquis ; dans la palette Équipements depuis m127, juste après « Puits ») :
 // x1 : constat déduit d'une descente vers un étang aux EP non conformes, ep-exu retenue : ligne ok null (le dossier la juge par l'anomalie),
 //   case « autre » des ouvrages EP, « Étang (rejet des EP) », fiche « Rejet : étang · anomalie n° 1 » ; écartée, ou EP conformes : ligne
@@ -521,7 +536,25 @@ async function puitsConstat(){
   R.ok(w.st === 'eu-puits:S retenue' && w.c === 'non_conformes' && w.ligne === 'PUITS | [false] | "non"' && w.libs === PUL,
     'q1 WC vers un puits : eu-puits retenue, ligne du WC en PUITS, non conforme (' + vu(w, ['st', 'c', 'ligne', 'libs']) + ')');
 }
-/* q2 : le type, sa place, la ligne PUITS de la table, le symbole ; DXF, couleurs, légende et page 2 du plan PDF */
+/* canevas factice (m152) qui relève, à chaque stroke, les morceaux du chemin : arcs (centre et rayon, en pixels) et lignes brisées (sommets,
+   fermée ou non), avec la couleur du trait et, si le chemin a été rempli, celle du fond (le canevas de charger.js ne relève que les segments) */
+function traceur(){
+  const traces = [], etat = {}; let chemin = [], cour = null;
+  const m = {
+    beginPath(){ chemin = []; cour = null; },
+    moveTo(x, y){ cour = {k: 'p', pts: [{x, y}], f: false}; chemin.push(cour); },
+    lineTo(x, y){ if (!cour || cour.k !== 'p'){ cour = {k: 'p', pts: [], f: false}; chemin.push(cour); } cour.pts.push({x, y}); },
+    closePath(){ if (cour && cour.k === 'p') cour.f = true; },
+    arc(x, y, r){ cour = {k: 'c', x, y, r}; chemin.push(cour); },
+    fill(){ chemin.forEach(q => { q.fond = etat.fillStyle; }); },
+    stroke(){ chemin.forEach(q => traces.push(Object.assign({}, q, {coul: etat.strokeStyle}))); },
+    fillText(){},
+    measureText(){ return {width: 10}; }
+  };
+  return {ctx: new Proxy(etat, {get: (t, k) => k in m ? m[k] : k in t ? t[k] : () => {}, set: (t, k, v) => { t[k] = v; return true; }}), traces};
+}
+/* q2 : le type, sa place, la ligne PUITS de la table, le symbole (m152 : semblable à celui du cadastre), à l'écran, en SVG, au plan PDF
+   et au DXF ; DXF, couleurs, légende et page 2 du plan PDF ; trait de l'étiquette ; plan tourné */
 async function puitsRendu(){
   const T = V.TYPES.puits, eq = (V.FAMILLES.find(f => f.id === 'equ') || {types: []}).types, X = V.EXU && V.EXU.PUITS;
   R.ok(!!T && T.fam === 'exu' && T.lib === 'Puits' && T.role === 'exutoire' && T.forme === 'puits' && T.exu === 'PUITS' && !T.g && !T.droit && !T.oriente
@@ -539,23 +572,85 @@ async function puitsRendu(){
   R.ok(L.PUITS === 'Puits' && L.MILIEU === 'Milieu naturel' && gardent.length === 4 && gardent.every(x => /:MILIEU$/.test(x)),
     'q2 m150 : VCroquis.RACC_LIB.PUITS « Puits » ; puisard, infiltration au sol, milieu naturel, drain d\'infiltration gardent MILIEU en EU ('
     + JSON.stringify({PUITS: L.PUITS, MILIEU: L.MILIEU, gardent}) + ')');
-  /* symbole : deux cercles concentriques verts, tracés, l'extérieur blanc dedans (rayon 2,1) ; l'intérieur nettement plus grand que celui
-     du puisard, pour ne pas les confondre */
-  const prim = t => V.primitives({k: 'pt', t, p: {st: 'existant', obs: ''}}, V.RES.EP.rgb, 0), P = prim('puits'), Q = prim('puisard');
-  const cer = P.filter(q => q.k === 'c');
-  R.ok(V.rayonSymbole('puits') === 2.1 && P.length === 2 && cer.length === 2 && cer[0].r === 2.1 && String(cer[0].fond) === '255,255,255' && !cer[1].fond
-    && cer[1].r < 2.1 && Q.length === 2 && cer[1].r - Q[1].r >= .4 && cer.every(q => q.x === 0 && q.y === 0 && String(q.trait) === EPC && q.ep > 0 && !q.masque),
-    'q2 symbole : deux cercles concentriques verts, rayon 2,1, l\'intérieur loin de celui du puisard (rayon ' + V.rayonSymbole('puits') + ' ; '
-    + P.map(q => q.k + ' r ' + q.r + (q.fond ? ' fond ' + q.fond : '') + (q.trait ? ' trait ' + q.trait : '')).join(' | ') + ' ; puisard ' + Q.map(q => q.r).join(', ') + ')');
-  /* DXF : bloc VEDE_PUITS (les deux cercles), INSERT sur VEDE-SYMBOLES en couleur 3, tuyau sur VEDE-EP, étiquette « Puits » en couleur 3 */
+  /* symbole semblable à celui du cadastre (m152, décision D20) : un cercle de rayon 1,4, blanc dedans, puis une ligne ouverte de quatre
+     points : la barre diamétrale, qui dépasse du cercle (±2,1), et ses manivelles en Z (S8 a : à gauche vers le haut, à droite vers le
+     bas ; y des primitives vers le haut) ; vert des EP, tracés ; rayon du symbole gardé à 2,1. Avant m152 : deux cercles concentriques
+     (2,1 et 1,6). Témoin : le puisard garde ses deux cercles (2,1, blanc dedans, et 1,1), au DXF aussi */
+  const ZP = [-2.1, .8, -2.1, 0, 2.1, 0, 2.1, -.8], pr = v => +v.toFixed(3);
+  const tourne = a => { const o = []; for (let i = 0; i < ZP.length; i += 2) o.push(ZP[i] * Math.cos(a) - ZP[i + 1] * Math.sin(a), ZP[i] * Math.sin(a) + ZP[i + 1] * Math.cos(a)); return o; };
+  const prim = (t, a) => V.primitives({k: 'pt', t, p: {st: 'existant', obs: ''}}, V.RES.EP.rgb, a || 0), P = prim('puits'), Q = prim('puisard');
+  const desc = L => L.map(q => q.k + (q.k === 'c' ? ' r ' + q.r : ' ' + q.pts.map(pr).join(',') + (q.f ? ' fermée' : ' ouverte'))
+    + (q.fond ? ' fond ' + q.fond : '') + (q.trait ? ' trait ' + q.trait : '')).join(' | ');
+  R.ok(V.rayonSymbole('puits') === 2.1 && P.length === 2 && P[0].k === 'c' && P[0].r === 1.4 && P[0].x === 0 && P[0].y === 0 && String(P[0].fond) === '255,255,255'
+    && P[1].k === 'p' && !P[1].f && !P[1].fond && P[1].pts.join() === ZP.join() && P.every(q => String(q.trait) === EPC && q.ep > 0 && !q.masque),
+    'q2 symbole semblable à celui du cadastre : un cercle de rayon 1,4, blanc dedans, puis une ligne ouverte de quatre points (barre à ±2,1, manivelles en Z), en vert ; rayon 2,1 (rayon '
+    + V.rayonSymbole('puits') + ' ; ' + desc(P) + ')');
+  const dW = blocDxf(dxf(doc({o: [['P', 'puisard', 0, 0]]})).texte, 'VEDE_PUISARD') || [];
+  R.ok(Q.length === 2 && Q.every(q => q.k === 'c' && q.x === 0 && q.y === 0 && String(q.trait) === EPC) && Q.map(q => q.r).join() === '2.1,1.1' && String(Q[0].fond) === '255,255,255'
+    && dW.map(q => q.type + ' ' + +q.c['40']).join() === 'CIRCLE 2.1,CIRCLE 1.1',
+    'q2 témoin : le puisard garde ses deux cercles, 2,1 (blanc dedans) et 1,1, au DXF aussi (' + desc(Q) + ' ; bloc ' + dW.map(q => q.type + ' ' + q.c['40']).join(', ') + ')');
+  /* plan tourné (angle du symbole non nul : sur le plan, celui de la rotation du plan, comme pour le té, ni droit ni orienté) : la ligne
+     tourne autour du centre, le cercle reste */
+  const Pt = prim('puits', .5), Zt = tourne(.5);
+  R.ok(Pt.length === 2 && Pt[0].k === 'c' && Pt[0].r === 1.4 && Pt[0].x === 0 && Pt[0].y === 0 && Pt[1].k === 'p' && !Pt[1].f && Pt[1].pts.length === 8
+    && Pt[1].pts.every((v, i) => Math.abs(v - Zt[i]) < 1e-9),
+    'q2 plan tourné d\'un demi-radian : la ligne tourne, le cercle reste (' + desc(Pt) + ' ; attendu ' + Zt.map(pr).join(',') + ')');
+  /* aperçu SVG (palette, fiche : symboleSvg, 34 px, 4,2 px par mm, centre 17) : un cercle blanc dedans et un tracé ouvert de quatre points,
+     verts ; en Z (y du SVG vers le bas : le premier point au-dessus du centre, le dernier au-dessous) */
+  const svg = String(sur(() => V.symboleSvg('puits', 34))), sc = svg.match(/<circle [^>]*>/g) || [], sp = svg.match(/<path [^>]*>/g) || [];
+  const att = (s, a) => (s.match(new RegExp(' ' + a + '="([^"]*)"')) || [])[1];
+  const sd = sp.length === 1 ? att(sp[0], 'd') || '' : '', ss = (sd.match(/[ML]-?[\d.]+ -?[\d.]+/g) || []).map(s => s.slice(1).split(' ').map(Number));
+  R.ok(sc.length === 1 && Math.abs(+att(sc[0], 'r') - 1.4 * 4.2) < 1e-6 && +att(sc[0], 'cx') === 17 && +att(sc[0], 'cy') === 17 && att(sc[0], 'fill') === 'rgb(255,255,255)'
+    && att(sc[0], 'stroke') === VERT && sp.length === 1 && /^M[^ML]*(L[^ML]*){3}$/.test(sd) && !/Z/.test(sd) && ss.length === 4 && att(sp[0], 'fill') === 'none'
+    && att(sp[0], 'stroke') === VERT && ss.every((s, i) => Math.abs(s[0] - (17 + ZP[2 * i] * 4.2)) < .01 && Math.abs(s[1] - (17 - ZP[2 * i + 1] * 4.2)) < .01)
+    && ss[0][1] < 17 && ss[3][1] > 17,
+    'q2 aperçu SVG (palette, fiche) : un cercle blanc dedans et un tracé ouvert de quatre points, en Z, verts (' + svg.replace(/^<svg[^>]*>|<\/svg>$/g, '') + ')');
+  /* écran (dessinerPrims, par dessinerCroquis, sur le canevas factice traceur) : autour du puits, un cercle blanc dedans puis une ligne
+     ouverte de quatre points, verts ; à 20 px par mètre et au 1/200, un symbole de rayon 2,1 est grossi à 8,5 px (kk px par mm) ; la
+     manivelle de gauche monte (y de l'écran plus petit que celui du centre), celle de droite descend. Plan tourné d'un demi-radian : le
+     cercle reste, la ligne tourne avec le plan (−0,5 radian à l'écran, y vers le haut), comme la barre du té. Témoin : le puisard, deux
+     cercles (2,1 et 1,1) et aucune ligne */
+  const dE = doc({o: [['I', 'puits', 0, 0], ['P', 'puisard', 8, 0], ['T', 'te', -8, 0]]}), kk = 8.5 / 2.1;
+  const ecranRot = rot => {
+    const dd = copie(dE), vue = new V.Vue(800, 600), cv = traceur(); dd.rot = rot; vue.s = 20; vue.rot = rot;
+    const ex = sur(() => { V.dessinerCroquis(cv.ctx, copie(dd), V.analyser(copie(dd), 'edl'), vue, 1, {}); return ''; });
+    const pres = id => { const e = dd.el.find(q => q.id === id), c = vue.ecran(e.x, e.y);
+      return {c, L: cv.traces.filter(q => q.k === 'c' ? Math.hypot(q.x - c.x, q.y - c.y) < 1e-6 : q.pts.every(s => Math.hypot(s.x - c.x, s.y - c.y) < 2.3 * kk))}; };
+    return {ex, I: pres('I'), P: pres('P'), T: pres('T')};
+  };
+  const rel = (s, c) => [(s.x - c.x) / kk, -(s.y - c.y) / kk];
+  const vuE = o => o.L.map(q => q.k === 'c' ? 'c r ' + pr(q.r / kk) + (q.fond ? ' fond ' + q.fond : '') + ' ' + q.coul
+    : 'p ' + q.pts.map(s => rel(s, o.c).map(pr).join(',')).join(' ') + (q.f ? ' fermée' : '') + ' ' + q.coul).join(' | ') || 'rien';
+  const formeE = (o, a) => {
+    const c = o.L[0], l = o.L[1], Z = tourne(a);
+    return o.L.length === 2 && c.k === 'c' && l.k === 'p' && Math.abs(c.r / kk - 1.4) < 1e-9 && c.fond === 'rgb(255,255,255)' && c.coul === VERT
+      && !l.f && l.pts.length === 4 && l.coul === VERT && l.pts.every((s, i) => { const r = rel(s, o.c); return Math.abs(r[0] - Z[2 * i]) < 1e-9 && Math.abs(r[1] - Z[2 * i + 1]) < 1e-9; });
+  };
+  const e0 = ecranRot(0), e1 = ecranRot(.5), l0 = e0.I.L[1] || {pts: []};
+  R.ok(!e0.ex && formeE(e0.I, 0) && l0.pts[0].y < e0.I.c.y && l0.pts[0].x < e0.I.c.x && l0.pts[3].y > e0.I.c.y && l0.pts[3].x > e0.I.c.x,
+    'q2 écran : un cercle blanc dedans et une ligne ouverte de quatre points, verts ; la manivelle de gauche monte, celle de droite descend ('
+    + (e0.ex || vuE(e0.I)) + ')');
+  const dir = (a, b) => Math.atan2(-(b.y - a.y), b.x - a.x), bT = e1.T.L.find(q => q.k === 'p'), bI = e1.I.L.find(q => q.k === 'p' && q.pts.length === 4);
+  const aT = bT ? dir(bT.pts[0], bT.pts[1]) : NaN, aI = bI ? dir(bI.pts[1], bI.pts[2]) : NaN;
+  R.ok(!e1.ex && formeE(e1.I, -.5) && Math.abs(aI + .5) < 1e-9 && Math.abs(aI - aT) < 1e-9,
+    'q2 écran, plan tourné d\'un demi-radian : le cercle reste, la ligne tourne avec le plan, comme la barre du té (barre ' + pr(aI) + ' rad, té ' + pr(aT) + ' rad ; '
+    + (e1.ex || vuE(e1.I)) + ')');
+  R.ok(!e0.ex && e0.P.L.length === 2 && e0.P.L.every(q => q.k === 'c' && q.coul === VERT) && e0.P.L.map(q => pr(q.r / kk)).join() === '2.1,1.1',
+    'q2 témoin à l\'écran : le puisard, deux cercles (2,1 et 1,1) et aucune ligne (' + (e0.ex || vuE(e0.P)) + ')');
+  /* DXF : bloc VEDE_PUITS écrit depuis les primitives à l'angle 0 : un CIRCLE de rayon 1,4 au centre (le fond blanc n'en fait pas un disque
+     plein), puis une POLYLINE ouverte et fine de 4 VERTEX, la barre et ses manivelles en Z (y du DXF vers le haut) ; INSERT sur
+     VEDE-SYMBOLES en couleur 3, tuyau sur VEDE-EP, étiquette « Puits » en couleur 3, comme avant m152 */
   const d = doc({o: [['D', 'descente', 0, 6, {cote: 'avant'}], ['I', 'puits', 0, 0]], l: [['T1', 'tr', '', '', ['D', 'I']]]});
   d.el.find(q => q.id === 'I').lab = null;
-  const x = dxf(d), b = blocDxf(x.texte, 'VEDE_PUITS'), ci = (b || []).filter(q => q.type === 'CIRCLE');
+  const x = dxf(d), b = blocDxf(x.texte, 'VEDE_PUITS'), B = b || [], ci = B.filter(q => q.type === 'CIRCLE'), pl = B.filter(q => q.type === 'POLYLINE');
+  const vx = B.filter(q => q.type === 'VERTEX').map(q => [+q.c['10'], +q.c['20']]);
   const ins = x.ents.find(q => q.type === 'INSERT' && q.c['2'] === 'VEDE_PUITS'), tu = x.ents.filter(q => q.type === 'POLYLINE'), tx = x.ents.find(q => q.type === 'TEXT' && q.c['1'] === 'Puits');
-  R.ok(!!b && b.length === 2 && ci.length === 2 && ci.map(q => +q.c['40']).join() === cer.map(q => q.r).join() && !!ins && ins.cal === 'VEDE-SYMBOLES' && +ins.c['62'] === 3
-    && tu.length === 1 && tu[0].cal === 'VEDE-EP' && !!tx && +tx.c['62'] === 3,
-    'q2 DXF : bloc VEDE_PUITS de deux cercles, INSERT sur VEDE-SYMBOLES en couleur 3, tuyau sur VEDE-EP, étiquette « Puits » en couleur 3 ('
-    + (b ? b.map(q => q.type + ('40' in q.c ? ' ' + q.c['40'] : '')).join(', ') : 'bloc absent ; blocs ' + x.blocs.join(', ')) + ' ; ' + (ins ? ins.cal + ' ' + ins.c['62'] : 'INSERT absent')
+  R.ok(!!b && B.map(q => q.type).join() === 'CIRCLE,POLYLINE,VERTEX,VERTEX,VERTEX,VERTEX,SEQEND' && +ci[0].c['40'] === 1.4 && +ci[0].c['10'] === 0 && +ci[0].c['20'] === 0
+    && (+pl[0].c['70'] & 1) === 0 && !('40' in pl[0].c) && [].concat(...vx).join() === ZP.join()
+    && !!ins && ins.cal === 'VEDE-SYMBOLES' && +ins.c['62'] === 3 && tu.length === 1 && tu[0].cal === 'VEDE-EP' && !!tx && +tx.c['62'] === 3,
+    'q2 DXF : bloc VEDE_PUITS d\'un CIRCLE de rayon 1,4 et d\'une POLYLINE ouverte de 4 VERTEX en Z, INSERT sur VEDE-SYMBOLES en couleur 3, tuyau sur VEDE-EP, étiquette « Puits » en couleur 3 ('
+    + (b ? B.map(q => q.type + ('40' in q.c ? ' ' + q.c['40'] : '') + (q.type === 'POLYLINE' ? ' 70=' + q.c['70'] : '') + (q.type === 'VERTEX' ? ' ' + q.c['10'] + ',' + q.c['20'] : '')).join(', ')
+      : 'bloc absent ; blocs ' + x.blocs.join(', ')) + ' ; ' + (ins ? ins.cal + ' ' + ins.c['62'] : 'INSERT absent')
     + ' ; ' + tu.map(q => q.cal).join(', ') + ' ; ' + (tx ? tx.cal + ' ' + tx.c['62'] : 'étiquette absente') + ')');
   const ec = sur(() => dessiner(d, 20, [0, 3]));
   const tuy = typeof ec === 'string' ? ec : [...new Set(ec.traits.filter(q => Math.abs(q.a.x) < 1e-6 && Math.abs(q.b.x) < 1e-6 && Math.abs(q.a.y - q.b.y) > 1).map(q => q.coul))].join(' ');
@@ -567,6 +662,91 @@ async function puitsRendu(){
   R.ok(!p.err.length && n === 1 && rej.length === 2 && rej.every(s => /^puits · anomalie n° \d+$/.test(s)) && !code.length,
     'q2 plan PDF : « Puits » une fois à la légende ; « puits » au « Rejet constaté » de la page 2, pour le WC et la descente, jamais le code ('
     + (p.err.join(' | ') || n + ' fois ; ' + rej.concat(code).map(s => JSON.stringify(s)).join(', ')) + ')');
+  /* plan PDF (primsPdf) : la ligne ouverte de quatre points, verte et en Z (y du papier vers le bas), au plan (1 mm par mm du symbole) et à
+     la légende (réduite d'après la hauteur de sa ligne, 1 au plus) ; le cercle passe par pdf.circle, que l'enveloppe ne relève pas */
+  const ech = q => {
+    const k = (q.pts[2].x - q.pts[1].x) / 4.2, cx = (q.pts[1].x + q.pts[2].x) / 2, cy = q.pts[1].y;
+    return k > 0 && q.pts.every((s, i) => Math.abs((s.x - cx) / k - ZP[2 * i]) < 1e-6 && Math.abs(-(s.y - cy) / k - ZP[2 * i + 1]) < 1e-6) ? pr(k) : 0;
+  };
+  const zp = p.formes.filter(q => q.coul === EPC && !q.ferme && q.pts.length === 4), ks = zp.map(ech);
+  R.ok(!p.err.length && zp.length === 2 && ks[0] === 1 && ks[1] > 0 && ks[1] <= 1 && zp.every(q => q.pts[0].y < q.pts[1].y && q.pts[3].y > q.pts[2].y),
+    'q2 plan PDF : la ligne du puits en Z, verte, au plan et à la légende (' + (p.err.join(' | ') || zp.length + ' lignes ouvertes de quatre points, échelles '
+    + ks.join(', ') + ' ; ' + zp.map(q => q.pts.map(s => pr(s.x) + ',' + pr(s.y)).join(' ')).join(' | ')) + ')');
+  /* trait de l'étiquette (relecture de m152) : il part à 2,7 mm du centre du puits (rayonSymbole + 0,6 : departTrait), au-delà des
+     manivelles, dont les bouts sont à 2,25. Avant, il partait à 2,1, le bout de la barre : l'étiquette à sa place d'office (à droite, à
+     la hauteur du centre, son bord à 3,2 ; la pose enregistre cette place) tirait un trait de (2,1 ; 0) à (3,2 ; 0), dans l'axe de la
+     barre, qui semblait continuer : la manivelle de droite n'était plus au bout. Mesures en mm du papier depuis le centre de l'exutoire
+     (le bout du tuyau), y vers le haut. « Prolonge la barre » : un trait de deux points dans l'axe de la barre (à 0,3 près) dont un bout
+     est à moins de 0,45 de l'un des siens. Plan PDF, nord en haut : place d'office calculée au tracé (lab absent) au 1/100, au 1/200 et
+     au 1/500, place enregistrée à la pose (placerEtiquette), la même à gauche : aucun trait d'étiquette (il en resterait moins de
+     0,8 mm), rien ne prolonge la barre. Étiquette tirée à la main vers le bout de la manivelle de droite : le trait part à 2,7 du centre,
+     0,45 après ce bout (avant : à 2,1, contre la manivelle). Écran à 60 px par mètre (12 px par mm), place d'office : le trait part à
+     2,7, détaché de la barre (sur le canevas factice, tout texte est large de 10 px : la boîte de l'étiquette est plus étroite que dans
+     un navigateur, et le trait plus long). Témoins : le trait du puisard (même rayon, 2,1) part toujours du bord du symbole, au plan
+     PDF et à l'écran */
+  const ETQ = [1, 3, 5].map(i => parseInt(String(V.TXT_RES.EP).slice(i, i + 2), 16)).join(',');
+  const versI = (t, lab, E) => {
+    const dd = doc({o: [['D', 'descente', 0, 6, {cote: 'avant'}], ['I', t, 0, 0]], l: [['T1', 'tr', '', '', ['D', 'I']]]});
+    dd.el.find(q => q.id === 'I').lab = lab; dd.echelle = E || 200; return dd;
+  };
+  const prolonge = L2 => L2.filter(f => f.pts.every(s => Math.abs(s[1]) < .3) && f.pts.some(s => Math.abs(Math.abs(s[0]) - 2.1) < .45));
+  const vuT = L2 => L2.map(f => f.pts.map(s => pr(s[0]) + ',' + pr(s[1])).join(' → ') + ' ' + f.coul).join(' ; ') || 'aucun trait';
+  const traitsPdf = async (dd, mot) => {
+    const q = await pdf(dd, {mode: 'edl'}), t0 = q.formes.find(f => f.coul === EPC && !f.ferme && f.pts.length === 2), c = t0 ? t0.pts[1] : {x: 0, y: 0};
+    const L2 = q.formes.filter(f => f !== t0 && !f.ferme && f.pts.length === 2).map(f => ({coul: f.coul, pts: f.pts.map(s => [s.x - c.x, -(s.y - c.y)])}))
+      .filter(f => f.pts.every(s => Math.hypot(s[0], s[1]) < 8));
+    const ecrit = q.pos.some(s => s.t === (mot || 'Puits') && s.coul === ETQ && Math.hypot(s.x - c.x, s.y - c.y) < 12);
+    return {err: q.err.join(' | ') || (t0 ? '' : 'tuyau absent') || (ecrit ? '' : 'étiquette absente'), L: L2, etq: L2.filter(f => f.coul === ETQ)};
+  };
+  const dO = versI('puits', null);
+  const lab0 = sur(() => V.placerEtiquette(dO, V.analyser(copie(dO), 'edl'), dO.el.find(q => q.id === 'I'), 200, V.indexDoc(dO)));
+  const aDroite = !!lab0 && typeof lab0 === 'object' && lab0.dx > 0 && lab0.dy === 0, places = [];
+  for (const E of [100, 200, 500]) places.push(Object.assign(await traitsPdf(versI('puits', null, E)), {ou: 'd\'office au 1/' + E}));
+  if (aDroite){
+    places.push(Object.assign(await traitsPdf(versI('puits', copie(lab0))), {ou: 'enregistrée à la pose'}));
+    places.push(Object.assign(await traitsPdf(versI('puits', {dx: -lab0.dx, dy: 0, E: 200})), {ou: 'la même à gauche'}));
+  }
+  R.ok(aDroite && places.length === 5 && places.every(r => !r.err && !r.etq.length && !prolonge(r.L).length),
+    'q2 plan PDF, étiquette à sa place d\'office (à droite, à la hauteur du centre) ou à la même place à gauche : aucun trait d\'étiquette, rien ne prolonge la barre du puits ('
+    + (aDroite ? places.map(r => r.ou + ' : ' + (r.err || vuT(r.L))).join(' | ') : 'place d\'office ' + JSON.stringify(lab0)) + ')');
+  const BM = [2.1, -.8], rM = Math.hypot(BM[0], BM[1]);
+  const tire = await traitsPdf(versI('puits', {dx: 8 * .2, dy: 8 * BM[1] / BM[0] * .2, E: 200, main: true})), dep = (tire.etq[0] || {pts: [[0, 0]]}).pts[0];
+  R.ok(!tire.err && tire.etq.length === 1 && Math.abs(Math.hypot(dep[0], dep[1]) - 2.7) < 1e-6 && Math.abs(Math.hypot(dep[0] - BM[0], dep[1] - BM[1]) - (2.7 - rM)) < 1e-6
+    && !prolonge(tire.L).length,
+    'q2 plan PDF, étiquette tirée à la main vers le bout de la manivelle de droite : son trait part à 2,7 mm du centre (rayon du symbole + 0,6), 0,45 mm après ce bout ('
+    + (tire.err || vuT(tire.L) + ' ; départ à ' + pr(Math.hypot(dep[0], dep[1])) + ' du centre, à ' + pr(Math.hypot(dep[0] - BM[0], dep[1] - BM[1])) + ' du bout') + ')');
+  const temP = await traitsPdf(versI('puisard', null), 'Puisard'), tP = (temP.etq[0] || {pts: [[0, 0], [0, 0]]}).pts;
+  R.ok(!temP.err && temP.etq.length === 1 && Math.abs(tP[0][0] - 2.1) < 1e-6 && Math.abs(tP[0][1]) < 1e-6 && Math.abs(tP[1][0] - 3.2) < 1e-6 && Math.abs(tP[1][1]) < 1e-6,
+    'q2 témoin au plan PDF : le trait de l\'étiquette du puisard part toujours du bord du symbole, de (2,1 ; 0) à (3,2 ; 0) (' + (temP.err || vuT(temP.L)) + ')');
+  const traitsEcran = (t, s) => {
+    const dd = versI(t, null), vue = new V.Vue(800, 600), cv = traceur(); vue.s = s; vue.cx = 0; vue.cy = 3;
+    let zones = [];
+    const ex = sur(() => { zones = V.dessinerCroquis(cv.ctx, copie(dd), V.analyser(copie(dd), 'edl'), vue, 1, {}); return ''; });
+    const c = vue.ecran(0, 0), k = s * 200 / 1000;
+    const L2 = cv.traces.filter(q => q.k === 'p' && q.pts.length === 2 && !q.f).map(q => ({coul: q.coul, pts: q.pts.map(u => [(u.x - c.x) / k, -(u.y - c.y) / k])}))
+      .filter(f => f.pts.every(u => Math.hypot(u[0], u[1]) < 8));
+    return {err: ex || (zones.some(z => z.type === 'etiq' && z.id === 'I') ? '' : 'étiquette absente'), L: L2, etq: L2.filter(f => f.coul === V.TXT_RES.EP)};
+  };
+  const eO = traitsEcran('puits', 60), eD = (eO.etq[0] || {pts: [[0, 0]]}).pts[0];
+  R.ok(!eO.err && eO.etq.length === 1 && Math.abs(eD[0] - 2.7) < 1e-9 && Math.abs(eD[1]) < 1e-9 && !prolonge(eO.L).length,
+    'q2 écran à 60 px par mètre, étiquette à sa place d\'office : son trait part à 2,7 mm du centre, 0,6 mm après le bout de la barre, et ne la prolonge pas ('
+    + (eO.err || vuT(eO.L)) + ')');
+  const eP = traitsEcran('puisard', 60), eQ = (eP.etq[0] || {pts: [[0, 0]]}).pts[0];
+  R.ok(!eP.err && eP.etq.length === 1 && Math.abs(eQ[0] - 2.1) < 1e-9 && Math.abs(eQ[1]) < 1e-9,
+    'q2 témoin à l\'écran : le trait de l\'étiquette du puisard part toujours du bord du symbole, à 2,1 mm du centre (' + (eP.err || vuT(eP.L)) + ')');
+  /* plan tourné d'un demi-radian, d'une sortie à l'autre (témoin : comme avant m152, où deux cercles ne montraient pas l'angle) : au plan
+     PDF, la barre est à −0,5 rad sur le papier, comme à l'écran (elle garde sa direction sur le terrain) ; à la légende, elle reste
+     droite ; au DXF, l'INSERT porte la rotation du plan (code 50, en degrés), comme celui du té et de tout symbole non orienté : la barre
+     y est droite sur la vue tournée, pas comme au plan PDF (écart connu, d'avant m152 ; décision D22 : le DXF d'un objet jamais tourné
+     ne change pas) */
+  const dTo = copie(dE); dTo.rot = .5;
+  const pTo = await pdf(dTo, {mode: 'edl'}), zTo = pTo.formes.filter(q => q.coul === EPC && !q.ferme && q.pts.length === 4);
+  const angZ = q => Math.atan2(-(q.pts[2].y - q.pts[1].y), q.pts[2].x - q.pts[1].x);
+  const xTo = dxf(dTo), a50 = nom => { const i = xTo.ents.find(q => q.type === 'INSERT' && q.c['2'] === nom); return i ? +i.c['50'] : NaN; };
+  R.ok(!pTo.err.length && zTo.length === 2 && Math.abs(angZ(zTo[0]) + .5) < 1e-9 && Math.abs(angZ(zTo[1])) < 1e-9
+    && Math.abs(a50('VEDE_PUITS') - .5 * 180 / Math.PI) < 1e-3 && a50('VEDE_TE') === a50('VEDE_PUITS'),
+    'q2 témoin, plan tourné d\'un demi-radian : au plan PDF la barre suit le plan (−0,5 rad), à la légende elle reste droite ; au DXF l\'INSERT porte la rotation du plan, comme celui du té ('
+    + (pTo.err.join(' | ') || 'plan ' + zTo.map(q => pr(angZ(q))).join(' rad, légende ') + ' rad ; INSERT du puits ' + a50('VEDE_PUITS') + '°, du té ' + a50('VEDE_TE') + '°') + ')');
 }
 /* q3 : avant-projet qui garde le puits (aucun travaux) : la préconisation au tableau, « Reste après travaux » au contrôle du projet ; témoin :
    le tronçon vers le puits « à supprimer » et un tronçon « projet » vers une boîte EP « projet » : plus rien ne reste. Au dossier

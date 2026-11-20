@@ -65,14 +65,16 @@ CROQUIS DE TERRAIN (facultatif)
   puits se dessine avec l'objet « Puits » (palette Équipements) : il est
   non conforme, pour les eaux usées comme pour les eaux pluviales, et sa
   fiche n'a rien à régler ; l'anomalie se retient, se met à arbitrer ou
-  s'écarte dans Contrôles, comme toute autre. Au constat, la ligne va
-  dans la colonne « Puits » (verte, entre « Milieu naturel » et
-  « Gargouille »), pour les eaux usées comme pour les eaux pluviales.
-  Une ligne d'eaux pluviales que le croquis y met suit son anomalie
-  (écartée : conforme ; retenue : non conforme, ou conforme si le dossier
-  en fait une réserve ; à arbitrer : conformité laissée vide ; croquis
-  désactivé, seule compte l'anomalie du dossier) ; une ligne mise à la
-  main sur « Puits » est non conforme ; une ligne d'eaux usées l'est
+  s'écarte dans Contrôles, comme toute autre. Le symbole du puits est
+  semblable à celui du cadastre : un cercle traversé d'une barre aux
+  manivelles en Z. Au constat, la ligne va dans la colonne « Puits »
+  (verte, entre « Milieu naturel » et « Gargouille »), pour les eaux
+  usées comme pour les eaux pluviales. Une ligne d'eaux pluviales que
+  le croquis y met suit son anomalie (écartée : conforme ; retenue :
+  non conforme, ou conforme si le dossier en fait une réserve ;
+  à arbitrer : conformité laissée vide ; croquis désactivé, seule
+  compte l'anomalie du dossier) ; une ligne mise à la main sur
+  « Puits » est non conforme ; une ligne d'eaux usées l'est
   toujours, avec la préconisation « Suppression de(s) rejet(s) EU en
   milieu naturel ». Une ligne dont certains équipements vont dans un puits
   et d'autres vers un rejet que le constat met en « Milieu naturel » prend

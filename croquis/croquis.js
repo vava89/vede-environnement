@@ -2909,9 +2909,15 @@ function primitives(e, rgb, angPlan){
     case 'fosse': rect(5, 3, {trait: rgb, fond: BLANC, ep: .3}); texte('FS', 1.5, {coul: rgb, gras: true}); break;
     case 'point': cercle(.6, {fond: rgb}); break;
     case 'puisard': cercle(2.1, {trait: rgb, fond: BLANC, ep: ep}); cercle(1.1, {trait: rgb, ep: ep}); break;
-    /* puits (m120) : deux cercles comme le puisard, mais le cercle intérieur est grand (1,6 contre 1,1), un anneau étroit ;
-       un puits perdu se dessine en puisard (décision du 13 nov. 2026) */
-    case 'puits': cercle(2.1, {trait: rgb, fond: BLANC, ep: ep}); cercle(1.6, {trait: rgb, ep: ep}); break;
+    /* puits (m120 ; m152, décision D20) : un symbole semblable à celui du cadastre (réponse symbole-puits du 16 nov. 2026). Un cercle,
+       blanc dedans, puis une barre diamétrale qui en dépasse de chaque côté (±2,1 pour un rayon de 1,4) et ses manivelles en Z (S8 a,
+       17 nov. 2026) : y vers le haut, la manivelle de gauche monte, celle de droite descend. Leurs bouts sont à 2,25 du centre, dans le
+       carré de rayonSymbole (2,1) ; le trait de l'étiquette part plus loin (departTrait). Un puits perdu se dessine toujours en puisard
+       (décision du 13 nov. 2026) */
+    case 'puits':
+      cercle(1.4, {trait: rgb, fond: BLANC, ep: ep});
+      poly([-2.1, .8, -2.1, 0, 2.1, 0, 2.1, -.8], false, {trait: rgb, ep: ep});
+      break;
     /* infiltration au sol : un disque blanc sans trait (masque) cache le bout du tuyau, qui va jusqu'au centre ; puis une tige et trois barres */
     case 'infiltration':
       cercle(2.1, {fond: BLANC, masque: true}); poly([0, 2, 0, .4], false, {trait: rgb, ep: .3});
@@ -2930,6 +2936,11 @@ function primitives(e, rgb, angPlan){
   }
   return P;
 }
+/* départ du trait d'une étiquette, en mm du centre du symbole : son bord (rayonSymbole). Puits (m152) : 0,6 plus loin, au-delà des
+   manivelles, dont les bouts sont à 2,25. Sinon le trait de l'étiquette posée d'office à droite, parti du bout de la barre et dans son
+   axe, semble la continuer : la manivelle de droite n'est plus au bout. Les seuils du trait (écran, plan PDF) se comptent depuis ce
+   départ : au plan PDF, l'étiquette du puits à sa place d'office n'a pas de trait */
+function departTrait(t){ return rayonSymbole(t) + ((T[t] || {}).forme === 'puits' ? .6 : 0); }
 VC.primitives = primitives; VC.rayonSymbole = rayonSymbole; VC.couleurPt = couleurPt;
 /* angle du symbole du type t dans le repère du papier (radians) : a, angle propre en degrés ; rot, rotation du plan. Un type « droit » reste
    droit sur le papier, même avec un angle propre venu d'un fichier (p.a) ; un changement de type vers lui efface l'angle (defautsPt) */
@@ -3265,7 +3276,7 @@ function dessinerCroquis(ctx, doc, an, vue, dpr, o){
     var w = 0; L.forEach(function(l){ w = Math.max(w, ctx.measureText(l).width); }); var lh = h * 1.22, bh = lh * L.length;
     var bx = [cx - w / 2 - 3, cy - bh / 2 - 2, cx + w / 2 + 3, cy + bh / 2 + 2];
     if (!libre && e.k === 'pt'){
-      var R = rayonSymbole(e.t) * Math.max(k, 8.5 / rayonSymbole(e.t)), dx = cx - A.x, dy = cy - A.y, dd = Math.hypot(dx, dy);
+      var R = departTrait(e.t) * Math.max(k, 8.5 / rayonSymbole(e.t)), dx = cx - A.x, dy = cy - A.y, dd = Math.hypot(dx, dy);
       var bord = boiteBord(bx, A.x, A.y, cx, cy);
       if (bord && dd > R + 3 * k + 4 && Math.hypot(bord.x - A.x, bord.y - A.y) > R + 6){ ctx.beginPath(); ctx.moveTo(A.x + dx / dd * R, A.y + dy / dd * R); ctx.lineTo(bord.x, bord.y); ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.stroke(); }
     }
@@ -7744,7 +7755,7 @@ function pdfPlan(doc, fond, o){
     }
     imprimees.push([cx - bq.w / 2, cy - bq.h / 2, cx + bq.w / 2, cy + bq.h / 2]);
     if (!libre && e.k === 'pt'){
-      var bt = boiteTexte(txt, em), bx = [cx - bt.w / 2, cy - bt.h / 2, cx + bt.w / 2, cy + bt.h / 2], R = rayonSymbole(e.t), dd = Math.hypot(cx - A.x, cy - A.y), bord = boiteBord(bx, A.x, A.y, cx, cy);
+      var bt = boiteTexte(txt, em), bx = [cx - bt.w / 2, cy - bt.h / 2, cx + bt.w / 2, cy + bt.h / 2], R = departTrait(e.t), dd = Math.hypot(cx - A.x, cy - A.y), bord = boiteBord(bx, A.x, A.y, cx, cy);
       if (bord && dd > R + 3 && Math.hypot(bord.x - A.x, bord.y - A.y) > R + .8){ pdf.setDrawColor(col[0], col[1], col[2]); pdf.setLineWidth(.15); pdf.line(A.x + (cx - A.x) / dd * R, A.y + (cy - A.y) / dd * R, bord.x, bord.y); }
     }
     textePdf(pdf, txt, cx, cy, em, 0, {coul: col, halo: true, gras: !libre});
