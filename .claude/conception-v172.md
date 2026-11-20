@@ -639,6 +639,15 @@ recherche.
   au-delà de rayonSymbole('puits') = 2,1 (CJ:2506, vérifié) mais dans son carré, qui sert à l'évitement des étiquettes et à la légende ; seul
   le trait d'une étiquette ou d'une bulle venu de leur côté, arrêté à 2,1 du centre, peut les toucher (0,15 au plus). Retenu [p] : barre à
   ±2,1 (proposée ainsi dans S8) et rayonSymbole('puits') gardé à 2,1 ; repli : une barre à ±1,94, dont les bouts restent à 2,1.
+- Après la relecture de m152 [p] : le trait de l'étiquette du puits part à 2,7 du centre, au-delà des manivelles (departTrait : 0,6 de plus
+  que rayonSymbole, pour le puits seul), et non plus du bord du symbole : à sa place d'office, à droite et à la hauteur du centre, il partait
+  du bout de la barre, dans son axe, et semblait la continuer (la limite « 0,15 au plus » ci-dessus ne le prévoyait pas ; le repli à ±1,94 ne
+  le corrigeait pas) ; au plan PDF, l'étiquette à sa place d'office n'a plus de trait ; à l'écran, vu de près, un court trait détaché reste.
+  Dans les textes : « semblable à celui du cadastre », les mots de l'utilisateur. Sur un plan tourné, la barre suit le plan à l'écran et au
+  plan PDF, comme celle du té, et reste droite à la légende, dans la palette et la fiche ; au DXF, le bloc est inséré avec la rotation du
+  plan (écart d'avant m152, que deux cercles ne montraient pas : à signaler avec m154, D22). Un tuyau dans l'axe de la barre la recouvre
+  jusqu'au cercle ; un masque blanc de rayon 2,1 sous la barre l'éviterait, hors de la lettre de cette décision : à l'avis de l'utilisateur,
+  avec l'annonce. Le trait de la bulle d'anomalie, orange, ne change pas.
 - Compat : inchangé (le DXF n'écrit que les blocs des symboles utilisés, CJ:7344, vérifié ; aucun puits dans la garde). Différentiel : sans
   effet. Tablette en v1.7.1 : deux cercles.
 
@@ -1151,17 +1160,38 @@ et à tests/LISEZMOI.md.
     effet, l'anomalie ep-puits, nouvelle, est retenue d'office ; deux destinations « Puits » donnent un seul rejet PUITS ; le plan PDF d'un
     dossier signé suit la version qui imprime (règle commune) ; tablette en v1.7.1 : le jugement de la fiche (information). Dépendances :
     m144 (même champ de saisie ; noms proches, S6 b, et « Fosse », S7 a, codés par m144).
-- **m152 Symbole du puits du cadastre** (symbole-puits ; D20). Taille S.
-  - Réponse : S8 (a) « En Z : vers le haut à gauche, vers le bas à droite » ; l'axe y des primitives monte (vérifié, D20) : la manivelle de
-    gauche monte.
-  - Fichiers et fonctions : CJ : primitives, cas 'puits' (l. 2542-2544), rayonSymbole (l. 2506 : 2,1 gardé, D20), légende, bloc DXF.
-    tests/vm/rejets.js q2 (l. 482-497).
-  - Pour l'utilisateur : le puits a le dessin du cadastre (cercle, barre, manivelles), partout.
-  - Tests : vm/rejets.js q2 réécrit : un cercle de 1,4 et une ligne de quatre points (v1.7.1 : deux cercles ; échoue) ; DXF : bloc VEDE_PUITS
-    avec un CIRCLE et une POLYLINE de 4 VERTEX.
-  - Garde : compat 245/245 ; aléatoire : sans écart (le symbole n'est pas comparé).
-  - Risques et [p] : lisibilité au petit zoom [p] ; forme [p] ; bouts des manivelles à 2,25 du centre, 0,15 au-delà de rayonSymbole : repli,
-    une barre à ±1,94 (D20) [p]. Dépendances : aucune.
+- **m152 Symbole du puits du cadastre** (symbole-puits ; D20). Taille S. Fait : c49b162, 20 nov.
+  - Fichiers et fonctions : CJ : primitives, cas 'puits' (l. 2912-2920 : le code de D20, mot pour mot : un cercle de rayon 1,4, blanc dedans,
+    puis une ligne ouverte de quatre points, la barre à ±2,1 et ses manivelles en Z) ; rayonSymbole (l. 2876 : 2,1 gardé ; le repli à ±1,94
+    n'a pas servi) ; departTrait(t) (l. 2943, nouvelle : départ du trait d'une étiquette, rayonSymbole(t), et 0,6 de plus pour le puits), lue
+    par dessinerCroquis (l. 3279) et pdfPlan (l. 7758) ; aucun autre code : écran, palette et fiche (symboleSvg), plan PDF, légende et bloc
+    DXF VEDE_PUITS passent par les primitives. LISEZMOI.txt (l. 68-70), croquis/LISEZMOI.txt (l. 13), tests/LISEZMOI.md (q2).
+  - Pour l'utilisateur : le puits a un dessin semblable à celui du cadastre, partout : un cercle traversé d'une barre qui en dépasse, avec
+    une manivelle à chaque bout, vers le haut à gauche et vers le bas à droite (S8 a). Avant : deux cercles, proches du puisard. Son
+    étiquette, à sa place d'office, n'a plus de trait au plan PDF (à l'écran, vu de près, un court trait détaché de la barre). Sur un plan
+    tourné, la barre suit le plan à l'écran et au plan PDF, comme celle du té ; elle reste droite à la légende, dans la palette et la fiche.
+    Dossiers existants : un puits déjà posé prend le nouveau dessin à l'ouverture (rien n'est enregistré) ; un constat signé n'est pas touché
+    (le symbole n'y figure pas). Croquis désactivé : sans objet. Tablette en v1.7.1 : deux cercles.
+  - Tests : vm/rejets.js (207 contrôles ; q2 réécrit : primitives, plan tourné de 0,5 rad, aperçu SVG, écran sur un canevas factice, DXF d'un
+    CIRCLE de rayon 1,4 et d'une POLYLINE ouverte de 4 VERTEX, ligne en Z du plan PDF, trait de l'étiquette au plan PDF et à l'écran, témoins
+    du puisard et du plan tourné) : 196/207 sur b4c9e3b, 204/207 sans departTrait. Gardes : compat 245/245 ; aléatoire 8000 contre b4c9e3b :
+    aucun écart sur 10 666 analyses ; navigateur/rejets.js 116/116 (aucun test du navigateur ne compte les cercles du puits). Batterie verte
+    (25 min).
+  - Relecture : aucun défaut bloquant ; un défaut majeur, confirmé à la contre-vérification et corrigé : à sa place d'office (à droite, à la
+    hauteur du centre), le trait de l'étiquette partait du bout de la barre, dans son axe, et semblait la continuer, la manivelle de droite
+    n'étant plus au bout (plan PDF et écran ; les puits déjà posés aussi) : departTrait, départ à 2,7 mm pour le puits. Mineurs corrigés :
+    « semblable à celui du cadastre », les mots de l'utilisateur, au lieu de « celui du cadastre » (M5) ; documentation du plan tourné, où le
+    DXF ne suit pas l'écran, et son témoin (M2, M3) ; limite du tuyau dans l'axe de la barre écrite dans croquis/LISEZMOI.txt (M4). Laissés :
+    le sens du bloc au DXF sur un plan tourné (écart d'avant m152, à signaler avec m154, D22) ; un masque blanc de rayon 2,1 sous la barre
+    (hors de la lettre de D20 : à l'avis de l'utilisateur, avec l'annonce) ; le trait de la bulle d'anomalie (orange, il ne se confond pas
+    avec la barre) ; le repli de D20 (barre à ±1,94), qui ne corrigeait pas le trait.
+  - Risques et [p] : lisibilité au petit zoom, à juger sur la tablette ; le disque blanc passe de 2,1 à 1,4 : un tuyau se voit jusqu'au
+    cercle, et un tuyau dans l'axe de la barre la recouvre jusqu'au cercle (de ce côté, la manivelle est posée sur le tuyau) ; départ du
+    trait de l'étiquette à + 0,6 mm ; à l'écran, vu de près, un court trait détaché reste ; hors de l'axe de la barre, le trait part à 1,3 mm
+    du cercle ; une bulle d'anomalie placée dans l'axe garde son trait depuis 2,1 ; DXF sur un plan tourné : la barre y est droite sur la vue
+    tournée, et non comme au plan PDF (D22) ; au PDF, le test relève la ligne en Z, le cercle est contrôlé à l'écran, en SVG et au DXF ; le
+    plan PDF d'un dossier signé suit la version qui imprime (règle commune). Dépendances : aucune ; m154 (disque de rotation) rendra le puits
+    tournable.
 - **m153 Présélection des voisins d'une étiquette commune** (e4 ; D21). Taille S.
   - Réponse : S9 (a) « Oui, seulement si le porteur de l'étiquette n'a pas de niveau non plus ».
   - Fichiers et fonctions : CJ : voisinsEtiquette et refusEtiq (près de groupeEtiquette, l. 2386-2415 ; export), refusReunir (l. 5518-5527),
