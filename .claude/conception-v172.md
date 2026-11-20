@@ -1192,18 +1192,40 @@ et à tests/LISEZMOI.md.
     tournée, et non comme au plan PDF (D22) ; au PDF, le test relève la ligne en Z, le cercle est contrôlé à l'écran, en SVG et au DXF ; le
     plan PDF d'un dossier signé suit la version qui imprime (règle commune). Dépendances : aucune ; m154 (disque de rotation) rendra le puits
     tournable.
-- **m153 Présélection des voisins d'une étiquette commune** (e4 ; D21). Taille S.
-  - Réponse : S9 (a) « Oui, seulement si le porteur de l'étiquette n'a pas de niveau non plus ».
-  - Fichiers et fonctions : CJ : voisinsEtiquette et refusEtiq (près de groupeEtiquette, l. 2386-2415 ; export), refusReunir (l. 5518-5527),
-    entrerReunir (l. 5507-5512, toast), etiqReunir (l. 6364). LISEZMOI.txt l. 249-258. tests/vm/equipements.js, tests/navigateur/equipements.js.
-  - Pour l'utilisateur : « Étiquette commune… » arrive avec les voisins déjà choisis et le toast de D21 ; un toucher en retire un.
-  - Tests : vm/equipements.js, porteur WC en (0 ; 0) au RDC : lavabo à 2 m et douche en (2 ; 2) choisis ; évier à 4 m, baignoire au 1er
-    étage, lave-linge en projet, descente EP, second WC déjà réuni : non ; ordre lavabo, douche (la v1.7.1 n'a pas la fonction) ; un appareil
-    sans niveau n'est choisi que si le porteur n'a pas de niveau non plus (S9 a). navigateur/equipements.js : bandeau « 2 choisis » (v1.7.1 :
-    « 0 choisi ») ; toucher le lavabo : « 1 choisi » ; « Terminé » : WC et douche seulement.
-  - Garde : compat 245/245 ; aléatoire : sans effet.
-  - Risques et [p] : un voisin derrière une cloison est choisi d'office (l'opérateur doit le voir et le retirer) ; textes [p].
-  - Dépendances : après m141 (même tri des membres).
+- **m153 Présélection des voisins d'une étiquette commune** (e4 ; D21). Taille S. Fait : 9f24fcd, 20 nov.
+  - Fichiers et fonctions : CJ : refusEtiq(o, P, an) (l. 2789, nouvelle, hors de l'éditeur : les cinq tests du mode « Réunir », dans leur
+    ordre ; rend 'eu', 'plan', 'statut', 'reuni', 'porteur' ou '') ; voisinsEtiquette(doc, an, P) (l. 2807, nouvelle ; export l. 2821) ;
+    entrerReunir (l. 6153-6161 : toast à la création, quand un voisin au moins est choisi) ; refusReunir (l. 6169-6177 : lit refusEtiq,
+    messages gardés mot pour mot) ; etiqReunir (l. 7054-7058 : passe les ids des voisins) ; etiqModifier inchangé. LISEZMOI.txt (l. 343-346),
+    croquis/LISEZMOI.txt (l. 22), tests/LISEZMOI.md (lignes vm/equipements.js et navigateur/equipements.js).
+  - Pour l'utilisateur : « Étiquette commune… » ouvre le mode « Réunir » avec les appareils EU voisins déjà choisis : ceux que le mode
+    accepterait d'un toucher, au même niveau affiché que le porteur et à 3 m au plus de centre à centre, du plus proche au plus loin. Un
+    message de 4 s le dit (les deux textes de D21, mot pour mot ; aucun voisin : pas de message), le bandeau compte « · 2 choisis », un
+    toucher en retire un. « Modifier le groupe » reprend le groupe tel qu'il est. Rien n'est écrit avant « Terminé » ; « Annuler » ne laisse
+    rien. S9 a : deux appareils sans niveau sont au même niveau ; un appareil sans niveau n'est pas choisi pour un porteur qui en a un, ni
+    l'inverse ; « étage » sans numéro n'est pas « 1er étage ». « Ne jamais fusionner » : chaque appareil reste un objet et une installation,
+    compté à sa ligne ; analyse, constat, plan PDF, DXF et enregistrement inchangés (aucune clé nouvelle). Dossiers existants : rien ne
+    change tant qu'on n'ouvre pas le mode. Croquis désactivé : sans objet.
+  - Tests : vm/equipements.js (299 contrôles ; c12, 26 cas : liste et ordre, chaque refus et son témoin, 3 m pile et 3,01 m sur un axe et en
+    diagonale, niveaux de S9 a, égalité de distance, porteur passé en copie, rien d'écrit, appels sans croquis) : 273/299 sur 5730857.
+    navigateur/equipements.js (154 ; c13, 19 cas : entrée, halos, toast et sa durée, « Annuler », toucher qui retire, « Terminé », constat
+    inchangé, « Modifier le groupe », un seul voisin, aucun voisin, ordre des refus ; e3 adapté : ses voisins sont retirés d'un toucher avant
+    la suite) : 107/154 sur 5730857 (8 cas de c13, 39 de e3 en cascade). Mutations hors dépôt (réalisateur, relecteurs, correction,
+    vérification finale) : toutes vues par les tests finals. Gardes : compat 245/245 ; aléatoire 8000 contre 5730857 : aucun écart sur 10 666
+    analyses (tirage sans étiquette commune). Batterie verte (26 min).
+  - Relecture : aucun défaut bloquant ni majeur, donc aucune contre-vérification. Mineurs corrigés, dans les tests seulement : la limite de
+    3 m n'était prouvée que le long de x : deux témoins de plus dans c12, évier en (0 ; 3,01) et en (2,2 ; 2,2) (M1) ; l'ordre des refus
+    n'était gardé que pour un couple de tests sur trois : trois cas de garde dans c13, descente EP « Projet », lavabo « Présumé » réuni,
+    douche « Présumé » porteuse (M3). Laissés, à l'avis de l'utilisateur avec l'annonce : à fort zoom, un voisin choisi d'avance peut être
+    hors de l'écran, seuls le bandeau et le toast donnent le nombre (M2 : cadrer la vue à l'entrée du mode, ou le dire dans le message, sort
+    de la lettre de D21) ; le toast d'entrée reste affiché jusqu'au bout de ses 4 s quand on quitte le mode plus tôt (M4 : aucun mode de
+    l'éditeur n'efface ses messages à sa sortie, et le mode se ferme en huit endroits). Correction vérifiée ensuite : diff relu, mesures
+    avant et après refaites, trois mutations de plus, toutes vues.
+  - Risques et [p] : un voisin derrière une cloison est choisi d'office (l'opérateur doit le voir et le retirer) ; « à moins de 3 m » du
+    message et 3 m au plus de la règle (un appareil à 3,00 m juste est choisi), mot pour mot de D21 ; textes [p] ; voisinsEtiquette ne refuse
+    pas un porteur déjà réuni (l'éditeur n'ouvre pas la création pour lui) ; le test de la durée du toast accepte de 3 900 à 5 000 ms.
+    Réalisation en deux temps : le premier réalisateur a été coupé par la limite d'usage de 5 heures avant son compte rendu ; le second a
+    relu son travail, complété les tests et refait toutes les mesures. Dépendances : après m141 (même tri des membres).
 - **m154 Disque de rotation** (remarque-libre ; D22 ; S10 b). Taille L.
   - Réponse : S10 (b) « Aussi les symboles qui ne sont pas ronds : regard, boîte, grille, fosse, té, siphon, puits… » ; commentaire : « La
     rotation doit se faire degré par degré et proposer un accrochage pour que l'objet soit orienté parallèlement ou perpendiculairement à un
