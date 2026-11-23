@@ -30,6 +30,14 @@
 // à 5 mm (témoin : à 2 cm),
 // distance négative, valeur non numérique, point absent, valeurs démesurées : aucune, sans exception ; plan tourné : les deux places à
 // d1 et d2 près de 1e-9, Solution 1 à gauche de 1 → 2.
+// Disque de rotation (m154 ; décision D22 ; réponse S10 b ; échoue sur ee82072) : VCroquis.pivotant (quatorze types tournent : les trois
+// types orientés et les onze symboles qui ne sont pas ronds ; ni WC, ni zone, ni infiltration au sol) ; à la pose, seuls les types
+// orientés reçoivent un angle (témoin) ; DXF : un objet tourné est inséré à son angle (avant : à la rotation du plan), même tourné à 0°
+// sur un plan tourné, pour les onze types ; témoins : jamais tourné, il reste à la rotation du plan (angle absent ou null : la valeur
+// null, pas 0°), les types orientés, le WC et l'infiltration au sol ne changent pas ; puits tourné à 30° : sa barre en Z tourne, son
+// cercle reste (primitives), INSERT à 30 ; fosse tournée : « FS » reste droit à l'écran (primitives), il est dans le bloc du DXF ; plan
+// tourné d'un demi-radian : l'écran, le plan PDF et le DXF concordent pour un regard, un té et un puits tournés à 70° ; témoin : une
+// boîte jamais tournée suit le plan à l'écran et au plan PDF, et reste insérée à la rotation du plan au DXF (écart antérieur, inchangé).
 // usage : node tests/vm/dessin.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, copie, rapport} = require('./charger.js');
@@ -648,4 +656,111 @@ try { accrochages(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' +
 try { accrochages113(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
 if (!G || typeof G.deuxCotes !== 'function') R.ok(false, 'VCroquis.geo.deuxCotes absente (pose par deux cotes, m146)');
 else { try { deuxPoints(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); } }
-R.fin();
+
+/* --- Disque de rotation (m154 ; décision D22 de .claude/conception-v172.md ; réponse S10 b) : objets qui tournent, DXF, rendu --- */
+/* canevas factice qui relève, à chaque stroke, les lignes brisées du chemin (sommets en pixels, fermée ou non) ; sur le modèle de celui de
+   vm/rejets.js (m152) */
+function traceur(){
+  const traces = [], etat = {}; let chemin = [], cour = null;
+  const m = {
+    beginPath(){ chemin = []; cour = null; },
+    moveTo(x, y){ cour = {pts: [{x, y}], f: false}; chemin.push(cour); },
+    lineTo(x, y){ if (!cour){ cour = {pts: [], f: false}; chemin.push(cour); } cour.pts.push({x, y}); },
+    closePath(){ if (cour) cour.f = true; },
+    arc(){ cour = null; },
+    stroke(){ chemin.forEach(q => traces.push({pts: q.pts.slice(), f: q.f})); },
+    measureText(){ return {width: 10}; }
+  };
+  return {ctx: new Proxy(etat, {get: (t, k) => k in m ? m[k] : k in t ? t[k] : () => {}, set: (t, k, v) => { t[k] = v; return true; }}), traces};
+}
+async function pivot(){
+  const CH = require('./charger.js'), ch = CH.charger({pdf: true}), W = ch.V, {pdf, dxf} = CH.rendus(ch), doc = CH.doc;
+  const DEG = 180 / Math.PI, mod = a => ((a % 360) + 360) % 360, ecart = (a, b) => { const d = mod(a - b); return Math.min(d, 360 - d); }, pr = v => +(+v).toFixed(3);
+  const piv = t => typeof W.pivotant === 'function' ? sur(() => W.pivotant(t)) : 'VCroquis.pivotant absente';
+  /* les types qui tournent : les trois types orientés (caniveau, clapet, gargouille) et les onze symboles qui ne sont pas ronds (S10 b) */
+  const att = {regard: true, caniveau: true, wc: false, zone: false, infiltration: false, 'type inconnu': false};
+  R.ok(Object.keys(att).every(t => piv(t) === att[t]), 'disque : VCroquis.pivotant vrai pour regard et caniveau, faux pour WC, zone, infiltration au sol et un type inconnu ('
+    + Object.keys(att).map(t => t + ' : ' + piv(t)).join(', ') + ')');
+  const PIV = ['boite', 'exutoire', 'fosse', 'grille', 'puits', 'regard', 'siphon_cour', 'siphon_garage', 'siphon_sol', 'te', 'test'], ORI = ['caniveau', 'clapet', 'gargouille'];
+  const tous = Object.keys(W.TYPES).filter(t => piv(t) === true).sort(), ori = Object.keys(W.TYPES).filter(t => W.TYPES[t].oriente).sort();
+  R.ok(tous.join() === PIV.concat(ORI).sort().join() && ori.join() === ORI.join(),
+    'disque : quatorze types tournent, les trois types orientés et onze symboles qui ne sont pas ronds ; les types orientés restent trois (' + (tous.join(', ') || 'aucun')
+    + ' ; orientés : ' + ori.join(', ') + ')');
+  /* témoin : à la pose, seuls les types orientés reçoivent un angle ; un objet pivotant n'en a pas tant qu'on ne le tourne pas */
+  const dp = t => sur(() => { const p = W.defautsPt(t); return 'a' in p ? String(p.a) : 'sans angle'; });
+  R.ok(PIV.every(t => dp(t) === 'sans angle') && ORI.every(t => dp(t) === '0'), 'disque, témoin : à la pose, un angle (0) pour les seuls types orientés ('
+    + PIV.concat(ORI).map(t => t + ' : ' + dp(t)).join(', ') + ')');
+
+  /* DXF : angle de l'INSERT de l'objet id (le seul INSERT à sa place ; nombres écrits avec quatre décimales) */
+  const a50 = (d, id) => {
+    const e = d.el.find(q => q.id === id), x = sur(() => dxf(d)); if (typeof x === 'string') return NaN;
+    const i = x.ents.filter(q => q.type === 'INSERT' && Math.abs(q.a.x - e.x) < 1e-3 && Math.abs(q.a.y - e.y) < 1e-3); return i.length === 1 ? +i[0].c['50'] : NaN;
+  };
+  const seul = (t, p, rot) => { const d = doc({o: [['X', t, 3, 2, p]]}); d.rot = rot || 0; return d; }, vaut = (x, y) => Math.abs(x - y) < 1e-3;
+  const ROT = -0.6, RD = ROT * DEG, ins = (t, p, rot) => a50(seul(t, p, rot), 'X');
+  const r30 = [ins('regard', {a: 30}), ins('regard', {a: 30}, ROT)];
+  R.ok(vaut(r30[0], 30) && vaut(r30[1], 30), 'disque, DXF : un regard tourné à 30° est inséré à 30°, plan droit ou tourné de -0,6 rad (' + r30.map(pr).join(' et ')
+    + ' ; avant : la rotation du plan, 0 et ' + pr(RD) + ')');
+  const r0 = ins('regard', {a: 0}, ROT);
+  R.ok(vaut(r0, 0), 'disque, DXF : un regard tourné puis remis à 0° sur un plan tourné est inséré à 0°, comme à l\'écran (' + pr(r0) + ' ; avant : ' + pr(RD) + ')');
+  const p30 = PIV.map(t => [t, ins(t, {a: 30}, ROT)]);
+  R.ok(p30.every(q => vaut(q[1], 30)), 'disque, DXF : chacun des onze types pivotants, tourné à 30° sur un plan tourné, est inséré à 30° ('
+    + p30.map(q => q[0] + ' ' + pr(q[1])).join(', ') + ')');
+  /* témoins : un objet jamais tourné reste inséré à la rotation du plan (D22 : son DXF ne change pas) ; un angle absent ou null (la
+     valeur null, pas 0°) n'est pas un angle donné ; les types orientés, le WC (rond) et l'infiltration au sol (droite) ne changent pas */
+  const j = PIV.map(t => [t, ins(t, {}, ROT)]), jn = [ins('regard', {}), ins('regard', {a: null}, ROT)];
+  R.ok(j.every(q => vaut(q[1], RD)) && vaut(jn[0], 0) && vaut(jn[1], RD), 'disque, DXF, témoin : jamais tourné, chacun des onze types reste inséré à la rotation du plan ('
+    + j.map(q => q[0] + ' ' + pr(q[1])).join(', ') + ' ; regard sur un plan droit ' + pr(jn[0]) + ', regard d\'angle nul (null) ' + pr(jn[1]) + ')');
+  const o = [ins('caniveau', {a: 30}, ROT), ins('clapet', {a: 30}, ROT), ins('gargouille', {a: 30}, ROT), ins('wc', {a: 30}, ROT), ins('infiltration', {a: 30}, ROT)];
+  const cs = seul('caniveau', {}, ROT); delete cs.el[0].p.a; const o0 = a50(cs, 'X');
+  R.ok(o.slice(0, 3).every(x => vaut(x, 30)) && vaut(o[3], RD) && vaut(o[4], RD) && vaut(o0, 0),
+    'disque, DXF, témoin : caniveau, clapet et gargouille à 30° insérés à 30°, caniveau sans angle à 0° ; WC et infiltration au sol, même avec un angle venu d\'un fichier, à la rotation du plan ('
+    + o.map(pr).join(', ') + ' ; caniveau sans angle ' + pr(o0) + ')');
+
+  /* puits tourné à 30° (m152 : cercle et barre à manivelles) : la barre en Z tourne de 30° autour du centre, le cercle reste (primitives,
+     témoin) ; INSERT du DXF à 30 (avant : la rotation du plan) */
+  const ZP = [-2.1, .8, -2.1, 0, 2.1, 0, 2.1, -.8];
+  const tourne = a => { const q = []; for (let i = 0; i < ZP.length; i += 2) q.push(ZP[i] * Math.cos(a) - ZP[i + 1] * Math.sin(a), ZP[i] * Math.sin(a) + ZP[i + 1] * Math.cos(a)); return q; };
+  const Pp = sur(() => W.primitives({k: 'pt', t: 'puits', p: {st: 'existant', obs: '', a: 30}}, W.RES.EP.rgb)), Z30 = tourne(30 / DEG);
+  R.ok(Array.isArray(Pp) && Pp.length === 2 && Pp[0].k === 'c' && Pp[0].r === 1.4 && Pp[0].x === 0 && Pp[0].y === 0 && Pp[1].k === 'p' && !Pp[1].f && Pp[1].pts.length === 8
+    && Pp[1].pts.every((v, i) => Math.abs(v - Z30[i]) < 1e-9),
+    'disque, témoin : puits tourné à 30°, sa barre en Z tourne de 30°, son cercle reste (' + (Array.isArray(Pp) ? Pp.map(q => q.k === 'c' ? 'c r ' + q.r : 'p ' + q.pts.map(pr).join(',')).join(' | ') : Pp)
+    + ' ; attendu ' + Z30.map(pr).join(',') + ')');
+  const u30 = [ins('puits', {a: 30}), ins('puits', {a: 30}, ROT)];
+  R.ok(vaut(u30[0], 30) && vaut(u30[1], 30), 'disque, DXF : un puits tourné à 30° est inséré à 30°, plan droit ou tourné (' + u30.map(pr).join(' et ') + ' ; avant : 0 et ' + pr(RD) + ')');
+  /* fosse tournée : « FS » reste droit à l'écran et au plan PDF (primitives ne tourne que les tracés, témoin) ; au DXF, il est dans le
+     bloc (TEXT) et tourne donc avec l'INSERT (structure des blocs inchangée, témoin) */
+  const Pf = sur(() => W.primitives({k: 'pt', t: 'fosse', p: {st: 'existant', obs: '', a: 30}}, W.RES.EU.rgb)), tf = Array.isArray(Pf) ? Pf.filter(q => q.k === 't') : [];
+  const xf = sur(() => dxf(seul('fosse', {a: 30})).texte), bf = typeof xf === 'string' ? (xf.match(/\n\s*0\nBLOCK\n[\s\S]*?\n\s*0\nENDBLK/g) || []).filter(b => /\n\s*2\nVEDE_FOSSE\n/.test(b)) : [];
+  R.ok(tf.length === 1 && tf[0].s === 'FS' && tf[0].x === 0 && tf[0].y === 0 && !('a' in tf[0]) && bf.length === 1 && /\n\s*0\nTEXT\n[\s\S]*\n\s*1\nFS\n/.test(bf[0]),
+    'disque, témoin : fosse tournée, « FS » reste droit dans les primitives (écran, plan PDF) ; au DXF, il est dans le bloc VEDE_FOSSE et tourne avec l\'INSERT (texte des primitives '
+    + JSON.stringify(tf) + ' ; blocs VEDE_FOSSE avec « FS » : ' + bf.filter(b => /\n\s*1\nFS\n/.test(b)).length + ')');
+
+  /* plan tourné d'un demi-radian : regard, té et puits tournés à 70° au disque, boîte jamais tournée. Angle d'un symbole vu sur le papier
+     (y vers le haut) : à l'écran et au plan PDF, celui de son premier côté (regard, boîte), de sa barre (té) ou du milieu de sa barre en Z
+     (puits) ; au DXF, l'angle de l'INSERT moins la rotation du plan (vue tournée comme le plan). Les trois concordent pour un objet tourné :
+     70° moins la rotation du plan. */
+  const R5 = 0.5, RD5 = R5 * DEG, dd = doc({o: [['R', 'regard', 0, 0, {a: 70}], ['T', 'te', -8, 0, {a: 70}], ['I', 'puits', 0, -8, {a: 70}], ['B', 'boite', 8, 0]]}); dd.rot = R5;
+  const vue = new W.Vue(800, 600), cv = traceur(); vue.s = 20; vue.rot = R5;
+  const exE = sur(() => { W.dessinerCroquis(cv.ctx, copie(dd), W.analyser(copie(dd), 'edl'), vue, 1, {}); return ''; });
+  const dir = (a, b) => Math.atan2(-(b.y - a.y), b.x - a.x) * DEG, lg = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+  const autour = id => { const e = dd.el.find(q => q.id === id), c = vue.ecran(e.x, e.y); return cv.traces.filter(q => q.pts.length > 1 && q.pts.every(s => Math.hypot(s.x - c.x, s.y - c.y) < 14)); };
+  const eR = autour('R').find(q => q.f && q.pts.length === 4), eT = autour('T').find(q => !q.f && q.pts.length === 2), eI = autour('I').find(q => !q.f && q.pts.length === 4);
+  const eB = autour('B').find(q => q.f && q.pts.length === 4);
+  const E = {R: eR ? dir(eR.pts[0], eR.pts[1]) : NaN, T: eT ? dir(eT.pts[0], eT.pts[1]) : NaN, I: eI ? dir(eI.pts[1], eI.pts[2]) : NaN, B: eB ? dir(eB.pts[0], eB.pts[1]) : NaN};
+  const p = await pdf(dd, {mode: 'edl'}), carre = L => p.formes.filter(q => q.ferme && q.pts.length === 4 && q.pts.every((s, i) => Math.abs(lg(s, q.pts[(i + 1) % 4]) - L) < 1e-6));
+  /* au plan PDF, le symbole du plan est tracé avant celui de la légende (droit) : le premier de chaque sorte */
+  const pR = carre(3.2)[0], pB = carre(3.6)[0], pT = p.formes.filter(q => !q.ferme && q.pts.length === 2 && Math.abs(lg(q.pts[0], q.pts[1]) - 1.5) < 1e-6)[0];
+  const pI = p.formes.filter(q => !q.ferme && q.pts.length === 4 && Math.abs(lg(q.pts[1], q.pts[2]) - 4.2) < 1e-6)[0];
+  const F = {R: pR ? dir(pR.pts[0], pR.pts[1]) : NaN, T: pT ? dir(pT.pts[0], pT.pts[1]) : NaN, I: pI ? dir(pI.pts[1], pI.pts[2]) : NaN, B: pB ? dir(pB.pts[0], pB.pts[1]) : NaN};
+  const X = {R: a50(dd, 'R') - RD5, T: a50(dd, 'T') - RD5, I: a50(dd, 'I') - RD5, B: a50(dd, 'B') - RD5};
+  const dit3 = k => k + ' : écran ' + pr(mod(E[k])) + ', plan PDF ' + pr(mod(F[k])) + ', DXF ' + pr(mod(X[k]));
+  const meme = k => ecart(E[k], 70 - RD5) < 1e-6 && ecart(F[k], E[k]) < 1e-4 && ecart(X[k], E[k]) < 1e-3;
+  R.ok(!exE && !p.err.length && meme('R') && meme('T') && meme('I'),
+    'disque, plan tourné d\'un demi-radian : pour un regard, un té et un puits tournés à 70°, l\'écran, le plan PDF et le DXF concordent, à ' + pr(70 - RD5) + '° sur le papier ('
+    + (exE || p.err.join(' | ') || ['R', 'T', 'I'].map(dit3).join(' ; ')) + ')');
+  R.ok(!exE && !p.err.length && ecart(E.B, -RD5) < 1e-6 && ecart(F.B, E.B) < 1e-4 && ecart(X.B, 0) < 1e-3,
+    'disque, témoin : une boîte jamais tournée suit le plan à l\'écran et au plan PDF (' + pr(mod(-RD5)) + '° sur le papier) et reste insérée à la rotation du plan au DXF (droite sur une vue tournée comme le plan : écart antérieur, inchangé ; '
+    + (exE || p.err.join(' | ') || dit3('B')) + ')');
+}
+pivot().catch(e => R.ok(false, 'disque : exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1])).then(() => R.fin());

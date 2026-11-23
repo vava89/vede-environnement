@@ -1153,13 +1153,13 @@ def('cuisine', {fam: 'eu', lib: 'Cuisine', ab: 'Cu', g: 'f', nat: 'EU', role: 's
 def('lavelinge', {fam: 'eu', lib: 'Lave-linge', ab: 'LL', nat: 'EU', role: 'source', forme: 'app', row: 'lavelinge'});
 def('lavevaisselle', {fam: 'eu', lib: 'Lave-vaisselle', ab: 'LV', nat: 'EU', role: 'source', forme: 'app', row: 'cuisine'});
 def('chaudiere', {fam: 'eu', lib: 'Chaudière', ab: 'Ch', g: 'f', nat: 'EU', role: 'source', forme: 'app', autre: 'Chaudière (purge, condensat)'});
-def('siphon_garage', {fam: 'eu', lib: 'Siphon de garage', nat: 'EU', role: 'source', forme: 'siphon', row: 'siphon'});
+def('siphon_garage', {fam: 'eu', lib: 'Siphon de garage', nat: 'EU', role: 'source', forme: 'siphon', row: 'siphon', pivot: true});
 def('attente', {fam: 'eu', lib: 'Attente', ab: 'At', g: 'f', nat: 'EU', role: 'source', forme: 'app', autre: 'Attente'});
 def('descente', {fam: 'ep', lib: 'Descente EP', g: 'f', nat: 'EP', role: 'source', forme: 'descente', row: 'gout', mur: true});
-def('grille', {fam: 'ep', lib: 'Grille', g: 'f', nat: 'EP', role: 'source', forme: 'grille', row: 'grilles'});
+def('grille', {fam: 'ep', lib: 'Grille', g: 'f', nat: 'EP', role: 'source', forme: 'grille', row: 'grilles', pivot: true});
 def('caniveau', {fam: 'ep', lib: 'Caniveau-grille', nat: 'EP', role: 'source', forme: 'caniveau', row: 'grilles', oriente: true});
-def('siphon_sol', {fam: 'ep', lib: 'Siphon de sol', nat: 'EP', role: 'source', forme: 'siphon', row: 'siphon_sol'});
-def('siphon_cour', {fam: 'ep', lib: 'Siphon de cour', nat: 'EP', role: 'source', forme: 'siphon', autre: 'Siphon de cour'});
+def('siphon_sol', {fam: 'ep', lib: 'Siphon de sol', nat: 'EP', role: 'source', forme: 'siphon', row: 'siphon_sol', pivot: true});
+def('siphon_cour', {fam: 'ep', lib: 'Siphon de cour', nat: 'EP', role: 'source', forme: 'siphon', autre: 'Siphon de cour', pivot: true});
 def('drain', {fam: 'ep', lib: 'Drain', ab: 'Dr', nat: 'EP', role: 'source', forme: 'app', autre: 'Drain'});
 def('tropplein', {fam: 'ep', lib: 'Trop-plein', ab: 'TP', nat: 'EP', role: 'source', forme: 'app', autre: 'Trop-plein', mur: true});
 /* autres appareils (m132, souhait 7 ; décisions D1 à D5) : appareil EU ou ouvrage EP que le catalogue n'a pas (bidet, urinoir, avaloir de
@@ -1169,24 +1169,24 @@ def('tropplein', {fam: 'ep', lib: 'Trop-plein', ab: 'TP', nat: 'EP', role: 'sour
    le nom (autreHtml) */
 def('autre_eu', {fam: 'eu', lib: 'Autre appareil', ab: '?', nat: 'EU', role: 'source', forme: 'app', nomLibre: true});
 def('autre_ep', {fam: 'ep', lib: 'Autre ouvrage EP', ab: '?', nat: 'EP', role: 'source', forme: 'app', nomLibre: true});
-def('regard', {fam: 'reg', lib: 'Regard', nat: null, role: 'passage', forme: 'regard', regard: true});
-def('boite', {fam: 'reg', lib: 'Boîte de branchement', court: 'Boîte', g: 'f', role: 'passage', forme: 'boite', regard: true, boite: true});
-def('te', {fam: 'reg', lib: 'Té de visite', role: 'passage', forme: 'te', mur: true});
+def('regard', {fam: 'reg', lib: 'Regard', nat: null, role: 'passage', forme: 'regard', regard: true, pivot: true});
+def('boite', {fam: 'reg', lib: 'Boîte de branchement', court: 'Boîte', g: 'f', role: 'passage', forme: 'boite', regard: true, boite: true, pivot: true});
+def('te', {fam: 'reg', lib: 'Té de visite', role: 'passage', forme: 'te', mur: true, pivot: true});
 def('pr', {fam: 'equ', lib: 'Poste de relevage', ab: 'PR', role: 'passage', forme: 'app2'});
 def('clapet', {fam: 'equ', lib: 'Clapet anti-retour', role: 'passage', forme: 'clapet', oriente: true});
-def('fosse', {fam: 'equ', lib: 'Fosse septique', ab: 'FS', g: 'f', role: 'passage', forme: 'fosse', fosse: true});
+def('fosse', {fam: 'equ', lib: 'Fosse septique', ab: 'FS', g: 'f', role: 'passage', forme: 'fosse', fosse: true, pivot: true});
 def('jonction', {fam: 'equ', lib: 'Raccord', role: 'passage', forme: 'point', sansEtiquette: true});
 def('puisard', {fam: 'exu', lib: 'Puisard', role: 'exutoire', forme: 'puisard', exu: 'INF'});
 def('infiltration', {fam: 'exu', lib: 'Infiltration au sol', g: 'f', role: 'exutoire', forme: 'infiltration', exu: 'SOL', droit: true});
 def('gargouille', {fam: 'exu', lib: 'Gargouille', g: 'f', role: 'exutoire', forme: 'gargouille', exu: 'GARG', oriente: true, mur: true});
 def('milieu', {fam: 'exu', lib: 'Rejet en milieu naturel', ab: 'MN', role: 'exutoire', forme: 'app', exu: 'MILIEU'});
 /* puits (m120) : rejet non conforme, en EU comme en EP ; rappel : la phrase de l'aide de l'outil et de la fiche (décision D3) */
-def('puits', {fam: 'exu', lib: 'Puits', role: 'exutoire', forme: 'puits', exu: 'PUITS', rappel: 'Un puits perdu (qui infiltre les eaux) se dessine en Puisard.'});
+def('puits', {fam: 'exu', lib: 'Puits', role: 'exutoire', forme: 'puits', exu: 'PUITS', rappel: 'Un puits perdu (qui infiltre les eaux) se dessine en Puisard.', pivot: true});
 /* autre destination (m125, décision D3) : étang, fossé… ; nom, ab, art, ep et cst dans p (destDe), réglés dans sa fiche (m127) ; dans la
    palette Équipements et le sélecteur « Type », après le puits (m127, D10) */
-def('exutoire', {fam: 'exu', lib: 'Autre destination', g: 'f', role: 'exutoire', forme: 'exutoire', exu: 'X'});
+def('exutoire', {fam: 'exu', lib: 'Autre destination', g: 'f', role: 'exutoire', forme: 'exutoire', exu: 'X', pivot: true});
 def('regard_pub', {fam: 'pub', lib: 'Regard public', role: 'passage', forme: 'regpub', regard: true});
-def('test', {fam: 'ann', lib: 'Point de test', role: 'note', forme: 'test'});
+def('test', {fam: 'ann', lib: 'Point de test', role: 'note', forme: 'test', pivot: true});
 def('zone', {fam: 'ann', lib: 'Zone suspecte', g: 'f', role: 'note', forme: 'zone'});
 /* familles des palettes et du sélecteur Type de la fiche ; m133 : « Autre appareil » et « Autre ouvrage EP » en dernier de la leur */
 var FAMILLES = [
@@ -1198,6 +1198,12 @@ var FAMILLES = [
   {id: 'ann', lib: 'Annotations', court: 'Notes', types: ['test', 'zone']}
 ];
 VC.RES = RES; VC.METH = METH; VC.TYPES = T; VC.FAMILLES = FAMILLES;
+/* m154 (D22, S10 b) : types qu'on tourne, au disque de rotation du plan ou par les puces de 15° de la fiche. Les trois types orientés
+   (oriente : caniveau, clapet, gargouille) et les symboles qui ne sont pas ronds (pivot : regard, boîte, grille, fosse, té, siphons, puits,
+   destination, point de test). Un type « pivot » n'a pas d'angle à la pose : p.a n'existe que si on l'a tourné, et sans lui le symbole
+   suit le plan. Ne tournent pas : les symboles ronds, l'infiltration au sol (type droit), la zone, les textes. */
+function pivotant(t){ var ty = T[t] || {}; return !!(ty.oriente || ty.pivot); }
+VC.pivotant = pivotant;
 function defautsPt(t, m){
   var ty = T[t] || {}, p = {st: 'existant', obs: ''};
   if (ty.role === 'source'){ p.meth = []; p.niv = ''; }
@@ -3981,6 +3987,14 @@ function editeur(racine, opts){
     if (S.relier){ var rd = S.vue.ecran(S.relier.x, S.relier.y); ctx.beginPath(); ctx.arc(rd.x, rd.y, 16, 0, 2 * Math.PI); ctx.strokeStyle = ac; ctx.lineWidth = 3; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]); }
     if (S.aligner){ S.aligner.forEach(function(p){ var q = S.vue.ecran(p.x, p.y); ctx.beginPath(); ctx.arc(q.x, q.y, 9, 0, 2 * Math.PI); ctx.fillStyle = '#d4650a'; ctx.fill(); }); }
     if (S.cotes && (S.cotes.ref || S.cotes.deux)) dessinerCotes();
+    /* disque de rotation de l'objet choisi (m154) : anneau fin et gris, poignée ronde de 12 px ; pendant le geste, la bulle de l'angle.
+       S.disque garde ce qui est dessiné (null : aucun disque) */
+    var dq = S.disque = disque();
+    if (dq){
+      ctx.setLineDash([]); ctx.beginPath(); ctx.arc(dq.x, dq.y, dq.r, 0, 2 * Math.PI); ctx.strokeStyle = 'rgba(95,102,110,.8)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(dq.px, dq.py, dq.rp - 1, 0, 2 * Math.PI); ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = ac; ctx.lineWidth = 2; ctx.stroke();
+      var gq = S.geste; if (gq && gq.type === 'glisser' && gq.cible && gq.cible.k === 'tourner' && gq.cible.id === dq.id && gq.angle) dq.bulle = bulleAngle(dq, gq);
+    }
     ctx.restore();
   }
   /* Nord et barre d'échelle à l'écran */
@@ -3997,6 +4011,76 @@ function editeur(racine, opts){
     ctx.restore();
   }
   function zonePt(id){ for (var i = 0; i < S.zones.length; i++) if (S.zones[i].type === 'pt' && S.zones[i].id === id) return S.zones[i]; return null; }
+
+  /* --- disque de rotation (m154 ; D22, S10 b) ---
+     Autour de l'objet choisi, s'il peut tourner (pivotant), à l'écran de l'éditeur seulement (ni plan PDF, ni DXF) : un anneau à 22 px
+     au-delà de sa zone de toucher, et une poignée sur l'anneau, à 90° de l'angle du symbole à l'écran dans le sens contraire des aiguilles
+     d'une montre : au-dessus d'un objet droit, et elle tourne avec lui. Rien sans l'outil « Choisir », ni quand un mode tient le plan
+     (palette d'accrochage, lien, alignement, placement, cotes, « Réunir ») : le geste n'y est pas possible. Rend {id, x, y, r, px, py, rp,
+     dec} en pixels du canevas (centre, rayon de l'anneau, centre et rayon de la poignée), ou null.
+     dec (radians, sens contraire des aiguilles d'une montre) : écart de la poignée à cette place quand l'étiquette ou une bulle de
+     l'objet l'occupe (decalPoignee), 0 sinon. Pendant le geste, appui compris, c'est celui du départ (gardé dans la cible) : la poignée
+     reste sous le doigt, même si l'étiquette ou une bulle se replace pendant que l'objet tourne. */
+  function disque(){
+    if (S.outil.k !== 'main' || !S.sel || S.accroches || S.relier || S.aligner || S.placer || S.cotes || S.reunir) return null;
+    var e = el(S.sel.id); if (!e || e.k !== 'pt' || !pivotant(e.t)) return null;
+    var c = S.vue.ecran(e.x, e.y), z = zonePt(e.id), r = (z ? z.r : 12) + 22, t = angleSymbole(e.t, e.p.a, S.doc.rot || 0);
+    var g = S.geste, dec = g && g.cible && g.cible.k === 'tourner' && g.cible.id === e.id ? g.cible.dec || 0 : decalPoignee(e.id, c, r, t);
+    return {id: e.id, x: c.x, y: c.y, r: r, px: c.x - r * Math.sin(t + dec), py: c.y - r * Math.cos(t + dec), rp: 6, dec: dec};
+  }
+  /* place de la poignée sur l'anneau (m154) : l'étiquette et les bulles de l'objet passent avant le disque sous le doigt (cibleGlisser).
+     Une poignée posée sur elles ne se prendrait pas : le glissé déplacerait l'étiquette ou la bulle au lieu de tourner l'objet (étiquette
+     d'office à droite d'un objet tourné d'un quart de tour, clapet posé sur un tuyau qui descend à l'écran, bulle d'anomalie au-dessus
+     d'un regard). La poignée va donc à la première place libre de l'anneau : la sienne, puis à l'opposé, d'un quart de tour, d'un
+     huitième de tour, enfin de 15° en 15°. Libre : aucun point de sa prise (son rayon + 8 px, soit 14 px) n'est dans la prise d'une
+     bulle (son rayon + 6 px) ni de l'étiquette (sa boîte + 4 px), d'où les marges de 20 et de 18 px. Rien de libre : sa place, et
+     l'anneau reste à prendre ailleurs sur son tour. Zones : celles du dernier dessin (S.zones), ce que l'écran montre.
+     c : centre de l'objet à l'écran ; r : rayon de l'anneau ; t : angle du symbole (radians). Rend l'écart en radians. */
+  function decalPoignee(id, c, r, t){
+    var zs = S.zones.filter(function(z){ return (z.type === 'etiq' && z.id === id) || (z.type === 'bulle' && z.objId === id); });
+    var D = [0, 180, 90, -90, 45, -45, 135, -135], i;
+    if (!zs.length) return 0;
+    for (i = 15; i < 180; i += 15) if (i % 45) D.push(i, -i);
+    function prise(u){
+      var x = c.x - r * Math.sin(u), y = c.y - r * Math.cos(u);
+      return zs.some(function(z){ return z.type === 'bulle' ? Math.hypot(x - z.x, y - z.y) <= z.r + 20 : x >= z.b[0] - 18 && x <= z.b[2] + 18 && y >= z.b[1] - 18 && y <= z.b[3] + 18; });
+    }
+    for (i = 0; i < D.length; i++) if (!prise(t + D[i] * Math.PI / 180)) return D[i] * Math.PI / 180;
+    return 0;
+  }
+  /* place libre du plan, en pixels du canevas : à 8 px de ses bords, sous la barre du haut, à gauche de la fiche ouverte à droite (au-dessus
+     d'elle quand elle est en bas, sur un écran étroit) */
+  function cadreLibre(){
+    var rc = cv.getBoundingClientRect(), barre = R.querySelector('.vc-barre'), rp = pan.hidden ? null : pan.getBoundingClientRect(), x1 = S.vue.w, y1 = S.vue.h;
+    if (rp){ if (rp.width < rc.width * .9) x1 = Math.min(x1, rp.left - rc.left); else y1 = Math.min(y1, rp.top - rc.top); }
+    return {x0: 8, y0: (barre ? Math.max(0, barre.getBoundingClientRect().bottom - rc.top) : 0) + 8, x1: x1 - 8, y1: y1 - 8};
+  }
+  /* bulle de l'angle pendant qu'on tourne un objet au disque : l'angle écrit (« 35° »), suivi de « parallèle » ou « perpendiculaire » quand
+     il est calé sur un linéaire. Près de la poignée et hors du doigt : au-delà de l'anneau, dans la direction de la poignée (à
+     l'horizontale, de son côté, quand elle est dans la moitié basse du disque : la main est dessous) ; plus loin tant qu'elle est à moins
+     de 30 px du doigt ; à gauche, à droite, au-dessous ou au-dessus de l'anneau si elle sort de la place libre du plan (g.cadre), ramenée
+     dedans en dernier recours. Dessinée sur le canevas ; rend sa boîte {txt, x, y, w, h} en pixels du canevas. */
+  function bulleAngle(dq, g){
+    var txt = g.angle.a + '°' + (g.angle.mot ? ', ' + g.angle.mot : '');
+    ctx.font = '700 13px Barlow, Arial, sans-serif';
+    var w = Math.ceil(ctx.measureText(txt).width) + 14, h = 24, K = g.cadre || {x0: 8, y0: 8, x1: S.vue.w - 8, y1: S.vue.h - 8}, dg = g.doigt || {x: dq.px, y: dq.py};
+    var ux = (dq.px - dq.x) / dq.r, uy = (dq.py - dq.y) / dq.r;
+    function loin(b){ return Math.hypot(Math.max(b.x - dg.x, 0, dg.x - b.x - w), Math.max(b.y - dg.y, 0, dg.y - b.y - h)); }
+    function dedans(b){ return b.x >= K.x0 && b.y >= K.y0 && b.x + w <= K.x1 && b.y + h <= K.y1; }
+    /* boîte dans la direction (vx, vy) depuis le centre du disque : son bord le plus proche à 30 px de l'anneau, puis plus loin, par pas
+       de 4 px, tant qu'elle est à moins de 30 px du doigt */
+    function vers(vx, vy){
+      var ext = Math.abs(vx) * w / 2 + Math.abs(vy) * h / 2, b = null;
+      for (var k = 0; k <= 64 + 2 * ext; k += 4){ var d = dq.r + 30 + ext + k; b = {x: Math.round(dq.x + vx * d - w / 2), y: Math.round(dq.y + vy * d - h / 2)}; if (loin(b) >= 30) break; }
+      return b;
+    }
+    var dirs = [uy > 0 ? [ux < 0 ? -1 : 1, 0] : [ux, uy], [-1, 0], [1, 0], [0, 1], [0, -1]], b = null, b0 = null;
+    for (var i = 0; i < dirs.length && !b; i++){ var q = vers(dirs[i][0], dirs[i][1]); if (!b0) b0 = q; if (dedans(q) && loin(q) >= 30) b = q; }
+    if (!b) b = {x: Math.round(clamp(b0.x, K.x0, Math.max(K.x0, K.x1 - w))), y: Math.round(clamp(b0.y, K.y0, Math.max(K.y0, K.y1 - h)))};
+    ctx.setLineDash([]); ctx.fillStyle = '#fff'; ctx.fillRect(b.x, b.y, w, h); ctx.strokeStyle = '#0F5C63'; ctx.lineWidth = 1; ctx.strokeRect(b.x + .5, b.y + .5, w - 1, h - 1);
+    ctx.fillStyle = '#222'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, b.x + w / 2, b.y + h / 2 + 1);
+    return {txt: txt, x: b.x, y: b.y, w: w, h: h};
+  }
 
   /* --- toucher : recherche de l'élément sous le doigt --- */
   function distPoly(x, y, P){ var b = Infinity; for (var i = 1; i < P.length; i++){ var q = projSeg({x: x, y: y}, P[i - 1], P[i]); if (q.d < b) b = q.d; } return b; }
@@ -4302,7 +4386,8 @@ function editeur(racine, opts){
     }
     if (g.type === 'attente'){
       if (Math.hypot(p.x - g.x0, p.y - g.y0) < (g.souris ? 4 : 9)) return;
-      if (g.cible){ quitterSaisie(); instantane(); g.type = 'glisser'; g.modifie = false; demarrerGlisser(g); }
+      /* disque de rotation (m154) : ce que « Rétablir » tient est gardé (instantane le vide), pour le rendre si le geste ne change rien */
+      if (g.cible){ quitterSaisie(); if (g.cible.k === 'tourner') g.redo = S.redo; instantane(); g.type = 'glisser'; g.modifie = false; demarrerGlisser(g); }
       /* pendant la pose par cotes (départ d'un escalier, m108), le glissé déplace la vue : il ne trace rien */
       else if (S.outil.k === 'ln' && aideOn('glisser') && !g.panForce && !S.cotes){ quitterSaisie(); g.type = 'trace'; demarrerTrace(g); }
       else { g.type = 'pan'; g.w0 = S.vue.monde(g.x0, g.y0); }
@@ -4330,7 +4415,7 @@ function editeur(racine, opts){
     /* clic gauche sur le « + » (m110) : sommet ajouté au pied ; pas au second clic d'un double clic, qui reste un toucher du plan (tracé
        choisi au premier clic), ni au clic que tapPlan ignore (bouton qui vient de disparaître, plan qui vient de glisser pour montrer la
        fiche) ; le second clic d'un double clic sur le « + », sur le sommet ajouté, est ignoré */
-    if (g.type === 'attente'){ S.geste = null; if (!g.panForce){ if (g.cible && g.cible.k === 'segment' && !suiteDeClic(p) && !clicGarde(p)) clicPlus(g.cible); else if (!secondClicPlus(g)) tap(p.x, p.y); } else if (g.menu) ouvrirMenu(g.menu, p.x, p.y); return; }
+    if (g.type === 'attente'){ S.geste = null; if (!g.panForce){ if (g.cible && g.cible.k === 'segment' && !suiteDeClic(p) && !clicGarde(p)) clicPlus(g.cible); else if (!secondClicPlus(g) && !toucherDisque(g, p)) tap(p.x, p.y); } else if (g.menu) ouvrirMenu(g.menu, p.x, p.y); return; }
     if (g.type === 'glisser'){ terminerGlisser(g, p); S.geste = null; return; }
     if (g.type === 'trace'){ S.geste = null; finTrace(g, p); return; }
     if (g.type === 'pan') enregistrerVue();
@@ -4355,7 +4440,21 @@ function editeur(racine, opts){
   function finirGeste(annule){
     var g = S.geste; S.geste = null; S.accrocheVue = null; S.apercu = null;
     if (g && g.type === 'trace' && annule && g.cree && S.brouillon && S.brouillon.pts.length === 1){ S.brouillon = null; majAide(); redessiner(); }
-    if (g && g.type === 'glisser'){ if (annule && g.modifie){ S.undo.length && restaurer(S.undo.pop()); } else if (!g.modifie) S.undo.pop(); changement(); }
+    if (g && g.type === 'glisser'){ if (annule && g.modifie){ S.undo.length && restaurer(S.undo.pop()); rendreRetablir(g); } else if (!g.modifie){ S.undo.pop(); rendreRetablir(g); } changement(); }
+  }
+  /* geste du disque de rotation (m154) qui n'a rien changé (angle revenu à celui du départ, geste annulé par Échap ou par un second
+     doigt) : son pas d'annulation est retiré, et « Rétablir » retrouve ce qu'il tenait avant le geste (g.redo, gardé au départ). Sans
+     cela, tourner puis revenir ferait perdre « Rétablir » sans rien avoir changé */
+  function rendreRetablir(g){ if (g.redo){ S.redo = g.redo; g.redo = null; } }
+  /* toucher sans glissé, ou glissé plus court que le seuil, sur le disque de rotation (m154) : rien ne tourne. Quand rien d'autre n'est
+     sous le doigt, l'objet reste choisi et sa fiche ouverte (un toucher du plan viderait la sélection : il faudrait choisir de nouveau
+     l'objet pour le tourner). Sur l'anneau, ce qui est sous le doigt (autre objet, étiquette, bulle, tuyau) se choisit comme avant. Sur
+     la poignée elle-même, un tuyau ou un trait ne se choisit pas : elle est souvent sur le tuyau de l'objet (regard dont le tuyau monte
+     à l'écran, objet calé perpendiculaire à son tuyau), qui se choisit partout ailleurs. Rend true quand le toucher s'arrête là */
+  function toucherDisque(g, p){
+    if (!g.cible || g.cible.k !== 'tourner') return false;
+    var z = toucher(p.x, p.y);
+    return !z || (!!g.cible.poignee && z.type === 'ln');
   }
 
   /* --- menu de poignée à la souris (m109) : outil Choisir, poignée du tracé choisi (sommet, milieu d'un segment), ouvert par une pause de
@@ -4544,6 +4643,11 @@ function editeur(racine, opts){
     for (i = 0; i < zs.length; i++){ z = zs[i]; if (z.type === 'pt' && Math.hypot(x - z.x, y - z.y) <= (z.zone ? z.r : z.r + 8)) return {k: 'objet', id: e.id}; }
     for (i = 0; i < zs.length; i++){ z = zs[i]; if ((z.type === 'etiq' || z.type === 'tx') && x >= z.b[0] - 4 && x <= z.b[2] + 4 && y >= z.b[1] - 4 && y <= z.b[3] + 4) return z.type === 'tx' ? {k: 'objet', id: e.id} : {k: 'etiq', id: e.id}; }
     for (i = 0; i < zs.length; i++){ z = zs[i]; if (z.type === 'bulle' && Math.hypot(x - z.x, y - z.y) <= z.r + 6) return {k: 'bulle', id: z.id, objId: e.id}; }
+    /* disque de rotation (m154) : sa poignée (son rayon + 8 px) ou son anneau (8 px de part et d'autre, sur tout son tour), après le corps
+       de l'objet, son étiquette et ses bulles, qui gardent la main là où ils se recouvrent (la poignée se pose donc ailleurs :
+       decalPoignee). dec : écart de la poignée à sa place, gardé pour tout le geste ; poignee : l'appui est sur la poignée elle-même */
+    var dq = disque(), surP = !!dq && Math.hypot(x - dq.px, y - dq.py) <= dq.rp + 8;
+    if (dq && (surP || Math.abs(Math.hypot(x - dq.x, y - dq.y) - dq.r) <= 8)) return {k: 'tourner', id: e.id, dec: dq.dec, poignee: surP};
     /* à la souris (m110) : le « + » du segment survolé du tracé choisi, hors de ses poignées */
     return souris && e.k === 'ln' ? plusSous(e, P, x, y) : null;
   }
@@ -4620,8 +4724,58 @@ function editeur(racine, opts){
       /* zone suspecte qui tiendrait encore le bout d'un tuyau (croquis d'avant) : le bout reste à sa place (raccord s'il en relie plusieurs) */
       if (e.t === 'zone') libererZones(S.doc, e.id);
     }
+    /* disque de rotation (m154) : angle de départ (et p.a tel qu'il était, pour le rendre si rien ne change), direction du doigt autour
+       du centre à l'appui, place libre du plan pour la bulle */
+    if (c.k === 'tourner'){
+      var ct = S.vue.ecran(e.x, e.y), a0 = +e.p.a;
+      g.tour = {a: isFinite(a0) ? a0 : 0, avait: 'a' in e.p, val: e.p.a, phi: Math.atan2(ct.y - g.y0, g.x0 - ct.x)}; g.cadre = cadreLibre();
+    }
+  }
+  /* disque de rotation (m154) : l'objet tourne de ce que le doigt a tourné autour de son centre depuis l'appui (rotation relative : aucun
+     saut quand l'anneau est pris loin de la poignée ; prise, la poignée reste sous le doigt), au degré près, sans pas de 15°. Aimant
+     actif (aides au dessin), l'angle se cale sur un linéaire proche (calerAngle). Sens : celui de l'écran, un quart de tour dans le sens
+     contraire des aiguilles d'une montre ajoute 90, comme la puce « 15° » de gauche ajoute 15. p.a : entier de 0 à 359. Doigt à moins de
+     6 px du centre : sa direction ne dit rien, l'angle reste. g.angle : l'angle écrit et le mot de la bulle. */
+  function tourner(g, p){
+    var e = el(g.cible.id); if (!e || !g.tour) return;
+    var c = S.vue.ecran(e.x, e.y); g.doigt = {x: p.x, y: p.y};
+    if (Math.hypot(p.x - c.x, p.y - c.y) >= 6){
+      var brut = g.tour.a + (Math.atan2(c.y - p.y, p.x - c.x) - g.tour.phi) * 180 / Math.PI, cal = S.aides.actives !== false ? calerAngle(e, brut) : null;
+      var a = ((Math.round(cal ? cal.a : brut) % 360) + 360) % 360;
+      e.p.a = a; g.angle = {a: a, mot: cal ? cal.mot : ''};
+    }
+    redessiner();
+  }
+  /* accrochage de l'angle (m154, commentaire de S10) : l'angle brut du doigt (degrés, repère du plan) se cale, à 5° au plus, sur la
+     direction d'un linéaire proche de l'objet e ou sur sa perpendiculaire (quatre angles par linéaire). Linéaires : ceux des aides au
+     dessin (segsCibles : côtés du bâti, traits de complément, limites de parcelle si elles sont cochées) et les pièces des tronçons et des
+     collecteurs, de plus de 0,2 m, à 3 m au plus du centre de l'objet (la distance de l'orientation automatique) ; un tuyau raccordé à
+     l'objet le touche : il compte donc toujours. L'angle le plus proche de celui du doigt l'emporte ; à égalité, celui du linéaire le
+     plus proche de l'objet. Rend {a : angle écrit, entier de 0 à 359 ; mot : « parallèle » ou « perpendiculaire »}, ou null.
+     Le mot dit ce qu'on voit : il se juge sur le grand axe du symbole. C'est son axe x pour presque tous (caniveau, fosse, puits, té,
+     clapet, gargouille ; sans effet pour un symbole carré). Le point de test a son mât le long de y (primitives) : pour lui les deux
+     mots s'échangent (enY). L'angle écrit, lui, ne dépend pas du type. */
+  function calerAngle(e, brut){
+    var o = {x: e.x, y: e.y}, I = idx(), C = [], i, enY = (T[e.t] || {}).forme === 'test';
+    function essai(x0, y0, x1, y1){
+      if (!(Math.hypot(x1 - x0, y1 - y0) > .2)) return;
+      var d = projSeg(o, {x: x0, y: y0}, {x: x1, y: y1}).d; if (!(d <= 3)) return;
+      var dir = Math.atan2(y1 - y0, x1 - x0) * 180 / Math.PI;
+      for (var k = 0; k < 4; k++){
+        var ec = (((dir + 90 * k - brut) % 360) + 540) % 360 - 180;
+        if (Math.abs(ec) <= 5) C.push({a: ((Math.round(brut + ec) % 360) + 360) % 360, ec: Math.abs(ec), d: d, mot: (k % 2 === 1) !== enY ? 'perpendiculaire' : 'parallèle'});
+      }
+    }
+    segsCibles(o, 3).forEach(function(sg){ essai(sg[0], sg[1], sg[2], sg[3]); });
+    S.doc.el.forEach(function(l){ if (l.k !== 'ln' || !estCanalisation(l.t)) return; var P = lignePts(l, I); for (var k = 1; k < P.length; k++) essai(P[k - 1].x, P[k - 1].y, P[k].x, P[k].y); });
+    if (!C.length) return null;
+    var m = C[0]; for (i = 1; i < C.length; i++) if (C[i].ec < m.ec || (C[i].ec === m.ec && C[i].d < m.d)) m = C[i];
+    /* le même angle écrit proposé par plusieurs linéaires (mur et tuyau parallèles, coin du bâti) : le mot est celui du plus proche */
+    var b = m; for (i = 0; i < C.length; i++) if (C[i].a === m.a && C[i].d < b.d) b = C[i];
+    return {a: m.a, mot: b.mot};
   }
   function glisser(g, p){
+    if (g.cible.k === 'tourner'){ tourner(g, p); return; }
     var c = g.cible, w = S.vue.monde(p.x, p.y), w0 = S.vue.monde(g.x0, g.y0), dxw = w.x - w0.x, dyw = w.y - w0.y, rot = S.doc.rot || 0, dP = versPlan(dxw, dyw, rot);
     if (c.k === 'objet'){ var e = el(c.id); e.x = g.o0.x + dxw; e.y = g.o0.y + dyw; synchroSommets(S.doc); }
     else if (c.k === 'sommet'){
@@ -4734,7 +4888,16 @@ function editeur(racine, opts){
   }
   function terminerGlisser(g){
     var c = g.cible; S.accrocheVue = null;
-    if (!g.modifie){ S.undo.pop(); return; }
+    if (!g.modifie){ S.undo.pop(); rendreRetablir(g); return; }
+    /* disque de rotation (m154) : l'angle n'est écrit que s'il a changé ; revenu à celui du départ, p.a est rendu tel qu'il était (absent
+       s'il l'était), le pas d'annulation est retiré et « Rétablir » retrouve ce qu'il tenait (rendreRetablir ; la barre est remise à jour) */
+    if (c.k === 'tourner'){
+      var et = el(c.id), a1 = g.angle ? g.angle.a : null;
+      if (et && g.tour && (a1 === null || a1 === ((Math.round(g.tour.a) % 360) + 360) % 360)){
+        if (g.tour.avait) et.p.a = g.tour.val; else delete et.p.a;
+        S.undo.pop(); rendreRetablir(g); majBarre(); redessiner(); return;
+      }
+    }
     if (c.k === 'sommet' && attache(g.accroche) && estCanalisation(el(c.id).t)){
       var l = el(c.id), a = g.accroche;
       if (a.type === 'obj'){ l.v[c.i].a = a.id; }
@@ -6658,7 +6821,7 @@ function editeur(racine, opts){
         h += champ('Méthode de test', chipsHtml('meth', METH.map(function(m){ return [m[0], m[1]]; }), e.p.meth || []), 'facultatif');
       }
       if (e.t === 'pr') h += champ('Fonction', chipsHtml('fn', [['eaux ménagères', 'Eaux ménagères'], ['chaudière', 'Chaudière'], ['nappe', 'Nappe'], ['toutes EU', 'Toutes EU']], e.p.fn));
-      if (ty.oriente) h += champ('Orientation', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="orienter" data-v="15">' + ico('rotg', 18) + ' 15°</button><button type="button" class="vc-chip" data-a="orienter" data-v="-15">' + ico('rotd', 18) + ' 15°</button><button type="button" class="vc-chip" data-a="orienter" data-v="90">90°</button></div>');
+      if (pivotant(e.t)) h += champ('Orientation', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="orienter" data-v="15">' + ico('rotg', 18) + ' 15°</button><button type="button" class="vc-chip" data-a="orienter" data-v="-15">' + ico('rotd', 18) + ' 15°</button><button type="button" class="vc-chip" data-a="orienter" data-v="90">90°</button></div>');
       if (e.t === 'test') h += champ('Résultat', saisie('resultat', e.p.resultat, {ph: 'ex. colorant ressorti en boîte EP'}));
       if (e.t === 'zone') h += champ('Rayon', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="rayon" data-v="-.5">−</button><span class="vc-val">' + frNum(num(e.p.r) || 1.5) + ' m</span><button type="button" class="vc-chip" data-a="rayon" data-v=".5">+</button></div>');
       /* position par cotes (m102) : déplacer l'objet, ou relire sa position, depuis une façade, une limite ou un trait de complément */
@@ -7222,8 +7385,9 @@ function editeur(racine, opts){
     apresProp(e, {garderPanneau: true}); majPanneauBientot();
   }
   /* changement de type par le sélecteur Type de la fiche (extrait du gestionnaire en m130) : un pas d'annulation ; les champs du nouveau type
-     reprennent la valeur qu'ils avaient ; meth, niv, obs, st et etiq sont gardés ; a suit le nouveau type (repris s'il est orienté, sinon
-     effacé), sans toast ; tout autre champ non vide est effacé, avec un toast. m130 : p.etage, compagnon de niv, est gardé lui aussi quand
+     reprennent la valeur qu'ils avaient ; meth, niv, obs, st et etiq sont gardés ; a suit le nouveau type (repris s'il est orienté ; m154 :
+     repris aussi, quand il est donné, nombre fini, s'il se tourne au disque, sinon un regard tourné changé en boîte se remettrait droit sans
+     le dire ; sinon effacé), sans toast ; tout autre champ non vide est effacé, avec un toast. m130 : p.etage, compagnon de niv, est gardé lui aussi quand
      il a une valeur (aucune clé vide écrite) et n'entre pas dans le toast. m131 : p.lm, le lave-mains du WC, n'est pas gardé : effacé
      hors du WC, avec ce toast (« Annuler » le rend). m134 : p.etiqAvec et p.etiqTitre (étiquette commune, D6) sont gardés de même, quel
      que soit le nouveau type : le groupe se refait au dessin suivant (un membre devenu ouvrage EP reprend son étiquette) */
@@ -7237,6 +7401,7 @@ function editeur(racine, opts){
     var t0 = T[e.t], t1 = T[v];
     if (t0 && t1 && t0.nomLibre && t1.nomLibre && t0.nat !== t1.nat && ancien.row != null && ancien.row !== ''){ nv.row = ''; perdus.push('row'); }
     e.t = v; e.p = Object.assign(nv, {meth: ancien.meth || [], niv: ancien.niv || '', obs: ancien.obs || '', st: ancien.st || 'existant', etiq: ancien.etiq || ''});
+    if (t1 && t1.pivot && typeof ancien.a === 'number' && isFinite(ancien.a)) e.p.a = ancien.a;
     if (ancien.etage != null && ancien.etage !== '') e.p.etage = ancien.etage;
     ['etiqAvec', 'etiqTitre'].forEach(function(k){ if (ancien[k] != null && ancien[k] !== '') e.p[k] = ancien[k]; });
     /* une zone suspecte ne tient aucun tuyau : un point de test qui reliait deux tuyaux laisse un raccord à sa place, comme à l'ouverture */
@@ -7386,8 +7551,10 @@ function editeur(racine, opts){
 
   /* ferme le niveau le plus haut : le menu de poignée d'abord (m109 : l'élément reste choisi), ce qui est affiché par-dessus (dialogue,
      palette, panneau), puis les modes, et le tracé en cours en dernier (l'abandonner perd des points) ; faux s'il n'y avait rien : l'hôte
-     peut alors fermer l'éditeur */
+     peut alors fermer l'éditeur. m154 : avant tout, un objet qu'on est en train de tourner au disque reprend son angle (geste annulé,
+     comme par un second doigt) ; il reste choisi, sa fiche ouverte */
   function fermerNiveau(){
+    if (S.geste && S.geste.type === 'glisser' && S.geste.cible && S.geste.cible.k === 'tourner'){ finirGeste(true); return true; }
     if (fermerMenu()) return true;
     /* m144 : le dialogue du dessus (la question d'un nom proche passe avant la fiche courte qu'elle couvre), fermé comme par Échap */
     var ms = R.querySelectorAll('.vc-modal'), m = ms.length ? ms[ms.length - 1] : null; if (m){ if (m.vcFermer) m.vcFermer(); else m.remove(); return true; }
@@ -8172,7 +8339,10 @@ function ecrireDxf(doc, an, liste){
     if (e.t === 'zone'){ g(0, 'CIRCLE'); g(8, 'VEDE-ANNOTATIONS'); g(10, X(e.x)); g(20, Y(e.y)); g(30, '0.0'); g(40, f((num(e.p.r) || 1.5) / u)); return; }
     var rgb = couleurPt(e, an), aci = 7; Object.keys(RES).forEach(function(k){ if (RES[k].rgb === rgb) aci = RES[k].aci; });
     g(0, 'INSERT'); g(8, e.p.st === 'projet' ? 'VEDE-PROJET' : e.p.st === 'supprimer' ? 'VEDE-A-SUPPRIMER' : 'VEDE-SYMBOLES'); g(62, aci); g(2, nomBloc[cleBloc(e)]);
-    g(10, X(e.x)); g(20, Y(e.y)); g(30, '0.0'); g(41, f(mu)); g(42, f(mu)); g(43, f(mu)); g(50, f((T[e.t] || {}).oriente ? (e.p.a || 0) : rotDeg));
+    /* angle de l'INSERT : celui de l'objet pour un type orienté ; m154 : pour un type qu'on tourne au disque (pivot), son angle s'il est donné
+       (nombre fini), sinon la rotation du plan, comme avant ; pour les autres, la rotation du plan */
+    var tyD = T[e.t] || {}, angD = tyD.oriente ? (e.p.a || 0) : tyD.pivot && typeof e.p.a === 'number' && isFinite(e.p.a) ? e.p.a : rotDeg;
+    g(10, X(e.x)); g(20, Y(e.y)); g(30, '0.0'); g(41, f(mu)); g(42, f(mu)); g(43, f(mu)); g(50, f(angD));
   });
   doc.el.forEach(function(e){
     var libre = e.k === 'tx', txt = libre ? e.txt : texteEtiquette(e, an);

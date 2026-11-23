@@ -242,6 +242,32 @@ CROQUIS DE TERRAIN (facultatif)
   départ d'un escalier l'offrent aussi. Si deux places sont possibles,
   on choisit « Solution 1 » ou « Solution 2 ». On finit par « Poser »
   (ou « Déplacer », « Poser le départ »).
+  Disque de rotation : avec l'outil « Choisir », un objet choisi dont le
+  symbole n'est pas rond (regard, boîte, grille, caniveau, fosse, té,
+  siphon, puits, clapet, gargouille, autre destination, point de test)
+  est entouré d'un anneau fin, avec une poignée ronde. Elle est
+  au-dessus de lui tant que ni lui ni le plan ne sont tournés, puis elle
+  tourne avec eux. Quand l'étiquette ou une bulle de l'objet occupe sa
+  place, la poignée se pose à l'opposé ou de côté sur l'anneau. On
+  glisse la poignée, ou l'anneau à n'importe quel endroit, et l'objet
+  tourne autour de son centre, degré par degré ; une bulle écrit
+  l'angle. Pour un réglage fin, on éloigne le doigt du centre sans le
+  lever. L'objet ne tourne qu'après un petit glissé : il rattrape alors
+  d'un coup l'angle déjà parcouru. Pour un petit angle, on tire d'abord
+  la poignée vers l'extérieur, puis on tourne loin du centre. Un toucher
+  bref sur la poignée ou l'anneau, sans autre objet dessous, ne change
+  rien : l'objet reste choisi. Avec l'aimant actif, l'angle se cale, à
+  5° près, pour que l'objet soit parallèle ou perpendiculaire au tuyau,
+  au côté du bâti, à la limite de parcelle (si « Limites de parcelle »
+  est cochée) ou au trait de complément proche, à 3 m au plus ; la bulle
+  le dit (« 30°, parallèle »). Aimant coupé, l'objet tourne au degré,
+  sans se caler. Un geste se défait par une annulation ; un geste revenu
+  à son départ ne compte pas. Échap pendant le geste rend l'angle. Dans
+  la fiche, les puces « 15° » et « 90° » (Orientation) valent pour les
+  mêmes objets. Les symboles ronds, l'infiltration au sol, la zone et
+  les textes ne tournent pas. Les lettres d'un symbole (« FS ») restent
+  droites à l'écran et au plan PDF. L'anneau ne paraît qu'à l'écran ; le
+  plan PDF et le DXF montrent l'objet à l'angle donné.
   L'outil « Escalier » des Tracés dessine un escalier en deux touchers (le
   départ, puis la fin) ; sa fiche règle la largeur, les marches, la
   longueur, le côté et le sens de la montée. Son bouton « Cotes » pose le
@@ -412,8 +438,9 @@ CROQUIS DE TERRAIN (facultatif)
   tracé ou la façade).
   Chacune se désactive, et toutes ensemble (sauf le tracé en glissant)
   par « Aides activées » ou par l'aimant : tracé libre, sans redressement
-  ni accroche au bâti. Les tuyaux se raccordent toujours aux objets et
-  aux autres tuyaux : cette accroche au réseau ne se coupe pas.
+  ni accroche au bâti ; au disque de rotation, l'angle ne se cale plus.
+  Les tuyaux se raccordent toujours aux objets et aux autres tuyaux :
+  cette accroche au réseau ne se coupe pas.
   La palette d'accrochage (bouton juste au-dessus de l'aimant, à droite
   du plan) coche ou décoche d'un toucher l'accroche au bâti, le parallèle
   au bâti, les angles droits et 45° et les nouveaux accrochages ; aimant
@@ -540,7 +567,11 @@ MISE À JOUR DE L'APPLICATION
   préconisation « Suppression de(s) rejet(s) EU en milieu naturel » ni
   croix sous « Raccordée sur » au constat imprimé, jusqu'au suivi du
   croquis sur cette tablette, qui remet en « Milieu naturel » une ligne
-  que le croquis avait mise sur « Puits ».
+  que le croquis avait mise sur « Puits ». Elle montre déjà, à l'écran
+  et au plan PDF, l'angle d'un objet tourné au disque de rotation sur
+  une tablette à jour ; hors caniveau, clapet et gargouille, son DXF le
+  place comme s'il n'avait pas été tourné, et sa fiche n'a pas les
+  puces d'orientation.
 - Une tablette remise en v1.7.0, ou plus ancienne, garde les
   destinations ajoutées (« + Nouvelle destination ») sans les proposer,
   puis les efface dès qu'un réglage du croquis y change (une aide au
