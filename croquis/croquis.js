@@ -334,17 +334,20 @@ function piedSegs(p, prec, segs, R){
   return best;
 }
 /* Nouveaux accrochages, second lot (m113), sur les mêmes côtés que milieuSegs et piedSegs, avec le même contrat. Le prolongement d'un côté
-   [A, B] est la droite AB au-delà de ses bouts, jusqu'à Lmax (30 m si Lmax n'est pas donné [p]) du bout ; ext est la longueur du
-   prolongement utilisé (0 sur le côté même).
-   - prolSegs : pied de la perpendiculaire menée de p sur le prolongement d'un côté, à R au plus de p. Rien depuis un côté si p est à R au
-     plus de lui ou d'un côté qui lui est aligné (à 5° près) : c'est ce côté (la façade). Un côté qui croise la droite ne l'empêche pas.
-     Rend {x, y, d, s, bout, ext}, bout étant le bout du côté d'où part le prolongement.
-   - interSegs : point où deux côtés, ou leurs prolongements, se rencontrent, à R au plus de p. Les deux droites font plus de 5° entre elles.
-     Un point à 1 cm au plus d'un bout de l'un des deux côtés est un coin existant (côtés qui se touchent déjà) : écarté, le coin s'en
-     charge. Au plus INTER_MAX côtés comptent : ceux dont la droite passe le plus près de p [p]. Rend {x, y, d, s, s2, ext, ext2, bout,
-     bout2} ; bout (ou bout2) vaut null quand le point est sur le côté même.
+   [A, B] est la droite AB au-delà de ses bouts, jusqu'à Lmax du bout ; ext est la longueur du prolongement utilisé (0 sur le côté même).
+   - prolSegs : pied de la perpendiculaire menée de p sur le prolongement d'un côté, à R au plus de p. Lmax non donné : sans limite de
+     longueur (m138 ; 30 m avant). Rien depuis un côté si p est à R au plus de lui ou d'un côté qui lui est aligné (à 5° près) : c'est ce
+     côté (la façade). Un côté qui croise la droite ne l'empêche pas. Rend {x, y, d, s, bout, ext}, bout étant le bout du côté d'où part
+     le prolongement.
+   - interSegs : point où deux côtés, ou leurs prolongements, se rencontrent, à R au plus de p. Lmax non donné : PROL_MAX (30 m [p]). Les
+     deux droites font plus de 5° entre elles. Un point à 1 cm au plus d'un bout de l'un des deux côtés est un coin existant (côtés qui se
+     touchent déjà) : écarté, le coin s'en charge. Au plus INTER_MAX côtés comptent : ceux dont la droite passe le plus près de p [p].
+     Rend {x, y, d, s, s2, ext, ext2, bout, bout2} ; bout (ou bout2) vaut null quand le point est sur le côté même.
    Le plus proche de p ; à 1 mm près (le même point pour le technicien : des côtés alignés donnent la même droite, au bruit du fond près),
    le plus court prolongement ; puis le premier. Sinon, ou pour une entrée invalide, null */
+/* PROL_MAX : 30 m. L'intersection garde cette borne (défaut d'interSegs). Le prolongement d'un côté n'a pas de limite de longueur
+   (m138) et passe, à toute distance, avant le redressement et la façade, dans l'ordre de m113 (m155) : accrochesNouvelles réunit les
+   candidats de 30 m au plus, cherchés près du point (PROL_MAX), et ceux de prolLoin, jusqu'à une diagonale du canevas */
 var PROL_MAX = 30, INTER_SIN = Math.sin(5 * Math.PI / 180), ACC_COIN = .01, ACC_EGAL = .001, INTER_MAX = 64;
 /* longueur du prolongement au paramètre t d'un côté de longueur L (0 entre les bouts) */
 function depasse(t, L){ return t < 0 ? -t * L : t > 1 ? (t - 1) * L : 0; }
@@ -358,9 +361,12 @@ function plusProche(c, v){
   for (i = 0; i < c.length; i++) if (c[i].d <= dmin + ACC_EGAL && (!best || v(c[i]) < v(best) - ACC_EGAL)) best = c[i];
   return best;
 }
-function prolSegs(p, segs, R, Lmax){
-  if (Lmax === undefined) Lmax = PROL_MAX;
-  if (!estPt(p) || !Array.isArray(segs) || !(R >= 0) || typeof Lmax !== 'number' || !(Lmax >= 0)) return null;
+function prolSegs(p, segs, R, Lmax){ return plusProche(prolCands(p, segs, R, Lmax), function(q){ return q.ext; }); }
+/* candidats de prolSegs ({x, y, d, s, bout, ext}, dans l'ordre de segs), avant le choix ; entrée invalide : aucun. accrochesNouvelles
+   en réunit deux listes avant de choisir (m155) */
+function prolCands(p, segs, R, Lmax){
+  if (Lmax === undefined) Lmax = Infinity;
+  if (!estPt(p) || !Array.isArray(segs) || !(R >= 0) || typeof Lmax !== 'number' || !(Lmax >= 0)) return [];
   var c = [], pres = [], i, s, a, b, f, e, d, L;
   /* côtés à R au plus de p (entre leurs bouts ou près d'eux) */
   for (i = 0; i < segs.length; i++){
@@ -378,7 +384,7 @@ function prolSegs(p, segs, R, Lmax){
     if (pres.some(function(t){ return presqueParalleles(s, L, t.s, t.L); })) continue;
     c.push({x: f.x, y: f.y, d: d, s: s, bout: f.t < 0 ? a : b, ext: e});
   }
-  return plusProche(c, function(q){ return q.ext; });
+  return c;
 }
 function interSegs(p, segs, R, Lmax){
   if (Lmax === undefined) Lmax = PROL_MAX;
@@ -407,10 +413,30 @@ function interSegs(p, segs, R, Lmax){
   }
   return plusProche(c, function(q){ return q.ext + q.ext2; });
 }
+/* Pose par deux cotes (m146) : les places à d1 du point A et à d2 du point B, où les deux cercles se croisent. Rend [] (pas de croisement,
+   valeur absente ou points confondus), [P] (les cercles se touchent : moins de 1 mm entre les deux places) ou [P1, P2] : P1 à gauche de
+   la droite A → B (Solution 1), P2 à droite (Solution 2). Deux cercles qui se manquent de 5 mm au plus se touchent : les cotes se
+   saisissent et s'affichent au centimètre, et un refus montre ainsi toujours un écart visible (msgDeux). Leur place est alors le point
+   de la droite A B qui partage l'écart entre les deux cotes, à 2,5 mm au plus de chacune (le point M de D12 s'en écarte d'autant plus que
+   les deux points sont proches : 4 cm pour des points à 1 m et des cotes de 10 et 11,004 m) ; aucun arrondi */
+var DEUX_TOL = 0.001, DEUX_JEU = 0.005, DEUX_MIN = 0.01; /* m : tangence, cercles qui se manquent, points confondus */
+function deuxCotes(A, B, d1, d2){
+  if (!estPt(A) || !estPt(B) || typeof d1 !== 'number' || typeof d2 !== 'number' || !isFinite(d1) || !isFinite(d2) || d1 < 0 || d2 < 0) return [];
+  var d = Math.hypot(B.x - A.x, B.y - A.y);
+  if (!(d >= DEUX_MIN) || !isFinite(d) || d > d1 + d2 + DEUX_JEU || d < Math.abs(d1 - d2) - DEUX_JEU) return [];
+  var u = {x: (B.x - A.x) / d, y: (B.y - A.y) / d}, n = ccw(u), a = (d1 * d1 - d2 * d2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, d1 * d1 - a * a));
+  /* cercles qui se manquent (h nul) : dehors, entre les deux points ; l'un dans l'autre, au-delà du centre du petit cercle */
+  if (d > d1 + d2) a = (d + d1 - d2) / 2;
+  else if (d < d2 - d1) a = (d - d1 - d2) / 2;
+  else if (d < d1 - d2) a = (d + d1 + d2) / 2;
+  var M = {x: A.x + a * u.x, y: A.y + a * u.y}, out = h < DEUX_TOL ? [M] : [{x: M.x + h * n.x, y: M.y + h * n.y}, {x: M.x - h * n.x, y: M.y - h * n.y}];
+  /* valeurs démesurées (un dossier abîmé) : les carrés ne sont plus des nombres finis */
+  return isFinite(h) && out.every(estPt) ? out : [];
+}
 VC.geo = {cw: cw, ccw: ccw, unite: unite, placer: placer, mesurer: mesurer, coinGauche: coinGauche, cotesAlignes: cotesAlignes,
   dansPolygone: dansPolygone, distPolygone: distPolygone, piedPerp: piedPerp, interDroites: interDroites, milieu: milieu,
   lignesRef: lignesRef, normaleExt: normaleExt, parcelleInstallation: parcelleInstallation, distanceLimite: distanceLimite,
-  milieuSegs: milieuSegs, piedSegs: piedSegs, prolSegs: prolSegs, interSegs: interSegs};
+  milieuSegs: milieuSegs, piedSegs: piedSegs, prolSegs: prolSegs, interSegs: interSegs, deuxCotes: deuxCotes};
 
 /* ---------- Couleurs AutoCAD (ACI), approchées : 1 à 9 exactes, 10 à 249 par teinte, 250 à 255 en gris ---------- */
 var ACI = (function(){
@@ -788,12 +814,13 @@ var EXU = {
   MILIEU: {lib: 'milieu naturel', res: 'EP',
     eu: {cle: 'eu-milieu', obs: 'rejet en milieu naturel', preco: 'Suppression du rejet en milieu naturel et raccordement au branchement EU', nc: true, codes: ['suppMilieu'], cat: 'inversion'},
     cEU: {code: 'MILIEU'}, cEP: {code: 'MILIEU'}},
-  /* puits (m120) : EU et EP non conformes (décision D6) ; au constat, le milieu naturel (D7) : la conformité d'une ligne EP suit l'anomalie
-     (raccInfo). Un puits perdu, qui infiltre les eaux, se dessine en puisard */
+  /* puits (m120) : EU et EP non conformes (décision D6) ; au constat, la colonne « Puits » (m150, décision D18 ; le milieu naturel avant) :
+     une ligne mise à la main sur « Puits » n'y est jamais conforme ; celle d'une source EP que le croquis y pose suit l'anomalie (raccInfo).
+     Un puits perdu, qui infiltre les eaux, se dessine en puisard */
   PUITS: {lib: 'puits', res: 'EP',
     eu: {cle: 'eu-puits', obs: 'rejet dans un puits', preco: 'Suppression du rejet dans le puits et raccordement au branchement EU', nc: true, codes: ['raccEUsep'], cat: 'inversion'},
     ep: {cle: 'ep-puits', obs: 'rejet dans un puits', preco: 'Suppression du rejet dans le puits ; raccordement au branchement EP ou gestion à la parcelle', nc: true, codes: ['gestEP'], cat: 'autre'},
-    cEU: {code: 'MILIEU', lib: 'Puits : rejet en milieu naturel'}, cEP: {code: 'MILIEU', lib: 'Puits : rejet en milieu naturel'}},
+    cEU: {code: 'PUITS', lib: 'Puits : rejet dans un puits'}, cEP: {code: 'PUITS', lib: 'Puits : rejet dans un puits'}},
   /* drain d'infiltration (m122) : exutoire linéaire, qui disperse les eaux dans le sol (gestion des EP à la parcelle, décision du 13 nov.
      2026) ; EU non conforme, comme l'infiltration au sol ; au constat, la case « Infiltration diffuse » */
   DISP: {lib: 'dispersion dans le sol', res: 'EP',
@@ -801,7 +828,8 @@ var EXU = {
     cEU: {code: 'MILIEU', lib: 'Drain d\'infiltration : rejet au sol (milieu naturel)'}, cEP: {code: '', lib: 'Drain d\'infiltration (dispersion dans le sol)', recup: 'infil'}},
   /* autre destination (m125, décisions D3, D5 à D7) : un étang, un fossé… que l'opérateur nomme et juge dans sa fiche. Son rejet est une clé
      « X:NOM:ep:cst » (terminal) ; ses textes, ses règles et sa place au constat viennent de ses champs (an.exu[clé], ligneDest) : cette
-     ligne ne donne que le réseau (EP) et le repère dest. Aucune règle ne compare un rejet à 'X' */
+     ligne ne donne que le réseau (EP) et le repère dest. Aucune règle ne compare un rejet à 'X'. Sauf un nom de puits (nomPuits 'puits' ;
+     m151, décision D19) : analyser lui donne la clé PUITS, il se juge comme l'objet Puits, et ses champs n'y entrent pas */
   X: {lib: 'autre destination', res: 'EP', dest: true}
 };
 /* code d'un rejet : la partie avant le premier « : », sinon le rejet entier */
@@ -817,7 +845,9 @@ function resTrace(res){ var x = exuDe(res); return x ? x.res : res; }
      qu'il sait écrire, comme la fiche (abDe : « 💧 Mare » donne « Ma ») ;
    - art : 'le', 'la' ou « l' », sinon 'le' (pour les textes, jamais pour la clé) ;
    - ep, jugement des EP : 'conforme', 'reserve', 'nc' ou 'arbitrer', sinon 'arbitrer' ; jamais d'après le nom ;
-   - cst, case du constat en EP : 'MILIEU', 'GARG', 'puisard', 'recup', 'infil' ou 'autre', sinon 'autre'. */
+   - cst, case du constat en EP : 'MILIEU', 'GARG', 'puisard', 'recup', 'infil' ou 'autre', sinon 'autre'.
+   Un nom de puits (nomPuits 'puits' ; m151, décision D19) garde ces champs, mais ils ne le jugent pas : analyser lui donne la clé PUITS,
+   comme à l'objet Puits. */
 /* valeurs permises du jugement et de la case, avec leurs libellés, qui distinguent deux destinations de même nom (libsRejets ; cases des
    ouvrages : ceux de RECUP_LIB) */
 var DEST_EP = {conforme: 'conforme', reserve: 'réserve', nc: 'non conforme', arbitrer: 'à arbitrer'};
@@ -851,14 +881,30 @@ var DEST_EPS = [['conforme', 'Conforme'], ['reserve', 'Réserve'], ['nc', 'Non c
 var DEST_CSTS = [['MILIEU', 'Milieu naturel'], ['GARG', 'Gargouille'], ['puisard', 'Puisard'], ['recup', 'Récupérateur'], ['infil', 'Infiltration diffuse'], ['autre', 'Indéterminé/Autres']];
 /* nom ou abréviation saisis pour une destination (fiche, fiche courte, Réglages ; m128) : la valeur retenue (espaces réduits, nom coupé à
    40 caractères ; abréviation vide : tirée du nom nom0) et le refus, texte du toast de la fiche ('' : acceptée). Refusés : un nom vide,
-   qui contient « puits » une fois normalisé comme la clé (décision D3), ou illisible au PDF ; une abréviation de longueur fausse ou
-   illisible au PDF */
+   qui nomme un puits (nomPuits ; décision D3), ou illisible au PDF ; une abréviation de longueur fausse ou illisible au PDF */
 var REFUS_PUITS = 'Pour un puits, posez l\'objet Puits (EP non conformes) ; pour un puits perdu, un Puisard.';
+/* m151 (décision D19 ; réponse puits-venu-fichier du 16 nov. 2026) : un nom de destination qui nomme un puits, une fois normalisé comme la
+   clé (nomCle) : « puits » partout, ou « puit » comme mot. Une seule fonction pour le refus de la saisie (champDest) et le jugement
+   (analyser) : 'puits' ; 'perdu' quand chaque puits nommé est suivi de « perdu » (« Puits perdu », « puits perdus », « Puit perdu ») ;
+   sinon ''. Dans le doute, un puits : son rejet des EP n'est jamais conforme (« Puits non perdu » ; « Puits perdu2 » : un chiffre collé
+   fait de « perdu2 » un autre mot) */
+function nomPuits(s){
+  var c = nomCle(s), P = /PUIT(S|\b)/;
+  if (!P.test(c)) return '';
+  return P.test(c.replace(/PUITS?[^A-Z0-9]*PERDU(E|ES|S)?(?![A-Z0-9])/g, ' ')) ? 'puits' : 'perdu';
+}
+/* rappel « À vérifier » (contrôles) et de la fiche d'une destination nommée comme un puits (nom tel qu'écrit sur l'objet, destDe) : un
+   puits est jugé comme l'objet Puits ; un puits perdu, d'après sa fiche ; '' pour un autre nom */
+function rappelPuits(nom){
+  var k = nomPuits(nom);
+  return k === 'puits' ? 'Autre destination « ' + nom + ' » : jugée comme un puits (rejet des EP non conforme). Pour un puits, posez l\'objet Puits ; pour un puits perdu, un Puisard.'
+    : k === 'perdu' ? 'Autre destination « ' + nom + ' » : jugée d\'après sa fiche. Un puits perdu (qui infiltre les eaux) se dessine en Puisard.' : '';
+}
 function champDest(k, val, nom0){
   var s = String(val == null ? '' : val).replace(/\s+/g, ' ').trim(), refus = '', LONG = 'Abréviation de 2 ou 3 caractères, par exemple Ét';
   if (k === 'nom'){
     s = s.slice(0, 40).trim();
-    refus = !s ? 'Le nom ne peut pas être vide' : /PUIT(S|\b)/.test(nomCle(s)) ? REFUS_PUITS
+    refus = !s ? 'Le nom ne peut pas être vide' : nomPuits(s) ? REFUS_PUITS
       : abDe(s).length < 2 ? 'Nom illisible au PDF : employez au moins deux lettres latines ou chiffres' : '';
   } else if (k === 'ab'){
     if (!s){ s = abDe(nom0 == null ? '' : String(nom0)); if (s.length < 2) refus = LONG; }
@@ -869,18 +915,159 @@ function champDest(k, val, nom0){
 /* modèle de destination saisi (fiche courte de l'éditeur, Réglages de l'application ; m128) : s, les cinq champs tels que saisis ; m0, le
    modèle d'avant (Réglages) : quand le nom change, une abréviation tirée de l'ancien nom et restée telle quelle suit le nouveau, et un
    article resté tel quel se règle sur lui, comme dans la fiche. Rend {m, refus} : m, les cinq champs retenus (lus par destDe), ou null ;
-   refus, le texte du toast de la fiche ('' : accepté) */
-function destSaisie(s, m0){
+   refus, le texte du toast de la fiche ('' : accepté).
+   m144 (D10) : l, facultatif, dit où l'on saisit et ce qui existe déjà ({ou: 'palette' ou 'reglages', modeles, plan} : voir refusNomDest).
+   Avec lui, un nom nouveau (dans les Réglages : changé) est aussi comparé aux autres destinations ; un refus dit son champ (champ : 'nom' ou
+   'ab', où mettre le focus) ; un nom proche rend la question à poser (q, avec m : les champs tapés) ; une destination posée de même nom,
+   même abréviation (ou l'abréviation laissée vide) et mêmes jugements est acceptée et donne son abréviation et son article. Sans l, le
+   résultat ne change pas */
+function destSaisie(s, m0, l){
   s = s || {};
   var rN = champDest('nom', s.nom), ab = s.ab == null ? '' : String(s.ab), art = s.art;
-  if (rN.refus) return {m: null, refus: rN.refus};
+  var refus = function(t, champ){ return l ? {m: null, refus: t, champ: champ} : {m: null, refus: t}; };
+  if (rN.refus) return refus(rN.refus, 'nom');
   if (m0 && rN.v !== m0.nom){
     if (ab.replace(/\s+/g, ' ').trim() === m0.ab && (m0.ab === abDe(m0.nom) || m0.ab === m0.nom.slice(0, 2))) ab = '';
     if (art === m0.art) art = artDevant(m0.art, rN.v);
   }
   var rA = champDest('ab', ab, rN.v);
-  if (rA.refus) return {m: null, refus: rA.refus};
-  return {m: destDe({p: {nom: rN.v, ab: rA.v, art: art, ep: s.ep, cst: s.cst}}), refus: ''};
+  if (rA.refus) return refus(rA.refus, 'ab');
+  var m = destDe({p: {nom: rN.v, ab: rA.v, art: art, ep: s.ep, cst: s.cst}});
+  if (l && !(m0 && rN.v === m0.nom)){
+    /* une abréviation laissée vide est passée vide : refusNomDest reprend alors celle de la destination posée de même nom (relecture M5) */
+    var rq = refusNomDest(ab.replace(/\s+/g, ' ').trim() ? m : Object.assign({}, m, {ab: ''}), l);
+    if (rq && rq.refus) return refus(rq.refus, 'nom');
+    if (rq && rq.q) return {m: m, refus: '', q: rq.q};
+    if (rq && rq.reprise){ m.ab = rq.reprise.ab; m.art = rq.reprise.art; }
+  }
+  return {m: m, refus: ''};
+}
+/* noms de destination comparés (m144 ; D10, réponses du 16 nov. 2026, S6 b et S7 a). Forme d'un nom (canonDest) : accents ôtés et
+   minuscules (œ, æ : oe, ae), signes changés en espaces, articles de tête ôtés (le, la, les, l, un, une, des, du, de, d ; jamais le dernier
+   mot), lettre doublée comptée une fois, s ou x final ôté d'un mot sans chiffre de 4 lettres ou plus, mots collés ; repères : les mots qui
+   portent un chiffre ou n'ont qu'une lettre, triés. « L'Étang-du-Bas 2 » : etangdubas2, repère 2. nomCle et cleDest (clé du rejet) ne
+   changent pas */
+function canonDest(nom){
+  var s = String(nom == null ? '' : nom).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/\u0153/g, 'oe').replace(/\u00e6/g, 'ae').replace(/[^a-z0-9]+/g, ' ').trim();
+  var m = s ? s.split(' ') : [];
+  while (m.length > 1 && /^(le|la|les|l|un|une|des|du|de|d)$/.test(m[0])) m.shift();
+  m = m.map(function(w){ return /^[a-z]+$/.test(w) ? w.replace(/([a-z])\1+/g, '$1') : w; });
+  m = m.map(function(w){ return w.length >= 4 && /^[a-z]+$/.test(w) ? w.replace(/[sx]$/, '') : w; });
+  return {forme: m.join(''), reperes: m.filter(function(w){ return /[0-9]/.test(w) || w.length === 1; }).sort().join(' ')};
+}
+/* distance entre deux formes : lettres ôtées, ajoutées, changées ou deux voisines inversées (Damerau restreinte, dite OSA) */
+function distDest(a, b){
+  a = String(a == null ? '' : a); b = String(b == null ? '' : b);
+  var d = [], i, j, c;
+  for (i = 0; i <= a.length; i++) d[i] = [i];
+  for (j = 0; j <= b.length; j++) d[0][j] = j;
+  for (i = 1; i <= a.length; i++) for (j = 1; j <= b.length; j++){
+    c = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1;
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + c);
+    if (i > 1 && j > 1 && a.charAt(i - 1) === b.charAt(j - 2) && a.charAt(i - 2) === b.charAt(j - 1)) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+  }
+  return d[a.length][b.length];
+}
+/* degré de deux noms : 'meme' (même forme ; deux formes vides : même nomCle), 'proche' (mêmes repères, une faute au plus de 5 à 9 lettres,
+   deux dès 10, comptées sur la forme la plus courte ; jamais sous 5 lettres), sinon '' */
+function degreFormes(a, b, x, y){
+  if (a.forme === b.forme) return a.forme || nomCle(x) === nomCle(y) ? 'meme' : '';
+  if (a.reperes !== b.reperes) return '';
+  var n = Math.min(a.forme.length, b.forme.length), lim = n < 5 ? 0 : n < 10 ? 1 : 2;
+  return lim && distDest(a.forme, b.forme) <= lim ? 'proche' : '';
+}
+function degreDest(x, y){ return degreFormes(canonDest(x), canonDest(y), x, y); }
+/* objets de la palette qu'un nom de destination ne doit pas doubler (comparés par leur libellé) ; refus de « Fosse » (S7 a) */
+var DEST_OBJETS = ['puisard', 'infiltration', 'gargouille', 'milieu', 'fosse', 'exutoire'];
+var REFUS_FOSSE = 'Pour une fosse septique, posez l\'objet Fosse septique ; pour un fossé, écrivez « Fossé ».';
+function refusObjet(lib){ return '« ' + lib + ' » est un objet de la palette : posez l\'objet ' + lib + '.'; }
+/* nom d'une destination comparé à ceux qui existent (m144 ; D10, F9, S6 b, S7 a) : s, la destination saisie (ses champs, ou son seul nom) ;
+   l.ou, où on la saisit : 'palette' (« + Nouvelle destination »), 'fiche' (destination posée renommée) ou 'reglages' (modèle renommé) ;
+   l.modeles, les modèles de la tablette (dans les Réglages : sauf celui qu'on renomme) ; l.plan, les champs des destinations posées sur le
+   plan ouvert, sauf celle qu'on renomme (ni dans les Réglages, ni au chargement, à la restauration, à l'import ou d'une tablette à l'autre :
+   rien n'y est comparé) ; l.nom0 (fiche), le nom d'avant de la destination qu'on renomme. Dans l'ordre :
+   - « Fosse » sans accent (forme « fose ») : refusé (REFUS_FOSSE) ; « Fossé » est un autre nom ;
+   - même nom qu'un objet de la palette : refusé (refusObjet) ;
+   - palette : même nom qu'un modèle : refusé (« choisissez-la dans la palette ») ; même nom qu'une destination posée : accepté, avec son
+     abréviation et son article (reprise), s'il est écrit de même, de même abréviation (ou l'abréviation laissée vide : s.ab vide ;
+     relecture M5) et de mêmes jugements, sinon refusé (« déjà posée sur ce plan ») ;
+   - Réglages : même nom qu'un autre modèle : refusé (« existe déjà dans la liste ») ;
+   - fiche : écrit comme une destination posée de mêmes jugements, ou, si aucune destination posée n'est écrite de même, comme un modèle
+     de mêmes jugements : accepté, avec son abréviation et son article (reprise) ; un nom qui ne change que par les accents, les majuscules
+     ou les espaces garde sa clé de rejet (même nomCle que l.nom0) : accepté, sans autre comparaison (relecture M1 : une orthographe se
+     corrige même quand une autre destination ou un modèle garde l'ancienne) ; écrit comme une destination posée d'autres jugements :
+     refusé (« déjà posée sur ce plan » ; relecture M7 : même si un modèle écrit de même a les mêmes jugements), comme un modèle d'autres
+     jugements : refusé (« choisissez-la dans la palette ») ; écrit autrement : refusé (« écrivez « … » pour la même ») ;
+   - nom proche (objets, modèles, puis destinations posées ; le plus proche, à égalité dans cet ordre) : la question (q : texte, libellés
+     des deux réponses, objet : le type de l'objet ou '', ou, cible : l'objet, le modèle ou la destination), que reponseNomProche tranche.
+   Rend null (accepté), {refus}, {reprise: {ab, art}} ou {q} */
+function refusNomDest(s, l){
+  l = l || {};
+  var brut = typeof s === 'string' ? s : s && s.nom;
+  if (typeof brut !== 'string' || !brut.replace(/\s+/g, ' ').trim()) return null;
+  var sd = destDe({p: typeof s === 'string' ? {nom: s} : s}), c = canonDest(sd.nom), ou = l.ou;
+  if (c.forme === 'fose' && !/[\u0300-\u036f]/.test(sd.nom.normalize('NFD'))) return {refus: REFUS_FOSSE};
+  var cands = [];
+  DEST_OBJETS.forEach(function(t){ var ty = Object.prototype.hasOwnProperty.call(T, t) ? T[t] : null; if (ty) cands.push({sorte: 'objet', t: t, nom: ty.lib}); });
+  (Array.isArray(l.modeles) ? l.modeles : []).forEach(function(x){ if (x && typeof x.nom === 'string') cands.push({sorte: 'modele', m: x, nom: destDe({p: x}).nom}); });
+  if (ou !== 'reglages') (Array.isArray(l.plan) ? l.plan : []).forEach(function(x){ if (x && typeof x.nom === 'string') cands.push({sorte: 'plan', m: x, nom: destDe({p: x}).nom}); });
+  cands.forEach(function(x){ x.deg = degreFormes(c, canonDest(x.nom), sd.nom, x.nom); });
+  var memes = function(sorte){ return cands.filter(function(x){ return x.deg === 'meme' && (!sorte || x.sorte === sorte); }); };
+  var pareil = function(x){ var d = destDe({p: x.m}); return d.ep === sd.ep && d.cst === sd.cst; };
+  var obj = memes('objet')[0]; if (obj) return {refus: refusObjet(obj.nom)};
+  if (ou === 'palette'){
+    var mo = memes('modele')[0]; if (mo) return {refus: 'Une destination « ' + mo.nom + ' » existe déjà : choisissez-la dans la palette.'};
+    var abVide = typeof s === 'string' || !(typeof s.ab === 'string' && s.ab.replace(/\s+/g, ' ').trim());
+    var pls = memes('plan'), pl = pls.filter(function(x){ var dp = destDe({p: x.m}); return dp.nom === sd.nom && (abVide || dp.ab === sd.ab) && pareil(x); })[0];
+    if (pl){ var dp = destDe({p: pl.m}); return {reprise: {ab: dp.ab, art: dp.art}}; }
+    if (pls.length) return {refus: 'Une destination « ' + pls[0].nom + ' » est déjà posée sur ce plan : reprenez ce nom et ses jugements, ou choisissez un nom bien différent.'};
+  } else if (ou === 'reglages'){
+    var mr = memes('modele')[0]; if (mr) return {refus: 'Une destination « ' + mr.nom + ' » existe déjà dans la liste.'};
+  } else if (ou === 'fiche'){
+    var exact = function(x){ return x.nom === sd.nom; }, exP = memes('plan').filter(exact), exM = memes('modele').filter(exact);
+    var rep = exP.filter(pareil)[0] || (exP.length ? null : exM.filter(pareil)[0]);
+    if (rep){ var dr = destDe({p: rep.m}); return {reprise: {ab: dr.ab, art: dr.art}}; }
+    if (typeof l.nom0 === 'string' && nomCle(l.nom0) === nomCle(sd.nom)) return null;
+    if (exP.length) return {refus: 'Une destination « ' + exP[0].nom + ' » est déjà posée sur ce plan : reprenez ce nom et ses jugements, ou choisissez un nom bien différent.'};
+    if (exM.length) return {refus: 'Une destination « ' + exM[0].nom + ' » existe déjà : choisissez-la dans la palette.'};
+    var f = memes('modele')[0] || memes('plan')[0];
+    if (f) return {refus: 'Une destination « ' + f.nom + ' » existe déjà : écrivez « ' + f.nom + ' » pour la même, ou un nom bien différent.'};
+  }
+  var pr = null, dmin = Infinity;
+  cands.forEach(function(x){ if (x.deg !== 'proche') return; var dx = distDest(c.forme, canonDest(x.nom).forme); if (dx < dmin){ dmin = dx; pr = x; } });
+  if (!pr) return null;
+  return {q: pr.sorte === 'objet'
+    ? {texte: 'Nom proche de « ' + pr.nom + ' », objet de la palette : est-ce le même ?', oui: 'Le même', non: 'Un autre', objet: pr.t, ou: ou, cible: {t: pr.t, nom: pr.nom}}
+    : {texte: 'Nom proche de « ' + pr.nom + ' », qui existe déjà : est-ce la même destination ?', oui: 'La même', non: 'Une autre', objet: '', ou: ou,
+      cible: pr.sorte === 'modele' ? Object.assign({}, destDe({p: pr.m}), {id: pr.m.id}) : destDe({p: pr.m})}};
+}
+/* réponse à la question d'un nom proche (m144, S6 b) : r, le résultat qui la porte (destSaisie, ou refusNomDest dans la fiche) ; oui, « La
+   même » (« Le même »). Rend {m, pose, refus} :
+   - palette : « La même » : pose, l'outil du modèle (avec son identifiant) ou de la destination posée (ses champs, sans modèle) ; « Le
+     même » d'un objet : son outil ({k, t} ; la palette s'y ajoute) ; « Une autre » : m, les champs tapés, à enregistrer ;
+   - fiche : « La même » : m, les cinq champs de l'autre destination, à reprendre ; « Le même » d'un objet : refus, l'ancien nom reste ;
+     « Une autre » : rien (le nom tapé s'écrit) ;
+   - Réglages : « La même », « Le même » : refus, le toast (« existe déjà dans la liste », ou celui de l'objet) ; le modèle garde son
+     ancien nom, que l'application remet dans la fenêtre restée ouverte, les autres champs tels quels (relecture M3, M9) ; « Une autre » :
+     m, les champs tapés */
+function reponseNomProche(r, oui){
+  var q = r && r.q, rien = {m: null, pose: null, refus: ''};
+  if (!q) return rien;
+  if (q.ou === 'palette'){
+    if (!oui) return {m: r.m || null, pose: null, refus: ''};
+    if (q.objet) return {m: null, pose: {k: 'pt', t: q.objet}, refus: ''};
+    var pose = {k: 'pt', t: 'exutoire', modele: destDe({p: q.cible})}; if (q.cible && q.cible.id) pose.mid = q.cible.id;
+    return {m: null, pose: pose, refus: ''};
+  }
+  if (q.ou === 'fiche'){
+    if (!oui) return rien;
+    if (q.objet) return {m: null, pose: null, refus: refusObjet(q.cible.nom)};
+    var c = destDe({p: q.cible});
+    return {m: {nom: c.nom, ab: c.ab, art: c.art, ep: c.ep, cst: c.cst}, pose: null, refus: ''};
+  }
+  if (!oui) return {m: r.m || null, pose: null, refus: ''};
+  return {m: null, pose: null, refus: q.objet ? refusObjet(q.cible.nom) : 'Une destination « ' + q.cible.nom + ' » existe déjà dans la liste.'};
 }
 /* destinations ajoutées (m128 ; D3, D10) : modèles de la tablette, lus dans la liste l (Réglages de l'application, croquisConfig.exutoires ;
    labo, 'vcl-exutoires'). Gardés : ceux dont l'identifiant est sûr (lettres, chiffres, - et _ : ni « : » ni guillemet ; tiré par
@@ -917,10 +1104,12 @@ function ligneExu(res, an){
 }
 /* libellé du rejet : celui du réseau, sinon celui de la ligne du rejet (an : l'analyse, pour une destination ajoutée), sinon le rejet tel quel */
 function libExu(res, an){ if (Object.prototype.hasOwnProperty.call(EXU_LIB, res)) return EXU_LIB[res]; var x = ligneExu(res, an); return x ? x.lib : res; }
-/* rejets d'une source établie : le sien, puis chaque exutoire que son drain d'infiltration atteint au-delà de lui (m129, Q7 a : r.apres) */
+/* rejets d'une source établie : le sien, puis chaque exutoire que son drain d'infiltration atteint au-delà de lui (m129, Q7 a : r.apres),
+   ou que le trop-plein de son puisard ou de son infiltration au sol atteint (m145, D11 : r.apres, r.apresPar 'tp') */
 function rejetsDe(r){ return [{res: r.res, gest: r.gest, presume: r.presume}].concat((r.apres || []).map(function(x){ return {res: x.res, gest: x.gest, presume: false}; })); }
-/* à la suite du rejet (fiche, page 2 du plan PDF) : « et, au-delà du drain, réseau EP départemental » (m129) */
-function auDelaTxt(r, an){ return r.apres && r.apres.length ? ' et, au-delà du drain, ' + listeEt(r.apres.map(function(x){ return libExu(x.res, an) + (/^(EU|EP|UN)$/.test(x.res) && x.gest ? ' ' + GEST_LIB[x.gest] : ''); })) : ''; }
+/* à la suite du rejet (fiche, page 2 du plan PDF) : « et, au-delà du drain, réseau EP départemental » (m129) ; « et, par le trop-plein,
+   réseau EU départemental » (m145) */
+function auDelaTxt(r, an){ return r.apres && r.apres.length ? (r.apresPar === 'tp' ? ' et, par le trop-plein, ' : ' et, au-delà du drain, ') + listeEt(r.apres.map(function(x){ return libExu(x.res, an) + (/^(EU|EP|UN)$/.test(x.res) && x.gest ? ' ' + GEST_LIB[x.gest] : ''); })) : ''; }
 /* libellés des rejets d'une source reliée à plusieurs (contrôle « relié à plusieurs réseaux ») : deux destinations de même nom se
    distinguent par leur jugement des EP, à défaut par leur case du constat (décision D5) */
 function libsRejets(nets, an){
@@ -936,6 +1125,10 @@ VC.EXU = EXU; VC.libExu = libExu; VC.destDe = destDe; VC.estDest = estDest;
 /* destinations ajoutées (m128) : pour les Réglages de l'application */
 VC.DEST_EP = DEST_EP; VC.DEST_CST = DEST_CST; VC.DEST_ARTS = DEST_ARTS; VC.DEST_EPS = DEST_EPS; VC.DEST_CSTS = DEST_CSTS;
 VC.champDest = champDest; VC.destSaisie = destSaisie; VC.modelesDe = modelesDe; VC.artDevant = artDevant;
+/* m151 : nom de destination qui nomme un puits, et son rappel */
+VC.nomPuits = nomPuits; VC.rappelPuits = rappelPuits;
+/* noms de destination comparés (m144) : pour les Réglages de l'application et les tests */
+VC.canonDest = canonDest; VC.distDest = distDest; VC.degreDest = degreDest; VC.refusNomDest = refusNomDest; VC.reponseNomProche = reponseNomProche;
 /* Codes de l'application (constat) ; caméra et déclaré s'y ajoutent */
 var METH = [['visuel', 'Visuel', 'V'], ['eau', 'Eau', 'E'], ['fluo', 'Colorant', 'Fl'], ['fumee', 'Fumée', 'Fu'], ['reso', 'Résonance', 'R'], ['camera', 'Caméra', 'Ca'], ['declare', 'Déclaré', 'D']];
 /* puces du Niveau de la fiche (m130 ; D7) : p.niv garde ses trois codes ('ss', 'rdc', 'etage'), l'étage précis se lit en valeur composée
@@ -960,13 +1153,13 @@ def('cuisine', {fam: 'eu', lib: 'Cuisine', ab: 'Cu', g: 'f', nat: 'EU', role: 's
 def('lavelinge', {fam: 'eu', lib: 'Lave-linge', ab: 'LL', nat: 'EU', role: 'source', forme: 'app', row: 'lavelinge'});
 def('lavevaisselle', {fam: 'eu', lib: 'Lave-vaisselle', ab: 'LV', nat: 'EU', role: 'source', forme: 'app', row: 'cuisine'});
 def('chaudiere', {fam: 'eu', lib: 'Chaudière', ab: 'Ch', g: 'f', nat: 'EU', role: 'source', forme: 'app', autre: 'Chaudière (purge, condensat)'});
-def('siphon_garage', {fam: 'eu', lib: 'Siphon de garage', nat: 'EU', role: 'source', forme: 'siphon', row: 'siphon'});
+def('siphon_garage', {fam: 'eu', lib: 'Siphon de garage', nat: 'EU', role: 'source', forme: 'siphon', row: 'siphon', pivot: true});
 def('attente', {fam: 'eu', lib: 'Attente', ab: 'At', g: 'f', nat: 'EU', role: 'source', forme: 'app', autre: 'Attente'});
 def('descente', {fam: 'ep', lib: 'Descente EP', g: 'f', nat: 'EP', role: 'source', forme: 'descente', row: 'gout', mur: true});
-def('grille', {fam: 'ep', lib: 'Grille', g: 'f', nat: 'EP', role: 'source', forme: 'grille', row: 'grilles'});
+def('grille', {fam: 'ep', lib: 'Grille', g: 'f', nat: 'EP', role: 'source', forme: 'grille', row: 'grilles', pivot: true});
 def('caniveau', {fam: 'ep', lib: 'Caniveau-grille', nat: 'EP', role: 'source', forme: 'caniveau', row: 'grilles', oriente: true});
-def('siphon_sol', {fam: 'ep', lib: 'Siphon de sol', nat: 'EP', role: 'source', forme: 'siphon', row: 'siphon_sol'});
-def('siphon_cour', {fam: 'ep', lib: 'Siphon de cour', nat: 'EP', role: 'source', forme: 'siphon', autre: 'Siphon de cour'});
+def('siphon_sol', {fam: 'ep', lib: 'Siphon de sol', nat: 'EP', role: 'source', forme: 'siphon', row: 'siphon_sol', pivot: true});
+def('siphon_cour', {fam: 'ep', lib: 'Siphon de cour', nat: 'EP', role: 'source', forme: 'siphon', autre: 'Siphon de cour', pivot: true});
 def('drain', {fam: 'ep', lib: 'Drain', ab: 'Dr', nat: 'EP', role: 'source', forme: 'app', autre: 'Drain'});
 def('tropplein', {fam: 'ep', lib: 'Trop-plein', ab: 'TP', nat: 'EP', role: 'source', forme: 'app', autre: 'Trop-plein', mur: true});
 /* autres appareils (m132, souhait 7 ; décisions D1 à D5) : appareil EU ou ouvrage EP que le catalogue n'a pas (bidet, urinoir, avaloir de
@@ -976,24 +1169,24 @@ def('tropplein', {fam: 'ep', lib: 'Trop-plein', ab: 'TP', nat: 'EP', role: 'sour
    le nom (autreHtml) */
 def('autre_eu', {fam: 'eu', lib: 'Autre appareil', ab: '?', nat: 'EU', role: 'source', forme: 'app', nomLibre: true});
 def('autre_ep', {fam: 'ep', lib: 'Autre ouvrage EP', ab: '?', nat: 'EP', role: 'source', forme: 'app', nomLibre: true});
-def('regard', {fam: 'reg', lib: 'Regard', nat: null, role: 'passage', forme: 'regard', regard: true});
-def('boite', {fam: 'reg', lib: 'Boîte de branchement', court: 'Boîte', g: 'f', role: 'passage', forme: 'boite', regard: true, boite: true});
-def('te', {fam: 'reg', lib: 'Té de visite', role: 'passage', forme: 'te', mur: true});
+def('regard', {fam: 'reg', lib: 'Regard', nat: null, role: 'passage', forme: 'regard', regard: true, pivot: true});
+def('boite', {fam: 'reg', lib: 'Boîte de branchement', court: 'Boîte', g: 'f', role: 'passage', forme: 'boite', regard: true, boite: true, pivot: true});
+def('te', {fam: 'reg', lib: 'Té de visite', role: 'passage', forme: 'te', mur: true, pivot: true});
 def('pr', {fam: 'equ', lib: 'Poste de relevage', ab: 'PR', role: 'passage', forme: 'app2'});
 def('clapet', {fam: 'equ', lib: 'Clapet anti-retour', role: 'passage', forme: 'clapet', oriente: true});
-def('fosse', {fam: 'equ', lib: 'Fosse septique', ab: 'FS', g: 'f', role: 'passage', forme: 'fosse', fosse: true});
+def('fosse', {fam: 'equ', lib: 'Fosse septique', ab: 'FS', g: 'f', role: 'passage', forme: 'fosse', fosse: true, pivot: true});
 def('jonction', {fam: 'equ', lib: 'Raccord', role: 'passage', forme: 'point', sansEtiquette: true});
 def('puisard', {fam: 'exu', lib: 'Puisard', role: 'exutoire', forme: 'puisard', exu: 'INF'});
 def('infiltration', {fam: 'exu', lib: 'Infiltration au sol', g: 'f', role: 'exutoire', forme: 'infiltration', exu: 'SOL', droit: true});
 def('gargouille', {fam: 'exu', lib: 'Gargouille', g: 'f', role: 'exutoire', forme: 'gargouille', exu: 'GARG', oriente: true, mur: true});
 def('milieu', {fam: 'exu', lib: 'Rejet en milieu naturel', ab: 'MN', role: 'exutoire', forme: 'app', exu: 'MILIEU'});
 /* puits (m120) : rejet non conforme, en EU comme en EP ; rappel : la phrase de l'aide de l'outil et de la fiche (décision D3) */
-def('puits', {fam: 'exu', lib: 'Puits', role: 'exutoire', forme: 'puits', exu: 'PUITS', rappel: 'Un puits perdu (qui infiltre les eaux) se dessine en Puisard.'});
+def('puits', {fam: 'exu', lib: 'Puits', role: 'exutoire', forme: 'puits', exu: 'PUITS', rappel: 'Un puits perdu (qui infiltre les eaux) se dessine en Puisard.', pivot: true});
 /* autre destination (m125, décision D3) : étang, fossé… ; nom, ab, art, ep et cst dans p (destDe), réglés dans sa fiche (m127) ; dans la
    palette Équipements et le sélecteur « Type », après le puits (m127, D10) */
-def('exutoire', {fam: 'exu', lib: 'Autre destination', g: 'f', role: 'exutoire', forme: 'exutoire', exu: 'X'});
+def('exutoire', {fam: 'exu', lib: 'Autre destination', g: 'f', role: 'exutoire', forme: 'exutoire', exu: 'X', pivot: true});
 def('regard_pub', {fam: 'pub', lib: 'Regard public', role: 'passage', forme: 'regpub', regard: true});
-def('test', {fam: 'ann', lib: 'Point de test', role: 'note', forme: 'test'});
+def('test', {fam: 'ann', lib: 'Point de test', role: 'note', forme: 'test', pivot: true});
 def('zone', {fam: 'ann', lib: 'Zone suspecte', g: 'f', role: 'note', forme: 'zone'});
 /* familles des palettes et du sélecteur Type de la fiche ; m133 : « Autre appareil » et « Autre ouvrage EP » en dernier de la leur */
 var FAMILLES = [
@@ -1005,6 +1198,12 @@ var FAMILLES = [
   {id: 'ann', lib: 'Annotations', court: 'Notes', types: ['test', 'zone']}
 ];
 VC.RES = RES; VC.METH = METH; VC.TYPES = T; VC.FAMILLES = FAMILLES;
+/* m154 (D22, S10 b) : types qu'on tourne, au disque de rotation du plan ou par les puces de 15° de la fiche. Les trois types orientés
+   (oriente : caniveau, clapet, gargouille) et les symboles qui ne sont pas ronds (pivot : regard, boîte, grille, fosse, té, siphons, puits,
+   destination, point de test). Un type « pivot » n'a pas d'angle à la pose : p.a n'existe que si on l'a tourné, et sans lui le symbole
+   suit le plan. Ne tournent pas : les symboles ronds, l'infiltration au sol (type droit), la zone, les textes. */
+function pivotant(t){ var ty = T[t] || {}; return !!(ty.oriente || ty.pivot); }
+VC.pivotant = pivotant;
 function defautsPt(t, m){
   var ty = T[t] || {}, p = {st: 'existant', obs: ''};
   if (ty.role === 'source'){ p.meth = []; p.niv = ''; }
@@ -1034,40 +1233,65 @@ function defautsLn(t, o){
 VC.defautsPt = defautsPt; VC.defautsLn = defautsLn;
 VC.geo.escalier = escalier;
 /* Valeurs d'un escalier neuf (outil « Escalier », m107 ; décision D7) : départ D et fin F posés à l'outil, lignes de référence du plan
-   (VC.geo.lignesRef : seules comptent les lignes de bâti fermées), aides des deux points (« coin », « facade », autre ou rien). Un point
+   (VC.geo.lignesRef : seules sont retenues les lignes fermées et d'aire non nulle de bâti ou, depuis m139, de « Complément du fond » ;
+   un complément ouvert, une limite de parcelle ne comptent pas), aides des deux points (« coin », « facade », autre ou rien). Un point
    calé au milieu d'un côté ou au pied d'une perpendiculaire (m112) sur une façade ou un trait de complément est posé sur le bâti :
    l'éditeur passe alors « facade » ; de même pour une intersection (m113) qui tombe sur l'un d'eux ; sur une limite de parcelle, sur le
    prolongement d'un côté ou à la rencontre de deux prolongements, il ne l'est pas. Largeur 1,00 m ; marches de 0,28 m environ : arrondi de L / 0,28, de 1 à 60 ; côté : celui dont le contour n'entre pas dans le bâti (centre
-   du contour dans une ligne de bâti), « g » si les deux côtés y entrent ou si aucun n'y entre ; montée vers le départ s'il est le seul bout
-   posé sur un coin ou une façade, sinon vers la fin. Rend p, en textes comme la fiche ; null si D et F sont invalides ou confondus.
+   du contour dans une ligne retenue), « g » si les deux côtés y entrent ou si aucun n'y entre. Depuis m139, pour le côté : un complément
+   qui contient les deux centres entoure l'escalier (une limite redessinée, une terrasse autour de la maison) et ne compte pas, comme dans
+   rejetAuSol (m118) ; le bâti du fond tranche d'abord : si un seul des deux centres est dans une ligne de bâti, l'autre côté est proposé,
+   même s'il entre dans un complément. Montée vers le départ s'il est le seul bout posé sur le bâti, sinon vers la fin. Un bout est posé
+   sur le bâti s'il a l'aide « coin » ou « facade », ou (m139) s'il est à ESC_POSE (1 cm) au plus du bord d'une ligne retenue, dedans ou
+   dehors, même sans accrochage : une fin redressée le long d'une façade compte ; un complément qui entoure l'escalier compte ici, comme un
+   bout accroché à ce trait. Rend p, en textes comme la fiche ; null si D et F sont invalides ou confondus.
    Départ posé par cotes (m108) : cotes = {O, w, facade}, facultatif. O est le coin d'origine (gardé pour mémoire, le calcul ne s'en sert
    pas) ; w, la direction de la convention 11.1 (le long : de O vers l'autre coin ; prolongement : de O vers le dehors du côté) ; facade :
    départ posé le long d'une façade ou d'un trait de complément (m115), entre ses deux coins, sans décalage. Côté : celui dont la largeur
    part à l'opposé du coin (nc·w > 0, nc : ccw(t) pour « g », cw(t) pour « d ») ; règle ci-dessus si l'escalier est presque parallèle à w
-   (|nc·w| < 0,1) ou si ce côté entre dans le bâti. Montée : facade tient lieu d'aide du départ (« facade » ou rien), puis même règle. Sans
-   cotes, ou si w est absent, nul ou non fini : comme avant.
+   (|nc·w| < 0,1) ou si ce côté entre dans une ligne retenue (un complément qui entoure l'escalier mis à part). Montée : facade tient
+   lieu d'aide du départ (« facade » ou rien), sans la règle du centimètre pour le départ (la fin la garde), puis même règle. Sans cotes,
+   ou si w est absent, nul ou non fini : comme avant.
    Fonction pure : une ligne invalide est sautée, sans exception. */
+var ESC_POSE = 0.01; /* m : un bout d'escalier à cette distance ou moins du bord d'une ligne retenue y est posé (m139) */
 function escalierDefauts(D, F, lignes, aideDepart, aideFin, cotes){
-  var t = unite(D, F), L, n, bati, dedans = {}, cote, w, k;
+  var t = unite(D, F), L, n, bati, M = {}, dedans = {}, fond = {}, cote, w, k, dep;
   if (!t) return null;
   L = Math.hypot(F.x - D.x, F.y - D.y); if (!(L > GEO_EPS)) return null;
   n = Math.min(60, Math.max(1, Math.round(L / 0.28)));
-  bati = (Array.isArray(lignes) ? lignes : []).filter(function(l){ return !!l && l.nat === 'bati' && l.ferme === true && l.aire !== 0 && !!l.P && typeof l.P.length === 'number'; });
+  /* lignes retenues : bâti ou complément du fond (m139), fermés et d'aire non nulle */
+  bati = (Array.isArray(lignes) ? lignes : []).filter(function(l){
+    return !!l && (l.nat === 'bati' || l.nat === 'complement') && l.ferme === true && l.aire !== 0 && !!l.P && typeof l.P.length === 'number';
+  });
+  /* centre du contour de chaque côté */
   ['g', 'd'].forEach(function(c){
     var G = escalier(D, F, 1, n, c, 'fin'), Q = G ? G.contour : null;
-    var m = Q ? {x: (Q[0].x + Q[1].x + Q[2].x + Q[3].x) / 4, y: (Q[0].y + Q[1].y + Q[2].y + Q[3].y) / 4} : null;
-    dedans[c] = !!m && bati.some(function(l){ return dansPolygone(m, l.P) === true; });
+    M[c] = Q ? {x: (Q[0].x + Q[1].x + Q[2].x + Q[3].x) / 4, y: (Q[0].y + Q[1].y + Q[2].y + Q[3].y) / 4} : null;
+  });
+  function dans(l, c){ return !!M[c] && dansPolygone(M[c], l.P) === true; }
+  /* dedans : centre dans une ligne retenue, sauf un complément qui contient aussi l'autre centre (il entoure l'escalier : une limite
+     redessinée, par exemple ; comme dans rejetAuSol, m118). fond : centre dans le bâti du fond */
+  ['g', 'd'].forEach(function(c){
+    dedans[c] = bati.some(function(l){ return dans(l, c) && !(l.nat === 'complement' && dans(l, c === 'g' ? 'd' : 'g')); });
+    fond[c] = bati.some(function(l){ return l.nat === 'bati' && dans(l, c); });
   });
   function surBati(a){ return a === 'coin' || a === 'facade'; }
-  cote = dedans.g && !dedans.d ? 'd' : 'g';
+  /* bout posé sans accrochage (m139) : à ESC_POSE au plus du bord d'une ligne retenue, dedans ou dehors, un complément qui entoure
+     l'escalier compris (comme un bout accroché à ce trait). distPolygone rend null si un sommet est invalide : la ligne est sautée */
+  function pres(p){ return bati.some(function(l){ var r = distPolygone(p, l.P); return !!r && r.d <= ESC_POSE; }); }
+  /* le bâti du fond tranche d'abord : si un seul centre y est, l'autre côté ; sinon, le côté hors des lignes retenues, « g » à défaut */
+  cote = fond.g !== fond.d ? (fond.g ? 'd' : 'g') : dedans.g && !dedans.d ? 'd' : 'g';
   w = cotes && typeof cotes === 'object' ? unite({x: 0, y: 0}, cotes.w) : null;
   if (w){
-    /* départ posé par cotes (m108) : k = ccw(t)·w ; la largeur part à l'opposé du coin d'origine, si ce côté reste hors du bâti */
+    /* départ posé par cotes (m108) : k = ccw(t)·w ; la largeur part à l'opposé du coin d'origine, si ce côté reste hors du bâti (dedans :
+       un complément qui entoure l'escalier n'y compte pas, m139) */
     k = -t.y * w.x + t.x * w.y;
     if (Math.abs(k) >= 0.1 && !dedans[k > 0 ? 'g' : 'd']) cote = k > 0 ? 'g' : 'd';
     aideDepart = cotes.facade === true ? 'facade' : null;
   }
-  return {larg: '1,00', n: String(n), cote: cote, monte: surBati(aideDepart) && !surBati(aideFin) ? 'depart' : 'fin', st: 'existant'};
+  /* la distance n'est calculée que si l'aide ne suffit pas ; départ posé par cotes : facade seule (m108) */
+  dep = surBati(aideDepart) || (!w && pres(D));
+  return {larg: '1,00', n: String(n), cote: cote, monte: dep && !(surBati(aideFin) || pres(F)) ? 'depart' : 'fin', st: 'existant'};
 }
 VC.geo.escalierDefauts = escalierDefauts;
 /* Tracés : canalisation (tronçon, collecteur), complément du fond (trait, escalier) ; un tracé d'un autre type (croquis d'une version plus
@@ -1145,11 +1369,15 @@ function analyser(doc, mode){
   doc.el.forEach(function(e){ if (!actif(e, mode)) return; if (e.k === 'pt' && T[e.t]) objs[e.id] = e; else if (e.k === 'ln' && (e.t === 'tr' || e.t === 'col')) lignes[e.id] = e; });
   /* autres destinations (m125, décision D5) : clé du rejet de chaque objet (terminal) ; an.exu : clé → champs (destDe) du premier objet de
      cette clé dans l'ordre des identifiants, pas du dessin. La table n'existe que si le plan porte une destination : un ancien croquis ne
-     reçoit aucune clé nouvelle */
+     reçoit aucune clé nouvelle. m151 (D19) : une destination nommée comme un puits (nomPuits 'puits' ; fichier fait à la main, la fiche
+     refuse ce nom) se juge comme l'objet Puits : clé PUITS, sans entrée dans an.exu ; ni son jugement ni sa case n'y entrent, l'objet ne
+     change pas. Un puits perdu garde le jugement de sa fiche */
   var cleX = {}, exuX = null;
   Object.keys(objs).sort().forEach(function(id){
     var o = objs[id], x = exuDe(T[o.t].exu); if (!T[o.t].exu || !x || !x.dest) return;
-    var d = destDe(o), k = cleDest(codeExu(T[o.t].exu), d); cleX[id] = k;
+    var d = destDe(o), k;
+    if (nomPuits(d.nom) === 'puits'){ cleX[id] = 'PUITS'; return; }
+    k = cleDest(codeExu(T[o.t].exu), d); cleX[id] = k;
     if (!exuX) exuX = {}; if (!Object.prototype.hasOwnProperty.call(exuX, k)) exuX[k] = d;
   });
   function lier(n, p){ (adj[n] = adj[n] || []).push(p); }
@@ -1208,31 +1436,64 @@ function analyser(doc, mode){
   }
   /* Parcours en largeur : les départs terminaux sont atteints sans être traversés, sauf o.traverserDepart ; o.terminal remplace la règle des exutoires ;
      o.sauf : nœuds à ne pas atteindre ; o.sansLiens : sans les liens entre les sommets d'un drain d'infiltration (m129).
-     Les parents gardés permettent de suivre le chemin de l'eau jusqu'à chaque exutoire atteint, sans les branches voisines. */
+     o.traverserInf (m145, D11) : un puisard (INF) ou une infiltration au sol (SOL) atteint est compté, puis la marche continue par ses autres
+     tuyaux (son trop-plein), dans leur sens ; les autres exutoires restent des arrêts. Garde-fou : depuis un tel ouvrage traversé, un
+     tuyau sans sens n'est pas pris s'il est d'un drain de collecte compté, ou si l'eau d'un appareil peut arriver par lui (arriveeVers) ;
+     un tuyau orienté qui en part l'est toujours, et un lien du drain d'infiltration qui tient l'ouvrage aussi (m129 : son sens n'est pas lu).
+     Les parents gardés permettent de suivre le chemin de l'eau jusqu'à chaque exutoire atteint, sans les branches voisines. m156 (AC1) :
+     avec o.traverserInf, preds garde aussi, pour chaque nœud atteint, tous les nœuds d'où la marche l'atteint par un plus court chemin
+     (graphe des plus courts chemins de ce parcours, tel qu'il a marché : sens, garde-fou, liens du drain, exutoires non traversés) ;
+     sans elle, preds est null */
   function parcours(departs, o){
     o = o || {}; var estTerm = o.terminal || terminal;
-    var vus = {}, parent = {}, dist = {}, file = [], term = [], tvus = {}, pcs = {};
+    var vus = {}, parent = {}, dist = {}, file = [], term = [], tvus = {}, pcs = {}, trav = {}, preds = o.traverserInf ? {} : null;
     departs.forEach(function(d){
       if (vus[d]) return; vus[d] = true; parent[d] = null; dist[d] = 0;
       var t = !o.traverserDepart && estTerm(d);
       if (t){ tvus[d] = true; term.push(Object.assign({noeud: d, dist: 0}, t)); } else file.push(d);
     });
     while (file.length){
-      var n = file.shift();
+      var n = file.shift(), tp = trav[n];
       (adj[n] || []).forEach(function(p){
         if (o.sansLiens && p.lien) return;
         var autre = p.a === n ? p.b : p.a;
         if (p.sens === 1 && p.b === n && p.a !== n) return;
         if (p.sens === -1 && p.a === n && p.b !== n) return;
+        if (tp && !p.sens && !p.lien && (srcs.indexOf(p.l.id) >= 0 || arriveeVers(autre, n))) return;
         pcs[p.id] = p;
+        if (preds && !(o.sauf && o.sauf[autre]) && (!vus[autre] || dist[autre] === dist[n] + 1)){ var pq = preds[autre] || (preds[autre] = []); if (pq.indexOf(n) < 0) pq.push(n); }
         if (vus[autre] || (o.sauf && o.sauf[autre])) return;
         vus[autre] = true; parent[autre] = {n: n, p: p}; dist[autre] = dist[n] + 1;
         var t = estTerm(autre);
-        if (t){ if (!tvus[autre]){ tvus[autre] = true; term.push(Object.assign({noeud: autre, dist: dist[autre]}, t)); } return; }
+        if (t){ if (!tvus[autre]){ tvus[autre] = true; term.push(Object.assign({noeud: autre, dist: dist[autre]}, t)); }
+          if (!o.traverserInf || !/^(INF|SOL)$/.test(t.res)) return; trav[autre] = true; }
         file.push(autre);
       });
     }
-    return {term: term, pieces: pcs, parent: parent, vus: vus, dist: dist};
+    return {term: term, pieces: pcs, parent: parent, vus: vus, dist: dist, preds: preds};
+  }
+  /* m145 (D11) : l'eau d'un appareil peut-elle arriver au nœud k (puisard ou infiltration au sol traversé) par son voisin u ? Marche à
+     rebours depuis u par les pièces où l'eau peut venir vers chaque nœud (sans sens, ou orientées vers lui), sans repasser par k, sans
+     traverser d'exutoire autre qu'un puisard ou une infiltration au sol (l'eau d'un appareil passe par eux, comme le trop-plein) et sans
+     les liens d'un drain d'infiltration : oui si elle trouve une source (objet de rôle « source », point « Drain » compris) ou une pièce
+     d'un drain de collecte compté */
+  function arriveeVers(u, k){
+    if (u === k) return false;
+    var vus = {}, file = [u]; vus[u] = vus[k] = true;
+    while (file.length){
+      var n = file.shift(), o = objs[n];
+      if (o && T[o.t].role === 'source') return true;
+      var tn = terminal(n); if (tn && !/^(INF|SOL)$/.test(tn.res)) continue;
+      if ((adj[n] || []).some(function(p){
+        if (p.lien) return false;
+        if (p.sens === 1 && p.a === n && p.b !== n) return false;
+        if (p.sens === -1 && p.b === n && p.a !== n) return false;
+        if (srcs.indexOf(p.l.id) >= 0) return true;
+        var v = p.a === n ? p.b : p.a; if (!vus[v]){ vus[v] = true; file.push(v); }
+        return false;
+      })) return true;
+    }
+    return false;
   }
   /* Graphe des plus courts chemins d'un parcours r depuis s : prédécesseurs de chaque nœud atteint (un exutoire n'est pas traversé, un
      tronçon orienté ne se remonte pas). Contrairement au chemin gardé par le parcours (le premier trouvé), il ne dépend pas de l'ordre du
@@ -1445,7 +1706,7 @@ function analyser(doc, mode){
      équipement disperse (dispE), et porte l'étiquette « Dispersion dans le sol » (an.drainsDisp ; un point « Drain » la donne au drain qui
      le tient). Un drain qu'aucun équipement n'atteint, ou dont la sortie est dessinée, ne change pas. Les équipements sont donc analysés
      avant les points « Drain », puis les drains de collecte comptés ; les résultats restent rangés dans l'ordre des sources */
-  var dispE = {}, dispA = {}, drainsDisp = {};
+  var dispE = {}, dispA = {}, drainsDisp = {}, eauxDrains = {};
   /* drain source : un drain de collecte compté, ou un point « Drain », même posé hors du drain et relié par un tuyau [p] : il suit le
      drain (dispersion dans le sol seulement là où un équipement disperse), sinon il garde le réseau présumé */
   function estDrainSrc(id){ return !objs[id] || objs[id].t === 'drain'; }
@@ -1461,7 +1722,7 @@ function analyser(doc, mode){
       pieces.filter(function(q){ return q.l === ld; }).reduce(function(t, q){ return t.concat(ld.p.sens === 1 ? [q.i1] : ld.p.sens === -1 ? [q.i0] : [q.i0, q.i1]); }, []).forEach(function(i){ var x = noeud(ld, i); if (virt.some(function(q){ return q.b === x; })) return;
         var p = {id: s + ':' + i, l: ld, a: s, b: x, i0: i, i1: i, sens: 1, virt: true}; virt.push(p); lier(s, p); lier(x, p); }); }
     var r = parcours([s]), pr = predsDe(r, s), nets = [], gests = {}, fosse = null, fosseDouteuse = null, boite = null, entree = {}, presume = false, cfl = null, amb = null, ambArr = false;
-    var apres = [], disp = [], parBoutsDisp = false, drs = null;
+    var apres = [], apresPar = null, disp = [], parBoutsDisp = false, drs = null, chemTp = null;
     /* exutoires du plus proche au plus lointain (à égalité, dans un ordre fixe) ; boîte sur chaque plus court chemin ; regard où le
        branchement arrive sur le collecteur (celui d'un plus court chemin sans boîte, s'il y en a) ; fosse septique (fosseDe) */
     r.term.sort(function(a, b){ return a.dist - b.dist || (a.noeud < b.noeud ? -1 : a.noeud > b.noeud ? 1 : 0); });
@@ -1470,20 +1731,50 @@ function analyser(doc, mode){
       if (!boite) boite = boiteSur(pr, s, t.noeud);
       if (t.col){ var ps = (pr[t.noeud] || []).map(function(q){ return q.n; }).sort(), sb = ps.filter(function(u){ return !boiteSur(pr, s, u); }); entree[t.id] = sb[0] || ps[0] || id; }
     });
+    /* m145 (D11 ; réponse q7-trop-plein du 16 nov. 2026, choix b) : la source atteint un puisard ou une infiltration au sol : un second
+       parcours (rx) les traverse et suit leur trop-plein (garde-fou : parcours). Il ne sert qu'à compter ce que le trop-plein atteint (bloc
+       ci-dessous, eauxDrains) ; la boîte, l'entrée, la fosse, le sens de l'eau, les pièces, le réseau présumé et les sorties libres restent
+       ceux du parcours ordinaire (r). Laissé quand il n'atteint aucun exutoire de plus. m156 (AC1) : le constat des boîtes (boitesConstat,
+       en zone unitaire) suit aussi le trop-plein quand ce qu'il atteint compte (bloc ci-dessous : cheminTp) ; resObj.boite, non */
+    var rx = r.term.some(function(t){ return /^(INF|SOL)$/.test(t.res); }) ? parcours([s], {traverserInf: true}) : null;
+    if (rx && rx.term.length > r.term.length) rx.term.sort(function(a, b){ return a.dist - b.dist || (a.noeud < b.noeud ? -1 : a.noeud > b.noeud ? 1 : 0); }); else rx = null;
+    /* m142 (décision D8 ; réponse drain-infiltration-dessin du 16 nov. 2026) : eaux reçues par chaque drain d'infiltration que la source
+       atteint (an.eauxDrains) : une de plus à sa nature, EU ou EP ; un drain de collecte compté apporte des EP. Elles donnent sa couleur au
+       drain (resLigne). Le sens du drain et son réseau saisi ne sont pas lus. Aussi un drain que le trop-plein atteint (rx, m145) */
+    (rx || r).term.forEach(function(t){
+      if (t.via !== 'drain') return;
+      var q = Object.prototype.hasOwnProperty.call(eauxDrains, t.id) ? eauxDrains[t.id] : (eauxDrains[t.id] = {EU: 0, EP: 0});
+      q[!ld && T[objs[id].t].nat === 'EU' ? 'EU' : 'EP']++;
+    });
     if (r.term.length){ fosse = fosseDe(s, r, pr, r.term.map(function(t){ return t.noeud; })); if (!ld) noterSens(pr, r.term.map(function(t){ return t.noeud; })); }
     /* m129 (Q7 a) : drain d'infiltration qui atteint aussi un autre exutoire (ouvrage qu'il tient, tuyau parti d'un de ses sommets) : les
        exutoires que la source atteint sans ses liens sont avant lui ; s'il est le seul, elle disperse dans le sol (le drain compte pour un)
        et chaque exutoire atteint au-delà garde sa règle et sa case du constat (apres) ; si elle en atteint un autre avant lui
        (bifurcation), elle est « multiple » avec ces seuls exutoires, dans l'ordre de tous. La fosse, la boîte et le sens de l'eau restent ceux de tous.
-       Deux autres destinations ou plus au-delà du drain : « multiple », comme avant m129 (décision D5 : deux destinations font « multiple ») ;
-       leurs anomalies auraient la même clé (ep-exu, eu-exu : une par source), et seule la première compterait */
-    if (nets.length > 1 && Object.keys(r.pieces).some(function(k){ return r.pieces[k].lien; })){
-      var r0 = parcours([s], {sansLiens: true}), av = {}, nav = [];
+       m145 (D11) : de même pour le trop-plein d'un puisard ou d'une infiltration au sol (rx) : chaque exutoire qu'il atteint au-delà de
+       l'ouvrage compte avec son jugement (apres, apresPar 'tp' : « par le trop-plein ») ; la source garde l'ouvrage pour rejet. La fosse,
+       la boîte et le sens de l'eau restent ceux du parcours ordinaire, et la bifurcation, celle d'avant l'ouvrage. Un drain d'infiltration
+       qui tient un puisard garde « au-delà du drain » (puisard et ce que son trop-plein atteint). Le gestionnaire d'un réseau que le
+       parcours ordinaire atteint reste le sien (gests, comme en m129) ; celui d'un réseau que seul le trop-plein atteint vient du premier
+       exutoire de ce réseau.
+       Deux autres destinations ou plus au-delà du drain ou de l'ouvrage : « multiple », comme avant m129 (décision D5 : deux destinations
+       font « multiple ») ; leurs anomalies auraient la même clé (ep-exu, eu-exu : une par source), et seule la première compterait.
+       m156 (AC1 de la relecture d'ensemble de la v1.7.2) : quand le résultat de la source est tiré du trop-plein (rx gardé, des exutoires
+       au-delà : apres, avec apresPar 'tp' ou « au-delà du drain », ou « multiple » tiré de rx), son chemin de l'eau le comprend :
+       resObj[id].cheminTp, propriété non énumérable (ni Object.keys, ni JSON, ni copie : le résultat de l'analyse ne change pas), donne
+       les exutoires de rx (fins) et ses plus courts chemins (preds) ; boitesConstat (traversees) les suit, en plus du chemin ordinaire.
+       Une bifurcation avant l'ouvrage (rx laissé de côté) n'en a pas */
+    if ((nets.length > 1 && Object.keys(r.pieces).some(function(k){ return r.pieces[k].lien; })) || rx){
+      var tout = rx || r, r0 = parcours([s], {sansLiens: true}), av = {}, nav = [];
       r0.term.sort(function(a, b){ return a.dist - b.dist || (a.noeud < b.noeud ? -1 : a.noeud > b.noeud ? 1 : 0); });
       r0.term.forEach(function(t){ av[t.noeud] = true; if (nav.indexOf(t.res) < 0) nav.push(t.res); });
-      if (nav.length === 1 && nav[0] === 'DISP'){
-        r.term.forEach(function(t){ if (!av[t.noeud] && t.res !== 'DISP' && !apres.some(function(x){ return x.res === t.res; })) apres.push({res: t.res, gest: gests[t.res]}); });
-        if (apres.filter(function(x){ return codeExu(x.res) === 'X'; }).length > 1) apres = []; else nets = ['DISP'];
+      if (nav.length === 1 && /^(DISP|INF|SOL)$/.test(nav[0])){
+        tout.term.forEach(function(t){ if (!av[t.noeud] && t.res !== nav[0] && !apres.some(function(x){ return x.res === t.res; })) apres.push({res: t.res, gest: Object.prototype.hasOwnProperty.call(gests, t.res) ? gests[t.res] : gestDe(t)}); });
+        if (rx && apres.length) chemTp = rx;
+        if (apres.filter(function(x){ return codeExu(x.res) === 'X'; }).length > 1){
+          apres = []; nets = [];
+          tout.term.forEach(function(t){ if (nets.indexOf(t.res) < 0) nets.push(t.res); if (!Object.prototype.hasOwnProperty.call(gests, t.res)) gests[t.res] = gestDe(t); });
+        } else { nets = [nav[0]]; if (apres.length && nav[0] !== 'DISP') apresPar = 'tp'; }
       } else if (nav.length > 1) nets = nets.filter(function(n){ return nav.indexOf(n) >= 0; });
     }
     /* sans exutoire dessiné : réseau présumé d'après les tronçons indiqués sur le chemin vers une extrémité libre : pour chaque extrémité, le
@@ -1549,14 +1840,17 @@ function analyser(doc, mode){
        libre qui porte un réseau est un bout où l'eau disperse, son exutoire même (au réseau « Déduit », il prend celui du tronçon qui y mène) */
     var sortiesLibres = null;
     if (mode === 'avp' && nets.length && !presume && !parBoutsDisp){
-      var dessines = nets.concat(apres.map(function(x){ return x.res; })).map(function(k){ return resTrace(k); }), la = {};
+      /* rejets que le parcours ordinaire atteint : un exutoire que seul le trop-plein atteint (m145) ne change pas les sorties libres */
+      var dessines = nets.concat(apres.map(function(x){ return x.res; })).filter(function(k){ return r.term.some(function(t){ return t.res === k; }); }).map(function(k){ return resTrace(k); }), la = {};
       libresDe(r, pr, s).forEach(function(ch){ if (ch.res && dessines.indexOf(ch.res) < 0 && !virt.some(function(p){ return p.b === ch.nodes[0]; })) la[ch.res] = true; });
       sortiesLibres = ['EU', 'EP', 'UN'].filter(function(k){ return la[k]; }); if (!sortiesLibres.length) sortiesLibres = null;
     }
     var etat = !Object.keys(r.pieces).length ? 'nonrelie' : !nets.length ? 'sansexu' : nets.length > 1 ? 'multiple' : 'ok';
     resObj[id] = {etat: etat, res: nets.length === 1 ? nets[0] : null, nets: nets, gest: nets.length === 1 ? gests[nets[0]] : null, presume: presume, conflit: cfl, ambigu: amb, ambiguArrivee: ambArr, fosse: fosse, fosseDouteuse: fosseDouteuse, boite: boite, term: r.term, entree: entree, sortiesLibres: sortiesLibres};
     if (apres.length) resObj[id].apres = apres;
+    if (apresPar) resObj[id].apresPar = apresPar;
     if (drs) resObj[id].drains = drs;
+    if (chemTp) Object.defineProperty(resObj[id], 'cheminTp', {value: {fins: chemTp.term.map(function(t){ return t.noeud; }), preds: chemTp.preds}});
     virt.forEach(function(p){ [p.a, p.b].forEach(function(x){ adj[x] = adj[x].filter(function(q){ return q !== p; }); if (!adj[x].length) delete adj[x]; }); });
   });
   resVers = {};
@@ -1610,6 +1904,7 @@ function analyser(doc, mode){
   var an = {mode: mode, objs: objs, lignes: lignes, pieces: pieces, adj: adj, resObj: resObj, resPiece: resPiece, sensPiece: sensPiece, sensSource: sensSource, resPt: resPt, boites: boites, dist: dist};
   if (exuX) an.exu = exuX;
   if (Object.keys(drainsDisp).length) an.drainsDisp = drainsDisp;
+  if (Object.keys(eauxDrains).length) an.eauxDrains = eauxDrains;
   /* après l'avant-projet : l'état des lieux sert de référence (numéros d'anomalie, réseau des tracés à supprimer) */
   if (mode === 'avp') an.ref = analyser(doc, 'edl');
   an.anomalies = reglesAnomalies(doc, an);
@@ -1747,7 +2042,8 @@ function reglesAnomalies(doc, an){
     var o = srcObj(an, id), ty = T[o.t], r = an.resObj[id], lib = libObj(o);
     if (r.etat === 'ok'){
       /* ligne de chaque rejet : table des exutoires, ou champs d'une autre destination (m125) ; aussi chaque exutoire que le drain
-         d'infiltration atteint au-delà de lui (m129, Q7 a) */
+         d'infiltration ou le trop-plein atteint au-delà de lui (m129, Q7 a ; m145). Un WC qui va dans un puisard garde « rejet dans un
+         puisard » ; son trop-plein vers le réseau EU n'en ajoute aucune */
       rejetsDe(r).forEach(function(rj){
       var xl = ligneExu(rj.res, an);
       if (ty.nat === 'EU'){
@@ -1837,6 +2133,8 @@ function controles(doc, an){
     }
     if (ty.regard && o.t !== 'regard_pub' && !o.p.tampon) c(id, 'info', lib + ' : tampon à indiquer', 'tampon');
     if (ty.boite && !/^(EU|EP|UN)$/.test(o.p.res || '') && an.resPt[id] === 'INC') c(id, 'manque', 'Boîte de branchement : réseau à indiquer', 'boiteres');
+    /* destination nommée comme un puits (m151, D19), reliée ou non : comment elle est jugée, et l'objet à poser */
+    var rpu = estDest(o.t) ? rappelPuits(destDe(o).nom) : ''; if (rpu) c(id, 'info', rpu, 'destpuits');
   });
   Object.keys(an.resObj).forEach(function(id){ if (an.objs[id]) return; var o = srcObj(an, id); if (o) source(id, o, libObj(o), an.resObj[id]); });
   var dits = {};
@@ -2055,15 +2353,16 @@ function reconcilier(doc, an, ext, o){
   ext.forEach(function(r){ parId[r.id] = r; });
   /* ligne du constat de l'équipement en cause (WC, gouttières avant…) : l'anomalie rend cette ligne non conforme. Une anomalie posée à la
      main sur un objet (bibliothèque ou saisie libre) va sur la ligne de cet objet, un lavabo sur « Évier » : le mot « lavabo » de son texte
-     ne la range pas en salle de bain. m133 (M2) : un autre appareil compté en « Autres » rend null : l'identifiant de cette ligne au constat,
-     l'application seule le connaît (vcApparier) ; ops.autres[id de l'enregistrement] nomme alors la ligne du croquis (id de constatDeduit),
-     et l'application y range l'anomalie (vcRangerAutres, index.html) */
+     ne la range pas en salle de bain. Un objet compté sur une ligne « Autres » du croquis rend null (m133, M2 : un autre appareil ; m143,
+     décision D9 : toute ligne « Autres », celle d'une chaudière, d'une attente, d'un drain, point ou drain de collecte, d'un siphon de cour
+     ou d'un trop-plein aussi) : l'identifiant de cette ligne au constat, l'application seule le connaît (vcApparier) ; ops.autres[id de
+     l'enregistrement] nomme alors la ligne du croquis (id de constatDeduit), et l'application y range l'anomalie (vcRangerAutres,
+     index.html) */
   function ligneDe(a){
     if (!a.objId || !(REGLES_LIGNE.test(a.cle) || a.manu)) return '';
     if (!lignes){
       lignes = {}; autresG = {};
-      constatDeduit(doc, an).rows.forEach(function(r){ r.objets.forEach(function(id){
-        if (r.std) lignes[id] = r.id; else if (idxD[id] && T[idxD[id].t] && T[idxD[id].t].nomLibre) autresG[id] = r.id; }); });
+      constatDeduit(doc, an).rows.forEach(function(r){ r.objets.forEach(function(id){ if (r.std) lignes[id] = r.id; else autresG[id] = r.id; }); });
     }
     return lignes[a.objId] || (autresG[a.objId] ? null : '');
   }
@@ -2121,9 +2420,10 @@ function reconcilier(doc, an, ext, o){
         if (au.nc !== a.r0.nc){ nAu.nc = a.r0.nc; n++; }
         if (jugeN && VC.ncAnomalie({reseau: resN, observation: ch.observation != null ? ch.observation : r.observation}) !== a.r0.nc){ ch.nc = a.r0.nc; n++; }
       }
-      /* autre appareil compté en « Autres » (m133, M2) : installation laissée à l'application, qui en suit la valeur notée comme ici. Une
-         ligne du formulaire notée ici (l'appareil y était compté, p.row) revient d'abord à vide, comme avant m133, si personne n'y a
-         touché : l'anomalie n'y reste pas en attendant l'application, qui ne range rien sans constat */
+      /* objet compté sur une ligne « Autres » (m133, M2 : un autre appareil ; m143 : toute ligne « Autres ») : installation laissée à
+         l'application, qui en suit la valeur notée comme ici. Une ligne du formulaire notée ici (l'objet y était compté : p.row d'un autre
+         appareil, type changé) revient d'abord à vide, comme avant m133, si personne n'y a touché : l'anomalie n'y reste pas en attendant
+         l'application, qui ne range rien sans constat */
       var li = ligneDe(a);
       if (li === null){
         ops.autres[r.id] = autresG[a.objId];
@@ -2214,7 +2514,7 @@ VC.etatSource = etatSourceDe;
 /* ---------- Constat déduit : lignes de l'application (nombre, raccordement, conformité, méthodes) ---------- */
 var ROWS_STD = [['wc', 'EU', 'WC'], ['lavelinge', 'EU', 'Lave-linge'], ['evier', 'EU', 'Évier'], ['sdb', 'EU', 'Salle de bain (douche ou baignoire et lavabo)'], ['cuisine', 'EU', 'Cuisine (évier, lave-vaisselle)'], ['siphon', 'EU', 'Siphon de garage'],
   ['gout_av', 'EP', 'Gouttière(s) avant'], ['gout_ar', 'EP', 'Gouttière(s) arrière'], ['grilles', 'EP', 'Grilles'], ['siphon_sol', 'EP', 'Siphon de sol']];
-var RACC_LIB = {EU_D: 'Réseau EU départemental', EU_T: 'Réseau EU territorial', EP_D: 'Réseau EP départemental', EP_T: 'Réseau EP territorial', UN_D: 'Réseau unitaire départemental', UN_T: 'Réseau unitaire territorial', FOSSE: 'Fosse septique', MILIEU: 'Milieu naturel', GARG: 'Gargouille', INF: 'Puisard (infiltration)'};
+var RACC_LIB = {EU_D: 'Réseau EU départemental', EU_T: 'Réseau EU territorial', EP_D: 'Réseau EP départemental', EP_T: 'Réseau EP territorial', UN_D: 'Réseau unitaire départemental', UN_T: 'Réseau unitaire territorial', FOSSE: 'Fosse septique', MILIEU: 'Milieu naturel', PUITS: 'Puits', GARG: 'Gargouille', INF: 'Puisard (infiltration)'};
 /* cases des ouvrages de récupération des EP du constat (EP_RECUP de l'application), dans l'ordre du formulaire : texte du panneau */
 var RECUP_LIB = [['puisard', 'puisard'], ['recup', 'récupérateur'], ['infil', 'infiltration diffuse'], ['autre', 'indéterminé/autres']];
 /* Raccordement d'un équipement pour le constat : code de l'application (vide si le formulaire n'en a pas), libellé, conformité d'après le réseau atteint.
@@ -2222,7 +2522,9 @@ var RECUP_LIB = [['puisard', 'puisard'], ['recup', 'récupérateur'], ['infil', 
    ok false reste, m119).
    etEP : état de l'anomalie de la règle EP fixe de l'exutoire (puits, m120 ; etatAnomalie) : absente ou écartée, la ligne EP est conforme ;
    sinon (retenue, à arbitrer), ok null : le dossier la juge par l'anomalie (« non » si elle est NC ; si on en fait une réserve, « oui » quand
-   la ligne a un code du formulaire, milieu naturel ou gargouille, sinon la conformité reste à cocher à la main) ;
+   la ligne a un code du formulaire, milieu naturel, puits (m150 : ligne que le croquis y pose, valeur non retouchée) ou gargouille, sinon
+   la conformité reste à cocher à la main). Le code du raccordement n'entre pas ici : le puits (PUITS) suit cette règle comme le milieu
+   naturel avant m150 ;
    de même pour l'anomalie EP d'une autre destination (m125, décision D7 : jamais d'après son jugement).
    an : l'analyse, qui porte les champs d'une autre destination (an.exu) */
 function raccInfo(r, groupe, arb, arbL, etEP, an){
@@ -2273,10 +2575,10 @@ function constatDeduit(doc, an){
   Object.keys(an.resObj).forEach(function(id){
     /* exutoire à règle EP fixe (puits) : l'état de l'anomalie de cette règle pour cette source (décision D7, m120) */
     var rs = an.resObj[id], xe = rs && rs.etat === 'ok' ? ligneExu(rs.res, an) : null, etEP = xe && xe.ep ? etatAnomalie(doc, an, xe.ep.cle + ':' + id) : '';
-    /* un drain de collecte compté (m123) se lit comme un point « Drain » : ligne « Autres : Drain », méthodes de son tracé */
+    /* un drain de collecte compté (m123) se lit comme un point « Drain » : ligne « Drain », méthodes de son tracé */
     var o = srcObj(an, id), row = ligne(o), arbL = ligneArbitrer(doc, an, id), ri = raccInfo(rs, row ? row.groupe : T[o.t].nat || 'EP', fosseArbitrage(doc, an, id), arbL, etEP, an);
-    /* m129 (Q7 a) : chaque exutoire que le drain d'infiltration atteint au-delà de lui compte aussi sur la ligne (code, conformité, case des
-       ouvrages EP), sauf quand la fosse septique fait le raccordement (retenue ou à arbitrer) */
+    /* m129 (Q7 a) : chaque exutoire que le drain d'infiltration ou le trop-plein (m145) atteint au-delà de lui compte aussi sur la ligne
+       (code, conformité, case des ouvrages EP), sauf quand la fosse septique fait le raccordement (retenue ou à arbitrer) */
     var ra = rs && rs.etat === 'ok' && rs.apres && ri.code !== 'FOSSE' && fosseArbitrage(doc, an, id) !== 'arbitrer' ? rs.apres.map(function(x){
       var xa = ligneExu(x.res, an), ea = xa && xa.ep ? etatAnomalie(doc, an, xa.ep.cle + ':' + id) : '';
       return raccInfo({etat: 'ok', res: x.res, gest: x.gest, presume: false}, row ? row.groupe : T[o.t].nat || 'EP', '', arbL, ea, an);
@@ -2300,6 +2602,10 @@ function constatDeduit(doc, an){
     /* chaque objet dessiné compte pour une installation : une salle de bain ou une cuisine se dessine d'un seul objet (règle du 6 novembre 2026) */
     r.nb = r.objets.length;
     var c = r.codes.filter(Boolean), uniq = c.filter(function(x, i){ return c.indexOf(x) === i; });
+    /* m150 (décision D18) : le puits a son code, PUITS ; les autres rejets codés MILIEU le restent (milieu naturel, autre destination ; en
+       EU, aussi puisard, infiltration au sol, drain d'infiltration). Une ligne qui va à un puits et à l'un d'eux prend « Puits », comme
+       elle prenait « Milieu naturel » avant m150 : le puits, non conforme par règle, l'emporte. Le panneau Constat garde les deux libellés */
+    if (uniq.length === 2 && uniq.indexOf('PUITS') >= 0 && uniq.indexOf('MILIEU') >= 0) uniq = ['PUITS'];
     r.raccord = uniq.length > 1 ? 'plusieurs' : uniq.length === 1 && c.length === r.codes.length ? uniq[0] : '';
     r.conforme = !r.objets.length ? '' : r.oks.some(function(x){ return x === false; }) ? 'non' : r.oks.length && r.oks.every(function(x){ return x === true; }) ? 'oui' : '';
     r.meth.sort(function(a, b){ return METH.map(function(m){ return m[0]; }).indexOf(a) - METH.map(function(m){ return m[0]; }).indexOf(b); });
@@ -2310,32 +2616,110 @@ function constatDeduit(doc, an){
 }
 VC.constatDeduit = constatDeduit; VC.RACC_LIB = RACC_LIB;
 /* Boîte de branchement reprise au constat (souhait 10, décision D6, réponse 10.4) : par réseau, le nombre de boîtes existantes (ni « projet »
-   ni « à supprimer ») et, s'il y en a exactement une, sa distance à la limite de propriété et sa profondeur, écrites comme dans les champs du
-   constat (« 0,80 m intérieur », « en limite », « 0,80 m »). Réseau : p.res, sinon celui que l'analyse déduit du dessin (celui de l'étiquette) ;
-   une boîte unitaire compte en EU et en EP ; une boîte de réseau inconnu ou mêlé ne compte nulle part. p.limCote, p.limDist et p.prof sont lus
+   ni « à supprimer ») et, s'il y en a exactement une, sa distance à la limite de propriété, son côté et sa profondeur, écrits comme dans les
+   champs du constat (« 0,80 m », « en limite » ; 'intérieur', 'extérieur' ; « 0,80 m »). m149 (décision D17, réponse pr12-11 du 16 nov.
+   2026) : la distance s'écrit seule et le côté à part, dans cote (avant : « 0,80 m intérieur ») ; en limite, pas de côté ; un côté sans
+   distance donne une distance vide et son côté. Réseau : p.res, sinon celui que l'analyse déduit du dessin (celui de l'étiquette) ;
+   une boîte indiquée unitaire dans sa fiche compte en EU et en EP ; une boîte de réseau inconnu ou mêlé ne compte nulle part. En zone unitaire
+   (m140, décision D6, réponse pr12-5 du 16 nov. 2026), une boîte sans réseau indiqué que le dessin dit unitaire compte pour le réseau propre
+   des sources dont l'eau la traverse sur les plus courts chemins de l'analyse jusqu'à leurs exutoires dessinés (traversees) : en EU si seules
+   des sources EU y passent, en EP si seules des sources EP y passent, en EU et en EP si les deux y passent ou si aucune n'y passe ; son
+   étiquette reste « unitaire ». m156 (AC1) : ces chemins passent aussi par le trop-plein d'un puisard ou d'une infiltration au sol quand
+   l'analyse compte ce qu'il atteint (m145) ; une boîte sur ce trop-plein compte alors pour la source. p.limCote, p.limDist et p.prof sont lus
    tels qu'ils sont enregistrés, sans recalcul d'après le plan. Distance : deux décimales, 0,00 = « en limite » ; une distance négative ou
-   illisible est ignorée, comme sur l'étiquette. Zéro ou plusieurs boîtes sur un réseau : dist et prof vides. nDist et nProf : nombre de
-   boîtes du réseau qui portent une distance (ou un côté) et une profondeur ; avec plusieurs boîtes, le constat rappelle ce qui n'est pas
-   repris. Ne modifie ni doc ni an. */
+   illisible est ignorée, comme sur l'étiquette. Zéro ou plusieurs boîtes sur un réseau : dist, cote et prof vides. nDist et nProf : nombre de
+   boîtes du réseau qui portent une distance et une profondeur ; avec plusieurs boîtes, le constat rappelle ce qui n'est pas repris (m149 :
+   un côté seul n'est plus une distance, il ne compte pas dans nDist). Ne modifie ni doc ni an. */
 function boitesConstat(doc, an){
-  var out = {EU: {n: 0, dist: '', prof: '', nDist: 0, nProf: 0}, EP: {n: 0, dist: '', prof: '', nDist: 0, nProf: 0}};
-  /* distance (côté compris) et profondeur d'une boîte, écrites comme dans les champs du constat */
+  var out = {EU: {n: 0, dist: '', cote: '', prof: '', nDist: 0, nProf: 0}, EP: {n: 0, dist: '', cote: '', prof: '', nDist: 0, nProf: 0}}, vues = [];
+  /* distance, côté (à part depuis m149) et profondeur d'une boîte, écrits comme dans les champs du constat ; en limite, pas de côté */
   function mesures(p){
-    var cote = p.limCote === 'int' ? 'intérieur' : p.limCote === 'ext' ? 'extérieur' : '', d = num(p.limDist), pr = num(p.prof), t, dist = cote;
-    if (d != null && d >= 0){ t = frNum(d, 2); dist = t === '0,00' ? 'en limite' : t + ' m' + (cote ? ' ' + cote : ''); }
-    return {dist: dist, prof: pr != null ? frNum(pr, 2) + ' m' : ''};
+    var cote = p.limCote === 'int' ? 'intérieur' : p.limCote === 'ext' ? 'extérieur' : '', d = num(p.limDist), pr = num(p.prof), t, dist = '';
+    if (d != null && d >= 0){
+      t = frNum(d, 2);
+      if (t === '0,00'){ dist = 'en limite'; cote = ''; } else dist = t + ' m';
+    }
+    return {dist: dist, cote: cote, prof: pr != null ? frNum(pr, 2) + ' m' : ''};
+  }
+  /* m140 : réseau propre (EU, EP : T[t].nat) des sources dont l'eau traverse chaque nœud de l'analyse A ({nœud : {EU: true, EP: true}}).
+     Le chemin de l'eau d'une source est celui de l'analyse : ses plus courts chemins jusqu'à ses exutoires (A.resObj[s].term), ceux d'où
+     elle tire la boîte, la fosse et le regard d'arrivée (predsDe). Parcours en largeur depuis la source (un drain de collecte compté part
+     des sommets de ses pièces, ceux d'aval s'il a un sens, comme dans l'analyse), dans le sens dessiné des tuyaux, exutoires atteints sans
+     être traversés ; puis retour depuis chaque exutoire, d'un nœud à un nœud plus proche d'un pas de la source. Une pièce sans sens dessiné
+     se suit dans le sens où ces chemins la parcourent ; une pièce qu'ils n'empruntent pas (branche voisine, tuyau qui relie deux branches)
+     ne compte pas, quel que soit le sens des flèches du plan (tiré des distances, il ne dit pas où va l'eau). Une source sans exutoire
+     dessiné (réseau présumé) ne compte pour aucune boîte ; une source de réseau propre inconnu compte pour les deux. m156 (AC1) : quand
+     l'analyse compte ce que le trop-plein d'un puisard ou d'une infiltration au sol atteint (A.resObj[s].cheminTp, propriété non
+     énumérable : m145, apres ou « multiple »), le chemin comprend aussi les plus courts chemins de ce parcours (rx) jusqu'à ses exutoires,
+     par l'ouvrage et son trop-plein, tels qu'il les a suivis ; sinon, ou pour une analyse recopiée (JSON), rien de plus. Calculé une fois
+     par analyse ; ne modifie pas A. */
+  function traversees(A){
+    for (var i = 0; i < vues.length; i++) if (vues[i].A === A) return vues[i].par;
+    var par = {};
+    vues.push({A: A, par: par});
+    if (!A || !A.resObj || !A.adj || !A.objs || !A.lignes) return par;
+    /* tuyau orienté : il ne se suit pas de n vers son autre bout s'il va dans l'autre sens (règle du parcours de l'analyse) */
+    function aContreSens(p, n){ return p.sens === 1 && p.b === n && p.a !== n || p.sens === -1 && p.a === n && p.b !== n; }
+    Object.keys(A.resObj).forEach(function(s){
+      var o = srcObj(A, s), nat = o && T[o.t] ? T[o.t].nat : '', nats = nat === 'EU' || nat === 'EP' ? [nat] : ['EU', 'EP'];
+      var r = A.resObj[s], l = !A.objs[s] && A.lignes[s], sl = l && l.p ? l.p.sens : 0, fin = {}, dist = {}, vu = {}, file = [];
+      (r && Array.isArray(r.term) ? r.term : []).forEach(function(t){ if (t && t.noeud) fin[t.noeud] = true; });
+      function part(n){ if (n == null || dist[n] != null) return; dist[n] = 0; if (!fin[n]) file.push(n); }
+      if (l) (A.pieces || []).forEach(function(q){ if (q && q.l && q.l.id === s){ if (sl !== -1) part(q.b); if (sl !== 1) part(q.a); } });
+      else part(s);
+      while (file.length){
+        var n = file.shift();
+        (A.adj[n] || []).forEach(function(p){
+          var m = p.a === n ? p.b : p.a;
+          if (dist[m] != null || aContreSens(p, n)) return;
+          dist[m] = dist[n] + 1; if (!fin[m]) file.push(m);
+        });
+      }
+      file = Object.keys(fin).filter(function(t){ return dist[t] != null; }); file.forEach(function(t){ vu[t] = true; });
+      while (file.length){
+        var v = file.shift();
+        (A.adj[v] || []).forEach(function(p){
+          var u = p.a === v ? p.b : p.a;
+          if (u === v || vu[u] || dist[u] == null || dist[u] + 1 !== dist[v] || fin[u] || aContreSens(p, u)) return;
+          vu[u] = true; file.push(u);
+        });
+      }
+      /* m156 (AC1) : chemin de l'eau par le trop-plein, quand l'analyse compte ce qu'il atteint (cheminTp) : retour depuis chaque exutoire
+         de ce parcours (fins), d'un nœud à ceux d'où il l'a atteint par un plus court chemin (preds), jusqu'à la source ; en plus du
+         chemin ordinaire */
+      var ct = r && r.cheminTp;
+      if (ct && ct.preds && Array.isArray(ct.fins)){
+        var vx = {};
+        file = ct.fins.filter(function(t){ return t != null; }); file.forEach(function(t){ vx[t] = true; });
+        while (file.length){
+          var w = file.shift();
+          (ct.preds[w] || []).forEach(function(u){ if (!vx[u]){ vx[u] = true; file.push(u); } });
+        }
+        Object.keys(vx).forEach(function(n){ vu[n] = true; });
+      }
+      Object.keys(vu).forEach(function(n){ var q = par[n] || (par[n] = {}); nats.forEach(function(g){ q[g] = true; }); });
+    });
+    return par;
   }
   (doc && Array.isArray(doc.el) ? doc.el : []).forEach(function(e){
     if (!e || e.k !== 'pt' || !T[e.t] || !T[e.t].boite) return;
     var p = e.p && typeof e.p === 'object' ? e.p : {};
     if (p.st === 'projet' || p.st === 'supprimer') return;
-    var res = /^(EU|EP|UN)$/.test(p.res) ? p.res : an && an.resPt ? an.resPt[e.id] || (an.ref && an.ref.resPt && an.ref.resPt[e.id]) : '', m = mesures(p);
-    (res === 'UN' ? ['EU', 'EP'] : res === 'EU' || res === 'EP' ? [res] : []).forEach(function(g){
+    var ind = /^(EU|EP|UN)$/.test(p.res), res = ind ? p.res : an && an.resPt ? an.resPt[e.id] || (an.ref && an.ref.resPt && an.ref.resPt[e.id]) : '', m = mesures(p);
+    var rs = res === 'UN' ? ['EU', 'EP'] : res === 'EU' || res === 'EP' ? [res] : [];
+    /* m140 : boîte unitaire d'après le dessin seulement : réseau des sources dont l'eau la traverse (les deux si aucune n'y passe). Les
+       chemins sont lus dans l'analyse qui donne le réseau : an.ref quand an ne porte pas la boîte (cela n'arrive pas dans l'application :
+       une boîte existante a toujours un réseau dans l'analyse donnée) */
+    if (res === 'UN' && !ind){
+      var t = traversees(an.resPt[e.id] ? an : an.ref)[e.id];
+      if (t && (t.EU || t.EP)) rs = rs.filter(function(g){ return t[g]; });
+    }
+    rs.forEach(function(g){
       var o = out[g]; o.n++;
       if (m.dist) o.nDist++;
       if (m.prof) o.nProf++;
       /* les valeurs de la seule boîte du réseau ; dès la deuxième, rien */
-      o.dist = o.n === 1 ? m.dist : ''; o.prof = o.n === 1 ? m.prof : '';
+      o.dist = o.n === 1 ? m.dist : ''; o.cote = o.n === 1 ? m.cote : ''; o.prof = o.n === 1 ? m.prof : '';
     });
   });
   return out;
@@ -2352,8 +2736,17 @@ function resLigne(e, an){
   /* complément du fond, escalier, tracé d'un type inconnu : gris du complément */
   if (e.t !== 'tr') return 'LIM';
   if (e.p.st === 'projet') return 'PRJ';
-  /* drain d'infiltration (m122) : vert, relié ou non (ses segments ne sont pas des pièces de l'analyse ; son p.res n'est pas lu) */
-  if (drainDe(e) === 'infiltration') return 'EP';
+  /* drain d'infiltration : sa couleur suit les eaux qu'il reçoit (m142, décision D8 ; réponse drain-infiltration-dessin du 16 nov. 2026 :
+     « si uniquement des EU alors drain en rouge, si au moins un EP alors vert ») : EP dès qu'une source qui l'atteint est EP, EU si toutes
+     sont EU (an.eauxDrains). Sans source : vert, comme sans analyse (m122) ; sur le plan d'avant-projet, un drain « à supprimer » (absent
+     de cette analyse) garde la couleur qu'il a à l'état des lieux (an.ref), comme un tuyau [p]. Ses segments ne sont pas des pièces de
+     l'analyse ; son p.res n'est pas lu */
+  if (drainDe(e) === 'infiltration'){
+    var q = an && an.eauxDrains && Object.prototype.hasOwnProperty.call(an.eauxDrains, e.id) ? an.eauxDrains[e.id] : null;
+    if (q && q.EP) return 'EP';
+    if (q && q.EU) return 'EU';
+    return an && an.ref && !(an.lignes && Object.prototype.hasOwnProperty.call(an.lignes, e.id)) ? resLigne(e, an.ref) : 'EP';
+  }
   if (RES[e.p.res] && e.p.res !== 'PRJ') return e.p.res;
   if (!an) return 'INC';
   var vu = {}, k = null; an.pieces.forEach(function(p){ if (p.l.id === e.id){ var r = an.resPiece[p.id].res; vu[r] = (vu[r] || 0) + 1; } });
@@ -2362,16 +2755,21 @@ function resLigne(e, an){
   return k || 'INC';
 }
 /* Boîte en limite de propriété (souhait 10, décision D4) : ligne de l'étiquette, d'après p.limCote ('int' | 'ext') et p.limDist (en mètres,
-   « 0 » : en limite). La distance s'écrit avec deux décimales ; une distance qui s'écrit 0,00 est « en limite ». Une distance négative ou
-   illisible (la fiche la refuse : croquis altéré) est ignorée. Rien si aucun des deux champs n'est donné. */
+   « 0 » : en limite). Le côté s'écrit en toutes lettres (m140, réponse boite-en-limite du 16 nov. 2026, coteLimite) : « à 0,80 m de la
+   limite, à l'intérieur de la propriété » (ou « …, à l'extérieur de la propriété ») ; sans distance, le côté seul (« à l'intérieur de la
+   propriété ») ; sans côté, « à 0,80 m de la limite ». La distance s'écrit avec deux décimales ; une distance qui s'écrit 0,00 est « en
+   limite de propriété », avec ou sans côté. Une distance négative ou illisible (la fiche la refuse : croquis altéré) est ignorée. Rien si
+   aucun des deux champs n'est donné. Le constat écrit la distance seule (« 0,80 m ») et le côté sur sa propre rangée (m149 :
+   boitesConstat). */
+function coteLimite(c){ return c === 'int' ? 'à l\'intérieur de la propriété' : c === 'ext' ? 'à l\'extérieur de la propriété' : ''; }
 function texteLimite(p){
   p = p || {};
-  var cote = p.limCote === 'int' ? 'intérieur' : p.limCote === 'ext' ? 'extérieur' : '', d = num(p.limDist);
+  var cote = coteLimite(p.limCote), d = num(p.limDist);
   if (d != null && d >= 0){
     var t = frNum(d, 2);
     return t === '0,00' ? 'en limite de propriété' : 'à ' + t + ' m de la limite' + (cote ? ', ' + cote : '');
   }
-  return cote ? 'côté ' + cote : '';
+  return cote;
 }
 /* Étiquette commune (souhait 8, m134 ; décisions D1 et D6) : les appareils d'une pièce partagent l'étiquette de l'un d'eux, le porteur.
    Chaque membre porte p.etiqAvec (l'id du porteur), le porteur p.etiqTitre ('sdb', 'eau', 'cuisine', 'buanderie' ou 'aucun' ; absent,
@@ -2381,9 +2779,9 @@ function texteLimite(p){
    défait donc sur l'état des lieux, un groupe « À supprimer » sur l'avant-projet. Rien d'autre ne lit le groupe : l'analyse, les
    anomalies, le constat, la légende et la page 2 du plan PDF comptent chaque objet.
    groupeEtiquette(e, an) : null pour un objet seul ; sinon {porteur: son id, objets: le porteur, puis les membres valides dans l'ordre
-   du catalogue (FAMILLES), puis par id}. Les objets se désignent par leur id : la fiche passe une copie de l'objet, prise telle quelle.
-   [p] L'ordre du catalogue met le WC avant le lavabo : « douche, WC + lave-mains, lavabo ». L'exemple de D6 écrit « douche, lavabo, WC +
-   lave-mains » ; la règle de D6 l'emporte ici. */
+   de l'étiquette (ORDRE_ETIQ), puis par id}. Les objets se désignent par leur id : la fiche passe une copie de l'objet, prise telle quelle.
+   objets[0] reste le porteur (titre, « Défaire », « Modifier le groupe », fin du mode « Réunir ») ; le texte du groupe et « Compté au
+   constat » trient une copie de la liste, porteur compris (m141). */
 var TITRES_ETIQ = {sdb: 'Salle de bain', eau: 'Salle d\'eau', cuisine: 'Cuisine', buanderie: 'Buanderie', aucun: ''};
 function aCle(o, k){ return !!o && typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k); }
 function lienEtiq(o){ var x = o && o.p ? o.p.etiqAvec : null; return typeof x === 'string' ? x : ''; }
@@ -2396,7 +2794,13 @@ function porteurEtiq(o, an){
   q = an.objs[id];
   return !lienEtiq(q) && stEtiq(q) === stEtiq(o) && sourceEU(o) && sourceEU(q) ? q : null;
 }
-function rangCatalogue(o){ var i = FAMILLES[0].types.indexOf(o.t); return i < 0 ? FAMILLES[0].types.length : i; }
+/* Ordre des appareils dans l'étiquette commune (m141, décision D7 de la conception v1.7.2, réponse ordre-etiquette-commune du
+   16 nov. 2026, choix b : « L'ordre de l'exemple de la conception ») : « douche, lavabo, WC + lave-mains » et « Salle de bain 1,
+   Évier 1, WC 1 ». Au-delà de la douche, du lavabo et du WC, l'ordre est un choix [p]. Un WC + lave-mains est un WC. Un type absent
+   de la liste vient après ; à égalité, l'id. */
+var ORDRE_ETIQ = ['sdb', 'douche', 'baignoire', 'lavabo', 'evier', 'wc', 'cuisine', 'lavevaisselle', 'lavelinge', 'chaudiere', 'siphon_garage', 'attente', 'autre_eu'];
+function rangEtiq(o){ var i = ORDRE_ETIQ.indexOf(o.t); return i < 0 ? ORDRE_ETIQ.length : i; }
+function triEtiq(a, b){ return rangEtiq(a) - rangEtiq(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); }
 function groupeEtiquette(e, an){
   if (!e || e.k !== 'pt' || !an || !an.objs) return null;
   var por = porteurEtiq(e, an), base = por || e, membres = [], objs = an.objs, ks, i, o;
@@ -2409,10 +2813,47 @@ function groupeEtiquette(e, an){
     if (o.p && o.p.etiqAvec === base.id && o.id !== base.id && porteurEtiq(o, an)) membres.push(o);
   }
   if (!membres.length) return null;
-  membres.sort(function(a, b){ return rangCatalogue(a) - rangCatalogue(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); });
+  membres.sort(triEtiq);
   return {porteur: base.id, objets: [por ? por : e].concat(membres)};
 }
 VC.groupeEtiquette = groupeEtiquette;
+/* Raison du refus de l'appareil o pour le porteur P sur le plan analysé an (m153 ; les tests du mode « Réunir », dans l'ordre de D7 de
+   m135) : 'eu' (pas un appareil des eaux usées), 'plan' (absent du plan affiché), 'statut' (autre statut que le porteur), 'reuni' (déjà
+   réuni avec un autre porteur), 'porteur' (porte déjà une étiquette commune) ; '' s'il peut être réuni. Les messages restent dans
+   l'éditeur (refusReunir). */
+function refusEtiq(o, P, an){
+  var q, g;
+  if (!sourceEU(o)) return 'eu';
+  if (!aCle(an.objs, o.id)) return 'plan';
+  if (stEtiq(o) !== stEtiq(P)) return 'statut';
+  q = porteurEtiq(o, an);
+  if (q && q.id !== P.id) return 'reuni';
+  g = groupeEtiquette(o, an);
+  return g && g.porteur === o.id ? 'porteur' : '';
+}
+/* Voisins du porteur P que le mode « Réunir » choisit d'avance à la création d'une étiquette commune (m153 ; réponse e4 du 16 nov. 2026,
+   choix b : « Présélection des appareils EU à moins de 3 m et au même niveau, à retirer d'un toucher » ; décision D21 de la conception
+   v1.7.2) : les objets du croquis, sauf P, que refusEtiq accepte, au même niveau affiché que P (libNiv ; réponse S9 du 17 nov. 2026,
+   choix a : deux appareils sans niveau sont au même niveau, un appareil sans niveau ne l'est pas d'un appareil qui en a un, « étage »
+   sans numéro n'est pas « 1er étage ») et à 3 m au plus de centre à centre (la mesure du toast « Loin du porteur ») ; du plus proche au
+   plus loin, puis par id. Rien n'est écrit, ni dans le croquis ni dans l'analyse : l'opérateur retire d'un toucher ce qu'il ne veut pas,
+   et rien n'est réuni avant « Terminé ». Le porteur se désigne par son id (la fiche passe une copie). Sans croquis, sans analyse ou
+   pour un porteur qui n'est pas un appareil des eaux usées : aucun voisin. */
+function voisinsEtiquette(doc, an, P){
+  var vus = [], nP;
+  if (!P || !sourceEU(P) || !an || !an.objs) return vus;
+  nP = libNiv(P);
+  (doc && Array.isArray(doc.el) ? doc.el : []).forEach(function(o){
+    var d;
+    if (!o || o.k !== 'pt' || o.id === P.id) return;
+    d = Math.hypot(o.x - P.x, o.y - P.y);
+    if (!(d <= 3) || libNiv(o) !== nP || refusEtiq(o, P, an)) return;
+    vus.push({o: o, d: d});
+  });
+  vus.sort(function(a, b){ return a.d - b.d || (a.o.id < b.o.id ? -1 : a.o.id > b.o.id ? 1 : 0); });
+  return vus.map(function(v){ return v.o; });
+}
+VC.voisinsEtiquette = voisinsEtiquette;
 /* Étiquette commune (m135 ; D7) : retire les liens vers le porteur id (clé etiqAvec supprimée, jamais une valeur vide), liens périmés
    compris (membre d'un autre statut, ouvrage EP) ; rend les objets déliés. Le porteur garde ses propres clés. */
 function delierPorteur(doc, id){
@@ -2434,9 +2875,10 @@ function minusculeEtiq(s){ var c = s.charAt(1); return c && c !== c.toLowerCase(
    s'ils diffèrent. Titre d'office « Salle de bain » si le groupe a une douche, une baignoire ou une salle de bain, sinon aucun : une
    seule ligne, initiale en capitale, niveau commun à la fin. Un nom égal au titre n'est pas répété, sauf avec un niveau à lui [p] ; seul
    le premier de la liste est omis : deux salles de bain réunies se lisent encore deux. Au-delà de quatre appareils listés [p], leurs
-   lettres (abObj, telles quelles ; sans lettres, le nom : siphon de garage [p]). */
+   lettres (abObj, telles quelles ; sans lettres, le nom : siphon de garage [p]). La liste suit l'ordre de l'étiquette (ORDRE_ETIQ),
+   porteur compris ; le titre choisi reste celui du porteur, g.objets[0] (m141). */
 function texteGroupe(g, pre){
-  var objs = g.objets, tc = objs[0].p ? objs[0].p.etiqTitre : null, nivs = objs.map(libNiv), items = [], liste;
+  var por = g.objets[0], objs = g.objets.slice().sort(triEtiq), tc = por.p ? por.p.etiqTitre : null, nivs = objs.map(libNiv), items = [], liste;
   var titre = aCle(TITRES_ETIQ, tc) ? TITRES_ETIQ[tc] : objs.some(function(o){ return o.t === 'douche' || o.t === 'baignoire' || o.t === 'sdb'; }) ? 'Salle de bain' : '';
   var commun = nivs.every(function(n){ return n === nivs[0]; }), niv = commun && nivs[0] ? ' (' + nivs[0] + ')' : '', omis = !(commun && titre);
   objs.forEach(function(o, i){ var nom = libDe(o); if (!omis && norm(nom) === norm(titre)){ omis = true; return; } items.push({o: o, nom: nom, nv: nivs[i]}); });
@@ -2539,9 +2981,15 @@ function primitives(e, rgb, angPlan){
     case 'fosse': rect(5, 3, {trait: rgb, fond: BLANC, ep: .3}); texte('FS', 1.5, {coul: rgb, gras: true}); break;
     case 'point': cercle(.6, {fond: rgb}); break;
     case 'puisard': cercle(2.1, {trait: rgb, fond: BLANC, ep: ep}); cercle(1.1, {trait: rgb, ep: ep}); break;
-    /* puits (m120) : deux cercles comme le puisard, mais le cercle intérieur est grand (1,6 contre 1,1), un anneau étroit ;
-       un puits perdu se dessine en puisard (décision du 13 nov. 2026) */
-    case 'puits': cercle(2.1, {trait: rgb, fond: BLANC, ep: ep}); cercle(1.6, {trait: rgb, ep: ep}); break;
+    /* puits (m120 ; m152, décision D20) : un symbole semblable à celui du cadastre (réponse symbole-puits du 16 nov. 2026). Un cercle,
+       blanc dedans, puis une barre diamétrale qui en dépasse de chaque côté (±2,1 pour un rayon de 1,4) et ses manivelles en Z (S8 a,
+       17 nov. 2026) : y vers le haut, la manivelle de gauche monte, celle de droite descend. Leurs bouts sont à 2,25 du centre, dans le
+       carré de rayonSymbole (2,1) ; le trait de l'étiquette part plus loin (departTrait). Un puits perdu se dessine toujours en puisard
+       (décision du 13 nov. 2026) */
+    case 'puits':
+      cercle(1.4, {trait: rgb, fond: BLANC, ep: ep});
+      poly([-2.1, .8, -2.1, 0, 2.1, 0, 2.1, -.8], false, {trait: rgb, ep: ep});
+      break;
     /* infiltration au sol : un disque blanc sans trait (masque) cache le bout du tuyau, qui va jusqu'au centre ; puis une tige et trois barres */
     case 'infiltration':
       cercle(2.1, {fond: BLANC, masque: true}); poly([0, 2, 0, .4], false, {trait: rgb, ep: .3});
@@ -2560,6 +3008,11 @@ function primitives(e, rgb, angPlan){
   }
   return P;
 }
+/* départ du trait d'une étiquette, en mm du centre du symbole : son bord (rayonSymbole). Puits (m152) : 0,6 plus loin, au-delà des
+   manivelles, dont les bouts sont à 2,25. Sinon le trait de l'étiquette posée d'office à droite, parti du bout de la barre et dans son
+   axe, semble la continuer : la manivelle de droite n'est plus au bout. Les seuils du trait (écran, plan PDF) se comptent depuis ce
+   départ : au plan PDF, l'étiquette du puits à sa place d'office n'a pas de trait */
+function departTrait(t){ return rayonSymbole(t) + ((T[t] || {}).forme === 'puits' ? .6 : 0); }
 VC.primitives = primitives; VC.rayonSymbole = rayonSymbole; VC.couleurPt = couleurPt;
 /* angle du symbole du type t dans le repère du papier (radians) : a, angle propre en degrés ; rot, rotation du plan. Un type « droit » reste
    droit sur le papier, même avec un angle propre venu d'un fichier (p.a) ; un changement de type vers lui efface l'angle (defautsPt) */
@@ -2895,7 +3348,7 @@ function dessinerCroquis(ctx, doc, an, vue, dpr, o){
     var w = 0; L.forEach(function(l){ w = Math.max(w, ctx.measureText(l).width); }); var lh = h * 1.22, bh = lh * L.length;
     var bx = [cx - w / 2 - 3, cy - bh / 2 - 2, cx + w / 2 + 3, cy + bh / 2 + 2];
     if (!libre && e.k === 'pt'){
-      var R = rayonSymbole(e.t) * Math.max(k, 8.5 / rayonSymbole(e.t)), dx = cx - A.x, dy = cy - A.y, dd = Math.hypot(dx, dy);
+      var R = departTrait(e.t) * Math.max(k, 8.5 / rayonSymbole(e.t)), dx = cx - A.x, dy = cy - A.y, dd = Math.hypot(dx, dy);
       var bord = boiteBord(bx, A.x, A.y, cx, cy);
       if (bord && dd > R + 3 * k + 4 && Math.hypot(bord.x - A.x, bord.y - A.y) > R + 6){ ctx.beginPath(); ctx.moveTo(A.x + dx / dd * R, A.y + dy / dd * R); ctx.lineTo(bord.x, bord.y); ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.stroke(); }
     }
@@ -3181,7 +3634,8 @@ var ICO = {
   aimant: '<path d="M6 4v8a6 6 0 0 0 12 0V4"/><path d="M6 8h4M14 8h4"/>',
   cible: '<circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="1.2"/>',
   relier: '<circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="6" r="2.2"/><path d="M7 18h12V8.2"/>', lien: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
-  cotes: '<path d="M4 7v10M20 7v10M4 12h16M7 9.5L4 12l3 2.5M17 9.5l3 2.5-3 2.5"/>'
+  cotes: '<path d="M4 7v10M20 7v10M4 12h16M7 9.5L4 12l3 2.5M17 9.5l3 2.5-3 2.5"/>',
+  deux: '<circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M6.2 16.4L12 6l5.8 10.4"/><circle cx="12" cy="6" r="1.4"/>'
 };
 function ico(n, s){ return '<svg viewBox="0 0 24 24" width="' + (s || 22) + '" height="' + (s || 22) + '" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICO[n] || '') + '</svg>'; }
 VC.ico = ico;
@@ -3254,8 +3708,8 @@ var AIDES_LIB = [
   ['accPerp', 'Perpendiculaire', 'le point se cale au pied de la perpendiculaire menée du point précédent à un côté'],
   ['accParcelle', 'Limites de parcelle', 'coins et côtés des limites de parcelle attirent aussi les points'],
   /* 4e élément, facultatif : libellé court de la puce de la palette (m113 : les huit puces restent entières en portrait) */
-  ['accProl', 'Prolongement d\'un côté', 'le point se cale sur le prolongement d\'un côté, au-delà de l\'un de ses bouts, jusqu\'à 30 m', 'Prolongement'],
-  ['accInter', 'Intersection', 'le point se cale où deux côtés, ou leurs prolongements, se croisent']
+  ['accProl', 'Prolongement d\'un côté', 'le point se cale sur le prolongement d\'un côté, au-delà de l\'un de ses bouts, sans limite de longueur', 'Prolongement'],
+  ['accInter', 'Intersection', 'le point se cale où deux côtés, ou leurs prolongements, se croisent, à 30 m au plus de leurs bouts']
 ];
 VC.AIDES_DEFAUT = AIDES_DEFAUT; VC.AIDES_LIB = AIDES_LIB;
 /* libellé du repère d'une aide au dessin, près du point (surcouche) ; milieu, perpendiculaire, coin ou côté d'une limite : m112 ;
@@ -3561,7 +4015,15 @@ function editeur(racine, opts){
     }
     if (S.relier){ var rd = S.vue.ecran(S.relier.x, S.relier.y); ctx.beginPath(); ctx.arc(rd.x, rd.y, 16, 0, 2 * Math.PI); ctx.strokeStyle = ac; ctx.lineWidth = 3; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]); }
     if (S.aligner){ S.aligner.forEach(function(p){ var q = S.vue.ecran(p.x, p.y); ctx.beginPath(); ctx.arc(q.x, q.y, 9, 0, 2 * Math.PI); ctx.fillStyle = '#d4650a'; ctx.fill(); }); }
-    if (S.cotes && S.cotes.ref) dessinerCotes();
+    if (S.cotes && (S.cotes.ref || S.cotes.deux)) dessinerCotes();
+    /* disque de rotation de l'objet choisi (m154) : anneau fin et gris, poignée ronde de 12 px ; pendant le geste, la bulle de l'angle.
+       S.disque garde ce qui est dessiné (null : aucun disque) */
+    var dq = S.disque = disque();
+    if (dq){
+      ctx.setLineDash([]); ctx.beginPath(); ctx.arc(dq.x, dq.y, dq.r, 0, 2 * Math.PI); ctx.strokeStyle = 'rgba(95,102,110,.8)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(dq.px, dq.py, dq.rp - 1, 0, 2 * Math.PI); ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = ac; ctx.lineWidth = 2; ctx.stroke();
+      var gq = S.geste; if (gq && gq.type === 'glisser' && gq.cible && gq.cible.k === 'tourner' && gq.cible.id === dq.id && gq.angle) dq.bulle = bulleAngle(dq, gq);
+    }
     ctx.restore();
   }
   /* Nord et barre d'échelle à l'écran */
@@ -3578,6 +4040,76 @@ function editeur(racine, opts){
     ctx.restore();
   }
   function zonePt(id){ for (var i = 0; i < S.zones.length; i++) if (S.zones[i].type === 'pt' && S.zones[i].id === id) return S.zones[i]; return null; }
+
+  /* --- disque de rotation (m154 ; D22, S10 b) ---
+     Autour de l'objet choisi, s'il peut tourner (pivotant), à l'écran de l'éditeur seulement (ni plan PDF, ni DXF) : un anneau à 22 px
+     au-delà de sa zone de toucher, et une poignée sur l'anneau, à 90° de l'angle du symbole à l'écran dans le sens contraire des aiguilles
+     d'une montre : au-dessus d'un objet droit, et elle tourne avec lui. Rien sans l'outil « Choisir », ni quand un mode tient le plan
+     (palette d'accrochage, lien, alignement, placement, cotes, « Réunir ») : le geste n'y est pas possible. Rend {id, x, y, r, px, py, rp,
+     dec} en pixels du canevas (centre, rayon de l'anneau, centre et rayon de la poignée), ou null.
+     dec (radians, sens contraire des aiguilles d'une montre) : écart de la poignée à cette place quand l'étiquette ou une bulle de
+     l'objet l'occupe (decalPoignee), 0 sinon. Pendant le geste, appui compris, c'est celui du départ (gardé dans la cible) : la poignée
+     reste sous le doigt, même si l'étiquette ou une bulle se replace pendant que l'objet tourne. */
+  function disque(){
+    if (S.outil.k !== 'main' || !S.sel || S.accroches || S.relier || S.aligner || S.placer || S.cotes || S.reunir) return null;
+    var e = el(S.sel.id); if (!e || e.k !== 'pt' || !pivotant(e.t)) return null;
+    var c = S.vue.ecran(e.x, e.y), z = zonePt(e.id), r = (z ? z.r : 12) + 22, t = angleSymbole(e.t, e.p.a, S.doc.rot || 0);
+    var g = S.geste, dec = g && g.cible && g.cible.k === 'tourner' && g.cible.id === e.id ? g.cible.dec || 0 : decalPoignee(e.id, c, r, t);
+    return {id: e.id, x: c.x, y: c.y, r: r, px: c.x - r * Math.sin(t + dec), py: c.y - r * Math.cos(t + dec), rp: 6, dec: dec};
+  }
+  /* place de la poignée sur l'anneau (m154) : l'étiquette et les bulles de l'objet passent avant le disque sous le doigt (cibleGlisser).
+     Une poignée posée sur elles ne se prendrait pas : le glissé déplacerait l'étiquette ou la bulle au lieu de tourner l'objet (étiquette
+     d'office à droite d'un objet tourné d'un quart de tour, clapet posé sur un tuyau qui descend à l'écran, bulle d'anomalie au-dessus
+     d'un regard). La poignée va donc à la première place libre de l'anneau : la sienne, puis à l'opposé, d'un quart de tour, d'un
+     huitième de tour, enfin de 15° en 15°. Libre : aucun point de sa prise (son rayon + 8 px, soit 14 px) n'est dans la prise d'une
+     bulle (son rayon + 6 px) ni de l'étiquette (sa boîte + 4 px), d'où les marges de 20 et de 18 px. Rien de libre : sa place, et
+     l'anneau reste à prendre ailleurs sur son tour. Zones : celles du dernier dessin (S.zones), ce que l'écran montre.
+     c : centre de l'objet à l'écran ; r : rayon de l'anneau ; t : angle du symbole (radians). Rend l'écart en radians. */
+  function decalPoignee(id, c, r, t){
+    var zs = S.zones.filter(function(z){ return (z.type === 'etiq' && z.id === id) || (z.type === 'bulle' && z.objId === id); });
+    var D = [0, 180, 90, -90, 45, -45, 135, -135], i;
+    if (!zs.length) return 0;
+    for (i = 15; i < 180; i += 15) if (i % 45) D.push(i, -i);
+    function prise(u){
+      var x = c.x - r * Math.sin(u), y = c.y - r * Math.cos(u);
+      return zs.some(function(z){ return z.type === 'bulle' ? Math.hypot(x - z.x, y - z.y) <= z.r + 20 : x >= z.b[0] - 18 && x <= z.b[2] + 18 && y >= z.b[1] - 18 && y <= z.b[3] + 18; });
+    }
+    for (i = 0; i < D.length; i++) if (!prise(t + D[i] * Math.PI / 180)) return D[i] * Math.PI / 180;
+    return 0;
+  }
+  /* place libre du plan, en pixels du canevas : à 8 px de ses bords, sous la barre du haut, à gauche de la fiche ouverte à droite (au-dessus
+     d'elle quand elle est en bas, sur un écran étroit) */
+  function cadreLibre(){
+    var rc = cv.getBoundingClientRect(), barre = R.querySelector('.vc-barre'), rp = pan.hidden ? null : pan.getBoundingClientRect(), x1 = S.vue.w, y1 = S.vue.h;
+    if (rp){ if (rp.width < rc.width * .9) x1 = Math.min(x1, rp.left - rc.left); else y1 = Math.min(y1, rp.top - rc.top); }
+    return {x0: 8, y0: (barre ? Math.max(0, barre.getBoundingClientRect().bottom - rc.top) : 0) + 8, x1: x1 - 8, y1: y1 - 8};
+  }
+  /* bulle de l'angle pendant qu'on tourne un objet au disque : l'angle écrit (« 35° »), suivi de « parallèle » ou « perpendiculaire » quand
+     il est calé sur un linéaire. Près de la poignée et hors du doigt : au-delà de l'anneau, dans la direction de la poignée (à
+     l'horizontale, de son côté, quand elle est dans la moitié basse du disque : la main est dessous) ; plus loin tant qu'elle est à moins
+     de 30 px du doigt ; à gauche, à droite, au-dessous ou au-dessus de l'anneau si elle sort de la place libre du plan (g.cadre), ramenée
+     dedans en dernier recours. Dessinée sur le canevas ; rend sa boîte {txt, x, y, w, h} en pixels du canevas. */
+  function bulleAngle(dq, g){
+    var txt = g.angle.a + '°' + (g.angle.mot ? ', ' + g.angle.mot : '');
+    ctx.font = '700 13px Barlow, Arial, sans-serif';
+    var w = Math.ceil(ctx.measureText(txt).width) + 14, h = 24, K = g.cadre || {x0: 8, y0: 8, x1: S.vue.w - 8, y1: S.vue.h - 8}, dg = g.doigt || {x: dq.px, y: dq.py};
+    var ux = (dq.px - dq.x) / dq.r, uy = (dq.py - dq.y) / dq.r;
+    function loin(b){ return Math.hypot(Math.max(b.x - dg.x, 0, dg.x - b.x - w), Math.max(b.y - dg.y, 0, dg.y - b.y - h)); }
+    function dedans(b){ return b.x >= K.x0 && b.y >= K.y0 && b.x + w <= K.x1 && b.y + h <= K.y1; }
+    /* boîte dans la direction (vx, vy) depuis le centre du disque : son bord le plus proche à 30 px de l'anneau, puis plus loin, par pas
+       de 4 px, tant qu'elle est à moins de 30 px du doigt */
+    function vers(vx, vy){
+      var ext = Math.abs(vx) * w / 2 + Math.abs(vy) * h / 2, b = null;
+      for (var k = 0; k <= 64 + 2 * ext; k += 4){ var d = dq.r + 30 + ext + k; b = {x: Math.round(dq.x + vx * d - w / 2), y: Math.round(dq.y + vy * d - h / 2)}; if (loin(b) >= 30) break; }
+      return b;
+    }
+    var dirs = [uy > 0 ? [ux < 0 ? -1 : 1, 0] : [ux, uy], [-1, 0], [1, 0], [0, 1], [0, -1]], b = null, b0 = null;
+    for (var i = 0; i < dirs.length && !b; i++){ var q = vers(dirs[i][0], dirs[i][1]); if (!b0) b0 = q; if (dedans(q) && loin(q) >= 30) b = q; }
+    if (!b) b = {x: Math.round(clamp(b0.x, K.x0, Math.max(K.x0, K.x1 - w))), y: Math.round(clamp(b0.y, K.y0, Math.max(K.y0, K.y1 - h)))};
+    ctx.setLineDash([]); ctx.fillStyle = '#fff'; ctx.fillRect(b.x, b.y, w, h); ctx.strokeStyle = '#0F5C63'; ctx.lineWidth = 1; ctx.strokeRect(b.x + .5, b.y + .5, w - 1, h - 1);
+    ctx.fillStyle = '#222'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, b.x + w / 2, b.y + h / 2 + 1);
+    return {txt: txt, x: b.x, y: b.y, w: w, h: h};
+  }
 
   /* --- toucher : recherche de l'élément sous le doigt --- */
   function distPoly(x, y, P){ var b = Infinity; for (var i = 1; i < P.length; i++){ var q = projSeg({x: x, y: y}, P[i - 1], P[i]); if (q.d < b) b = q.d; } return b; }
@@ -3655,14 +4187,15 @@ function editeur(racine, opts){
     for (var a = x0; a <= x1; a++) for (var b = y0; b <= y1; b++) (A.g[a + ',' + b] || []).forEach(function(i){ if (!vu[i]){ vu[i] = 1; out.push(A.segs[i]); } });
     return out;
   }
-  function segsPres(p, R, sauf){
-    R = Math.min(R, 120);
-    var out = dansGrille(aretesFond(), p, R, []);
-    /* traits « Complément du fond » du croquis (lignes de référence 'complement'), sauf le trait sauf : hors du cache, ils changent à
-       chaque dessin ; chacun [x0, y0, x1, y1, null, id du trait, rang de son premier sommet] */
+  /* traits « Complément du fond » du croquis (lignes de référence 'complement'), sauf le trait sauf, ajoutés à out ; rend out. Hors du
+     cache : ils changent à chaque dessin ; chacun [x0, y0, x1, y1, null, id du trait, rang de son premier sommet] */
+  function traitsComplement(sauf, out){
     (lignesRef(S.doc, null, null, ['complement']) || []).forEach(function(r){ if (r.src.id === sauf) return; var P = r.P; for (var k = 1; k < P.length; k++) out.push([P[k - 1].x, P[k - 1].y, P[k].x, P[k].y, null, r.src.id, k - 1]); });
     return out;
   }
+  /* côtés du bâti du fond (grille d'aretesFond) dans le carré de demi-côté R autour de p, R valant 120 m au plus, puis les traits de
+     complément du croquis, à toute distance, sauf le trait sauf */
+  function segsPres(p, R, sauf){ return traitsComplement(sauf, dansGrille(aretesFond(), p, Math.min(R, 120), [])); }
   /* cibles des nouveaux accrochages (m112, m113) : côtés du bâti et traits de complément (segsPres), plus ceux des limites de parcelle si
      « Limites de parcelle » est cochée et que sansLim est faux ; jamais un tronçon ni un escalier (lignesRef ne les prend pas) */
   function segsCibles(p, R, sauf, sansLim){ var out = segsPres(p, R, sauf); if (!sansLim && aideOn('accParcelle')) dansGrille(aretesLimites(), p, Math.min(R, 120), out); return out; }
@@ -3698,10 +4231,16 @@ function editeur(racine, opts){
   }
   /* Nouveaux accrochages cochés (m112, m113), aimant actif, sur les cibles de segsCibles, dans cet ordre : intersection de deux côtés ou de
      leurs prolongements (seuil du coin, 14 px), milieu d'un côté (14 px), pied de la perpendiculaire menée du point précédent prec (seuil
-     de la façade, 10 px), prolongement d'un côté (10 px). Intersection et prolongement prennent les côtés à PROL_MAX (30 m) plus le seuil
-     du point, une seule fois pour les deux. mur : objet posé sur un mur (descente, trop-plein, té, gargouille), qui ne va que sur le bâti :
-     ni limite de parcelle, ni prolongement, ni intersection. Rien : null. Repère : 'inter' et 'prol' gardent dans bouts les bouts d'où
-     partent leurs prolongements ; sur : côtés sur lesquels tombe une intersection (pour surLeBati) */
+     de la façade, 10 px), prolongement d'un côté (10 px), à toute distance (m155 : avant le redressement et la façade, qui viennent après
+     cette fonction). Intersection et prolongement prennent les côtés à PROL_MAX plus le seuil du point, une seule fois pour les deux : mêmes
+     cibles et même coût qu'en v1.7.1 ; le prolongement y ajoute les candidats de prolLoin (côtés jusqu'à une diagonale du canevas), puis
+     choisit parmi tous, comme prolSegs : le plus proche du point ; à 1 mm près, le moins prolongé ; puis le premier (celui de 30 m au
+     plus d'abord). Sans candidat que prolLoin est seul à donner, c'est le point de m113. prolLoin est seul à donner un prolongement de
+     plus de 30 m. Au zoom très large, il donne aussi celui d'un côté plus loin que segsCibles ne cherche (sous 0,156 px/m environ), ou
+     celui d'un côté qu'un voisin aligné, à plus de 120 m du point, empêche dans la liste de 30 m au plus (sous 0,083 px/m : voir
+     prolLoin) [p]. mur : objet posé sur un mur (descente, trop-plein, té, gargouille), qui ne va que sur le bâti : ni limite de parcelle,
+     ni prolongement, ni intersection. Rien : null. Repère : 'inter' et 'prol' gardent dans bouts les bouts d'où partent leurs
+     prolongements ; sur : côtés sur lesquels tombe une intersection (pour surLeBati) */
   function accrochesNouvelles(m, prec, sauf, mur){
     var R, r, loin = null;
     function cibles(){ return loin || (loin = segsCibles(m, PROL_MAX + 14 / S.vue.s, sauf, mur)); }
@@ -3709,13 +4248,52 @@ function editeur(racine, opts){
       if (r) return {x: r.x, y: r.y, type: 'inter', arete: r.s, arete2: r.s2, bouts: [r.bout, r.bout2].filter(Boolean), sur: [r.ext ? null : r.s, r.ext2 ? null : r.s2].filter(Boolean), aide: true}; }
     if (aideOn('accMilieu')){ R = 14 / S.vue.s; r = milieuSegs(m, segsCibles(m, R, sauf, mur), R); if (r) return {x: r.x, y: r.y, type: 'milieu', arete: r.s, aide: true}; }
     if (prec && aideOn('accPerp')){ R = 10 / S.vue.s; r = piedSegs(m, prec, segsCibles(m, R, sauf, mur), R); if (r) return {x: r.x, y: r.y, type: 'perp', arete: r.s, de: {x: prec.x, y: prec.y}, aide: true}; }
-    if (!mur && aideOn('accProl')){ R = 10 / S.vue.s; r = prolSegs(m, cibles(), R); if (r) return {x: r.x, y: r.y, type: 'prol', arete: r.s, bouts: [r.bout], aide: true}; }
+    if (!mur && aideOn('accProl')){ R = 10 / S.vue.s; r = plusProche(prolCands(m, cibles(), R, PROL_MAX).concat(prolLoin(m, sauf)), function(q){ return q.ext; });
+      if (r) return {x: r.x, y: r.y, type: 'prol', arete: r.s, bouts: [r.bout], aide: true}; }
     return null;
   }
+  /* Candidats du prolongement d'un côté sans limite de longueur (m138, décision D2), que accrochesNouvelles réunit à ceux de 30 m au plus
+     avant de choisir (m155 : à toute distance, avant le redressement et la façade). Mêmes cibles que segsCibles (bâti, traits de
+     complément, limites si « Limites de parcelle » est cochée), mais jusqu'à une diagonale du canevas du point m (PROL_MAX au moins),
+     mesurée jusqu'au côté : tout côté visible compte ; un côté plus loin ne compte pas. Seuil R : 10 px, 120 m au plus, comme les côtés du
+     fond que la façade examine (segsPres). Ce seuil vaut aussi pour la règle du côté aligné (prolCands). Sous 0,083 px/m, 10 px font plus
+     de 120 m : un côté aligné à plus de 120 m du point, mais à 10 px au plus, n'empêche donc pas ici le prolongement de son voisin. Ce
+     prolongement passe alors avant la façade sur ce côté, que la règle de m113 (10 px) laisserait gagner (vu à 0,05 px/m). Écart gardé
+     [p] : à ce zoom, un bâti de 10 m fait moins d'un pixel. Coût : un seul passage sur les côtés, sans grille ; ne restent que ceux dont
+     la droite passe à R au plus de m (les seuls qui comptent pour prolCands : côtés proches et candidats ; 1 µm de marge), groupe par
+     groupe comme segsCibles (bâti, traits de complément, limites), chaque groupe dans l'ordre de sa liste. Au zoom large, sur un fond
+     dense : tous les côtés à R au plus de m (prolCands en a besoin), et au plus PROL_LOIN_MAX autres, ceux dont la droite passe le plus
+     près de m (à égalité, les premiers), comme INTER_MAX pour l'intersection. Rend la liste de prolCands, vide s'il n'y a rien ; la clé,
+     l'aimant et l'objet de mur sont vus par l'appelant */
+  var PROL_LOIN_MAX = 256;
+  function prolLoin(m, sauf){
+    var R = Math.min(10 / S.vue.s, 120), D = Math.max(PROL_MAX, Math.hypot(S.vue.w, S.vue.h) / S.vue.s), e2 = (R + 1e-6) * (R + 1e-6), out = [];
+    var x0 = m.x - D, x1 = m.x + D, y0 = m.y - D, y1 = m.y + D, dl = [], v = [], lim, n, k, j;
+    /* dl, pour chaque côté gardé : -1 s'il est à R au plus de m (il reste), sinon le carré de la distance de m à sa droite (aussi dans v) */
+    function garder(segs){
+      for (var i = 0; i < segs.length; i++){
+        var s = segs[i], dx, dy, L2, c, t, ex, ey;
+        if ((s[0] < x0 && s[2] < x0) || (s[0] > x1 && s[2] > x1) || (s[1] < y0 && s[3] < y0) || (s[1] > y1 && s[3] > y1)) continue;
+        dx = s[2] - s[0]; dy = s[3] - s[1]; L2 = dx * dx + dy * dy; c = dx * (m.y - s[1]) - dy * (m.x - s[0]);
+        if (!(L2 > 0) || !(c * c <= e2 * L2)) continue;
+        t = Math.max(0, Math.min(1, ((m.x - s[0]) * dx + (m.y - s[1]) * dy) / L2)); ex = s[0] + t * dx - m.x; ey = s[1] + t * dy - m.y;
+        if (!(ex * ex + ey * ey <= D * D)) continue;
+        out.push(s); if (ex * ex + ey * ey <= e2) dl.push(-1); else { dl.push(c * c / L2); v.push(c * c / L2); }
+      }
+    }
+    garder(aretesFond().segs); garder(traitsComplement(sauf, [])); if (aideOn('accParcelle')) garder(aretesLimites().segs);
+    if (v.length > PROL_LOIN_MAX){
+      lim = new Float64Array(v).sort()[PROL_LOIN_MAX - 1]; n = PROL_LOIN_MAX; k = [];
+      for (j = 0; j < v.length; j++) if (v[j] < lim) n--;
+      for (j = 0; j < out.length; j++) if (dl[j] < lim || (dl[j] === lim && n-- > 0)) k.push(out[j]);
+      out = k;
+    }
+    return prolCands(m, out, R);
+  }
   /* Point libre (traits de complément, escalier, objets de façade) : coin (du bâti ; d'une limite de parcelle si elle est cochée), nouveaux
-     accrochages, redressement, façade (ou côté d'une limite). o.mur : objet posé sur un mur (descente, trop-plein, té, gargouille), qui ne
-     va que sur le bâti : aucune limite de parcelle n'est alors cible (ni coin, ni côté, ni milieu), et ni le prolongement d'un côté ni
-     une intersection ne l'attirent (ce ne sont pas des murs, m113) */
+     accrochages (le prolongement d'un côté à toute distance compris, m155), redressement, façade (ou côté d'une limite). o.mur : objet
+     posé sur un mur (descente, trop-plein, té, gargouille), qui ne va que sur le bâti : aucune limite de parcelle n'est alors cible (ni
+     coin, ni côté, ni milieu), et ni le prolongement d'un côté ni une intersection ne l'attirent (ce ne sont pas des murs, m113) */
   function accrocheLibre(x, y, o){
     o = o || {}; var m = S.vue.monde(x, y), sl = !!o.mur, cc = aideOn('bati') || (!sl && aideOn('accParcelle')), R;
     if (cc){ R = 14 / S.vue.s; var cn = coinProche(m, R, o.saufLigne, segsCoinCote(m, R, o.saufLigne, sl)); if (cn) return {x: cn.x, y: cn.y, type: cn.s[7] === 'limite' ? 'parcelle' : 'coin', arete: cn.s, aide: true}; }
@@ -3768,7 +4346,7 @@ function editeur(racine, opts){
     if (best) return best;
     var m = S.vue.monde(x, y);
     /* le réseau passe avant ; puis, pour un point saisi, les nouveaux accrochages cochés (m112, m113 : intersection, milieu, perpendiculaire,
-       prolongement), avant le redressement (ni coin ni façade : ils restent hors des tronçons) */
+       prolongement d'un côté, à toute distance depuis m155), avant le redressement (ni coin ni façade : ils restent hors des tronçons) */
     if (o.saisie){ var nv = accrochesNouvelles(m, o.prec, o.saufLigne); if (nv) return nv; }
     if (o.prec){ var rd = redresser(o.prec, m); if (rd) return rd; }
     return {x: m.x, y: m.y};
@@ -3837,7 +4415,8 @@ function editeur(racine, opts){
     }
     if (g.type === 'attente'){
       if (Math.hypot(p.x - g.x0, p.y - g.y0) < (g.souris ? 4 : 9)) return;
-      if (g.cible){ quitterSaisie(); instantane(); g.type = 'glisser'; g.modifie = false; demarrerGlisser(g); }
+      /* disque de rotation (m154) : ce que « Rétablir » tient est gardé (instantane le vide), pour le rendre si le geste ne change rien */
+      if (g.cible){ quitterSaisie(); if (g.cible.k === 'tourner') g.redo = S.redo; instantane(); g.type = 'glisser'; g.modifie = false; demarrerGlisser(g); }
       /* pendant la pose par cotes (départ d'un escalier, m108), le glissé déplace la vue : il ne trace rien */
       else if (S.outil.k === 'ln' && aideOn('glisser') && !g.panForce && !S.cotes){ quitterSaisie(); g.type = 'trace'; demarrerTrace(g); }
       else { g.type = 'pan'; g.w0 = S.vue.monde(g.x0, g.y0); }
@@ -3865,7 +4444,7 @@ function editeur(racine, opts){
     /* clic gauche sur le « + » (m110) : sommet ajouté au pied ; pas au second clic d'un double clic, qui reste un toucher du plan (tracé
        choisi au premier clic), ni au clic que tapPlan ignore (bouton qui vient de disparaître, plan qui vient de glisser pour montrer la
        fiche) ; le second clic d'un double clic sur le « + », sur le sommet ajouté, est ignoré */
-    if (g.type === 'attente'){ S.geste = null; if (!g.panForce){ if (g.cible && g.cible.k === 'segment' && !suiteDeClic(p) && !clicGarde(p)) clicPlus(g.cible); else if (!secondClicPlus(g)) tap(p.x, p.y); } else if (g.menu) ouvrirMenu(g.menu, p.x, p.y); return; }
+    if (g.type === 'attente'){ S.geste = null; if (!g.panForce){ if (g.cible && g.cible.k === 'segment' && !suiteDeClic(p) && !clicGarde(p)) clicPlus(g.cible); else if (!secondClicPlus(g) && !toucherDisque(g, p)) tap(p.x, p.y); } else if (g.menu) ouvrirMenu(g.menu, p.x, p.y); return; }
     if (g.type === 'glisser'){ terminerGlisser(g, p); S.geste = null; return; }
     if (g.type === 'trace'){ S.geste = null; finTrace(g, p); return; }
     if (g.type === 'pan') enregistrerVue();
@@ -3890,7 +4469,21 @@ function editeur(racine, opts){
   function finirGeste(annule){
     var g = S.geste; S.geste = null; S.accrocheVue = null; S.apercu = null;
     if (g && g.type === 'trace' && annule && g.cree && S.brouillon && S.brouillon.pts.length === 1){ S.brouillon = null; majAide(); redessiner(); }
-    if (g && g.type === 'glisser'){ if (annule && g.modifie){ S.undo.length && restaurer(S.undo.pop()); } else if (!g.modifie) S.undo.pop(); changement(); }
+    if (g && g.type === 'glisser'){ if (annule && g.modifie){ S.undo.length && restaurer(S.undo.pop()); rendreRetablir(g); } else if (!g.modifie){ S.undo.pop(); rendreRetablir(g); } changement(); }
+  }
+  /* geste du disque de rotation (m154) qui n'a rien changé (angle revenu à celui du départ, geste annulé par Échap ou par un second
+     doigt) : son pas d'annulation est retiré, et « Rétablir » retrouve ce qu'il tenait avant le geste (g.redo, gardé au départ). Sans
+     cela, tourner puis revenir ferait perdre « Rétablir » sans rien avoir changé */
+  function rendreRetablir(g){ if (g.redo){ S.redo = g.redo; g.redo = null; } }
+  /* toucher sans glissé, ou glissé plus court que le seuil, sur le disque de rotation (m154) : rien ne tourne. Quand rien d'autre n'est
+     sous le doigt, l'objet reste choisi et sa fiche ouverte (un toucher du plan viderait la sélection : il faudrait choisir de nouveau
+     l'objet pour le tourner). Sur l'anneau, ce qui est sous le doigt (autre objet, étiquette, bulle, tuyau) se choisit comme avant. Sur
+     la poignée elle-même, un tuyau ou un trait ne se choisit pas : elle est souvent sur le tuyau de l'objet (regard dont le tuyau monte
+     à l'écran, objet calé perpendiculaire à son tuyau), qui se choisit partout ailleurs. Rend true quand le toucher s'arrête là */
+  function toucherDisque(g, p){
+    if (!g.cible || g.cible.k !== 'tourner') return false;
+    var z = toucher(p.x, p.y);
+    return !z || (!!g.cible.poignee && z.type === 'ln');
   }
 
   /* --- menu de poignée à la souris (m109) : outil Choisir, poignée du tracé choisi (sommet, milieu d'un segment), ouvert par une pause de
@@ -4079,6 +4672,11 @@ function editeur(racine, opts){
     for (i = 0; i < zs.length; i++){ z = zs[i]; if (z.type === 'pt' && Math.hypot(x - z.x, y - z.y) <= (z.zone ? z.r : z.r + 8)) return {k: 'objet', id: e.id}; }
     for (i = 0; i < zs.length; i++){ z = zs[i]; if ((z.type === 'etiq' || z.type === 'tx') && x >= z.b[0] - 4 && x <= z.b[2] + 4 && y >= z.b[1] - 4 && y <= z.b[3] + 4) return z.type === 'tx' ? {k: 'objet', id: e.id} : {k: 'etiq', id: e.id}; }
     for (i = 0; i < zs.length; i++){ z = zs[i]; if (z.type === 'bulle' && Math.hypot(x - z.x, y - z.y) <= z.r + 6) return {k: 'bulle', id: z.id, objId: e.id}; }
+    /* disque de rotation (m154) : sa poignée (son rayon + 8 px) ou son anneau (8 px de part et d'autre, sur tout son tour), après le corps
+       de l'objet, son étiquette et ses bulles, qui gardent la main là où ils se recouvrent (la poignée se pose donc ailleurs :
+       decalPoignee). dec : écart de la poignée à sa place, gardé pour tout le geste ; poignee : l'appui est sur la poignée elle-même */
+    var dq = disque(), surP = !!dq && Math.hypot(x - dq.px, y - dq.py) <= dq.rp + 8;
+    if (dq && (surP || Math.abs(Math.hypot(x - dq.x, y - dq.y) - dq.r) <= 8)) return {k: 'tourner', id: e.id, dec: dq.dec, poignee: surP};
     /* à la souris (m110) : le « + » du segment survolé du tracé choisi, hors de ses poignées */
     return souris && e.k === 'ln' ? plusSous(e, P, x, y) : null;
   }
@@ -4155,8 +4753,58 @@ function editeur(racine, opts){
       /* zone suspecte qui tiendrait encore le bout d'un tuyau (croquis d'avant) : le bout reste à sa place (raccord s'il en relie plusieurs) */
       if (e.t === 'zone') libererZones(S.doc, e.id);
     }
+    /* disque de rotation (m154) : angle de départ (et p.a tel qu'il était, pour le rendre si rien ne change), direction du doigt autour
+       du centre à l'appui, place libre du plan pour la bulle */
+    if (c.k === 'tourner'){
+      var ct = S.vue.ecran(e.x, e.y), a0 = +e.p.a;
+      g.tour = {a: isFinite(a0) ? a0 : 0, avait: 'a' in e.p, val: e.p.a, phi: Math.atan2(ct.y - g.y0, g.x0 - ct.x)}; g.cadre = cadreLibre();
+    }
+  }
+  /* disque de rotation (m154) : l'objet tourne de ce que le doigt a tourné autour de son centre depuis l'appui (rotation relative : aucun
+     saut quand l'anneau est pris loin de la poignée ; prise, la poignée reste sous le doigt), au degré près, sans pas de 15°. Aimant
+     actif (aides au dessin), l'angle se cale sur un linéaire proche (calerAngle). Sens : celui de l'écran, un quart de tour dans le sens
+     contraire des aiguilles d'une montre ajoute 90, comme la puce « 15° » de gauche ajoute 15. p.a : entier de 0 à 359. Doigt à moins de
+     6 px du centre : sa direction ne dit rien, l'angle reste. g.angle : l'angle écrit et le mot de la bulle. */
+  function tourner(g, p){
+    var e = el(g.cible.id); if (!e || !g.tour) return;
+    var c = S.vue.ecran(e.x, e.y); g.doigt = {x: p.x, y: p.y};
+    if (Math.hypot(p.x - c.x, p.y - c.y) >= 6){
+      var brut = g.tour.a + (Math.atan2(c.y - p.y, p.x - c.x) - g.tour.phi) * 180 / Math.PI, cal = S.aides.actives !== false ? calerAngle(e, brut) : null;
+      var a = ((Math.round(cal ? cal.a : brut) % 360) + 360) % 360;
+      e.p.a = a; g.angle = {a: a, mot: cal ? cal.mot : ''};
+    }
+    redessiner();
+  }
+  /* accrochage de l'angle (m154, commentaire de S10) : l'angle brut du doigt (degrés, repère du plan) se cale, à 5° au plus, sur la
+     direction d'un linéaire proche de l'objet e ou sur sa perpendiculaire (quatre angles par linéaire). Linéaires : ceux des aides au
+     dessin (segsCibles : côtés du bâti, traits de complément, limites de parcelle si elles sont cochées) et les pièces des tronçons et des
+     collecteurs, de plus de 0,2 m, à 3 m au plus du centre de l'objet (la distance de l'orientation automatique) ; un tuyau raccordé à
+     l'objet le touche : il compte donc toujours. L'angle le plus proche de celui du doigt l'emporte ; à égalité, celui du linéaire le
+     plus proche de l'objet. Rend {a : angle écrit, entier de 0 à 359 ; mot : « parallèle » ou « perpendiculaire »}, ou null.
+     Le mot dit ce qu'on voit : il se juge sur le grand axe du symbole. C'est son axe x pour presque tous (caniveau, fosse, puits, té,
+     clapet, gargouille ; sans effet pour un symbole carré). Le point de test a son mât le long de y (primitives) : pour lui les deux
+     mots s'échangent (enY). L'angle écrit, lui, ne dépend pas du type. */
+  function calerAngle(e, brut){
+    var o = {x: e.x, y: e.y}, I = idx(), C = [], i, enY = (T[e.t] || {}).forme === 'test';
+    function essai(x0, y0, x1, y1){
+      if (!(Math.hypot(x1 - x0, y1 - y0) > .2)) return;
+      var d = projSeg(o, {x: x0, y: y0}, {x: x1, y: y1}).d; if (!(d <= 3)) return;
+      var dir = Math.atan2(y1 - y0, x1 - x0) * 180 / Math.PI;
+      for (var k = 0; k < 4; k++){
+        var ec = (((dir + 90 * k - brut) % 360) + 540) % 360 - 180;
+        if (Math.abs(ec) <= 5) C.push({a: ((Math.round(brut + ec) % 360) + 360) % 360, ec: Math.abs(ec), d: d, mot: (k % 2 === 1) !== enY ? 'perpendiculaire' : 'parallèle'});
+      }
+    }
+    segsCibles(o, 3).forEach(function(sg){ essai(sg[0], sg[1], sg[2], sg[3]); });
+    S.doc.el.forEach(function(l){ if (l.k !== 'ln' || !estCanalisation(l.t)) return; var P = lignePts(l, I); for (var k = 1; k < P.length; k++) essai(P[k - 1].x, P[k - 1].y, P[k].x, P[k].y); });
+    if (!C.length) return null;
+    var m = C[0]; for (i = 1; i < C.length; i++) if (C[i].ec < m.ec || (C[i].ec === m.ec && C[i].d < m.d)) m = C[i];
+    /* le même angle écrit proposé par plusieurs linéaires (mur et tuyau parallèles, coin du bâti) : le mot est celui du plus proche */
+    var b = m; for (i = 0; i < C.length; i++) if (C[i].a === m.a && C[i].d < b.d) b = C[i];
+    return {a: m.a, mot: b.mot};
   }
   function glisser(g, p){
+    if (g.cible.k === 'tourner'){ tourner(g, p); return; }
     var c = g.cible, w = S.vue.monde(p.x, p.y), w0 = S.vue.monde(g.x0, g.y0), dxw = w.x - w0.x, dyw = w.y - w0.y, rot = S.doc.rot || 0, dP = versPlan(dxw, dyw, rot);
     if (c.k === 'objet'){ var e = el(c.id); e.x = g.o0.x + dxw; e.y = g.o0.y + dyw; synchroSommets(S.doc); }
     else if (c.k === 'sommet'){
@@ -4172,13 +4820,17 @@ function editeur(racine, opts){
       var a = !estCanalisation(l.t) ? accrocheLibre(p.x, p.y, {prec: prec, saufLigne: l.id}) : accroche(p.x, p.y, {saufLigne: l.id, saufObjs: siens, prec: prec, col: l.t === 'col', saisie: true, plan: l.p && l.p.st === 'projet' ? 'avp' : 'edl'});
       /* un tracé qui porte un objet du tracé (sortie d'une boîte, collecteur d'un regard ou d'un raccord) n'est pas une cible : s'y raccrocher
          refermerait le tracé sur cet objet. Le doigt dans la zone de l'objet d'un sommet voisin, le coude s'y fond (coude glissé sur la boîte
-         voisine, le doigt sur sa sortie) ; sinon le sommet reste libre */
+         voisine, le doigt sur sa sortie) ; sinon le sommet reste libre : nouveaux accrochages cochés (le prolongement d'un côté, à toute
+         distance, compris : m155), puis redressement */
       var porteurs = (a.type === 'som' || a.type === 'seg') ? l.v.filter(function(w, k){ return k !== c.i && !!w.a && objetSurTrace(w.a, a.ligne); }).map(function(w){ return w.a; }) : [];
       if (porteurs.length){
         var voisin = [l.v[c.i - 1], l.v[c.i + 1]].map(function(w){ return w && w.a; }).filter(function(id){ var z = id && !siens[id] && porteurs.indexOf(id) >= 0 ? zonePt(id) : null; return !!z && Math.hypot(p.x - z.x, p.y - z.y) <= Math.max(z.r, 10) + 12; })[0], ov = voisin && el(voisin);
         if (ov) a = {type: 'obj', id: ov.id, x: ov.x, y: ov.y};
         else { var m0 = S.vue.monde(p.x, p.y); a = accrochesNouvelles(m0, prec, l.id) || (prec && redresser(prec, m0)) || {x: m0.x, y: m0.y}; }
       }
+      /* poignée d'un bout d'un trait de complément de quatre sommets ou plus, à 14 px au plus de l'autre bout : elle en prend les coordonnées
+         exactes, le contour est fermé (m139, comme au tracé : surPremier) */
+      if (l.t === 'lim' && bout && l.v.length >= 4){ var f0 = surPremier(vpos(l.v[c.i === 0 ? l.v.length - 1 : 0], idx()), p.x, p.y); if (f0) a = f0; }
       l.v[c.i].x = a.x; l.v[c.i].y = a.y; S.accrocheVue = a.type ? a : null; g.accroche = a;
     }
     else if (c.k === 'etiq'){ var e2 = el(c.id); e2.lab = {dx: g.lab0.dx + dP.x, dy: g.lab0.dy + dP.y, E: E(), main: true}; }
@@ -4265,7 +4917,16 @@ function editeur(racine, opts){
   }
   function terminerGlisser(g){
     var c = g.cible; S.accrocheVue = null;
-    if (!g.modifie){ S.undo.pop(); return; }
+    if (!g.modifie){ S.undo.pop(); rendreRetablir(g); return; }
+    /* disque de rotation (m154) : l'angle n'est écrit que s'il a changé ; revenu à celui du départ, p.a est rendu tel qu'il était (absent
+       s'il l'était), le pas d'annulation est retiré et « Rétablir » retrouve ce qu'il tenait (rendreRetablir ; la barre est remise à jour) */
+    if (c.k === 'tourner'){
+      var et = el(c.id), a1 = g.angle ? g.angle.a : null;
+      if (et && g.tour && (a1 === null || a1 === ((Math.round(g.tour.a) % 360) + 360) % 360)){
+        if (g.tour.avait) et.p.a = g.tour.val; else delete et.p.a;
+        S.undo.pop(); rendreRetablir(g); majBarre(); redessiner(); return;
+      }
+    }
     if (c.k === 'sommet' && attache(g.accroche) && estCanalisation(el(c.id).t)){
       var l = el(c.id), a = g.accroche;
       if (a.type === 'obj'){ l.v[c.i].a = a.id; }
@@ -4494,9 +5155,15 @@ function editeur(racine, opts){
     var sa = S.vue.ecran(a.x, a.y), sb = S.vue.ecran(b.x, b.y);
     return !!a.ligne && a.ligne === b.ligne && Math.hypot(sa.x - sb.x, sa.y - sb.y) <= (tol || 12);
   }
+  /* fermeture d'un contour de « Complément du fond » (m139) : le point (x, y) de l'écran à 14 px au plus (rayon du coin) du point q du
+     plan est q, exactement ; lignesRef tient alors le trait pour fermé (GEO_EPS). Rend null sinon */
+  function surPremier(q, x, y){ var s = S.vue.ecran(q.x, q.y); return Math.hypot(x - s.x, y - s.y) <= 14 ? {x: q.x, y: q.y, type: 'coin', aide: true} : null; }
   /* Point de tracé selon l'outil : les traits de complément suivent le bâti, les tronçons s'accrochent au réseau */
   function pointTrace(x, y){
-    var oo = OUTILS_LN[S.outil.id], b = S.brouillon, prec = b && b.pts.length ? b.pts[b.pts.length - 1] : null;
+    var oo = OUTILS_LN[S.outil.id], b = S.brouillon, prec = b && b.pts.length ? b.pts[b.pts.length - 1] : null, f0;
+    /* complément du fond, trois points posés ou plus : revenir sur le premier ferme le contour, avant toute autre accroche et même aimant
+       coupé, comme l'accroche au réseau (m139 ; pas l'escalier, qui n'a que deux points) */
+    if (oo.t === 'lim' && b && b.outil === S.outil.id && b.pts.length >= 3 && (f0 = surPremier(b.pts[0], x, y))) return f0;
     /* complément du fond et escalier : accroche au coin et à la façade, nouveaux accrochages cochés (m112, m113), redressement depuis le point
        précédent ; jamais d'attache. Tronçon : le réseau d'abord, puis les seuls nouveaux accrochages cochés (saisie), puis le redressement */
     return estComplement(oo.t) ? accrocheLibre(x, y, {prec: prec}) : accroche(x, y, {prec: prec, col: oo.t === 'col', saisie: true});
@@ -4517,7 +5184,8 @@ function editeur(racine, opts){
      plan hors de tout geste (S.survol ; pas quand un doigt ou un stylet a appuyé depuis le dernier survol, S.survolPerime : entre deux
      touchers, seul le départ est marqué ; sur un appareil à écran tactile et souris, la souris qui bouge ensuite montre de nouveau le contour).
      Valeurs par défaut de VC.geo.escalierDefauts, avec les données d'un départ posé par cotes (b.cotes, m108) : le contour montre le côté
-     qui sera créé ; les lignes du bâti affiché sont relues quand le fond change (clé de aretesFond).
+     qui sera créé ; les lignes du bâti affiché sont relues quand le fond change (clé de aretesFond), les traits de complément à chaque
+     appel, par refsEscalier comme à la pose (m139 : le croquis peut changer pendant le tracé, par la fiche ouverte depuis Contrôles).
      Rend les quatre coins, ou null */
   function fantomeEscalier(){
     if (!attendFinEscalier()) return null;
@@ -4526,7 +5194,7 @@ function editeur(racine, opts){
     else if (!S.geste && S.survol && !S.survolPerime && S.outil.k === 'ln' && S.outil.id === b.outil) fe = pointTrace(S.survol.x, S.survol.y);
     if (!fe) return null;
     A = aretesFond(); if (!b.bati || b.bati.cle !== A.cle) b.bati = {cle: A.cle, L: refsCotes(['bati'])};
-    pe = escalierDefauts(d0, fe, b.bati.L, aideEscalier(d0), surLeBati(fe) ? 'facade' : fe.aide ? fe.type : null, b.cotes);
+    pe = escalierDefauts(d0, fe, refsEscalier(b.bati.L), aideEscalier(d0), surLeBati(fe) ? 'facade' : fe.aide ? fe.type : null, b.cotes);
     G = pe ? escalier(d0, fe, pe.larg, pe.n, pe.cote, pe.monte) : null;
     return G ? G.contour : null;
   }
@@ -4974,12 +5642,21 @@ function editeur(racine, opts){
      Départ d'un escalier (m108, bouton « Cotes » de l'outil Escalier, sans départ posé) : pour = {esc: true}, sans id. Mêmes étapes ; dans
      le panneau, « Poser le départ » pose le seul point du brouillon au point calculé, sans accroche ni redressement, et sans pas
      d'annulation. Le mode prend fin, l'outil Escalier attend la fin. Les données du départ (cotesDepart) restent sur le brouillon (b.cotes)
-     et s'oublient avec lui : « Point », « Abandonner », un autre outil, Échap, l'ouverture d'un croquis. */
+     et s'oublient avec lui : « Point », « Abandonner », un autre outil, Échap, l'ouverture d'un croquis.
+     Deux points (m146, D12 ; bouton « Deux points » de l'étape 'cote', sauf pour une mesure) : deux = {A, B, d1, d2, sol}, absent sinon ;
+     ref et c restent null ; t0 prend l'heure du toucher de « Deux points » (garde de « Abandonner »). Étape 'p1' : le technicien touche le
+     point 1, un coin d'une ligne de référence ou un objet (A : copie de sa position) ; étape 'p2' : le point 2 (B) ; étape 'saisie' : il
+     donne dans le panneau « Cotes » les distances d1 et d2 et choisit la place (sol : 1 à gauche de la droite A → B, 2 à droite ;
+     VC.geo.deuxCotes). Mêmes boutons et même fin de mode que depuis une façade. */
   var NAT_COTES = {bati: 'Façade', limite: 'Limite de parcelle', complement: 'Complément'}, RANG_NAT = {bati: 0, limite: 1, complement: 2};
   /* tolérance du toucher sur une ligne, en pixels : 10 à la souris, 24 au doigt ou au stylet */
   function tolCotes(){ return S.dernierPointeur === 'mouse' ? 10 : 24; }
   /* lignes de référence affichées : celles du fond s'il est visible (décalées comme à l'écran), puis les compléments du croquis */
   function refsCotes(natures){ var f = S.aff.fond ? S.fond : null; return lignesRef(S.doc, f, offFond(f), natures) || []; }
+  /* lignes pour les valeurs d'un escalier neuf (VC.geo.escalierDefauts, m139) : le bâti du fond affiché (bati, déjà lu par le fantôme,
+     sinon relu), puis les traits de complément du croquis, relus à chaque appel. Les mêmes, dans le même ordre, que refsCotes(['bati',
+     'complement']) ; le fantôme et la pose passent par ici, pour proposer le même côté */
+  function refsEscalier(bati){ return (bati || refsCotes(['bati'])).concat(lignesRef(S.doc, null, null, ['complement']) || []); }
   /* sans id : pose avec l'outil d'objet (bouton « Cotes »), ou départ de l'escalier avec l'outil Escalier (m108) ; avec id (m102) : objet
      existant, déplacé, ou mesuré si mesure est vrai */
   function entrerCotes(id, mesure){
@@ -5004,13 +5681,25 @@ function editeur(racine, opts){
     majAide(); redessiner();
   }
   /* « Abandonner » (barre d'aide) : il prend la place de « Cotes » ; ignoré pendant 0,5 s après l'entrée dans le mode, le temps du second
-     toucher d'un double toucher sur « Cotes » */
+     toucher d'un double toucher sur « Cotes » (de même après « Deux points », qui remet t0 à l'heure de son toucher, m146) */
   function abandonnerCotes(){ if (S.cotes && Date.now() - S.cotes.t0 < 500) return; quitterCotes(); }
+  /* heure du dernier « Autre trait » : « Deux points » apparaît à sa place (m146 ; garde de deuxPointsCotes) */
+  var tAutreCotes = 0;
   /* « Autre trait » : retour à l'étape 'cote' (le panneau se ferme, les cotes réglées sont oubliées) */
   function autreCoteCotes(){
-    var C = S.cotes; if (!C) return;
+    var C = S.cotes; if (!C || C.deux) return;
+    tAutreCotes = Date.now();
     C.etape = 'cote'; C.cands = null; C.k = 0; C.w0 = null; C.ref = null; C.c = null; C.essai = null;
     if (S.panneau === 'cotes'){ S.panneau = null; majPanneau(); }
+    majAide(); redessiner();
+  }
+  /* « Deux points » (m146, D12) : la place se donne par ses distances à deux points touchés. Ignoré pendant 0,5 s après l'apparition du
+     bouton (entrée dans le mode, « Autre trait »), le temps du second toucher d'un double toucher. t0 prend l'heure de ce toucher :
+     « Abandonner », qui vient à sa place sur un écran étroit, est ignoré à son tour pendant 0,5 s (abandonnerCotes) */
+  function deuxPointsCotes(){
+    var C = S.cotes; if (!C || C.etape !== 'cote' || C.pour.mesure || C.deux) return;
+    if (Date.now() - Math.max(C.t0, tAutreCotes) < 500) return;
+    C.deux = {A: null, B: null, d1: null, d2: null, sol: 1}; C.etape = 'p1'; C.t0 = Date.now();
     majAide(); redessiner();
   }
   /* Lignes de référence à tolM mètres au plus du point w : [{l, k, d, i}] ; k : rang du segment le plus proche de la ligne l (de P[k] à
@@ -5047,6 +5736,7 @@ function editeur(racine, opts){
     var C = S.cotes, w = S.vue.monde(x, y), tol = tolCotes();
     /* objet existant (m102) supprimé entre-temps : fin du mode, rien n'est changé */
     if (C.pour.id && !el(C.pour.id)){ quitterCotes(); return; }
+    if (C.deux){ tapDeux(w, tol); return; }
     /* nouveau toucher au même point du trait : la ligne superposée suivante (étape 'endroit' ; panneau d'une mesure ouvert : elle est mesurée) */
     var e0 = C.etape !== 'cote' && C.cands && C.cands.length > 1 && C.w0 && S.vue.ecran(C.w0.x, C.w0.y), suivante = !!e0 && Math.hypot(x - e0.x, y - e0.y) <= tol;
     if (C.etape === 'saisie'){
@@ -5064,6 +5754,36 @@ function editeur(racine, opts){
     }
     if (suivante){ C.k = (C.k + 1) % C.cands.length; choisirRefCotes(); majAide(); redessiner(); return; }
     endroitCotes(w);
+  }
+  /* m146 : point sous le doigt, à tolM mètres au plus de w : le plus proche des sommets des lignes de référence affichées et des objets
+     ponctuels, sauf l'objet déplacé ; à égalité, l'objet. Rend une copie de sa position, ou null */
+  function pointDeuxSous(w, tolM){
+    var C = S.cotes, coin = null, obj = null;
+    refsCotes().forEach(function(l){ l.P.forEach(function(q){ if (!estPt(q)) return; var d = Math.hypot(q.x - w.x, q.y - w.y); if (!coin || d < coin.d) coin = {d: d, x: q.x, y: q.y}; }); });
+    S.doc.el.forEach(function(e){ if (e.k !== 'pt' || e.id === C.pour.id || !estPt(e)) return; var d = Math.hypot(e.x - w.x, e.y - w.y); if (!obj || d < obj.d) obj = {d: d, x: e.x, y: e.y}; });
+    var q = obj && (!coin || obj.d <= coin.d) ? obj : coin;
+    return q && q.d <= tolM ? {x: q.x, y: q.y} : null;
+  }
+  /* m146 : toucher en mode deux points. Étapes 'p1' et 'p2' : le coin ou l'objet sous le doigt ; le point 2 ouvre le panneau « Cotes »
+     (objet déplacé : ses distances actuelles, exactes, et la place de son côté de la droite, Solution 1 s'il est sur elle) */
+  function tapDeux(w, tol){
+    var C = S.cotes, D = C.deux;
+    if (C.etape === 'saisie'){
+      toast(C.pour.id ? 'Réglez les cotes dans le panneau, puis « Déplacer » ; « Fermer » revient à la fiche.'
+        : 'Réglez les cotes dans le panneau, puis « ' + (C.pour.esc ? 'Poser le départ' : 'Poser') + ' » ; « Fermer » quitte la pose par cotes.', 3500); return;
+    }
+    var q = pointDeuxSous(w, tol / S.vue.s);
+    if (!q){ toast('Touchez un coin ou un objet'); return; }
+    if (C.etape === 'p1'){ D.A = q; C.etape = 'p2'; majAide(); redessiner(); return; }
+    if (Math.hypot(q.x - D.A.x, q.y - D.A.y) <= DEUX_MIN){ toast('Touchez deux points différents'); return; }
+    D.B = q;
+    var o = C.pour.id ? el(C.pour.id) : null;
+    if (o){
+      D.d1 = Math.hypot(o.x - D.A.x, o.y - D.A.y); D.d2 = Math.hypot(o.x - D.B.x, o.y - D.B.y);
+      D.sol = (D.B.x - D.A.x) * (o.y - D.A.y) - (D.B.y - D.A.y) * (o.x - D.A.x) >= 0 ? 1 : 2;
+    }
+    C.etape = 'saisie'; C.essai = null;
+    S.sel = null; S.panneau = 'cotes'; fermerPalette(); majPanneau(); majAide(); redessiner();
   }
   /* « Mesurer depuis une façade » (m102) : le panneau rempli par la mesure exacte de la position de l'objet (affichée au centimètre) */
   function mesurerCotes(){
@@ -5124,14 +5844,24 @@ function editeur(racine, opts){
     var nat = r ? '<strong>' + esc(NAT_COTES[r.nat] || '') + '</strong>' + (nb > 1 ? ' (' + (C.k + 1) + ' sur ' + nb + ')' : '') : '';
     var autre = '<button type="button" class="vc-b vc-bt" data-a="cotesAutre">' + ico('retour', 18) + 'Autre trait</button>';
     var titre = mes ? 'Mesurer depuis une façade' : id ? 'Déplacer par cotes' : 'Pose par cotes';
-    if (C.etape === 'cote') h = '<span><strong>' + (dep ? 'Départ de l\'escalier par cotes' : titre) + '</strong>' + (dep ? '' : ' (' + esc(id ? libPour(C.pour).lib : nomPose(C.pour.t, C.pour.modele).lib) + ')')
-      + '. Touchez la façade ou la limite de référence.</span>';
+    if (C.deux) h = aideDeux();
+    else if (C.etape === 'cote') h = '<span><strong>' + (dep ? 'Départ de l\'escalier par cotes' : titre) + '</strong>' + (dep ? '' : ' (' + esc(id ? libPour(C.pour).lib : nomPose(C.pour.t, C.pour.modele).lib) + ')')
+      + '. Touchez la façade ou la limite de référence.</span>'
+      + (mes ? '' : '<button type="button" class="vc-b vc-bt" data-a="cotesDeux">' + ico('deux', 18) + 'Deux points</button>');
     else if (C.etape === 'endroit') h = '<span>' + nat + '. Touchez ' + (dep ? 'l\'endroit du départ' : (id ? 'le nouvel endroit' : 'l\'endroit') + ' de l\'objet') + (nb > 1 ? ' ; touchez de nouveau le même point du trait pour la ligne suivante' : '') + '.</span>' + autre;
     else h = '<span>' + nat + ' : réglez les cotes dans le panneau, puis « ' + (id ? 'Déplacer' : dep ? 'Poser le départ' : 'Poser') + ' »'
       + (mes && nb > 1 ? ' ; touchez de nouveau le même point du trait pour mesurer depuis la ligne suivante' : '') + '.</span>' + autre;
     return h + '<button type="button" class="vc-b vc-bt" data-a="cotesStop">' + ico('fermer', 18) + 'Abandonner</button>';
   }
+  /* m146 : aide du mode deux points ; « Abandonner » suit */
+  function aideDeux(){
+    var C = S.cotes;
+    if (C.etape === 'p1') return '<span>Touchez le point 1 (coin ou objet).</span>';
+    if (C.etape === 'p2') return '<span>Touchez le point 2.</span>';
+    return '<span><strong>Deux points</strong> : réglez les cotes dans le panneau, puis « ' + (C.pour.id ? 'Déplacer' : C.pour.esc ? 'Poser le départ' : 'Poser') + ' ».</span>';
+  }
   function cotesHtml(){
+    if (S.cotes.deux) return deuxHtml();
     var C = S.cotes, r = C.ref, c = C.c, prol = c.mode === 'prol', g = coinGauche(r) || 'A';
     var cotes = prol ? [['droite', 'Droite'], ['gauche', 'Gauche']] : r.nat === 'limite' && r.dedans ? [['derriere', 'Intérieur'], ['devant', 'Extérieur']] : [['devant', 'Devant'], ['derriere', 'Derrière']];
     /* objet existant (m102) : « mesuré » ou « déplacé », et « Déplacer » à la place de « Poser » ; départ d'un escalier (m108) : « Poser le départ » */
@@ -5148,11 +5878,61 @@ function editeur(racine, opts){
       + '<div class="vc-fact">' + ok
       + '<button type="button" class="vc-b vc-bt" data-a="cotesFermer">' + ico('fermer', 18) + 'Fermer</button></div>';
   }
+  /* m146 : panneau « Cotes » en mode deux points : en-tête, les deux distances, puis les deux places (seulement s'il y en a deux) ou le
+     message sans croisement, et les boutons de la façade. solsDeuxVus : ce que montre la partie des places (majSolsDeux) */
+  var solsDeuxVus = '';
+  function deuxHtml(){
+    var C = S.cotes, D = C.deux, dep = !!C.pour.esc, id = C.pour.id, ty = dep ? {lib: 'Départ de l\'escalier'} : id ? libPour(C.pour) : nomPose(C.pour.t, C.pour.modele);
+    var ok = id ? '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesDeplacer">' + ico('valider', 18) + 'Déplacer</button>'
+      : '<button type="button" class="vc-b vc-bt vc-prim" data-a="cotesPoser">' + ico('valider', 18) + (dep ? 'Poser le départ' : 'Poser') + '</button>';
+    solsDeuxVus = solsDeuxHtml();
+    return '<p class="vc-muet">' + esc(ty.sujet || ty.lib || '') + (id ? ' déplacé' : ' posé') + (ty.g === 'f' ? 'e' : '') + ' depuis deux points (à '
+        + frNum(Math.hypot(D.B.x - D.A.x, D.B.y - D.A.y), 2) + ' m l\'un de l\'autre).</p>'
+      + champ('Distance depuis le point 1 (m)', saisie('d1', frNum(D.d1, 2), {a: 'cotesNum', num: true, lab: 'Distance depuis le point 1 en mètres'}))
+      + champ('Distance depuis le point 2 (m)', saisie('d2', frNum(D.d2, 2), {a: 'cotesNum', num: true, lab: 'Distance depuis le point 2 en mètres'}))
+      + '<div class="vc-deuxsol">' + solsDeuxVus + '</div>'
+      + '<div class="vc-fact">' + ok
+      + '<button type="button" class="vc-b vc-bt" data-a="cotesFermer">' + ico('fermer', 18) + 'Fermer</button></div>';
+  }
+  /* m146 : distances de l'aperçu (la frappe en cours, sinon la saisie enregistrée) */
+  function deuxValeurs(){
+    var C = S.cotes, D = C.deux, e = C.essai;
+    return {d1: e && e.k === 'd1' ? e.v : D.d1, d2: e && e.k === 'd2' ? e.v : D.d2};
+  }
+  function msgDeux(){ var D = S.cotes.deux; return 'Les deux cotes ne se croisent pas : les deux points sont à ' + frNum(Math.hypot(D.B.x - D.A.x, D.B.y - D.A.y), 2) + ' m l\'un de l\'autre.'; }
+  /* places : rien tant qu'une distance manque ou si les cercles se touchent (une seule place) ; le message sans croisement ; sinon les puces */
+  function solsDeuxHtml(){
+    var D = S.cotes.deux, v = deuxValeurs(); if (v.d1 == null || v.d2 == null) return '';
+    var s = deuxCotes(D.A, D.B, v.d1, v.d2);
+    if (!s.length) return '<p class="vc-muet"><strong>' + esc(msgDeux()) + '</strong></p>';
+    if (s.length < 2) return '';
+    return '<div class="vc-champ">' + chipsHtml('sol', [['1', 'Solution 1'], ['2', 'Solution 2']], String(D.sol), {a: 'cotes', label: 'Solution'}) + '</div>';
+  }
+  /* pendant la frappe : seule la partie des places est refaite, et seulement si elle change (le champ garde le focus, une puce touchée reste) */
+  function majSolsDeux(){
+    var z = pcorps.querySelector('.vc-deuxsol'), h = solsDeuxHtml();
+    if (!z || h === solsDeuxVus) return;
+    solsDeuxVus = h; z.innerHTML = h;
+  }
+  /* m146 : la place choisie (la seule si les cercles se touchent) ; toast et null si une distance manque ou sans croisement. Objet déplacé à
+     moins de 1 mm de la seule place (il est à moins de 1 mm de la droite des deux points) : sa position, pour que « Déplacer » sans rien
+     changer ne le bouge pas */
+  function pointDeux(){
+    var C = S.cotes, D = C.deux, s, o;
+    if (D.d1 == null || D.d2 == null){ toast('Saisissez les deux distances.'); return null; }
+    s = deuxCotes(D.A, D.B, D.d1, D.d2);
+    if (!s.length){ toast(msgDeux(), 4000); return null; }
+    if (s.length > 1) return s[D.sol === 2 ? 1 : 0];
+    o = C.pour.id ? el(C.pour.id) : null;
+    return o && Math.hypot(o.x - s[0].x, o.y - s[0].y) < DEUX_TOL ? {x: o.x, y: o.y} : s[0];
+  }
   function actionCotes(a, b){
-    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c) return;
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !(C.c || C.deux)) return;
     if (a === 'cotesFermer'){ quitterCotes(); return; }
     if (a === 'cotesPoser'){ if (C.pour.esc) poserDepartParCotes(); else if (!C.pour.id) poserParCotes(); return; }
     if (a === 'cotesDeplacer'){ if (C.pour.id) deplacerParCotes(); return; }
+    /* m146 : place choisie */
+    if (C.deux){ if (b.dataset.k === 'sol' && (b.dataset.v === '1' || b.dataset.v === '2')){ C.deux.sol = +b.dataset.v; majPanneau(); redessiner(); } return; }
     var k = b.dataset.k, v = b.dataset.v, c = C.c;
     if (k === 'mode' && (v === 'prol' || v === 'long')){ if (v !== c.mode){ c.cote = coteEquivalente(C.ref, c, v); c.mode = v; } }
     else if (k === 'coin' && (v === 'A' || v === 'B')) c.coin = v;
@@ -5163,18 +5943,29 @@ function editeur(racine, opts){
   /* distance ou décalage : nombre positif ou nul (virgule ou point) ; fin : saisie enregistrée (événement change), sinon aperçu seulement.
      Valeur refusée : toast des valeurs refusées, la valeur précédente reste ; la valeur saisie est gardée telle quelle, affichée à 1 cm. */
   function saisieCotes(b, fin){
-    var C = S.cotes, k = b.dataset.k; if (!C || C.etape !== 'saisie' || !C.c || (k !== 'd' && k !== 'e')) return;
+    var C = S.cotes, k = b.dataset.k; if (!C || C.etape !== 'saisie') return;
+    if (C.deux){ saisieDeux(b, fin); return; }
+    if (!C.c || (k !== 'd' && k !== 'e')) return;
     var x = num(String(b.value).trim());
     if (!fin){ C.essai = x != null && x >= 0 ? {k: k, v: x} : null; redessiner(); return; }
     C.essai = null;
     if (x == null || x < 0){ C.refus = Date.now(); toast('Nombre attendu, par exemple 0,80'); b.value = frNum(C.c[k], 2); redessiner(); return; }
     C.c[k] = x; b.value = frNum(x, 2); redessiner();
   }
+  /* m146 : distance depuis le point 1 ou 2, comme saisieCotes ; les places du panneau et l'aperçu suivent la frappe */
+  function saisieDeux(b, fin){
+    var C = S.cotes, D = C.deux, k = b.dataset.k; if (k !== 'd1' && k !== 'd2') return;
+    var x = num(String(b.value).trim());
+    if (!fin){ C.essai = x != null && x >= 0 ? {k: k, v: x} : null; majSolsDeux(); redessiner(); return; }
+    C.essai = null;
+    if (x == null || x < 0){ C.refus = Date.now(); toast('Nombre attendu, par exemple 0,80'); b.value = frNum(D[k], 2); majSolsDeux(); redessiner(); return; }
+    D[k] = x; b.value = frNum(x, 2); majSolsDeux(); redessiner();
+  }
   /* angle d'un objet orientable posé par cotes, comme poserObjet : avec l'orientation automatique, celui du côté (une gargouille : celui
      de la normale, vers le dehors de la ligne, ou vers le côté touché d'un trait ouvert) ; sans, celui de la rotation du plan */
   function angleCotes(t, r){
     if (!T[t] || !T[t].oriente) return null;
-    if (!aideOn('orienter')) return Math.round(((S.doc.rot || 0) * 180 / Math.PI) * 10) / 10;
+    if (!aideOn('orienter') || !r) return Math.round(((S.doc.rot || 0) * 180 / Math.PI) * 10) / 10;
     var u = unite(r.A, r.B); if (!u) return null;
     var a = u;
     if (t === 'gargouille' && r.n){ var g = cw(u); a = r.n.x * g.x + r.n.y * g.y > 0 ? g : ccw(u); }
@@ -5186,10 +5977,11 @@ function editeur(racine, opts){
      un mur ; valeurs par défaut de poserObjet ; une seule annulation ; puis sa fiche, et fin du mode */
   function poserParCotes(){
     quitterSaisie();
-    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c) return;
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !(C.c || C.deux)) return;
     /* une valeur vient d'être refusée en quittant le champ (toucher sur « Poser ») : rien n'est posé, le toast l'explique */
     if (C.refus && Date.now() - C.refus < 800) return;
-    var t = C.pour.t, P = placer(C.ref, C.c);
+    var t = C.pour.t, P = C.deux ? pointDeux() : placer(C.ref, C.c);
+    if (C.deux && !P) return;
     if (!T[t] || !P){ toast('Position incalculable : vérifiez les cotes.'); return; }
     instantane();
     var o = {id: uid(), k: 'pt', t: t, x: P.x, y: P.y, p: defautsPt(t, C.pour.modele), lab: null}, ang = angleCotes(t, C.ref);
@@ -5208,14 +6000,17 @@ function editeur(racine, opts){
      après une valeur refusée ; D1 : point dans le bâti, avertissement sans refus. */
   function poserDepartParCotes(){
     quitterSaisie();
-    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c || !C.pour.esc) return;
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !(C.c || C.deux) || !C.pour.esc) return;
     if (C.refus && Date.now() - C.refus < 800) return;
     var o = S.outil; if (o.k !== 'ln' || !OUTILS_LN[o.id] || OUTILS_LN[o.id].t !== 'esc'){ quitterCotes(); return; }
-    var P = placer(C.ref, C.c), dc = P ? cotesDepart(C.ref, C.c) : null;
-    if (!P || !dc){ toast('Position incalculable : vérifiez les cotes.'); return; }
+    /* m146 : par deux points, ni données de départ (b.cotes), ni aide, ni bâti : le côté et la montée se proposent comme pour un départ touché */
+    var P = C.deux ? pointDeux() : placer(C.ref, C.c), dc = P && !C.deux ? cotesDepart(C.ref, C.c) : null;
+    if (C.deux && !P) return;
+    if (!P || (!dc && !C.deux)){ toast('Position incalculable : vérifiez les cotes.'); return; }
     var dedans = dansBati(P);
     S.cotes = null; S.panneau = null; S.sel = null;
-    S.brouillon = {outil: o.id, pts: [{x: P.x, y: P.y, snap: null, aide: dc.facade ? 'facade' : null, surBati: dc.facade === true, doigt: null}], cotes: dc};
+    S.brouillon = dc ? {outil: o.id, pts: [{x: P.x, y: P.y, snap: null, aide: dc.facade ? 'facade' : null, surBati: dc.facade === true, doigt: null}], cotes: dc}
+      : {outil: o.id, pts: [{x: P.x, y: P.y, snap: null, aide: null, surBati: false, doigt: null}]};
     majPanneau(); majAide(); redessiner(); vibrer();
     if (dedans) toast('Le point tombe dans le bâti : le départ est posé quand même. Vérifiez les cotes (« Point » le retire).', 5000);
   }
@@ -5224,10 +6019,10 @@ function editeur(racine, opts){
      l'objet reste choisi et sa fiche se rouvre. Même garde-fou que « Poser » après une valeur refusée. */
   function deplacerParCotes(){
     quitterSaisie();
-    var C = S.cotes; if (!C || C.etape !== 'saisie' || !C.c || !C.pour.id) return;
+    var C = S.cotes; if (!C || C.etape !== 'saisie' || !(C.c || C.deux) || !C.pour.id) return;
     if (C.refus && Date.now() - C.refus < 800) return;
     var id = C.pour.id; if (!el(id)){ quitterCotes(); return; }
-    var P = placer(C.ref, C.c); if (!P){ toast('Position incalculable : vérifiez les cotes.'); return; }
+    var P = C.deux ? pointDeux() : placer(C.ref, C.c); if (!P){ if (!C.deux) toast('Position incalculable : vérifiez les cotes.'); return; }
     var dedans = dansBati(P);
     S.cotes = null; S.sel = {id: id, sommet: null}; S.panneau = 'fiche';
     var bouge = deplacerObjet(id, P.x, P.y);
@@ -5240,6 +6035,7 @@ function editeur(racine, opts){
   /* repères temporaires (surcouche) : le côté retenu surligné et son prolongement en tirets ; à l'étape de saisie, l'objet fantôme au point
      calculé (départ d'un escalier : une petite croix) et les deux cotes en tirets (d le long du côté ou du prolongement, e perpendiculaire) */
   function dessinerCotes(){
+    if (S.cotes.deux){ dessinerDeux(); return; }
     var C = S.cotes, r = C.ref, A = S.vue.ecran(r.A.x, r.A.y), B = S.vue.ecran(r.B.x, r.B.y), L = Math.hypot(B.x - A.x, B.y - A.y);
     if (!(L > 0)) return;
     var ux = (B.x - A.x) / L, uy = (B.y - A.y) / L, loin = S.vue.w + S.vue.h, or = '#d4650a', ac = '#0F5C63';
@@ -5273,6 +6069,42 @@ function editeur(racine, opts){
       else dessinerPrims(ctx, primitives(e, couleurPt(e, o ? S.an : null), angleSymbole(ty, ang, S.doc.rot || 0)), eP.x, eP.y, Math.max(S.vue.s * E() / 1000, (ty === 'jonction' ? 4 : 8.5) / rayonSymbole(ty)));
       ctx.globalAlpha = 1;
     }
+    ctx.restore();
+  }
+  /* m146 : repères du mode deux points (écran seulement) : les points touchés, numérotés ; à l'étape de saisie, les cercles des distances
+     données, en tirets, et l'objet fantôme à chaque place possible, la choisie en plein (une seule si les cercles se touchent, aucune sans
+     croisement) */
+  function dessinerDeux(){
+    var C = S.cotes, D = C.deux, or = '#d4650a', ac = '#0F5C63', v = deuxValeurs(), o = null, ty = null, e = null, ang = null;
+    if (!C.pour.esc){ o = C.pour.id ? el(C.pour.id) : null; ty = o ? o.t : C.pour.t; e = o || {k: 'pt', t: ty, p: defautsPt(ty, C.pour.modele)}; ang = o ? (o.p && o.p.a) || 0 : angleCotes(ty, null); }
+    ctx.save(); ctx.lineCap = 'round';
+    if (C.etape === 'saisie' && D.A && D.B){
+      [[D.A, v.d1], [D.B, v.d2]].forEach(function(q){
+        if (q[1] == null) return;
+        var c = S.vue.ecran(q[0].x, q[0].y), r = q[1] * S.vue.s; if (!(r >= 0.5)) return;
+        ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, 2 * Math.PI); ctx.setLineDash([6, 4]); ctx.strokeStyle = ac; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+      });
+      var s = v.d1 != null && v.d2 != null ? deuxCotes(D.A, D.B, v.d1, v.d2) : [], ch = s.length === 1 || D.sol !== 2 ? 0 : 1;
+      s.forEach(function(P, i){
+        var eP = S.vue.ecran(P.x, P.y);
+        ctx.globalAlpha = i === ch ? 1 : .35;
+        /* départ d'un escalier : une petite croix, comme depuis une façade */
+        if (C.pour.esc){
+          ctx.beginPath(); ctx.moveTo(eP.x - 7, eP.y - 7); ctx.lineTo(eP.x + 7, eP.y + 7); ctx.moveTo(eP.x - 7, eP.y + 7); ctx.lineTo(eP.x + 7, eP.y - 7);
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.stroke(); ctx.strokeStyle = ac; ctx.lineWidth = 2.5; ctx.stroke();
+        }
+        else if (ty === 'zone'){ ctx.beginPath(); ctx.arc(eP.x, eP.y, Math.max(10, (num(e.p.r) || 1.5) * S.vue.s), 0, 2 * Math.PI); ctx.setLineDash([5, 4]); ctx.strokeStyle = rgbCss(RES.ANN.rgb); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); }
+        else dessinerPrims(ctx, primitives(e, couleurPt(e, o ? S.an : null), angleSymbole(ty, ang, S.doc.rot || 0)), eP.x, eP.y, Math.max(S.vue.s * E() / 1000, (ty === 'jonction' ? 4 : 8.5) / rayonSymbole(ty)));
+        ctx.globalAlpha = 1;
+      });
+    }
+    ctx.font = '700 12px Barlow, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    [D.A, D.B].forEach(function(q, i){
+      if (!q) return;
+      var c = S.vue.ecran(q.x, q.y);
+      ctx.beginPath(); ctx.arc(c.x, c.y, 6, 0, 2 * Math.PI); ctx.fillStyle = or; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+      ctx.lineWidth = 3; ctx.strokeText(String(i + 1), c.x, c.y - 9); ctx.fillText(String(i + 1), c.x, c.y - 9);
+    });
     ctx.restore();
   }
   function poserTexte(x, y){
@@ -5371,10 +6203,11 @@ function editeur(racine, opts){
     }
     dedoublonner(l);
     if (l.v.length < 2){ S.doc.el = S.doc.el.filter(function(x){ return x.id !== l.id; }); S.undo.pop(); majAide(); redessiner(); return; }
-    /* escalier neuf : largeur, marches, côté hors du bâti affiché et sens de la montée proposés depuis le plan (VC.geo.escalierDefauts) ;
-       départ posé par cotes (m108) : ses données (b.cotes) proposent le côté et la montée, puis s'oublient avec le brouillon. Un bout calé
-       au milieu d'une façade ou au pied d'une perpendiculaire sur elle (m112) compte comme posé sur la façade (aideEscalier) */
-    if (l.t === 'esc'){ var pe = escalierDefauts(l.v[0], l.v[1], refsCotes(['bati']), aideEscalier(b.pts[0]), aideEscalier(b.pts[b.pts.length - 1]), b.cotes); if (pe) l.p = pe; }
+    /* escalier neuf : largeur, marches, côté hors du bâti affiché (et des contours fermés de complément, m139) et sens de la montée proposés
+       depuis le plan (VC.geo.escalierDefauts, mêmes lignes que le fantôme : refsEscalier) ; départ posé par cotes (m108) : ses données
+       (b.cotes) proposent le côté et la montée, puis s'oublient avec le brouillon. Un bout calé au milieu d'une façade ou au pied d'une
+       perpendiculaire sur elle (m112) compte comme posé sur la façade (aideEscalier) */
+    if (l.t === 'esc'){ var pe = escalierDefauts(l.v[0], l.v[1], refsEscalier(), aideEscalier(b.pts[0]), aideEscalier(b.pts[b.pts.length - 1]), b.cotes); if (pe) l.p = pe; }
     analyse();
     if (!l.lab && texteEtiquette(l, S.an)) l.lab = placerEtiquette(S.doc, S.an, l, E(), idx());
     /* fin discrète (arrière-plan, « Retour ») : le panneau ouvert reste tel quel (un choix de fichier en cours n'est pas perdu) */
@@ -5438,12 +6271,13 @@ function editeur(racine, opts){
     S.palette = k; var P = PALETTES[k], items = [];
     /* destinations ajoutées (m128 ; D10) : après « Autre destination », un item par modèle de la tablette ('pt:exutoire:<id>'), puis
        « + Nouvelle destination » ; ajoutés à chaque ouverture (PALETTES est figé au chargement). Nom, symbole et état actif viennent du
-       modèle ; « Autre destination » n'est active que sans modèle de la tablette */
+       modèle ; « Autre destination » n'est active que sans modèle de la tablette, ni les champs d'une destination posée (m144, « La même »
+       face à une destination absente de la palette : l'outil porte ses champs, sans identifiant ; relecture M2, M11) */
     P.items.forEach(function(it){ items.push(it); if (it === 'pt:exutoire'){ S.exutoires.forEach(function(m){ items.push('pt:exutoire:' + m.id); }); items.push('nv:exutoire'); } });
     pal.innerHTML = '<h3>' + esc(P.lib) + '</h3><div class="vc-pgrille">' + items.map(function(it){
       var q = it.split(':'), lib, sous = '', svg, actif = false, m = q[0] === 'pt' && q[2] ? modeleExu(q[2]) : null;
       if (m){ lib = m.nom; svg = symboleSvg(q[1], 38, defautsPt(q[1], m)); actif = S.outil.k === 'pt' && S.outil.t === q[1] && S.outil.mid === m.id; }
-      else if (q[0] === 'pt'){ lib = T[q[1]].lib; svg = symboleSvg(q[1], 38); actif = S.outil.k === 'pt' && S.outil.t === q[1] && !S.outil.mid; }
+      else if (q[0] === 'pt'){ lib = T[q[1]].lib; svg = symboleSvg(q[1], 38); actif = S.outil.k === 'pt' && S.outil.t === q[1] && !S.outil.mid && !S.outil.modele; }
       else if (q[0] === 'nv'){ lib = '+ Nouvelle destination'; svg = '<span class="vc-ptx">' + ico('plus', 30) + '</span>'; }
       else if (q[0] === 'ln'){ var oo = OUTILS_LN[q[1]]; lib = oo.lib; sous = oo.sous || ''; svg = oo.relier ? '<span class="vc-ptx">' + ico('relier', 30) + '</span>' : oo.t === 'esc' ? escalierSvg(38) : sorteDrain(oo.p && oo.p.drain) ? drainSvg(oo.p.drain, 38) : traitSvg(oo.res, oo.st, 38); actif = S.outil.k === 'ln' && S.outil.id === q[1]; }
       else { lib = 'Texte libre'; svg = '<span class="vc-ptx">' + ico('texte', 30) + '</span>'; actif = S.outil.k === 'tx'; }
@@ -5479,19 +6313,20 @@ function editeur(racine, opts){
   function deLib(o){ var a = artLib(o); return a.art === 'le' ? 'du ' + a.nom : 'de ' + avecLib(o); }
   /* ligne du constat d'un objet : celle de son type ; un autre appareil, celle choisie dans sa fiche (rowAutre) */
   function rowObj(o){ var ty = T[o.t] || {}; return ty.nomLibre ? rowAutre(o) : ty.row || ''; }
-  /* ce que le constat compte pour les objets du groupe g : ses lignes dans l'ordre du groupe (« Salle de bain 1, WC 1, Évier 1 ») ; une
-     ligne du formulaire sans sa précision entre parenthèses ; une ligne hors du formulaire avec « Autres : » et son libellé entier, comme au
-     constat (« Autres : Piscine (vidange) 1 » : nom saisi par l'opérateur ; M2 et M4 de la relecture) ; aucun compte ne change */
+  /* ce que le constat compte pour les objets du groupe g : ses lignes dans l'ordre de l'étiquette, porteur compris (m141 : « Salle de
+     bain 1, Évier 1, WC 1 ») ; une ligne du formulaire sans sa précision entre parenthèses ; une ligne hors du formulaire avec son libellé
+     entier, comme au constat (« Piscine (vidange) 1 » : nom saisi par l'opérateur ; M2 et M4 de la relecture), sans « Autres : » depuis
+     m147 (D14) ; aucun compte ne change */
   function comptesGroupe(g){
     var rows = constatDeduit(S.doc, S.an).rows, vus = [];
-    g.objets.forEach(function(o){
+    g.objets.slice().sort(triEtiq).forEach(function(o){
       for (var i = 0; i < rows.length; i++) if (rows[i].objets.indexOf(o.id) >= 0){
         var r = rows[i], x = vus.filter(function(v){ return v.r === r; })[0];
         if (x) x.n++; else vus.push({r: r, n: 1});
         return;
       }
     });
-    return vus.map(function(v){ return (v.r.std ? String(v.r.label).replace(/\s*\([^)]*\)$/, '') : 'Autres : ' + v.r.label) + ' ' + v.n; }).join(', ');
+    return vus.map(function(v){ return (v.r.std ? String(v.r.label).replace(/\s*\([^)]*\)$/, '') : v.r.label) + ' ' + v.n; }).join(', ');
   }
   /* texte indicatif du champ Étiquette : celui d'office ; celui du porteur sur une ligne (M3) ; un membre renvoie à l'étiquette commune */
   function texteIndicatif(e){
@@ -5503,26 +6338,33 @@ function editeur(racine, opts){
   /* mode « Réunir » (sur le modèle de S.placer) : S.reunir = {porteur, ids : appareils choisis, modif : « Modifier le groupe », dernier :
      objet du dernier toucher}. Rien n'est écrit avant « Terminé » ; « Annuler », un autre outil, Échap, « Annuler » ou « Rétablir » de la
      barre, un panneau qui s'ouvre, l'ouverture d'un croquis ou la disparition du porteur le ferment sans rien écrire. Zoom et
-     déplacement du plan restent permis */
+     déplacement du plan restent permis.
+     À la création (m153 ; réponse e4 du 16 nov. 2026, choix b ; D21 de la conception v1.7.2), ids reçoit les voisins du porteur
+     (voisinsEtiquette : à 3 m au plus, au même niveau), déjà choisis : un toast de 4 s le dit, un toucher en retire un. « Modifier le
+     groupe » reprend le groupe tel qu'il est, sans toast */
   function entrerReunir(id, ids, modif){
     if (!el(id)) return;
     fermerPanneau(); choisirOutil({k: 'main'});
     S.reunir = {porteur: id, ids: (ids || []).slice(), modif: !!modif, dernier: null};
     majAide(); redessiner();
+    var n = S.reunir.ids.length;
+    if (!modif && n) toast(n > 1 ? n + ' appareils à moins de 3 m, au même niveau : déjà choisis. Touchez-en un pour le retirer.'
+      : '1 appareil à moins de 3 m, au même niveau : déjà choisi. Touchez-le pour le retirer.', 4000);
   }
   function fermerReunir(){ if (!S.reunir) return false; S.reunir = null; majAide(); redessiner(); return true; }
   /* « Annuler » du bandeau : rien n'est écrit, la fiche du porteur se rouvre */
   function quitterReunir(){ var id = S.reunir && S.reunir.porteur; fermerReunir(); if (id && el(id)) selectionner(id); }
   /* appareil absent du plan affiché (hors de an.objs) : « Projet » sur l'état des lieux, « À supprimer » sur l'avant-projet */
   function horsPlan(){ return S.mode === 'avp' ? 'Appareil à supprimer : il ne figure pas sur l\'avant-projet' : 'Appareil en projet : il ne figure pas sur l\'état des lieux'; }
-  /* raison du refus de l'appareil o pour le porteur P, dans l'ordre de D7 ; '' s'il peut être réuni */
+  /* raison du refus de l'appareil o pour le porteur P, dans l'ordre de D7 ; '' s'il peut être réuni. Les tests sont ceux de refusEtiq
+     (m153 : un seul jeu de tests, pour le toucher et pour les voisins choisis d'avance) ; ici, le message de chaque refus */
   function refusReunir(o, P){
-    if (!sourceEU(o)) return 'Étiquette commune : seuls les appareils des eaux usées (WC, lavabo, douche…) se réunissent';
-    if (!aCle(S.an.objs, o.id)) return horsPlan();
-    if (stEtiq(o) !== stEtiq(P)) return 'Statut différent de celui ' + deLib(P) + ' : seuls les appareils de même statut se réunissent';
-    var q = porteurEtiq(o, S.an);
-    if (q && q.id !== P.id) return 'Cet appareil est déjà réuni avec ' + avecLib(q) + ' : séparez-le d\'abord (sa fiche)';
-    if (estPorteur(o)) return 'Cet appareil porte déjà une étiquette commune : défaites-la d\'abord (sa fiche)';
+    var c = refusEtiq(o, P, S.an);
+    if (c === 'eu') return 'Étiquette commune : seuls les appareils des eaux usées (WC, lavabo, douche…) se réunissent';
+    if (c === 'plan') return horsPlan();
+    if (c === 'statut') return 'Statut différent de celui ' + deLib(P) + ' : seuls les appareils de même statut se réunissent';
+    if (c === 'reuni') return 'Cet appareil est déjà réuni avec ' + avecLib(porteurEtiq(o, S.an)) + ' : séparez-le d\'abord (sa fiche)';
+    if (c === 'porteur') return 'Cet appareil porte déjà une étiquette commune : défaites-la d\'abord (sa fiche)';
     return '';
   }
   /* toucher pendant le mode : ajoute ou retire l'appareil touché ; le second toucher d'un double toucher sur le même objet est ignoré (il ne
@@ -5658,7 +6500,7 @@ function editeur(racine, opts){
     else if (o.k === 'tx') h = '<span>Touchez le plan à l\'endroit du texte.</span>';
     aide.innerHTML = h; aide.hidden = !h; placerBarres();
   }
-  aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') abandonnerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } else if (a === 'placerStop'){ S.placer = null; majAide(); } else if (a === 'relierStop'){ S.relier = null; majAide(); redessiner(); } else if (a === 'reunirFin') terminerReunir(); else if (a === 'reunirStop') quitterReunir(); else if (a === 'cotes') boutonCotes(); else if (a === 'cotesAutre') autreCoteCotes(); else if (a === 'cotesStop') abandonnerCotes(); });
+  aide.addEventListener('click', function(ev){ var b = ev.target.closest('[data-a]'); if (!b) return; var a = b.dataset.a; if (a === 'terminerTrace') terminerTrace(); else if (a === 'annulerTrace') abandonnerTrace(); else if (a === 'retirerPoint') retirerPoint(); else if (a === 'alignerStop'){ S.aligner = null; majAide(); redessiner(); } else if (a === 'placerStop'){ S.placer = null; majAide(); } else if (a === 'relierStop'){ S.relier = null; majAide(); redessiner(); } else if (a === 'reunirFin') terminerReunir(); else if (a === 'reunirStop') quitterReunir(); else if (a === 'cotes') boutonCotes(); else if (a === 'cotesAutre') autreCoteCotes(); else if (a === 'cotesDeux') deuxPointsCotes(); else if (a === 'cotesStop') abandonnerCotes(); });
   R.querySelector('.vc-outils').addEventListener('click', function(ev){
     var b = ev.target.closest('.vc-o'); if (!b) return;
     if (b.dataset.outil === 'main'){ choisirOutil({k: 'main'}); return; }
@@ -5718,18 +6560,24 @@ function editeur(racine, opts){
   }
   var tToast = null;
   function toast(msg, ms){ var t = R.querySelector('.vc-toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(tToast); tToast = setTimeout(function(){ t.classList.remove('on'); }, ms || 2600); }
+  /* dialogue de l'éditeur. m144 : o.cls, classe de plus ; o.sansAnnuler, sans bouton « Annuler » (le focus va sur o.autre) ; o.annulerFn,
+     appelée quand il se ferme sans réponse (Échap, fond, fermerNiveau par d.vcFermer) ; rend le dialogue */
   function demander(titre, val, fn, o){
     o = o || {};
-    var d = document.createElement('div'); d.className = 'vc-modal';
+    var d = document.createElement('div'); d.className = 'vc-modal' + (o.cls ? ' ' + o.cls : '');
     d.innerHTML = '<div class="vc-mboite" role="dialog" aria-modal="true" aria-label="' + esc(titre) + '"><h3>' + esc(titre) + '</h3>' + (o.texte ? '<p>' + esc(o.texte) + '</p>' : '')
       + (o.confirmer ? '' : (o.long ? '<textarea rows="3"></textarea>' : '<input type="text" autocomplete="off"' + (o.num ? ' inputmode="numeric"' : '') + '>'))
-      + '<div class="vc-mact"><button type="button" class="vc-b vc-bt" data-r="0">Annuler</button>' + (o.autre ? '<button type="button" class="vc-b vc-bt" data-r="2">' + esc(o.autre) + '</button>' : '')
+      + '<div class="vc-mact">' + (o.sansAnnuler ? '' : '<button type="button" class="vc-b vc-bt" data-r="0">Annuler</button>') + (o.autre ? '<button type="button" class="vc-b vc-bt" data-r="2">' + esc(o.autre) + '</button>' : '')
       + '<button type="button" class="vc-b vc-bt vc-prim' + (o.danger ? ' vc-danger' : '') + '" data-r="1">' + esc(o.ok || 'Valider') + '</button></div></div>';
     R.appendChild(d);
     var inp = d.querySelector('input,textarea');
     if (inp){ inp.value = val || ''; setTimeout(function(){ inp.focus(); inp.select && inp.select(); }, 30); }
-    else setTimeout(function(){ var b0 = d.querySelector('[data-r="0"]'); if (b0 && d.isConnected) b0.focus(); }, 30);
-    function fermer(r){ d.remove(); if (r === '1') fn(inp ? inp.value : true); else if (r === '2' && o.autreFn) o.autreFn(); }
+    else setTimeout(function(){ var b0 = d.querySelector(o.sansAnnuler ? '[data-r="2"]' : '[data-r="0"]'); if (b0 && d.isConnected) b0.focus(); }, 30);
+    function fermer(r){
+      if (!d.isConnected) return; d.remove();
+      if (r === '1') fn(inp ? inp.value : true); else if (r === '2' && o.autreFn) o.autreFn(); else if (r === '0' && o.annulerFn) o.annulerFn();
+    }
+    d.vcFermer = function(){ fermer('0'); };
     /* au doigt, le clic que le navigateur produit à la fin du toucher qui a ouvert ce dialogue tombe dessus : sans appui sur le dialogue, il est avalé (400 ms) ;
        le clavier n'est jamais filtré (Entrée ou Espace sur un bouton) */
     var t0 = Date.now(), appui = false;
@@ -5738,13 +6586,30 @@ function editeur(racine, opts){
     d.addEventListener('click', function(ev){ var b = ev.target.closest('[data-r]'); if (b) fermer(b.dataset.r); else if (ev.target === d) fermer('0'); });
     /* Entrée valide depuis le champ seulement : sur un bouton, c'est le bouton choisi qui agit (jamais « Valider » à la place d'« Annuler ») */
     d.addEventListener('keydown', function(ev){ if (ev.key === 'Escape'){ ev.stopPropagation(); fermer('0'); } else if (ev.key === 'Enter' && inp && ev.target === inp && inp.tagName !== 'TEXTAREA'){ ev.preventDefault(); fermer('1'); } });
+    return d;
+  }
+  /* question d'un nom proche (m144, S6 b) : « Nom proche », deux réponses sans « Annuler » : q.oui (« La même », « Le même »), bouton
+     principal, et q.non (« Une autre », « Un autre »), qui garde le nom tapé et prend le focus ; fn(oui) ; Échap, le fond : annule() seul */
+  function questionNom(q, fn, annule){
+    return demander('Nom proche', '', function(){ fn(true); }, {texte: q.texte, confirmer: true, ok: q.oui, autre: q.non, autreFn: function(){ fn(false); },
+      sansAnnuler: true, annulerFn: annule, cls: 'vc-mnom'});
+  }
+  /* ce à quoi comparer le nom d'une destination (m144 ; refusNomDest) : les modèles de la tablette et les destinations posées sur le plan
+     ouvert, sauf e (celle qu'on renomme), et le nom d'avant de e (nom0) */
+  function listesDest(ou, e){
+    var l = {ou: ou, modeles: S.exutoires, plan: ((S.doc && S.doc.el) || []).filter(function(x){ return x !== e && x.k === 'pt' && estDest(x.t); }).map(function(x){ return destDe(x); })};
+    if (e) l.nom0 = destDe(e).nom;
+    return l;
   }
   /* « + Nouvelle destination » (m128 ; D3, D10) : fiche courte des cinq champs d'une destination. Au départ : nom vide, abréviation tirée
      du nom tant qu'on ne la saisit pas, « le », « à arbitrer » (à trancher dans le croquis, Contrôles), « autre » ; l'article suit le nom
      saisi (artDevant), comme dans la fiche. Un nom vide, qui contient « puits » ou illisible au PDF, une abréviation de longueur fausse ou
      illisible : refusés avec le toast de la fiche, la fiche courte reste ouverte avec la saisie. « Enregistrer » ajoute le modèle à ceux de
      la tablette (identifiant tiré ici, jamais le nom ; opts.enregistrerExutoires) et arme l'outil de pose. Un modèle ne sert qu'à la pose :
-     le changer ou le retirer ne touche aucun objet posé */
+     le changer ou le retirer ne touche aucun objet posé.
+     m144 (D10, S6 b, S7 a) : le nom est comparé aux modèles, aux destinations posées et aux objets de la palette (destSaisie, refusNomDest) :
+     même nom, « Fosse » : refusés de même ; nom proche : la question, par-dessus la fiche courte ; « La même » arme l'outil de l'existante
+     (« Le même » : celui de l'objet), sans modèle de plus ; « Une autre » enregistre le nom tapé ; Échap : la question seule se ferme */
   function nouvelleDestination(pal){
     var d = document.createElement('div'), v = {art: 'le', ep: 'arbitrer', cst: 'autre'}, abSaisie = false;
     d.className = 'vc-modal vc-mdest';
@@ -5767,11 +6632,24 @@ function editeur(racine, opts){
     });
     /* abréviation vidée : elle suit de nouveau le nom */
     iA.addEventListener('input', function(){ abSaisie = !!iA.value.trim(); });
+    var qEl = null;
     function enregistrer(){
-      var r = destSaisie({nom: iN.value, ab: abSaisie ? iA.value : '', art: v.art, ep: v.ep, cst: v.cst});
-      if (r.refus){ toast(r.refus, 4000); (champDest('nom', iN.value).refus ? iN : iA).focus(); return; }
+      if (qEl && qEl.isConnected) return;
+      var r = destSaisie({nom: iN.value, ab: abSaisie ? iA.value : '', art: v.art, ep: v.ep, cst: v.cst}, null, listesDest('palette'));
+      if (r.refus){ toast(r.refus, 4000); (r.champ === 'ab' ? iA : iN).focus(); return; }
+      if (r.q){
+        qEl = questionNom(r.q, function(oui){
+          if (!d.isConnected) return;
+          var x = reponseNomProche(r, oui);
+          if (x.pose){ d.remove(); choisirOutil(Object.assign({pal: pal || 'equ'}, x.pose)); } else if (x.m) creer(x.m);
+        }, function(){ if (d.isConnected) iN.focus(); });
+        return;
+      }
+      creer(r.m);
+    }
+    function creer(c){
       var id; do { id = uid(); } while (modeleExu(id));
-      var m = {id: id, nom: r.m.nom, ab: r.m.ab, art: r.m.art, ep: r.m.ep, cst: r.m.cst};
+      var m = {id: id, nom: c.nom, ab: c.ab, art: c.art, ep: c.ep, cst: c.cst};
       S.exutoires = S.exutoires.concat([m]);
       if (opts.enregistrerExutoires) try { opts.enregistrerExutoires(S.exutoires.map(function(x){ return Object.assign({}, x); })); } catch(e){}
       d.remove();
@@ -5898,10 +6776,10 @@ function editeur(racine, opts){
   /* fiche d'un autre appareil (m133 ; D2 et D4 de .claude/conception-equipements.md), en tête : le nom, saisi (enregistré en quittant le
      champ) ou touché parmi les noms proposés (ceux du cadrage, puis ceux déjà employés pour ce type par les autres objets du croquis, dans
      l'ordre du dessin, sans doublon ni nom refusé [p]) ; l'abréviation (vide : tirée du nom, montrée en texte indicatif) ; le réseau (EU |
-     EP : l'autre générique, changerType) ; la ligne du constat qui le compte : « Autres : <nom> », ou une ligne du formulaire du même
-     réseau (p.row), libellée sans ses parenthèses [p] */
+     EP : l'autre générique, changerType) ; la ligne du constat qui le compte : la ligne à son nom (puce « <nom> (ligne à son nom) »,
+     m147 [p]), ou une ligne du formulaire du même réseau (p.row), libellée sans ses parenthèses [p] */
   function autreHtml(e, ty){
-    var nm = nomLibre(e.p), vus = {}, noms = [], lignes = [['', 'Autres : ' + libDe(e)]];
+    var nm = nomLibre(e.p), vus = {}, noms = [], lignes = [['', libDe(e) + ' (ligne à son nom)']];
     function proposer(x){ var c = norm(x).replace(/\s+/g, ' ').trim(); if (!c || vus[c] || nomRefuse(x)) return; vus[c] = true; noms.push([x, x]); }
     (NOMS_AUTRES[ty.nat] || []).forEach(proposer);
     S.doc.el.forEach(function(o){ if (o.k === 'pt' && o.t === e.t && o.id !== e.id) proposer(nomLibre(o.p)); });
@@ -5931,13 +6809,17 @@ function editeur(racine, opts){
       /* autre destination (m127 ; D3, D10) : ses cinq champs, aux valeurs que lisent les règles (destDe), un pas d'annulation chacun ; le nom
          et l'abréviation s'enregistrent en quittant le champ (destTxt), les puces aussitôt (dest) */
       if (estDest(e.t)){
-        var dd = destDe(e);
+        /* nom qui nomme un puits, venu d'un fichier (m151, D19) : le rappel de Contrôles, au-dessus des champs du jugement, qui restent. Un
+           puits se juge comme l'objet Puits : les aides de l'article (texte du rejet), du jugement et de la case, qui décrivent un effet
+           qu'ils n'ont plus, se taisent (pu ; relecture de m151, M2 et M4) */
+        var dd = destDe(e), rpD = rappelPuits(dd.nom), pu = nomPuits(dd.nom) === 'puits';
         h += champ('Nom', saisie('nom', dd.nom, {a: 'destTxt', lab: 'Nom de la destination', max: 40}), 'étang, fossé, mare… (40 caractères au plus)');
         h += champ('Abréviation', saisie('ab', dd.ab, {a: 'destTxt', lab: 'Abréviation du symbole', max: 3}), '2 ou 3 caractères, dans le symbole');
-        h += champ('Article', chipsHtml('art', DEST_ARTS, dd.art, {a: 'dest', label: 'Article'}), esc(ligneDest(dd).eu.obs));
+        h += champ('Article', chipsHtml('art', DEST_ARTS, dd.art, {a: 'dest', label: 'Article'}), pu ? '' : esc(ligneDest(dd).eu.obs));
+        if (rpD) h += '<p class="vc-muet">' + esc(rpD) + '</p>';
         h += champ('Jugement des EP', chipsHtml('ep', DEST_EPS, dd.ep, {a: 'dest', label: 'Jugement des EP'}),
-          'les EU y sont toujours non conformes ; le changer efface les décisions de Contrôles sur les rejets des EP');
-        h += champ('Case du constat', chipsHtml('cst', DEST_CSTS, dd.cst, {a: 'dest', label: 'Case du constat'}), 'en EP ; hors milieu naturel et gargouille, le raccordement reste à cocher, comme pour l\'infiltration');
+          pu ? '' : 'les EU y sont toujours non conformes ; le changer efface les décisions de Contrôles sur les rejets des EP');
+        h += champ('Case du constat', chipsHtml('cst', DEST_CSTS, dd.cst, {a: 'dest', label: 'Case du constat'}), pu ? '' : 'en EP ; hors milieu naturel et gargouille, le raccordement reste à cocher, comme pour l\'infiltration');
       }
       if (ty.role === 'source' || e.t === 'test') h += champ('Méthode de test', chipsHtml('meth', METH.map(function(m){ return [m[0], m[1]]; }), e.p.meth || [], {label: 'Méthode de test'}), ty.role === 'source' ? 'comment l\'écoulement a été établi' : '');
       if (e.t === 'descente'){ h += champ('Façade', chipsHtml('cote', [['avant', 'Avant'], ['arriere', 'Arrière']], e.p.cote)); h += champ('Visitable', chipsHtml('visitable', OUI_NON, e.p.visitable)); }
@@ -5948,13 +6830,14 @@ function editeur(racine, opts){
         + '<p class="vc-muet">Lave-mains intégré au WC ; raccordé à part : dessinez un Lavabo.</p>');
       if (ty.boite || e.t === 'regard_pub') h += champ('Réseau', chipsHtml('res', [['EU', 'EU'], ['EP', 'EP'], ['UN', 'Unitaire']], e.p.res), RES[e.p.res] ? '' : 'déduit du dessin tant qu\'il n\'est pas indiqué');
       /* boîte en limite de propriété (souhait 10) : côté et distance, facultatifs, repris sur l'étiquette (texteLimite). Mesure lue sur le
-         plan (limitePlan) : ligne « Sur le plan », côté proposé en pointillé tant que le technicien n'en a choisi aucun (sûr seulement),
-         « Reprendre la mesure » et « Placer sur le plan » ; sans parcelle de l'installation, ni ligne ni proposition, boutons grisés */
+         plan (limitePlan) : ligne « Sur le plan : ≈ 0,80 m, à l'intérieur de la propriété » (m140 ; « ≈ 0,20 m côté à confirmer » si le côté
+         est douteux), côté proposé en pointillé tant que le technicien n'en a choisi aucun (sûr seulement), « Reprendre la mesure » et
+         « Placer sur le plan » ; sans parcelle de l'installation, ni ligne ni proposition, boutons grisés */
       if (ty.boite){
         var limP = limitePlan(e), limD = num(e.p.limDist), limOk = !!limP && limD != null && limD >= 0 && (e.p.limCote === 'int' || e.p.limCote === 'ext');
         h += champ('Limite de propriété', chipsHtml('limCote', [['int', 'Intérieur'], ['ext', 'Extérieur']], e.p.limCote || '', {label: 'Côté de la limite de propriété', propose: !e.p.limCote && limP && !limP.douteux ? limP.cote : null})
           + saisie('limDist', e.p.limDist, {num: true, ph: 'distance, ex. 0,80', lab: 'Distance à la limite de propriété en mètres'})
-          + (limP ? '<p class="vc-fixe vc-limplan">Sur le plan : ≈ ' + frNum(limP.d, 2) + ' m ' + (limP.douteux ? 'côté à confirmer' : limP.cote === 'int' ? 'intérieur' : 'extérieur') + '</p>' : '')
+          + (limP ? '<p class="vc-fixe vc-limplan">Sur le plan : ≈ ' + frNum(limP.d, 2) + ' m' + (limP.douteux ? ' côté à confirmer' : ', ' + coteLimite(limP.cote === 'int' ? 'int' : 'ext')) + '</p>' : '')
           + '<div class="vc-chips vc-limbt"><button type="button" class="vc-chip" data-a="limMesure"' + (limP ? '' : ' disabled') + '>Reprendre la mesure</button>'
           + '<button type="button" class="vc-chip" data-a="limPlacer"' + (limOk ? '' : ' disabled') + '>Placer sur le plan</button></div>', 'côté de la boîte, distance en mètres (0 : en limite)');
       }
@@ -5967,7 +6850,7 @@ function editeur(racine, opts){
         h += champ('Méthode de test', chipsHtml('meth', METH.map(function(m){ return [m[0], m[1]]; }), e.p.meth || []), 'facultatif');
       }
       if (e.t === 'pr') h += champ('Fonction', chipsHtml('fn', [['eaux ménagères', 'Eaux ménagères'], ['chaudière', 'Chaudière'], ['nappe', 'Nappe'], ['toutes EU', 'Toutes EU']], e.p.fn));
-      if (ty.oriente) h += champ('Orientation', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="orienter" data-v="15">' + ico('rotg', 18) + ' 15°</button><button type="button" class="vc-chip" data-a="orienter" data-v="-15">' + ico('rotd', 18) + ' 15°</button><button type="button" class="vc-chip" data-a="orienter" data-v="90">90°</button></div>');
+      if (pivotant(e.t)) h += champ('Orientation', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="orienter" data-v="15">' + ico('rotg', 18) + ' 15°</button><button type="button" class="vc-chip" data-a="orienter" data-v="-15">' + ico('rotd', 18) + ' 15°</button><button type="button" class="vc-chip" data-a="orienter" data-v="90">90°</button></div>');
       if (e.t === 'test') h += champ('Résultat', saisie('resultat', e.p.resultat, {ph: 'ex. colorant ressorti en boîte EP'}));
       if (e.t === 'zone') h += champ('Rayon', '<div class="vc-chips"><button type="button" class="vc-chip" data-a="rayon" data-v="-.5">−</button><span class="vc-val">' + frNum(num(e.p.r) || 1.5) + ' m</span><button type="button" class="vc-chip" data-a="rayon" data-v=".5">+</button></div>');
       /* position par cotes (m102) : déplacer l'objet, ou relire sa position, depuis une façade, une limite ou un trait de complément */
@@ -6118,15 +7001,17 @@ function editeur(racine, opts){
     if (cd.rows.some(function(r){ return r.nb && !r.raccord && r.libs.length; })) h += '<p class="vc-muet">Un raccordement sans code du formulaire (réseau privé, puisard, infiltration ou autre destination des EP) reste à cocher à la main dans le constat.</p>';
     /* ligne EP sans conformité parce que son rejet a une règle EP (puits, m120 ; autre destination, m125) dont l'anomalie est retenue ou à arbitrer : le constat
        de l'application la juge par cette anomalie (décision D7) ; la case « Conf. » reste vide, la phrase dit pourquoi. Une réserve ne donne « oui »
-       que si la ligne a un code que le constat juge (raccOk de l'application : milieu naturel, gargouille) ; sans code (case des ouvrages de
-       récupération des EP, la case par défaut d'une autre destination, ou rejets différents sur la ligne), la conformité reste à cocher à la main */
+       que si la ligne a un code que le constat juge (raccOk de l'application : milieu naturel, gargouille et, depuis m150, puits : la ligne
+       que le croquis pose sur « Puits » y suit son anomalie, écartée « oui », retenue « non » ; une ligne mise à la main sur « Puits » n'y est
+       jamais conforme) ; sans code (case des ouvrages de récupération des EP, la case par défaut d'une autre destination, ou rejets
+       différents sur la ligne), la conformité reste à cocher à la main */
     var fixes = [], aMain = [];
     rows.forEach(function(r){
       if (r.groupe === 'EU' || r.conforme) return;
-      var l = /^(EP|UN)_|^GARG$|^MILIEU$/.test(r.raccord) ? fixes : aMain;
+      var l = /^(EP|UN)_|^GARG$|^MILIEU$|^PUITS$/.test(r.raccord) ? fixes : aMain;
       r.objets.forEach(function(id){
         var rs = S.an.resObj[id]; if (!rs || rs.etat !== 'ok') return;
-        /* m129 : aussi chaque exutoire que le drain d'infiltration atteint au-delà de lui */
+        /* m129 : aussi chaque exutoire que le drain d'infiltration ou le trop-plein (m145) atteint au-delà de lui */
         rejetsDe(rs).forEach(function(rj){ var xe = ligneExu(rj.res, S.an), et = xe && xe.ep ? etatAnomalie(S.doc, S.an, xe.ep.cle + ':' + id) : '';
           if ((et === 'retenue' || et === 'arbitrer') && l.indexOf(xe.ep.obs) < 0) l.push(xe.ep.obs); });
       });
@@ -6248,7 +7133,7 @@ function editeur(racine, opts){
     /* objet existant (m102) supprimé, ou un choix fait pendant le mode (S.sel reste vide jusqu'à la fin) : fin du mode, rien n'est changé */
     if (S.cotes && S.cotes.pour.id && (S.sel || !el(S.cotes.pour.id))){ S.cotes = null; majAide(); redessiner(); }
     /* panneau « Cotes » (m101) : seulement à l'étape de saisie ; un autre panneau, ou sa fermeture, met fin au mode */
-    if (n === 'cotes' && !(S.cotes && S.cotes.etape === 'saisie' && S.cotes.c)) n = S.panneau = null;
+    if (n === 'cotes' && !(S.cotes && S.cotes.etape === 'saisie' && (S.cotes.c || S.cotes.deux))) n = S.panneau = null;
     if (S.cotes && S.cotes.etape === 'saisie' && n !== 'cotes'){ S.cotes = null; majAide(); redessiner(); }
     R.querySelectorAll('.vc-barre [data-p]').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.p === n ? 'true' : 'false'); });
     if (!n){ pan.hidden = true; pan.dataset.id = ''; R.classList.remove('vc-avecpanneau'); placerBarres(); return; }
@@ -6355,13 +7240,14 @@ function editeur(racine, opts){
       apresProp(e); return;
     }
     if (a === 'tailleTexte' && e){ var tt = parseFloat(b.dataset.v) || 2.5; if ((num(e.taille) || 2.5) === tt) return; instantane(); e.taille = tt; changement(); return; }
-    /* étiquette commune (m135 ; D7) : mode « Réunir » (nouveau groupe, ou « Modifier le groupe » avec ses membres choisis), « Défaire »,
-       « Séparer » ; « Affichée » et « Replacer » ne font rien pour un membre (grisés) */
+    /* étiquette commune (m135 ; D7) : mode « Réunir » (nouveau groupe, avec les voisins du porteur choisis d'avance depuis m153, ou
+       « Modifier le groupe » avec ses membres choisis, eux seuls), « Défaire », « Séparer » ; « Affichée » et « Replacer » ne font rien
+       pour un membre (grisés) */
     if (a === 'etiqReunir' && e){
       if (e.k !== 'pt' || !sourceEU(e) || groupeEtiquette(e, S.an)) return;
       /* appareil absent du plan affiché (M7 de la relecture) : le mode n'y accepterait aucun appareil ; le message dit où le réunir */
       if (S.an && !aCle(S.an.objs, e.id)){ toast(horsPlan() + ' ; réunissez-le sur ' + (S.mode === 'avp' ? 'l\'état des lieux' : 'l\'avant-projet'), 4000); return; }
-      entrerReunir(e.id, [], false); return;
+      entrerReunir(e.id, voisinsEtiquette(S.doc, S.an, e).map(function(o){ return o.id; }), false); return;
     }
     if (a === 'etiqModifier' && e){ var gM = e.k === 'pt' ? groupeEtiquette(e, S.an) : null; if (gM && gM.porteur === e.id) entrerReunir(e.id, gM.objets.slice(1).map(function(o){ return o.id; }), true); return; }
     if (a === 'etiqDefaire' && e){ if (e.k === 'pt') defaireGroupe(e); return; }
@@ -6504,9 +7390,33 @@ function editeur(racine, opts){
     suivreCommun(e);
     changement(o);
   }
+  /* nom ou abréviation d'une destination écrits depuis la fiche (m127), d0 : ses champs d'avant. m144 : rep, l'abréviation et l'article
+     d'une autre destination écrite de même (refusNomDest) : repris, chacun seulement s'il diffère, sans le toast de l'article */
+  function ecrireDestTxt(e, d0, kT, sT, rep){
+    instantane(); e.p[kT] = sT;
+    var artT = kT === 'nom' ? (rep ? rep.art : artDevant(d0.art, sT)) : d0.art;
+    if (kT === 'nom'){
+      if (rep){ if (destDe(e).ab !== rep.ab) e.p.ab = rep.ab; }
+      else if (d0.ab === abDe(d0.nom) || d0.ab === d0.nom.slice(0, 2)) e.p.ab = abDe(sT);
+      if (destDe(e).art !== artT) e.p.art = artT;
+    }
+    apresProp(e, {garderPanneau: true});
+    if (!rep && d0.art === 'l\'' && artT === 'le') toast('Article « le » : touchez « la » s\'il le faut', 4000);
+    majPanneauBientot();
+  }
+  /* « La même » (m144, S6 b) : la destination e reprend les cinq champs c d'une autre (nom, abréviation, article, jugement, case), d'où
+     une seule clé de rejet ; un pas d'annulation, seuls les champs qui diffèrent sont écrits ; le jugement changé retire les décisions des
+     rejets qui y aboutissent (oublierJugement) */
+  function reprendreDest(e, c){
+    var ep0 = destDe(e).ep; instantane();
+    ['nom', 'ab', 'art', 'ep', 'cst'].forEach(function(k){ if (destDe(e)[k] !== c[k]) e.p[k] = c[k]; });
+    if (destDe(e).ep !== ep0) oublierJugement(e.id);
+    apresProp(e, {garderPanneau: true}); majPanneauBientot();
+  }
   /* changement de type par le sélecteur Type de la fiche (extrait du gestionnaire en m130) : un pas d'annulation ; les champs du nouveau type
-     reprennent la valeur qu'ils avaient ; meth, niv, obs, st et etiq sont gardés ; a suit le nouveau type (repris s'il est orienté, sinon
-     effacé), sans toast ; tout autre champ non vide est effacé, avec un toast. m130 : p.etage, compagnon de niv, est gardé lui aussi quand
+     reprennent la valeur qu'ils avaient ; meth, niv, obs, st et etiq sont gardés ; a suit le nouveau type (repris s'il est orienté ; m154 :
+     repris aussi, quand il est donné, nombre fini, s'il se tourne au disque, sinon un regard tourné changé en boîte se remettrait droit sans
+     le dire ; sinon effacé), sans toast ; tout autre champ non vide est effacé, avec un toast. m130 : p.etage, compagnon de niv, est gardé lui aussi quand
      il a une valeur (aucune clé vide écrite) et n'entre pas dans le toast. m131 : p.lm, le lave-mains du WC, n'est pas gardé : effacé
      hors du WC, avec ce toast (« Annuler » le rend). m134 : p.etiqAvec et p.etiqTitre (étiquette commune, D6) sont gardés de même, quel
      que soit le nouveau type : le groupe se refait au dessin suivant (un membre devenu ouvrage EP reprend son étiquette) */
@@ -6520,6 +7430,7 @@ function editeur(racine, opts){
     var t0 = T[e.t], t1 = T[v];
     if (t0 && t1 && t0.nomLibre && t1.nomLibre && t0.nat !== t1.nat && ancien.row != null && ancien.row !== ''){ nv.row = ''; perdus.push('row'); }
     e.t = v; e.p = Object.assign(nv, {meth: ancien.meth || [], niv: ancien.niv || '', obs: ancien.obs || '', st: ancien.st || 'existant', etiq: ancien.etiq || ''});
+    if (t1 && t1.pivot && typeof ancien.a === 'number' && isFinite(ancien.a)) e.p.a = ancien.a;
     if (ancien.etage != null && ancien.etage !== '') e.p.etage = ancien.etage;
     ['etiqAvec', 'etiqTitre'].forEach(function(k){ if (ancien[k] != null && ancien[k] !== '') e.p[k] = ancien[k]; });
     /* une zone suspecte ne tient aucun tuyau : un point de test qui reliait deux tuyaux laisse un raccord à sa place, comme à l'ouverture */
@@ -6555,7 +7466,12 @@ function editeur(racine, opts){
        écrire deux caractères (pdfTxt les vide : émoji, « Ω »). Est refusée une abréviation d'une autre longueur ou illisible au PDF. Le refus
        fait un toast et rend la valeur affichée ; rien ne change. L'abréviation vidée est tirée du nom (abDe) ; celle qui l'était suit le
        nouveau nom [p]. L'article se règle sur la première lettre du nouveau nom (artDevant) ; « le » mis à la place de « l' » est signalé.
-       Seuls les champs changés sont écrits (Q8 b) */
+       Seuls les champs changés sont écrits (Q8 b).
+       m144 (D10, F9, S6 b, S7 a) : un nom changé est comparé à ceux des autres destinations du plan, des modèles et des objets de la palette
+       (refusNomDest) : écrit comme une autre de mêmes jugements, il en reprend l'abréviation et l'article ; changé seulement par les
+       accents, les majuscules ou les espaces (même clé de rejet) : accepté ; même nom autrement, « Fosse » ou un objet : refusé de même
+       (toast, valeur rendue) ; nom proche : la question, dont la réponse ne vaut que si la destination n'a pas changé entre-temps ; « La
+       même » reprend les cinq champs de l'autre, en un pas d'annulation ; Échap : la valeur rendue */
     if (a === 'destTxt' && e && estDest(e.t)){
       var kT = b.dataset.k, d0 = destDe(e);
       if (kT !== 'nom' && kT !== 'ab') return;
@@ -6563,15 +7479,19 @@ function editeur(racine, opts){
       var rT = champDest(kT, v, d0.nom), sT = rT.v, refus = rT.refus;
       if (refus){ toast(refus, 4000); b.value = d0[kT]; return; }
       if (d0[kT] === sT){ b.value = sT; return; }
-      instantane(); e.p[kT] = sT;
-      var artT = kT === 'nom' ? artDevant(d0.art, sT) : d0.art;
-      if (kT === 'nom'){
-        if (d0.ab === abDe(d0.nom) || d0.ab === d0.nom.slice(0, 2)) e.p.ab = abDe(sT);
-        if (destDe(e).art !== artT) e.p.art = artT;
+      var rq = kT === 'nom' ? refusNomDest(Object.assign({}, d0, {nom: sT}), listesDest('fiche', e)) : null;
+      if (rq && rq.refus){ toast(rq.refus, 4000); b.value = d0.nom; return; }
+      if (rq && rq.q){
+        var eQ = e, docQ = S.doc;
+        questionNom(rq.q, function(oui){
+          if (S.doc !== docQ || S.doc.el.indexOf(eQ) < 0 || !estDest(eQ.t) || destDe(eQ).nom !== d0.nom) return;
+          var x = reponseNomProche(rq, oui);
+          if (x.refus){ toast(x.refus, 4000); if (b.isConnected) b.value = d0.nom; return; }
+          if (x.m) reprendreDest(eQ, x.m); else ecrireDestTxt(eQ, d0, 'nom', sT);
+        }, function(){ if (b.isConnected) b.value = d0.nom; });
+        return;
       }
-      apresProp(e, {garderPanneau: true});
-      if (d0.art === 'l\'' && artT === 'le') toast('Article « le » : touchez « la » s\'il le faut', 4000);
-      majPanneauBientot(); return;
+      ecrireDestTxt(e, d0, kT, sT, rq && rq.reprise); return;
     }
     if (a === 'texteLibre' && e){ if (!String(v).trim()){ toast('Le texte est vide'); b.value = e.txt; return; } instantane(); e.txt = String(v).trim(); changement({garderPanneau: true}); majPanneauBientot(); return; }
     if (a === 'escNum' && e && e.t === 'esc'){ saisieEscalier(b, e); return; }
@@ -6660,10 +7580,15 @@ function editeur(racine, opts){
 
   /* ferme le niveau le plus haut : le menu de poignée d'abord (m109 : l'élément reste choisi), ce qui est affiché par-dessus (dialogue,
      palette, panneau), puis les modes, et le tracé en cours en dernier (l'abandonner perd des points) ; faux s'il n'y avait rien : l'hôte
-     peut alors fermer l'éditeur */
+     peut alors fermer l'éditeur. m154 : avant tout, un objet qu'on est en train de tourner au disque reprend son angle (geste annulé,
+     comme par un second doigt) ; il reste choisi, sa fiche ouverte. m156 (EL1) : de même pour un appui sur la poignée ou l'anneau qui n'a
+     pas encore passé le seuil du glissé (attente) : le geste est clos, sans rien changer (ni angle, ni pas d'annulation, ni « Rétablir ») ;
+     le reste du glissé et le lever n'ont plus d'effet ; l'attente d'un autre geste n'est pas close */
   function fermerNiveau(){
+    if (S.geste && (S.geste.type === 'glisser' || S.geste.type === 'attente') && S.geste.cible && S.geste.cible.k === 'tourner'){ finirGeste(true); return true; }
     if (fermerMenu()) return true;
-    var m = R.querySelector('.vc-modal'); if (m){ m.remove(); return true; }
+    /* m144 : le dialogue du dessus (la question d'un nom proche passe avant la fiche courte qu'elle couvre), fermé comme par Échap */
+    var ms = R.querySelectorAll('.vc-modal'), m = ms.length ? ms[ms.length - 1] : null; if (m){ if (m.vcFermer) m.vcFermer(); else m.remove(); return true; }
     if (S.palette){ fermerPalette(); return true; }
     if (S.accroches){ fermerAccroches(); return true; }
     if (S.sel || S.panneau){ fermerPanneau(); return true; }
@@ -6678,7 +7603,7 @@ function editeur(racine, opts){
     if (o.aides) S.aides = Object.assign({}, AIDES_DEFAUT, o.aides);
     /* destinations ajoutées de la tablette (m128) : celles de l'hôte à chaque ouverture ; sans elles, celles déjà connues de l'éditeur */
     if (o.exutoires) S.exutoires = modelesDe(o.exutoires);
-    S.placer = null; S.cotes = null; S.reunir = null; S.noteEtiq = null; var m0 = R.querySelector('.vc-modal'); if (m0) m0.remove();
+    S.placer = null; S.cotes = null; S.reunir = null; S.noteEtiq = null; R.querySelectorAll('.vc-modal').forEach(function(m0){ m0.remove(); });
     S.doc = doc; S.fond = fond || null; S.reseau = reseau || null; S.undo = []; S.redo = []; S.sel = null; S.brouillon = null; S.panneau = null; S.mode = 'edl'; S.ajoutAnom = null; S.aligner = null;
     S.ptr = {}; S.geste = null; S.apercu = null; S.accrocheVue = null; S.survol = null;
     /* palette d'accrochage fermée, appuis avalés oubliés (m111) */
@@ -7073,7 +7998,7 @@ function pdfPlan(doc, fond, o){
     }
     imprimees.push([cx - bq.w / 2, cy - bq.h / 2, cx + bq.w / 2, cy + bq.h / 2]);
     if (!libre && e.k === 'pt'){
-      var bt = boiteTexte(txt, em), bx = [cx - bt.w / 2, cy - bt.h / 2, cx + bt.w / 2, cy + bt.h / 2], R = rayonSymbole(e.t), dd = Math.hypot(cx - A.x, cy - A.y), bord = boiteBord(bx, A.x, A.y, cx, cy);
+      var bt = boiteTexte(txt, em), bx = [cx - bt.w / 2, cy - bt.h / 2, cx + bt.w / 2, cy + bt.h / 2], R = departTrait(e.t), dd = Math.hypot(cx - A.x, cy - A.y), bord = boiteBord(bx, A.x, A.y, cx, cy);
       if (bord && dd > R + 3 && Math.hypot(bord.x - A.x, bord.y - A.y) > R + .8){ pdf.setDrawColor(col[0], col[1], col[2]); pdf.setLineWidth(.15); pdf.line(A.x + (cx - A.x) / dd * R, A.y + (cy - A.y) / dd * R, bord.x, bord.y); }
     }
     textePdf(pdf, txt, cx, cy, em, 0, {coul: col, halo: true, gras: !libre});
@@ -7445,7 +8370,10 @@ function ecrireDxf(doc, an, liste){
     if (e.t === 'zone'){ g(0, 'CIRCLE'); g(8, 'VEDE-ANNOTATIONS'); g(10, X(e.x)); g(20, Y(e.y)); g(30, '0.0'); g(40, f((num(e.p.r) || 1.5) / u)); return; }
     var rgb = couleurPt(e, an), aci = 7; Object.keys(RES).forEach(function(k){ if (RES[k].rgb === rgb) aci = RES[k].aci; });
     g(0, 'INSERT'); g(8, e.p.st === 'projet' ? 'VEDE-PROJET' : e.p.st === 'supprimer' ? 'VEDE-A-SUPPRIMER' : 'VEDE-SYMBOLES'); g(62, aci); g(2, nomBloc[cleBloc(e)]);
-    g(10, X(e.x)); g(20, Y(e.y)); g(30, '0.0'); g(41, f(mu)); g(42, f(mu)); g(43, f(mu)); g(50, f((T[e.t] || {}).oriente ? (e.p.a || 0) : rotDeg));
+    /* angle de l'INSERT : celui de l'objet pour un type orienté ; m154 : pour un type qu'on tourne au disque (pivot), son angle s'il est donné
+       (nombre fini), sinon la rotation du plan, comme avant ; pour les autres, la rotation du plan */
+    var tyD = T[e.t] || {}, angD = tyD.oriente ? (e.p.a || 0) : tyD.pivot && typeof e.p.a === 'number' && isFinite(e.p.a) ? e.p.a : rotDeg;
+    g(10, X(e.x)); g(20, Y(e.y)); g(30, '0.0'); g(41, f(mu)); g(42, f(mu)); g(43, f(mu)); g(50, f(angD));
   });
   doc.el.forEach(function(e){
     var libre = e.k === 'tx', txt = libre ? e.txt : texteEtiquette(e, an);

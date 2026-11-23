@@ -347,7 +347,7 @@ details.xls summary{gap:8px}
   .ce-hint{display:none}.ce-band{flex-wrap:nowrap;max-height:none;overflow-x:auto;overflow-y:hidden;touch-action:pan-x}.ce-chip{min-height:44px}.ce-mini{height:38px}}
 .croq-wrap{position:relative;width:100%;aspect-ratio:520/124;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;touch-action:none}.croq-wrap canvas{position:absolute;inset:0;width:100%;height:100%}.croq-fg{touch-action:none}
 .modal:has(.croq-wrap){width:min(980px,100%)}
-.boite{display:grid;grid-template-columns:minmax(0,1fr) 110px 110px;gap:8px 10px;align-items:center;margin:0 0 12px}.boite .eu{color:var(--eu-ink);font-weight:700;text-align:center}.boite .ep{color:var(--ep-ink);font-weight:700;text-align:center}.boite .bl{color:var(--ink-2)}.boite input{min-height:44px;text-align:center;padding:6px}
+.boite{display:grid;grid-template-columns:minmax(0,1fr) 110px 110px;gap:8px 10px;align-items:center;margin:0 0 12px}.boite .eu{color:var(--eu-ink);font-weight:700;text-align:center}.boite .ep{color:var(--ep-ink);font-weight:700;text-align:center}.boite .bl{color:var(--ink-2)}.boite input{min-height:44px;text-align:center;padding:6px}.boite .bcote{flex-direction:column;flex-wrap:nowrap;margin:0}.boite .bcote button{width:100%;padding:8px 6px}.boite .bso{text-align:center;font-weight:600;overflow-wrap:anywhere}
 .pc-list{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}.check.pc{min-height:44px;margin:2px 0;font-weight:500}@media (max-width:700px){.pc-list{grid-template-columns:1fr}}
 .sigs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 14px}@media (max-width:620px){.sigs{grid-template-columns:1fr}}
 .sig .btn{margin-top:8px}.sig-box{height:120px;border:1px dashed var(--line);border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}.sig-box img{max-width:100%;max-height:100%}
@@ -372,7 +372,7 @@ details.xls summary{gap:8px}
 <script>
 (function(){
 'use strict';
-var VERSION = '1.7.1';
+var VERSION = '1.7.2';
 
 /* ---------- Utilitaires ---------- */
 var $ = function(s, r){ return (r || document).querySelector(s); };
@@ -1557,7 +1557,8 @@ function anomHtml(){
   h += '<label class="field"><span class="lbl">Préconisation de travaux</span><textarea data-af="preconisation" rows="3" placeholder="Une ligne par travaux : chaque ligne apparaît séparément sur la fiche, sans puce">' + esc(a.preconisation || '') + '</textarea></label>';
   h += '<label class="field"><span class="lbl">Localisation <span class="opt">facultatif</span></span><input type="text" data-af="localisation" value="' + esc(a.localisation || '') + '" placeholder="ex. descente en façade arrière"></label>';
   if (v.constat && v.constat.signeLe) h += '<p class="inline-warn">Le constat de ce dossier est signé : les modifications d\'anomalies n\'y figureront pas sans une nouvelle signature.</p>';
-  var cR = (v.constat || newConstat(v)).rows, autoR = anomRow({rows: cR}, Object.assign({}, a, {installation: ''}));
+  /* « Automatique » : la ligne où le constat range l'anomalie ; signé sans la marque de la v1.7.2, celle de la v1.7.1, comme constatEval (m148) */
+  var c0 = v.constat || newConstat(v), cR = c0.rows, autoR = anomRow({rows: cR}, Object.assign({}, a, {installation: ''}), !!c0.signeLe && constatMep(c0) < 2);
   h += '<div class="grid2"><label class="field"><span class="lbl">Installation du constat <span class="opt">rend la ligne non conforme</span></span><select data-af="installation"><option value="">Automatique' + (autoR ? ' : ' + esc(autoR.label) : ', aucune trouvée') + '</option><option value="aucune"' + (a.installation === 'aucune' ? ' selected' : '') + '>Aucune</option>'
     + cR.filter(function(r){ return r.groupe === a.reseau; }).map(function(r){ return '<option value="' + esc(r.id) + '"' + (a.installation === r.id ? ' selected' : '') + '>' + esc(r.label) + '</option>'; }).join('') + '</select></label>'
     + '<label class="check"><input type="checkbox" data-af="nc"' + (anomNC(a) ? ' checked' : '') + '><span>Non-conformité <span class="opt">décochée : simple réserve</span></span></label></div>';
@@ -1901,12 +1902,12 @@ async function downloadFichePdf(vid){
 }
 
 /* ---------- Constat de visite : formulaire « Contrôle de Branchement Particulier » du Département, rempli sur la tablette ---------- */
-var RACC = [['EU_D', 'Réseau EU départemental'], ['EU_T', 'Réseau EU territorial'], ['EP_D', 'Réseau EP départemental'], ['EP_T', 'Réseau EP territorial'], ['UN_D', 'Réseau unitaire départemental'], ['UN_T', 'Réseau unitaire territorial'], ['FOSSE', 'Fosse septique'], ['MILIEU', 'Milieu naturel'], ['GARG', 'Gargouille']];
+var RACC = [['EU_D', 'Réseau EU départemental'], ['EU_T', 'Réseau EU territorial'], ['EP_D', 'Réseau EP départemental'], ['EP_T', 'Réseau EP territorial'], ['UN_D', 'Réseau unitaire départemental'], ['UN_T', 'Réseau unitaire territorial'], ['FOSSE', 'Fosse septique'], ['MILIEU', 'Milieu naturel'], ['PUITS', 'Puits'], ['GARG', 'Gargouille']];
 var METH = [['visuel', 'Visuel', 'V'], ['eau', 'À l\'eau', 'E'], ['fluo', 'Fluorescéine', 'Fl'], ['fumee', 'Fumée', 'Fu'], ['reso', 'Résonance', 'R']];
 /* Le siphon de garage se raccorde aux EU ; le siphon de sol figure côté EP */
 var INSTALL_STD = [['wc', 'EU', 'WC'], ['lavelinge', 'EU', 'Lave-linge'], ['evier', 'EU', 'Évier'], ['sdb', 'EU', 'Salle de bain (douche ou baignoire et lavabo)'], ['cuisine', 'EU', 'Cuisine (évier, lave-vaisselle)'], ['siphon', 'EU', 'Siphon de garage'],
   ['gout_av', 'EP', 'Gouttière(s) avant'], ['gout_ar', 'EP', 'Gouttière(s) arrière'], ['grilles', 'EP', 'Grilles'], ['siphon_sol', 'EP', 'Siphon de sol']];
-var AUTRES_SUGG = {EU: ['Chaudière (purge, condensat)', 'Regard EU', 'Attente', 'Lavabo', 'Douche', 'Lave-vaisselle', 'Ballon d\'eau chaude', 'Fontaine'], EP: ['Regard EP', 'Descente EP', 'Puisard', 'Drain', 'Caniveau-grille', 'Siphon de cour', 'Trop-plein']};
+var AUTRES_SUGG = {EU: ['Chaudière (purge, condensat)', 'Regard EU', 'Attente', 'Douche', 'Lave-vaisselle', 'Ballon d\'eau chaude', 'Fontaine'], EP: ['Regard EP', 'Descente EP', 'Puisard', 'Drain', 'Caniveau-grille', 'Siphon de cour', 'Trop-plein']};   /* sans « Lavabo » (m137, réponse du 16 nov. 2026), croquis désactivé compris : il se confond avec l'évier ; le libellé se tape toujours à la main */
 var CATEG = [['habitation', 'habitation'], ['pc', 'PC 2 à 20'], ['c50', 'collectif 21 à 50'], ['c100', 'collectif 51 à 100'], ['c101', 'collectif 101 et +'], ['pub_acc', 'propriété publique avec accueil'],
   ['hosp', 'centre hospitalier'], ['usine', 'usine'], ['entreprise', 'entreprise'], ['commerce', 'commerce'], ['ccial', 'centre commercial'], ['pub_sans', 'propriété publique sans accueil']];
 var EP_RECUP = [['puisard', 'puisard'], ['recup', 'récupérateur'], ['infil', 'Infiltration diffuse'], ['autre', 'Indéterminé/Autres']];
@@ -1953,8 +1954,24 @@ function completerConstat(v){
   Object.keys(src).forEach(function(k){ if (src[k] && !String(c[k] == null ? '' : c[k]).trim()) c[k] = src[k]; });
 }
 function rowActive(r){ var n = String(r.nb == null ? '' : r.nb).trim(); return n !== '' && n !== '0'; }
-/* Conformité d'une installation d'après son raccordement : EU sur EU ou unitaire ; EP sur EP, unitaire, gargouille ou milieu naturel */
-function raccOk(r){ if (!r.raccord) return null; if (r.groupe === 'EU') return /^(EU|UN)_/.test(r.raccord); return /^(EP|UN)_|^GARG$|^MILIEU$/.test(r.raccord); }
+/* Conformité d'une installation d'après son raccordement : EU sur EU ou unitaire ; EP sur EP, unitaire, gargouille ou milieu naturel.
+   Puits (PUITS, m150, décision D18) : « non » d'office, en EU comme en EP, croquis activé, désactivé ou absent ; une ligne mise à la main
+   sur « Puits » n'est jamais conforme. Seule une ligne EP dont le croquis a posé « Puits » (valeur non retouchée, c.croqAuto) suit son
+   anomalie « rejet des EP dans un puits », comme le milieu naturel en m120 : écartée, « oui » ; retenue, « non », ou « oui » si le dossier
+   en fait une réserve ; à arbitrer, ni l'un ni l'autre (constatEval). Croquis désactivé ou absent, l'arbitrage du croquis n'est pas lu
+   (vcArbitrage rend null), comme pour toute autre ligne : seule l'anomalie du dossier compte alors. c : le constat de la ligne (lu, jamais
+   modifié) */
+function raccOk(r, c){
+  if (!r.raccord) return null;
+  if (r.raccord === 'PUITS') return r.groupe === 'EP' && puitsDuCroquis(r, c);
+  if (r.groupe === 'EU') return /^(EU|UN)_/.test(r.raccord); return /^(EP|UN)_|^GARG$|^MILIEU$/.test(r.raccord);
+}
+/* raccordement « Puits » posé par le croquis et non retouché : la dernière valeur posée (c.croqAuto.rows, forme vérifiée sans rien modifier) */
+function puitsDuCroquis(r, c){
+  var P = c && c.croqAuto, R = P && typeof P === 'object' && !Array.isArray(P) ? P.rows : null;
+  var a = R && typeof R === 'object' && !Array.isArray(R) && Object.prototype.hasOwnProperty.call(R, r.id) ? R[r.id] : null;
+  return !!(a && typeof a === 'object' && !Array.isArray(a) && a.raccord === 'PUITS' && r.raccord === 'PUITS');
+}
 /* Règles du Département : toute anomalie est une non-conformité, sauf le tampon béton en EP (simple réserve) ; le choix fait sur l'anomalie prime */
 var NC_MOTIFS = /non visitable|invisitable|non accessible|inaccessible|absen|sans cunette|pas de cunette|cass|fissur|obstru|bouch|encombr|racine|retention|effondr|fuyard|fuite|ecras|deboit|scell|impossible a ouvrir|rejet|inversion|non conforme|non reglementaire|raccordee?s? (sur|au|a|vers) (le |la |les |l )?(reseau |regard |branchement )?eu\b|vers (le |les )?(reseau )?eu\b/;
 /* Toute anomalie est une non-conformité, sauf un tampon béton en EP sans autre défaut (simple réserve) ; le choix fait sur l'anomalie prime */
@@ -1976,9 +1993,14 @@ var ROW_KW = [['gout_av', function(o, s){ return !!s.avant; }], ['gout_ar', func
   /* un lavabo se confond avec l'évier, comme sur le croquis (décision du 7 novembre 2026 ; avant, il rangeait l'anomalie en salle de bain) */
   ['evier', /\beviers?\b|\blavabos?\b/],
   /* m115 : la pièce nommée avec un lavabo le situe, elle ne lie pas sa ligne (« Lavabo de la salle de bain », localisation « Cuisine » :
-     ligne « Évier » seule) ; une douche, une baignoire ou un lave-vaisselle nommés avec lui lient toujours la leur ; sans lavabo, rien ne change */
-  ['sdb', function(o){ return /\bdouches?\b|\bbaignoires?\b/.test(o) || (/\bsalle de bain/.test(o) && !/\blavabos?\b/.test(o)); }],
-  ['cuisine', function(o){ return /\blave vaisselle\b/.test(o) || (/\bcuisine\b/.test(o) && !/\blavabos?\b/.test(o)); }]];
+     ligne « Évier » seule). m148 : de même pour l'évier (« Évier : siphon fuyard », localisation « Cuisine » : ligne « Évier » seule ;
+     réponse du 16 nov. 2026 à pr12-10 : « Oui, ne garder que « Évier » »), croquis activé, désactivé ou absent (S2, 17 nov. 2026), quand
+     la ligne « Évier » est comptée ; sans elle, l'évier comme le lavabo reste sur la ligne de sa pièce (« Cuisine (évier, lave-vaisselle) »,
+     « Salle de bain (douche ou baignoire et lavabo) » ; réponse du 18 nov. 2026 : « évier ou lavabo, c'est pareil »). sans, posé par
+     anomRows : les appareils que la pièce nommée avec eux situe seulement (null : aucun). Une douche, une baignoire ou un lave-vaisselle
+     nommés avec eux lient toujours la leur ; sans lavabo ni évier, rien ne change */
+  ['sdb', function(o, s, sans){ return /\bdouches?\b|\bbaignoires?\b/.test(o) || (/\bsalle de bain/.test(o) && !(sans && sans.test(o))); }],
+  ['cuisine', function(o, s, sans){ return /\blave vaisselle\b/.test(o) || (/\bcuisine\b/.test(o) && !(sans && sans.test(o))); }]];
 function rowFits(r, a){ return !!r && r.groupe === a.reseau; }
 /* Une ligne « Autres » correspond si tous les mots principaux de son libellé figurent dans le texte (mots entre parenthèses facultatifs) ; « Regard EP » exige « regard ep » */
 function autresMatch(r, o){
@@ -1991,25 +2013,32 @@ function autresMatch(r, o){
   }
   return true;
 }
-/* Lignes du constat concernées par une anomalie : le choix fait sur l'anomalie, sinon une ligne « Autres » précise, sinon les mots-clés ; en cas de doute, aucune */
-function anomRows(c, a){
+/* Lignes du constat concernées par une anomalie : le choix fait sur l'anomalie, sinon une ligne « Autres » précise, sinon les mots-clés ; en cas de doute, aucune.
+   v171 : règle de la v1.7.1, où la pièce nommée avec un lavabo ne lie jamais sa ligne et où l'évier lie aussi celle de la sienne (constat signé sans la marque
+   de la v1.7.2 : constatEval, et l'option « Automatique » de l'éditeur de l'anomalie) */
+function anomRows(c, a, v171){
   if (a.installation === 'aucune') return [];
   if (a.installation){ var r0 = rowById(c, a.installation); if (rowFits(r0, a)) return [r0]; }
   var obs = norm(a.observation).replace(/[-']/g, ' '), loc = norm(a.localisation || '').replace(/[-']/g, ' '), o = obs + ' ' + loc;
   var cand = c.rows.filter(function(r){ return !r.std && rowFits(r, a) && rowActive(r) && autresMatch(r, o); });
   if (cand.length === 1) return cand;
-  var sides = rowSides(obs, loc), out = [];
-  ROW_KW.forEach(function(k){ if (!(typeof k[1] === 'function' ? k[1](o, sides) : k[1].test(o))) return; var r = rowById(c, k[0]); if (rowFits(r, a) && rowActive(r)) out.push(r); });
+  /* sans : les appareils que la pièce nommée avec eux situe seulement, sans lier sa ligne (ROW_KW) : en v1.7.1, le lavabo ; sinon, quand
+     la ligne « Évier » est comptée, l'évier et le lavabo, qui y vont seuls (m115, m148) ; sans elle, aucun : ils restent sur la ligne de
+     leur pièce (réponse du 18 nov. 2026) */
+  var sides = rowSides(obs, loc), out = [], rEv = rowById(c, 'evier');
+  var sans = v171 ? /\blavabos?\b/ : (rowFits(rEv, a) && rowActive(rEv) ? /\blavabos?\b|\beviers?\b/ : null);
+  ROW_KW.forEach(function(k){ if (!(typeof k[1] === 'function' ? k[1](o, sides, sans) : k[1].test(o))) return; var r = rowById(c, k[0]); if (rowFits(r, a) && rowActive(r)) out.push(r); });
   return out;
 }
-function anomRow(c, a){ return anomRows(c, a)[0] || null; }
+function anomRow(c, a, v171){ return anomRows(c, a, v171)[0] || null; }
 function precosAuto(c, L){
   var s = new Set();
   c.rows.forEach(function(r){
     if (!rowActive(r) || !r.raccord) return;
     if (r.groupe === 'EU'){
       if (/^EP_/.test(r.raccord)){ s.add('sepEU'); s.add('raccEUsep'); }
-      if (r.raccord === 'MILIEU') s.add('suppMilieu');
+      /* puits (m150) : comme le milieu naturel, supprimer le rejet */
+      if (r.raccord === 'MILIEU' || r.raccord === 'PUITS') s.add('suppMilieu');
       if (r.raccord === 'FOSSE') s.add('suppFosse');
       if (r.raccord === 'GARG') s.add('decoGarg');
     } else if (/^EU_/.test(r.raccord)){ s.add('decoEP'); s.add('raccEPep'); }
@@ -2024,14 +2053,20 @@ function precosAuto(c, L){
 }
 function constatEval(v, list){
   var c = migrerConstat(v.constat, v) || newConstat(v), L = list.filter(function(a){ return !a.brouillon; }), link = new Map();
-  L.forEach(function(a){ anomRows(c, a).forEach(function(r){ if (!link.has(r.id)) link.set(r.id, []); link.get(r.id).push(a); }); });
+  /* constat signé sans la marque de la v1.7.2 (constatMep 1 : signé avant elle, ou gelé par constatGeler) : anomalies rangées comme en
+     v1.7.1, sans l'exception de l'évier de m148 ni la ligne de sa pièce pour le lavabo sans ligne « Évier » comptée (réponse du 18 nov.
+     2026), pour que ses lignes gardent leurs anomalies liées (ou n'en aient toujours aucune) et que le dossier ne paraisse pas changé
+     depuis la signature ; l'éditeur de l'anomalie y propose de même la ligne d'alors (anomHtml) ; non signé ou signé avec la marque :
+     règle du jour */
+  var v171 = !!c.signeLe && constatMep(c) < 2;
+  L.forEach(function(a){ anomRows(c, a, v171).forEach(function(r){ if (!link.has(r.id)) link.set(r.id, []); link.get(r.id).push(a); }); });
   /* anomalies du croquis restées « à arbitrer » (m119, consigne du 13 nov. 2026 : jamais comptées conformes). Constat non signé : celles du
      résumé du croquis (vcArbitrage). Constat signé : celles que la signature a vues (c.fige.arbitrer), pour que le dossier ne paraisse pas
      changé depuis ; signé sans elles (avant m119, ou rien à arbitrer), rien ne change */
   var F0 = c.signeLe && c.fige, A = c.signeLe ? (F0 && F0.arbitrer && typeof F0.arbitrer === 'object' ? F0.arbitrer : null) : vcArbitrage(v, c);
   var AL = A && Array.isArray(A.lignes) ? A.lignes : [];
   var rows = c.rows.map(function(r){
-    var la = link.get(r.id) || [], ok = raccOk(r), auto = '', arb = AL.indexOf(r.id) >= 0;
+    var la = link.get(r.id) || [], ok = raccOk(r, c), auto = '', arb = AL.indexOf(r.id) >= 0;
     if (la.some(anomNC)) auto = 'non'; else if (rowActive(r) && ok !== null) auto = ok ? 'oui' : 'non';
     /* une anomalie de la ligne reste à arbitrer : jamais « oui » d'office, même raccordement ressaisi ; « non » reste */
     if (arb && auto === 'oui') auto = '';
@@ -2120,7 +2155,7 @@ function constatIssues(v, list){
     if (rowActive(r) && !r.raccord) out.push(lab + ' : raccordement non précisé.');
     if (rowActive(r) && !(r.methodes || []).length) out.push(lab + ' : méthode de contrôle non précisée.');
     if (!rowActive(r) && (r.raccord || x.anoms.length)) out.push(lab + ' : nombre non précisé.');
-    if (r.conforme === 'oui' && x.auto === 'non') out.push(lab + ' : déclarée conforme alors que ' + (raccOk(r) === false ? 'son raccordement (' + raccLabel(r.raccord).toLowerCase() + ') ne l\'est pas.' : 'une anomalie liée est une non-conformité.'));
+    if (r.conforme === 'oui' && x.auto === 'non') out.push(lab + ' : déclarée conforme alors ' + (raccOk(r, c) === false ? 'que son raccordement (' + raccLabel(r.raccord).toLowerCase() + ') ne l\'est pas.' : 'qu\'une anomalie liée est une non-conformité.'));
     else if (r.conforme === 'oui' && x.arbitrer) out.push(lab + ' : déclarée conforme alors qu\'une anomalie reste à arbitrer : décidez dans le croquis (Contrôles).');
   });
   if (!c.reseau) out.push('Réseau desservant non précisé : départemental ou territorial.');
@@ -2156,6 +2191,17 @@ function instRowHtml(x, dis){
     + '<div class="inst-m" role="group" aria-label="Méthodes de contrôle">' + METH.map(function(m){ return '<button type="button" class="mchip" data-act="c-meth" data-row="' + esc(r.id) + '" data-m="' + m[0] + '" aria-pressed="' + ((r.methodes || []).indexOf(m[0]) >= 0) + '" title="' + esc(m[1]) + '"' + dis + '>' + esc(m[1]) + '</button>'; }).join('') + '</div>'
     + (x.anoms.length ? '<div class="inst-a">' + svg(I.warn, 16) + 'Anomalie liée : ' + x.anoms.map(function(a){ return esc(lignesSansPuce(a.observation, true).join(' ')) + (anomNC(a) ? '' : ' (réserve)'); }).join(' ; ') + '</div>' : '')
     + '</div>';
+}
+/* m149 (décision D17, réponse pr12-11 du 16 nov. 2026) : côté de la boîte de branchement au constat, pour un réseau : deux boutons
+   « Intérieur » et « Extérieur » (c-set : un second toucher décoche) ; une autre valeur (« sans objet ») s'affiche en clair, les deux
+   boutons non pressés, et un toucher la remplace ; constat signé : boutons désactivés (dis), comme les champs */
+function boiteCoteHtml(val, n, dis){
+  var t = val == null ? '' : String(val);
+  return '<div class="seg bcote" role="group" aria-label="' + esc('Boîte à l\'intérieur ou à l\'extérieur de la propriété ' + n) + '">'
+    + (t.trim() && t !== 'intérieur' && t !== 'extérieur' ? '<span class="bso">' + esc(t) + '</span>' : '')
+    + [['intérieur', 'Intérieur'], ['extérieur', 'Extérieur']].map(function(o){
+      return '<button type="button" data-act="c-set" data-k="boite.cote' + n + '" data-v="' + o[0] + '" aria-pressed="' + (t === o[0]) + '"' + dis + '>' + o[1] + '</button>';
+    }).join('') + '</div>';
 }
 function constatHtml(){
   var v0 = curVisit(), list = anomsOf(v0.id), E = constatEval(v0, list), c = E.c, lock = !!c.signeLe, dis = lock ? ' disabled' : '', h = '', v = lock ? constatFige(v0) : v0;
@@ -2195,8 +2241,9 @@ function constatHtml(){
     + '<div class="btnrow"><button type="button" class="btn" data-act="c-croquis"' + dis + '>' + svg(I.doc) + (hasCroq ? 'Modifier le croquis' : 'Dessiner le croquis') + '</button>' + (hasCroq ? '<button type="button" class="btn ghost danger" data-act="c-croquis-del"' + dis + '>Effacer</button>' : '') + '</div></section>';
   var B = c.boite || {};
   h += '<section class="sec"><h2 class="h2">Boîte de branchement</h2><div class="boite"><span></span><span class="eu">EU</span><span class="ep">EP</span>'
-    + [['dist', 'Distance entre la limite parcellaire et la boîte'], ['prof', 'Profondeur de la boîte'], ['te', 'Présence de té hermétique']].map(function(k){
-      return '<span class="bl">' + esc(k[1]) + '</span>' + ['EU', 'EP'].map(function(n){ return '<input type="text" data-cf="boite.' + k[0] + n + '" value="' + esc(B[k[0] + n] || '') + '" aria-label="' + esc(k[1] + ' ' + n) + '"' + (k[0] === 'te' ? ' list="dl-te"' : '') + dis + '>'; }).join('');
+    + [['dist', 'Distance entre la limite parcellaire et la boîte'], ['cote', 'Boîte à l\'intérieur ou à l\'extérieur de la propriété'], ['prof', 'Profondeur de la boîte'],
+      ['te', 'Présence de té hermétique']].map(function(k){
+      return '<span class="bl">' + esc(k[1]) + '</span>' + ['EU', 'EP'].map(function(n){ return k[0] === 'cote' ? boiteCoteHtml(B[k[0] + n], n, dis) : '<input type="text" data-cf="boite.' + k[0] + n + '" value="' + esc(B[k[0] + n] || '') + '" aria-label="' + esc(k[1] + ' ' + n) + '"' + (k[0] === 'te' ? ' list="dl-te"' : '') + dis + '>'; }).join('');
     }).join('') + '</div><datalist id="dl-te"><option value="oui"><option value="non"><option value="sans objet"></datalist><div class="btnrow"><button type="button" class="btn sm" data-act="c-boite-so"' + dis + '>Sans objet (pas de boîte en limite)</button></div></section>';
   h += '<section class="sec"><h2 class="h2">Conclusion</h2><span class="lbl">Habitation desservie par un réseau</span><div class="seg">' + [['departemental', 'Départemental'], ['territorial', 'Territorial']].map(function(k){ return '<button type="button" data-act="c-set" data-k="reseau" data-v="' + k[0] + '" aria-pressed="' + (c.reseau === k[0]) + '"' + dis + '>' + k[1] + '</button>'; }).join('') + '</div>'
     + '<div class="grid2">' + (c.reseau === 'territorial' ? cFieldX('Géré par', 'reseauGest', c.reseauGest, '', dis) : '') + cFieldX('Situé dans la rue', 'reseauRue', c.reseauRue, '', dis) + '</div>'
@@ -2928,12 +2975,25 @@ function cFill(doc, value, x1, x2, y, o){
   cTxt(doc, f.s, x1, y, Object.assign({col: CPC.val}, o, {sz: f.sz}));
 }
 function cLogo(doc, src, x, y, w, h, alias){ if (!src) return; try { var ip = doc.getImageProperties(src), s = Math.min(w / ip.width, h / ip.height); doc.addImage(src, /png/i.test(src.slice(0, 30)) ? 'PNG' : 'JPEG', x, y, ip.width * s, ip.height * s, alias, 'FAST'); } catch(e){} }
-function constatRowsForPrint(c){
+/* Présentation du constat imprimé (m147, D13) : 2 (v1.7.2 : ni « Autres : » ni ligne laissée vide) pour un constat non signé, croquis
+   activé, désactivé ou absent (S2 b) ; un constat signé garde celle que le geste de signature a notée (c.fige.mep) ; signé sans marque
+   (avant la v1.7.2, ou gelé plus tard par constatGeler) : 1, celle de la v1.7.1 : il garde à la réimpression « Autres : » et ses lignes
+   vides ; constatEval y range aussi ses anomalies comme en v1.7.1, et l'éditeur de l'anomalie y propose la même ligne (m148 : l'évier
+   lie la ligne de sa pièce, le lavabo jamais) */
+function constatMep(c){
+  if (!c || !c.signeLe) return 2;
+  return c.fige && Number(c.fige.mep) >= 2 ? 2 : 1;
+}
+/* Rangées du tableau des installations : les lignes du formulaire, puis les lignes ajoutées, de chaque groupe. Présentation 1 (v1.7.1) :
+   une ligne ajoutée s'imprime « Autres : <libellé> » (autres) et des lignes vides (blank) complètent le groupe, la première libellée
+   « Autres : » s'il n'a aucune ligne ajoutée ; présentation 2 (m147, D14) : sous son seul libellé, sans ligne vide */
+function constatRowsForPrint(c, mep){
+  var m = mep || constatMep(c);
   function grp(g, minAutres){
     var std = c.rows.filter(function(r){ return r.groupe === g && r.std; }), au = c.rows.filter(function(r){ return r.groupe === g && !r.std; });
     var out = std.map(function(r){ return {g: g, r: r}; });
-    au.forEach(function(r){ out.push({g: g, r: r, autres: true}); });
-    for (var i = au.length; i < minAutres; i++) out.push({g: g, blank: true, autres: i === 0});
+    au.forEach(function(r){ out.push(m === 1 ? {g: g, r: r, autres: true} : {g: g, r: r}); });
+    for (var i = au.length; m === 1 && i < minAutres; i++) out.push({g: g, blank: true, autres: i === 0});
     return out;
   }
   var nEUstd = c.rows.filter(function(r){ return r.groupe === 'EU' && r.std; }).length;
@@ -2997,23 +3057,49 @@ function drawConstatP1(doc, v, E){
   if (imgData(c.croquis) && !E.nonEffectue){ try { doc.addImage(imgData(c.croquis), 'PNG', CROQ.x0, CROQ.y0, CROQ.w, CROQ.h, 'croquis-' + v.id + '-' + fnv32(c.croquis), 'FAST'); } catch(e){} }
 }
 function drawConstatTable(doc, E){
-  var c = E.c, P = CPC, top = 402, bottom = 620.5, rows = constatRowsForPrint(c), n = rows.length;
-  var hs = n === 12 ? [17.5, 17.5, 18, 21.5, 21.5, 17.5, 17.5, 17.5, 17.5, 17.5, 17.5, 17.5] : rows.map(function(){ return (bottom - top) / n; });
+  var c = E.c, P = CPC, top = 402, bottom = 620.5, mep = constatMep(c), rows = constatRowsForPrint(c, mep), n = rows.length, hs;
+  /* hauteurs des rangées. Présentation 1 : celles du formulaire à 12 rangées (par leur place), sinon à parts égales. Présentation 2 (m147,
+     D15) : chaque ligne du formulaire garde la sienne, reconnue par la ligne elle-même (Évier 18 pt, Salle de bain et Cuisine 21,5, les
+     autres 17,5), une ligne ajoutée 17,5, le tout mis à l'échelle de la hauteur du tableau */
+  if (mep === 1) hs = n === 12 ? [17.5, 17.5, 18, 21.5, 21.5, 17.5, 17.5, 17.5, 17.5, 17.5, 17.5, 17.5] : rows.map(function(){ return (bottom - top) / n; });
+  else {
+    var HF = {evier: 18, sdb: 21.5, cuisine: 21.5}, h0 = rows.map(function(pr){ return (pr.r && pr.r.std && HF[pr.r.id]) || 17.5; });
+    var som = h0.reduce(function(a, h){ return a + h; }, 0);
+    hs = h0.map(function(h){ return h * (bottom - top) / som; });
+  }
   doc.setFillColor(255, 255, 204); doc.rect(493, 360, 51, bottom - 360, 'F');
   doc.setDrawColor(P.violet[0], P.violet[1], P.violet[2]); doc.setLineWidth(0.6);
   doc.line(65, 360, 544, 360); doc.line(195.5, 371, 544, 371); doc.line(195.5, 391, 365.5, 391); doc.line(65, 402, 544, 402);
-  [[65, 360], [172.5, 360], [195.5, 360], [223.5, 391], [252, 371], [280.5, 391], [309, 371], [337, 391], [365.5, 371], [408, 371], [450.5, 371], [493, 360], [518.5, 371], [544, 360]].forEach(function(l){ doc.line(l[0], l[1], l[0], bottom); });
+  /* colonnes après le réseau unitaire. Présentation 1 (constat signé sans marque) : Fosse septique, Milieu naturel, Gargouille, comme en
+     v1.7.1 (tracé inchangé) ; présentation 2 (m150, décision D18) : la colonne « Puits » en plus, les quatre dans la largeur des trois
+     (365,5 à 493, 31,875 pt chacune) */
+  var VCOL = mep === 1 ? [[408, 371], [450.5, 371]] : [[397.4, 371], [429.3, 371], [461.1, 371]];
+  [[65, 360], [172.5, 360], [195.5, 360], [223.5, 391], [252, 371], [280.5, 391], [309, 371], [337, 391], [365.5, 371]].concat(VCOL, [[493, 360], [518.5, 371], [544, 360]]).forEach(function(l){ doc.line(l[0], l[1], l[0], bottom); });
   var y = top; hs.forEach(function(h){ y += h; doc.line(65, y, 544, y); });
   var it = {f: 'times', st: 'italic', sz: 10};
   cTxt(doc, 'Raccordée sur', 344.2, 369, Object.assign({al: 'center'}, it)); cTxt(doc, 'Conforme', 518.5, 369, Object.assign({al: 'center'}, it));
   cTxt(doc, 'Installation', 118.8, 384.4, Object.assign({al: 'center'}, it)); cTxt(doc, 'Nb', 184, 384.4, Object.assign({al: 'center'}, it));
   cTxt(doc, 'Réseau EU', 223.8, 384.3, Object.assign({al: 'center', col: P.rouge}, it)); cTxt(doc, 'Réseau EP', 280.5, 384.3, Object.assign({al: 'center', col: P.vert}, it));
   cTxt(doc, 'Réseau', 337.3, 379.8, Object.assign({al: 'center', col: P.bleu}, it)); cTxt(doc, 'Unitaire', 337.3, 390.5, Object.assign({al: 'center', col: P.bleu}, it));
-  cTxt(doc, 'Fosse', 386.9, 384.6, Object.assign({al: 'center', col: P.rouge}, it)); cTxt(doc, 'septique', 386.9, 395.2, Object.assign({al: 'center', col: P.rouge}, it));
-  cTxt(doc, 'Milieu', 429.4, 384.6, Object.assign({al: 'center', col: P.vert}, it)); cTxt(doc, 'naturel', 429.4, 395.2, Object.assign({al: 'center', col: P.vert}, it));
-  cTxt(doc, 'Gargouille', 471.8, 389.9, Object.assign({al: 'center', col: P.vert, sz: 9}, it)); cTxt(doc, 'Oui', 505.8, 389.9, Object.assign({al: 'center'}, it)); cTxt(doc, 'Non', 531.3, 389.9, Object.assign({al: 'center'}, it));
+  if (mep === 1){
+    cTxt(doc, 'Fosse', 386.9, 384.6, Object.assign({al: 'center', col: P.rouge}, it)); cTxt(doc, 'septique', 386.9, 395.2, Object.assign({al: 'center', col: P.rouge}, it));
+    cTxt(doc, 'Milieu', 429.4, 384.6, Object.assign({al: 'center', col: P.vert}, it)); cTxt(doc, 'naturel', 429.4, 395.2, Object.assign({al: 'center', col: P.vert}, it));
+    cTxt(doc, 'Gargouille', 471.8, 389.9, Object.assign({al: 'center', col: P.vert, sz: 9}, it));
+  } else {
+    /* en 8 pt, sur deux lignes : « Fosse septique » en rouge comme « Réseau EU » ; « Milieu naturel », « Puits » et « Gargouille » en vert
+       comme « Réseau EP » (réponse S4 a du 17 nov. 2026) */
+    var t8 = function(col){ return Object.assign({}, it, {al: 'center', col: col, sz: 8}); };
+    cTxt(doc, 'Fosse', 381.4, 385.7, t8(P.rouge)); cTxt(doc, 'septique', 381.4, 394.2, t8(P.rouge));
+    cTxt(doc, 'Milieu', 413.3, 385.7, t8(P.vert)); cTxt(doc, 'naturel', 413.3, 394.2, t8(P.vert));
+    cTxt(doc, 'Puits', 445.2, 389.9, t8(P.vert));
+    cTxt(doc, 'Gar-', 477.1, 385.7, t8(P.vert)); cTxt(doc, 'gouille', 477.1, 394.2, t8(P.vert));
+  }
+  cTxt(doc, 'Oui', 505.8, 389.9, Object.assign({al: 'center'}, it)); cTxt(doc, 'Non', 531.3, 389.9, Object.assign({al: 'center'}, it));
   [[209.5, 'D', P.rouge], [237.8, 'T', P.rouge], [266.3, 'D', P.vert], [294.8, 'T', P.vert], [323, 'D', P.bleu], [351.3, 'T', P.bleu]].forEach(function(d){ cTxt(doc, d[1], d[0], 399.8, Object.assign({al: 'center', col: d[2]}, it)); });
+  /* place de la croix « Raccordée sur ». Présentation 2 : le rejet dans un puits, EU comme EP, sous « Puits » (m150) ; présentation 1 : les
+     places de la v1.7.1, sans « Puits » (une ligne « Puits » n'y a pas de croix, comme en v1.7.1) */
   var COLX = {EU_D: 209.5, EU_T: 237.8, EP_D: 266.3, EP_T: 294.8, UN_D: 323, UN_T: 351.3, FOSSE: 386.8, MILIEU: 429.3, GARG: 471.8}, conf = {};
+  if (mep !== 1){ COLX.FOSSE = 381.4; COLX.MILIEU = 413.3; COLX.PUITS = 445.2; COLX.GARG = 477.1; }
   E.rows.forEach(function(x){ conf[x.r.id] = x; });
   var lsz = n > 14 ? 8 : 9.5;
   y = top;
@@ -3042,10 +3128,10 @@ function drawConstatTable(doc, E){
     y += h;
   });
 }
-function drawConstatP2(doc, v, E){
-  var c = E.c, P = CPC, B = c.boite || {}, x;
-  doc.setDrawColor(P.orange[0], P.orange[1], P.orange[2]); doc.setLineWidth(1); doc.rect(15, 15, 565, 811);
-  doc.setDrawColor(0, 0, 255); doc.setLineWidth(0.6);
+/* page 2, section Boîte de branchement, présentation 1 (constat signé avant la v1.7.2, sans marque : décision D13) : les trois rangées de
+   17,5 pt, la distance imprimée telle qu'elle est gardée, comme avant m149 (code inchangé) */
+function drawBoiteMep1(doc, E, B){
+  var P = CPC;
   doc.line(327, 22.5, 565.5, 22.5); [40, 57.5, 75, 93].forEach(function(y){ doc.line(43.5, y, 565.5, y); }); doc.line(43.5, 40, 43.5, 93); [327, 386.5, 446.5, 506, 565.5].forEach(function(xx){ doc.line(xx, 22.5, xx, 93); });
   cTxt(doc, 'EU', 356.8, 33.4, {f: 'times', sz: 10, col: P.rouge, al: 'center'}); cTxt(doc, 'EP', 416.5, 33.4, {f: 'times', sz: 10, col: P.vert, al: 'center'});
   [['dist', 'Distance entre la limite parcellaire et la boîte de branchement', 52.5], ['prof', 'Profondeur de la boîte de branchement', 70], ['te', 'Présence de té hermétique', 87.5]].forEach(function(k){
@@ -3062,6 +3148,55 @@ function drawConstatP2(doc, v, E){
       var f = cFit(doc, val, 56, 7, {}, 5.5); cTxt(doc, f.s, cx, k[2], {sz: f.sz, col: P.val, al: 'center'});
     });
   });
+}
+/* m149 (décision D17 ; réponse S3 a du 17 nov. 2026 : « Juste sous la distance, les quatre lignes du tableau un peu resserrées dans le même
+   cadre ») : page 2, section Boîte de branchement, présentation 2 (constat non signé, ou signé en v1.7.2) : quatre rangées de 13,25 pt dans
+   le cadre des trois d'avant (40 à 93), la rangée du côté sous la distance. Libellé et valeurs sur une même ligne de base, centrée dans la
+   rangée ; libellé en 10 pt, réduit s'il ne tient pas ; valeurs sur une ligne, de 9,5 à 5,5 pt ; une valeur qui ne tient pas en 5,5 pt
+   s'imprime sur deux lignes de 5,5 pt, en entier (présentation 1 : deux lignes de 7 pt) ; si deux lignes ne suffisent pas, la seconde
+   finit par « … ». Côté, par réseau : deux cases « int. » et « ext. », la choisie porte une croix ; « sans objet » (ou toute autre valeur)
+   en clair. Visite non effectuée : cases vides, sans valeur */
+function drawBoiteMep2(doc, E, B){
+  var P = CPC, H = 13.25;
+  doc.line(327, 22.5, 565.5, 22.5); [40, 53.25, 66.5, 79.75, 93].forEach(function(y){ doc.line(43.5, y, 565.5, y); }); doc.line(43.5, 40, 43.5, 93);
+  [327, 386.5, 446.5, 506, 565.5].forEach(function(xx){ doc.line(xx, 22.5, xx, 93); });
+  cTxt(doc, 'EU', 356.8, 33.4, {f: 'times', sz: 10, col: P.rouge, al: 'center'}); cTxt(doc, 'EP', 416.5, 33.4, {f: 'times', sz: 10, col: P.vert, al: 'center'});
+  [['dist', 'Distance entre la limite parcellaire et la boîte de branchement'], ['cote', 'Boîte à l\'intérieur ou à l\'extérieur de la propriété'],
+    ['prof', 'Profondeur de la boîte de branchement'], ['te', 'Présence de té hermétique']].forEach(function(k, i){
+    var y = 40 + H * i + H / 2 + 3.5, f = cFit(doc, k[1], 275, 10, {f: 'times'}, 7);
+    cTxt(doc, f.s, 48, y, {f: 'times', sz: f.sz});
+    ['EU', 'EP'].forEach(function(n, j){
+      var val = E.nonEffectue ? '' : String(B[k[0] + n] || '').trim(), cx = j ? 416.5 : 356.8, g, s, ls;
+      if (k[0] === 'cote' && (!val || val === 'intérieur' || val === 'extérieur')){ boiteCases(doc, cx, y, val); return; }
+      if (!val) return;
+      g = cFit(doc, val, 56, 9.5, {}, 5.5);
+      /* trop large même en 5,5 pt (cFit l'a coupée) : deux lignes de 5,5 pt, lignes de base à y - 4,175 et y + 1,325 : l'encre d'une
+         capitale accentuée en tête (0,985 em en Jost) et d'un jambage en bas (0,23 em) reste à 0,23 pt des traits de 0,6 pt de la rangée
+         (en 6 pt, elle les touchait) ; au-delà de deux lignes, la seconde finit par « … » */
+      s = pdfText(val.replace(/\s+/g, ' ')); doc.setFontSize(5.5);
+      if (doc.getTextWidth(s) > 56 && (ls = doc.splitTextToSize(s, 56)).length > 1){
+        if (ls.length > 2) ls = [ls[0], cFit(doc, ls.slice(1).join(' '), 56, 5.5, {}, 5.5).s];
+        ls.forEach(function(t, q){ cTxt(doc, t, cx, y - 4.175 + q * 5.5, {sz: 5.5, col: P.val, al: 'center'}); }); return;
+      }
+      cTxt(doc, g.s, cx, y, {sz: g.sz, col: P.val, al: 'center'});
+    });
+  });
+}
+/* m149 : cases « int. » et « ext. » du côté de la boîte, centrées sur cx (colonne de 59,5 pt), sur la ligne de base y ; la case du côté
+   choisi porte une croix (cBox) */
+function boiteCases(doc, cx, y, val){
+  var o = {f: 'times', sz: 9}, L = [['intérieur', 'int.'], ['extérieur', 'ext.']], w = 4, x;
+  doc.setFont('times', 'normal'); doc.setFontSize(9);
+  L.forEach(function(q){ w += 6.8 + 3 + doc.getTextWidth(pdfText(q[1])); });
+  x = cx - w / 2;
+  L.forEach(function(q){ x += cOpt(doc, x, y, val === q[0], q[1], o) + 4; });
+}
+function drawConstatP2(doc, v, E){
+  var c = E.c, P = CPC, B = c.boite || {}, x;
+  doc.setDrawColor(P.orange[0], P.orange[1], P.orange[2]); doc.setLineWidth(1); doc.rect(15, 15, 565, 811);
+  doc.setDrawColor(0, 0, 255); doc.setLineWidth(0.6);
+  /* m149 : présentation notée à la signature (constatMep, m147) : la rangée du côté de la boîte en présentation 2 seulement */
+  if (constatMep(c) === 2) drawBoiteMep2(doc, E, B); else drawBoiteMep1(doc, E, B);
   cHead(doc, 'Conclusion :', 42.6, 109);
   cTxt(doc, 'Habitation desservie par un réseau', 42.6, 126.6, {f: 'times', sz: 10.5});
   cOpt(doc, 249.5, 126.6, c.reseau === 'departemental', 'départemental', {f: 'times', sz: 10.5});
@@ -3570,10 +3705,13 @@ function croqReglagesHtml(){
   return h + '</section>';
 }
 /* destinations ajoutées (m128) : modèle modifié dans les Réglages, avec les refus de la fiche du croquis (VCroquis.destSaisie) ; seules les
-   poses suivantes en tiennent compte */
+   poses suivantes en tiennent compte. m144 (D10, S6 b, S7 a) : un nom changé est comparé aux autres modèles de la liste et aux objets de la
+   palette (VCroquis.refusNomDest) : même nom, « Fosse » : refusés, la fenêtre reste ouverte ; nom proche : la question (vcExuQuestion) ;
+   « La même » (« Le même ») remet l'ancien nom dans la fenêtre, qui reste ouverte */
 async function vcExuModifier(id){
   var V = window.VCroquis; if (!S.croq || !vcModule() || !V.modelesDe) return;
-  var m = V.modelesDe(S.croq.exutoires).filter(function(x){ return x.id === id; })[0]; if (!m) return;
+  var tous = V.modelesDe(S.croq.exutoires), m = tous.filter(function(x){ return x.id === id; })[0]; if (!m) return;
+  var listes = V.refusNomDest ? {ou: 'reglages', modeles: tous.filter(function(x){ return x.id !== id; })} : undefined, fermer = null;
   var opt = function(l, val){ return l.map(function(x){ return '<option value="' + esc(x[0]) + '"' + (x[0] === val ? ' selected' : '') + '>' + esc(x[1]) + '</option>'; }).join(''); };
   var champ = function(lib, html){ return '<label class="field"><span class="lbl">' + lib + '</span>' + html + '</label>'; };
   var res = await openModal({title: 'Modifier la destination',
@@ -3585,19 +3723,40 @@ async function vcExuModifier(id){
       + '<p class="muted small">Seules les prochaines poses en tiennent compte : une destination déjà posée garde ses champs.</p>',
     actions: [{label: 'Annuler', value: null}, {label: 'Enregistrer', cls: 'primary', collect: function(w){
       var q = function(s){ return w.querySelector(s).value; };
-      var r = V.destSaisie({nom: q('#m-dnom'), ab: q('#m-dab'), art: q('#m-dart'), ep: q('#m-dep'), cst: q('#m-dcst')}, m);
+      var r = V.destSaisie({nom: q('#m-dnom'), ab: q('#m-dab'), art: q('#m-dart'), ep: q('#m-dep'), cst: q('#m-dcst')}, m, listes);
       if (r.refus){ toast(r.refus, 4000); return false; }
+      if (r.q){
+        vcExuQuestion(r, function(x){
+          if (x.m){ if (fermer) fermer(x.m); return; }
+          /* « La même », « Le même » : le modèle garde son ancien nom, remis dans la fenêtre avec son article ; elle reste ouverte, les
+             autres champs tels quels (relecture M3, M9) */
+          var n = w.querySelector('#m-dnom'), a = w.querySelector('#m-dart');
+          if (n && n.isConnected){ n.value = m.nom; if (a) a.value = m.art; n.focus(); }
+          if (x.refus) toast(x.refus, 4000);
+        });
+        return false;
+      }
       return r.m;
     }}],
     /* l'article suit le nom tapé, comme dans la fiche courte du croquis : la fenêtre montre celui qui sera enregistré (« le » devant une
        consonne, au lieu de « l' » : à changer en « la » s'il le faut) */
-    onMount: function(w){
+    onMount: function(w, close){
+      fermer = close;
       var n = w.querySelector('#m-dnom'), a = w.querySelector('#m-dart');
       if (n && a && V.artDevant) n.addEventListener('input', function(){ a.value = V.artDevant(a.value, n.value.replace(/\s+/g, ' ').trim()); });
     }});
   if (!res || !S.croq) return;
   S.croq.exutoires = V.modelesDe(S.croq.exutoires).map(function(x){ return x.id === id ? {id: id, nom: res.nom, ab: res.ab, art: res.art, ep: res.ep, cst: res.cst} : x; });
   await croqCfgEcrire(); toast('Destination modifiée : les prochaines poses en tiendront compte.'); render();
+}
+/* question d'un nom proche (m144, S6 b), par-dessus « Modifier la destination » : fn reçoit la réponse tranchée (VCroquis.reponseNomProche) :
+   « Une autre » (« Un autre ») : les champs tapés, à enregistrer ; « La même » (« Le même » pour un objet de la palette) : le toast, le
+   modèle garde son ancien nom. Le focus va sur « Une autre » ; Échap ou le fond : la question seule se ferme */
+function vcExuQuestion(r, fn){
+  var V = window.VCroquis;
+  openModal({title: 'Nom proche', html: '<p>' + esc(r.q.texte) + '</p>', actions: [{label: r.q.non, value: 'non'}, {label: r.q.oui, value: 'oui', cls: 'primary'}], noAutofocus: true,
+    onMount: function(w){ var b = w.querySelector('[data-mi="0"]'); if (b) setTimeout(function(){ if (b.isConnected) b.focus(); }, 30); }})
+    .then(function(v){ if (v !== 'oui' && v !== 'non') return; fn(V.reponseNomProche(r, v === 'oui')); });
 }
 async function vcExuRetirer(id){
   var V = window.VCroquis; if (!S.croq || !vcModule() || !V.modelesDe) return;
@@ -3629,9 +3788,9 @@ var VC_ACTIONS = {
 /* ---------- Croquis de terrain et constat ----------
    Résumé du croquis (installations dessinées, raccordement, méthodes), gardé en mémoire par dossier : jamais recalculé à chaque affichage.
    Le constat ne reprend que nombre, raccordement et méthodes des lignes, les cases des ouvrages de récupération des EP (puisard, récupérateur,
-   infiltration diffuse, indéterminé/autres), la distance à la limite et la profondeur de la boîte de branchement (seule boîte existante du
-   réseau), et seulement là où le technicien n'a rien saisi (ou a gardé la dernière valeur venue du croquis : c.croqAuto) ; jamais la
-   conformité, la conclusion ni les préconisations, jamais un constat signé, rien quand le croquis est désactivé. */
+   infiltration diffuse, indéterminé/autres), la distance à la limite, le côté (m149) et la profondeur de la boîte de branchement (seule
+   boîte existante du réseau), et seulement là où le technicien n'a rien saisi (ou a gardé la dernière valeur venue du croquis :
+   c.croqAuto) ; jamais la conformité, la conclusion ni les préconisations, jamais un constat signé, rien quand le croquis est désactivé. */
 var VC_RESUMES = new Map();
 function vcResumeCalc(v, doc){
   var V = window.VCroquis, an = V.analyser(doc, 'edl'), cd = V.constatDeduit(doc, an);
@@ -3642,13 +3801,15 @@ function vcResumeCalc(v, doc){
   var rc = {}; EP_RECUP.forEach(function(q){ if (q[0] !== 'puisard' && cd.epRecup && cd.epRecup[q[0]]) rc[q[0]] = true; });
   if (Object.keys(rc).length) r.recup = rc;
   /* anomalies du dossier restées intactes que le dessin d'aujourd'hui met à jour (texte, réseau, nature, ligne du constat), par exemple un
-     dossier commencé avant une mise à jour qui range autrement un lavabo : l'éditeur les reporte à son ouverture. m133 (M2) : autresAnom, les
-     anomalies d'un autre appareil compté en « Autres » ({id de l'anomalie : id de la ligne du croquis}), que vcRangerAutres range */
+     dossier commencé avant une mise à jour qui range autrement un lavabo : l'éditeur les reporte à son ouverture. m133 (M2), m143 :
+     autresAnom, les anomalies d'un objet compté en « Autres » (autre appareil ; depuis m143, aussi chaudière, attente, drain, siphon de cour,
+     trop-plein ; {id de l'anomalie : id de la ligne du croquis}), que vcRangerAutres range */
   try { var dc = JSON.parse(JSON.stringify(doc)), ops = V.reconcilier(dc, null, anomsOf(v.id), {});
     r.aReporter = (ops.maj || []).filter(function(m){ return ['observation', 'preconisation', 'reseau', 'nc', 'installation'].some(function(k){ return m.champs && m.champs[k] !== undefined; }); }).length;
     r.autresAnom = ops.autres && typeof ops.autres === 'object' ? ops.autres : {}; } catch(e){ r.aReporter = 0; r.autresAnom = {}; }
   try { var La = V.anomaliesDoc(doc, an, anomsOf(v.id), {telQuel: true}); r.arbitrer = La.filter(function(a){ return a.st === 'arbitrer'; }).length; r.horsdossier = La.filter(function(a){ return a.st === 'horsdossier'; }).length; } catch(e){ r.arbitrer = 0; r.horsdossier = 0; }
-  /* boîte de branchement par réseau : nombre de boîtes existantes, distance à la limite et profondeur s'il n'y en a qu'une (VCroquis.boitesConstat) */
+  /* boîte de branchement par réseau : nombre de boîtes existantes, distance à la limite, côté (m149) et profondeur s'il n'y en a qu'une
+     (VCroquis.boitesConstat) */
   try { r.boite = V.boitesConstat(doc, an); } catch(e){ r.boite = null; }
   VC_RESUMES.set(v.id, r);
   return r;
@@ -3753,14 +3914,15 @@ function vcProvenance(c){
   }
   return P;
 }
-var VC_BOITE_CHAMPS = ['distEU', 'distEP', 'profEU', 'profEP'];
+var VC_BOITE_CHAMPS = ['distEU', 'distEP', 'coteEU', 'coteEP', 'profEU', 'profEP'];
 /* suivi (fermeture du croquis, ouverture du constat) : seulement les champs déjà posés par le croquis, sans ajouter de ligne ; la boîte de
    branchement seulement si « Reprendre du croquis » l'a déjà reprise (P.boite). Constat signé, visite non effectuée, croquis désactivé : rien. */
 /* anomalie dont la ligne suit encore le croquis : installation égale à la valeur notée par le croquis. Seule celle-là est rangée, ou
    rappelée par vcEcarts ; une ligne choisie par le technicien, « Aucune » comprise, reste la sienne (relecture de m133, M3) */
 function vcAutreSuit(a){ var au = a && a.croquis && a.croquis.auto; return !!au && typeof au === 'object' && (a.installation || '') === au.installation; }
-/* m133 (M2 de la relecture de m132) : anomalie d'un autre appareil compté en « Autres » (bidet, urinoir…), rangée sur la ligne du constat
-   que vcApparier lie à la ligne du croquis de cet appareil (res.autresAnom, que donne VCroquis.reconcilier) ; sans ligne liée, sur aucune
+/* m133 (M2 de la relecture de m132), m143 : anomalie d'un objet compté en « Autres » (autre appareil : bidet, urinoir… ; depuis m143,
+   aussi chaudière, attente, drain, siphon de cour, trop-plein), rangée sur la ligne du constat que vcApparier lie à la ligne du croquis de
+   cet objet (res.autresAnom, que donne VCroquis.reconcilier) ; sans ligne liée, sur aucune
    (vcEcarts le rappelle). La valeur écrite est notée dans croquis.auto.installation, comme celles que l'éditeur écrit : ni retouche, ni
    « à reporter ». Une ligne choisie par le technicien (installation autre que la valeur notée) reste la sienne ; un constat signé n'est
    jamais modifié, ses anomalies non plus. Rend le nombre d'anomalies rangées */
@@ -3782,8 +3944,8 @@ function vcRangerAutres(v, c, res){
 }
 function constatDepuisCroquis(v, res, suivi){
   if (!res || !vcPret() || (v.constat && v.constat.signeLe) || constatNonEffectue(v)) return 0;
-  /* constat jamais repris du croquis : le croquis n'y touche pas ; les anomalies des autres appareils vont quand même sur leur ligne, s'il
-     en a une (m133) */
+  /* constat jamais repris du croquis : le croquis n'y touche pas ; les anomalies des objets comptés en « Autres » vont quand même sur
+     leur ligne, s'il en a une (m133, m143) */
   if (suivi && !(v.constat && v.constat.croqAuto)) return v.constat ? vcRangerAutres(v, v.constat, res) : 0;
   var neuf = !v.constat, c = constatOf(v), P = vcProvenance(c), n = 0, vus = {}, boiteNeuve = false;
   /* valeurs reprises d'un autre croquis (supprimé puis recommencé) : elles restent, comme saisies par le technicien */
@@ -3834,24 +3996,32 @@ function constatDepuisCroquis(v, res, suivi){
     else if (P.recup && P.recup[k]){ if (c.epRecup[k] === true){ delete c.epRecup[k]; n++; } delete P.recup[k]; }
   });
   if (P.recup && !Object.keys(P.recup).length) delete P.recup;
-  /* boîte de branchement (réponse 10.4) : distance à la limite et profondeur, par réseau, d'après la seule boîte existante du réseau ; comme
-     pour les lignes, une valeur retouchée, ou saisie sans avoir été posée par le croquis, reste ; une valeur posée que le croquis ne donne plus
-     (aucune ou plusieurs boîtes) est vidée si personne n'y a touché */
+  /* boîte de branchement (réponse 10.4) : distance à la limite, côté (m149, D17) et profondeur, par réseau, d'après la seule boîte existante
+     du réseau ; comme pour les lignes, une valeur retouchée, ou saisie sans avoir été posée par le croquis, reste ; une valeur posée que le
+     croquis ne donne plus (aucune ou plusieurs boîtes) est vidée si personne n'y a touché. Dossier d'avant m149 : la distance posée « 0,80 m
+     intérieur », non retouchée, devient « 0,80 m » et le côté se coche ; une distance tapée ou retouchée n'est jamais découpée ; si elle
+     porte un autre côté que le croquis (« 0,80 m extérieur » face à « intérieur »), le côté n'est pas repris */
   if (res.boite && typeof res.boite === 'object' && (P.boite || !suivi)){
     if (!P.boite){ P.boite = {}; boiteNeuve = true; }
     if (!c.boite || typeof c.boite !== 'object' || Array.isArray(c.boite)) c.boite = {};
     ['EU', 'EP'].forEach(function(g){
       var x = res.boite[g];
-      ['dist', 'prof'].forEach(function(k){
-        var f = k + g, a = P.boite[f], cur = String(c.boite[f] == null ? '' : c.boite[f]).trim(), val = x && x.n === 1 && typeof x[k] === 'string' ? x[k] : '';
+      ['dist', 'cote', 'prof'].forEach(function(k){
+        var f = k + g, a = P.boite[f], cur = String(c.boite[f] == null ? '' : c.boite[f]).trim(), val = x && x.n === 1 && typeof x[k] === 'string' ? x[k] : '', dc;
         if (a !== undefined ? cur !== a : cur !== '') return;          /* retouché par le technicien : on n'y touche pas */
         if (a === undefined && val === '') return;                     /* rien à proposer */
+        /* m149 (D17) : la distance gardée porte un autre côté que celui du croquis : le côté reste tel quel, pour que le constat ne dise
+           jamais deux côtés contraires. La distance passe avant le côté : celle d'un dossier d'avant m149, posée et non retouchée, est déjà
+           devenue « 0,80 m » */
+        dc = k === 'cote' && val ? vcBoiteCoteDist(c.boite['dist' + g]) : '';
+        if (dc && dc !== vcBoiteCle(val)) return;
         if (cur !== val){ c.boite[f] = val; n++; }
         P.boite[f] = val;
       });
     });
   }
-  /* anomalies des autres appareils (m133) : rangées sur leur ligne, celle que cet appel vient de créer comprise ; comptées dans le total */
+  /* anomalies des objets comptés en « Autres » (m133, m143) : rangées sur leur ligne, celle que cet appel vient de créer comprise ;
+     comptées dans le total */
   var k = vcRangerAutres(v, c, res);
   if (n) constatTouch(v);
   /* « Reprendre du croquis » sans rien à reprendre : la provenance de la boîte, créée ici, est enregistrée quand même (sans changer la date
@@ -3864,11 +4034,14 @@ function constatDepuisCroquis(v, res, suivi){
    « intérieur », « ext » ou « extérieur » ; « en limite », « en limite de propriété » et une distance nulle donnent « en limite », comme
    VCroquis.boitesConstat. Un texte non reconnu est comparé tel quel. m115 : écritures courantes reconnues aussi : le côté entre parenthèses
    (« 0,80 m (intérieur) »), le côté écrit avant la distance (« intérieur, 0,80 m », « int. 0,80 m »), les mètres suivis des centimètres
-   (« 1m20 », « 1 m 20 », « 0m80 » ; « 1m5 » : un seul chiffre après le « m » compte des dizaines de centimètres, 1,50 m). */
+   (« 1m20 », « 1 m 20 », « 0m80 » ; « 1m5 » : un seul chiffre après le « m » compte des dizaines de centimètres, 1,50 m). m140 : l'écriture
+   de l'étiquette du croquis est reconnue aussi (« à 0,80 m de la limite, à l'intérieur de la propriété », « à l'extérieur de la
+   propriété ») : « de la propriété » ou « de la parcelle » après le côté est ignoré. */
 function vcBoiteCle(t){
   var s = norm(t).replace(/’/g, '\'').replace(/\s+/g, ' ').trim(), m, d, u;
   var cote = function(x){ return x.charAt(0) === 'i' ? 'interieur' : 'exterieur'; };
-  u = s.replace(/\(((?:(?:cote|a l') ?)?(?:int|interieur|ext|exterieur)\.?)\)/g, ' $1 ').replace(/\s+/g, ' ').trim();
+  u = s.replace(/\b(interieur|exterieur) de (?:la )?(?:propriete|parcelle)\b/g, '$1');
+  u = u.replace(/\(((?:(?:cote|a l') ?)?(?:int|interieur|ext|exterieur)\.?)\)/g, ' $1 ').replace(/\s+/g, ' ').trim();
   m = /^((?:(?:cote|a l') ?)?(?:int|interieur|ext|exterieur)\.?),? ((?:a )?\d.*)$/.exec(u);
   if (m) u = m[2] + ' ' + m[1];
   u = u.replace(/^(a )?(\d+) ?m ?(\d{1,2})\b/, function(x, a0, a, b){ return (a0 || '') + a + ',' + (b.length === 1 ? b + '0' : b) + ' m'; });
@@ -3881,6 +4054,9 @@ function vcBoiteCle(t){
   if (/^-?0,00$/.test(d)) return 'en limite';
   return d + ' m' + (m[3] ? ' ' + cote(m[3]) : '');
 }
+/* m149 (D17) : côté que porte encore une distance du constat (dossier d'avant m149, ou valeur tapée : « 0,80 m intérieur », « int. 0,80 m »,
+   « intérieur ») : 'interieur' ou 'exterieur', comme vcBoiteCle ; '' sinon (« 0,80 m », « en limite », vide) */
+function vcBoiteCoteDist(t){ var m = /^(?:-?\d+,\d\d m )?(interieur|exterieur)$/.exec(vcBoiteCle(t)); return m ? m[1] : ''; }
 /* écarts entre le croquis et le constat, ligne par ligne (affichage et « À vérifier avant de signer ») */
 function vcEcarts(v, c){
   /* constat signé : il reste tel qu'il a été signé ; ce que le croquis compte autrement depuis (dessin changé, mise à jour) n'y est pas rappelé */
@@ -3891,7 +4067,7 @@ function vcEcarts(v, c){
   var conf = {}; try { constatEval(v, anomsOf(v.id)).rows.forEach(function(x){ conf[x.r.id] = x.conf; }); } catch(e){}
   /* m132 : même appariement que la reprise (vcApparier), sans poser de lien : deux lignes du croquis ne se comparent plus à la même ligne */
   var lien = vcApparier(c, res);
-  /* m133 (M2) : anomalies d'un autre appareil compté en « Autres » qui ne sont rangées sur aucune ligne, faute de la ligne de l'appareil au
+  /* m133 (M2), m143 : anomalies d'un objet compté en « Autres » qui ne sont rangées sur aucune ligne, faute de la ligne de l'objet au
      constat (vcRangerAutres n'a rien pour elles) ; seulement celles que la reprise y rangera (vcAutreSuit) : une anomalie que le technicien
      a mise sur « Aucune » n'est pas rappelée */
   var LA = anomsOf(v.id).filter(function(a){ return !a.brouillon; }), AA = res.autresAnom && typeof res.autresAnom === 'object' ? res.autresAnom : {};
@@ -3905,7 +4081,7 @@ function vcEcarts(v, c){
     if (!s.std && refus[s.id]) return;
     var r = lien[s.id] || null, vals = vcValeurs(s), lab = r ? r.label : s.label, dbl = vcAutresDouble(c, s);
     /* appareil de la même sorte aussi compté en « Autres » : à vérifier, sans rien retirer ni remplir à la place du technicien */
-    var aussi = dbl ? ' ; « ' + dbl.label + ' » (' + (String(dbl.nb == null ? '' : dbl.nb).trim() || '0') + ') figure aussi au constat, en « Autres » : vérifiez qu\'il n\'est pas compté deux fois' : '';
+    var aussi = dbl ? ' ; « ' + dbl.label + ' » (' + (String(dbl.nb == null ? '' : dbl.nb).trim() || '0') + ') figure aussi au constat, sur sa propre ligne : vérifiez qu\'il n\'est pas compté deux fois' : '';
     if (!r || !rowActive(r)){ out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + (r && String(r.nb == null ? '' : r.nb).trim() === '0' ? '0' : 'nombre non renseigné') + ' au constat' + aussi + '.');
       if (!r && !s.std) sansLigne(s, lab); return; }
     if (String(r.nb).trim() !== vals.nb) out.push(lab + ' : ' + s.nb + ' sur le croquis de terrain, ' + String(r.nb).trim() + ' au constat' + aussi + '.');
@@ -3921,9 +4097,9 @@ function vcEcarts(v, c){
     if (q[0] === 'puisard' || !(res.recup && res.recup[q[0]] === true) || (c.epRecup || {})[q[0]]) return;
     out.push(q[1].charAt(0).toUpperCase() + q[1].slice(1) + ' : sur le croquis de terrain, non ' + (q[0] === 'infil' ? 'cochée' : 'coché') + ' au constat (ouvrages de récupération des EP).');
   });
-  /* boîte de branchement : distance à la limite et profondeur de la seule boîte du réseau sur le croquis, autres ou absentes au constat
-     (comparées par vcBoiteCle : « 0,8 » vaut « 0,80 m ») ; plusieurs boîtes sur le réseau : rien n'est repris, et un champ vide du constat
-     est rappelé si l'une d'elles porte cette valeur */
+  /* boîte de branchement : distance à la limite, côté (m149) et profondeur de la seule boîte du réseau sur le croquis, autres ou absents au
+     constat (comparés par vcBoiteCle : « 0,8 » vaut « 0,80 m ») ; plusieurs boîtes sur le réseau : rien n'est repris, et un champ vide du
+     constat (distance, profondeur) est rappelé si l'une d'elles porte cette valeur */
   var Bc = c.boite && typeof c.boite === 'object' ? c.boite : {};
   ['EU', 'EP'].forEach(function(g){
     var x = res.boite && res.boite[g]; if (!x || !(x.n >= 1)) return;
@@ -3934,10 +4110,16 @@ function vcEcarts(v, c){
         + (manque.length > 1 ? ' non reprises' : ' non reprise') + ', à saisir au constat.');
       return;
     }
-    [['dist', 'distance à la limite'], ['prof', 'profondeur']].forEach(function(k){
-      var val = typeof x[k[0]] === 'string' ? x[k[0]] : '', cur = champ(k[0]);
-      if (val && vcBoiteCle(cur) !== vcBoiteCle(val)) out.push('Boîte de branchement ' + g + ' : ' + k[1] + ' « ' + val + ' » sur le croquis de terrain, ' + (cur ? '« ' + cur + ' »' : 'non renseignée') + ' au constat.');
-    });
+    /* m149 (D17) : le côté à part, comparé comme la distance. Une distance du constat qui porte encore le côté (ancienne ou tapée : « 0,80 m
+       intérieur ») se compare à la distance du croquis suivie de son côté, et dit le côté quand la rangée du côté est vide : aucun faux écart */
+    var ecart = function(lib, val, cur, f){ out.push('Boîte de branchement ' + g + ' : ' + lib + ' « ' + val + ' » sur le croquis de terrain, ' + (cur ? '« ' + cur + ' »' : 'non ' + f) + ' au constat.'); };
+    var dist = typeof x.dist === 'string' ? x.dist : '', cote = typeof x.cote === 'string' ? x.cote : '', prof = typeof x.prof === 'string' ? x.prof : '';
+    var cd = champ('dist'), cc = champ('cote'), cp = champ('prof'), dc = vcBoiteCoteDist(cd);
+    var vd = dist && dc && cote ? dist + ' ' + cote : dist;
+    if (vd && vcBoiteCle(cd) !== vcBoiteCle(vd)) ecart('distance à la limite', vd, cd, 'renseignée');
+    if (!cc && dc && !vd) cc = dc === 'interieur' ? 'intérieur' : 'extérieur';      /* côté dit par la distance du constat seule */
+    if (cote && !(!cc && dc) && vcBoiteCle(cc) !== vcBoiteCle(cote)) ecart('côté', cote, cc, 'renseigné');
+    if (prof && vcBoiteCle(cp) !== vcBoiteCle(prof)) ecart('profondeur', prof, cp, 'renseignée');
   });
   if (res.arbitrer) out.push(res.arbitrer > 1 ? 'Le croquis de terrain propose ' + res.arbitrer + ' anomalies « à arbitrer », hors du dossier tant qu\'elles ne sont pas retenues : décidez dans le croquis (Contrôles).'
     : 'Le croquis de terrain propose une anomalie « à arbitrer », hors du dossier tant qu\'elle n\'est pas retenue : décidez dans le croquis (Contrôles).');
@@ -3951,7 +4133,7 @@ function vcEcarts(v, c){
 function vcConstatBlocHtml(v, c, dis){
   if (!vcPret() || !planDe(v.id) || constatNonEffectue(v)) return '';
   var ec = vcEcarts(v, c);
-  return '<div class="croq-fill"><p><strong>Croquis de terrain.</strong> ' + (c.signeLe ? 'Constat signé : il reste tel qu\'il a été signé, le croquis ne le modifie plus.' : '« Reprendre du croquis » remplit le nombre, le raccordement et les méthodes des installations dessinées, ainsi que la distance à la limite et la profondeur de la boîte de branchement (s\'il n\'y en a qu\'une par réseau ; une boîte unitaire compte pour les deux), sans remplacer ce que vous avez saisi ; ensuite, ces valeurs suivent le croquis tant que vous n\'y touchez pas.') + '</p>'
+  return '<div class="croq-fill"><p><strong>Croquis de terrain.</strong> ' + (c.signeLe ? 'Constat signé : il reste tel qu\'il a été signé, le croquis ne le modifie plus.' : '« Reprendre du croquis » remplit le nombre, le raccordement et les méthodes des installations dessinées, ainsi que la distance à la limite, le côté (intérieur ou extérieur) et la profondeur de la boîte de branchement (s\'il n\'y en a qu\'une par réseau ; une boîte unitaire compte pour les deux), sans remplacer ce que vous avez saisi ; ensuite, ces valeurs suivent le croquis tant que vous n\'y touchez pas.') + '</p>'
     + '<div id="croq-ecarts">' + (ec.length ? '<ul class="croq-ec">' + ec.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div>'
     + '<div class="btnrow"><button type="button" class="btn sm" data-act="c-croq-fill"' + dis + '>' + svg(I.plan, 18) + 'Reprendre du croquis</button><button type="button" class="btn sm ghost" data-act="vc-ouvrir">Ouvrir le croquis</button></div></div>';
 }
@@ -4320,7 +4502,7 @@ var CONSTAT_ACTIONS = {
     constatTouch(v); render();
   },
   'c-delrow': async function(el){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; var r = rowById(c, el.dataset.row); if (!r || r.std) return; if (!(await confirmModal('Supprimer la ligne « ' + r.label + ' » ?', 'Les anomalies liées à cette installation ne le seront plus.', 'Supprimer', true))) return; c.rows = c.rows.filter(function(x){ return x !== r; }); if (c.croqAuto){ var Pd = vcProvenance(c); if (typeof r.croq === 'string') Pd.refus[r.croq] = true; delete Pd.rows[r.id]; delete Pd.crees[r.id]; } constatTouch(v); render(); },
-  'c-boite-so': function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; c.boite = {distEU: 'sans objet', distEP: 'sans objet', profEU: 'sans objet', profEP: 'sans objet', teEU: 'sans objet', teEP: 'sans objet'}; constatTouch(v); render(); },
+  'c-boite-so': function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; c.boite = {distEU: 'sans objet', distEP: 'sans objet', coteEU: 'sans objet', coteEP: 'sans objet', profEU: 'sans objet', profEP: 'sans objet', teEU: 'sans objet', teEP: 'sans objet'}; constatTouch(v); render(); },
   'c-obs-fill': function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; c.observations = constatObsAuto(constatEval(v, anomsOf(v.id))); constatTouch(v); render(); },
   'c-croquis': async function(){ var v = curVisit(); if (!v || (v.constat && v.constat.signeLe)) return; await croquisEditor(v); if (v.constat){ await croquisAJour(v); await flushSaves(); } render(); },
   'c-croquis-del': async function(){ var v = curVisit(), c = constatOf(v); if (c.signeLe) return; if (!(await confirmModal('Effacer le croquis ?', 'Le croquis de position du branchement sera effacé.', 'Effacer', true))) return; c.croquis = ''; delete c.croquisV; constatTouch(v); render(); },
@@ -4344,6 +4526,9 @@ var CONSTAT_ACTIONS = {
     if (curVisit()){ await croquisAJour(curVisit()); await vcResumeSiBesoin(curVisit()); }
     var v = curVisit(), c = v.constat; if (!c || !c.sigTech) return;
     c.fige = constatFigeCalc(v);
+    /* présentation du constat imprimé notée à la signature (m147, D13), jamais au gel (constatGeler) : celle de la v1.7.2 ; signer de nouveau
+       après « Modifier » (c-unlock, qui efface c.fige) note celle du jour */
+    c.fige.mep = 2;
     c.signeLe = nowISO(); constatTouch(v); await flushSaves(); toast('Constat validé et verrouillé'); render();
   },
   'c-unlock': async function(){ var v = curVisit(), c = constatOf(v); if (!(await confirmModal('Modifier le constat signé ?', 'Les signatures du technicien et du propriétaire seront effacées : il faudra faire signer à nouveau.', 'Modifier', true))) return; c.signeLe = ''; c.sigTech = ''; c.sigProp = ''; delete c.fige; if (c.soussigneAuto){ c.soussigne = ''; delete c.soussigneAuto; } constatTouch(v); await flushSaves(); render(); },

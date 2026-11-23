@@ -11,13 +11,33 @@
 // Nouveaux accrochages (m112 ; échoue sur e9e8b5d) : clés accMilieu, accPerp et accParcelle à false dans AIDES_DEFAUT, libellés, puces de la
 // palette ; milieu d'un côté et pied de la perpendiculaire (VCroquis.geo.milieuSegs et piedSegs) : seuils, côtés de 20 cm au plus écartés,
 // égalités, pied hors du côté, point précédent sur la droite du côté, entrées invalides.
-// Nouveaux accrochages, second lot (m113 ; échoue sur 4691c1a) : clés accProl et accInter à false dans AIDES_DEFAUT, libellés (puce courte
-// « Prolongement »), huit puces ; prolongement d'un côté et intersection (VCroquis.geo.prolSegs et interSegs) : bornes de 30 m (et longueur
-// donnée), seuils, entre les bouts c'est le côté (côté aligné compris), un côté qui croise la droite n'empêche pas le prolongement (un côté
-// proche aligné à 5° près l'empêche), angle de plus de 5° (dans les deux sens), coin existant (bouts qui se touchent, T, prolongement qui
-// arrive au bout de l'autre, à 1 cm près ; témoins à 2 cm et à 0,5 m), côtés qui se croisent, égalités (même point par plusieurs côtés : le
-// plus court prolongement, puis le premier), au plus 64 côtés pour l'intersection (ceux dont la droite passe le plus près, où qu'ils soient
-// dans la liste), côtés de 20 cm au plus écartés, entrées invalides (côté démesuré compris).
+// Nouveaux accrochages, second lot (m113 ; échoue sur 4691c1a) : clés accProl et accInter à false dans AIDES_DEFAUT, libellés (puce courte «
+// Prolongement »), explications des Réglages de accProl et de accInter mot pour mot (m138 : « sans limite de longueur » et « à 30 m au plus
+// de leurs bouts » ; échouent sur a3f86c6), huit puces ; prolongement d'un côté et intersection (VCroquis.geo.prolSegs et interSegs) : borne
+// de 30 m de l'intersection (et longueur donnée), prolongement sans limite de longueur quand aucune n'est donnée (m138 ; échoue sur a3f86c6 :
+// 30 m au plus ; témoins : une longueur donnée reste une borne, l'intersection garde 30 m), seuils, entre les bouts c'est le côté (côté
+// aligné compris), un côté qui croise la droite n'empêche pas le prolongement (un côté proche aligné à 5° près l'empêche), angle de plus de
+// 5° (dans les deux sens), coin existant (bouts qui se touchent, T, prolongement qui arrive au bout de l'autre, à 1 cm près ; témoins à 2 cm
+// et à 0,5 m), côtés qui se croisent, égalités (même point par plusieurs côtés : le plus court prolongement, puis le premier), au plus 64
+// côtés pour l'intersection (ceux dont la droite passe le plus près, où qu'ils soient dans la liste), côtés de 20 cm au plus écartés, entrées
+// invalides (côté démesuré compris).
+// Pose par deux cotes (VCroquis.geo.deuxCotes, m146 ; décision D12 de .claude/conception-v172.md ; échoue sur 72fd069) : exemple de D12
+// (Solution 1 à gauche de 1 → 2, puis Solution 2) ; de B vers A, les solutions échangent leur côté ; cercles trop éloignés, cercle dans
+// l'autre, cercles qui se manquent de 6 mm : aucune solution ; tangences extérieure et intérieure, distance nulle, cercles qui se
+// manquent de 0,5 mm, cercles qui se manquent de 3 mm (6 et 4 entre des points à 10,003 m : la moitié du centimètre saisi n'est pas
+// un refus ; la place partage l'écart entre les deux cotes, même entre des points à 1 m, cotes de 10 et 11,004 m : à 2 mm de chacune,
+// où le point M de D12 serait à 4 cm), places à 0,9 mm de la droite des deux points : une seule (à 1,1 mm : deux) ; points confondus ou
+// à 5 mm (témoin : à 2 cm),
+// distance négative, valeur non numérique, point absent, valeurs démesurées : aucune, sans exception ; plan tourné : les deux places à
+// d1 et d2 près de 1e-9, Solution 1 à gauche de 1 → 2.
+// Disque de rotation (m154 ; décision D22 ; réponse S10 b ; échoue sur ee82072) : VCroquis.pivotant (quatorze types tournent : les trois
+// types orientés et les onze symboles qui ne sont pas ronds ; ni WC, ni zone, ni infiltration au sol) ; à la pose, seuls les types
+// orientés reçoivent un angle (témoin) ; DXF : un objet tourné est inséré à son angle (avant : à la rotation du plan), même tourné à 0°
+// sur un plan tourné, pour les onze types ; témoins : jamais tourné, il reste à la rotation du plan (angle absent ou null : la valeur
+// null, pas 0°), les types orientés, le WC et l'infiltration au sol ne changent pas ; puits tourné à 30° : sa barre en Z tourne, son
+// cercle reste (primitives), INSERT à 30 ; fosse tournée : « FS » reste droit à l'écran (primitives), il est dans le bloc du DXF ; plan
+// tourné d'un demi-radian : l'écran, le plan PDF et le DXF concordent pour un regard, un té et un puits tournés à 70° ; témoin : une
+// boîte jamais tournée suit le plan à l'écran et au plan PDF, et reste insérée à la rotation du plan au DXF (écart antérieur, inchangé).
 // usage : node tests/vm/dessin.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, copie, rapport} = require('./charger.js');
@@ -420,8 +440,9 @@ function accrochages(){
 }
 /* Nouveaux accrochages, second lot (m113 ; échoue sur 4691c1a) : clés accProl et accInter à false dans AIDES_DEFAUT, libellés, huit puces
    (les deux nouvelles à la fin) ; prolongement d'un côté et intersection (VCroquis.geo.prolSegs et interSegs) sur des côtés [x0, y0, x1, y1]
-   en mètres. Chaque borne a son témoin, qui ne diffère que par elle : 29,9 m contre 30,1 m, 4,9° contre 5,1°, seuil ± 1 cm, côté de 20 cm
-   contre 30 cm, coin existant contre bouts écartés, 63 copies contre 64 */
+   en mètres. Chaque borne a son témoin, qui ne diffère que par elle : 29,9 m contre 30,1 m (intersection, ou longueur donnée), 4,9° contre
+   5,1°, seuil ± 1 cm, côté de 20 cm contre 30 cm, coin existant contre bouts écartés, 63 copies contre 64. Sans longueur donnée, le
+   prolongement d'un côté n'a plus de limite (m138) */
 function accrochages113(){
   const D = V.AIDES_DEFAUT || {}, L = V.AIDES_LIB || [], A = V.ACCROCHES || [];
   /* [clé, libellé, libellé court de la puce (4e élément, facultatif)] */
@@ -430,6 +451,15 @@ function accrochages113(){
     R.ok(D[k] === false && !!l && l[1] === lib && typeof l[2] === 'string' && l[2].length > 10 && l[3] === court, 'clé ' + k + ' : ' + D[k]
       + ' dans AIDES_DEFAUT (attendu false), libellé ' + JSON.stringify(l ? l[1] : null) + ' et explication dans AIDES_LIB, puce ' + JSON.stringify(l ? l[3] || l[1] : null));
   });
+  /* m138 (échoue sur a3f86c6 : « jusqu'à 30 m ») : explication des Réglages, mot pour mot ; libellés gardés (contrôle ci-dessus) */
+  const lp = L.find(x => x[0] === 'accProl');
+  R.ok(!!lp && lp[2] === 'le point se cale sur le prolongement d\'un côté, au-delà de l\'un de ses bouts, sans limite de longueur',
+    'Réglages : explication de « Prolongement d\'un côté » sans limite de longueur (m138) : ' + JSON.stringify(lp ? lp[2] : null));
+  /* m138 (échoue sur a3f86c6 et sur la première version de m138) : explication de l'Intersection, mot pour mot ; sa borne de 30 m reste
+     dite, à côté du prolongement sans limite */
+  const li = L.find(x => x[0] === 'accInter');
+  R.ok(!!li && li[2] === 'le point se cale où deux côtés, ou leurs prolongements, se croisent, à 30 m au plus de leurs bouts',
+    'Réglages : explication de « Intersection » avec sa borne de 30 m (m138) : ' + JSON.stringify(li ? li[2] : null));
   const ORDRE = ['bati', 'parallele', 'angles', 'accMilieu', 'accPerp', 'accParcelle', 'accProl', 'accInter'];
   R.ok(JSON.stringify(A) === JSON.stringify(ORDRE), 'palette : huit puces, les deux nouvelles à la fin (' + A.join(', ') + ')');
   if (!G || typeof G.prolSegs !== 'function' || typeof G.interSegs !== 'function'){ R.ok(false, 'VCroquis.geo.prolSegs ou interSegs absente (prolongement d\'un côté, intersection)'); return; }
@@ -438,7 +468,7 @@ function accrochages113(){
     : ', bout ' + ecrit(r.bout) + ', prolongement ' + ex(r.ext) + ' m') : String(r);
   const q = (f, att, n) => { const r = sur(f); R.ok(att ? proche(r, att) : r === null, n + ' → ' + (att ? ecrit(att) : 'aucun') + ' (obtenu ' + (r && r.x != null ? ecrit(r) : String(r)) + ')'); return r; };
   const vaut = (a, b) => typeof a === 'number' && Math.abs(a - b) < 1e-12;
-  /* prolongement : au-delà des bouts seulement, jusqu'à 30 m, à 0,25 m au plus de la droite (seuil donné) */
+  /* prolongement : au-delà des bouts seulement, sans limite de longueur (m138), à 0,25 m au plus de la droite (seuil donné) */
   const p1 = q(() => G.prolSegs(P(13, 0.2), [sud], 0.25), P(13, 0), 'prolongement au-delà de B : point à 0,2 m de la droite, 3 m après le bout, seuil 0,25 m');
   R.ok(!!p1 && p1.s === sud && proche(p1.bout, P(10, 0)) && vaut(p1.ext, 3) && vaut(p1.d, 0.2), 'prolongement : côté, bout (10 ; 0), longueur 3 m et distance 0,2 m rendus (' + dit(p1) + ')');
   const p2 = q(() => G.prolSegs(P(-3, -0.2), [sud], 0.25), P(-3, 0), 'prolongement au-delà de A');
@@ -446,7 +476,21 @@ function accrochages113(){
   q(() => G.prolSegs(P(5, 0.2), [sud], 0.25), null, 'prolongement : point entre les bouts, à 0,2 m du côté (c\'est le côté)');
   q(() => G.prolSegs(P(10.15, 0.1), [sud], 0.25), null, 'prolongement : point 0,15 m après le bout, à 0,18 m de lui (c\'est encore le côté)');
   q(() => G.prolSegs(P(39.9, 0.1), [sud], 0.25), P(39.9, 0), 'prolongement : 29,9 m après le bout');
-  q(() => G.prolSegs(P(40.1, 0.1), [sud], 0.25), null, 'prolongement : 30,1 m après le bout (au-delà de 30 m)');
+  q(() => G.prolSegs(P(40.1, 0.1), [sud], 0.25), P(40.1, 0), 'prolongement : 30,1 m après le bout : sur la droite (m138, sans limite ; avant : rien, 30 m au plus)');
+  /* m138 (échoue sur a3f86c6 : 30 m au plus) : sans longueur donnée, aucune limite de longueur. Point à 5 cm de la droite, 40 m après le
+     bout : sur la droite, prolongement de 40 m ; de même 10 km après. Témoins : une longueur donnée reste une borne (30 m : rien ; 40,1 m :
+     sur la droite) ; Infinity donnée vaut l'absence de longueur ; l'intersection garde 30 m (rencontre 40 m après le bout : rien ; avec une
+     longueur donnée de 40,1 m : à la rencontre) */
+  const p40 = q(() => G.prolSegs(P(50, 0.05), [sud], 0.25), P(50, 0), 'prolongement sans longueur donnée : 40 m après le bout, à 5 cm de la droite (m138)');
+  R.ok(!!p40 && p40.s === sud && proche(p40.bout, P(10, 0)) && Math.abs(p40.ext - 40) < 1e-9 && Math.abs(p40.d - 0.05) < 1e-9, 'prolongement de 40 m : côté, bout (10 ; 0), '
+    + 'longueur 40 m et distance 0,05 m rendus (' + dit(p40) + ')');
+  const pkm = q(() => G.prolSegs(P(10010, 0.05), [sud], 0.25), P(10010, 0), 'prolongement sans longueur donnée : 10 km après le bout (m138)');
+  R.ok(!!pkm && Math.abs(pkm.ext - 10000) < 1e-6, 'prolongement de 10 km : longueur rendue (' + dit(pkm) + ')');
+  q(() => G.prolSegs(P(50, 0.05), [sud], 0.25, 30), null, 'prolongement : longueur maximale donnée de 30 m, point 40 m après le bout (témoin : rien)');
+  q(() => G.prolSegs(P(50, 0.05), [sud], 0.25, 40.1), P(50, 0), 'prolongement : longueur maximale donnée de 40,1 m, point 40 m après le bout (témoin)');
+  q(() => G.prolSegs(P(50, 0.05), [sud], 0.25, Infinity), P(50, 0), 'prolongement : longueur Infinity donnée, comme sans longueur (témoin)');
+  q(() => G.interSegs(P(50, 0.01), [sud, [50, 2, 50, 10]], 0.35), null, 'intersection : rencontre 40 m après le bout du premier côté : rien (témoin, 30 m gardés)');
+  q(() => G.interSegs(P(50, 0.01), [sud, [50, 2, 50, 10]], 0.35, 40.1), P(50, 0), 'intersection : la même, longueur maximale donnée de 40,1 m (témoin)');
   q(() => G.prolSegs(P(13, 0.24), [sud], 0.25), P(13, 0), 'prolongement : point à 0,24 m de la droite, seuil 0,25 m');
   q(() => G.prolSegs(P(13, 0.26), [sud], 0.25), null, 'prolongement : point à 0,26 m de la droite, au-delà du seuil');
   q(() => G.prolSegs(P(13, 0.1), [sud], 0.25, 2), null, 'prolongement : longueur maximale donnée de 2 m, point 3 m après le bout');
@@ -543,10 +587,180 @@ function accrochages113(){
   const res = bad.map(f => sur(f));
   R.ok(res.every(r => r === null), 'prolongement et intersection, entrées invalides : null sans exception (' + res.map(r => r === null ? 'null' : String(r && r.x != null ? ecrit(r) : r)).join(', ') + ')');
 }
+/* m146 : pose par deux cotes (VCroquis.geo.deuxCotes, D12) : [], [P] ou [P1, P2] ; P1 (Solution 1) à gauche de 1 → 2 */
+function deuxPoints(){
+  const D = (A, B, d1, d2) => sur(() => G.deuxCotes(A, B, d1, d2));
+  const dit = s => Array.isArray(s) ? '[' + s.map(ecrit).join(', ') + ']' : String(s);
+  const A = P(0, 0), B = P(10, 0);
+  /* exemple de D12 : Solution 1, à gauche de 1 → 2, puis Solution 2 */
+  const s1 = D(A, B, 6, 8);
+  R.ok(Array.isArray(s1) && s1.length === 2 && proche(s1[0], P(3.6, 4.8)) && proche(s1[1], P(3.6, -4.8)),
+    'deux cotes : A (0 ; 0), B (10 ; 0), 6 et 8 : [(3,6 ; 4,8), (3,6 ; -4,8)], Solution 1 puis Solution 2 (' + dit(s1) + ')');
+  R.ok(JSON.stringify([A, B]) === '[{"x":0,"y":0},{"x":10,"y":0}]', 'deux cotes : les deux points donnés ne changent pas (' + JSON.stringify([A, B]) + ')');
+  /* de B vers A : les mêmes places, les solutions échangent leur côté */
+  const s2 = D(B, A, 8, 6);
+  R.ok(Array.isArray(s2) && s2.length === 2 && proche(s2[0], P(3.6, -4.8)) && proche(s2[1], P(3.6, 4.8)),
+    'deux cotes : de B vers A (8 et 6) : les solutions échangent leur côté, [(3,6 ; -4,8), (3,6 ; 4,8)] (' + dit(s2) + ')');
+  /* cercles sans point commun : aucune solution (des cercles qui se manquent de plus de 5 mm, ici 6 mm, ne se touchent pas) */
+  for (const [d1, d2, lib] of [[3, 4, 'cercles trop éloignés (3 + 4 < 10)'], [20, 5, 'cercle du point 2 dans celui du point 1'], [2, 15, 'cercle du point 1 dans celui du point 2'],
+    [6, 3.994, 'cercles qui se manquent de 6 mm, dehors'], [16.006, 6, 'cercles qui se manquent de 6 mm, dedans']]){
+    const s = D(A, B, d1, d2);
+    R.ok(Array.isArray(s) && s.length === 0, 'deux cotes : ' + lib + ' : aucune solution (' + dit(s) + ')');
+  }
+  /* tangences : une seule solution, sur la droite des deux points ; des cercles qui se manquent de 0,5 mm aussi */
+  for (const [d1, d2, M, tol, lib] of [[6, 4, P(6, 0), 1e-9, 'tangence extérieure (6 + 4 = 10)'], [16, 6, P(16, 0), 1e-9, 'tangence intérieure (16 - 6 = 10)'],
+    [6, 16, P(-6, 0), 1e-9, 'tangence intérieure, avant le point 1'], [0, 10, P(0, 0), 1e-9, 'distance nulle depuis le point 1'],
+    [6, 3.9995, P(6, 0), 0.001, 'cercles qui se manquent de 0,5 mm, dehors'], [16.0005, 6, P(16, 0), 0.001, 'cercles qui se manquent de 0,5 mm, dedans']]){
+    const s = D(A, B, d1, d2);
+    R.ok(Array.isArray(s) && s.length === 1 && proche(s[0], M, tol), 'deux cotes : ' + lib + ' : une seule solution, ' + ecrit(M) + ' (' + dit(s) + ')');
+  }
+  /* cotes au centimètre, cercles qui se manquent de 3 ou 4 mm : une seule solution, le point de la droite des deux points qui partage
+     l'écart entre les deux cotes (refusé à 1 mm près, le message « à 10,00 m l'un de l'autre » contredisait 6 + 4 = 10 ; au point M de
+     D12, sur l'axe radical, l'écart grandit quand les points sont proches : 4,4 et 4 cm pour des points à 1 m, cotes de 10 et 11,004 m) */
+  for (const [Bx, d1, d2, M, ec, lib] of [[10.003, 6, 4, P(6.0015, 0), 0.0015, '6 et 4 entre des points à 10,003 m (dehors)'],
+    [9.997, 16, 6, P(15.9985, 0), 0.0015, '16 et 6 entre des points à 9,997 m (dedans)'],
+    [1, 10, 11.004, P(-10.002, 0), 0.002, '10 et 11,004 entre des points à 1 m (avant le point 1)'],
+    [1, 11.004, 10, P(11.002, 0), 0.002, '11,004 et 10 entre des points à 1 m (après le point 2)']]){
+    const B1 = P(Bx, 0), s = D(A, B1, d1, d2), q = Array.isArray(s) && s.length === 1 ? s[0] : null;
+    const e = q && isFinite(q.x) && isFinite(q.y) ? [Math.abs(Math.hypot(q.x - A.x, q.y - A.y) - d1), Math.abs(Math.hypot(q.x - B1.x, q.y - B1.y) - d2)] : null;
+    R.ok(!!e && proche(q, M) && e.every(x => x <= ec + 1e-9), 'deux cotes : ' + lib + ' : une seule solution, ' + ecrit(M)
+      + ', à ' + (ec * 1000).toFixed(1).replace('.', ',') + ' mm de chaque cote (' + dit(s) + (e ? ', écarts ' + e.map(x => (x * 1000).toFixed(2)).join(' / ') + ' mm' : '') + ')');
+  }
+  /* seuil de la tangence (D12 : h sous 1 mm) : places à 0,9 mm de la droite des deux points, une seule sur elle ; à 1,1 mm, deux */
+  for (const [h, n] of [[0.0009, 1], [0.0011, 2]]){
+    const Q = P(6, h), s = D(A, B, Math.hypot(Q.x - A.x, Q.y - A.y), Math.hypot(Q.x - B.x, Q.y - B.y));
+    R.ok(Array.isArray(s) && s.length === n && (n === 1 ? proche(s[0], P(6, 0)) : proche(s[0], Q) && proche(s[1], P(6, -h))),
+      'deux cotes : place à ' + (h * 1000).toFixed(1).replace('.', ',') + ' mm de la droite des deux points : ' + (n === 1 ? 'une seule solution, sur elle' : 'deux solutions') + ' (' + dit(s) + ')');
+  }
+  /* entrées refusées : aucune solution, sans exception ; témoin : deux points à 2 cm */
+  const refus = [[A, P(0, 0), 3, 3, 'points confondus'], [A, P(0.005, 0), 3, 3, 'points à 5 mm'], [A, B, -6, 8, 'distance 1 négative'], [A, B, 6, -8, 'distance 2 négative'],
+    [A, B, '6', 8, 'distance en texte'], [A, B, NaN, 8, 'NaN'], [A, B, 6, Infinity, 'distance infinie'], [A, B, 6, undefined, 'distance absente'], [A, B, null, 8, 'distance null'],
+    [null, B, 6, 8, 'point 1 absent'], [A, {x: '10', y: 0}, 6, 8, 'coordonnée en texte'], [A, P(10, NaN), 6, 8, 'coordonnée NaN'], [A, 'B', 6, 8, 'point en texte'],
+    [A, P(1e155, 0), 1e155, 1e155, 'valeurs démesurées']];
+  const r = refus.map(x => ({lib: x[4], s: D(x[0], x[1], x[2], x[3])}));
+  R.ok(r.every(x => Array.isArray(x.s) && x.s.length === 0), 'deux cotes : entrées refusées, aucune solution, sans exception (' + r.map(x => x.lib + ' ' + dit(x.s)).join(', ') + ')');
+  const s5 = D(A, P(0.02, 0), 3, 3);
+  R.ok(Array.isArray(s5) && s5.length === 2, 'deux cotes : témoin, deux points à 2 cm : deux solutions (' + dit(s5) + ')');
+  /* plan tourné : les deux places à d1 et d2 près de 1e-9, Solution 1 à gauche de 1 → 2 */
+  const A2 = P(12.3, -4.5), B2 = P(-7.1, 20.2), s6 = D(A2, B2, 15, 18), cr = q => (B2.x - A2.x) * (q.y - A2.y) - (B2.y - A2.y) * (q.x - A2.x);
+  const ec = q => [Math.hypot(q.x - A2.x, q.y - A2.y) - 15, Math.hypot(q.x - B2.x, q.y - B2.y) - 18];
+  R.ok(Array.isArray(s6) && s6.length === 2 && s6.every(q => ec(q).every(e => Math.abs(e) <= 1e-9)) && cr(s6[0]) > 0 && cr(s6[1]) < 0,
+    'deux cotes, plan tourné : A (12,3 ; -4,5), B (-7,1 ; 20,2), 15 et 18 : les deux places à 15 et 18 m près de 1e-9, Solution 1 à gauche de 1 → 2 (' + dit(s6)
+    + (Array.isArray(s6) && s6.every(q => q && isFinite(q.x)) ? ', écarts ' + s6.map(q => ec(q).map(e => e.toExponential(1)).join(' / ')).join(', ') : '') + ')');
+}
 if (!G || typeof G.placer !== 'function') R.ok(false, 'VCroquis.geo absent (fonctions de géométrie du plan)');
 else { try { essais(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); } }
 if (!G || typeof G.lignesRef !== 'function' || typeof G.normaleExt !== 'function') R.ok(false, 'VCroquis.geo.lignesRef ou normaleExt absente (lignes de référence du plan)');
 else { try { lignes(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); } }
 try { accrochages(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
 try { accrochages113(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
-R.fin();
+if (!G || typeof G.deuxCotes !== 'function') R.ok(false, 'VCroquis.geo.deuxCotes absente (pose par deux cotes, m146)');
+else { try { deuxPoints(); } catch (e){ R.ok(false, 'exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1]); } }
+
+/* --- Disque de rotation (m154 ; décision D22 de .claude/conception-v172.md ; réponse S10 b) : objets qui tournent, DXF, rendu --- */
+/* canevas factice qui relève, à chaque stroke, les lignes brisées du chemin (sommets en pixels, fermée ou non) ; sur le modèle de celui de
+   vm/rejets.js (m152) */
+function traceur(){
+  const traces = [], etat = {}; let chemin = [], cour = null;
+  const m = {
+    beginPath(){ chemin = []; cour = null; },
+    moveTo(x, y){ cour = {pts: [{x, y}], f: false}; chemin.push(cour); },
+    lineTo(x, y){ if (!cour){ cour = {pts: [], f: false}; chemin.push(cour); } cour.pts.push({x, y}); },
+    closePath(){ if (cour) cour.f = true; },
+    arc(){ cour = null; },
+    stroke(){ chemin.forEach(q => traces.push({pts: q.pts.slice(), f: q.f})); },
+    measureText(){ return {width: 10}; }
+  };
+  return {ctx: new Proxy(etat, {get: (t, k) => k in m ? m[k] : k in t ? t[k] : () => {}, set: (t, k, v) => { t[k] = v; return true; }}), traces};
+}
+async function pivot(){
+  const CH = require('./charger.js'), ch = CH.charger({pdf: true}), W = ch.V, {pdf, dxf} = CH.rendus(ch), doc = CH.doc;
+  const DEG = 180 / Math.PI, mod = a => ((a % 360) + 360) % 360, ecart = (a, b) => { const d = mod(a - b); return Math.min(d, 360 - d); }, pr = v => +(+v).toFixed(3);
+  const piv = t => typeof W.pivotant === 'function' ? sur(() => W.pivotant(t)) : 'VCroquis.pivotant absente';
+  /* les types qui tournent : les trois types orientés (caniveau, clapet, gargouille) et les onze symboles qui ne sont pas ronds (S10 b) */
+  const att = {regard: true, caniveau: true, wc: false, zone: false, infiltration: false, 'type inconnu': false};
+  R.ok(Object.keys(att).every(t => piv(t) === att[t]), 'disque : VCroquis.pivotant vrai pour regard et caniveau, faux pour WC, zone, infiltration au sol et un type inconnu ('
+    + Object.keys(att).map(t => t + ' : ' + piv(t)).join(', ') + ')');
+  const PIV = ['boite', 'exutoire', 'fosse', 'grille', 'puits', 'regard', 'siphon_cour', 'siphon_garage', 'siphon_sol', 'te', 'test'], ORI = ['caniveau', 'clapet', 'gargouille'];
+  const tous = Object.keys(W.TYPES).filter(t => piv(t) === true).sort(), ori = Object.keys(W.TYPES).filter(t => W.TYPES[t].oriente).sort();
+  R.ok(tous.join() === PIV.concat(ORI).sort().join() && ori.join() === ORI.join(),
+    'disque : quatorze types tournent, les trois types orientés et onze symboles qui ne sont pas ronds ; les types orientés restent trois (' + (tous.join(', ') || 'aucun')
+    + ' ; orientés : ' + ori.join(', ') + ')');
+  /* témoin : à la pose, seuls les types orientés reçoivent un angle ; un objet pivotant n'en a pas tant qu'on ne le tourne pas */
+  const dp = t => sur(() => { const p = W.defautsPt(t); return 'a' in p ? String(p.a) : 'sans angle'; });
+  R.ok(PIV.every(t => dp(t) === 'sans angle') && ORI.every(t => dp(t) === '0'), 'disque, témoin : à la pose, un angle (0) pour les seuls types orientés ('
+    + PIV.concat(ORI).map(t => t + ' : ' + dp(t)).join(', ') + ')');
+
+  /* DXF : angle de l'INSERT de l'objet id (le seul INSERT à sa place ; nombres écrits avec quatre décimales) */
+  const a50 = (d, id) => {
+    const e = d.el.find(q => q.id === id), x = sur(() => dxf(d)); if (typeof x === 'string') return NaN;
+    const i = x.ents.filter(q => q.type === 'INSERT' && Math.abs(q.a.x - e.x) < 1e-3 && Math.abs(q.a.y - e.y) < 1e-3); return i.length === 1 ? +i[0].c['50'] : NaN;
+  };
+  const seul = (t, p, rot) => { const d = doc({o: [['X', t, 3, 2, p]]}); d.rot = rot || 0; return d; }, vaut = (x, y) => Math.abs(x - y) < 1e-3;
+  const ROT = -0.6, RD = ROT * DEG, ins = (t, p, rot) => a50(seul(t, p, rot), 'X');
+  const r30 = [ins('regard', {a: 30}), ins('regard', {a: 30}, ROT)];
+  R.ok(vaut(r30[0], 30) && vaut(r30[1], 30), 'disque, DXF : un regard tourné à 30° est inséré à 30°, plan droit ou tourné de -0,6 rad (' + r30.map(pr).join(' et ')
+    + ' ; avant : la rotation du plan, 0 et ' + pr(RD) + ')');
+  const r0 = ins('regard', {a: 0}, ROT);
+  R.ok(vaut(r0, 0), 'disque, DXF : un regard tourné puis remis à 0° sur un plan tourné est inséré à 0°, comme à l\'écran (' + pr(r0) + ' ; avant : ' + pr(RD) + ')');
+  const p30 = PIV.map(t => [t, ins(t, {a: 30}, ROT)]);
+  R.ok(p30.every(q => vaut(q[1], 30)), 'disque, DXF : chacun des onze types pivotants, tourné à 30° sur un plan tourné, est inséré à 30° ('
+    + p30.map(q => q[0] + ' ' + pr(q[1])).join(', ') + ')');
+  /* témoins : un objet jamais tourné reste inséré à la rotation du plan (D22 : son DXF ne change pas) ; un angle absent ou null (la
+     valeur null, pas 0°) n'est pas un angle donné ; les types orientés, le WC (rond) et l'infiltration au sol (droite) ne changent pas */
+  const j = PIV.map(t => [t, ins(t, {}, ROT)]), jn = [ins('regard', {}), ins('regard', {a: null}, ROT)];
+  R.ok(j.every(q => vaut(q[1], RD)) && vaut(jn[0], 0) && vaut(jn[1], RD), 'disque, DXF, témoin : jamais tourné, chacun des onze types reste inséré à la rotation du plan ('
+    + j.map(q => q[0] + ' ' + pr(q[1])).join(', ') + ' ; regard sur un plan droit ' + pr(jn[0]) + ', regard d\'angle nul (null) ' + pr(jn[1]) + ')');
+  const o = [ins('caniveau', {a: 30}, ROT), ins('clapet', {a: 30}, ROT), ins('gargouille', {a: 30}, ROT), ins('wc', {a: 30}, ROT), ins('infiltration', {a: 30}, ROT)];
+  const cs = seul('caniveau', {}, ROT); delete cs.el[0].p.a; const o0 = a50(cs, 'X');
+  R.ok(o.slice(0, 3).every(x => vaut(x, 30)) && vaut(o[3], RD) && vaut(o[4], RD) && vaut(o0, 0),
+    'disque, DXF, témoin : caniveau, clapet et gargouille à 30° insérés à 30°, caniveau sans angle à 0° ; WC et infiltration au sol, même avec un angle venu d\'un fichier, à la rotation du plan ('
+    + o.map(pr).join(', ') + ' ; caniveau sans angle ' + pr(o0) + ')');
+
+  /* puits tourné à 30° (m152 : cercle et barre à manivelles) : la barre en Z tourne de 30° autour du centre, le cercle reste (primitives,
+     témoin) ; INSERT du DXF à 30 (avant : la rotation du plan) */
+  const ZP = [-2.1, .8, -2.1, 0, 2.1, 0, 2.1, -.8];
+  const tourne = a => { const q = []; for (let i = 0; i < ZP.length; i += 2) q.push(ZP[i] * Math.cos(a) - ZP[i + 1] * Math.sin(a), ZP[i] * Math.sin(a) + ZP[i + 1] * Math.cos(a)); return q; };
+  const Pp = sur(() => W.primitives({k: 'pt', t: 'puits', p: {st: 'existant', obs: '', a: 30}}, W.RES.EP.rgb)), Z30 = tourne(30 / DEG);
+  R.ok(Array.isArray(Pp) && Pp.length === 2 && Pp[0].k === 'c' && Pp[0].r === 1.4 && Pp[0].x === 0 && Pp[0].y === 0 && Pp[1].k === 'p' && !Pp[1].f && Pp[1].pts.length === 8
+    && Pp[1].pts.every((v, i) => Math.abs(v - Z30[i]) < 1e-9),
+    'disque, témoin : puits tourné à 30°, sa barre en Z tourne de 30°, son cercle reste (' + (Array.isArray(Pp) ? Pp.map(q => q.k === 'c' ? 'c r ' + q.r : 'p ' + q.pts.map(pr).join(',')).join(' | ') : Pp)
+    + ' ; attendu ' + Z30.map(pr).join(',') + ')');
+  const u30 = [ins('puits', {a: 30}), ins('puits', {a: 30}, ROT)];
+  R.ok(vaut(u30[0], 30) && vaut(u30[1], 30), 'disque, DXF : un puits tourné à 30° est inséré à 30°, plan droit ou tourné (' + u30.map(pr).join(' et ') + ' ; avant : 0 et ' + pr(RD) + ')');
+  /* fosse tournée : « FS » reste droit à l'écran et au plan PDF (primitives ne tourne que les tracés, témoin) ; au DXF, il est dans le
+     bloc (TEXT) et tourne donc avec l'INSERT (structure des blocs inchangée, témoin) */
+  const Pf = sur(() => W.primitives({k: 'pt', t: 'fosse', p: {st: 'existant', obs: '', a: 30}}, W.RES.EU.rgb)), tf = Array.isArray(Pf) ? Pf.filter(q => q.k === 't') : [];
+  const xf = sur(() => dxf(seul('fosse', {a: 30})).texte), bf = typeof xf === 'string' ? (xf.match(/\n\s*0\nBLOCK\n[\s\S]*?\n\s*0\nENDBLK/g) || []).filter(b => /\n\s*2\nVEDE_FOSSE\n/.test(b)) : [];
+  R.ok(tf.length === 1 && tf[0].s === 'FS' && tf[0].x === 0 && tf[0].y === 0 && !('a' in tf[0]) && bf.length === 1 && /\n\s*0\nTEXT\n[\s\S]*\n\s*1\nFS\n/.test(bf[0]),
+    'disque, témoin : fosse tournée, « FS » reste droit dans les primitives (écran, plan PDF) ; au DXF, il est dans le bloc VEDE_FOSSE et tourne avec l\'INSERT (texte des primitives '
+    + JSON.stringify(tf) + ' ; blocs VEDE_FOSSE avec « FS » : ' + bf.filter(b => /\n\s*1\nFS\n/.test(b)).length + ')');
+
+  /* plan tourné d'un demi-radian : regard, té et puits tournés à 70° au disque, boîte jamais tournée. Angle d'un symbole vu sur le papier
+     (y vers le haut) : à l'écran et au plan PDF, celui de son premier côté (regard, boîte), de sa barre (té) ou du milieu de sa barre en Z
+     (puits) ; au DXF, l'angle de l'INSERT moins la rotation du plan (vue tournée comme le plan). Les trois concordent pour un objet tourné :
+     70° moins la rotation du plan. */
+  const R5 = 0.5, RD5 = R5 * DEG, dd = doc({o: [['R', 'regard', 0, 0, {a: 70}], ['T', 'te', -8, 0, {a: 70}], ['I', 'puits', 0, -8, {a: 70}], ['B', 'boite', 8, 0]]}); dd.rot = R5;
+  const vue = new W.Vue(800, 600), cv = traceur(); vue.s = 20; vue.rot = R5;
+  const exE = sur(() => { W.dessinerCroquis(cv.ctx, copie(dd), W.analyser(copie(dd), 'edl'), vue, 1, {}); return ''; });
+  const dir = (a, b) => Math.atan2(-(b.y - a.y), b.x - a.x) * DEG, lg = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+  const autour = id => { const e = dd.el.find(q => q.id === id), c = vue.ecran(e.x, e.y); return cv.traces.filter(q => q.pts.length > 1 && q.pts.every(s => Math.hypot(s.x - c.x, s.y - c.y) < 14)); };
+  const eR = autour('R').find(q => q.f && q.pts.length === 4), eT = autour('T').find(q => !q.f && q.pts.length === 2), eI = autour('I').find(q => !q.f && q.pts.length === 4);
+  const eB = autour('B').find(q => q.f && q.pts.length === 4);
+  const E = {R: eR ? dir(eR.pts[0], eR.pts[1]) : NaN, T: eT ? dir(eT.pts[0], eT.pts[1]) : NaN, I: eI ? dir(eI.pts[1], eI.pts[2]) : NaN, B: eB ? dir(eB.pts[0], eB.pts[1]) : NaN};
+  const p = await pdf(dd, {mode: 'edl'}), carre = L => p.formes.filter(q => q.ferme && q.pts.length === 4 && q.pts.every((s, i) => Math.abs(lg(s, q.pts[(i + 1) % 4]) - L) < 1e-6));
+  /* au plan PDF, le symbole du plan est tracé avant celui de la légende (droit) : le premier de chaque sorte */
+  const pR = carre(3.2)[0], pB = carre(3.6)[0], pT = p.formes.filter(q => !q.ferme && q.pts.length === 2 && Math.abs(lg(q.pts[0], q.pts[1]) - 1.5) < 1e-6)[0];
+  const pI = p.formes.filter(q => !q.ferme && q.pts.length === 4 && Math.abs(lg(q.pts[1], q.pts[2]) - 4.2) < 1e-6)[0];
+  const F = {R: pR ? dir(pR.pts[0], pR.pts[1]) : NaN, T: pT ? dir(pT.pts[0], pT.pts[1]) : NaN, I: pI ? dir(pI.pts[1], pI.pts[2]) : NaN, B: pB ? dir(pB.pts[0], pB.pts[1]) : NaN};
+  const X = {R: a50(dd, 'R') - RD5, T: a50(dd, 'T') - RD5, I: a50(dd, 'I') - RD5, B: a50(dd, 'B') - RD5};
+  const dit3 = k => k + ' : écran ' + pr(mod(E[k])) + ', plan PDF ' + pr(mod(F[k])) + ', DXF ' + pr(mod(X[k]));
+  const meme = k => ecart(E[k], 70 - RD5) < 1e-6 && ecart(F[k], E[k]) < 1e-4 && ecart(X[k], E[k]) < 1e-3;
+  R.ok(!exE && !p.err.length && meme('R') && meme('T') && meme('I'),
+    'disque, plan tourné d\'un demi-radian : pour un regard, un té et un puits tournés à 70°, l\'écran, le plan PDF et le DXF concordent, à ' + pr(70 - RD5) + '° sur le papier ('
+    + (exE || p.err.join(' | ') || ['R', 'T', 'I'].map(dit3).join(' ; ')) + ')');
+  R.ok(!exE && !p.err.length && ecart(E.B, -RD5) < 1e-6 && ecart(F.B, E.B) < 1e-4 && ecart(X.B, 0) < 1e-3,
+    'disque, témoin : une boîte jamais tournée suit le plan à l\'écran et au plan PDF (' + pr(mod(-RD5)) + '° sur le papier) et reste insérée à la rotation du plan au DXF (droite sur une vue tournée comme le plan : écart antérieur, inchangé ; '
+    + (exE || p.err.join(' | ') || dit3('B')) + ')');
+}
+pivot().catch(e => R.ok(false, 'disque : exception : ' + e.message + ' ' + (e.stack || '').split('\n')[1])).then(() => R.fin());

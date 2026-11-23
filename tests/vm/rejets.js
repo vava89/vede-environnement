@@ -44,17 +44,39 @@
 //   de z1 et la seconde vérification de z5 (NC retenue, retenue, écartée). z6 et le témoin « retenue » de z2 (gardes) n'y échouent que
 //   parce que VCroquis.etatSource y est absente. z8 y passe. z9 échoue aussi sur la première version de m119 (ligne du WC sans marque).
 // Puits (m120, décision du 13 nov. 2026 : un rejet EP dans un puits est une non-conformité ; décisions D6 à D9) :
-// q1 : descente vers un puits : ep-puits retenue d'office, « Non conformes », fiche « anomalie n° 1 » ; au constat, ligne en MILIEU, ok null
-//   (le dossier la juge par l'anomalie), aucune case des ouvrages EP ; écartée : « conformes », ligne « oui » ; mise à arbitrer :
-//   « arbitrer », ligne MILIEU gardée, ok null, marquée « à arbitrer » (m119) ; WC vers un puits : eu-puits, ligne MILIEU « non ».
+// q1 : descente vers un puits : ep-puits retenue d'office, « Non conformes », fiche « anomalie n° 1 » ; au constat, ligne en PUITS (colonne
+//   « Puits », m150, décision D18), libellé « Puits : rejet dans un puits », ok null (le dossier la juge par l'anomalie), aucune case des
+//   ouvrages EP ; écartée : « conformes », ligne « oui » ; mise à arbitrer : « arbitrer », ligne PUITS gardée, ok null, marquée « à arbitrer »
+//   (m119) ; WC vers un puits : eu-puits, ligne PUITS « non ».
 // q2 : le type (après « Rejet en milieu naturel » dans la palette Équipements, rappel du puits perdu), la ligne PUITS de la table (règles
-//   EU et EP non conformes, cat « inversion » et « autre », place MILIEU), le symbole (deux cercles concentriques verts, rayon 2,1, l'intérieur
-//   loin de celui du puisard) ; DXF : bloc VEDE_PUITS de deux cercles, INSERT sur VEDE-SYMBOLES, tuyau sur VEDE-EP ; écran : tuyau et
-//   étiquette verts ; plan PDF : « Puits » une fois à la légende, « puits · anomalie n° … » au « Rejet constaté » de la page 2.
+//   EU et EP non conformes, cat « inversion » et « autre », place PUITS au constat depuis m150, « Puits » dans VCroquis.RACC_LIB), le
+//   symbole, semblable à celui du cadastre (m152, décision D20 ; réponses symbole-puits du 16 nov. 2026 et S8 a du 17 nov.) : un cercle
+//   de rayon 1,4, blanc dedans, puis une ligne ouverte de quatre points, la barre diamétrale (±2,1) et ses manivelles en Z (à gauche
+//   vers le haut, à droite vers le bas), du vert des EP ; rayon du symbole gardé à 2,1 ; plan tourné : la ligne tourne, le cercle
+//   reste ; aperçu SVG (palette, fiche) : un cercle et un tracé de quatre points, en Z ; écran (dessinerPrims, sur un canevas factice qui
+//   relève aussi les arcs) : un cercle et une ligne de quatre points, en Z ; plan tourné, la barre tourne comme celle du té ; plan PDF :
+//   la ligne en Z au plan et à la légende ; témoins : le puisard garde ses deux cercles (2,1 et 1,1), à l'écran aussi ; DXF : bloc
+//   VEDE_PUITS d'un CIRCLE de rayon 1,4 et d'une POLYLINE ouverte de 4 VERTEX, INSERT sur VEDE-SYMBOLES en couleur 3, tuyau sur VEDE-EP ;
+//   écran : tuyau et étiquette verts ; plan PDF : « Puits » une fois à la légende, « puits · anomalie n° … » au « Rejet constaté » de la
+//   page 2 ; trait de l'étiquette (relecture de m152) : il part à 2,7 mm du centre, au-delà des manivelles ; au plan PDF, étiquette à sa
+//   place d'office (calculée au tracé au 1/100, au 1/200 et au 1/500, enregistrée à la pose) ou à la même place à gauche : aucun trait
+//   d'étiquette, rien ne prolonge la barre ; étiquette tirée à la main vers le bout de la manivelle de droite : départ à 2,7 du centre,
+//   0,45 après ce bout ; écran à 60 px par mètre (texte large de 10 px sur le canevas factice) : départ à 2,7, détaché de la barre ;
+//   témoins : le trait du puisard part toujours de 2,1, au plan PDF et à l'écran ; témoin d'un plan tourné d'un demi-radian : la barre à
+//   −0,5 rad au plan PDF, droite à la légende, INSERT du DXF à la rotation du plan (code 50), comme celui du té.
 // q3 : avant-projet qui garde le puits : préconisation au tableau, « Reste après travaux : Descente EP : rejet dans un puits » ; témoin : le
 //   rejet supprimé par le projet, plus rien ne reste ; au dossier (reconcilier), ep-puits créée en catégorie « autre », sur la ligne
 //   « Gouttière(s) avant », non conforme, case gestEP.
-// Échouent sur 7df0996 (type « puits » absent) : q1 à q3, sauf le témoin de q3.
+// q4 : ligne mêlée (m150, décision D18) : deux descentes de la façade avant, vers un puits et vers le milieu naturel : PUITS (codes PUITS
+//   et MILIEU, les deux libellés), conformité vide (le dossier la juge par l'anomalie) ; deux WC, vers un puits et vers un puisard ou le
+//   milieu naturel : PUITS, « non ». Témoins : un puits et une gargouille, « plusieurs » ; en EP, un puits et un puisard, raccordement vide.
+// Échouent sur 7df0996 (type « puits » absent) : q1 à q3, sauf le témoin de q3. Sur 3035f1d (avant m150 : place MILIEU, libellé « Puits :
+//   rejet en milieu naturel », pas de code PUITS) : q1, q2 et q4 (MILIEU), sauf les témoins de q4. q4 échoue aussi sur la première version
+//   de m150 (raccordement « plusieurs »), sauf ses témoins. Sur b4c9e3b (avant m152 : deux cercles concentriques, 2,1 et 1,6) : onze
+//   contrôles de q2 : les sept du symbole (primitives, plan tourné, aperçu SVG, écran, écran tourné, bloc DXF, plan PDF), les trois du
+//   trait de l'étiquette du puits et le témoin du plan tourné (aucune barre à y mesurer) ; les témoins du puisard passent. Sur la
+//   première version de m152 (trait de l'étiquette parti du bout de la barre, à 2,1) : les trois contrôles du trait de l'étiquette du
+//   puits (place d'office au plan PDF, étiquette tirée à la main, écran), sauf leurs témoins.
 // Autre destination (m125, décisions D3, D5 à D7 ; objets écrits dans le croquis ; dans la palette Équipements depuis m127, juste après « Puits ») :
 // x1 : constat déduit d'une descente vers un étang aux EP non conformes, ep-exu retenue : ligne ok null (le dossier la juge par l'anomalie),
 //   case « autre » des ouvrages EP, « Étang (rejet des EP) », fiche « Rejet : étang · anomalie n° 1 » ; écartée, ou EP conformes : ligne
@@ -111,6 +133,53 @@
 // Échouent sur ebd5589 (type « exutoire » absent : bout libre) : x1, x2, x3 et x5, sauf la garde de x3 et le témoin de x5.
 // Échouent sur 4a55a83 (cercle par défaut sans texte, bloc VEDE_EXUTOIRE, légende « Autre destination », symboleSvg sans p) : les onze
 //   cas de x4. « étang » en page 2 et l'étiquette (le nom écrit tel quel) y étaient déjà justes.
+// n1 à n7 (m144, décision D10 ; réponses du 16 nov. 2026, S6 b et S7 a) : destinations de même nom refusées, noms proches, « Fosse ».
+// n1 : 42 paires de noms (21 de même nom, 5 proches, 16 différentes), dans les deux sens : degreDest ; canonDest et distDest sur
+//   quelques exemples ; le premier nom tapé dans « + Nouvelle destination » face au modèle de l'autre : même nom refusé, nom proche :
+//   la question, sinon accepté.
+// n2 : etang, ETANG, L'étang, Étangs, « étang » face au modèle Étang : refusés dans la palette (« choisissez-la dans la palette »,
+//   champ nom), dans les Réglages (« existe déjà dans la liste ») et dans la fiche (« écrivez « Étang » pour la même »). Témoins :
+//   sans listes, accepté, résultat inchangé ({m, refus}) ; Réglages, nom inchangé : accepté.
+// n3 : Fosse, FOSSE, fosse, La fosse, Fosses, avec ou sans un modèle Fossé : « Pour une fosse septique, posez l'objet Fosse septique ;
+//   pour un fossé, écrivez « Fossé ». » dans la palette, les Réglages et la fiche ; « Fossé » seul : accepté (témoin) ; Fossé, fossé,
+//   Fossés, FOSSÉ, le Fossé face au modèle Fossé : refusés ; « Fosse du puits », « Puits » : le refus du puits d'abord. Fiche d'une
+//   ancienne Fosse, face à une autre Fosse posée et au modèle Fosse : « Fossé » accepté (même clé de rejet), « fosse » refusé.
+// n4 (garde) : modelesDe garde Étang et etang, Fosse, Fossé et fossé, Puisard (les dossiers et la tablette ne sont pas filtrés).
+// n5 : destination Étang posée sur le plan, absente de la palette : même nom exact, même abréviation (saisie ou vide), mêmes jugements :
+//   accepté ; autre jugement, autre case, autre abréviation, etang, Étangs : « déjà posée sur ce plan ». Fiche de la Mare : « Étang »,
+//   mêmes jugements : reprise (abréviation « Ét », article « l' ») ; autre jugement : « déjà posée » ; « etang » : « écrivez « Étang » ».
+//   Fiche : la destination posée d'autres jugements passe avant le modèle de mêmes jugements (« déjà posée » ; témoin : sans elle, le
+//   modèle est repris). Palette : l'abréviation laissée vide reprend celle de la destination posée (EG) ; une autre, tapée : « déjà
+//   posée ». Fiche d'une Etang posée, face à une autre Etang posée et au modèle Etang : Étang, ÉTANG acceptés (même clé de rejet) ;
+//   Étangs, ou sans le nom d'avant : « écrivez « Etang » » ; l'autre déjà écrite Étang : reprise.
+// n6 : nom proche (Fossé de la rue, de la route) : la question dans la palette (modèle, puis destination posée), dans la fiche et dans les
+//   Réglages ; « La même », « Une autre » : l'outil du modèle ou de la destination, les cinq champs repris (une seule clé et un seul
+//   rejet au constat : « 1 clé(s) ; Fossé de la route (rejet des EP) »), le nom tapé gardé ; dans les Réglages, « La même » : rien
+//   d'enregistré, le toast « existe déjà dans la liste ».
+// n7 : objets de la palette : « Puisart » : la question face à l'objet Puisard dans les trois lieux, chaque réponse (l'outil de l'objet,
+//   l'ancien nom gardé avec le refus, dans les Réglages rien d'enregistré, avec le même refus) ; Puisard, puisards, Gargouile,
+//   « l'infiltration au sol », Rejet en milieu naturel, Fosse septique, Autre destination : « est un objet de la palette ».
+// Échouent sur 769d1af : n1 à n3, n5 à n7, sauf les témoins de n2 et de n3 et l'acceptation de n5 ; n4 y passe. Échouent sur m144
+//   tel que relu (avant ses corrections) : les cas des relectures M1, M5 et M7 (n3, n5) et les Réglages de n6 et de n7 (M3, M9).
+// f1 à f4 (m151, décision D19 ; réponse puits-venu-fichier du 16 nov. 2026) : destination nommée comme un puits, venue d'un fichier fait à
+//   la main (la fiche refuse ce nom depuis m127).
+// f1 : le refus de la fiche (champDest) et le jugement (analyser) viennent de la même fonction, VCroquis.nomPuits : « Puits du jardin »,
+//   « PUITS », « le puîts », « Puit du jardin », « Mare aux PuÏts », « Étangpuits », « puit » : refusés, jugés comme un puits (rejet
+//   PUITS) ; « Puits perdu », « puits perdus », « Puit perdu », « PUITS-PERDU » : refusés, jugés d'après leur fiche ; dans le doute,
+//   « Puits perdu et puits », « Puits non perdu » et « Puits perdu2 » (un numéro collé à « perdu » en fait un autre mot ; relecture de
+//   m151, M3) : comme un puits. Témoins : « Étang », « Fossé », « Puisard », « Puiterie » : acceptés, d'après leur fiche.
+// f2 : rappels « À vérifier » (niveau « info », clé destpuits), mot pour mot, le nom écrit comme sur l'objet : « PUITS du Jardin »
+//   reliée, « Puits » posée seule, « Puits perdu » reliée ; témoins : « Étang » et « Puisard », sans rappel. Garde : ils ne demandent rien
+//   (aucun contrôle « manque » sur les destinations).
+// f3 : l'analyse ne modifie ni l'objet (type, nom, champs) ni son type ; sans autre destination, aucune clé an.exu ; à côté d'un étang,
+//   la seule clé de l'étang ; libellé du rejet : « puits ».
+// f4 : conclusion, constat, plan PDF et fiche de la source d'une descente vers une destination « Puits » aux EP conformes : ceux d'une
+//   descente vers l'objet Puits (ep-puits retenue d'office, ligne PUITS, ok null, jamais « oui » avant l'écart ; écartée : « oui » ;
+//   mise à arbitrer : marquée) ; WC : eu-puits, ligne PUITS « non » ; page 2 du plan PDF : « puits · anomalie n° 1 ». De même quels que
+//   soient le jugement et la case de sa fiche (relecture de m151, M8) : réserve et milieu naturel, non conforme et gargouille, à arbitrer
+//   et récupérateur (descente, WC, page 2 du plan PDF).
+// Échouent sur 93bbb5f (VCroquis.nomPuits absente ; destination jugée d'après sa fiche, sans rappel) : f1 à f4, sauf les gardes de f2
+//   et de f3.
 // usage : node tests/vm/rejets.js [-v] [--app=<dossier>]
 'use strict';
 const fs = require('fs'), path = require('path');
@@ -448,26 +517,44 @@ async function arbitrage(){
 /* ---------- m120 : puits (décision du 13 nov. 2026 : un rejet EP dans un puits est une non-conformité) ---------- */
 /* source S (type t) reliée par un tronçon sans réseau au puits W, avec les décisions dec */
 const versPuits = (t, dec) => decide(doc({o: [['S', t, 0, 10], ['W', 'puits', 0, 4]], l: [['t1', 'tr', '', '', ['S', 'W']]]}), dec);
-const RPU = 'Rejet : puits', PUL = 'Puits : rejet en milieu naturel', PRE_EP = 'Suppression du rejet dans le puits ; raccordement au branchement EP ou gestion à la parcelle';
+const RPU = 'Rejet : puits', PUL = 'Puits : rejet dans un puits', PRE_EP = 'Suppression du rejet dans le puits ; raccordement au branchement EP ou gestion à la parcelle';
 /* q1 : constat déduit, conclusion et fiche de la source : ep-puits retenue d'office, écartée, mise à arbitrer ; WC vers un puits */
 async function puitsConstat(){
   const o = await bilan(versPuits('descente'), 'gout_av');
   R.ok(o.st === 'ep-puits:S retenue' && o.c === 'non_conformes' && o.plan === CP + 'Non conformes' && o.etat === 'ko « ' + RPU + ' · anomalie n° 1 »',
     'q1 descente vers un puits : ep-puits retenue d\'office, « Non conformes », fiche « anomalie n° 1 » (' + vu(o, ['st', 'c', 'plan', 'etat']) + ')');
-  R.ok(o.ligne === 'MILIEU | [null] | ""' && o.libs === PUL && o.recup === '{}',
-    'q1 constat : la ligne de la descente en MILIEU, ok null (le dossier la juge par l\'anomalie), aucune case des ouvrages EP (' + vu(o, ['ligne', 'libs', 'recup']) + ')');
+  R.ok(o.ligne === 'PUITS | [null] | ""' && o.libs === PUL && o.recup === '{}',
+    'q1 constat : la ligne de la descente en PUITS, ok null (le dossier la juge par l\'anomalie), aucune case des ouvrages EP (' + vu(o, ['ligne', 'libs', 'recup']) + ')');
   const e = await bilan(versPuits('descente', {'ep-puits:S': 'ecartee'}), 'gout_av');
-  R.ok(e.st === 'ep-puits:S ecartee' && e.c === 'conformes' && e.ligne === 'MILIEU | [true] | "oui"' && e.etat === 'ok « ' + RPU + ' »',
-    'q1 anomalie écartée dans Contrôles : « conformes », ligne MILIEU « oui », fiche ok (' + vu(e, ['st', 'c', 'ligne', 'etat']) + ')');
+  R.ok(e.st === 'ep-puits:S ecartee' && e.c === 'conformes' && e.ligne === 'PUITS | [true] | "oui"' && e.etat === 'ok « ' + RPU + ' »',
+    'q1 anomalie écartée dans Contrôles : « conformes », ligne PUITS « oui », fiche ok (' + vu(e, ['st', 'c', 'ligne', 'etat']) + ')');
   const a = await bilan(versPuits('descente', {'ep-puits:S': 'arbitrer'}), 'gout_av');
-  R.ok(a.st === 'ep-puits:S arbitrer' && a.c === 'arbitrer' && a.plan === CP + 'À compléter : une anomalie reste à arbitrer' && a.ligne === 'MILIEU | [null] | "" | à arbitrer'
+  R.ok(a.st === 'ep-puits:S arbitrer' && a.c === 'arbitrer' && a.plan === CP + 'À compléter : une anomalie reste à arbitrer' && a.ligne === 'PUITS | [null] | "" | à arbitrer'
     && a.etat === 'att « ' + RPU + ' · anomalie à arbitrer »',
-    'q1 mise à arbitrer : « arbitrer », ligne MILIEU gardée, ok null, marquée « à arbitrer » ; fiche en attente (' + vu(a, ['st', 'c', 'plan', 'ligne', 'etat']) + ')');
+    'q1 mise à arbitrer : « arbitrer », ligne PUITS gardée, ok null, marquée « à arbitrer » ; fiche en attente (' + vu(a, ['st', 'c', 'plan', 'ligne', 'etat']) + ')');
   const w = await bilan(versPuits('wc'), 'wc');
-  R.ok(w.st === 'eu-puits:S retenue' && w.c === 'non_conformes' && w.ligne === 'MILIEU | [false] | "non"' && w.libs === PUL,
-    'q1 WC vers un puits : eu-puits retenue, ligne du WC en MILIEU, non conforme (' + vu(w, ['st', 'c', 'ligne', 'libs']) + ')');
+  R.ok(w.st === 'eu-puits:S retenue' && w.c === 'non_conformes' && w.ligne === 'PUITS | [false] | "non"' && w.libs === PUL,
+    'q1 WC vers un puits : eu-puits retenue, ligne du WC en PUITS, non conforme (' + vu(w, ['st', 'c', 'ligne', 'libs']) + ')');
 }
-/* q2 : le type, sa place, la ligne PUITS de la table, le symbole ; DXF, couleurs, légende et page 2 du plan PDF */
+/* canevas factice (m152) qui relève, à chaque stroke, les morceaux du chemin : arcs (centre et rayon, en pixels) et lignes brisées (sommets,
+   fermée ou non), avec la couleur du trait et, si le chemin a été rempli, celle du fond (le canevas de charger.js ne relève que les segments) */
+function traceur(){
+  const traces = [], etat = {}; let chemin = [], cour = null;
+  const m = {
+    beginPath(){ chemin = []; cour = null; },
+    moveTo(x, y){ cour = {k: 'p', pts: [{x, y}], f: false}; chemin.push(cour); },
+    lineTo(x, y){ if (!cour || cour.k !== 'p'){ cour = {k: 'p', pts: [], f: false}; chemin.push(cour); } cour.pts.push({x, y}); },
+    closePath(){ if (cour && cour.k === 'p') cour.f = true; },
+    arc(x, y, r){ cour = {k: 'c', x, y, r}; chemin.push(cour); },
+    fill(){ chemin.forEach(q => { q.fond = etat.fillStyle; }); },
+    stroke(){ chemin.forEach(q => traces.push(Object.assign({}, q, {coul: etat.strokeStyle}))); },
+    fillText(){},
+    measureText(){ return {width: 10}; }
+  };
+  return {ctx: new Proxy(etat, {get: (t, k) => k in m ? m[k] : k in t ? t[k] : () => {}, set: (t, k, v) => { t[k] = v; return true; }}), traces};
+}
+/* q2 : le type, sa place, la ligne PUITS de la table, le symbole (m152 : semblable à celui du cadastre), à l'écran, en SVG, au plan PDF
+   et au DXF ; DXF, couleurs, légende et page 2 du plan PDF ; trait de l'étiquette ; plan tourné */
 async function puitsRendu(){
   const T = V.TYPES.puits, eq = (V.FAMILLES.find(f => f.id === 'equ') || {types: []}).types, X = V.EXU && V.EXU.PUITS;
   R.ok(!!T && T.fam === 'exu' && T.lib === 'Puits' && T.role === 'exutoire' && T.forme === 'puits' && T.exu === 'PUITS' && !T.g && !T.droit && !T.oriente
@@ -477,25 +564,93 @@ async function puitsRendu(){
   R.ok(!!(X && X.eu && X.ep && X.cEU && X.cEP) && X.lib === 'puits' && X.res === 'EP' && X.eu.cle === 'eu-puits' && X.eu.obs === 'rejet dans un puits' && X.eu.nc === true
     && X.eu.cat === 'inversion' && X.eu.codes.join() === 'raccEUsep' && X.eu.preco === 'Suppression du rejet dans le puits et raccordement au branchement EU'
     && X.ep.cle === 'ep-puits' && X.ep.obs === 'rejet dans un puits' && X.ep.nc === true && X.ep.cat === 'autre' && X.ep.codes.join() === 'gestEP' && X.ep.preco === PRE_EP
-    && X.cEU.code === 'MILIEU' && X.cEU.lib === PUL && X.cEP.code === 'MILIEU' && X.cEP.lib === PUL && !X.cEP.recup,
-    'q2 table des exutoires, ligne PUITS : règles EU et EP non conformes, place MILIEU au constat (' + JSON.stringify(X || null) + ')');
-  /* symbole : deux cercles concentriques verts, tracés, l'extérieur blanc dedans (rayon 2,1) ; l'intérieur nettement plus grand que celui
-     du puisard, pour ne pas les confondre */
-  const prim = t => V.primitives({k: 'pt', t, p: {st: 'existant', obs: ''}}, V.RES.EP.rgb, 0), P = prim('puits'), Q = prim('puisard');
-  const cer = P.filter(q => q.k === 'c');
-  R.ok(V.rayonSymbole('puits') === 2.1 && P.length === 2 && cer.length === 2 && cer[0].r === 2.1 && String(cer[0].fond) === '255,255,255' && !cer[1].fond
-    && cer[1].r < 2.1 && Q.length === 2 && cer[1].r - Q[1].r >= .4 && cer.every(q => q.x === 0 && q.y === 0 && String(q.trait) === EPC && q.ep > 0 && !q.masque),
-    'q2 symbole : deux cercles concentriques verts, rayon 2,1, l\'intérieur loin de celui du puisard (rayon ' + V.rayonSymbole('puits') + ' ; '
-    + P.map(q => q.k + ' r ' + q.r + (q.fond ? ' fond ' + q.fond : '') + (q.trait ? ' trait ' + q.trait : '')).join(' | ') + ' ; puisard ' + Q.map(q => q.r).join(', ') + ')');
-  /* DXF : bloc VEDE_PUITS (les deux cercles), INSERT sur VEDE-SYMBOLES en couleur 3, tuyau sur VEDE-EP, étiquette « Puits » en couleur 3 */
+    && X.cEU.code === 'PUITS' && X.cEU.lib === PUL && X.cEP.code === 'PUITS' && X.cEP.lib === PUL && !X.cEP.recup,
+    'q2 table des exutoires, ligne PUITS : règles EU et EP non conformes, place PUITS au constat (' + JSON.stringify(X || null) + ')');
+  /* m150 : le code PUITS a son libellé ; les autres exutoires qui infiltrent ou rejettent dehors gardent MILIEU (puisard, infiltration au
+     sol, milieu naturel ; drain d'infiltration) */
+  const L = V.RACC_LIB || {}, gardent = ['INF', 'SOL', 'MILIEU', 'DISP'].filter(k => V.EXU && V.EXU[k]).map(k => k + ':' + V.EXU[k].cEU.code);
+  R.ok(L.PUITS === 'Puits' && L.MILIEU === 'Milieu naturel' && gardent.length === 4 && gardent.every(x => /:MILIEU$/.test(x)),
+    'q2 m150 : VCroquis.RACC_LIB.PUITS « Puits » ; puisard, infiltration au sol, milieu naturel, drain d\'infiltration gardent MILIEU en EU ('
+    + JSON.stringify({PUITS: L.PUITS, MILIEU: L.MILIEU, gardent}) + ')');
+  /* symbole semblable à celui du cadastre (m152, décision D20) : un cercle de rayon 1,4, blanc dedans, puis une ligne ouverte de quatre
+     points : la barre diamétrale, qui dépasse du cercle (±2,1), et ses manivelles en Z (S8 a : à gauche vers le haut, à droite vers le
+     bas ; y des primitives vers le haut) ; vert des EP, tracés ; rayon du symbole gardé à 2,1. Avant m152 : deux cercles concentriques
+     (2,1 et 1,6). Témoin : le puisard garde ses deux cercles (2,1, blanc dedans, et 1,1), au DXF aussi */
+  const ZP = [-2.1, .8, -2.1, 0, 2.1, 0, 2.1, -.8], pr = v => +v.toFixed(3);
+  const tourne = a => { const o = []; for (let i = 0; i < ZP.length; i += 2) o.push(ZP[i] * Math.cos(a) - ZP[i + 1] * Math.sin(a), ZP[i] * Math.sin(a) + ZP[i + 1] * Math.cos(a)); return o; };
+  const prim = (t, a) => V.primitives({k: 'pt', t, p: {st: 'existant', obs: ''}}, V.RES.EP.rgb, a || 0), P = prim('puits'), Q = prim('puisard');
+  const desc = L => L.map(q => q.k + (q.k === 'c' ? ' r ' + q.r : ' ' + q.pts.map(pr).join(',') + (q.f ? ' fermée' : ' ouverte'))
+    + (q.fond ? ' fond ' + q.fond : '') + (q.trait ? ' trait ' + q.trait : '')).join(' | ');
+  R.ok(V.rayonSymbole('puits') === 2.1 && P.length === 2 && P[0].k === 'c' && P[0].r === 1.4 && P[0].x === 0 && P[0].y === 0 && String(P[0].fond) === '255,255,255'
+    && P[1].k === 'p' && !P[1].f && !P[1].fond && P[1].pts.join() === ZP.join() && P.every(q => String(q.trait) === EPC && q.ep > 0 && !q.masque),
+    'q2 symbole semblable à celui du cadastre : un cercle de rayon 1,4, blanc dedans, puis une ligne ouverte de quatre points (barre à ±2,1, manivelles en Z), en vert ; rayon 2,1 (rayon '
+    + V.rayonSymbole('puits') + ' ; ' + desc(P) + ')');
+  const dW = blocDxf(dxf(doc({o: [['P', 'puisard', 0, 0]]})).texte, 'VEDE_PUISARD') || [];
+  R.ok(Q.length === 2 && Q.every(q => q.k === 'c' && q.x === 0 && q.y === 0 && String(q.trait) === EPC) && Q.map(q => q.r).join() === '2.1,1.1' && String(Q[0].fond) === '255,255,255'
+    && dW.map(q => q.type + ' ' + +q.c['40']).join() === 'CIRCLE 2.1,CIRCLE 1.1',
+    'q2 témoin : le puisard garde ses deux cercles, 2,1 (blanc dedans) et 1,1, au DXF aussi (' + desc(Q) + ' ; bloc ' + dW.map(q => q.type + ' ' + q.c['40']).join(', ') + ')');
+  /* plan tourné (angle du symbole non nul : sur le plan, celui de la rotation du plan, comme pour le té, ni droit ni orienté) : la ligne
+     tourne autour du centre, le cercle reste */
+  const Pt = prim('puits', .5), Zt = tourne(.5);
+  R.ok(Pt.length === 2 && Pt[0].k === 'c' && Pt[0].r === 1.4 && Pt[0].x === 0 && Pt[0].y === 0 && Pt[1].k === 'p' && !Pt[1].f && Pt[1].pts.length === 8
+    && Pt[1].pts.every((v, i) => Math.abs(v - Zt[i]) < 1e-9),
+    'q2 plan tourné d\'un demi-radian : la ligne tourne, le cercle reste (' + desc(Pt) + ' ; attendu ' + Zt.map(pr).join(',') + ')');
+  /* aperçu SVG (palette, fiche : symboleSvg, 34 px, 4,2 px par mm, centre 17) : un cercle blanc dedans et un tracé ouvert de quatre points,
+     verts ; en Z (y du SVG vers le bas : le premier point au-dessus du centre, le dernier au-dessous) */
+  const svg = String(sur(() => V.symboleSvg('puits', 34))), sc = svg.match(/<circle [^>]*>/g) || [], sp = svg.match(/<path [^>]*>/g) || [];
+  const att = (s, a) => (s.match(new RegExp(' ' + a + '="([^"]*)"')) || [])[1];
+  const sd = sp.length === 1 ? att(sp[0], 'd') || '' : '', ss = (sd.match(/[ML]-?[\d.]+ -?[\d.]+/g) || []).map(s => s.slice(1).split(' ').map(Number));
+  R.ok(sc.length === 1 && Math.abs(+att(sc[0], 'r') - 1.4 * 4.2) < 1e-6 && +att(sc[0], 'cx') === 17 && +att(sc[0], 'cy') === 17 && att(sc[0], 'fill') === 'rgb(255,255,255)'
+    && att(sc[0], 'stroke') === VERT && sp.length === 1 && /^M[^ML]*(L[^ML]*){3}$/.test(sd) && !/Z/.test(sd) && ss.length === 4 && att(sp[0], 'fill') === 'none'
+    && att(sp[0], 'stroke') === VERT && ss.every((s, i) => Math.abs(s[0] - (17 + ZP[2 * i] * 4.2)) < .01 && Math.abs(s[1] - (17 - ZP[2 * i + 1] * 4.2)) < .01)
+    && ss[0][1] < 17 && ss[3][1] > 17,
+    'q2 aperçu SVG (palette, fiche) : un cercle blanc dedans et un tracé ouvert de quatre points, en Z, verts (' + svg.replace(/^<svg[^>]*>|<\/svg>$/g, '') + ')');
+  /* écran (dessinerPrims, par dessinerCroquis, sur le canevas factice traceur) : autour du puits, un cercle blanc dedans puis une ligne
+     ouverte de quatre points, verts ; à 20 px par mètre et au 1/200, un symbole de rayon 2,1 est grossi à 8,5 px (kk px par mm) ; la
+     manivelle de gauche monte (y de l'écran plus petit que celui du centre), celle de droite descend. Plan tourné d'un demi-radian : le
+     cercle reste, la ligne tourne avec le plan (−0,5 radian à l'écran, y vers le haut), comme la barre du té. Témoin : le puisard, deux
+     cercles (2,1 et 1,1) et aucune ligne */
+  const dE = doc({o: [['I', 'puits', 0, 0], ['P', 'puisard', 8, 0], ['T', 'te', -8, 0]]}), kk = 8.5 / 2.1;
+  const ecranRot = rot => {
+    const dd = copie(dE), vue = new V.Vue(800, 600), cv = traceur(); dd.rot = rot; vue.s = 20; vue.rot = rot;
+    const ex = sur(() => { V.dessinerCroquis(cv.ctx, copie(dd), V.analyser(copie(dd), 'edl'), vue, 1, {}); return ''; });
+    const pres = id => { const e = dd.el.find(q => q.id === id), c = vue.ecran(e.x, e.y);
+      return {c, L: cv.traces.filter(q => q.k === 'c' ? Math.hypot(q.x - c.x, q.y - c.y) < 1e-6 : q.pts.every(s => Math.hypot(s.x - c.x, s.y - c.y) < 2.3 * kk))}; };
+    return {ex, I: pres('I'), P: pres('P'), T: pres('T')};
+  };
+  const rel = (s, c) => [(s.x - c.x) / kk, -(s.y - c.y) / kk];
+  const vuE = o => o.L.map(q => q.k === 'c' ? 'c r ' + pr(q.r / kk) + (q.fond ? ' fond ' + q.fond : '') + ' ' + q.coul
+    : 'p ' + q.pts.map(s => rel(s, o.c).map(pr).join(',')).join(' ') + (q.f ? ' fermée' : '') + ' ' + q.coul).join(' | ') || 'rien';
+  const formeE = (o, a) => {
+    const c = o.L[0], l = o.L[1], Z = tourne(a);
+    return o.L.length === 2 && c.k === 'c' && l.k === 'p' && Math.abs(c.r / kk - 1.4) < 1e-9 && c.fond === 'rgb(255,255,255)' && c.coul === VERT
+      && !l.f && l.pts.length === 4 && l.coul === VERT && l.pts.every((s, i) => { const r = rel(s, o.c); return Math.abs(r[0] - Z[2 * i]) < 1e-9 && Math.abs(r[1] - Z[2 * i + 1]) < 1e-9; });
+  };
+  const e0 = ecranRot(0), e1 = ecranRot(.5), l0 = e0.I.L[1] || {pts: []};
+  R.ok(!e0.ex && formeE(e0.I, 0) && l0.pts[0].y < e0.I.c.y && l0.pts[0].x < e0.I.c.x && l0.pts[3].y > e0.I.c.y && l0.pts[3].x > e0.I.c.x,
+    'q2 écran : un cercle blanc dedans et une ligne ouverte de quatre points, verts ; la manivelle de gauche monte, celle de droite descend ('
+    + (e0.ex || vuE(e0.I)) + ')');
+  const dir = (a, b) => Math.atan2(-(b.y - a.y), b.x - a.x), bT = e1.T.L.find(q => q.k === 'p'), bI = e1.I.L.find(q => q.k === 'p' && q.pts.length === 4);
+  const aT = bT ? dir(bT.pts[0], bT.pts[1]) : NaN, aI = bI ? dir(bI.pts[1], bI.pts[2]) : NaN;
+  R.ok(!e1.ex && formeE(e1.I, -.5) && Math.abs(aI + .5) < 1e-9 && Math.abs(aI - aT) < 1e-9,
+    'q2 écran, plan tourné d\'un demi-radian : le cercle reste, la ligne tourne avec le plan, comme la barre du té (barre ' + pr(aI) + ' rad, té ' + pr(aT) + ' rad ; '
+    + (e1.ex || vuE(e1.I)) + ')');
+  R.ok(!e0.ex && e0.P.L.length === 2 && e0.P.L.every(q => q.k === 'c' && q.coul === VERT) && e0.P.L.map(q => pr(q.r / kk)).join() === '2.1,1.1',
+    'q2 témoin à l\'écran : le puisard, deux cercles (2,1 et 1,1) et aucune ligne (' + (e0.ex || vuE(e0.P)) + ')');
+  /* DXF : bloc VEDE_PUITS écrit depuis les primitives à l'angle 0 : un CIRCLE de rayon 1,4 au centre (le fond blanc n'en fait pas un disque
+     plein), puis une POLYLINE ouverte et fine de 4 VERTEX, la barre et ses manivelles en Z (y du DXF vers le haut) ; INSERT sur
+     VEDE-SYMBOLES en couleur 3, tuyau sur VEDE-EP, étiquette « Puits » en couleur 3, comme avant m152 */
   const d = doc({o: [['D', 'descente', 0, 6, {cote: 'avant'}], ['I', 'puits', 0, 0]], l: [['T1', 'tr', '', '', ['D', 'I']]]});
   d.el.find(q => q.id === 'I').lab = null;
-  const x = dxf(d), b = blocDxf(x.texte, 'VEDE_PUITS'), ci = (b || []).filter(q => q.type === 'CIRCLE');
+  const x = dxf(d), b = blocDxf(x.texte, 'VEDE_PUITS'), B = b || [], ci = B.filter(q => q.type === 'CIRCLE'), pl = B.filter(q => q.type === 'POLYLINE');
+  const vx = B.filter(q => q.type === 'VERTEX').map(q => [+q.c['10'], +q.c['20']]);
   const ins = x.ents.find(q => q.type === 'INSERT' && q.c['2'] === 'VEDE_PUITS'), tu = x.ents.filter(q => q.type === 'POLYLINE'), tx = x.ents.find(q => q.type === 'TEXT' && q.c['1'] === 'Puits');
-  R.ok(!!b && b.length === 2 && ci.length === 2 && ci.map(q => +q.c['40']).join() === cer.map(q => q.r).join() && !!ins && ins.cal === 'VEDE-SYMBOLES' && +ins.c['62'] === 3
-    && tu.length === 1 && tu[0].cal === 'VEDE-EP' && !!tx && +tx.c['62'] === 3,
-    'q2 DXF : bloc VEDE_PUITS de deux cercles, INSERT sur VEDE-SYMBOLES en couleur 3, tuyau sur VEDE-EP, étiquette « Puits » en couleur 3 ('
-    + (b ? b.map(q => q.type + ('40' in q.c ? ' ' + q.c['40'] : '')).join(', ') : 'bloc absent ; blocs ' + x.blocs.join(', ')) + ' ; ' + (ins ? ins.cal + ' ' + ins.c['62'] : 'INSERT absent')
+  R.ok(!!b && B.map(q => q.type).join() === 'CIRCLE,POLYLINE,VERTEX,VERTEX,VERTEX,VERTEX,SEQEND' && +ci[0].c['40'] === 1.4 && +ci[0].c['10'] === 0 && +ci[0].c['20'] === 0
+    && (+pl[0].c['70'] & 1) === 0 && !('40' in pl[0].c) && [].concat(...vx).join() === ZP.join()
+    && !!ins && ins.cal === 'VEDE-SYMBOLES' && +ins.c['62'] === 3 && tu.length === 1 && tu[0].cal === 'VEDE-EP' && !!tx && +tx.c['62'] === 3,
+    'q2 DXF : bloc VEDE_PUITS d\'un CIRCLE de rayon 1,4 et d\'une POLYLINE ouverte de 4 VERTEX en Z, INSERT sur VEDE-SYMBOLES en couleur 3, tuyau sur VEDE-EP, étiquette « Puits » en couleur 3 ('
+    + (b ? B.map(q => q.type + ('40' in q.c ? ' ' + q.c['40'] : '') + (q.type === 'POLYLINE' ? ' 70=' + q.c['70'] : '') + (q.type === 'VERTEX' ? ' ' + q.c['10'] + ',' + q.c['20'] : '')).join(', ')
+      : 'bloc absent ; blocs ' + x.blocs.join(', ')) + ' ; ' + (ins ? ins.cal + ' ' + ins.c['62'] : 'INSERT absent')
     + ' ; ' + tu.map(q => q.cal).join(', ') + ' ; ' + (tx ? tx.cal + ' ' + tx.c['62'] : 'étiquette absente') + ')');
   const ec = sur(() => dessiner(d, 20, [0, 3]));
   const tuy = typeof ec === 'string' ? ec : [...new Set(ec.traits.filter(q => Math.abs(q.a.x) < 1e-6 && Math.abs(q.b.x) < 1e-6 && Math.abs(q.a.y - q.b.y) > 1).map(q => q.coul))].join(' ');
@@ -507,6 +662,91 @@ async function puitsRendu(){
   R.ok(!p.err.length && n === 1 && rej.length === 2 && rej.every(s => /^puits · anomalie n° \d+$/.test(s)) && !code.length,
     'q2 plan PDF : « Puits » une fois à la légende ; « puits » au « Rejet constaté » de la page 2, pour le WC et la descente, jamais le code ('
     + (p.err.join(' | ') || n + ' fois ; ' + rej.concat(code).map(s => JSON.stringify(s)).join(', ')) + ')');
+  /* plan PDF (primsPdf) : la ligne ouverte de quatre points, verte et en Z (y du papier vers le bas), au plan (1 mm par mm du symbole) et à
+     la légende (réduite d'après la hauteur de sa ligne, 1 au plus) ; le cercle passe par pdf.circle, que l'enveloppe ne relève pas */
+  const ech = q => {
+    const k = (q.pts[2].x - q.pts[1].x) / 4.2, cx = (q.pts[1].x + q.pts[2].x) / 2, cy = q.pts[1].y;
+    return k > 0 && q.pts.every((s, i) => Math.abs((s.x - cx) / k - ZP[2 * i]) < 1e-6 && Math.abs(-(s.y - cy) / k - ZP[2 * i + 1]) < 1e-6) ? pr(k) : 0;
+  };
+  const zp = p.formes.filter(q => q.coul === EPC && !q.ferme && q.pts.length === 4), ks = zp.map(ech);
+  R.ok(!p.err.length && zp.length === 2 && ks[0] === 1 && ks[1] > 0 && ks[1] <= 1 && zp.every(q => q.pts[0].y < q.pts[1].y && q.pts[3].y > q.pts[2].y),
+    'q2 plan PDF : la ligne du puits en Z, verte, au plan et à la légende (' + (p.err.join(' | ') || zp.length + ' lignes ouvertes de quatre points, échelles '
+    + ks.join(', ') + ' ; ' + zp.map(q => q.pts.map(s => pr(s.x) + ',' + pr(s.y)).join(' ')).join(' | ')) + ')');
+  /* trait de l'étiquette (relecture de m152) : il part à 2,7 mm du centre du puits (rayonSymbole + 0,6 : departTrait), au-delà des
+     manivelles, dont les bouts sont à 2,25. Avant, il partait à 2,1, le bout de la barre : l'étiquette à sa place d'office (à droite, à
+     la hauteur du centre, son bord à 3,2 ; la pose enregistre cette place) tirait un trait de (2,1 ; 0) à (3,2 ; 0), dans l'axe de la
+     barre, qui semblait continuer : la manivelle de droite n'était plus au bout. Mesures en mm du papier depuis le centre de l'exutoire
+     (le bout du tuyau), y vers le haut. « Prolonge la barre » : un trait de deux points dans l'axe de la barre (à 0,3 près) dont un bout
+     est à moins de 0,45 de l'un des siens. Plan PDF, nord en haut : place d'office calculée au tracé (lab absent) au 1/100, au 1/200 et
+     au 1/500, place enregistrée à la pose (placerEtiquette), la même à gauche : aucun trait d'étiquette (il en resterait moins de
+     0,8 mm), rien ne prolonge la barre. Étiquette tirée à la main vers le bout de la manivelle de droite : le trait part à 2,7 du centre,
+     0,45 après ce bout (avant : à 2,1, contre la manivelle). Écran à 60 px par mètre (12 px par mm), place d'office : le trait part à
+     2,7, détaché de la barre (sur le canevas factice, tout texte est large de 10 px : la boîte de l'étiquette est plus étroite que dans
+     un navigateur, et le trait plus long). Témoins : le trait du puisard (même rayon, 2,1) part toujours du bord du symbole, au plan
+     PDF et à l'écran */
+  const ETQ = [1, 3, 5].map(i => parseInt(String(V.TXT_RES.EP).slice(i, i + 2), 16)).join(',');
+  const versI = (t, lab, E) => {
+    const dd = doc({o: [['D', 'descente', 0, 6, {cote: 'avant'}], ['I', t, 0, 0]], l: [['T1', 'tr', '', '', ['D', 'I']]]});
+    dd.el.find(q => q.id === 'I').lab = lab; dd.echelle = E || 200; return dd;
+  };
+  const prolonge = L2 => L2.filter(f => f.pts.every(s => Math.abs(s[1]) < .3) && f.pts.some(s => Math.abs(Math.abs(s[0]) - 2.1) < .45));
+  const vuT = L2 => L2.map(f => f.pts.map(s => pr(s[0]) + ',' + pr(s[1])).join(' → ') + ' ' + f.coul).join(' ; ') || 'aucun trait';
+  const traitsPdf = async (dd, mot) => {
+    const q = await pdf(dd, {mode: 'edl'}), t0 = q.formes.find(f => f.coul === EPC && !f.ferme && f.pts.length === 2), c = t0 ? t0.pts[1] : {x: 0, y: 0};
+    const L2 = q.formes.filter(f => f !== t0 && !f.ferme && f.pts.length === 2).map(f => ({coul: f.coul, pts: f.pts.map(s => [s.x - c.x, -(s.y - c.y)])}))
+      .filter(f => f.pts.every(s => Math.hypot(s[0], s[1]) < 8));
+    const ecrit = q.pos.some(s => s.t === (mot || 'Puits') && s.coul === ETQ && Math.hypot(s.x - c.x, s.y - c.y) < 12);
+    return {err: q.err.join(' | ') || (t0 ? '' : 'tuyau absent') || (ecrit ? '' : 'étiquette absente'), L: L2, etq: L2.filter(f => f.coul === ETQ)};
+  };
+  const dO = versI('puits', null);
+  const lab0 = sur(() => V.placerEtiquette(dO, V.analyser(copie(dO), 'edl'), dO.el.find(q => q.id === 'I'), 200, V.indexDoc(dO)));
+  const aDroite = !!lab0 && typeof lab0 === 'object' && lab0.dx > 0 && lab0.dy === 0, places = [];
+  for (const E of [100, 200, 500]) places.push(Object.assign(await traitsPdf(versI('puits', null, E)), {ou: 'd\'office au 1/' + E}));
+  if (aDroite){
+    places.push(Object.assign(await traitsPdf(versI('puits', copie(lab0))), {ou: 'enregistrée à la pose'}));
+    places.push(Object.assign(await traitsPdf(versI('puits', {dx: -lab0.dx, dy: 0, E: 200})), {ou: 'la même à gauche'}));
+  }
+  R.ok(aDroite && places.length === 5 && places.every(r => !r.err && !r.etq.length && !prolonge(r.L).length),
+    'q2 plan PDF, étiquette à sa place d\'office (à droite, à la hauteur du centre) ou à la même place à gauche : aucun trait d\'étiquette, rien ne prolonge la barre du puits ('
+    + (aDroite ? places.map(r => r.ou + ' : ' + (r.err || vuT(r.L))).join(' | ') : 'place d\'office ' + JSON.stringify(lab0)) + ')');
+  const BM = [2.1, -.8], rM = Math.hypot(BM[0], BM[1]);
+  const tire = await traitsPdf(versI('puits', {dx: 8 * .2, dy: 8 * BM[1] / BM[0] * .2, E: 200, main: true})), dep = (tire.etq[0] || {pts: [[0, 0]]}).pts[0];
+  R.ok(!tire.err && tire.etq.length === 1 && Math.abs(Math.hypot(dep[0], dep[1]) - 2.7) < 1e-6 && Math.abs(Math.hypot(dep[0] - BM[0], dep[1] - BM[1]) - (2.7 - rM)) < 1e-6
+    && !prolonge(tire.L).length,
+    'q2 plan PDF, étiquette tirée à la main vers le bout de la manivelle de droite : son trait part à 2,7 mm du centre (rayon du symbole + 0,6), 0,45 mm après ce bout ('
+    + (tire.err || vuT(tire.L) + ' ; départ à ' + pr(Math.hypot(dep[0], dep[1])) + ' du centre, à ' + pr(Math.hypot(dep[0] - BM[0], dep[1] - BM[1])) + ' du bout') + ')');
+  const temP = await traitsPdf(versI('puisard', null), 'Puisard'), tP = (temP.etq[0] || {pts: [[0, 0], [0, 0]]}).pts;
+  R.ok(!temP.err && temP.etq.length === 1 && Math.abs(tP[0][0] - 2.1) < 1e-6 && Math.abs(tP[0][1]) < 1e-6 && Math.abs(tP[1][0] - 3.2) < 1e-6 && Math.abs(tP[1][1]) < 1e-6,
+    'q2 témoin au plan PDF : le trait de l\'étiquette du puisard part toujours du bord du symbole, de (2,1 ; 0) à (3,2 ; 0) (' + (temP.err || vuT(temP.L)) + ')');
+  const traitsEcran = (t, s) => {
+    const dd = versI(t, null), vue = new V.Vue(800, 600), cv = traceur(); vue.s = s; vue.cx = 0; vue.cy = 3;
+    let zones = [];
+    const ex = sur(() => { zones = V.dessinerCroquis(cv.ctx, copie(dd), V.analyser(copie(dd), 'edl'), vue, 1, {}); return ''; });
+    const c = vue.ecran(0, 0), k = s * 200 / 1000;
+    const L2 = cv.traces.filter(q => q.k === 'p' && q.pts.length === 2 && !q.f).map(q => ({coul: q.coul, pts: q.pts.map(u => [(u.x - c.x) / k, -(u.y - c.y) / k])}))
+      .filter(f => f.pts.every(u => Math.hypot(u[0], u[1]) < 8));
+    return {err: ex || (zones.some(z => z.type === 'etiq' && z.id === 'I') ? '' : 'étiquette absente'), L: L2, etq: L2.filter(f => f.coul === V.TXT_RES.EP)};
+  };
+  const eO = traitsEcran('puits', 60), eD = (eO.etq[0] || {pts: [[0, 0]]}).pts[0];
+  R.ok(!eO.err && eO.etq.length === 1 && Math.abs(eD[0] - 2.7) < 1e-9 && Math.abs(eD[1]) < 1e-9 && !prolonge(eO.L).length,
+    'q2 écran à 60 px par mètre, étiquette à sa place d\'office : son trait part à 2,7 mm du centre, 0,6 mm après le bout de la barre, et ne la prolonge pas ('
+    + (eO.err || vuT(eO.L)) + ')');
+  const eP = traitsEcran('puisard', 60), eQ = (eP.etq[0] || {pts: [[0, 0]]}).pts[0];
+  R.ok(!eP.err && eP.etq.length === 1 && Math.abs(eQ[0] - 2.1) < 1e-9 && Math.abs(eQ[1]) < 1e-9,
+    'q2 témoin à l\'écran : le trait de l\'étiquette du puisard part toujours du bord du symbole, à 2,1 mm du centre (' + (eP.err || vuT(eP.L)) + ')');
+  /* plan tourné d'un demi-radian, d'une sortie à l'autre (témoin : comme avant m152, où deux cercles ne montraient pas l'angle) : au plan
+     PDF, la barre est à −0,5 rad sur le papier, comme à l'écran (elle garde sa direction sur le terrain) ; à la légende, elle reste
+     droite ; au DXF, l'INSERT porte la rotation du plan (code 50, en degrés), comme celui du té et de tout symbole non orienté : la barre
+     y est droite sur la vue tournée, pas comme au plan PDF (écart connu, d'avant m152 ; décision D22 : le DXF d'un objet jamais tourné
+     ne change pas) */
+  const dTo = copie(dE); dTo.rot = .5;
+  const pTo = await pdf(dTo, {mode: 'edl'}), zTo = pTo.formes.filter(q => q.coul === EPC && !q.ferme && q.pts.length === 4);
+  const angZ = q => Math.atan2(-(q.pts[2].y - q.pts[1].y), q.pts[2].x - q.pts[1].x);
+  const xTo = dxf(dTo), a50 = nom => { const i = xTo.ents.find(q => q.type === 'INSERT' && q.c['2'] === nom); return i ? +i.c['50'] : NaN; };
+  R.ok(!pTo.err.length && zTo.length === 2 && Math.abs(angZ(zTo[0]) + .5) < 1e-9 && Math.abs(angZ(zTo[1])) < 1e-9
+    && Math.abs(a50('VEDE_PUITS') - .5 * 180 / Math.PI) < 1e-3 && a50('VEDE_TE') === a50('VEDE_PUITS'),
+    'q2 témoin, plan tourné d\'un demi-radian : au plan PDF la barre suit le plan (−0,5 rad), à la légende elle reste droite ; au DXF l\'INSERT porte la rotation du plan, comme celui du té ('
+    + (pTo.err.join(' | ') || 'plan ' + zTo.map(q => pr(angZ(q))).join(' rad, légende ') + ' rad ; INSERT du puits ' + a50('VEDE_PUITS') + '°, du té ' + a50('VEDE_TE') + '°') + ')');
 }
 /* q3 : avant-projet qui garde le puits (aucun travaux) : la préconisation au tableau, « Reste après travaux » au contrôle du projet ; témoin :
    le tronçon vers le puits « à supprimer » et un tronçon « projet » vers une boîte EP « projet » : plus rien ne reste. Au dossier
@@ -528,6 +768,25 @@ async function puitsProjet(){
     && c.preconisation === PRE_EP && c.croquis.codes.join() === 'gestEP' && c.croquis.auto.installation === 'gout_av',
     'q3 dossier : ep-puits créée, catégorie « autre », ligne « Gouttière(s) avant », non conforme, case gestEP ('
     + (typeof ops === 'string' ? ops : cr.map(q => (q.croquis && q.croquis.cle) + ' ' + q.categorie + ' ' + JSON.stringify(q.installation) + (q.nc ? ' NC' : ' réserve')).join(', ') || 'rien de créé') + ')');
+}
+
+/* q4 : ligne mêlée (m150, décision D18) : sur une même ligne, un objet vers un puits et un autre vers un rejet codé MILIEU (milieu naturel ;
+   en EU, aussi puisard) : PUITS, le puits l'emporte (avant m150, MILIEU ; la première version de m150 vidait le raccordement). Témoins :
+   un puits et une gargouille, « plusieurs » ; en EP, un puits et un puisard (case des ouvrages EP, sans code), raccordement vide */
+function puitsMele(){
+  const ligne = (t, x, id) => {
+    const d = doc({o: [['S', t, -3, 10], ['S2', t, 3, 10], ['W', 'puits', -3, 4], ['X', x, 3, 4]], l: [['t1', 'tr', '', '', ['S', 'W']], ['t2', 'tr', '', '', ['S2', 'X']]]});
+    const r = V.constatDeduit(copie(d), V.analyser(copie(d), 'edl')).rows.find(q => q.id === id);
+    return r ? r.raccord + ' | ' + r.codes.join(',') + ' | ' + JSON.stringify(r.conforme) + ' | ' + r.libs.join(' ; ') : 'ligne absente';
+  };
+  const ep = ligne('descente', 'milieu', 'gout_av'), sol = ligne('wc', 'puisard', 'wc'), mil = ligne('wc', 'milieu', 'wc');
+  R.ok(ep === 'PUITS | PUITS,MILIEU | "" | ' + PUL + ' ; Milieu naturel',
+    'q4 deux descentes, l\'une vers un puits, l\'autre vers le milieu naturel : PUITS, conformité vide (le dossier la juge par l\'anomalie) (' + ep + ')');
+  R.ok(sol === 'PUITS | PUITS,MILIEU | "non" | ' + PUL + ' ; Puisard : rejet au sol (milieu naturel)' && mil === 'PUITS | PUITS,MILIEU | "non" | ' + PUL + ' ; Milieu naturel',
+    'q4 deux WC, l\'un vers un puits, l\'autre vers un puisard ou le milieu naturel : PUITS, « non » (' + vu({puisard: sol, milieu: mil}) + ')');
+  const g = ligne('descente', 'gargouille', 'gout_av').split(' | ')[0], p = ligne('descente', 'puisard', 'gout_av').split(' | ')[0];
+  R.ok(g === 'plusieurs' && p === '',
+    'q4 témoins : un puits et une gargouille, « plusieurs » ; un puits et un puisard des EP (sans code), raccordement vide (' + vu({gargouille: g, puisard: p}) + ')');
 }
 
 /* ---------- m125 : autre destination (décisions D3, D5 à D7) ---------- */
@@ -924,6 +1183,278 @@ async function sansType(){
   } finally { if (T0) V.TYPES.infiltration = T0; }
 }
 
+/* ---------- m144 : destinations de même nom, noms proches, « Fosse » (D10 ; réponses du 16 nov. 2026, S6 b et S7 a) ---------- */
+/* appel d'une fonction de VCroquis, protégé ; absente : son nom */
+const fx = (f, ...a) => typeof V[f] === 'function' ? sur(() => V[f](...a)) : 'VCroquis.' + f + ' absente';
+const M1 = n => 'Une destination « ' + n + ' » existe déjà : choisissez-la dans la palette.';
+const M3 = n => 'Une destination « ' + n + ' » est déjà posée sur ce plan : reprenez ce nom et ses jugements, ou choisissez un nom bien différent.';
+const M4 = n => '« ' + n + ' » est un objet de la palette : posez l\'objet ' + n + '.';
+const M5 = 'Pour une fosse septique, posez l\'objet Fosse septique ; pour un fossé, écrivez « Fossé ».';
+const MF = n => 'Une destination « ' + n + ' » existe déjà : écrivez « ' + n + ' » pour la même, ou un nom bien différent.';
+const MR = n => 'Une destination « ' + n + ' » existe déjà dans la liste.';
+const QD = n => 'Nom proche de « ' + n + ' », qui existe déjà : est-ce la même destination ?';
+const QO = n => 'Nom proche de « ' + n + ' », objet de la palette : est-ce le même ?';
+const PUITS_R = 'Pour un puits, posez l\'objet Puits (EP non conformes) ; pour un puits perdu, un Puisard.';
+/* modèle de la tablette ; destination saisie (cinq champs) ; saisie dans la palette (« + Nouvelle destination »), les Réglages (modèle m0
+   renommé) et la fiche (destination posée renommée : refusNomDest ; nom0, son nom d'avant, comme le donne l'éditeur) */
+const modele = (id, nom, o) => Object.assign({id, nom, ab: 'Zz', art: 'le', ep: 'arbitrer', cst: 'autre'}, o);
+const saisieD = (nom, o) => Object.assign({nom, ab: '', art: 'le', ep: 'arbitrer', cst: 'autre'}, o);
+const palette = (s, modeles, plan) => fx('destSaisie', s, null, {ou: 'palette', modeles: modeles || [], plan: plan || []});
+const reglages = (s, m0, modeles) => fx('destSaisie', s, m0, {ou: 'reglages', modeles: modeles || []});
+const ficheNom = (s, modeles, plan, nom0) => fx('refusNomDest', s, Object.assign({ou: 'fiche', modeles: modeles || [], plan: plan || []}, nom0 != null ? {nom0} : {}));
+/* objet écrit clés triées (comparaisons) ; verdict court : refus (texte), question (texte et boutons), reprise, sinon « accepté » */
+const cn = o => o && typeof o === 'object' ? '{' + Object.keys(o).sort().map(k => k + ':' + cn(o[k])).join(',') + '}' : JSON.stringify(o);
+const verdict = r => r == null ? 'accepté' : typeof r !== 'object' ? String(r) : r.refus ? 'refus « ' + r.refus + ' »'
+  : r.q ? 'question « ' + r.q.texte + ' » [' + r.q.oui + '|' + r.q.non + ']' + (r.q.objet ? ' objet' : '') : r.reprise ? 'reprise ' + cn(r.reprise) : 'accepté' + (r.m ? ' ' + r.m.nom : '');
+/* les 42 paires de la conception (essais/noms.js), avec leur degré : 'meme', 'proche' ou '' (différentes) */
+const PAIRES = [['meme', 'Étang', 'etang'], ['meme', 'L\'étang', 'Étang'], ['meme', 'Étangs', 'Étang'], ['meme', 'Fosse', 'Fossé'], ['meme', 'Mare', 'Mares'],
+  ['meme', 'Ruisseau', 'Ruisseaux'], ['meme', 'Ruisseau', 'Ruiseau'], ['meme', 'Rivière', 'La riviere'], ['meme', 'Lac', 'Lacs'], ['meme', 'Ru', 'Rû'],
+  ['meme', 'Bassin 1', 'Bassin  1'], ['meme', 'Étang du bas', 'Étang-du-bas'], ['meme', 'Mare', 'La Mare'], ['meme', 'Noue', 'Noues'],
+  ['meme', 'Bassin de rétention', 'Bassin de retention'], ['meme', 'Bassin de rétention', 'Bassin de rétentions'], ['meme', 'Marre', 'Mare'],
+  ['meme', 'Fosé', 'Fossé'], ['meme', 'Etang', 'ETANG'], ['meme', 'Fossé', 'Fossés'], ['meme', 'La Mare', 'Le Mare'],
+  ['proche', 'Etagn', 'Étang'], ['proche', 'Fossé communal', 'Fossé communale'], ['proche', 'Fossé de la rue', 'Fossé de la route'], ['proche', 'Etnag', 'Étang'],
+  ['proche', 'Puisart', 'Puisard'],
+  ['', 'Mare', 'Marc'], ['', 'Cuve', 'Cave'], ['', 'Noue 1', 'Noue 2'], ['', 'Noue A', 'Noue B'], ['', 'Noue est', 'Noue ouest'], ['', 'Fossé nord', 'Fossé sud'],
+  ['', 'Fossé est', 'Fossé ouest'], ['', 'Bassin d\'orage', 'Bassin d\'arrosage'], ['', 'Marais', 'Mare'], ['', 'Canal', 'Chenal'], ['', 'Étang du bas', 'Etang du haut'],
+  ['', 'Citerne', 'Citerne enterrée'], ['', 'Étang', 'Étang 2'], ['', 'Mare', 'Marne'], ['', 'Bassin', 'Bassin 1'], ['', 'Noue 1', 'Noue 11']];
+/* n1 : degrés des 42 paires, dans les deux sens ; forme et repères ; distance OSA (restreinte) ; nom tapé dans la palette face au modèle de l'autre */
+function nomsPaires(){
+  const nb = {meme: 0, proche: 0, '': 0}, faux = [], fauxP = [];
+  PAIRES.forEach(([att, a, b]) => {
+    nb[att]++;
+    const d1 = fx('degreDest', a, b), d2 = fx('degreDest', b, a);
+    if (d1 !== att || d2 !== att) faux.push(a + ' / ' + b + ' : ' + JSON.stringify(d1) + ', ' + JSON.stringify(d2));
+    const v = verdict(palette(saisieD(a), [modele('b1', b)]));
+    if (!(att === 'meme' ? /^refus /.test(v) : att === 'proche' ? /^question /.test(v) : /^accepté/.test(v))) fauxP.push(a + ' face à ' + b + ' : ' + v);
+  });
+  const liste = (l, n) => l.length ? ' : ' + l.slice(0, n).join(' ; ') + (l.length > n ? ' ; … (' + l.length + ' en tout)' : '') : '';
+  R.ok(PAIRES.length === 42 && nb.meme === 21 && nb.proche === 5 && nb[''] === 16 && !faux.length,
+    'n1 les 42 paires de la conception gardent leur degré, dans les deux sens (VCroquis.degreDest : 21 de même nom, 5 proches, 16 différentes)' + liste(faux, 5));
+  const c = fx('canonDest', 'L\'Étang-du-Bas  2'), c2 = fx('canonDest', 'Œillet A'), d = [['etang', 'etagn'], ['ca', 'abc'], ['fose', 'fosse'], ['', 'mare']].map(([x, y]) => fx('distDest', x, y));
+  R.ok(cn(c) === cn({forme: 'etangdubas2', reperes: '2'}) && cn(c2) === cn({forme: 'oeileta', reperes: 'a'}) && JSON.stringify(d) === '[1,3,1,4]',
+    'n1 canonDest : « L\'Étang-du-Bas  2 » → etangdubas2, repère 2 ; « Œillet A » → oeileta, repère a ; distDest (OSA, Damerau restreinte) : etang/etagn 1, ca/abc 3, fose/fosse 1, vide/mare 4 ('
+    + [cn(c), cn(c2), JSON.stringify(d)].join(' ; ') + ')');
+  R.ok(!fauxP.length, 'n1 le premier nom de chaque paire tapé dans la palette face au modèle de l\'autre : même nom refusé (M1, ou M5 pour « Fosse »), nom proche : la question, sinon accepté' + liste(fauxP, 4));
+}
+/* n2 : « etang » et ses variantes face au modèle « Étang » : palette (M1, sur le nom), Réglages (R), fiche (F) ; témoins */
+function nomsEtang(){
+  const ET = modele('e1', 'Étang', {ab: 'Ét', art: 'l\'', ep: 'nc'}), MA = modele('m1', 'Mare', {ab: 'Ma', art: 'la'}), MAP = {nom: 'Mare', ab: 'Ma', art: 'la', ep: 'conforme', cst: 'recup'};
+  const noms = ['etang', 'ETANG', 'L\'étang', 'Étangs', ' étang '];
+  const pal = noms.map(n => { const r = palette(saisieD(n, {ep: 'nc'}), [ET]); return n + ' : ' + (r && r.refus === M1('Étang') && r.m === null && r.champ === 'nom' ? 'M1' : verdict(r)); });
+  R.ok(pal.every(s => / : M1$/.test(s)), 'n2 palette : « etang », « ETANG », « L\'étang », « Étangs », « étang » face au modèle « Étang » : M1, le focus sur le nom (' + pal.join(' ; ') + ')');
+  const reg = noms.map(n => { const r = reglages(saisieD(n), MA, [ET]); return n + ' : ' + (r && r.refus === MR('Étang') && r.m === null ? 'R' : verdict(r)); });
+  R.ok(reg.every(s => / : R$/.test(s)), 'n2 Réglages : modèle « Mare » renommé « etang », « ETANG »… face au modèle « Étang » : « existe déjà dans la liste » (' + reg.join(' ; ') + ')');
+  const fi = noms.map(n => { const r = ficheNom(Object.assign({}, MAP, {nom: n}), [ET], []); return n + ' : ' + (r && r.refus === MF('Étang') ? 'F' : verdict(r)); });
+  R.ok(fi.every(s => / : F$/.test(s)), 'n2 fiche : une Mare posée renommée « etang », « ETANG »… face au modèle « Étang » : « écrivez « Étang » pour la même » (' + fi.join(' ; ') + ')');
+  const t = sur(() => V.destSaisie({nom: 'etang', ep: 'nc', cst: 'autre'})), t2 = reglages(saisieD('Étang', {ab: 'Ét', art: 'l\'', ep: 'conforme'}), ET, [MA]);
+  R.ok(!!t && t.refus === '' && !!t.m && t.m.nom === 'etang' && Object.keys(t).sort().join() === 'm,refus' && !!t2 && t2.refus === '' && !!t2.m && t2.m.ep === 'conforme' && !t2.q,
+    'n2 témoins : sans listes, destSaisie accepte « etang » comme avant ({m, refus}) ; Réglages, nom inchangé (« Étang », jugement changé) : accepté (' + verdict(t) + ' ; ' + verdict(t2) + ')');
+}
+/* n3 : « Fosse » (M5) partout, avec ou sans « Fossé » ; « Fossé » seul accepté ; « Fossé » face à « Fossé » : M1 ; le refus du puits d'abord */
+function nomsFosse(){
+  const FO = modele('f1', 'Fossé', {ab: 'Fo', ep: 'reserve', cst: 'MILIEU'}), MA = modele('m1', 'Mare');
+  const vus = [];
+  ['Fosse', 'FOSSE', 'fosse', 'La fosse', 'Fosses'].forEach(n => [[], [FO]].forEach(l => {
+    const r = [palette(saisieD(n), l), reglages(saisieD(n), MA, l), ficheNom(saisieD(n), l, [])];
+    vus.push(n + (l.length ? ' (avec « Fossé »)' : '') + ' : ' + r.map(x => x && x.refus === M5 ? 'M5' : verdict(x)).join('/'));
+  }));
+  R.ok(vus.every(s => / : M5\/M5\/M5$/.test(s)), 'n3 « Fosse », « FOSSE », « fosse », « La fosse », « Fosses », sans ou avec un modèle « Fossé » : M5 dans la palette, les Réglages et la fiche ('
+    + vus.filter(s => !/ : M5\/M5\/M5$/.test(s)).slice(0, 3).join(' ; ') + ')');
+  const seul = palette(saisieD('Fossé'), []);
+  R.ok(!!seul && seul.refus === '' && !!seul.m && seul.m.nom === 'Fossé' && !seul.q, 'n3 témoin : « Fossé » seul est accepté (' + verdict(seul) + ')');
+  const fs = ['Fossé', 'fossé', 'Fossés', 'FOSSÉ', 'le Fossé'].map(n => { const r = palette(saisieD(n), [FO]); return n + ' : ' + (r && r.refus === M1('Fossé') ? 'M1' : verdict(r)); });
+  R.ok(fs.every(s => / : M1$/.test(s)), 'n3 « Fossé », « fossé », « Fossés », « FOSSÉ », « le Fossé » face au modèle « Fossé » : M1 (' + fs.join(' ; ') + ')');
+  const pu = ['Fosse du puits', 'Puits'].map(n => { const r = palette(saisieD(n), [FO]); return n + ' : ' + (r && r.refus === PUITS_R ? 'puits' : verdict(r)); });
+  R.ok(pu.every(s => / : puits$/.test(s)), 'n3 témoin : « Fosse du puits », « Puits » : le refus du puits, toujours le premier (' + pu.join(' ; ') + ')');
+  /* une ancienne « Fosse » (d'un plan et d'une tablette d'avant m144) renommée dans sa fiche, face à une autre « Fosse » posée et au
+     modèle « Fosse » : « Fossé » garde sa clé de rejet, accepté (relecture M1) ; « fosse » : M5 */
+  const FOP = {nom: 'Fosse', ab: 'Fo', art: 'la', ep: 'reserve', cst: 'MILIEU'}, FOM = modele('f0', 'Fosse', {ab: 'Fo', art: 'la', ep: 'reserve', cst: 'MILIEU'});
+  const vf = ['Fossé', 'fosse'].map(n => [n, ficheNom(Object.assign({}, FOP, {nom: n}), [FOM], [FOP], 'Fosse')]);
+  R.ok(vf[0][1] === null && !!vf[1][1] && vf[1][1].refus === M5,
+    'n3 fiche d\'une ancienne « Fosse », face à une autre « Fosse » posée et au modèle « Fosse » : « Fossé » accepté (même clé de rejet ; relecture M1), « fosse » : M5 ('
+    + vf.map(([n, r]) => n + ' : ' + (r && r.refus === M5 ? 'M5' : verdict(r))).join(' ; ') + ')');
+}
+/* n4 (garde) : au chargement, modelesDe ne compare pas les noms */
+function nomsChargement(){
+  const l = sur(() => V.modelesDe([modele('a', 'Étang'), modele('b', 'etang'), modele('c', 'Fosse'), modele('d', 'Fossé de la route'), modele('e', 'Fossé de la rue'), modele('f', 'Puisard')]));
+  R.ok(Array.isArray(l) && l.map(m => m.id + '=' + m.nom).join(' ') === 'a=Étang b=etang c=Fosse d=Fossé de la route e=Fossé de la rue f=Puisard',
+    'n4 (garde) au chargement, modelesDe garde « Étang » et « etang », « Fosse », « Fossé de la route » et « Fossé de la rue », « Puisard » (' + (Array.isArray(l) ? l.map(m => m.nom).join(', ') : l) + ')');
+}
+/* n5 : destination posée « Étang », absente de la palette : palette (acceptée telle quelle, sinon M3) ; fiche (reprise, M3, F) */
+function nomsPlan(){
+  const POSE = {nom: 'Étang', ab: 'Ét', art: 'l\'', ep: 'nc', cst: 'autre'};
+  const ok = [saisieD('Étang', {ab: 'Ét', art: 'l\'', ep: 'nc'}), saisieD('Étang', {ab: 'Ét', ep: 'nc'}), saisieD('Étang', {ep: 'nc'})].map(s => palette(s, [], [POSE]));
+  R.ok(ok.every(r => !!r && r.refus === '' && !!r.m && r.m.nom === 'Étang' && r.m.ab === 'Ét' && !r.q),
+    'n5 palette, « Étang » (Ét, NC, autre) posée sur le plan, absente de la palette : « Étang » de même abréviation (saisie ou tirée du nom) et mêmes jugements, article « l\' » ou « le » : accepté ('
+    + ok.map(verdict).join(' ; ') + ')');
+  const ko = [['jugement conforme', saisieD('Étang', {ab: 'Ét', ep: 'conforme'})], ['case milieu naturel', saisieD('Étang', {ab: 'Ét', ep: 'nc', cst: 'MILIEU'})],
+    ['abréviation « Et »', saisieD('Étang', {ab: 'Et', ep: 'nc'})], ['« etang »', saisieD('etang', {ab: 'Ét', ep: 'nc'})], ['« Étangs »', saisieD('Étangs', {ab: 'Ét', ep: 'nc'})]]
+    .map(([lib, s]) => { const r = palette(s, [], [POSE]); return lib + ' : ' + (r && r.refus === M3('Étang') && r.champ === 'nom' ? 'M3' : verdict(r)); });
+  R.ok(ko.every(s => / : M3$/.test(s)), 'n5 palette, la même destination posée : autre jugement, autre case, autre abréviation, « etang », « Étangs » : M3 (' + ko.join(' ; ') + ')');
+  const MAP = {nom: 'Mare', ab: 'Ma', art: 'la', ep: 'nc', cst: 'autre'};
+  const fA = ficheNom(Object.assign({}, MAP, {nom: 'Étang'}), [], [POSE]), fB = ficheNom(Object.assign({}, MAP, {nom: 'Étang', ep: 'conforme'}), [], [POSE]);
+  const fC = ficheNom(Object.assign({}, MAP, {nom: 'etang'}), [], [POSE]);
+  R.ok(!!fA && !!fA.reprise && fA.reprise.ab === 'Ét' && fA.reprise.art === 'l\'' && !fA.refus && !fA.q && !!fB && fB.refus === M3('Étang') && !!fC && fC.refus === MF('Étang'),
+    'n5 fiche, une Mare (NC, autre) posée renommée : « Étang », de mêmes jugements, accepté, il reprend « Ét » et « l\' » ; jugement conforme : M3 ; « etang » : F ('
+    + [verdict(fA), verdict(fB), verdict(fC)].join(' ; ') + ')');
+  /* relecture M7 : la destination posée « Étang » (NC) passe avant le modèle « Étang » (conforme) ; témoin : sans elle, le modèle donne
+     son abréviation et son article */
+  const ETC = modele('e1', 'Étang', {ab: 'Eg', art: 'l\'', ep: 'conforme'}), MAC = Object.assign({}, MAP, {ep: 'conforme'});
+  const g7 = ficheNom(Object.assign({}, MAC, {nom: 'Étang'}), [ETC], [POSE], 'Mare'), g7t = ficheNom(Object.assign({}, MAC, {nom: 'Étang'}), [ETC], [], 'Mare');
+  R.ok(!!g7 && g7.refus === M3('Étang') && !!g7t && !!g7t.reprise && g7t.reprise.ab === 'Eg' && g7t.reprise.art === 'l\'',
+    'n5 fiche, une Mare conforme renommée « Étang », face à « Étang » posée (NC) et au modèle « Étang » (conforme) : M3 (relecture M7) ; témoin, sans la destination posée : '
+    + 'le modèle donne « Eg » et « l\' » (' + [verdict(g7), verdict(g7t)].join(' ; ') + ')');
+  /* relecture M5 : dans la palette, l'abréviation laissée vide reprend celle de la destination posée (« EG », qui ne se tire pas du nom) ;
+     une autre abréviation tapée : M3 ; la même : acceptée */
+  const PEG = Object.assign({}, POSE, {ab: 'EG'});
+  const a5 = [saisieD('Étang', {ep: 'nc'}), saisieD('Étang', {ab: 'Ét', ep: 'nc'}), saisieD('Étang', {ab: 'EG', ep: 'nc'})].map(s => palette(s, [], [PEG]));
+  const vu5 = r => verdict(r) + (r && r.m ? ' ' + r.m.ab + ', ' + r.m.art : '');
+  R.ok(!!a5[0] && a5[0].refus === '' && !!a5[0].m && a5[0].m.ab === 'EG' && a5[0].m.art === 'l\'' && !a5[0].q && !!a5[1] && a5[1].refus === M3('Étang')
+    && !!a5[2] && a5[2].refus === '' && !!a5[2].m && a5[2].m.ab === 'EG' && !a5[2].q,
+    'n5 palette, « Étang » posée avec l\'abréviation « EG » : « Étang » sans abréviation, accepté, il reprend « EG » et « l\' » (relecture M5) ; « Ét » tapée : M3 ; « EG » tapée : '
+    + 'accepté (' + a5.map(vu5).join(' ; ') + ')');
+  /* relecture M1 : une destination posée « Etang » renommée « Étang » ou « ÉTANG » (même clé de rejet) : acceptée, même face à une autre
+     « Etang » posée et au modèle « Etang » ; « Étangs », ou sans le nom d'avant : F ; l'autre déjà écrite « Étang », mêmes jugements : reprise */
+  const EA = {nom: 'Etang', ab: 'Et', art: 'l\'', ep: 'nc', cst: 'autre'}, EM = modele('e2', 'Etang', {ab: 'Et', art: 'l\'', ep: 'nc'});
+  const m1 = [['Étang', 'Etang', EA], ['ÉTANG', 'Etang', EA], ['Étangs', 'Etang', EA], ['Étang', null, EA], ['Étang', 'Etang', Object.assign({}, EA, {nom: 'Étang', ab: 'Ét'})]]
+    .map(([n, n0, autre]) => verdict(ficheNom(Object.assign({}, EA, {nom: n}), [EM], [autre], n0)));
+  const att1 = ['accepté', 'accepté', 'refus « ' + MF('Etang') + ' »', 'refus « ' + MF('Etang') + ' »', 'reprise ' + cn({ab: 'Ét', art: 'l\''})];
+  R.ok(m1.every((v, i) => v === att1[i]),
+    'n5 fiche, une destination posée « Etang » renommée, face à une autre « Etang » posée et au modèle « Etang » : « Étang », « ÉTANG » acceptés (même clé de rejet ; '
+    + 'relecture M1) ; « Étangs » : F ; « Étang » sans le nom d\'avant : F ; l\'autre déjà écrite « Étang » : reprise de son abréviation (' + m1.join(' ; ') + ')');
+}
+/* deux descentes « avant », chacune vers sa destination (E1 « Fossé de la route », E2 aux champs p2) ; clés des rejets et libellés de la ligne */
+const deuxDest = p2 => doc({o: [['S1', 'descente', 0, 10, {cote: 'avant'}], ['E1', 'exutoire', 0, 4, {nom: 'Fossé de la route', ab: 'Fo', art: 'le', ep: 'nc', cst: 'autre'}],
+  ['S2', 'descente', 8, 10, {cote: 'avant'}], ['E2', 'exutoire', 8, 4, p2]], l: [['t1', 'tr', '', '', ['S1', 'E1']], ['t2', 'tr', '', '', ['S2', 'E2']]]});
+const rejetsAvant = d => sur(() => { const an = V.analyser(copie(d), 'edl'), r = V.constatDeduit(copie(d), an).rows.find(x => x.id === 'gout_av');
+  return Object.keys(an.exu).length + ' clé(s) ; ' + (r ? r.libs.join(' ; ') : 'ligne absente'); });
+/* n6 : nom proche d'une destination : la question, puis chaque réponse, dans la palette, la fiche et les Réglages */
+function nomsProches(){
+  const RO = modele('r1', 'Fossé de la route', {ab: 'Fo', art: 'le', ep: 'nc', cst: 'autre'}), ROD = {nom: 'Fossé de la route', ab: 'Fo', art: 'le', ep: 'nc', cst: 'autre'};
+  const s = saisieD('Fossé de la rue', {ep: 'conforme', cst: 'MILIEU'}), r = palette(s, [RO]);
+  R.ok(!!r && r.refus === '' && !!r.q && r.q.texte === QD('Fossé de la route') && r.q.oui === 'La même' && r.q.non === 'Une autre' && !r.q.objet && !!r.m && r.m.nom === 'Fossé de la rue',
+    'n6 palette : « Fossé de la rue » face au modèle « Fossé de la route » : la question « ' + QD('Fossé de la route') + ' », « La même », « Une autre » (' + verdict(r) + ')');
+  const ok = !!r && !!r.q, non = ok ? fx('reponseNomProche', r, false) : null, oui = ok ? fx('reponseNomProche', r, true) : null;
+  R.ok(!!non && !!non.m && cn(non.m) === cn(r.m) && !non.pose && !non.refus && !!oui && !oui.m && !oui.refus && cn(oui.pose) === cn({k: 'pt', t: 'exutoire', modele: ROD, mid: 'r1'}),
+    'n6 palette : « Une autre » crée le modèle sous le nom tapé ; « La même » arme l\'outil du modèle « Fossé de la route » (' + [cn(non), cn(oui)].join(' ; ') + ')');
+  const rP = palette(s, [], [ROD]), ouiP = rP && rP.q ? fx('reponseNomProche', rP, true) : null;
+  R.ok(!!rP && !!rP.q && rP.q.texte === QD('Fossé de la route') && !!ouiP && !ouiP.m && cn(ouiP.pose) === cn({k: 'pt', t: 'exutoire', modele: ROD}),
+    'n6 palette, face à une destination posée (absente de la palette) : la question ; « La même » arme l\'outil de ses champs, sans modèle (' + [verdict(rP), cn(ouiP)].join(' ; ') + ')');
+  const E2 = {nom: 'Mare', ab: 'Ma', art: 'la', ep: 'conforme', cst: 'MILIEU'}, rF = ficheNom(Object.assign({}, E2, {nom: 'Fossé de la rue'}), [], [ROD]);
+  const xF = rF && rF.q ? fx('reponseNomProche', rF, true) : null, nF = rF && rF.q ? fx('reponseNomProche', rF, false) : null;
+  const avant = rejetsAvant(deuxDest(E2)), apres = xF && xF.m ? rejetsAvant(deuxDest(Object.assign({}, E2, xF.m))) : 'rien de repris';
+  R.ok(!!rF && !!rF.q && rF.q.texte === QD('Fossé de la route') && rF.q.oui === 'La même' && !!xF && cn(xF.m) === cn(ROD) && apres === '1 clé(s) ; Fossé de la route (rejet des EP)'
+    && !!nF && !nF.m && !nF.refus && !nF.pose,
+    'n6 fiche, deux destinations aux jugements différents (la Mare, conforme, milieu naturel, renommée « Fossé de la rue ») : la question ; « La même » reprend nom, abréviation, article '
+    + 'et jugements de l\'autre, d\'où une seule clé et un seul rejet au constat ; « Une autre » : rien de repris (avant : ' + avant + ' ; après : ' + apres + ' ; ' + cn(nF) + ')');
+  const MA = modele('m1', 'Mare', {ab: 'Ma', art: 'la', ep: 'conforme', cst: 'recup'});
+  const rR = reglages(saisieD('Fossé de la rue', {ab: 'Ma', art: 'la', ep: 'conforme', cst: 'recup'}), MA, [RO]);
+  const ouiR = rR && rR.q ? fx('reponseNomProche', rR, true) : null, nonR = rR && rR.q ? fx('reponseNomProche', rR, false) : null;
+  R.ok(!!rR && !!rR.q && rR.q.texte === QD('Fossé de la route') && rR.q.oui === 'La même' && !!ouiR && !ouiR.m && !ouiR.pose && ouiR.refus === MR('Fossé de la route')
+    && !!nonR && !!nonR.m && nonR.m.nom === 'Fossé de la rue',
+    'n6 Réglages, « Mare » renommée « Fossé de la rue » : la question ; « La même » : rien à enregistrer, le toast « ' + MR('Fossé de la route') + ' » (le modèle garde son ancien '
+    + 'nom ; relecture M3, M9) ; « Une autre » enregistre le nom tapé (' + [verdict(rR), cn(ouiR), cn(nonR)].join(' ; ') + ')');
+}
+/* n7 : nom proche d'un objet de la palette (« Puisart ») : la question, chaque réponse ; noms des objets : M4 */
+function nomsObjets(){
+  const MA = modele('m1', 'Mare'), s = saisieD('Puisart'), rP = palette(s, []), rG = reglages(s, MA, []), rF = ficheNom(s, [], []);
+  const q = [rP, rG, rF].map(r => r && r.q ? r.q.texte + ' [' + r.q.oui + '|' + r.q.non + ']' + (r.q.objet ? ' objet' : '') : verdict(r));
+  R.ok(q.every(x => x === QO('Puisard') + ' [Le même|Un autre] objet'), 'n7 « Puisart » : la question « ' + QO('Puisard') + ' », « Le même », « Un autre », dans la palette, les Réglages et la fiche ('
+    + q.join(' ; ') + ')');
+  const rep = (r, oui) => r && r.q ? fx('reponseNomProche', r, oui) : null;
+  const oP = rep(rP, true), nP = rep(rP, false), oF = rep(rF, true), nF = rep(rF, false), oG = rep(rG, true), nG = rep(rG, false);
+  R.ok(!!oP && !oP.m && cn(oP.pose) === cn({k: 'pt', t: 'puisard'}) && !!nP && !!nP.m && nP.m.nom === 'Puisart' && !nP.pose,
+    'n7 palette : « Le même » arme l\'outil Puisard, sans modèle ; « Un autre » crée le modèle « Puisart » (' + [cn(oP), cn(nP)].join(' ; ') + ')');
+  R.ok(!!oF && !oF.m && oF.refus === M4('Puisard') && !!nF && !nF.m && !nF.refus, 'n7 fiche : « Le même » : M4, l\'ancien nom reste ; « Un autre » : le nom tapé (' + [cn(oF), cn(nF)].join(' ; ') + ')');
+  R.ok(!!oG && !oG.m && !oG.pose && oG.refus === M4('Puisard') && !!nG && !!nG.m && nG.m.nom === 'Puisart',
+    'n7 Réglages : « Le même » ne crée ni ne renomme aucun modèle, avec le toast M4 (relecture M3, M9) ; « Un autre » enregistre « Puisart » (' + [cn(oG), cn(nG)].join(' ; ') + ')');
+  const m4 = [['Puisard', 'Puisard'], ['puisards', 'Puisard'], ['Gargouile', 'Gargouille'], ['l\'infiltration au sol', 'Infiltration au sol'], ['Rejet en milieu naturel', 'Rejet en milieu naturel'],
+    ['Fosse septique', 'Fosse septique'], ['Autre destination', 'Autre destination']].map(([n, lib]) => n + ' : '
+      + [palette(saisieD(n), []), reglages(saisieD(n), MA, []), ficheNom(saisieD(n), [], [])].map(r => r && r.refus === M4(lib) ? 'M4' : verdict(r)).join('/'));
+  R.ok(m4.every(x => / : M4\/M4\/M4$/.test(x)), 'n7 « Puisard », « puisards », « Gargouile », « l\'infiltration au sol », « Rejet en milieu naturel », « Fosse septique », « Autre destination » : '
+    + 'M4 dans la palette, les Réglages et la fiche (' + m4.filter(x => !/ : M4\/M4\/M4$/.test(x)).slice(0, 3).join(' ; ') + ')');
+}
+
+/* ---------- m151 : destination nommée comme un puits, venue d'un fichier (D19 ; réponse puits-venu-fichier du 16 nov. 2026) ---------- */
+/* rappels attendus (nom écrit comme sur l'objet) ; rejet d'une descente vers une destination aux champs p (jugement de l'analyse) */
+const RAP_PU = n => 'Autre destination « ' + n + ' » : jugée comme un puits (rejet des EP non conforme). Pour un puits, posez l\'objet Puits ; pour un puits perdu, un Puisard.';
+const RAP_PP = n => 'Autre destination « ' + n + ' » : jugée d\'après sa fiche. Un puits perdu (qui infiltre les eaux) se dessine en Puisard.';
+const rejetDest = p => sur(() => V.analyser(versDest('descente', p), 'edl').resObj.S.res);
+/* f1 : même fonction pour le refus de la fiche et le jugement : nom, refus, nomPuits, jugement ('puits' : rejet PUITS ; 'fiche' : X:…) */
+function puitsVenuNom(){
+  const N = [['Puits du jardin', 'puits'], ['PUITS', 'puits'], [' le puîts ', 'puits'], ['Puit du jardin', 'puits'], ['Mare\u00a0aux\u00a0PuÏts ', 'puits'],
+    ['Étangpuits', 'puits'], ['puit', 'puits'], ['Puits perdu', 'perdu'], ['puits perdus', 'perdu'], ['Puit perdu', 'perdu'], ['PUITS-PERDU', 'perdu'],
+    ['Puits perdu et puits', 'puits'], ['Puits non perdu', 'puits'], ['Puits perdu2', 'puits'], ['Étang', ''], ['Fossé', ''], ['Puisard', ''], ['Puiterie', '']];
+  const vus = N.map(([n, k]) => {
+    const r = fx('champDest', 'nom', n), rf = r && r.refus === PUITS_R ? 'refusé' : r && r.refus ? 'refus « ' + r.refus + ' »' : r && typeof r === 'object' ? 'accepté' : String(r);
+    const res = rejetDest({nom: n, ep: 'conforme'}), j = res === 'PUITS' ? 'puits' : /^X:/.test(res) ? 'fiche' : String(res);
+    const ok = rf === (k ? 'refusé' : 'accepté') && fx('nomPuits', n) === k && j === (k === 'puits' ? 'puits' : 'fiche');
+    return {ok, txt: JSON.stringify(n) + ' : ' + rf + ', ' + JSON.stringify(fx('nomPuits', n)) + ', ' + j};
+  });
+  R.ok(vus.every(v => v.ok), 'f1 refus de la fiche et jugement d\'une même fonction (VCroquis.nomPuits) : sept noms de puits refusés et jugés comme un puits, '
+    + 'quatre de puits perdu refusés et jugés d\'après leur fiche, trois douteux (deux mêlés, un numéro collé à « perdu ») refusés et jugés comme un puits ; '
+    + 'Étang, Fossé, Puisard, Puiterie acceptés ('
+    + (vus.filter(v => !v.ok).map(v => v.txt).slice(0, 4).join(' ; ') || vus.length + ' noms') + ')');
+}
+/* f2 : rappels « À vérifier » d'un plan qui porte trois destinations nommées comme un puits (dont une posée seule) et deux témoins */
+function puitsVenuRappels(){
+  const d = doc({o: [['S', 'descente', 0, 10], ['E', 'exutoire', 0, 4, {nom: 'PUITS du Jardin', ep: 'conforme'}], ['E2', 'exutoire', 20, 4, {nom: 'Puits'}],
+    ['S3', 'descente', 40, 10], ['E3', 'exutoire', 40, 4, {nom: 'Puits perdu', ep: 'conforme'}], ['S4', 'descente', 60, 10], ['E4', 'exutoire', 60, 4, etang('conforme')],
+    ['S5', 'descente', 80, 10], ['E5', 'exutoire', 80, 4, {nom: 'Puisard', ep: 'conforme'}]],
+    l: [['t1', 'tr', '', '', ['S', 'E']], ['t3', 'tr', '', '', ['S3', 'E3']], ['t4', 'tr', '', '', ['S4', 'E4']], ['t5', 'tr', '', '', ['S5', 'E5']]]});
+  const an = sur(() => V.analyser(d, 'edl')), cs = (an && an.controles) || [];
+  const vus = cs.filter(x => /^destpuits:/.test(x.cle)).map(x => x.id + ' ' + x.niveau + ' ' + x.cle + ' ' + x.txt).sort();
+  const att = ['E info destpuits:E ' + RAP_PU('PUITS du Jardin'), 'E2 info destpuits:E2 ' + RAP_PU('Puits'), 'E3 info destpuits:E3 ' + RAP_PP('Puits perdu')];
+  R.ok(JSON.stringify(vus) === JSON.stringify(att), 'f2 rappels « À vérifier » mot pour mot, le nom écrit comme sur l\'objet ; aucun pour l\'étang ni le puisard ('
+    + (vus.join(' / ') || 'aucun rappel') + ')');
+  R.ok(!cs.some(x => /^destpuits:/.test(x.cle) && x.niveau !== 'info') && cs.filter(x => x.niveau === 'manque' && /^E\d?$/.test(x.id)).length === 0,
+    'f2 les rappels ne demandent rien (niveau « info », aucun « manque » sur les destinations) (' + cs.map(x => x.cle + ' ' + x.niveau).join(', ') + ')');
+}
+/* f3 : l'objet et son type ne changent pas ; an.exu sans entrée pour la destination « Puits » ; libellé du rejet */
+function puitsVenuObjet(){
+  const vf = (p, t) => { const d = versDest(t || 'descente', p), avant = JSON.stringify(d.el), ty = JSON.stringify(V.TYPES.exutoire);
+    const an = sur(() => { const a = V.analyser(d, 'edl'); V.anomaliesDoc(d, a, null); V.constatDeduit(d, a); return a; });
+    return {meme: JSON.stringify(d.el) === avant && JSON.stringify(V.TYPES.exutoire) === ty, an}; };
+  const P = {nom: 'Puits', ab: 'Pu', art: 'le', ep: 'conforme', cst: 'autre'}, a = vf(P), t = vf(etang('conforme')), w = vf(P, 'wc');
+  R.ok(a.meme && w.meme && t.meme, 'f3 (garde) l\'analyse, les anomalies et le constat ne changent ni l\'objet « Puits » (descente, WC) ni son type ; '
+    + 'de même pour l\'étang (' + JSON.stringify([a.meme, w.meme, t.meme]) + ')');
+  R.ok(!!(a.an && a.an.resObj) && a.an.resObj.S.res === 'PUITS' && !a.an.exu, 'f3 rejet PUITS, aucune clé an.exu pour la destination « Puits » ('
+    + JSON.stringify({res: a.an && a.an.resObj && a.an.resObj.S.res, exu: a.an && a.an.exu ? Object.keys(a.an.exu) : null}) + ')');
+  const d = doc({o: [['S', 'descente', 0, 10], ['E', 'exutoire', 0, 4, P], ['S2', 'descente', 20, 10], ['E2', 'exutoire', 20, 4, etang('conforme')]],
+    l: [['t1', 'tr', '', '', ['S', 'E']], ['t2', 'tr', '', '', ['S2', 'E2']]]});
+  const an = sur(() => V.analyser(d, 'edl')), k = an && an.exu ? Object.keys(an.exu) : [], r = an && an.resObj ? an.resObj.S.res : String(an);
+  R.ok(JSON.stringify(k) === '["X:ETANG:conforme:autre"]' && r === 'PUITS' && libExu(r, an) === 'puits' && libExu(an.resObj.S2.res, an) === 'étang',
+    'f3 à côté d\'un étang : la seule clé de l\'étang dans an.exu ; libellés des rejets « puits » et « étang » (' + JSON.stringify({exu: k, res: r, lib: libExu(r, an)}) + ')');
+}
+/* f4 : la destination « Puits » aux EP conformes se juge et se reporte comme l'objet Puits (bilans égaux, ceux de q1) */
+async function puitsVenuConstat(){
+  const P = {nom: 'Puits', ep: 'conforme'}, C = [
+    ['retenue d\'office', 'descente', null, 'gout_av', 'PUITS | [null] | ""'],
+    ['écartée', 'descente', {'ep-puits:S': 'ecartee'}, 'gout_av', 'PUITS | [true] | "oui"'],
+    ['mise à arbitrer', 'descente', {'ep-puits:S': 'arbitrer'}, 'gout_av', 'PUITS | [null] | "" | à arbitrer'],
+    ['WC', 'wc', null, 'wc', 'PUITS | [false] | "non"']];
+  for (const [n, t, dec, ligne, att] of C){
+    const a = await bilan(versDest(t, P, dec), ligne), b = await bilan(versPuits(t, dec), ligne);
+    R.ok(vu(a) === vu(b) && a.ligne === att, 'f4 destination « Puits » aux EP conformes, ' + n + ' : comme l\'objet Puits (' + vu(a)
+      + (vu(a) === vu(b) ? '' : ' ; objet Puits : ' + vu(b)) + ')');
+  }
+  const p = await pdf(versDest('descente', P), {mode: 'edl'}), rej = p.txt.filter(s => /^puits\b/.test(s)), code = p.txt.filter(s => /\bPUITS\b/.test(s));
+  R.ok(!p.err.length && rej.length === 1 && rej[0] === 'puits · anomalie n° 1' && !code.length,
+    'f4 plan PDF : « puits · anomalie n° 1 » au « Rejet constaté » de la page 2, jamais le code (' + (p.err.join(' | ') || rej.concat(code).map(s => JSON.stringify(s)).join(', ') || 'rien') + ')');
+  /* relecture de m151, M8 : quels que soient le jugement et la case de sa fiche (réserve et milieu naturel, non conforme et gargouille, à
+     arbitrer et récupérateur) : descente (ep-puits retenue d'office), WC (eu-puits) et page 2 du plan PDF comme l'objet Puits */
+  const dP = await bilan(versPuits('descente'), 'gout_av'), wP = await bilan(versPuits('wc'), 'wc');
+  for (const f of [{ep: 'reserve', cst: 'MILIEU'}, {ep: 'nc', cst: 'GARG'}, {ep: 'arbitrer', cst: 'recup'}]){
+    const Q = Object.assign({nom: 'Puits'}, f), dD = await bilan(versDest('descente', Q), 'gout_av'), wD = await bilan(versDest('wc', Q), 'wc');
+    const q = await pdf(versDest('descente', Q), {mode: 'edl'}), rq = q.txt.filter(s => /^puits\b/.test(s)), cq = q.txt.filter(s => /\bPUITS\b/.test(s));
+    R.ok(vu(dD) === vu(dP) && dD.ligne === 'PUITS | [null] | ""' && vu(wD) === vu(wP) && wD.ligne === 'PUITS | [false] | "non"'
+      && !q.err.length && rq.length === 1 && rq[0] === 'puits · anomalie n° 1' && !cq.length,
+      'f4 destination « Puits » ' + f.ep + ' / ' + f.cst + ' : descente, WC et page 2 du plan PDF comme l\'objet Puits ('
+      + (vu(dD) === vu(dP) ? '' : 'descente ' + vu(dD) + ' ; objet Puits ' + vu(dP) + ' ; ') + (vu(wD) === vu(wP) ? '' : 'WC ' + vu(wD) + ' ; objet Puits ' + vu(wP) + ' ; ')
+      + 'lignes ' + dD.ligne + ' / ' + wD.ligne + ' ; page 2 : ' + (q.err.join(' | ') || rq.concat(cq).map(s => JSON.stringify(s)).join(', ') || 'rien') + ')');
+  }
+}
+
 (async () => {
   try {
     lignes();
@@ -943,6 +1474,7 @@ async function sansType(){
     await puitsConstat();
     await puitsRendu();
     await puitsProjet();
+    puitsMele();
     await destConstat();
     destPlusieurs();
     destOrdre();
@@ -951,6 +1483,17 @@ async function sansType(){
     destNature();
     natureJugee();
     await sansType();
+    nomsPaires();
+    nomsEtang();
+    nomsFosse();
+    nomsChargement();
+    nomsPlan();
+    nomsProches();
+    nomsObjets();
+    puitsVenuNom();
+    puitsVenuRappels();
+    puitsVenuObjet();
+    await puitsVenuConstat();
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }
   R.fin();
 })();

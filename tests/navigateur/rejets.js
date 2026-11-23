@@ -34,7 +34,17 @@
 //     jugement à régler. Échoue sur 7df0996 (type « puits » absent), sauf l'absence d'erreur dans la console.
 // p2 (décision D7) : panneau Constat de l'éditeur, descente avant et WC reliés au puits : la case « Conf. » de la descente reste vide, celle
 //     du WC dit « Non », et une phrase dit que la ligne EP suit son anomalie ; anomalie de la descente écartée : « Oui », sans la phrase ;
-//     mise à arbitrer : case vide, avec la phrase. Le premier et le troisième cas échouent sans la phrase (première version de m120).
+//     mise à arbitrer : case vide, avec la phrase. Le premier et le troisième cas échouent sans la phrase (première version de m120). Libellé
+//     des deux lignes depuis m150 (décision D18) : « Puits : rejet dans un puits » (avant : « Puits : rejet en milieu naturel », 3035f1d).
+// p3 (m150, décision D18) : PDF du constat de l'application, repris du croquis : en-tête « Puits » vers x 445,2, en 8 pt, vert ; croix de
+//     la descente avant et du WC reliés au puits dessous ; témoin, descente arrière reliée au milieu naturel dessiné : croix sous « Milieu
+//     naturel », vers x 413,3. Échoue sur 3035f1d (trois colonnes ; croix sous « Milieu naturel », vers 429,3).
+// p4 (m151, décision D19) : destination « Puits » aux EP conformes, venue d'un fichier fait à la main, reliée à une descente avant : sa fiche
+//     porte le rappel « Autre destination « Puits » : jugée comme un puits… » au-dessus des champs du jugement, qui restent, sans les
+//     aides de l'article, du jugement et de la case (relecture de m151, M2 et M4 : elles décrivent un effet qu'ils n'ont plus) ; Contrôles
+//     le donne sous « À vérifier (1) » ; le panneau Constat met la descente en « Puits : rejet dans un puits », sans conformité, avec la
+//     phrase du puits (comme en p2). Témoin : la fiche d'un étang posé à côté, sans rappel, avec ces trois aides. Échoue sur 93bbb5f (aucun
+//     rappel ; aides gardées ; constat « Puits (rejet des EP) », « Oui »), sauf le témoin et l'absence d'erreur dans la console.
 // Autre destination (m127, décision D10) :
 // a1 : « Autre destination » est dans la palette Équipements, juste après « Puits » ; l'outil choisi par son bouton, l'aide dit « Touchez le
 //     plan pour poser : Autre destination. » ; posée au toucher, sa fiche s'ouvre : sélecteur « Type » puis cinq champs, nom « Autre
@@ -102,6 +112,29 @@
 //     proposée, résumé du croquis), avant et après l'ouverture du croquis restauré. Aucune erreur dans la console.
 // m1, m2 et m3 échouent sur b6e3e3c (ni « + Nouvelle destination » dans la palette, ni modèle de la tablette : 0/9 ; m1 s'arrête au
 // rechargement, m2 et m3 sans modèle).
+// m4 à m7 (m144, décision D10 ; réponses du 16 nov. 2026, S6 b et S7 a) : destinations de même nom, noms proches, « Fosse ».
+// m4 : « + Nouvelle destination » : « Étang » enregistrée, puis « etang » refusée (« Une destination « Étang » existe déjà : choisissez-la
+//     dans la palette. ») : la fiche courte reste ouverte avec la saisie, le focus sur le nom, un seul modèle, l'outil ne change pas ;
+//     « Fosse » (refus de la fosse), « Puisard » (objet de la palette) refusés ; « Fossé » enregistrée. Aucune erreur dans la console.
+// m5 : modèle « Fossé de la route » ; « Fossé de la rue » : la question « Nom proche de « Fossé de la route », qui existe déjà : est-ce
+//     la même destination ? », boutons « La même » et « Une autre », par-dessus la fiche courte ; Échap la ferme seule ; « La même » arme
+//     l'outil du modèle existant, sans modèle de plus ; « Une autre » crée le modèle sous le nom tapé ; « Puisart » : la question face à
+//     l'objet Puisard ; « Le même » arme l'outil Puisard, « Un autre » crée le modèle ; « Etagn » face à une « Étang » seulement posée
+//     (abréviation EG) : « La même » arme l'outil de ses champs, sans modèle, et la palette rouverte n'allume aucun item (relecture M2,
+//     M11) ; « Étang » tapé sans abréviation, mêmes jugements : enregistré avec EG (relecture M5). Aucune erreur dans la console.
+// m6 : fiche d'une Mare posée près d'un « Fossé de la route » : « fossé de la route » et « Fossé de la route » (autres jugements) refusés,
+//     valeur rendue, rien ne change ; « Fossé de la rue » : la question ; Échap : valeur rendue ; « Une autre » : le nom tapé ; « La même » :
+//     nom, abréviation, article et jugements de la route, en un pas d'annulation ; « Puisart » : « Le même » garde l'ancien nom avec le
+//     refus de l'objet, « Un autre » prend le nom tapé. Aucune erreur dans la console.
+// m7 : Réglages, « Modifier » la Mare : « fossé de la route » (« existe déjà dans la liste »), « Fosse », « Puisard » refusés, la fenêtre
+//     reste ouverte ; « Fossé de la rue », le jugement changé : la question dans une fenêtre de l'application, Échap la ferme seule ;
+//     « La même » : le toast « existe déjà dans la liste », la fenêtre reste ouverte avec l'ancien nom, son article et le jugement
+//     changé, rien d'enregistré, puis « Enregistrer » garde le jugement sous l'ancien nom (relecture M3, M9) ; « Une autre » : renommée
+//     sous le même identifiant ; « Puisart » : « Le même » : le refus de l'objet, la fenêtre reste ouverte avec l'ancien nom, rien ne
+//     change ; « Un autre », dans la même fenêtre, renomme. Aucune erreur dans la console.
+// m4 à m7 échouent sur 769d1af (aucun refus de même nom, ni question, ni refus de « Fosse » : 87/102), sauf l'absence d'erreur dans la
+//     console de m4, m6 et m7 ; m5 s'y interrompt (exception : sans la question, Échap ferme l'éditeur). Sur m144 tel que relu,
+//     avant ses corrections : 101/106, les cas des relectures M2, M3, M5, M9 et M11 échouent.
 // usage : node tests/navigateur/rejets.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -448,7 +481,7 @@ async function puits(){
         .filter(c => c[1]).map(c => c.slice(0, 4).join(' | '));
       return {lignes, notes: [...document.querySelectorAll('.vc-panneau .vc-pcorps p.vc-muet')].map(x => x.textContent.trim())};
     }, st);
-    const lgD = 'EP Gouttière(s) avant | 1 | Puits : rejet en milieu naturel | ', lgW = 'EU WC | 1 | Puits : rejet en milieu naturel | Non';
+    const lgD = 'EP Gouttière(s) avant | 1 | Puits : rejet dans un puits | ', lgW = 'EU WC | 1 | Puits : rejet dans un puits | Non';
     let c = await constat('');
     R.ok(c.lignes.indexOf(lgD) >= 0 && c.lignes.indexOf(lgW) >= 0 && c.notes.indexOf(NOTE) >= 0,
       'p2 panneau Constat, rejet retenu : descente sans conformité, WC « Non », la phrase dit pourquoi (' + JSON.stringify(c) + ')');
@@ -461,12 +494,102 @@ async function puits(){
   } finally { await A.fermer(); }
 }
 
+/* p3 (m150, décision D18) : PDF du constat de l'application, repris du croquis : descente avant et WC reliés à un puits, descente arrière
+   reliée au milieu naturel dessiné (témoin) ; page 1 : en-tête « Puits » vers x 445,2, en 8 pt, vert comme « Réseau EP » ; croix de
+   raccordement de la descente avant et du WC dessous ; celle de la descente arrière sous « Milieu naturel », vers x 413,3 */
+async function puitsPdf(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p); await C.ouvrirCroquis(p, {fond: false});
+    const v0 = await C.vue(p), o = (x, y) => [v0.cx + x, v0.cy + y];
+    const els = [C.P('W', 'puits', ...o(0, -5)), C.P('M', 'milieu', ...o(10, -5)), C.P('d', 'descente', ...o(-4, 0), {cote: 'avant', visitable: 'oui'}),
+      C.P('w', 'wc', ...o(4, 0)), C.P('d2', 'descente', ...o(10, 0), {cote: 'arriere', visitable: 'oui'})], I = C.index(els);
+    els.push(C.L('Ld', 'tr', ['d', 'W'], I), C.L('Lw', 'tr', ['w', 'W'], I), C.L('Lm', 'tr', ['d2', 'M'], I));
+    await C.injecter(p, {el: els});
+    await p.evaluate(() => { const S = window.__vcEd.etat; S.doc.rev = (S.doc.rev || 0) + 1; window.__vcEd.enregistrer(); }); await C.pause(p, 500);
+    await C.fermerCroquis(p); await C.pause(p, 600);
+    const r = await p.evaluate(async () => {
+      const T = window.__VT, v = T.S.visites[0]; v.statut = 'visitee'; T.constatDepuisCroquis(v, await T.vcResume(v), false);
+      const J0 = window.jspdf.jsPDF, tx = [], ln = [], page = d => { try { return d.internal.getCurrentPageInfo().pageNumber; } catch (e){ return 0; } };
+      const W = function(){ const d = new J0(...arguments), ot = d.text, ol = d.line;
+        d.text = function(t, x, y){ tx.push({t: [].concat(t).join(' '), x, y, sz: d.getFontSize(), col: String(d.getTextColor()), pg: page(d)}); return ot.apply(d, arguments); };
+        d.line = function(x1, y1, x2, y2){ ln.push({x1, y1, x2, y2, pg: page(d)}); return ol.apply(d, arguments); };
+        return d; };
+      W.API = J0.API; window.jspdf.jsPDF = W;
+      try { await T.constatPdfBlob(v); } finally { window.jspdf.jsPDF = J0; }
+      const sa = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, ''), r1 = x => Math.round(x * 10) / 10, p1 = tx.filter(q => q.pg === 1);
+      const ys = ln.filter(l => l.pg === 1 && l.x1 === 65 && l.x2 === 544 && l.y1 === l.y2 && l.y1 > 401.99 && l.y1 < 620.51).map(l => l.y1).sort((a, b) => a - b);
+      const croix = debut => {
+        const r0 = p1.find(q => Math.abs(q.x - 70.8) < 0.01 && q.y > 402 && q.y < 620.5 && sa(q.t).indexOf(debut) === 0);
+        const i = r0 ? ys.findIndex((y, k) => k < ys.length - 1 && r0.y > y && r0.y < ys[k + 1]) : -1;
+        return i < 0 ? 'rangée introuvable' : p1.filter(q => q.t === 'X' && q.y > ys[i] && q.y < ys[i + 1]).map(q => r1(q.x)).join(' ') || 'aucune';
+      };
+      const ep = (p1.find(q => q.t === 'Réseau EP' && q.y < 402) || {}).col, pu = p1.filter(q => q.t === 'Puits' && q.y > 371 && q.y < 402);
+      return {rows: v.constat.rows.filter(x => String(x.nb || '').trim()).map(x => x.id + ' ×' + x.nb + ' ' + (x.raccord || '-')).join(', '),
+        puits: pu.map(q => r1(q.x) + '/' + q.sz + (q.col === ep ? ' vert' : ' ' + q.col)).join(' | ') || 'absent',
+        gout_av: croix('Gouttiere(s) avant'), wc: croix('WC'), gout_ar: croix('Gouttiere(s) arriere')};
+    });
+    R.ok(r.rows === 'wc ×1 PUITS, gout_av ×1 PUITS, gout_ar ×1 MILIEU' && r.puits === '445.2/8 vert' && r.gout_av.split(' ')[0] === '445.2' && r.wc.split(' ')[0] === '445.2',
+      'p3 PDF du constat repris du croquis : en-tête « Puits » vers x 445,2, en 8 pt, vert ; croix de la descente avant et du WC reliés au puits dessous (échoue '
+      + 'sur 3035f1d : trois colonnes, croix sous « Milieu naturel ») (' + JSON.stringify(r) + ')');
+    R.ok(r.gout_ar.split(' ')[0] === '413.3', 'p3 témoin : descente arrière reliée au milieu naturel dessiné, croix sous « Milieu naturel », vers x 413,3 (' + JSON.stringify(r) + ')');
+    R.ok(!A.erreurs.length, 'p3 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
+/* p4 : destination « Puits » d'un fichier fait à la main, reliée à une descente : fiche, Contrôles, panneau Constat ; témoin : un étang */
+async function puitsVenuFichier(){
+  const A = await croquisTourne(), p = A.p;
+  const RAP = 'Autre destination « Puits » : jugée comme un puits (rejet des EP non conforme). Pour un puits, posez l\'objet Puits ; pour un puits perdu, un Puisard.';
+  const NOTE = 'Rejet dans un puits : au constat, la ligne EP suit son anomalie. « Non » si elle reste non conforme, « oui » si le dossier en fait une réserve.';
+  try {
+    await p.evaluate(() => { for (let k = 0; k < 5 && window.__vcEd.fermerNiveau(); k++); });
+    await C.outil(p, {k: 'main'});
+    const q = A.plan(70, -3), qd = A.plan(66, -3), qe = A.plan(78, -3);
+    const els = [C.P('X', 'exutoire', q.x, q.y, {nom: 'Puits', ab: 'Pu', art: 'le', ep: 'conforme', cst: 'autre'}), C.P('d', 'descente', qd.x, qd.y, {cote: 'avant', visitable: 'oui'}),
+      C.P('E', 'exutoire', qe.x, qe.y, {nom: 'Étang', ab: 'Ét', art: 'l\'', ep: 'conforme', cst: 'autre'})];
+    els.push(C.L('Ld', 'tr', ['d', 'X'], C.index(els)));
+    await C.injecter(p, {el: els}); await vue(A);
+    await fiche(p, 'X');
+    const tp = await textePanneau(p), iR = tp.indexOf(RAP), iJ = tp.indexOf('Jugement des EP'), iC = tp.indexOf('Case du constat');
+    R.ok(iR >= 0 && iJ > iR && iC > iJ, 'p4 fiche de la destination « Puits » : le rappel, au-dessus des champs du jugement, qui restent ('
+      + JSON.stringify(tp.slice(Math.max(0, iR - 60), iR + RAP.length + 80) || tp.slice(0, 300)) + ')');
+    /* relecture de m151, M2 et M4 : les aides de l'article (texte du rejet), du jugement et de la case décrivent un effet qu'ils n'ont plus */
+    const fX = await ficheDest(p);
+    R.ok(fX.champs.indexOf(CHAMPS_DEST) >= 0 && fX.puces === 'art=le ep=conforme cst=autre' && !fX.aides.some(a => a === AIDE_EP || a === AIDE_CST || /^rejet dans/.test(a))
+      && fX.aides.indexOf(AIDE_NOM) >= 0, 'p4 fiche de la destination « Puits » : article, jugement et case gardés, sans leurs aides (texte du rejet, '
+      + 'effet du jugement, raccordement à cocher) ; l\'aide du nom reste (' + JSON.stringify(fX) + ')');
+    await fiche(p, 'E');
+    const te = await textePanneau(p), fE = await ficheDest(p);
+    R.ok(te.indexOf('Jugement des EP') >= 0 && !/jugée comme un puits|puits perdu/.test(te), 'p4 témoin : la fiche de l\'étang, sans rappel (' + JSON.stringify(te.slice(0, 200)) + ')');
+    R.ok(fE.aides.indexOf('rejet dans l\'étang') >= 0 && fE.aides.indexOf(AIDE_EP) >= 0 && fE.aides.indexOf(AIDE_CST) >= 0,
+      'p4 témoin : la fiche de l\'étang garde les aides de l\'article, du jugement et de la case (' + JSON.stringify(fE.aides) + ')');
+    const ctl = await p.evaluate(() => {
+      window.__vcEd.ouvrirPanneau('controles');
+      const c = document.querySelector('.vc .vc-panneau:not([hidden]) .vc-pcorps');
+      return c ? {titres: [...c.querySelectorAll('h4')].map(h => h.textContent.trim()), info: [...c.querySelectorAll('ul.vc-ctl.info li')].map(li => li.textContent.trim())} : null;
+    });
+    R.ok(!!ctl && ctl.titres.indexOf('À vérifier (1)') >= 0 && ctl.info.length === 1 && ctl.info[0] === RAP,
+      'p4 Contrôles : le rappel sous « À vérifier (1) » (' + JSON.stringify(ctl) + ')');
+    const cst = await p.evaluate(() => {
+      window.__vcEd.ouvrirPanneau('constat');
+      const lignes = [...document.querySelectorAll('.vc-panneau .vc-pcorps table.vc-tab tbody tr')].map(tr => [...tr.cells].map(c => c.textContent.trim()))
+        .filter(c => c[1]).map(c => c.slice(0, 4).join(' | '));
+      return {lignes, notes: [...document.querySelectorAll('.vc-panneau .vc-pcorps p.vc-muet')].map(x => x.textContent.trim())};
+    });
+    R.ok(cst.lignes.indexOf('EP Gouttière(s) avant | 1 | Puits : rejet dans un puits | ') >= 0 && cst.notes.indexOf(NOTE) >= 0,
+      'p4 panneau Constat : la descente en « Puits : rejet dans un puits », sans conformité, avec la phrase du puits (' + JSON.stringify(cst) + ')');
+    R.ok(!A.erreurs.length, 'p4 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
 /* --- autre destination (m127, décision D10) : palette, poses, fiche --- */
 const PUITS_T = 'Pour un puits, posez l\'objet Puits (EP non conformes) ; pour un puits perdu, un Puisard.';
 const VIDE_T = 'Le nom ne peut pas être vide', PDFN_T = 'Nom illisible au PDF : employez au moins deux lettres latines ou chiffres';
 const PDFA_T = 'Abréviation illisible au PDF : employez des lettres latines ou des chiffres', LONG_T = 'Abréviation de 2 ou 3 caractères, par exemple Ét';
 const CHAMPS_DEST = 'Type|Nom|Abréviation|Article|Jugement des EP|Case du constat|';
 const AIDE_EP = 'les EU y sont toujours non conformes ; le changer efface les décisions de Contrôles sur les rejets des EP';
+const AIDE_CST = 'en EP ; hors milieu naturel et gargouille, le raccordement reste à cocher, comme pour l\'infiltration', AIDE_NOM = 'étang, fossé, mare… (40 caractères au plus)';
 const toastVu = p => p.evaluate(() => { const t = document.querySelector('.vc .vc-toast'); return t && t.classList.contains('on') ? t.textContent : ''; });
 /* toast effacé avant une saisie : il reste affiché quelques secondes, on ne lit ensuite que celui de cette saisie */
 const effacerToast = p => p.evaluate(() => { const t = document.querySelector('.vc .vc-toast'); if (t){ t.classList.remove('on'); t.textContent = ''; } });
@@ -1040,9 +1163,202 @@ async function destinationSauvegarde(){
   } finally { await A.fermer(); if (B) await B.fermer(); }
 }
 
+/* --- m144 : destinations de même nom, noms proches, « Fosse » (D10 ; réponses du 16 nov. 2026, S6 b et S7 a) --- */
+const M1_T = n => 'Une destination « ' + n + ' » existe déjà : choisissez-la dans la palette.';
+const M3_T = n => 'Une destination « ' + n + ' » est déjà posée sur ce plan : reprenez ce nom et ses jugements, ou choisissez un nom bien différent.';
+const M4_T = n => '« ' + n + ' » est un objet de la palette : posez l\'objet ' + n + '.';
+const M5_T = 'Pour une fosse septique, posez l\'objet Fosse septique ; pour un fossé, écrivez « Fossé ».';
+const MF_T = n => 'Une destination « ' + n + ' » existe déjà : écrivez « ' + n + ' » pour la même, ou un nom bien différent.';
+const MR_T = n => 'Une destination « ' + n + ' » existe déjà dans la liste.';
+const QD_T = n => 'Nom proche de « ' + n + ' », qui existe déjà : est-ce la même destination ?';
+const QO_T = n => 'Nom proche de « ' + n + ' », objet de la palette : est-ce le même ?';
+/* question d'un nom proche dans l'éditeur : texte et libellés des boutons, triés (null : pas de question) ; réponse par le libellé */
+const QN = '.vc .vc-modal.vc-mnom';
+const questionVue = p => p.evaluate(Q => { const q = document.querySelector(Q); return q ? {texte: ((q.querySelector('p') || {}).textContent || '').trim(),
+  boutons: Array.from(q.querySelectorAll('button')).map(b => b.textContent.trim()).sort().join('|')} : null; }, QN);
+const repondre = async (p, lib) => { const ok = await p.evaluate(([Q, lib]) => { const b = Array.from(document.querySelectorAll(Q + ' button')).find(x => x.textContent.trim() === lib);
+  if (!b) return false; b.click(); return true; }, [QN, lib]); await C.pause(p, 400); return ok; };
+/* la même chose dans l'application : la fenêtre la plus haute qui n'est pas « Modifier la destination » */
+const questionApp = p => p.evaluate(() => { const ms = Array.from(document.querySelectorAll('#modal-root .modal')).filter(m => !m.querySelector('#m-dnom')), q = ms[ms.length - 1];
+  return q ? {texte: ((q.querySelector('.m-body p') || {}).textContent || '').trim(), boutons: Array.from(q.querySelectorAll('.m-foot .btn')).map(b => b.textContent.trim()).sort().join('|')} : null; });
+const repondreApp = async (p, lib) => { const ok = await p.evaluate(lib => { const ms = Array.from(document.querySelectorAll('#modal-root .modal')).filter(m => !m.querySelector('#m-dnom')), q = ms[ms.length - 1];
+  const b = q && Array.from(q.querySelectorAll('.m-foot .btn')).find(x => x.textContent.trim() === lib); if (!b) return false; b.click(); return true; }, lib); await C.pause(p, 600); return ok; };
+/* outil de l'éditeur : k:t[:modèle] et champs du modèle */
+const outilVu = p => p.evaluate(() => { const o = window.__vcEd.etat.outil; return o.k + ':' + o.t + (o.mid ? ':' + o.mid : '') + ' ' + JSON.stringify(o.modele || null); });
+/* m4 : « + Nouvelle destination » : « Étang », puis « etang » (M1, un seul modèle) ; « Fosse » (M5), « Puisard » (M4) ; « Fossé » enregistrée */
+async function destinationMemeNom(){
+  const A = await croquisTourne(), p = A.p;
+  try {
+    const r1 = await nouveauModele(p, {nom: 'Étang', art: 'l\'', ep: 'nc', cst: 'autre'}), c1 = await modelesTablette(p);
+    await fermerTout(p);
+    const o0 = await outilVu(p), r2 = await nouveauModele(p, {nom: 'etang', ep: 'nc'}), v2 = (await ficheNouv(p) || {}).nom;
+    const f2 = await p.evaluate(s => { const i = document.querySelector(s); return !!i && document.activeElement === i; }, NOUV + 'input[data-k="nom"]'), c2 = await modelesTablette(p), o2 = await outilVu(p);
+    R.ok(!r1.ouverte && Array.isArray(c1) && c1.length === 1 && r2.toast === M1_T('Étang') && r2.ouverte && v2 === 'etang' && f2 && JSON.stringify(c2) === JSON.stringify(c1) && o2 === o0,
+      'm4 « + Nouvelle destination » « Étang », puis « etang » : refusée avec « ' + M1_T('Étang') + ' », la fiche courte reste ouverte avec la saisie, le focus sur le nom ; un seul modèle, '
+      + 'l\'outil ne change pas (' + [JSON.stringify(r2.toast), r2.ouverte, JSON.stringify(v2), f2, JSON.stringify(c2)].join(' ; ') + ')');
+    const r3 = await nouveauModele(p, {nom: 'Fosse'}), r4 = await nouveauModele(p, {nom: 'Puisard'}), r5 = await nouveauModele(p, {nom: 'Fossé'}), c5 = await modelesTablette(p);
+    R.ok(r3.toast === M5_T && r3.ouverte && r4.toast === M4_T('Puisard') && r4.ouverte && !r5.ouverte && Array.isArray(c5) && c5.length === 2 && c5[1].nom === 'Fossé',
+      'm4 « Fosse » : « ' + M5_T + ' » ; « Puisard » : « ' + M4_T('Puisard') + ' » (la fiche courte reste ouverte) ; « Fossé » : enregistrée ('
+      + [JSON.stringify(r3.toast), JSON.stringify(r4.toast), r5.ouverte, JSON.stringify(c5)].join(' ; ') + ')');
+    R.ok(!A.erreurs.length, 'm4 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+/* m5 : nom proche dans « + Nouvelle destination » : la question ; Échap ; « La même », « Une autre » ; objet : « Le même », « Un autre » */
+async function destinationProchePalette(){
+  const A = await croquisTourne(), p = A.p, ROUTE = {nom: 'Fossé de la route', ab: 'Fo', art: 'le', ep: 'nc', cst: 'autre'};
+  try {
+    const r0 = await nouveauModele(p, {nom: 'Fossé de la route', ep: 'nc'}), c0 = await modelesTablette(p), M = Array.isArray(c0) && c0.length === 1 ? c0[0] : null;
+    await fermerTout(p); await C.outil(p, {k: 'main'}); await C.pause(p, 150);
+    const r1 = await nouveauModele(p, {nom: 'Fossé de la rue', ep: 'conforme'}), q1 = await questionVue(p);
+    await p.keyboard.press('Escape'); await C.pause(p, 300);
+    const qE = await questionVue(p), fE = await ficheNouv(p), cE = await modelesTablette(p), oE = await outilVu(p);
+    R.ok(!!M && !r0.ouverte && !!q1 && q1.texte === QD_T('Fossé de la route') && q1.boutons === 'La même|Une autre' && r1.ouverte && !qE && !!fE && fE.nom === 'Fossé de la rue'
+      && JSON.stringify(cE) === JSON.stringify(c0) && /^main:/.test(oE),
+      'm5 « Fossé de la rue » face au modèle « Fossé de la route » : la question « ' + QD_T('Fossé de la route') + ' », boutons « La même » et « Une autre », par-dessus la fiche courte ; '
+      + 'Échap la ferme seule : la fiche courte reste avec la saisie, aucun modèle de plus, l\'outil ne change pas (' + [JSON.stringify(q1), r1.ouverte, JSON.stringify(qE), JSON.stringify(fE && fE.nom), oE].join(' ; ') + ')');
+    const ok1 = await p.$(NOUV + 'button[data-r="1"]'); if (ok1){ await ok1.click(); await C.pause(p, 350); }
+    const okM = await repondre(p, 'La même'), fM = await ficheNouv(p), cM = await modelesTablette(p), oM = await outilVu(p);
+    R.ok(okM && !fM && JSON.stringify(cM) === JSON.stringify(c0) && !!M && oM === 'pt:exutoire:' + M.id + ' ' + JSON.stringify(ROUTE),
+      'm5 « La même » : la fiche courte se ferme, l\'outil du modèle « Fossé de la route » est armé, aucun modèle de plus (' + [okM, !!fM, oM, JSON.stringify(cM)].join(' ; ') + ')');
+    await nouveauModele(p, {nom: 'Fossé de la rue', ep: 'conforme'});
+    const okA = await repondre(p, 'Une autre'), cA = await modelesTablette(p), N = Array.isArray(cA) && cA.length === 2 ? cA[1] : null, oA = await outilVu(p);
+    R.ok(okA && !await p.$(NOUV) && !!N && N.nom === 'Fossé de la rue' && N.ep === 'conforme' && oA === 'pt:exutoire:' + N.id + ' ' + JSON.stringify({nom: 'Fossé de la rue', ab: 'Fo', art: 'le', ep: 'conforme', cst: 'autre'}),
+      'm5 « Une autre » : le modèle « Fossé de la rue » est créé sous le nom tapé et son outil armé (' + [okA, oA, JSON.stringify(cA)].join(' ; ') + ')');
+    await fermerTout(p);
+    await nouveauModele(p, {nom: 'Puisart'});
+    const qO = await questionVue(p), okO = await repondre(p, 'Le même'), fO = await ficheNouv(p), cO = await modelesTablette(p), oO = await outilVu(p);
+    await nouveauModele(p, {nom: 'Puisart'});
+    const okU = await repondre(p, 'Un autre'), cU = await modelesTablette(p), U = Array.isArray(cU) && cU.length === 3 ? cU[2] : null, oU = await outilVu(p);
+    R.ok(!!qO && qO.texte === QO_T('Puisard') && qO.boutons === 'Le même|Un autre' && okO && !fO && oO === 'pt:puisard null' && JSON.stringify(cO) === JSON.stringify(cA)
+      && okU && !!U && U.nom === 'Puisart' && oU === 'pt:exutoire:' + U.id + ' ' + JSON.stringify({nom: 'Puisart', ab: 'Pu', art: 'le', ep: 'arbitrer', cst: 'autre'}),
+      'm5 « Puisart » : la question « ' + QO_T('Puisard') + ' », boutons « Le même » et « Un autre » ; « Le même » arme l\'outil Puisard, sans modèle ; « Un autre » crée le modèle « Puisart » ('
+      + [JSON.stringify(qO), okO, oO, okU, oU, JSON.stringify(cU && cU.map(m => m.nom))].join(' ; ') + ')');
+    /* destination « Étang » posée (abréviation EG), absente de la palette : « Etagn », « La même » : l'outil porte ses champs, sans modèle,
+       et la palette rouverte n'allume aucun item, pas même « Autre destination » (relecture M2, M11) */
+    await fermerTout(p);
+    const ETANG_EG = Object.assign({}, ETANG_NC, {ab: 'EG'}), ae = A.plan(70, 2);
+    await C.injecter(p, {el: [C.P('E9', 'exutoire', ae.x, ae.y, ETANG_EG)]}); await vue(A);
+    await nouveauModele(p, {nom: 'Etagn', ep: 'nc'});
+    const qP = await questionVue(p), okP = await repondre(p, 'La même'), fP = await ficheNouv(p), oP = await outilVu(p), cP = await modelesTablette(p);
+    await itemsEqu(p);
+    const allumes = await p.evaluate(() => Array.from(document.querySelectorAll('.vc .vc-pitem[aria-pressed="true"]')).map(b => b.dataset.item));
+    R.ok(!!qP && qP.texte === QD_T('Étang') && okP && !fP && oP === 'pt:exutoire ' + JSON.stringify(ETANG_EG) && JSON.stringify(cP) === JSON.stringify(cU) && !allumes.length,
+      'm5 « Etagn » face à « Étang » posée, absente de la palette : la question ; « La même » arme l\'outil de ses champs, sans modèle ; la palette rouverte n\'allume aucun item '
+      + '(relecture M2, M11) (' + [JSON.stringify(qP), okP, oP, JSON.stringify(allumes)].join(' ; ') + ')');
+    /* même destination tapée sans abréviation : elle reprend celle de la destination posée, EG (relecture M5) */
+    await fermerTout(p);
+    const rS = await nouveauModele(p, {nom: 'Étang', art: 'l\'', ep: 'nc', cst: 'autre'}), cS = await modelesTablette(p), S5 = Array.isArray(cS) && cS.length === 4 ? cS[3] : null;
+    R.ok(!rS.ouverte && !rS.toast && !!S5 && cinq(S5) === cinq(ETANG_EG),
+      'm5 « Étang » tapé sans abréviation, mêmes jugements que la destination posée : enregistré avec son abréviation EG et son article (relecture M5) ('
+      + [JSON.stringify(rS.toast), rS.ouverte, cinq(S5)].join(' ; ') + ')');
+    R.ok(!A.erreurs.length, 'm5 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+/* m6 : fiche d'une destination posée renommée : F, M3 ; nom proche d'une autre destination du plan, puis d'un objet de la palette */
+async function destinationProcheFiche(){
+  const A = await croquisTourne(), p = A.p;
+  const ROUTE = {nom: 'Fossé de la route', ab: 'Fo', art: 'le', ep: 'nc', cst: 'autre'}, MARE = {nom: 'Mare', ab: 'Ma', art: 'la', ep: 'conforme', cst: 'MILIEU'};
+  const ch = o => 'exutoire ' + CH5.map(k => k + '=' + o[k]).join(' ');
+  try {
+    const a = A.plan(66, 2), b = A.plan(74, 2);
+    await C.injecter(p, {el: [C.P('E1', 'exutoire', a.x, a.y, ROUTE), C.P('E2', 'exutoire', b.x, b.y, MARE)]}); await vue(A);
+    await fiche(p, 'E2');
+    const u0 = await nUndo(p), nomVu = () => p.evaluate(s => { const i = document.querySelector(s); return i ? i.value : null; }, FICHE + 'input[data-k="nom"]');
+    const taper = async v => { const i = await p.$(FICHE + 'input[data-k="nom"]'); if (!i) return false; await i.fill(v); await i.evaluate(x => x.blur()); await C.pause(p, 350); return true; };
+    await effacerToast(p); const vF = await saisir(p, 'nom', 'fossé de la route'), tF = await toastVu(p);
+    await effacerToast(p); const v3 = await saisir(p, 'nom', 'Fossé de la route'), t3 = await toastVu(p), c3 = await champsDe(p, 'E2'), u3 = await nUndo(p);
+    R.ok(vF === 'Mare' && tF === MF_T('Fossé de la route') && v3 === 'Mare' && t3 === M3_T('Fossé de la route') && c3 === ch(MARE) && u3 === u0,
+      'm6 fiche de la Mare (conforme, milieu naturel) : « fossé de la route » refusé (« écrivez « Fossé de la route » pour la même ») ; « Fossé de la route », d\'autres jugements : M3 ; '
+      + 'la valeur affichée est rendue, rien ne change (' + [JSON.stringify(vF), JSON.stringify(tF), JSON.stringify(v3), JSON.stringify(t3), c3, u3 - u0].join(' ; ') + ')');
+    await taper('Fossé de la rue'); const q1 = await questionVue(p);
+    await p.keyboard.press('Escape'); await C.pause(p, 300);
+    const qE = await questionVue(p), vE = await nomVu(), cE = await champsDe(p, 'E2'), uE = await nUndo(p);
+    R.ok(!!q1 && q1.texte === QD_T('Fossé de la route') && q1.boutons === 'La même|Une autre' && !qE && vE === 'Mare' && cE === ch(MARE) && uE === u0,
+      'm6 « Fossé de la rue » : la question, boutons « La même » et « Une autre » ; Échap : la valeur affichée est rendue, rien ne change (' + [JSON.stringify(q1), JSON.stringify(vE), cE].join(' ; ') + ')');
+    await taper('Fossé de la rue'); const okA = await repondre(p, 'Une autre'), cA = await champsDe(p, 'E2'), uA = await nUndo(p);
+    await annuler(p); const cA2 = await champsDe(p, 'E2');
+    R.ok(okA && cA === ch({nom: 'Fossé de la rue', ab: 'Fo', art: 'la', ep: 'conforme', cst: 'MILIEU'}) && uA === u0 + 1 && cA2 === ch(MARE),
+      'm6 « Une autre » : le nom tapé, l\'abréviation tirée du nom suit, les jugements restent ; « Annuler » rend la Mare (' + [cA, uA - u0, cA2].join(' ; ') + ')');
+    await fiche(p, 'E2'); await taper('Fossé de la rue');
+    const okM = await repondre(p, 'La même'); await C.pause(p, 200);
+    const cM = await champsDe(p, 'E2'), uM = await nUndo(p), vM = await nomVu(), fM = await ficheDest(p);
+    await annuler(p); const cM2 = await champsDe(p, 'E2');
+    R.ok(okM && cM === ch(ROUTE) && uM === u0 + 1 && vM === 'Fossé de la route' && fM.ab === 'Fo' && fM.puces === 'art=le ep=nc cst=autre' && cM2 === ch(MARE),
+      'm6 « La même » : la Mare reprend nom, abréviation, article et jugements de « Fossé de la route », en un pas d\'annulation ; la fiche les montre ; « Annuler » rend la Mare ('
+      + [cM, uM - u0, JSON.stringify(vM), JSON.stringify(fM.puces), cM2].join(' ; ') + ')');
+    await fiche(p, 'E2'); await taper('Puisart');
+    const qO = await questionVue(p); await effacerToast(p);
+    const okO = await repondre(p, 'Le même'), tO = await toastVu(p), vO = await nomVu(), cO = await champsDe(p, 'E2'), uO = await nUndo(p);
+    await taper('Puisart'); const okU = await repondre(p, 'Un autre'), cU = await champsDe(p, 'E2');
+    R.ok(!!qO && qO.texte === QO_T('Puisard') && qO.boutons === 'Le même|Un autre' && okO && tO === M4_T('Puisard') && vO === 'Mare' && cO === ch(MARE) && uO === u0
+      && okU && cU === ch({nom: 'Puisart', ab: 'Pu', art: 'la', ep: 'conforme', cst: 'MILIEU'}),
+      'm6 « Puisart » : la question face à l\'objet Puisard ; « Le même » : l\'ancien nom reste, « ' + M4_T('Puisard') + ' » ; « Un autre » : le nom tapé ('
+      + [JSON.stringify(qO), JSON.stringify(tO), JSON.stringify(vO), cO, cU].join(' ; ') + ')');
+    R.ok(!A.erreurs.length, 'm6 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+/* m7 : Réglages de l'application : nom de la liste (R), « Fosse » (M5), « Puisard » (M4) ; nom proche : la question, chaque bouton */
+async function destinationProcheReglages(){
+  const A = await croquisTourne(), p = A.p, MOD = '#modal-root .modal ';
+  try {
+    await nouveauModele(p, {nom: 'Fossé de la route', ep: 'nc'}); await fermerTout(p);
+    await nouveauModele(p, {nom: 'Mare', ep: 'conforme', cst: 'recup'}); await fermerTout(p);
+    const c0 = await modelesTablette(p), MA = Array.isArray(c0) && c0.length === 2 ? c0.find(m => m.nom === 'Mare') : null;
+    if (!MA){ R.ok(false, 'm7 : modèles non créés par « + Nouvelle destination » (' + JSON.stringify(c0) + ')'); return; }
+    await C.fermerCroquis(p); await allerA(p, '#/reglages');
+    const ouvrirMod = async () => { const b = await p.$('[data-act="vc-exu-mod"][data-id="' + MA.id + '"]'); if (b){ await b.click(); await C.pause(p, 500); } return !!b; };
+    const enreg = async () => {
+      await p.evaluate(() => { const t = document.querySelector('#toast'); if (t){ t.classList.remove('show'); t.textContent = ''; } });
+      const b = await p.$(MOD + '.m-foot .btn.primary'); if (b){ await b.click(); await C.pause(p, 500); }
+      return {toast: await p.evaluate(() => { const t = document.querySelector('#toast'); return t && t.classList.contains('show') ? t.textContent : ''; }), ouverte: !!await p.$(MOD + '#m-dnom')};
+    };
+    const nommer = async v => { if (!await p.$(MOD + '#m-dnom')) return {}; await p.fill(MOD + '#m-dnom', v); return enreg(); };
+    const okMod = await ouvrirMod(), rR = await nommer('fossé de la route'), r5 = await nommer('Fosse'), r4 = await nommer('Puisard'), c1 = await modelesTablette(p);
+    R.ok(okMod && rR.toast === MR_T('Fossé de la route') && rR.ouverte && r5.toast === M5_T && r5.ouverte && r4.toast === M4_T('Puisard') && r4.ouverte && JSON.stringify(c1) === JSON.stringify(c0),
+      'm7 Réglages, « Modifier » la Mare : « fossé de la route » refusé (« ' + MR_T('Fossé de la route') + ' »), « Fosse » (M5), « Puisard » (M4) ; la fenêtre reste ouverte, rien n\'est enregistré ('
+      + [JSON.stringify(rR.toast), JSON.stringify(r5.toast), JSON.stringify(r4.toast), JSON.stringify(c1 === 'absent' ? c1 : (c1 || []).map(m => m.nom))].join(' ; ') + ')');
+    /* champs de « Modifier la destination » ; toast de l'application, lu puis effacé */
+    const champs = () => p.evaluate(M => { const v = s => { const i = document.querySelector(M + s); return i ? i.value : null; }; return {nom: v('#m-dnom'), art: v('#m-dart'), ep: v('#m-dep')}; }, MOD);
+    const toastApp = () => p.evaluate(() => { const t = document.querySelector('#toast'); return t && t.classList.contains('show') ? t.textContent : ''; });
+    const sansToast = () => p.evaluate(() => { const t = document.querySelector('#toast'); if (t){ t.classList.remove('show'); t.textContent = ''; } });
+    /* un jugement changé avec le nom : « La même » laisse la fenêtre ouverte, l'ancien nom et son article remis, le jugement gardé, rien
+       d'enregistré ; « Enregistrer » garde ensuite le jugement sous l'ancien nom (relecture M3, M9) */
+    if (await p.$(MOD + '#m-dep')) await p.selectOption(MOD + '#m-dep', 'nc');
+    const rQ = await nommer('Fossé de la rue'), q1 = await questionApp(p);
+    await p.keyboard.press('Escape'); await C.pause(p, 500);
+    const qE = await questionApp(p), encore = !!await p.$(MOD + '#m-dnom');
+    if (encore) await enreg();
+    await sansToast();
+    const okM = await repondreApp(p, 'La même'), qM = await questionApp(p), tM = await toastApp(), vM = await champs(), cM = await modelesTablette(p);
+    R.ok(rQ.ouverte && !!q1 && q1.texte === QD_T('Fossé de la route') && q1.boutons === 'La même|Une autre' && !qE && encore && okM && !qM && tM === MR_T('Fossé de la route')
+      && vM.nom === 'Mare' && vM.art === MA.art && vM.ep === 'nc' && JSON.stringify(cM) === JSON.stringify(c0),
+      'm7 « Fossé de la rue » : la question, dans une fenêtre de l\'application par-dessus « Modifier la destination » ; Échap la ferme seule ; « La même » : « ' + MR_T('Fossé de la route')
+      + ' », la fenêtre reste ouverte, l\'ancien nom et son article remis, le jugement changé gardé, rien d\'enregistré (relecture M3, M9) ('
+      + [JSON.stringify(q1), JSON.stringify(qE), encore, okM, JSON.stringify(tM), JSON.stringify(vM), JSON.stringify(cM === 'absent' ? cM : (cM || []).map(m => m.nom))].join(' ; ') + ')');
+    const rM = await enreg(), cM2 = await modelesTablette(p), mM = Array.isArray(cM2) ? cM2.find(m => m.id === MA.id) : null;
+    R.ok(!rM.ouverte && !!mM && mM.nom === 'Mare' && mM.ep === 'nc' && cM2.length === 2,
+      'm7 puis « Enregistrer » : la Mare garde son nom, avec le jugement changé (' + JSON.stringify(cM2) + ')');
+    await ouvrirMod(); await nommer('Fossé de la rue');
+    const okA = await repondreApp(p, 'Une autre'), cA = await modelesTablette(p), mA = Array.isArray(cA) ? cA.find(m => m.id === MA.id) : null;
+    R.ok(okA && !await p.$(MOD + '#m-dnom') && !!mA && mA.nom === 'Fossé de la rue' && cA.length === 2,
+      'm7 « Une autre » : le nom tapé est enregistré, sous le même identifiant (' + [okA, JSON.stringify(cA)].join(' ; ') + ')');
+    /* « Le même » : la fenêtre reste ouverte, l'ancien nom remis, le refus de l'objet ; « Un autre » s'y donne ensuite */
+    await ouvrirMod(); await nommer('Puisart');
+    const qO = await questionApp(p); await sansToast();
+    const okO = await repondreApp(p, 'Le même'), tO = await toastApp(), vO = await champs(), cO = await modelesTablette(p);
+    const rU = await nommer('Puisart'), okU = await repondreApp(p, 'Un autre'), cU = await modelesTablette(p), mU = Array.isArray(cU) ? cU.find(m => m.id === MA.id) : null;
+    R.ok(!!qO && qO.texte === QO_T('Puisard') && qO.boutons === 'Le même|Un autre' && okO && tO === M4_T('Puisard') && vO.nom === 'Fossé de la rue' && JSON.stringify(cO) === JSON.stringify(cA)
+      && !!rU.ouverte && okU && !await p.$(MOD + '#m-dnom') && !!mU && mU.nom === 'Puisart' && cU.length === 2,
+      'm7 « Puisart » : la question face à l\'objet Puisard ; « Le même » : « ' + M4_T('Puisard') + ' », la fenêtre reste ouverte avec l\'ancien nom, aucun modèle créé ni renommé ; '
+      + '« Un autre », dans la même fenêtre : enregistré (' + [JSON.stringify(qO), okO, JSON.stringify(tO), JSON.stringify(vO.nom), okU, JSON.stringify(cU === 'absent' ? cU : (cU || []).map(m => m.nom))].join(' ; ') + ')');
+    R.ok(!A.erreurs.length, 'm7 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [apercu, boutonRejetSol, rejetPresDunRegard, rejetSansFacade, rejetPresDesMurs, rejetPresDunComplement, puits, destination, destinationModele, destinationNature,
-    regardNature, destinationTexte, destinationNouvelle, destinationReglages, destinationSauvegarde]){
+  for (const f of [apercu, boutonRejetSol, rejetPresDunRegard, rejetSansFacade, rejetPresDesMurs, rejetPresDunComplement, puits, puitsPdf, puitsVenuFichier, destination, destinationModele, destinationNature,
+    regardNature, destinationTexte, destinationNouvelle, destinationReglages, destinationSauvegarde, destinationMemeNom, destinationProchePalette, destinationProcheFiche,
+    destinationProcheReglages]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();

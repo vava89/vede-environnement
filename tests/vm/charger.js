@@ -68,8 +68,9 @@ const copie = x => JSON.parse(JSON.stringify(x));
    - dessiner(d, s, c) : dessin de l'écran en état des lieux (vue de 800 × 600 px centrée sur c, à s px par mètre) : zones de toucher,
      traits ramenés en mètres du croquis, textes ;
    - pdf(doc, o) : plan PDF (V.pdfPlan) relevé par une enveloppe de la bibliothèque : textes, place des textes (pos : x, y, et depuis
-     m126 la largeur w en mm et la taille pt du moment), traits (couleur/épaisseur, dans l'ordre), formes (couleur, fermée ou non,
-     sommets en mm) ; err : les exceptions ;
+     m126 la largeur w en mm et la taille pt du moment ; depuis m142, coul : la couleur du texte du moment, « r,g,b », null avant le
+     premier setTextColor), traits (couleur/épaisseur, dans l'ordre), formes (couleur, fermée ou non, sommets en mm) ; err : les
+     exceptions ;
    - dxf(doc) : DXF (V.ecrireDxf ; latin1, paires code/valeur) : calques et leur couleur, blocs, entités (codes de groupe dans c, ceux
      d'une polyligne compris : m121), étendue, texte entier. */
 function rendus(ch){
@@ -95,12 +96,13 @@ function rendus(ch){
   async function pdf(doc, o){
     const J0 = ctx.jspdf.jsPDF, txt = [], pos = [], traits = [], formes = [];
     const W = function(){
-      const d = new J0(...arguments), ot = d.text, ol = d.lines, lw = d.setLineWidth, dc = d.setDrawColor; let w = null, c = null;
+      const d = new J0(...arguments), ot = d.text, ol = d.lines, lw = d.setLineWidth, dc = d.setDrawColor, tc = d.setTextColor; let w = null, c = null, ct = null;
       d.text = function(t, x, y){
-        try { const s = [].concat(t).join(' '), q = {t: s, x, y}; txt.push(s); try { q.w = d.getTextWidth(s); q.pt = d.getFontSize(); } catch (e){} pos.push(q); } catch (e){}
+        try { const s = [].concat(t).join(' '), q = {t: s, x, y, coul: ct}; txt.push(s); try { q.w = d.getTextWidth(s); q.pt = d.getFontSize(); } catch (e){} pos.push(q); } catch (e){}
         return ot.apply(d, arguments);
       };
       d.setLineWidth = function(x){ w = x; return lw.apply(d, arguments); };
+      d.setTextColor = function(){ ct = Array.from(arguments).join(','); return tc.apply(d, arguments); };
       d.setDrawColor = function(){ c = Array.from(arguments).join(','); return dc.apply(d, arguments); };
       /* d.line passe aussi par ici ; s : segments relatifs, k : échelle (d'une courbe, on garde le point d'arrivée) */
       d.lines = function(s, x, y, k, st, ferme){

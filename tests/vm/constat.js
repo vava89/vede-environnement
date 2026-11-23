@@ -51,7 +51,7 @@ const LA = ['la', 'lavabo', 0, 0], DO = ['do', 'douche', 4, 0], WC = ['w', 'wc',
   {n: 'dossier de la v1.6.2, ligne « Salle de bain » choisie par le technicien : gardée (témoin)', vu: () => maj(manu([LA, DO], 'la', rec('sdb'))), att: 'aucune'},
 ].forEach(k => { const vu = k.vu(); R.ok(vu === k.att, k.n + ' : ' + vu + (vu === k.att ? '' : ' (attendu ' + k.att + ')')); });
 
-/* garde (m123) : chaque point « Drain » compte, relié ou non, sur la ligne « Autres : Drain ». Un drain de collecte y compte aussi, pour une
+/* garde (m123) : chaque point « Drain » compte, relié ou non, sur la ligne « Drain ». Un drain de collecte y compte aussi, pour une
    installation, sauf s'il tient un point « Drain » sur un sommet : le point compte alors, seul (pas de double compte). Un drain
    d'infiltration et un tronçon n'y comptent pas. Échouent sur 841fd30 : les cas où un drain de collecte compte */
 const DCO = {drain: 'collecte'}, INF = {drain: 'infiltration'}, DR = 'Drain';
@@ -68,6 +68,6 @@ const DCO = {drain: 'collecte'}, INF = {drain: 'infiltration'}, DR = 'Drain';
     d: doc({l: [['T1', 'tr', 'EP', '', [[0, 0], [10, 0]], 0, DCO], ['T2', 'tr', '', '', [[0, 4], [10, 4]], 0, DCO], ['I', 'tr', '', '', [[0, 8], [10, 8]], 0, INF]]})},
 ].forEach(k => {
   const rows = lignes(k.d), vu = nb(rows, DR), aut = rows.filter(r => !r.std && r.nb && r.label !== DR).map(r => r.label + ' ×' + r.nb);
-  R.ok(vu === k.att && !aut.length, 'Drain : ' + k.n + ' : « Autres : Drain » ×' + vu + (vu === k.att ? '' : ' (attendu ×' + k.att + ')') + (aut.length ? ', autres lignes : ' + aut.join(', ') : ''));
+  R.ok(vu === k.att && !aut.length, 'Drain : ' + k.n + ' : « Drain » ×' + vu + (vu === k.att ? '' : ' (attendu ×' + k.att + ')') + (aut.length ? ', autres lignes : ' + aut.join(', ') : ''));
 });
 R.fin();

@@ -7,15 +7,15 @@
 // d : la distance saisie s'enregistre dans p.limDist (« 0,80 »), un pas d'annulation par saisie, comme la profondeur (témoin) ; « -1 » et
 //     un texte non numérique sont refusés avec le toast des valeurs refusées (rien ne change) ; vide permis ; « Annuler » rend chaque
 //     valeur précédente ;
-// e : à l'écran, l'étiquette de la boîte porte la ligne de la limite ;
+// e : à l'écran, l'étiquette de la boîte porte la ligne de la limite (m140 : « à 0,80 m de la limite, à l'intérieur de la propriété ») ;
 // t : témoin : la boîte changée en regard perd ses deux champs, avec le toast du changement de type ; « Annuler » les rétablit.
 // f, c, d et e échouent sur df95377 (sauf les témoins) ; t passe sur les deux versions (le toast existant couvre ce cas).
 // m104 : côté et distance proposés depuis le plan. La boîte est posée près du milieu du côté rue d'une parcelle du fond fictif, avec un WC
 // et un regard dans la même parcelle, qui devient la parcelle de l'installation :
-// p : boîte à 0,80 m à l'intérieur : la fiche dit « Sur le plan : ≈ 0,80 m intérieur » ; tant que p.limCote est vide, la puce Intérieur est
-//     en pointillé (classe vc-propose), sans être choisie, sans champ écrit ni pas d'annulation ; « Placer sur le plan » est grisé ; la saisie
-//     du technicien l'emporte : « Extérieur » choisi, plus aucune puce n'est en pointillé, et « Placer sur le plan » reste grisé sans
-//     distance ; un « Annuler » rend la proposition ;
+// p : boîte à 0,80 m à l'intérieur : la fiche dit « Sur le plan : ≈ 0,80 m, à l'intérieur de la propriété » (m140) ; tant que p.limCote est
+//     vide, la puce Intérieur est en pointillé (classe vc-propose), sans être choisie, sans champ écrit ni pas d'annulation ; « Placer sur le
+//     plan » est grisé ; la saisie du technicien l'emporte : « Extérieur » choisi, plus aucune puce n'est en pointillé, et « Placer sur le
+//     plan » reste grisé sans distance ; un « Annuler » rend la proposition ;
 // r : « Reprendre la mesure » écrit p.limDist « 0,80 » et p.limCote 'int' en un seul pas ; la puce choisie n'est plus en pointillé ; un seul
 //     « Annuler » efface les deux ;
 // a : distance saisie 1,00 : « Placer sur le plan » met la boîte à 1,00 m de la limite (au centimètre), à l'intérieur, en un seul pas ; le
@@ -34,6 +34,9 @@
 //     toucher sur eux ne change rien.
 // p, r, a, g, u, o, v, k, b et s échouent sur 5026c32 (ni ligne « Sur le plan » ni boutons), sauf les témoins où rien n'est écrit et rien ne
 // bouge.
+// m140 (réponse boite-en-limite du 16 nov. 2026, décision D5) : l'étiquette et la ligne « Sur le plan » écrivent le côté en toutes lettres
+// (« à l'intérieur de la propriété », « à l'extérieur de la propriété ») ; e, p, a, g, k et b l'attendent et échouent sur 1ee93f4 ; « côté à
+// confirmer » (o) ne change pas, ni les puces Intérieur et Extérieur.
 // usage : node tests/navigateur/boite.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -122,7 +125,7 @@ async function fiches(){
     await p.evaluate(() => { window.__textes = []; const f = CanvasRenderingContext2D.prototype.fillText; CanvasRenderingContext2D.prototype.fillText = function(t){ window.__textes.push(String(t)); return f.apply(this, arguments); }; window.__vcEd.redessiner(); });
     await C.pause(p, 300);
     const tx = await p.evaluate(() => window.__textes);
-    R.ok(tx.indexOf('à 0,80 m de la limite, intérieur') >= 0 && tx.some(t => /^Boîte de branchement/.test(t)), 'e : à l\'écran, l\'étiquette de la boîte porte la ligne « à 0,80 m de la limite, intérieur » ('
+    R.ok(tx.indexOf('à 0,80 m de la limite, à l\'intérieur de la propriété') >= 0 && tx.some(t => /^Boîte de branchement/.test(t)), 'e : à l\'écran, l\'étiquette de la boîte porte la ligne « à 0,80 m de la limite, à l\'intérieur de la propriété » ('
       + JSON.stringify(tx.filter(t => /Boîte|limite/.test(t))) + ')');
     const x0 = await nUndo(p); await saisir(p, 'limDist', ''); const d3 = await elDoc(p, 'B1'), x1 = await nUndo(p);
     R.ok(d3.p.limDist === '' && x1 === x0 + 1, 'd : vide permis : p.limDist = « » (' + champs(d3) + ', pas ' + x0 + ' puis ' + x1 + ')');
@@ -196,7 +199,7 @@ async function proposition(){
     await C.regler(p, b0.x, b0.y, 40);
     await choisir(p, 'B1');
     const u0 = await nUndo(p), f0 = await ficheLim(p), e0 = await elDoc(p, 'B1');
-    R.ok(f0.ligne === 'Sur le plan : ≈ 0,80 m intérieur', 'p : fiche d\'une boîte à 0,80 m à l\'intérieur de sa parcelle : « Sur le plan : ≈ 0,80 m intérieur » (' + texteFiche(f0) + ')');
+    R.ok(f0.ligne === 'Sur le plan : ≈ 0,80 m, à l\'intérieur de la propriété', 'p : fiche d\'une boîte à 0,80 m à l\'intérieur de sa parcelle : « Sur le plan : ≈ 0,80 m, à l\'intérieur de la propriété » (' + texteFiche(f0) + ')');
     R.ok(f0.puces.join(' | ') === 'int:false:proposée en dashed | ext:false', 'p : p.limCote vide : la puce Intérieur, proposée, est en pointillé sans être choisie (' + f0.puces.join(' | ') + ')');
     R.ok(e0.p.limCote === undefined && e0.p.limDist === undefined && u0 === 0, 'p : la proposition n\'écrit aucun champ et ne fait aucun pas d\'annulation (' + champs(e0) + ', pas ' + u0 + ')');
     R.ok(f0.mesure === 'actif' && f0.placer === 'grisé', 'p : « Reprendre la mesure » actif ; « Placer sur le plan » grisé sans distance ni côté (' + texteFiche(f0) + ')');
@@ -228,7 +231,7 @@ async function proposition(){
       + 'au centimètre, à l\'intérieur, un seul pas d\'annulation (' + k4 + ', ' + champs(e3) + ', distance ' + m4.d.toFixed(4) + ' m, ' + (m4.dedans ? 'intérieur' : 'extérieur') + ', pas ' + u3 + ' puis ' + u4 + ')');
     R.ok(t4.v[0].a === 'B1' && t4.v[0].x === e4.x && t4.v[0].y === e4.y && Math.hypot(t4.v[0].x - t3.v[0].x, t4.v[0].y - t3.v[0].y) > .1 && t4.v[1].x === t3.v[1].x && t4.v[1].y === t3.v[1].y,
       'a : le bout de tuyau attaché à la boîte la suit, l\'autre bout reste en place (boîte ' + posTxt(e3) + ' puis ' + posTxt(e4) + ', bout ' + posTxt(t3.v[0]) + ' puis ' + posTxt(t4.v[0]) + ')');
-    R.ok(e4.p.limDist === '1,00' && e4.p.limCote === 'int' && f4.ligne === 'Sur le plan : ≈ 1,00 m intérieur', 'a : la distance et le côté saisis ne changent pas ; la ligne du plan suit la boîte ('
+    R.ok(e4.p.limDist === '1,00' && e4.p.limCote === 'int' && f4.ligne === 'Sur le plan : ≈ 1,00 m, à l\'intérieur de la propriété', 'a : la distance et le côté saisis ne changent pas ; la ligne du plan suit la boîte ('
       + champs(e4) + ', ' + JSON.stringify(f4.ligne) + ')');
     await annulerUnPas(p);
     const e5 = await elDoc(p, 'B1'), t5 = await elDoc(p, 'T1');
@@ -244,7 +247,7 @@ async function proposition(){
     R.ok(Math.hypot(e7.x - e5.x, e7.y - e5.y) > 1 && e7.p.limDist === '1,00' && e7.p.limCote === 'int' && u7 === u6 + 1, 'g : la boîte glissée (un pas d\'annulation) garde p.limDist et p.limCote ('
       + posTxt(e5) + ' puis ' + posTxt(e7) + ', ' + champs(e7) + ', pas ' + u6 + ' puis ' + u7 + ')');
     /* le doigt arrondi au pixel près (40 px/m) : la boîte reste à 0,80 m de la limite à 2 cm près */
-    R.ok(Math.abs(m7.d - .8) < .02 && m7.dedans && f7.ligne === 'Sur le plan : ≈ ' + m7.d.toFixed(2).replace('.', ',') + ' m intérieur', 'g : la ligne du plan donne la mesure de la nouvelle position, '
+    R.ok(Math.abs(m7.d - .8) < .02 && m7.dedans && f7.ligne === 'Sur le plan : ≈ ' + m7.d.toFixed(2).replace('.', ',') + ' m, à l\'intérieur de la propriété', 'g : la ligne du plan donne la mesure de la nouvelle position, '
       + 'la saisie reste (distance ' + m7.d.toFixed(4) + ' m, ' + texteFiche(f7) + ')');
 
     /* u : distance effacée (bouton grisé), puis tapée au clavier, et un seul toucher sur « Placer sur le plan » sans quitter le champ avant ;
@@ -295,13 +298,13 @@ async function sansProposition(){
     await C.injecter(p, {el: [C.P('B1', 'boite', c0.x, c0.y, Object.assign({res: 'EU', limCote: 'ext', limDist: '1,00'}, REG)), C.P('W', 'wc', w.x, w.y), C.P('R1', 'regard', r.x, r.y, REG)]});
     await C.regler(p, c0.x, c0.y, 40); await choisir(p, 'B1'); await effacerToast(p);
     const fc = await ficheLim(p), uc0 = await nUndo(p), kc = await bouton(p, 'limPlacer'), mc = await toastVu(p), ec = await elDoc(p, 'B1'), uc1 = await nUndo(p);
-    R.ok(fc.ligne === 'Sur le plan : ≈ 0,85 m extérieur' && kc === 'touché' && /en face d'un coin/.test(mc) && ec.x === c0.x && ec.y === c0.y && uc1 === uc0, 'k : boîte en face d\'un coin de la '
+    R.ok(fc.ligne === 'Sur le plan : ≈ 0,85 m, à l\'extérieur de la propriété' && kc === 'touché' && /en face d'un coin/.test(mc) && ec.x === c0.x && ec.y === c0.y && uc1 === uc0, 'k : boîte en face d\'un coin de la '
       + 'limite : « Placer sur le plan » ne la déplace pas et le dit (' + texteFiche(fc) + ', ' + kc + ', ' + JSON.stringify(mc) + ', ' + posTxt(ec) + ', pas ' + uc0 + ' puis ' + uc1 + ')');
 
     /* b : près du coin P[0] (presque droit), Intérieur et 1,00 : la boîte arriverait plus près du côté voisin que la distance saisie. Position :
        le long du côté rue depuis P[0] (le), puis vers l'extérieur (ex ; négatif : vers l'intérieur) ; ligne du plan attendue avant */
-    for (const [nom, le, ex, avant] of [['à l\'intérieur, à 0,80 m de la rue et à 0,50 m du côté voisin', .5, -.8, 'Sur le plan : ≈ 0,50 m intérieur'],
-      ['dans la rue, à 0,60 m du côté rue et à 1 cm du coin', .01, .6, 'Sur le plan : ≈ 0,60 m extérieur']]){
+    for (const [nom, le, ex, avant] of [['à l\'intérieur, à 0,80 m de la rue et à 0,50 m du côté voisin', .5, -.8, 'Sur le plan : ≈ 0,50 m, à l\'intérieur de la propriété'],
+      ['dans la rue, à 0,60 m du côté rue et à 1 cm du coin', .01, .6, 'Sur le plan : ≈ 0,60 m, à l\'extérieur de la propriété']]){
       const c1 = {x: q.P[0].x + le * t0.x / l0 + ex * q.n.x, y: q.P[0].y + le * t0.y / l0 + ex * q.n.y};
       await C.injecter(p, {el: [C.P('B1', 'boite', c1.x, c1.y, Object.assign({res: 'EU', limCote: 'int', limDist: '1,00'}, REG)), C.P('W', 'wc', w.x, w.y), C.P('R1', 'regard', r.x, r.y, REG)]});
       await C.regler(p, c1.x, c1.y, 40); await choisir(p, 'B1'); await effacerToast(p);
@@ -315,7 +318,7 @@ async function sansProposition(){
     await C.injecter(p, {el: [C.P('B1', 'boite', c2.x, c2.y, Object.assign({res: 'EU', limCote: 'ext', limDist: '1,00'}, REG)), C.P('W', 'wc', w.x, w.y), C.P('R1', 'regard', r.x, r.y, REG)]});
     await C.regler(p, c2.x, c2.y, 40); await choisir(p, 'B1'); await effacerToast(p);
     const ut0 = await nUndo(p), kt = await bouton(p, 'limPlacer'), mt = await toastVu(p), dt = await mesurePage(p, q.P, 'B1'), ut1 = await nUndo(p), ft = await ficheLim(p);
-    R.ok(kt === 'touché' && mt === '' && Math.abs(dt.d - 1) <= .005 && dt.dedans === false && ut1 === ut0 + 1 && ft.ligne === 'Sur le plan : ≈ 1,00 m extérieur', 'b : témoin : '
+    R.ok(kt === 'touché' && mt === '' && Math.abs(dt.d - 1) <= .005 && dt.dedans === false && ut1 === ut0 + 1 && ft.ligne === 'Sur le plan : ≈ 1,00 m, à l\'extérieur de la propriété', 'b : témoin : '
       + 'la même boîte de la rue, avec Extérieur, va à 1,00 m de la limite, sans message (' + kt + ', ' + JSON.stringify(mt) + ', distance ' + dt.d.toFixed(4) + ' m, '
       + (dt.dedans ? 'intérieur' : 'extérieur') + ', pas ' + ut0 + ' puis ' + ut1 + ', ' + JSON.stringify(ft.ligne) + ')');
 

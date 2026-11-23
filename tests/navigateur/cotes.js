@@ -96,6 +96,48 @@
 //     nommée « Mare », article « la », comme à sa pose : « Déplacer par cotes (Mare). », « Mare déplacée depuis : Façade » (q5). Échouent
 //     sur 53fe487 (« Autre appareil », « WC », « Autre destination ») ; q1, q3, q4 et q5 avant la relecture de m133 (« Bidet déplacé »,
 //     « Fontaine déplacé », « Autre destination »).
+// w1 à w20 (m146, « Deux points », décision D12 de .claude/conception-v172.md ; fond fictif : une parcelle et un bâti dont le coin sud-ouest
+//     est en (14 ; 6) ; regards R1 en (0 ; 0), R2 en (10 ; 0) et R3 en (4 ; -3), dans le repère du fond) :
+// w1 : « Cotes » d'un regard : la barre d'aide a « Deux points » avant « Abandonner » ;
+// w2 : « Deux points » touché quelques millisecondes après « Cotes » (double toucher) : ignoré ; touché ensuite : étape « p1 », aide « Touchez le
+//     point 1 (coin ou objet). », avec le seul « Abandonner » ;
+// w3 : un toucher dans le vide, puis sur la façade loin d'un coin : toast « Touchez un coin ou un objet », l'étape reste ;
+// w4 : tolérance du doigt (24 px) : à 28 px de R1, rien ; à 20 px, R1, sa position copiée (pas celle du toucher) ; aide « Touchez le
+//     point 2. », avec le seul « Abandonner » ;
+// w5 : R1 de nouveau : toast « Touchez deux points différents », l'étape reste ;
+// w6 : R2 : panneau « Cotes » : « Regard posé depuis deux points (à 10,00 m l'un de l'autre). », champs « Distance depuis le point 1 (m) »
+//     et « Distance depuis le point 2 (m) » vides, pas de puces, « Poser » et « Fermer » ; rien n'est posé ;
+// w7 : un toucher du plan, panneau ouvert : toast « Réglez les cotes dans le panneau… », rien ne change ;
+// w8 : une seule distance, puis « Poser » : toast « Saisissez les deux distances. », rien n'est posé, le mode reste ;
+// w9 : aperçu pendant la frappe : 6 et 3, le message « Les deux cotes ne se croisent pas : les deux points sont à 10,00 m l'un de
+//     l'autre. » à la place des puces ; 6 et 8, les puces « Solution 1 » (choisie) et « Solution 2 », sans libellé de champ ;
+// w10 : « Poser » : le regard en (3,6 ; 4,8) à 1 cm près, un pas d'annulation, fiche ouverte, mode fini ; « Annuler » rend le croquis exact ;
+// w11 : de nouveau, « Solution 2 » : (3,6 ; -4,8) ;
+// w12 : « Annuler » à l'étape « p2 » : la dernière pose est défaite, le mode fini ;
+// w13 : le coin du bâti comme point 1, R2 comme point 2 (7,21 m), 5 et 4, Solution 1 : à 5 m du coin et à 4 m de R2 (1 cm près), à
+//     gauche du coin vers R2 ;
+// w14 : 2 et 3 : le message (« 10,00 m »), pas de puces ; « Poser » : toast du même message, rien n'est posé ; « Fermer » : mode fini ;
+// w15 : tangence (6 et 4) : ni puces ni message ; posé en (6 ; 0) ;
+// w16 : « Mesurer depuis une façade » : pas de « Deux points » ;
+// w17 : « Déplacer par cotes » de R3 par deux points : R3 lui-même n'est pas un point ; R1 et R2 : « Regard déplacé depuis deux points
+//     (à 10,00 m l'un de l'autre). », distances actuelles (5,00 et 6,71), Solution 2 choisie (R3 est à droite de R1 vers R2),
+//     « Déplacer » et « Fermer » ; « Déplacer » sans rien changer : rien ne bouge, aucun pas d'annulation, fiche rouverte ;
+// w18 : 6 et 8 : « Déplacer » : R3 en (3,6 ; -4,8), seuls x et y changent, un pas d'annulation, fiche rouverte ; « Annuler » le ramène ;
+// w19 : départ d'un escalier par deux points : « Poser le départ » : brouillon d'un point en (3,6 ; 4,8), sans aide, ni b.cotes, ni
+//     surBati ; mode fini, outil Escalier actif, aucun pas d'annulation ; la fin touchée : un escalier qui part de ce point ;
+// w20 : Échap (étape « p1 », puis panneau ouvert), « Abandonner » (étape « p2 »), un autre outil, la croix du panneau : mode fini,
+//     croquis inchangé, aucun pas d'annulation ;
+// w21 : « Autre trait », puis « Deux points » aussitôt (il vient à sa place) : ignoré ; touché 0,5 s plus tard : étape « p1 » ;
+// w22 : un caniveau (objet orientable) posé par deux points, orientation automatique active, plan tourné de 15° : son angle est celui de
+//     la rotation du plan (15°) ;
+// w23 : 6 et 8 enregistrés, « -1 » tapé pour le point 2, puis « Poser » aussitôt : valeur refusée (8 gardé), rien n'est posé, le mode reste ;
+// w24 : deux coins du bâti, 6 et 8 : la place tombe dans le bâti ; le regard est posé, avec l'avertissement « Le point tombe dans le
+//     bâti… » ; « Annuler » le retire ;
+// w25 : R4 à 0,3 mm de la droite de R1 à R2 : « Déplacer par cotes », « Deux points », R1, R2 : une seule place (pas de puces) ;
+//     « Déplacer » sans rien changer : R4 ne bouge pas (avant : posé sur la droite, avec un pas d'annulation) ;
+// w26 : écran de 400 × 800, double toucher sur « Deux points » : le second tombe sur « Abandonner », venu à sa place ; il est ignoré
+//     (étape « p1 », avant : fin du mode) ; « Abandonner » touché 0,5 s plus tard finit le mode.
+// Sur 72fd069, w1 échoue (pas de bouton « Deux points ») ; les suivants ne sont pas lancés, sauf w26, qui échoue (pas de bouton).
 // usage : node tests/navigateur/cotes.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -979,6 +1021,16 @@ const releverFantomes = (p, dep) => p.evaluate(dep => {
 const centreAide = (p, a) => p.evaluate(a => { const b = document.querySelector('.vc .vc-aide:not([hidden]) button[data-a="' + a + '"]'); if (!b) return null;
   const r = b.getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + r.height / 2}; }, a);
 const boutonSous = (p, q) => p.evaluate(q => { const b = document.elementFromPoint(q.x, q.y), c = b && b.closest('button'); return c ? c.dataset.a || '' : ''; }, q);
+/* double toucher : le bouton a1, puis le bouton a2 dès qu'il paraît, par deux touchers sans les attentes de p.click : le second vient
+   quelques millisecondes après le premier, bien sous la garde de 0,5 s, même sur une machine chargée ; false si l'un des deux manque */
+async function deuxTouchers(p, a1, a2){
+  const q1 = await centreAide(p, a1); if (!q1) return false;
+  await p.touchscreen.tap(q1.x, q1.y);
+  const vu = await p.waitForSelector('.vc .vc-aide:not([hidden]) button[data-a="' + a2 + '"]', {timeout: 3000}).then(() => true, () => false);
+  const q2 = vu ? await centreAide(p, a2) : null; if (!q2) return false;
+  await p.touchscreen.tap(q2.x, q2.y);
+  return true;
+}
 const unit = (a, b) => { const L = ecart(a, b); return {x: (b.x - a.x) / L, y: (b.y - a.y) / L}; };
 /* direction w de la convention 11.1 : le long, du coin d'origine vers l'autre coin ; dans le prolongement, de l'autre coin vers le coin
    d'origine (vers le dehors du côté) ; avance : projection sur w du centre du contour, depuis le départ */
@@ -1242,8 +1294,300 @@ async function libellesObjets(){
   } finally { await A.fermer(); }
 }
 
+/* m146 (D12) : « Deux points ». Fond fictif : parcelle de 60 m sur 50 et bâti de 10 m sur 10, coin sud-ouest en (14 ; 6) du repère local */
+const dxfDeux = () => dxfFictif([['1PARCELLE', [[-20, -20], [40, -20], [40, 30], [-20, 30]]], ['3BATIDUR', [[14, 6], [24, 6], [24, 16], [14, 16]]]]);
+/* état du mode : 'absent' (version sans le mode), null (hors du mode), ou {etape, deux} (copie de S.cotes.deux, null sans lui) */
+const etatDeux = p => p.evaluate(() => { const c = window.__vcEd.etat.cotes; return c === undefined ? 'absent' : c === null ? null : {etape: c.etape, deux: c.deux ? JSON.parse(JSON.stringify(c.deux)) : null}; });
+/* panneau « Cotes » en mode deux points : en-tête, champs d1 et d2, libellés des champs, puces (* : choisie), boutons, texte */
+const panneauDeux = p => p.evaluate(() => {
+  const pan = document.querySelector('.vc .vc-panneau'); if (!pan || pan.hidden) return null;
+  const c = pan.querySelector('.vc-pcorps'), t = x => x.textContent.replace(/\s+/g, ' ').trim();
+  const champ = k => { const i = c.querySelector('input[data-a="cotesNum"][data-k="' + k + '"]'); return i ? i.value : null; };
+  return {entete: c.querySelector('p') ? t(c.querySelector('p')) : '', d1: champ('d1'), d2: champ('d2'), labs: Array.from(c.querySelectorAll('.vc-lab')).map(t).join(' | '),
+    sols: Array.from(c.querySelectorAll('button[data-a="cotes"][data-k="sol"]')).map(b => t(b) + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')).join(' | '),
+    boutons: Array.from(c.querySelectorAll('button[data-a^="cotes"]:not([data-k])')).map(t).join(' | '), texte: t(c)};
+});
+const texteBoutonAide = (p, a) => p.evaluate(a => { const b = document.querySelector('.vc .vc-aide:not([hidden]) button[data-a="' + a + '"]'); return b ? b.textContent.replace(/\s+/g, ' ').trim() : null; }, a);
+async function deuxPointsCotes(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    const plan = await ouvrirFondFictif(p, 'plan-fictif-deux-points.dxf', dxfDeux());
+    const R1 = plan(0, 0), R2 = plan(10, 0), R3 = plan(4, -3), vide = plan(5, 6), facade = plan(16, 6), REGARD = {k: 'pt', t: 'regard', pal: 'reg'};
+    const vue = () => { const c = plan(6, 2); return C.regler(p, c.x, c.y, 40); };
+    await C.injecter(p, {el: [C.P('r1', 'regard', R1.x, R1.y), C.P('r2', 'regard', R2.x, R2.y), C.P('r3', 'regard', R3.x, R3.y)]});
+    await vue();
+    const avant = await etatDoc(p), u0 = await nUndo(p);
+    /* coin sud-ouest du bâti, tel que l'éditeur le lit (fond affiché) */
+    const K = await p.evaluate(q => {
+      const S = window.__vcEd.etat, Ls = window.VCroquis.geo.lignesRef(S.doc, S.aff.fond ? S.fond : null, null, ['bati']) || []; let b = null;
+      Ls.forEach(l => l.P.forEach(v => { const d = Math.hypot(v.x - q.x, v.y - q.y); if (!b || d < b.d) b = {d, x: v.x, y: v.y}; }));
+      return b && b.d < 0.01 ? {x: b.x, y: b.y} : null;
+    }, plan(14, 6));
+    if (!R.ok(!!K, 'w : coin sud-ouest du bâti fictif lu par VCroquis.geo.lignesRef')) return;
+    const egal = (a, b) => !!a && !!b && ecart(a, b) <= 1e-9, MSG = 'Les deux cotes ne se croisent pas : les deux points sont à 10,00 m l\'un de l\'autre.';
+    /* « Cotes » avec l'outil o (rien d'autre d'ouvert, vue fixe), puis « Deux points » après la garde de 0,5 s ; rend l'état du mode */
+    const entrerDeux = async o => {
+      await toutFermer(p); await vue(); await effacerToast(p);
+      await C.outil(p, o || REGARD); await C.pause(p, 150);
+      if (!await entrer(p)) return 'pas de bouton « Cotes »';
+      await C.pause(p, 300);
+      if (!await boutonAide(p, 'cotesDeux')) return 'pas de bouton « Deux points »';
+      return etatDeux(p);
+    };
+    /* fiche de R3, puis son bouton lib (« Déplacer par cotes » ou « Mesurer depuis une façade ») */
+    const ficheR3 = async lib => { await toutFermer(p); await vue(); await p.evaluate(() => window.__vcEd.selectionner('r3')); await C.pause(p, 250); return boutonTexte(p, lib); };
+    /* toucher du plan au point q, puis le toast et l'état du mode */
+    const tap = async q => { await effacerToast(p); await toucherPlan(p, q); return {toast: await toastVu(p), e: await etatDeux(p)}; };
+    const etape = x => x && x.e ? x.e.etape : null;
+
+    /* w1 : bouton « Deux points » avant « Abandonner », à l'étape « cote » */
+    await C.outil(p, REGARD); await C.pause(p, 150);
+    await entrer(p);
+    const b1 = await boutonsAide(p), t1 = await texteBoutonAide(p, 'cotesDeux');
+    R.ok(b1 === 'cotesDeux cotesStop' && t1 === 'Deux points', 'w1 : « Cotes » d\'un regard : la barre d\'aide a « Deux points » avant « Abandonner » (obtenu ' + JSON.stringify([b1, t1]) + ')');
+    if (b1.indexOf('cotesDeux') < 0){ erreurs(A, 'w1'); return; }
+    /* w2 : double toucher : « Deux points » touché aussitôt après « Cotes » est ignoré ; touché ensuite, il mène à l'étape « p1 » */
+    await toutFermer(p);
+    const d2 = await deuxTouchers(p, 'cotes', 'cotesDeux'); await C.pause(p, 100);
+    const e2a = await etatDeux(p);
+    await C.pause(p, 500); await boutonAide(p, 'cotesDeux');
+    const e2b = await etatDeux(p), a2 = await texteAide(p), b2 = await boutonsAide(p);
+    R.ok(d2 && !!e2a && e2a.etape === 'cote' && !e2a.deux && !!e2b && e2b.etape === 'p1' && !!e2b.deux && a2.indexOf('Touchez le point 1 (coin ou objet).') === 0 && b2 === 'cotesStop',
+      'w2 : « Deux points » touché moins de 0,5 s après « Cotes » : ignoré ; ensuite : étape « p1 », aide « Touchez le point 1 (coin ou objet). », seul « Abandonner » (obtenu '
+      + JSON.stringify([d2, e2a && e2a.etape, e2b && e2b.etape, a2, b2]) + ')');
+    /* w3 : rien sous le doigt (le vide, puis la façade loin de ses coins) : toast, l'étape reste */
+    const w3a = await tap(vide), w3b = await tap(facade);
+    R.ok(w3a.toast.indexOf('Touchez un coin ou un objet') >= 0 && etape(w3a) === 'p1' && w3b.toast.indexOf('Touchez un coin ou un objet') >= 0 && etape(w3b) === 'p1',
+      'w3 : à l\'étape « p1 », un toucher dans le vide, puis sur la façade à 2 m de son coin : toast « Touchez un coin ou un objet », l\'étape reste (obtenu '
+      + JSON.stringify([w3a.toast, etape(w3a), w3b.toast, etape(w3b)]) + ')');
+    /* w4 : tolérance du doigt (24 px ; 40 px par mètre) : à 28 px de R1, rien ; à 20 px, R1, sa position copiée */
+    const w4a = await tap({x: R1.x, y: R1.y + 0.7}), w4b = await tap({x: R1.x, y: R1.y + 0.5}), a4 = await texteAide(p), b4 = await boutonsAide(p);
+    R.ok(w4a.toast.indexOf('Touchez un coin ou un objet') >= 0 && etape(w4a) === 'p1' && etape(w4b) === 'p2' && egal(w4b.e.deux.A, R1) && a4.indexOf('Touchez le point 2.') === 0 && b4 === 'cotesStop',
+      'w4 : à 28 px de R1, rien ; à 20 px, R1 est le point 1, à sa position exacte ; aide « Touchez le point 2. », seul « Abandonner » (obtenu '
+      + JSON.stringify([w4a.toast, etape(w4a), etape(w4b), w4b.e && w4b.e.deux && w4b.e.deux.A, a4, b4]) + ')');
+    /* w5 : le même point deux fois */
+    const w5 = await tap(R1);
+    R.ok(w5.toast.indexOf('Touchez deux points différents') >= 0 && etape(w5) === 'p2' && !w5.e.deux.B, 'w5 : R1 touché de nouveau : toast « Touchez deux points différents », l\'étape reste (obtenu '
+      + JSON.stringify([w5.toast, w5.e]) + ')');
+    /* w6 : R2 : le panneau « Cotes » en mode deux points ; rien n'est posé */
+    const w6 = await tap(R2), f6 = await panneauDeux(p), b6 = await boutonsAide(p);
+    R.ok(etape(w6) === 'saisie' && egal(w6.e.deux.B, R2) && !!f6 && f6.entete === 'Regard posé depuis deux points (à 10,00 m l\'un de l\'autre).' && f6.d1 === '' && f6.d2 === ''
+      && f6.labs === 'Distance depuis le point 1 (m) | Distance depuis le point 2 (m)' && f6.sols === '' && f6.boutons === 'Poser | Fermer' && b6 === 'cotesStop' && await etatDoc(p) === avant,
+      'w6 : R2 : étape « saisie », panneau « Regard posé depuis deux points (à 10,00 m l\'un de l\'autre). », deux champs vides, pas de puces, « Poser » et « Fermer » ; rien n\'est posé (obtenu '
+      + JSON.stringify([w6.e, f6, b6]) + ')');
+    /* w7 : un toucher du plan, panneau ouvert */
+    const w7 = await tap(vide);
+    R.ok(w7.toast.indexOf('Réglez les cotes dans le panneau') >= 0 && etape(w7) === 'saisie' && await etatDoc(p) === avant, 'w7 : un toucher du plan, panneau ouvert : toast « Réglez les cotes '
+      + 'dans le panneau… », rien ne change (obtenu ' + JSON.stringify([w7.toast, etape(w7)]) + ')');
+    /* w8 : une seule distance, puis « Poser » */
+    await saisir(p, 'd1', '6'); await effacerToast(p); await bouton(p, 'cotesPoser');
+    const t8 = await toastVu(p), e8 = await etatDeux(p);
+    R.ok(t8.indexOf('Saisissez les deux distances.') >= 0 && !!e8 && e8.etape === 'saisie' && await etatDoc(p) === avant && await nUndo(p) === u0,
+      'w8 : une seule distance, puis « Poser » : toast « Saisissez les deux distances. », rien n\'est posé, le mode reste (obtenu ' + JSON.stringify([t8, e8 && e8.etape]) + ')');
+    /* w9 : aperçu pendant la frappe (sans quitter le champ), puis saisie enregistrée */
+    await taper(p, 'd2', '3'); const f9a = await panneauDeux(p);
+    await taper(p, 'd2', '8'); const f9b = await panneauDeux(p);
+    await saisir(p, 'd2', '8'); const f9c = await panneauDeux(p);
+    R.ok(!!f9a && f9a.texte.indexOf(MSG) >= 0 && f9a.sols === '' && !!f9b && f9b.sols === 'Solution 1* | Solution 2' && f9b.texte.indexOf('ne se croisent pas') < 0 && !!f9c
+      && f9c.sols === 'Solution 1* | Solution 2' && f9c.d1 === '6,00' && f9c.d2 === '8,00' && f9c.labs === 'Distance depuis le point 1 (m) | Distance depuis le point 2 (m)',
+      'w9 : 6 et 3 tapés : « ' + MSG + ' » à la place des puces ; 6 et 8 : puces « Solution 1 » (choisie) et « Solution 2 », sans libellé de champ (obtenu '
+      + JSON.stringify([f9a && f9a.sols, f9a && f9a.texte.slice(-110), f9b && f9b.sols, f9c && [f9c.sols, f9c.d1, f9c.d2, f9c.labs]]) + ')');
+    /* w10 : « Poser » */
+    const els10 = await elements(p); await bouton(p, 'cotesPoser');
+    const n10 = nouveaux(els10, await elements(p)), ch10 = await choix(p), u10 = await nUndo(p), P10 = {x: R1.x + 3.6, y: R1.y + 4.8};
+    R.ok(n10.length === 1 && n10[0].t === 'regard' && ecart(n10[0], P10) <= 0.01 && u10 === u0 + 1 && ch10.cotes === null && ch10.sel === (n10[0] || {}).id && ch10.pan === 'fiche',
+      'w10 : « Poser » : un regard en (3,6 ; 4,8) à 1 cm près, un pas d\'annulation, sa fiche ouverte, mode fini (obtenu ' + pt(n10[0]) + ' pour ' + pt(P10) + ', ' + n10.length + ' élément, '
+      + (u10 - u0) + ' pas, ' + JSON.stringify(ch10) + ')');
+    await annuler(p);
+    R.ok(await etatDoc(p) === avant, 'w10 : « Annuler » rend le croquis exact');
+    /* w11 : « Solution 2 » */
+    const e11 = await entrerDeux(); await tap(R1); await tap(R2); await saisir(p, 'd1', '6'); await saisir(p, 'd2', '8'); await puce(p, 'sol', 'Solution 2');
+    const f11 = await panneauDeux(p), els11 = await elements(p); await bouton(p, 'cotesPoser');
+    const n11 = nouveaux(els11, await elements(p)), P11 = {x: R1.x + 3.6, y: R1.y - 4.8};
+    R.ok(!!e11 && e11.etape === 'p1' && !!f11 && f11.sols === 'Solution 1 | Solution 2*' && n11.length === 1 && ecart(n11[0], P11) <= 0.01 && await nUndo(p) === u0 + 1,
+      'w11 : de nouveau, « Solution 2 », puis « Poser » : un regard en (3,6 ; -4,8) à 1 cm près (obtenu ' + JSON.stringify(f11 && f11.sols) + ', ' + pt(n11[0]) + ' pour ' + pt(P11) + ')');
+    /* w12 : « Annuler » pendant le mode : il défait la dernière pose et finit le mode */
+    const e12 = await entrerDeux(); await tap(R1);
+    const e12a = await etatDeux(p); await annuler(p);
+    const e12b = await etatDeux(p);
+    R.ok(!!e12 && e12.etape === 'p1' && !!e12a && e12a.etape === 'p2' && e12b === null && await etatDoc(p) === avant && await nUndo(p) === u0,
+      'w12 : « Annuler » à l\'étape « p2 » : la pose de w11 est défaite, le mode fini (obtenu ' + JSON.stringify([e12a && e12a.etape, e12b]) + ')');
+    /* w13 : un coin du bâti comme point 1 */
+    await entrerDeux(); const w13a = await tap(K); await tap(R2);
+    const f13 = await panneauDeux(p);
+    await saisir(p, 'd1', '5'); await saisir(p, 'd2', '4');
+    const els13 = await elements(p); await bouton(p, 'cotesPoser');
+    const n13 = nouveaux(els13, await elements(p)), P13 = n13[0], cr13 = P13 ? (R2.x - K.x) * (P13.y - K.y) - (R2.y - K.y) * (P13.x - K.x) : NaN;
+    R.ok(etape(w13a) === 'p2' && egal(w13a.e.deux.A, K) && !!f13 && f13.entete === 'Regard posé depuis deux points (à 7,21 m l\'un de l\'autre).' && n13.length === 1
+      && Math.abs(ecart(P13, K) - 5) <= 0.01 && Math.abs(ecart(P13, R2) - 4) <= 0.01 && cr13 > 0,
+      'w13 : le coin sud-ouest du bâti comme point 1, R2 comme point 2 (« à 7,21 m l\'un de l\'autre »), 5 et 4 : le regard à 5 m du coin et à 4 m de R2 (1 cm près), à gauche du coin vers R2 '
+      + '(obtenu ' + JSON.stringify([etape(w13a), f13 && f13.entete]) + ', ' + pt(P13) + ', à ' + (P13 ? ecart(P13, K).toFixed(4) + ' et ' + ecart(P13, R2).toFixed(4) : '-') + ' m)');
+    await annuler(p);
+    /* w14 : 2 et 3 entre des points à 10 m : pas de croisement */
+    await entrerDeux(); await tap(R1); await tap(R2); await saisir(p, 'd1', '2'); await saisir(p, 'd2', '3');
+    const f14 = await panneauDeux(p); await effacerToast(p); await bouton(p, 'cotesPoser');
+    const t14 = await toastVu(p), e14 = await etatDeux(p);
+    await bouton(p, 'cotesFermer');
+    const e14b = await etatDeux(p), ch14 = await choix(p);
+    R.ok(!!f14 && f14.texte.indexOf(MSG) >= 0 && f14.sols === '' && t14.indexOf(MSG) >= 0 && !!e14 && e14.etape === 'saisie' && e14b === null && ch14.pan === null && ch14.sel === null
+      && await etatDoc(p) === avant && await nUndo(p) === u0,
+      'w14 : 2 et 3 : « ' + MSG + ' », pas de puces ; « Poser » : toast du même message, rien n\'est posé ; « Fermer » : mode fini, panneau fermé (obtenu '
+      + JSON.stringify([f14 && f14.sols, t14, e14 && e14.etape, e14b, ch14]) + ')');
+    /* w15 : tangence */
+    await entrerDeux(); await tap(R1); await tap(R2); await saisir(p, 'd1', '6'); await saisir(p, 'd2', '4');
+    const f15 = await panneauDeux(p), els15 = await elements(p); await bouton(p, 'cotesPoser');
+    const n15 = nouveaux(els15, await elements(p)), P15 = {x: R1.x + 6, y: R1.y};
+    R.ok(!!f15 && f15.sols === '' && f15.texte.indexOf('ne se croisent pas') < 0 && n15.length === 1 && ecart(n15[0], P15) <= 0.01,
+      'w15 : tangence (6 et 4) : ni puces ni message ; « Poser » : un regard en (6 ; 0) à 1 cm près (obtenu ' + JSON.stringify(f15 && f15.sols) + ', ' + pt(n15[0]) + ' pour ' + pt(P15) + ')');
+    await annuler(p);
+    /* w16 : « Mesurer depuis une façade » : pas de bouton */
+    const ok16 = await ficheR3(MESURER), e16 = await etatDeux(p), b16 = await boutonsAide(p);
+    R.ok(ok16 && !!e16 && e16.etape === 'cote' && b16 === 'cotesStop', 'w16 : « Mesurer depuis une façade » : étape « cote » sans « Deux points » (obtenu ' + JSON.stringify([ok16, e16, b16]) + ')');
+    /* w17 : « Déplacer par cotes » de R3 par deux points ; « Déplacer » sans rien changer */
+    const ok17 = await ficheR3(DEPLACER); await C.pause(p, 300);
+    const b17 = await boutonsAide(p); await boutonAide(p, 'cotesDeux');
+    const w17a = await tap(R3); await tap(R1); const w17c = await tap(R2), f17 = await panneauDeux(p);
+    await bouton(p, 'cotesDeplacer');
+    const o17 = await objet(p, 'r3'), ch17 = await choix(p);
+    R.ok(ok17 && b17 === 'cotesDeux cotesStop' && w17a.toast.indexOf('Touchez un coin ou un objet') >= 0 && etape(w17a) === 'p1' && etape(w17c) === 'saisie' && !!f17
+      && f17.entete === 'Regard déplacé depuis deux points (à 10,00 m l\'un de l\'autre).' && f17.d1 === '5,00' && f17.d2 === '6,71' && f17.sols === 'Solution 1 | Solution 2*'
+      && f17.boutons === 'Déplacer | Fermer' && egal(o17, R3) && await nUndo(p) === u0 && await etatDoc(p) === avant && ch17.cotes === null && ch17.sel === 'r3' && ch17.pan === 'fiche',
+      'w17 : « Déplacer par cotes » de R3, « Deux points » : R3 n\'est pas un point ; R1 et R2 : « Regard déplacé depuis deux points (à 10,00 m l\'un de l\'autre). », 5,00 et 6,71, '
+      + 'Solution 2 choisie ; « Déplacer » sans rien changer : rien ne bouge, aucun pas d\'annulation, fiche rouverte (obtenu ' + JSON.stringify([ok17, b17, w17a.toast, etape(w17a), etape(w17c),
+      f17 && [f17.entete, f17.d1, f17.d2, f17.sols, f17.boutons], ch17]) + ', ' + pt(o17) + ')');
+    /* w18 : 6 et 8, Solution 2 gardée : « Déplacer » */
+    await ficheR3(DEPLACER); await C.pause(p, 300); await boutonAide(p, 'cotesDeux');
+    await tap(R1); await tap(R2); await saisir(p, 'd1', '6'); await saisir(p, 'd2', '8');
+    const av18 = await objet(p, 'r3'); await bouton(p, 'cotesDeplacer');
+    const o18 = await objet(p, 'r3'), ch18 = await choix(p), u18 = await nUndo(p), P18 = {x: R1.x + 3.6, y: R1.y - 4.8};
+    R.ok(ecart(o18, P18) <= 0.01 && sansXY(o18) === sansXY(av18) && u18 === u0 + 1 && ch18.cotes === null && ch18.sel === 'r3' && ch18.pan === 'fiche',
+      'w18 : 6 et 8, Solution 2 : « Déplacer » : R3 en (3,6 ; -4,8) à 1 cm près, seuls x et y changent, un pas d\'annulation, fiche rouverte (obtenu ' + pt(o18) + ' pour ' + pt(P18) + ', '
+      + (u18 - u0) + ' pas, ' + JSON.stringify(ch18) + ')');
+    await annuler(p);
+    R.ok(await etatDoc(p) === avant, 'w18 : « Annuler » ramène R3 en (4 ; -3)');
+    /* w19 : départ d'un escalier par deux points */
+    const e19 = await entrerDeux(ESC);
+    await tap(R1); await tap(R2); await saisir(p, 'd1', '6'); await saisir(p, 'd2', '8');
+    const lib19 = await libPoser(p); await bouton(p, 'cotesPoser');
+    const b19 = await p.evaluate(() => { const b = window.__vcEd.etat.brouillon; return b ? {n: b.pts.length, x: b.pts[0].x, y: b.pts[0].y, aide: b.pts[0].aide, surBati: b.pts[0].surBati, cotes: 'cotes' in b} : null; });
+    const st19 = await p.evaluate(() => { const S = window.__vcEd.etat; return {cotes: S.cotes, pan: S.panneau, outil: S.outil.k + ':' + S.outil.id}; }), P19 = {x: R1.x + 3.6, y: R1.y + 4.8};
+    R.ok(!!e19 && e19.etape === 'p1' && lib19 === 'Poser le départ' && !!b19 && b19.n === 1 && ecart(b19, P19) <= 0.01 && b19.aide === null && b19.surBati === false && !b19.cotes
+      && st19.cotes === null && st19.pan === null && st19.outil === 'ln:esc' && await nUndo(p) === u0 && await etatDoc(p) === avant,
+      'w19 : outil Escalier, « Cotes », « Deux points », R1, R2, 6 et 8 : « Poser le départ » : brouillon d\'un point en (3,6 ; 4,8) à 1 cm près, sans aide, ni b.cotes, ni surBati ; mode '
+      + 'fini, outil Escalier actif, aucun pas d\'annulation (obtenu ' + JSON.stringify([e19, lib19, b19, st19]) + ')');
+    await C.pause(p, 250); await toucherPlan(p, plan(6.6, 4.8)); await C.pause(p, 250);
+    const E19 = await escaliers(p);
+    R.ok(E19.length === 1 && !!b19 && ecart(E19[0].v[0], b19) <= 1e-9, 'w19 : la fin touchée : un escalier qui part du départ posé par deux points (obtenu ' + E19.length + ' escalier, départ '
+      + pt(E19[0] && E19[0].v[0]) + ')');
+    await annuler(p); await toutFermer(p);
+    /* w20 : sorties sans rien changer */
+    const sorties = [];
+    for (const k of ['Échap p1', 'Échap saisie', 'Abandonner p2', 'outil p2', 'croix saisie']){
+      const e = await entrerDeux();
+      if (!e || e.etape !== 'p1'){ sorties.push(k + ' : ' + JSON.stringify(e)); continue; }
+      if (k !== 'Échap p1') await tap(R1);
+      if (/saisie/.test(k)){ await tap(R2); await saisir(p, 'd1', '6'); }
+      const e0 = await etatDeux(p);
+      if (/^Échap/.test(k)) await p.keyboard.press('Escape');
+      else if (/^Abandonner/.test(k)) await boutonAide(p, 'cotesStop');
+      else if (/^outil/.test(k)) await C.outil(p, {k: 'main'});
+      else { const x = await p.$('.vc .vc-panneau:not([hidden]) .vc-ptete button[data-a="fermerPanneau"]'); if (x) await x.click(); }
+      await C.pause(p, 250);
+      const ch = await choix(p);
+      if (ch.cotes !== null || ch.pan !== null || await etatDoc(p) !== avant || await nUndo(p) !== u0) sorties.push(k + ' : ' + JSON.stringify(e0 && e0.etape) + ' puis ' + JSON.stringify(ch));
+    }
+    R.ok(!sorties.length, 'w20 : Échap (étape « p1 », puis panneau ouvert), « Abandonner » (étape « p2 »), un autre outil, la croix du panneau : mode fini, croquis inchangé, aucun pas '
+      + 'd\'annulation' + (sorties.length ? ' (' + sorties.join(' ; ') + ')' : ''));
+    /* w21 : « Autre trait », puis « Deux points » aussitôt (double toucher : il vient à sa place) : ignoré ; touché 0,5 s plus tard : « p1 » */
+    await toutFermer(p); await vue(); await effacerToast(p);
+    await C.outil(p, REGARD); await C.pause(p, 150); await entrer(p); await C.pause(p, 300);
+    await toucherPlan(p, facade); await C.pause(p, 250);
+    const e21a = await etatDeux(p), b21 = await boutonsAide(p);
+    const d21 = await deuxTouchers(p, 'cotesAutre', 'cotesDeux'); await C.pause(p, 100);
+    const e21b = await etatDeux(p);
+    await C.pause(p, 500); await boutonAide(p, 'cotesDeux');
+    const e21c = await etatDeux(p);
+    await p.keyboard.press('Escape'); await C.pause(p, 250);
+    const ch21 = await choix(p);
+    R.ok(d21 && !!e21a && e21a.etape === 'endroit' && b21 === 'cotesAutre cotesStop' && !!e21b && e21b.etape === 'cote' && !e21b.deux && !!e21c && e21c.etape === 'p1' && !!e21c.deux
+      && ch21.cotes === null && await etatDoc(p) === avant && await nUndo(p) === u0,
+      'w21 : « Autre trait », puis « Deux points » aussitôt : ignoré (étape « cote ») ; touché 0,5 s plus tard : étape « p1 » ; Échap : mode fini (obtenu '
+      + JSON.stringify([d21, e21a && e21a.etape, b21, e21b, e21c && e21c.etape, ch21]) + ')');
+    /* w22 : un caniveau (orientable) par deux points, orientation automatique active, plan tourné de 15° : l'angle de la rotation du plan */
+    const rot22 = await p.evaluate(() => { const S = window.__vcEd.etat, r0 = S.doc.rot; S.doc.rot = Math.PI / 12; S.vue.rot = S.doc.rot; window.__vcEd.redessiner();
+      return {r0, auto: S.aides.actives !== false && S.aides.orienter !== false}; });
+    const e22 = await entrerDeux({k: 'pt', t: 'caniveau', pal: 'ep'}); await tap(R1); await tap(R2); await saisir(p, 'd1', '6'); await saisir(p, 'd2', '8');
+    const els22 = await elements(p); await bouton(p, 'cotesPoser');
+    const n22 = nouveaux(els22, await elements(p)), P22 = {x: R1.x + 3.6, y: R1.y + 4.8};
+    if (n22.length) await annuler(p);
+    await p.evaluate(r0 => { const S = window.__vcEd.etat; S.doc.rot = r0 === null ? undefined : r0; S.vue.rot = S.doc.rot || 0; window.__vcEd.redessiner(); }, rot22.r0 === undefined ? null : rot22.r0);
+    R.ok(rot22.auto && !!e22 && e22.etape === 'p1' && n22.length === 1 && n22[0].t === 'caniveau' && n22[0].p.a === 15 && ecart(n22[0], P22) <= 0.01 && await etatDoc(p) === avant,
+      'w22 : caniveau posé par deux points, orientation automatique active, plan tourné de 15° : angle 15 (la rotation du plan), en (3,6 ; 4,8) à 1 cm près (obtenu '
+      + JSON.stringify([rot22, e22 && e22.etape, n22.map(e => [e.t, e.p.a])]) + ', ' + pt(n22[0]) + ')');
+    /* w23 : 6 et 8 enregistrés, « -1 » tapé pour le point 2, puis « Poser » aussitôt (le champ perd le focus à ce toucher) : refusé, rien n'est posé */
+    await entrerDeux(); await tap(R1); await tap(R2); await saisir(p, 'd1', '6'); await saisir(p, 'd2', '8');
+    await effacerToast(p); await taper(p, 'd2', '-1'); await bouton(p, 'cotesPoser');
+    const t23 = await toastVu(p), e23 = await etatDeux(p), f23 = await panneauDeux(p);
+    await bouton(p, 'cotesFermer');
+    R.ok(t23 === 'Nombre attendu, par exemple 0,80' && !!e23 && e23.etape === 'saisie' && e23.deux.d2 === 8 && !!f23 && f23.d2 === '8,00' && f23.sols === 'Solution 1* | Solution 2'
+      && await etatDoc(p) === avant && await nUndo(p) === u0 && (await choix(p)).cotes === null,
+      'w23 : 6 et 8, puis « -1 » tapé pour le point 2 et « Poser » aussitôt : valeur refusée (8 gardé), rien n\'est posé, le panneau reste (obtenu '
+      + JSON.stringify([t23, e23 && e23.etape, e23 && e23.deux && e23.deux.d2, f23 && [f23.d2, f23.sols]]) + ')');
+    /* w24 : deux coins du bâti (sud-ouest et sud-est), 6 et 8, Solution 1 : la place tombe dans le bâti ; posé quand même, avec l'avertissement */
+    const K2 = await p.evaluate(q => {
+      const S = window.__vcEd.etat, Ls = window.VCroquis.geo.lignesRef(S.doc, S.aff.fond ? S.fond : null, null, ['bati']) || []; let b = null;
+      Ls.forEach(l => l.P.forEach(v => { const d = Math.hypot(v.x - q.x, v.y - q.y); if (!b || d < b.d) b = {d, x: v.x, y: v.y}; }));
+      return b && b.d < 0.01 ? {x: b.x, y: b.y} : null;
+    }, plan(24, 6));
+    await entrerDeux(); const c24 = plan(19, 8); await C.regler(p, c24.x, c24.y, 40);
+    const w24a = await tap(K), w24b = K2 ? await tap(K2) : null; await saisir(p, 'd1', '6'); await saisir(p, 'd2', '8');
+    const els24 = await elements(p); await effacerToast(p); await bouton(p, 'cotesPoser');
+    const t24 = await toastVu(p), n24 = nouveaux(els24, await elements(p)), P24 = {x: K.x + 3.6, y: K.y + 4.8}, u24 = await nUndo(p);
+    if (n24.length) await annuler(p);
+    R.ok(!!K2 && etape(w24a) === 'p2' && etape(w24b) === 'saisie' && n24.length === 1 && ecart(n24[0], P24) <= 0.01 && u24 === u0 + 1
+      && t24.indexOf('Le point tombe dans le bâti : l\'objet est posé quand même. Vérifiez les cotes (« Annuler » le retire).') === 0 && await etatDoc(p) === avant,
+      'w24 : deux coins du bâti, 6 et 8 : regard posé dans le bâti, en (17,6 ; 10,8) à 1 cm près, un pas d\'annulation, avertissement « Le point tombe dans le bâti… » ; '
+      + '« Annuler » le retire (obtenu ' + JSON.stringify([K2, etape(w24a), etape(w24b), t24]) + ', ' + pt(n24[0]) + ' pour ' + pt(P24) + ')');
+    /* w25 : R4 à 0,3 mm de la droite de R1 à R2 (les cercles de ses distances se touchent à 1 mm près) : « Déplacer » sans rien changer */
+    const R4 = plan(5, 0.0003);
+    await toutFermer(p);
+    await C.injecter(p, {el: [C.P('r1', 'regard', R1.x, R1.y), C.P('r2', 'regard', R2.x, R2.y), C.P('r3', 'regard', R3.x, R3.y), C.P('r4', 'regard', R4.x, R4.y)]});
+    await vue();
+    const avant25 = await etatDoc(p), u25 = await nUndo(p);
+    await p.evaluate(() => window.__vcEd.selectionner('r4')); await C.pause(p, 250);
+    const ok25 = await boutonTexte(p, DEPLACER); await C.pause(p, 300); await boutonAide(p, 'cotesDeux');
+    await tap(R1); const w25 = await tap(R2), f25 = await panneauDeux(p);
+    await bouton(p, 'cotesDeplacer');
+    const o25 = await objet(p, 'r4'), ch25 = await choix(p);
+    R.ok(ok25 && etape(w25) === 'saisie' && !!f25 && f25.d1 === '5,00' && f25.d2 === '5,00' && f25.sols === '' && f25.texte.indexOf('ne se croisent pas') < 0 && egal(o25, R4)
+      && await nUndo(p) === u25 && await etatDoc(p) === avant25 && ch25.cotes === null && ch25.sel === 'r4' && ch25.pan === 'fiche',
+      'w25 : R4 à 0,3 mm de la droite de R1 à R2, « Déplacer par cotes » par deux points (R1, R2 : 5,00 et 5,00, une seule place, pas de puces) ; « Déplacer » sans rien changer : '
+      + 'R4 ne bouge pas, aucun pas d\'annulation, fiche rouverte (obtenu ' + JSON.stringify([ok25, etape(w25), f25 && [f25.d1, f25.d2, f25.sols], ch25]) + ', ' + pt(o25) + ' pour '
+      + pt(R4) + ', ' + (await nUndo(p) - u25) + ' pas)');
+    erreurs(A, 'w1 à w25');
+  } finally { await A.fermer(); }
+}
+/* w26 (m146) : écran de 400 × 800 : la barre d'aide passe à la ligne, et « Abandonner » vient à la place de « Deux points » */
+async function deuxPointsEtroit(){
+  const A = await C.ouvrir({viewport: {width: 400, height: 800}}), p = A.p;
+  try {
+    await ouvrirFondFictif(p, 'plan-fictif-deux-points.dxf', dxfDeux());
+    await C.outil(p, {k: 'pt', t: 'regard', pal: 'reg'}); await C.pause(p, 150);
+    await entrer(p); await C.pause(p, 400);
+    const q = await centreAide(p, 'cotesDeux');
+    if (q){ await p.touchscreen.tap(q.x, q.y); await p.touchscreen.tap(q.x, q.y); await C.pause(p, 300); }
+    const sous = q ? await boutonSous(p, q) : '', e1 = await etatDeux(p);
+    await C.pause(p, 300); await boutonAide(p, 'cotesStop');
+    const e2 = await etatDeux(p);
+    R.ok(!!q && sous === 'cotesStop' && !!e1 && e1.etape === 'p1' && !!e1.deux && e2 === null,
+      'w26 : écran de 400 × 800, double toucher sur « Deux points » : le second, tombé sur « Abandonner » venu à sa place, est ignoré (étape « p1 ») ; « Abandonner » touché '
+      + '0,5 s plus tard finit le mode (obtenu ' + JSON.stringify([q, sous, e1 && e1.etape, e2]) + ')');
+    erreurs(A, 'w26');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [prolongement, poses, valeursEtSorties, superposees, geometrie, mesureEtDeplacement, casLimites, departEscalier, libellesObjets]){
+  for (const f of [prolongement, poses, valeursEtSorties, superposees, geometrie, mesureEtDeplacement, casLimites, departEscalier, libellesObjets, deuxPointsCotes, deuxPointsEtroit]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();
