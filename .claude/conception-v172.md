@@ -1298,13 +1298,52 @@ et à tests/LISEZMOI.md.
     de 6 600 points [p] ; test du glissé : repère lu deux images avant le lever du doigt [p].
   - Dépendances : m138.
 
+- **m156 Corrections de la relecture d'ensemble** (relecture d'ensemble de la v1.7.2 sur c5f8caf : EL1, AC1 ; élision notée sur la carte
+  m148 : m157, réunie à m156). Taille M. Fait : ef7d0ae, 23 nov.
+  - Fichiers et fonctions : CJ : parcours (l. 1447 : preds, sous o.traverserInf, l. 1449, 1464 et 1473) ; analyser (l. 1366 : chemTp, posé
+    l. 1773, avant le test « multiple » ; cheminTp, non énumérable, l. 1853 ; commentaires du bloc rx, l. 1739, et du bloc m145) ;
+    boitesConstat (l. 2633) et traversees (l. 2656 ; marche du trop-plein l. 2690) ; fermerNiveau (l. 7587). IX : constatIssues (l. 2141 ;
+    rappel l. 2158). LISEZMOI.txt l. 383-384 ; croquis/LISEZMOI.txt l. 18, 27 et 55 ; tests : vm/boite.js (c39 à c48, tropPlein),
+    navigateur/gestes.js (h : avantLeSeuil, appuiPuisArc), navigateur/dossier.js (143 : rappelConforme), navigateur/constat-boite.js (21 :
+    tropPleinBoite) ; tests/LISEZMOI.md.
+  - Pour l'utilisateur : Échap ou le retour d'Android juste après avoir touché la poignée ou l'anneau du disque : l'objet reste choisi, sa
+    fiche ouverte, et rien ne tourne ensuite ; un second Échap ferme la fiche (avant : la fiche se fermait et le glissé qui suivait tournait
+    l'objet, sans disque). En zone unitaire, une boîte sans réseau indiqué sur le trop-plein orienté d'un puisard ou d'une infiltration au
+    sol compte pour la source quand l'analyse compte ce que ce trop-plein atteint : « Reprendre du croquis » reprend la boîte du WC en EU et
+    celle du trop-plein en EP, sans le rappel « 2 boîtes existantes » ; une boîte qui reçoit le WC et le trop-plein compte en EU et en EP,
+    comme en v1.7.1. Le rappel avant la signature écrit « alors qu'une anomalie liée est une non-conformité ».
+  - Tests : vm/boite.js (163) : c39 à c48, 155/163 sur c5f8caf (c39 à c42, la seconde vérification de c46 : une analyse passée par JSON donne
+    le constat d'avant, les deux de c47, c48) ; témoins, qui passent sur c5f8caf : descente vers B1 sans puisard et trop-plein sans sens,
+    boîte mêlée (c43), bifurcation avant le puisard vers un second collecteur (c44), trop-plein laissé libre (c45), analyse inchangée (c46).
+    navigateur/gestes.js (123) : h, 12 contrôles, 113/123 sur c5f8caf (les dix de h, hors témoins). navigateur/dossier.js (240) : 143,
+    239/240 (témoins : « alors que son raccordement (…) ne l'est pas. » et RAP_PUITS). navigateur/constat-boite.js (115) : 21, 113/115.
+  - Relecture : ni défaut bloquant ni défaut majeur. Un défaut de la relectrice de conformité, majeur, ramené à mineur par la
+    contre-vérification (95 %) : le témoin c44 n'exerçait pas la bifurcation avant l'ouvrage (C1 ; refait vers un second
+    collecteur) ; mineurs : « multiple » tiré du trop-plein sans test (M1 : c47), « par le trop-plein suivi d'un puisard » se lisait à
+    l'envers (M2 : LISEZMOI.txt), causes des échecs sur c5f8caf inexactes (M3). Mutations des relecteurs : vues par c44 et c47 (161/163
+    chacune).
+  - Vérification : boite-tp2.js des relecteurs (T2b : B1 en EU, B2 en EP ; T3b : B1 en EU et en EP ; T5 : B2 en EP seulement ; T4, T2 et T3
+    inchangés) ; j154.js (scénario E : attente close, objet choisi, disque visible, aucune annulation). Neuf mutations hors dépôt : six vues,
+    dont preds noté sur tous les arcs, vu par c48 (boucle sur le trop-plein, à l'image de c33 ; ajouté à la vérification, 162/163) ; deux
+    équivalentes (chemin posé sans exutoire au-delà [p] ; preds noté avant le garde-fou) ; une non testée (preds à contre-sens d'un tuyau
+    orienté vers une autre branche : figure artificielle). La même boucle sans puisard donne de même B3 en EU et en EP (sonde, chemin
+    ordinaire).
+  - Gardes : compat 245/245 ; aléatoire 8000 contre c5f8caf : sans écart (10 666 analyses ; il compare resObj par Object.keys, les anomalies,
+    la conclusion, les contrôles, le constat déduit et les étiquettes, ni cheminTp ni boitesConstat) ; boitesConstat comparé à part sur les
+    mêmes graines : sans écart (10 666 analyses, dont 182 avec un chemin par le trop-plein). Batterie complète : verte (27 min).
+  - Risques et [p] : lecture de D6 jointe à D11 ; nom et forme de cheminTp ({fins, preds}, non énumérable, non modifiable) ; fins : tous les
+    exutoires du trop-plein, l'ouvrage compris ; condition rx && apres.length, avant le test « multiple » (un puisard qui ne mène qu'à un
+    autre puisard ne change rien) ; seuls les plus courts chemins comptent, comme pour c33 ; resObj.boite ne suit pas le trop-plein ; preds
+    n'est gardé qu'avec traverserInf ; seule l'attente du disque est close ; LISEZMOI.txt l. 265 laissée (vraie dans tous les cas) ;
+    élisions : seize candidats d'index.html et cinq de croquis.js écartés. Hors du correctif : Ctrl+Z ou Ctrl+Maj+Z pendant un geste
+    (antérieur), écran tourné pendant une rotation, boîte « mêlée » (question ouverte).
+  - Dépendances : m140, m145, m148, m154.
 ### Attendront la fusion suivante
 - Les souhaits restants de la v1.7.0 et le constat délesté (fil du 17 nov. : lot suivant, en premier) : section suivante.
 - Plus rien pour l'escalier (S11 a), les textes libres tournés par le disque (S10 : b, pas c) ni une clé des exutoires qui sépare « Fosse »
   et « Fossé » (S7 : a, pas c).
-- Ce lot compte 19 numéros (m137 à m155) ; m156 reste en réserve, pour un premier correctif scindé (m144 ou m154). S'il en faut plus (second
-  correctif scindé, relecture plus longue) : le demander à l'utilisateur ; ne pas repousser d'office m146 ni m154, que la réponse du fil
-  garde dans la v1.7.2 (« La v1.7.2 garde ses correctifs et se fusionne plus tôt »).
+- Ce lot compte 20 numéros (m137 à m156) : m156, gardé en réserve, porte les corrections de la relecture d'ensemble (EL1, AC1) et l'élision
+  de la carte m148 (m157, réunie à m156). Aucun correctif de plus sans fusion (au plus 20).
 
 ## Souhaits restants (après la v1.7.2)
 Résumé d'EC : ce que les réponses du cadrage (16 nov.) et celles du groupe « Suivi » (17 nov. : S12 à S16) changent aux recommandations du
