@@ -1226,33 +1226,47 @@ et à tests/LISEZMOI.md.
     pas un porteur déjà réuni (l'éditeur n'ouvre pas la création pour lui) ; le test de la durée du toast accepte de 3 900 à 5 000 ms.
     Réalisation en deux temps : le premier réalisateur a été coupé par la limite d'usage de 5 heures avant son compte rendu ; le second a
     relu son travail, complété les tests et refait toutes les mesures. Dépendances : après m141 (même tri des membres).
-- **m154 Disque de rotation** (remarque-libre ; D22 ; S10 b). Taille L.
-  - Réponse : S10 (b) « Aussi les symboles qui ne sont pas ronds : regard, boîte, grille, fosse, té, siphon, puits… » ; commentaire : « La
-    rotation doit se faire degré par degré et proposer un accrochage pour que l'objet soit orienté parallèlement ou perpendiculairement à un
-    linéaire proche ».
-  - Fichiers et fonctions : CJ : gestes (S.geste, l. 3808-3872 : geste 'tourner' [p]), cibleGlisser (l. 4068-4083), terminerGlisser
-    (l. 4266), dessin de la sélection [p : vers l. 2849-2900] ; drapeau pivot de def() (l. 960-995) ; DXF (l. 7447-7448 : e.p.a s'il est
-    donné, sinon rotDeg) ; puces de la fiche (l. 5970 : ty.oriente || ty.pivot) ; accrochage aux linéaires proches (segsCibles et pièces des
-    tronçons et collecteurs proches [p : fonction], tuyaux raccordés compris). LISEZMOI.txt l. 290-298 [p]. tests/navigateur/gestes.js,
-    tests/vm/dessin.js. Numéros de 71a4ed6 : à retrouver par recherche.
-  - Pour l'utilisateur : un anneau et sa poignée autour de l'objet choisi, qu'on glisse pour le faire tourner degré par degré ; aimant actif,
-    l'objet se cale parallèle ou perpendiculaire au tuyau (le sien compris), au côté du bâti, à la limite ou au trait proche ; caniveau,
-    clapet, gargouille et les symboles qui ne sont pas ronds (regard, boîte, grille, fosse, té, siphon, puits… [p : liste]) ; les puces de
-    15° de la fiche valent aussi pour eux [p] ; le DXF suit l'angle donné ; un objet jamais tourné ne change pas.
-  - Tests : navigateur/gestes.js : un caniveau, poignée glissée d'un quart de tour : angle 90 (avant : pas de poignée ; échoue) ; aimant
-    coupé, un glissé de 37° donne 37 ; une annulation rend l'angle ; aimant actif, un regard près d'un côté du bâti orienté à 30°, lâché à
-    32° : 30 [p] ; à 45° de toute direction proche : pas d'accrochage ; vm/dessin.js : un regard tourné donne un INSERT DXF à cet angle
-    (avant : rotDeg, 0 sans rotation ; échoue) ; témoin : R1 sans angle sur un plan tourné de −0,6° : INSERT à rotDeg, comme avant ; fiche
-    d'un regard : puces de 15° (avant : aucune ; échoue) ; aimant actif, un regard raccordé à un tronçon à 30°, lâché à 33° : 30 [p] ; plan
-    tourné : l'écran, le plan PDF et le DXF concordent pour un regard tourné au disque ; un écart pour un objet jamais tourné serait
-    antérieur : le signaler, sans changer son DXF (D22) [p].
-  - Garde : compat 245/245 (un objet sans angle garde rotDeg au DXF ; une empreinte qui bouge est un défaut) ; aléatoire : sans effet.
-  - Risques et [p] : conflit entre la poignée et le glisser de l'objet au petit zoom ; liste des symboles non ronds [p] ; seuil de 5° et
-    linéaires retenus pour l'accrochage [p] ; tablette en v1.7.1 : écran et PDF tournés, DXF non (information). À scinder si la relecture le
-    demande : m154 (disque, objets, DXF) et m156 (accrochage).
-  - Dépendances : aucune.
-
-### Ajouté le 17 nov. (fil)
+- **m154 Disque de rotation** (remarque-libre ; D22 ; S10 b). Taille L. Fait : 660fb68, 23 nov.
+  - Fichiers et fonctions : CJ : drapeau « pivot » de def() (l. 1156-1189, onze types) ; pivotant(t) (l. 1205, nouvelle ; export l. 1206) ;
+    disque() (l. 4024), decalPoignee (l. 4039), cadreLibre (l. 4053), bulleAngle (l. 4063), nouvelles ; dessin du disque dans dessiner()
+    (l. 3992) ; cibleGlisser (l. 4632 : cible 'tourner') ; demarrerGlisser (l. 4705) ; tourner (l. 4739) et calerAngle (l. 4758), nouvelles ;
+    glisser (l. 4777) ; toucherDisque (l. 4454) et rendreRetablir (l. 4448), nouvelles ; terminerGlisser (l. 4889) ; puces « Orientation » de
+    la fiche (l. 6824) ; changerType (l. 7404 : l'angle suit vers un type qui tourne) ; fermerNiveau (l. 7556) ; DXF (l. 8344). LISEZMOI.txt,
+    croquis/LISEZMOI.txt, tests/LISEZMOI.md (lignes vm/dessin.js et navigateur/gestes.js).
+  - Pour l'utilisateur : avec l'outil « Choisir », l'objet choisi qui tourne (caniveau, clapet, gargouille ; regard, boîte, grille, fosse,
+    té, les trois siphons, puits, autre destination, point de test) porte un anneau fin et une poignée ronde ; glisser l'un ou l'autre le
+    fait tourner au degré, une bulle écrit l'angle. Aimant actif, l'angle se cale à 5° au plus sur un linéaire proche (côtés du bâti, traits,
+    limites cochées, tuyaux de plus de 0,2 m, à 3 m au plus), parallèle ou perpendiculaire, et la bulle le dit. Un pas d'annulation par
+    geste ; un geste sans changement n'en laisse aucun. Les puces « 15° » et « 90° » de la fiche valent pour ces types. Le DXF suit l'angle
+    donné ; un objet jamais tourné ne change ni à l'écran, ni au PDF, ni au DXF. Analyse, constat et enregistrement inchangés. Croquis
+    désactivé : sans objet.
+  - Tests : vm/dessin.js (223 contrôles ; m154 : types qui tournent, angle à la pose, DXF d'un objet tourné ou jamais tourné, plan droit ou
+    tourné, puits et fosse tournés ; M7 : commentaires) : 216/223 sur ee82072. navigateur/gestes.js (111 contrôles, dont 73 pour m154 : d,
+    anneau et poignée, quart de tour, anneau pris ailleurs, aimant coupé, annulations, Échap, bulle de l'angle, petit zoom, puces, changement
+    de type ; a, accrochage, point de test, plan tourné ; e, poignée posée hors de l'étiquette et des bulles, marges, écart gardé pendant le
+    geste ; g, gestes qui ne changent rien) : 53/103 sur ee82072 (g s'y arrête à sa mise en place, faute de disque), 93/111 sur la version
+    relue (les quinze cas de la relecture et les trois contrôles de la vérification ; leurs témoins y passent). Mutations hors dépôt, à la
+    vérification finale : onze ; neuf vues, dont trois après les trois contrôles ajoutés à e ; deux équivalentes, gardées en défense.
+    Gardes : compat 245/245 ; aléatoire 8000 contre ee82072 : aucun écart sur 10 666 analyses. Batterie verte (27 min).
+  - Relecture (deux relecteurs ; exactitude 85 %, conformité 88 %) : un défaut majeur, confirmé par la contre-vérification (93 %) : la
+    poignée posée d'office sur l'étiquette (objet tourné d'environ un quart de tour, clapet sur un tuyau qui descend) ou sur la bulle d'une
+    anomalie (regard sur un tuyau horizontal) déplaçait l'étiquette ou la bulle au lieu de tourner l'objet (C1). Corrigé par decalPoignee :
+    la poignée va à la première place libre de l'anneau, à 18 px au moins de l'étiquette et à 20 px d'une bulle, hors de leur prise. Mineurs
+    corrigés : « Rétablir » perdu après un geste sans changement (M1) ; mot de la bulle inversé pour le point de test (M2) ; un toucher bref
+    sur le disque ôtait le choix de l'objet (M3) ; deux cas sur un plan tourné ajoutés aux tests, qui passaient déjà (M4) ; notice : place de
+    la poignée, réglage fin, petit angle (M5) ; points pour l'annonce (M6) ; commentaires des tests (M7). Écartés : recaler l'angle au
+    passage du seuil du glissé (la poignée resterait 9 px en retard du doigt) ; prendre la poignée avant l'étiquette et les bulles (leur
+    glissé régresserait) ; agrandir l'anneau (démesuré au grand zoom). Correction vérifiée ensuite : diff relu, mesures avant et après
+    refaites, onze mutations : six vues d'emblée ; trois survivantes (marges de 18 et 20 px réduites, écart recalculé pendant le geste), vues
+    après trois contrôles de plus dans e (poignée près de l'étiquette ou de la bulle sans être dessus, prise près de son bord : l'étiquette
+    ou la bulle partait sous le doigt ; quart de tour en trois pas) ; deux équivalentes, gardées en défense : majBarre au retour d'un angle
+    inchangé (rien ne change la barre pendant le geste) et la garde « geste non modifié » de terminerGlisser (un geste est noté modifié dès
+    son premier mouvement).
+  - Risques et [p] : poignée au-dessus d'un objet droit, déplacée quand l'étiquette ou une bulle l'occupe ; infiltration au sol non
+    pivotante ; autre destination et point de test pivotants ; angle gardé au changement de type ; accrochage sans réglage à lui (il suit
+    l'aimant) ; seuil de 5° et linéaires retenus ; disque seulement avec « Choisir » ; « FS » et l'abréviation d'une destination tournent
+    avec le bloc au DXF ; un symbole jamais tourné sur un plan tourné reste droit au DXF (écart antérieur, D22) ; tablette restée en v1.7.1 :
+    angle à l'écran et au PDF, pas au DXF, et pas de puces. Dépendances : aucune.
 - **m155 Prolongement toujours d'abord** (fil du 17 nov. ; D2). Taille S. Fait : 9b7e772, 17 nov.
   - Fichiers et fonctions : CJ : contrat de PROL_MAX (l. 348-350) ; prolSegs (l. 364, même API) et prolCands (nouvelle, l. 367 : les
     candidats avant le choix) ; accrochesNouvelles (l. 3803 ; étape du prolongement l. 3810 : candidats de 30 m au plus sur cibles() et ceux
