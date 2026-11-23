@@ -109,6 +109,12 @@
 //     croix au PDF ; de même pour « 0,80 m extérieur » tapé avant la première reprise (la profondeur et la boîte EP sont reprises), par
 //     « Reprendre du croquis » puis au suivi. Échoue sur la première version de m149 (côté coché, ou passé à l'extérieur, d'après le
 //     croquis).
+// 21 (m156, AC1 de la relecture d'ensemble de la v1.7.2) : zone unitaire (collecteur unitaire), boîtes sans réseau indiqué : WC → B1 →
+//     regard public ; descente → puisard → trop-plein orienté du puisard vers B2 → B2 → regard public. B1 compte en EU, B2 en EP :
+//     avant la reprise, ni rappel « 2 boîtes existantes » ni boîte EP manquante ; « Reprendre du croquis » écrit en EU « 0,80 m »,
+//     « intérieur », « 0,60 m », en EP « 1,50 m », « extérieur », « 1,10 m » ; aucun écart de la boîte après. Échoue sur c5f8caf (B2
+//     qu'aucune source ne traverse compte en EU et en EP : deux boîtes en EU, rien de repris en EU, rappel des deux boîtes), sauf le
+//     témoin (aucune erreur dans la console).
 // Sur edae8d8 (avant m149 : distance « 0,80 m intérieur », ni rangée ni boutons du côté, provenance sans le côté, trois rangées au
 //     PDF), 51 vérifications sur 112 échouent : 1 (sauf le témoin et « aucun écart après la reprise »), 2 (sauf « un seul écart »), 3
 //     (sauf la provenance sans la boîte), 4 (sauf le rappel des deux boîtes), 5 à 8, 9 (provenance de la boîte), 11 (suivi après le
@@ -927,6 +933,37 @@ async function reparation(){
   finally { R.ok(!A.erreurs.length, 'réparation : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
+/* 21 (m156, AC1) : boîte sur le trop-plein orienté d'un puisard, en zone unitaire (données fictives) */
+async function tropPleinBoite(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p);
+    await C.ouvrirCroquis(p, {fond: false});
+    const v0 = await C.vue(p), X = x => v0.cx + x, Y = y => v0.cy + y;
+    const B = (id, x, y, q) => C.P(id, 'boite', X(x), Y(y), Object.assign({limDist: '0,80', limCote: 'int', prof: '0,60'}, q || {}));
+    const els = [C.P('W', 'wc', X(0), Y(10)), B('B1', 0, 4), C.P('Rp', 'regard_pub', X(0), Y(0), {res: 'UN'}), C.P('S', 'descente', X(8), Y(14), {cote: 'avant'}),
+      C.P('P', 'puisard', X(8), Y(9)), B('B2', 8, 4, {limDist: '1,50', limCote: 'ext', prof: '1,10'}), C.P('Rq', 'regard_pub', X(8), Y(0), {res: 'UN'})], I = C.index(els);
+    els.push(C.L('tW', 'tr', ['W', 'B1'], I), C.L('tB1', 'tr', ['B1', 'Rp'], I), C.L('tS', 'tr', ['S', 'P'], I), C.L('Q', 'tr', ['P', 'B2'], I, {sens: 1}),
+      C.L('tB2', 'tr', ['B2', 'Rq'], I), C.L('C', 'col', [[X(-10), Y(0)], 'Rp', 'Rq', [X(20), Y(0)]], I, {res: 'UN'}));
+    await C.injecter(p, {el: els});
+    await p.evaluate(() => { const S = window.__vcEd.etat; S.doc.rev = (S.doc.rev || 0) + 1; window.__vcEd.enregistrer(); }); await C.pause(p, 500);
+    await C.fermerCroquis(p); await C.pause(p, 600);
+    await p.evaluate(async () => { const T = window.__VT; T.S.visites[0].statut = 'visitee'; await T.flushSaves(); });
+    const deux = t => /2 boîtes existantes/.test(t);
+    let e = await constat(p);
+    R.ok(!ecartBoite(e).some(deux) && ecartBoite(e).includes('Boîte de branchement EU : distance à la limite « 0,80 m » sur le croquis de terrain, non renseignée au constat.')
+      && ecartBoite(e).includes('Boîte de branchement EP : distance à la limite « 1,50 m » sur le croquis de terrain, non renseignée au constat.'),
+      '21 avant la reprise : ni rappel « 2 boîtes existantes », ni boîte manquante ; B1 (WC) rappelée en EU, B2 (trop-plein du puisard) en EP (échoue sur c5f8caf) : '
+      + (ecartBoite(e).join(' | ') || 'aucun écart de la boîte'));
+    e = await reprendre(p);
+    const A21 = ['0,80 m', '0,60 m', '1,50 m', '1,10 m'];
+    R.ok(pareil(e.ecran, A21) && pareil(e.champs, A21) && coteOk(e, 'intérieur', 'extérieur') && !ecartBoite(e).length,
+      '21 « Reprendre du croquis » : B1 en EU, B2 en EP, aucun écart de la boîte après (échoue sur c5f8caf : rien en EU, rappel des deux boîtes) ('
+      + texte(e.ecran) + ' ; ' + coteVu(e) + (ecartBoite(e).length ? ' ; écarts : ' + ecartBoite(e).join(' | ') : '') + ')');
+  } catch (err){ R.ok(false, 'exception du test : ' + (err && err.stack || err)); }
+  finally { R.ok(!A.erreurs.length, '21 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
 (async () => {
   await parcours();
   await restauration();
@@ -936,5 +973,6 @@ async function reparation(){
   await sansCroquis();
   await casesEP();
   await reparation();
+  await tropPleinBoite();
   R.fin();
 })();

@@ -380,7 +380,8 @@ CROQUIS DE TERRAIN (facultatif)
   compte pour les deux réseaux. En zone unitaire, une boîte sans réseau
   indiqué, que le dessin dit unitaire (étiquette « Boîte de branchement
   unitaire »), compte pour le réseau des appareils dont les eaux y
-  passent pour rejoindre l'exutoire dessiné : pour les deux si elle
+  passent pour rejoindre l'exutoire dessiné, y compris par le trop-plein
+  d'un puisard ou d'une infiltration au sol : pour les deux si elle
   reçoit des EU et des EP, ou si aucun appareil n'y passe. Le réseau
   indiqué dans la fiche l'emporte. Une boîte que le dessin dit mêlée
   (étiquette « Boîte de branchement » seule, par exemple quand un tuyau

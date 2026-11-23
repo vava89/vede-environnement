@@ -1440,10 +1440,13 @@ function analyser(doc, mode){
      tuyaux (son trop-plein), dans leur sens ; les autres exutoires restent des arrêts. Garde-fou : depuis un tel ouvrage traversé, un
      tuyau sans sens n'est pas pris s'il est d'un drain de collecte compté, ou si l'eau d'un appareil peut arriver par lui (arriveeVers) ;
      un tuyau orienté qui en part l'est toujours, et un lien du drain d'infiltration qui tient l'ouvrage aussi (m129 : son sens n'est pas lu).
-     Les parents gardés permettent de suivre le chemin de l'eau jusqu'à chaque exutoire atteint, sans les branches voisines. */
+     Les parents gardés permettent de suivre le chemin de l'eau jusqu'à chaque exutoire atteint, sans les branches voisines. m156 (AC1) :
+     avec o.traverserInf, preds garde aussi, pour chaque nœud atteint, tous les nœuds d'où la marche l'atteint par un plus court chemin
+     (graphe des plus courts chemins de ce parcours, tel qu'il a marché : sens, garde-fou, liens du drain, exutoires non traversés) ;
+     sans elle, preds est null */
   function parcours(departs, o){
     o = o || {}; var estTerm = o.terminal || terminal;
-    var vus = {}, parent = {}, dist = {}, file = [], term = [], tvus = {}, pcs = {}, trav = {};
+    var vus = {}, parent = {}, dist = {}, file = [], term = [], tvus = {}, pcs = {}, trav = {}, preds = o.traverserInf ? {} : null;
     departs.forEach(function(d){
       if (vus[d]) return; vus[d] = true; parent[d] = null; dist[d] = 0;
       var t = !o.traverserDepart && estTerm(d);
@@ -1458,6 +1461,7 @@ function analyser(doc, mode){
         if (p.sens === -1 && p.a === n && p.b !== n) return;
         if (tp && !p.sens && !p.lien && (srcs.indexOf(p.l.id) >= 0 || arriveeVers(autre, n))) return;
         pcs[p.id] = p;
+        if (preds && !(o.sauf && o.sauf[autre]) && (!vus[autre] || dist[autre] === dist[n] + 1)){ var pq = preds[autre] || (preds[autre] = []); if (pq.indexOf(n) < 0) pq.push(n); }
         if (vus[autre] || (o.sauf && o.sauf[autre])) return;
         vus[autre] = true; parent[autre] = {n: n, p: p}; dist[autre] = dist[n] + 1;
         var t = estTerm(autre);
@@ -1466,7 +1470,7 @@ function analyser(doc, mode){
         file.push(autre);
       });
     }
-    return {term: term, pieces: pcs, parent: parent, vus: vus, dist: dist};
+    return {term: term, pieces: pcs, parent: parent, vus: vus, dist: dist, preds: preds};
   }
   /* m145 (D11) : l'eau d'un appareil peut-elle arriver au nœud k (puisard ou infiltration au sol traversé) par son voisin u ? Marche à
      rebours depuis u par les pièces où l'eau peut venir vers chaque nœud (sans sens, ou orientées vers lui), sans repasser par k, sans
@@ -1718,7 +1722,7 @@ function analyser(doc, mode){
       pieces.filter(function(q){ return q.l === ld; }).reduce(function(t, q){ return t.concat(ld.p.sens === 1 ? [q.i1] : ld.p.sens === -1 ? [q.i0] : [q.i0, q.i1]); }, []).forEach(function(i){ var x = noeud(ld, i); if (virt.some(function(q){ return q.b === x; })) return;
         var p = {id: s + ':' + i, l: ld, a: s, b: x, i0: i, i1: i, sens: 1, virt: true}; virt.push(p); lier(s, p); lier(x, p); }); }
     var r = parcours([s]), pr = predsDe(r, s), nets = [], gests = {}, fosse = null, fosseDouteuse = null, boite = null, entree = {}, presume = false, cfl = null, amb = null, ambArr = false;
-    var apres = [], apresPar = null, disp = [], parBoutsDisp = false, drs = null;
+    var apres = [], apresPar = null, disp = [], parBoutsDisp = false, drs = null, chemTp = null;
     /* exutoires du plus proche au plus lointain (à égalité, dans un ordre fixe) ; boîte sur chaque plus court chemin ; regard où le
        branchement arrive sur le collecteur (celui d'un plus court chemin sans boîte, s'il y en a) ; fosse septique (fosseDe) */
     r.term.sort(function(a, b){ return a.dist - b.dist || (a.noeud < b.noeud ? -1 : a.noeud > b.noeud ? 1 : 0); });
@@ -1730,7 +1734,8 @@ function analyser(doc, mode){
     /* m145 (D11 ; réponse q7-trop-plein du 16 nov. 2026, choix b) : la source atteint un puisard ou une infiltration au sol : un second
        parcours (rx) les traverse et suit leur trop-plein (garde-fou : parcours). Il ne sert qu'à compter ce que le trop-plein atteint (bloc
        ci-dessous, eauxDrains) ; la boîte, l'entrée, la fosse, le sens de l'eau, les pièces, le réseau présumé et les sorties libres restent
-       ceux du parcours ordinaire (r). Laissé quand il n'atteint aucun exutoire de plus */
+       ceux du parcours ordinaire (r). Laissé quand il n'atteint aucun exutoire de plus. m156 (AC1) : le constat des boîtes (boitesConstat,
+       en zone unitaire) suit aussi le trop-plein quand ce qu'il atteint compte (bloc ci-dessous : cheminTp) ; resObj.boite, non */
     var rx = r.term.some(function(t){ return /^(INF|SOL)$/.test(t.res); }) ? parcours([s], {traverserInf: true}) : null;
     if (rx && rx.term.length > r.term.length) rx.term.sort(function(a, b){ return a.dist - b.dist || (a.noeud < b.noeud ? -1 : a.noeud > b.noeud ? 1 : 0); }); else rx = null;
     /* m142 (décision D8 ; réponse drain-infiltration-dessin du 16 nov. 2026) : eaux reçues par chaque drain d'infiltration que la source
@@ -1753,13 +1758,19 @@ function analyser(doc, mode){
        parcours ordinaire atteint reste le sien (gests, comme en m129) ; celui d'un réseau que seul le trop-plein atteint vient du premier
        exutoire de ce réseau.
        Deux autres destinations ou plus au-delà du drain ou de l'ouvrage : « multiple », comme avant m129 (décision D5 : deux destinations
-       font « multiple ») ; leurs anomalies auraient la même clé (ep-exu, eu-exu : une par source), et seule la première compterait */
+       font « multiple ») ; leurs anomalies auraient la même clé (ep-exu, eu-exu : une par source), et seule la première compterait.
+       m156 (AC1 de la relecture d'ensemble de la v1.7.2) : quand le résultat de la source est tiré du trop-plein (rx gardé, des exutoires
+       au-delà : apres, avec apresPar 'tp' ou « au-delà du drain », ou « multiple » tiré de rx), son chemin de l'eau le comprend :
+       resObj[id].cheminTp, propriété non énumérable (ni Object.keys, ni JSON, ni copie : le résultat de l'analyse ne change pas), donne
+       les exutoires de rx (fins) et ses plus courts chemins (preds) ; boitesConstat (traversees) les suit, en plus du chemin ordinaire.
+       Une bifurcation avant l'ouvrage (rx laissé de côté) n'en a pas */
     if ((nets.length > 1 && Object.keys(r.pieces).some(function(k){ return r.pieces[k].lien; })) || rx){
       var tout = rx || r, r0 = parcours([s], {sansLiens: true}), av = {}, nav = [];
       r0.term.sort(function(a, b){ return a.dist - b.dist || (a.noeud < b.noeud ? -1 : a.noeud > b.noeud ? 1 : 0); });
       r0.term.forEach(function(t){ av[t.noeud] = true; if (nav.indexOf(t.res) < 0) nav.push(t.res); });
       if (nav.length === 1 && /^(DISP|INF|SOL)$/.test(nav[0])){
         tout.term.forEach(function(t){ if (!av[t.noeud] && t.res !== nav[0] && !apres.some(function(x){ return x.res === t.res; })) apres.push({res: t.res, gest: Object.prototype.hasOwnProperty.call(gests, t.res) ? gests[t.res] : gestDe(t)}); });
+        if (rx && apres.length) chemTp = rx;
         if (apres.filter(function(x){ return codeExu(x.res) === 'X'; }).length > 1){
           apres = []; nets = [];
           tout.term.forEach(function(t){ if (nets.indexOf(t.res) < 0) nets.push(t.res); if (!Object.prototype.hasOwnProperty.call(gests, t.res)) gests[t.res] = gestDe(t); });
@@ -1839,6 +1850,7 @@ function analyser(doc, mode){
     if (apres.length) resObj[id].apres = apres;
     if (apresPar) resObj[id].apresPar = apresPar;
     if (drs) resObj[id].drains = drs;
+    if (chemTp) Object.defineProperty(resObj[id], 'cheminTp', {value: {fins: chemTp.term.map(function(t){ return t.noeud; }), preds: chemTp.preds}});
     virt.forEach(function(p){ [p.a, p.b].forEach(function(x){ adj[x] = adj[x].filter(function(q){ return q !== p; }); if (!adj[x].length) delete adj[x]; }); });
   });
   resVers = {};
@@ -2612,7 +2624,8 @@ VC.constatDeduit = constatDeduit; VC.RACC_LIB = RACC_LIB;
    (m140, décision D6, réponse pr12-5 du 16 nov. 2026), une boîte sans réseau indiqué que le dessin dit unitaire compte pour le réseau propre
    des sources dont l'eau la traverse sur les plus courts chemins de l'analyse jusqu'à leurs exutoires dessinés (traversees) : en EU si seules
    des sources EU y passent, en EP si seules des sources EP y passent, en EU et en EP si les deux y passent ou si aucune n'y passe ; son
-   étiquette reste « unitaire ». p.limCote, p.limDist et p.prof sont lus
+   étiquette reste « unitaire ». m156 (AC1) : ces chemins passent aussi par le trop-plein d'un puisard ou d'une infiltration au sol quand
+   l'analyse compte ce qu'il atteint (m145) ; une boîte sur ce trop-plein compte alors pour la source. p.limCote, p.limDist et p.prof sont lus
    tels qu'ils sont enregistrés, sans recalcul d'après le plan. Distance : deux décimales, 0,00 = « en limite » ; une distance négative ou
    illisible est ignorée, comme sur l'étiquette. Zéro ou plusieurs boîtes sur un réseau : dist, cote et prof vides. nDist et nProf : nombre de
    boîtes du réseau qui portent une distance et une profondeur ; avec plusieurs boîtes, le constat rappelle ce qui n'est pas repris (m149 :
@@ -2635,8 +2648,11 @@ function boitesConstat(doc, an){
      être traversés ; puis retour depuis chaque exutoire, d'un nœud à un nœud plus proche d'un pas de la source. Une pièce sans sens dessiné
      se suit dans le sens où ces chemins la parcourent ; une pièce qu'ils n'empruntent pas (branche voisine, tuyau qui relie deux branches)
      ne compte pas, quel que soit le sens des flèches du plan (tiré des distances, il ne dit pas où va l'eau). Une source sans exutoire
-     dessiné (réseau présumé) ne compte pour aucune boîte ; une source de réseau propre inconnu compte pour les deux. Calculé une fois par
-     analyse ; ne modifie pas A. */
+     dessiné (réseau présumé) ne compte pour aucune boîte ; une source de réseau propre inconnu compte pour les deux. m156 (AC1) : quand
+     l'analyse compte ce que le trop-plein d'un puisard ou d'une infiltration au sol atteint (A.resObj[s].cheminTp, propriété non
+     énumérable : m145, apres ou « multiple »), le chemin comprend aussi les plus courts chemins de ce parcours (rx) jusqu'à ses exutoires,
+     par l'ouvrage et son trop-plein, tels qu'il les a suivis ; sinon, ou pour une analyse recopiée (JSON), rien de plus. Calculé une fois
+     par analyse ; ne modifie pas A. */
   function traversees(A){
     for (var i = 0; i < vues.length; i++) if (vues[i].A === A) return vues[i].par;
     var par = {};
@@ -2667,6 +2683,19 @@ function boitesConstat(doc, an){
           if (u === v || vu[u] || dist[u] == null || dist[u] + 1 !== dist[v] || fin[u] || aContreSens(p, u)) return;
           vu[u] = true; file.push(u);
         });
+      }
+      /* m156 (AC1) : chemin de l'eau par le trop-plein, quand l'analyse compte ce qu'il atteint (cheminTp) : retour depuis chaque exutoire
+         de ce parcours (fins), d'un nœud à ceux d'où il l'a atteint par un plus court chemin (preds), jusqu'à la source ; en plus du
+         chemin ordinaire */
+      var ct = r && r.cheminTp;
+      if (ct && ct.preds && Array.isArray(ct.fins)){
+        var vx = {};
+        file = ct.fins.filter(function(t){ return t != null; }); file.forEach(function(t){ vx[t] = true; });
+        while (file.length){
+          var w = file.shift();
+          (ct.preds[w] || []).forEach(function(u){ if (!vx[u]){ vx[u] = true; file.push(u); } });
+        }
+        Object.keys(vx).forEach(function(n){ vu[n] = true; });
       }
       Object.keys(vu).forEach(function(n){ var q = par[n] || (par[n] = {}); nats.forEach(function(g){ q[g] = true; }); });
     });
@@ -7552,9 +7581,11 @@ function editeur(racine, opts){
   /* ferme le niveau le plus haut : le menu de poignée d'abord (m109 : l'élément reste choisi), ce qui est affiché par-dessus (dialogue,
      palette, panneau), puis les modes, et le tracé en cours en dernier (l'abandonner perd des points) ; faux s'il n'y avait rien : l'hôte
      peut alors fermer l'éditeur. m154 : avant tout, un objet qu'on est en train de tourner au disque reprend son angle (geste annulé,
-     comme par un second doigt) ; il reste choisi, sa fiche ouverte */
+     comme par un second doigt) ; il reste choisi, sa fiche ouverte. m156 (EL1) : de même pour un appui sur la poignée ou l'anneau qui n'a
+     pas encore passé le seuil du glissé (attente) : le geste est clos, sans rien changer (ni angle, ni pas d'annulation, ni « Rétablir ») ;
+     le reste du glissé et le lever n'ont plus d'effet ; l'attente d'un autre geste n'est pas close */
   function fermerNiveau(){
-    if (S.geste && S.geste.type === 'glisser' && S.geste.cible && S.geste.cible.k === 'tourner'){ finirGeste(true); return true; }
+    if (S.geste && (S.geste.type === 'glisser' || S.geste.type === 'attente') && S.geste.cible && S.geste.cible.k === 'tourner'){ finirGeste(true); return true; }
     if (fermerMenu()) return true;
     /* m144 : le dialogue du dessus (la question d'un nom proche passe avant la fiche courte qu'elle couvre), fermé comme par Échap */
     var ms = R.querySelectorAll('.vc-modal'), m = ms.length ? ms[ms.length - 1] : null; if (m){ if (m.vcFermer) m.vcFermer(); else m.remove(); return true; }

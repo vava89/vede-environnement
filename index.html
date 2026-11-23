@@ -2155,7 +2155,7 @@ function constatIssues(v, list){
     if (rowActive(r) && !r.raccord) out.push(lab + ' : raccordement non précisé.');
     if (rowActive(r) && !(r.methodes || []).length) out.push(lab + ' : méthode de contrôle non précisée.');
     if (!rowActive(r) && (r.raccord || x.anoms.length)) out.push(lab + ' : nombre non précisé.');
-    if (r.conforme === 'oui' && x.auto === 'non') out.push(lab + ' : déclarée conforme alors que ' + (raccOk(r, c) === false ? 'son raccordement (' + raccLabel(r.raccord).toLowerCase() + ') ne l\'est pas.' : 'une anomalie liée est une non-conformité.'));
+    if (r.conforme === 'oui' && x.auto === 'non') out.push(lab + ' : déclarée conforme alors ' + (raccOk(r, c) === false ? 'que son raccordement (' + raccLabel(r.raccord).toLowerCase() + ') ne l\'est pas.' : 'qu\'une anomalie liée est une non-conformité.'));
     else if (r.conforme === 'oui' && x.arbitrer) out.push(lab + ' : déclarée conforme alors qu\'une anomalie reste à arbitrer : décidez dans le croquis (Contrôles).');
   });
   if (!c.reseau) out.push('Réseau desservant non précisé : départemental ou territorial.');

@@ -42,6 +42,15 @@
 //     tuyau ne se choisit pas. Témoins : sans annulation, « Rétablir » reste grisé ; un WC sous l'anneau, ou le tuyau touché sur
 //     l'anneau, se choisit.
 //     Les pixels du canevas sont lus (anneau gris, poignée, encre de la bulle) ; S.disque dit ce que l'éditeur a dessiné.
+// m156 (EL1 de la relecture d'ensemble de la v1.7.2 ; échouent sur c5f8caf, sauf les témoins) :
+// h : appui sur la poignée ou l'anneau du disque, puis Échap avant le seuil du glissé (4 px à la souris, 9 px au doigt) : l'attente du
+//     geste est close ; le regard reste choisi, sa fiche ouverte, son disque visible ; le reste du glissé (40°) et le lever n'ont plus
+//     d'effet : rien ne tourne (p.a toujours absent), rien ne se choisit, aucun pas d'annulation, « Rétablir » intact (il tient l'angle
+//     d'une annulation faite avant) ; un second Échap ferme la fiche. À la souris (poignée, anneau), au doigt (poignée), au doigt sur
+//     l'anneau par le retour d'Android (history.back : la fenêtre du croquis reste ouverte) ; fermerNiveau appelé directement rend true
+//     et clôt l'attente. Avant : la fiche se fermait, et le glissé qui suivait tournait le regard, sans disque, en un pas d'annulation.
+//     Témoins : Échap après le seuil (d et g, m154) ; l'attente d'un autre geste (appui sur le regard lui-même) n'est pas close par
+//     fermerNiveau, qui ferme la fiche, comme avant.
 // usage : node tests/navigateur/gestes.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -858,8 +867,92 @@ async function sansChangement(){
   } finally { await A.fermer(); }
 }
 
+/* m156 (EL1) : appui sur le disque de l'objet choisi id, sur la poignée (o.depuis absent) ou sur l'anneau à o.depuis degrés d'elle, à la
+   souris (o.souris) ou au doigt ; o.avant() : appelée l'appui posé, sans mouvement (avant le seuil) ; puis un arc de deg degrés en douze
+   pas, l'état lu le bouton (ou le doigt) encore posé (pendant), et le lever (apres). Rend aussi ce qu'a rendu o.avant (ap). */
+async function appuiPuisArc(p, id, deg, o){
+  o = o || {};
+  const s = await etatDisque(p, id), c = {x: s.att.x, y: s.att.y}, u = Math.atan2(c.y - s.att.py, s.att.px - c.x) + (o.depuis || 0) / DEG;
+  const q0 = {x: Math.round(c.x + s.att.r * Math.cos(u)), y: Math.round(c.y - s.att.r * Math.sin(u))}, f = arrivee(c, q0, deg, s.att.r);
+  const cp = await C.pageCv(p, c), a0 = await C.pageCv(p, q0), b = await C.pageCv(p, f);
+  await C.surLePlan(p, a0, 'l\'appui'); await C.surLePlan(p, b, 'le glissé');
+  const ua = Math.atan2(cp.y - a0.y, a0.x - cp.x), ra = Math.hypot(a0.x - cp.x, a0.y - cp.y), rb = Math.hypot(b.x - cp.x, b.y - cp.y);
+  const pas = i => { const v = ua + deg / DEG * i / 12, r = ra + (rb - ra) * i / 12; return {x: cp.x + r * Math.cos(v), y: cp.y - r * Math.sin(v)}; };
+  let ap = null, pendant = null;
+  if (o.souris){
+    await p.mouse.move(a0.x, a0.y); await p.mouse.down(); await C.pause(p, 100);
+    if (o.avant) ap = await o.avant();
+    for (let i = 1; i < 12; i++){ const q = pas(i); await p.mouse.move(q.x, q.y); }
+    await p.mouse.move(b.x, b.y); await C.pause(p, 150); pendant = await etatDisque(p, id);
+    await p.mouse.up();
+  } else {
+    const ss = await p.context().newCDPSession(p), t = (type, q) => ss.send('Input.dispatchTouchEvent', {type, touchPoints: q ? [{x: q.x, y: q.y, id: 1}] : []});
+    try {
+      await t('touchStart', a0); await C.pause(p, 100);
+      if (o.avant) ap = await o.avant();
+      for (let i = 1; i < 12; i++) await t('touchMove', pas(i));
+      await t('touchMove', b); await C.pause(p, 150); pendant = await etatDisque(p, id);
+      await t('touchEnd', null);
+    } finally { await ss.detach(); }
+  }
+  await C.pause(p, 450);
+  return {ap, pendant, apres: await etatDisque(p, id)};
+}
+/* h (m156, EL1) : Échap (ou le retour d'Android, ou fermerNiveau) avant le seuil d'un glissé du disque */
+async function avantLeSeuil(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    const O = RUE, etat = id => etatDisque(p, id), r1 = () => [C.P('R1', 'regard', O.x, O.y)];
+    const BA = '.vc .vc-barre [data-a="annuler"]', BR = '.vc .vc-barre [data-a="refaire"]';
+    const bouton = async q => { if (await p.evaluate(s => !document.querySelector(s).disabled, q)) await p.click(q); await C.pause(p, 250); };
+    const barre = () => p.evaluate(([ba, br]) => ({annuler: !document.querySelector(ba).disabled, retablir: !document.querySelector(br).disabled, redo: window.__vcEd.etat.redo.length}), [BA, BR]);
+    const voirBarre = b => b.redo + ' pas à rétablir, « Rétablir » ' + (b.retablir ? 'actif' : 'grisé');
+    const geste = () => p.evaluate(() => { const g = window.__vcEd.etat.geste; return g ? g.type + '/' + (g.cible ? g.cible.k : '') : null; });
+    const ouvert = () => p.evaluate(() => { const r = document.querySelector('.vc'); return !!r && r.isConnected && r.getBoundingClientRect().width > 0 && !!window.__vcEd.etat; });
+    const voir = s => s ? 'angle ' + (s.aDonne ? s.a : 'absent') + ', choisi : ' + s.sel + ', fiche ' + (s.pan ? 'ouverte' : 'fermée') + ', annulations ' + s.undo + ', disque ' + (poigneeOk(s) ? 'visible' : 'absent') : 'aucun état';
+    /* regard tourné de 40°, puis l'annulation : il n'a plus d'angle (p.a absent) et « Rétablir » tient les 40° */
+    const annule = async () => {
+      await scene(p, r1(), O, 40); await choisir(p, 'R1'); const t = await tourner(p, 'R1', 40);
+      await bouton(BA); const u = await etat('R1'), b = await barre();
+      if (t.apres.a !== 40 || u.aDonne || b.redo !== 1 || !b.retablir) throw new Error('mise en place : tourné de 40° puis annulé (' + t.apres.a + ', ' + voir(u) + ', ' + voirBarre(b) + ')');
+    };
+    /* les trois voies : Échap, retour d'Android (popstate de la fenêtre du croquis : retenir), fermerNiveau appelé directement */
+    const echap = async () => { await p.keyboard.press('Escape'); await C.pause(p, 150); return {g: await geste(), s: await etat('R1')}; };
+    const retour = async () => { await p.evaluate(() => history.back()); await C.pause(p, 400); return {g: await geste(), s: await etat('R1'), ouvert: await ouvert()}; };
+    const direct = async () => { const x = await p.evaluate(() => window.__vcEd.fermerNiveau()); await C.pause(p, 100); return {x, g: await geste(), s: await etat('R1')}; };
+    for (const [nom, souris, depuis, voie] of [
+      ['à la souris, sur la poignée, Échap', true, 0, echap],
+      ['à la souris, sur l\'anneau (à 120° de la poignée), Échap', true, 120, echap],
+      ['au doigt, sur la poignée, Échap', false, 0, echap],
+      ['au doigt, sur l\'anneau (à 240° de la poignée), retour d\'Android', false, 240, retour],
+      ['à la souris, sur la poignée, fermerNiveau appelé directement', true, 0, direct]]){
+      await annule(); const s0 = await choisir(p, 'R1');
+      const t = await appuiPuisArc(p, 'R1', 40, {souris, depuis, avant: voie}), b1 = await barre();
+      const reste = s => !!s && !s.aDonne && s.sel === 'R1' && s.pan && poigneeOk(s) && s.undo === s0.undo;
+      const ap = t.ap || {}, okVoie = ap.g === null && reste(ap.s) && (voie !== retour || ap.ouvert) && (voie !== direct || ap.x === true);
+      R.ok(okVoie && reste(t.pendant) && reste(t.apres) && b1.redo === 1 && b1.retablir,
+        'h : ' + nom + ' avant le seuil, puis glissé de 40° et lever : l\'attente est close, rien ne tourne, le regard reste choisi, sa fiche ouverte, son disque visible, sans pas d\'annulation, « Rétablir » intact ('
+        + (voie === direct ? 'fermerNiveau rend ' + ap.x + ', ' : '') + (voie === retour ? 'croquis ' + (ap.ouvert ? 'ouvert' : 'fermé') + ', ' : '')
+        + 'geste ' + ap.g + ' ; aussitôt : ' + voir(ap.s) + ' ; pendant : ' + voir(t.pendant) + ' ; après le lever : ' + voir(t.apres) + ' ; ' + voirBarre(b1)
+        + ' ; avant : fiche fermée, puis le regard tourné sans disque, en un pas d\'annulation)');
+      /* fiche déjà fermée (avant m156) : un second Échap fermerait le croquis */
+      if (!t.apres || !t.apres.pan){ R.ok(false, 'h : ' + nom + ' : second Échap non essayé, la fiche est déjà fermée (' + voir(t.apres) + ')'); continue; }
+      await p.keyboard.press('Escape'); await C.pause(p, 200); const s2 = await etat('R1');
+      R.ok(s2.sel === null && !s2.pan && !s2.aDonne && s2.undo === s0.undo, 'h : ' + nom + ' : un second Échap ferme la fiche (' + voir(s2) + ')');
+    }
+    /* témoin : l'attente d'un autre geste (appui sur le regard lui-même, choisi) n'est pas close par fermerNiveau, qui ferme la fiche */
+    await scene(p, r1(), O, 40); const s3 = await choisir(p, 'R1'), a3 = await C.pageCv(p, {x: Math.round(s3.att.x), y: Math.round(s3.att.y)});
+    await p.mouse.move(a3.x, a3.y); await p.mouse.down(); await C.pause(p, 100);
+    const g3 = await geste(), x3 = await p.evaluate(() => window.__vcEd.fermerNiveau()), g4 = await geste(), s4 = await etat('R1');
+    await p.mouse.up(); await C.pause(p, 450);
+    R.ok(/^attente\//.test(g3 || '') && g3 !== 'attente/tourner' && g4 === g3 && x3 === true && !s4.pan,
+      'h : témoin, appui sur le regard lui-même (geste ' + g3 + ') : fermerNiveau ferme la fiche (' + x3 + ', fiche ' + (s4.pan ? 'ouverte' : 'fermée') + ') et l\'attente reste (' + g4 + '), comme avant');
+    R.ok(!A.erreurs.length, 'h : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [raccord, coude, mur, triple, projet, supprime, bout, oriente, queue, disque, accroche, poigneeLibre, sansChangement]){
+  for (const f of [raccord, coude, mur, triple, projet, supprime, bout, oriente, queue, disque, accroche, poigneeLibre, sansChangement, avantLeSeuil]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception du test : ' + (e && e.stack || e)); }
   }
   R.fin();

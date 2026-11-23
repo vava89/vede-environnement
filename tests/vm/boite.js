@@ -67,9 +67,24 @@
 //   (étiquettes, analyse inchangée, flèches du plan). Les deux cas m149 de c17 (boîtes avec un côté seul, défaut M1 de la relecture)
 //   échouent aussi sur la première version de m149, qui comptait un côté seul comme une distance (146/148). Témoin : l'étiquette du plan et
 //   texteLimite gardent « à 0,80 m de la limite, à l'intérieur de la propriété » (c38).
+// c39 à c48 (m156, AC1 de la relecture d'ensemble de la v1.7.2) : en zone unitaire, une boîte sur le trop-plein orienté d'un puisard
+//   compte pour la source quand l'analyse compte ce que ce trop-plein atteint (m145 : apres, ou « multiple » tiré du trop-plein) ; le
+//   chemin de l'eau le comprend. WC → B1 → collecteur et descente → puisard → trop-plein → B2 → collecteur : B1 en EU, B2 en EP (c39 ;
+//   avant : B2 qu'aucune source ne traverse, deux boîtes en EU) ; trop-plein vers B1, qui reçoit aussi le WC : B1 en EU et en EP (c40 ;
+//   avant : en EU seulement) ; sans WC : B2 en EP, aucune en EU (c41) ; drain d'infiltration qui tient le puisard (« au-delà du drain »,
+//   c42) ; deux trop-pleins de plus, vers deux autres destinations : « multiple » tiré du trop-plein, B2 en EP (c47) ; boucle sur le
+//   trop-plein, à l'image de c33 : B3, sur le tuyau qui relie ses deux branches, hors des plus courts chemins, en EU et en EP (c48).
+//   Échouent sur c5f8caf (155/163, avec la seconde vérification de c46). Témoins (passent sur c5f8caf) : descente vers B1 sans puisard ;
+//   trop-plein sans sens, boîte mêlée d'après le dessin (c43) ; bifurcation avant le puisard vers un second collecteur (c44 : le
+//   trop-plein atteint un exutoire de plus, le second parcours de l'analyse est gardé, mais la bifurcation filtre les réseaux :
+//   « multiple », sans chemin par le trop-plein) ; trop-plein laissé libre (c45) ; l'analyse ne change pas, sans champ énumérable de plus
+//   (c46). Une analyse passée par JSON donne le constat d'avant m156 : deux boîtes en EU (c46, qui échoue sur c5f8caf par l'analyse
+//   directe, déjà à deux boîtes en EU). Relecture de m156 : c44 échoue sur une version qui suivrait le trop-plein dès que ce second
+//   parcours est gardé (C1 ; 161/163), c47 sur une version qui ne le suivrait pas pour « multiple » (M1 ; 161/163). Vérification : c48
+//   échoue sur une version qui suivrait aussi les chemins plus longs du trop-plein (162/163).
 // usage : node tests/vm/boite.js [-v] [--app=<dossier>]
 'use strict';
-const {charger, rapport} = require('./charger.js');
+const {charger, rapport, doc: abrege} = require('./charger.js');
 const {V, ctx} = charger({pdf: true}), R = rapport('boite');
 const copie = x => JSON.parse(JSON.stringify(x));
 /* appel protégé : une exception devient le texte « exception : … » */
@@ -478,6 +493,52 @@ function constat(){
   const e38 = String(etiquette(maison(LIMITE), 'B1')).split('\n').pop(), t38 = sur(() => V.texteLimite(LIMITE));
   R.ok(e38 === 'à 0,80 m de la limite, à l\'intérieur de la propriété' && t38 === e38, 'c38 témoin : l\'étiquette du plan et texteLimite gardent'
     + ' « à 0,80 m de la limite, à l\'intérieur de la propriété » (obtenu ' + JSON.stringify(e38) + ' ; ' + JSON.stringify(t38) + ')');
+
+  /* c39 à c48 (m156, AC1 de la relecture d'ensemble de la v1.7.2) : boîte sur le trop-plein d'un puisard, en zone unitaire. Quand
+     l'analyse compte ce que le trop-plein atteint (r.apres, au-delà de l'ouvrage ou du drain, ou « multiple » tiré du trop-plein), le
+     chemin de l'eau de la source le comprend */
+  const TB1 = [1, '0,80 m', '0,60 m', 'intérieur'], TB2 = [1, '1,50 m', '1,10 m', 'extérieur'], DEUX = [2, '', ''];
+  cas('c39 trop-plein orienté du puisard vers B2, puis le collecteur unitaire : B1 (WC) en EU, B2 (descente) en EP', tropPlein('deux', 1), TB1, TB2);
+  cas('c40 une seule boîte, qui reçoit le WC et le trop-plein orienté : en EU et en EP', tropPlein('une', 1), TB1, TB1);
+  cas('c41 sans WC, descente → puisard → trop-plein orienté → B2 : en EP seulement, aucune en EU', tropPlein('seule', 1), RIEN, TB2);
+  cas('c42 drain d\'infiltration qui tient le puisard, trop-plein orienté vers B2 : B1 (WC) en EU, B2 (descente) en EP', tropPlein('drain', 1), TB1, TB2);
+  /* témoins : comme avant m156 */
+  cas('c43 témoin : WC et descente vers la même boîte, sans puisard : en EU et en EP', tropPlein('meme', 0), TB1, TB1);
+  cas('c43 témoin : trop-plein sans sens vers B2, boîte mêlée d\'après le dessin : B1 en EU, rien en EP', tropPlein('deux', 0), TB1, RIEN);
+  cas('c43 témoin : trop-plein sans sens vers B1, boîte mêlée d\'après le dessin : comptée nulle part', tropPlein('une', 0), RIEN, RIEN);
+  /* c44 : la bifurcation va au second collecteur C2 ; le trop-plein atteint C, un exutoire de plus : le second parcours de l'analyse est
+     gardé, mais la bifurcation filtre les réseaux (« multiple », comme avant m156) et ce que le trop-plein atteint ne compte pas */
+  cas('c44 témoin : bifurcation avant le puisard vers un second collecteur unitaire (« multiple »), trop-plein orienté vers B2, puis le premier'
+    + ' collecteur : B2 qu\'aucune source ne traverse, en EU et en EP', tropPlein('bifurcation', 1), DEUX, TB2);
+  const a44 = sur(() => V.analyser(copie(tropPlein('bifurcation', 1)), 'edl')), r44 = (a44 && a44.resObj && a44.resObj.S) || {};
+  const ct44 = Object.getOwnPropertyDescriptor(r44, 'cheminTp');
+  R.ok(r44.etat === 'multiple' && (r44.nets || []).join() === 'INF,UN' && ct44 === undefined, 'c44 témoin : la descente est « multiple » (puisard'
+    + ' et collecteur unitaire), sans chemin par le trop-plein (obtenu ' + r44.etat + ' ' + JSON.stringify(r44.nets) + ', chemin ' + (ct44 ? 'posé' : 'absent') + ')');
+  cas('c45 témoin : trop-plein orienté laissé libre (aucun exutoire au-delà du puisard) : B2 qu\'aucune source ne traverse, en EU et en EP',
+    tropPlein('libre', 1), DEUX, TB2);
+  /* c46 : l'analyse ne change pas (aucun champ énumérable de plus) ; passée par JSON, le constat des boîtes est celui d'avant m156 */
+  const d46 = tropPlein('deux', 1), dd46 = copie(d46), an46 = V.analyser(dd46, 'edl'), j46 = JSON.stringify(an46), av46 = fige(an46);
+  const x46 = sur(() => V.boitesConstat(dd46, an46)), y46 = sur(() => V.boitesConstat(copie(d46), JSON.parse(j46)));
+  R.ok(fige(an46) === av46 && JSON.stringify(an46) === j46 && JSON.stringify(dd46) === JSON.stringify(d46) && !/cheminTp|preds/.test(j46)
+    && Object.keys(an46.resObj.S || {}).filter(k => k !== 'apres' && k !== 'apresPar').join() === Object.keys(an46.resObj.W || {}).join()
+    && Object.keys(an46).join() === Object.keys(V.analyser(copie(maison(LIMITE)), 'edl')).join(),
+    'c46 ni le croquis ni l\'analyse ne changent ; aucun champ de plus, ni dans l\'analyse ni dans le résultat de la descente (' + Object.keys(an46.resObj.S || {}).join(', ') + ')');
+  R.ok(pareil(x46, attendu(TB1, TB2)) && pareil(y46, attendu(DEUX, TB2)), 'c46 analyse passée par JSON : comme avant m156, deux boîtes en EU et B2 en EP (obtenu '
+    + vu(y46) + ' ; sans JSON ' + vu(x46) + ')');
+  /* c47 : deux trop-pleins de plus, vers deux autres destinations : « multiple » tiré du trop-plein (m145 ; décision D5 : deux destinations
+     font « multiple ») ; le chemin de l'eau de la descente comprend le trop-plein qui passe par B2 */
+  cas('c47 trois trop-pleins orientés du puisard (vers B2 puis le collecteur, vers deux autres destinations) : « multiple » tiré du trop-plein ;'
+    + ' B1 (WC) en EU, B2 (descente) en EP', tropPlein('multiple', 1), TB1, TB2);
+  const a47 = sur(() => V.analyser(copie(tropPlein('multiple', 1)), 'edl')), r47 = (a47 && a47.resObj && a47.resObj.S) || {};
+  const ct47 = Object.getOwnPropertyDescriptor(r47, 'cheminTp'), n47 = r47.nets || [];
+  R.ok(r47.etat === 'multiple' && n47.length === 4 && n47.filter(x => /^X:/.test(x)).length === 2 && n47.indexOf('UN') >= 0 && !r47.apres
+    && !!ct47 && !ct47.enumerable && Object.keys(r47).indexOf('cheminTp') < 0, 'c47 la descente est « multiple » (puisard et, par le trop-plein,'
+    + ' collecteur unitaire et deux autres destinations), avec un chemin par le trop-plein, non énumérable (obtenu ' + r47.etat + ' '
+    + JSON.stringify(n47) + ', chemin ' + (ct47 ? (ct47.enumerable ? 'énumérable' : 'posé') : 'absent') + ')');
+  /* c48 : boucle sur le trop-plein, à l'image de c33 : le chemin par le trop-plein suit les plus courts chemins de son parcours, comme le
+     chemin ordinaire (sans puisard, la même boucle compte aussi B3 en EU et en EP) */
+  cas('c48 boucle sur le trop-plein (à l\'image de c33) : B3, sur le tuyau qui relie ses deux branches, n\'est sur aucun plus court chemin :'
+    + ' en EU et en EP ; B1 en EU, B2 en EP', tropPlein('boucle', 1), DEUX, DEUX);
 }
 
 /* c18, zone unitaire : WC vers la boîte B1, descente vers la boîte B2, chacune vers un regard public du collecteur (unitaire, sinon col) ;
@@ -571,6 +632,50 @@ function unitaireBoucle(raccord){
   else ln(d, 'tJ', 'tr', '', ['J', 'Rp']);
   ln(d, 'C', 'col', 'UN', [[-10, 0], 'Rp', 'Rq', [20, 0]]);
   return d;
+}
+/* c39 à c48 (m156) : zone unitaire, boîtes sans réseau indiqué : B1 (à 0,80 m, à l'intérieur, profondeur 0,60), B2 (à 1,50 m, à
+   l'extérieur, profondeur 1,10). WC → B1 → regard public Rp ; descente S → puisard P ; trop-plein Q de P vers B2 (ou B1), orienté depuis
+   P (sens 1) ou sans sens (sens 0) ; B2 → regard public Rq ; Rp et Rq sur le collecteur unitaire C. Formes : 'deux' (WC et descente, deux
+   boîtes), 'une' (le trop-plein arrive en B1), 'seule' (sans WC), 'meme' (descente reliée à B1, sans puisard), 'drain' (drain
+   d'infiltration de S au puisard posé sur son dernier sommet), 'bifurcation' (S → regard R, puis R → P et R → regard public Rr d'un second
+   collecteur unitaire C2 : le trop-plein atteint C, que la bifurcation n'atteint pas ; le second parcours de l'analyse est donc gardé, et
+   la bifurcation filtre les réseaux), 'multiple' (deux trop-pleins de plus, du même sens que Q, de P vers deux autres destinations E1 et
+   E2 : « multiple » tiré du trop-plein), 'libre' (B2 → tuyau « Tronçon unitaire » laissé libre), 'boucle' (un second trop-plein, du même
+   sens que Q, de P vers le regard K, puis le regard public Rk du collecteur ; B3, à 2,00 m, à l'extérieur, profondeur 0,90, sur le tuyau
+   B2 → B3 → K qui relie les deux branches, hors des plus courts chemins du trop-plein) */
+function tropPlein(forme, sens){
+  const B = (n, x, y, p) => [n, 'boite', x, y, Object.assign({limDist: '0,80', limCote: 'int', prof: '0,60'}, p || {})];
+  const X = (n, x, y, nom, art) => [n, 'exutoire', x, y, {nom, ab: nom.slice(0, 2), art, ep: 'conforme', cst: 'autre'}];
+  const b2 = B('B2', 8, 4, {limDist: '1,50', limCote: 'ext', prof: '1,10'}), rq = ['Rq', 'regard_pub', 8, 0, {res: 'UN'}];
+  const o = forme === 'seule' ? [] : [['W', 'wc', 0, 10], B('B1', 0, 4), ['Rp', 'regard_pub', 0, 0, {res: 'UN'}]];
+  const l = forme === 'seule' ? [] : [['tW', 'tr', '', '', ['W', 'B1']], ['tB1', 'tr', '', '', ['B1', 'Rp']]], pc = forme === 'seule' ? [] : ['Rp'];
+  o.push(['S', 'descente', 8, 14]);
+  if (forme === 'meme') l.push(['tS', 'tr', '', '', ['S', 'B1']]);
+  else {
+    o.push(['P', 'puisard', 8, 9]);
+    if (forme === 'drain') l.push(['T', 'tr', '', '', ['S', [8, 11.5], 'P'], 0, {drain: 'infiltration'}]);
+    else if (forme === 'bifurcation'){
+      o.push(['R', 'regard', 8, 12], ['Rr', 'regard_pub', 16, 12, {res: 'UN'}]);
+      l.push(['tS', 'tr', '', '', ['S', 'R']], ['tR', 'tr', '', '', ['R', 'P']], ['tRr', 'tr', '', '', ['R', 'Rr']], ['C2', 'col', 'UN', '', [[16, 18], 'Rr', [16, 6]]]);
+    } else l.push(['tS', 'tr', '', '', ['S', 'P']]);
+    if (forme === 'multiple'){
+      o.push(X('E1', 13, 9, 'Étang Fictif', 'l\''), X('E2', 13, 12, 'Mare Fictive', 'la'));
+      l.push(['Q2', 'tr', '', '', ['P', 'E1'], sens], ['Q3', 'tr', '', '', ['P', 'E2'], sens]);
+    }
+    if (forme === 'une') l.push(['Q', 'tr', '', '', ['P', 'B1'], sens]);
+    else {
+      o.push(b2); l.push(['Q', 'tr', '', '', ['P', 'B2'], sens]);
+      if (forme === 'libre') l.push(['tB2', 'tr', 'UN', '', ['B2', [8, 1]]]);
+      else { o.push(rq); l.push(['tB2', 'tr', '', '', ['B2', 'Rq']]); pc.push('Rq'); }
+      if (forme === 'boucle'){
+        o.push(['K', 'regard', 14, 4], ['Rk', 'regard_pub', 14, 0, {res: 'UN'}], B('B3', 11, 4, {limDist: '2,00', limCote: 'ext', prof: '0,90'}));
+        l.push(['Q4', 'tr', '', '', ['P', 'K'], sens], ['tK', 'tr', '', '', ['K', 'Rk']], ['tL1', 'tr', '', '', ['B2', 'B3']], ['tL2', 'tr', '', '', ['B3', 'K']]);
+        pc.push('Rk');
+      }
+    }
+  }
+  l.push(['C', 'col', 'UN', '', [[-10, 0]].concat(pc, [[20, 0]])]);
+  return abrege({o, l});
 }
 /* témoins de c18, sans VCroquis.boitesConstat (lancés aussi sur ddb0b74) : les deux boîtes sans réseau indiqué sont unitaires d'après le
    dessin ; le réseau indiqué dans leur fiche (EU, EP) ne donne aucune anomalie de collecteur sur le collecteur unitaire */

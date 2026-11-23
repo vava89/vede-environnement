@@ -183,6 +183,11 @@
 //     PUITS, « non », au suivi d'un dossier de la v1.7.1 sans écart ; anomalie écartée : « oui » (142). 132 à 140 et 142 échouent sur
 //     3035f1d (pas d'option ni de colonne « Puits » ; ligne MILIEU) ; 142 aussi sur la première version de m150 (raccordement vidé).
 //     Dossier fictif (12 rue Fictive, Ville-Exemple).
+// 143 (m157, élision manquée notée en m148 et à la relecture d'ensemble de la v1.7.2) : ligne « WC » raccordée au réseau EU
+//     départemental, déclarée conforme à la main, avec une anomalie liée non conforme : le rappel avant la signature (constatIssues) dit
+//     « WC : déclarée conforme alors qu'une anomalie liée est une non-conformité. » (échoue sur c5f8caf : « alors que une anomalie liée »).
+//     Témoins : « Gouttière(s) avant » raccordée au réseau EU, déclarée conforme : « … alors que son raccordement (réseau eu départemental)
+//     ne l'est pas. », mot pour mot ; le rappel du puits (RAP_PUITS, 132) reste tel quel.
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -1790,6 +1795,28 @@ async function puitsSigne(){
   finally { R.ok(!A.erreurs.length, '140 et 141 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
+/* 143 (m157) : rappels « déclarée conforme alors que… » avant la signature (constatIssues), mot pour mot ; dossier fictif visité, lignes
+   « WC » et « Gouttière(s) avant » comptées, raccordées au réseau EU départemental et déclarées conformes à la main ; anomalie fictive
+   non conforme saisie à la main sur la ligne « WC » */
+async function rappelConforme(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p);
+    const lu = await p.evaluate(() => { const T = window.__VT, v = T.S.visites[0]; v.statut = 'visitee'; v.constat = T.constatEval(v, []).c;
+      v.constat.rows.forEach(x => { if (x.id === 'wc' || x.id === 'gout_av'){ x.nb = '1'; x.raccord = 'EU_D'; x.methodes = ['visuel']; x.conforme = 'oui'; } });
+      T.S.anoms.push({id: 'a-m157', etudeId: v.etudeId, visiteId: v.id, reseau: 'EU', installation: 'wc', categorie: 'autre', nc: true,
+        observation: 'WC : fuite au pied de la cuvette (anomalie fictive)', preconisation: '', photos: [], photoNonRequise: true,
+        createdAt: '2026-11-23T08:00:00.000Z', updatedAt: '2026-11-23T08:00:00.000Z'});
+      return T.constatIssues(v, T.S.anoms.filter(a => a.visiteId === v.id)).filter(t => /déclarée conforme/.test(t)); });
+    const WC = 'WC : déclarée conforme alors qu\'une anomalie liée est une non-conformité.';
+    const GA = 'Gouttière(s) avant : déclarée conforme alors que son raccordement (réseau eu départemental) ne l\'est pas.';
+    R.ok(lu.indexOf(WC) >= 0 && !lu.some(t => /alors que une/.test(t)), '143 ligne déclarée conforme avec une anomalie liée non conforme : « ' + WC
+      + ' » (échoue sur c5f8caf : « alors que une ») (lu : ' + JSON.stringify(lu) + ')');
+    R.ok(lu.indexOf(GA) >= 0, '143 témoin, raccordement qui ne l\'est pas : « ' + GA + ' » (lu : ' + JSON.stringify(lu) + ')');
+  } catch (err){ R.ok(false, '143 exception du test : ' + (err && err.stack || err)); }
+  finally { R.ok(!A.erreurs.length, '143 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
 (async () => {
   try {
     await reglagesAides();
@@ -1824,6 +1851,7 @@ async function puitsSigne(){
     await puitsMain();
     await puitsCroquis();
     await puitsSigne();
+    await rappelConforme();
   } catch (e){ R.ok(false, 'exception du test : ' + (e && e.stack || e)); }
   R.fin();
 })();
