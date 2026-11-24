@@ -1,7 +1,8 @@
-// Constat délesté (m158 et m159 ; DL1 à DL9, DL12 à DL16, DL18, DL20 pour la page 1, DL25 et cartes m158 et m159 du § 12 de
-// .claude/conception-v173.md), dans l'application (Chromium, données fictives : « Nom Fictif », « 12 rue Fictive », « Ville-Exemple »,
-// téléphone fictif). Le PDF est relevé appel par appel (C.relevePdf de commun.js). Les textes fixes du constat n'y sont jamais écrits en
-// clair : le témoin les garde par empreinte, les cas D ne nomment que des libellés génériques de la page 1 et les valeurs saisies, et
+// Constat délesté (m158 à m160 ; DL1 à DL9, DL12 à DL16, DL18, DL20 pour la page 1 ; DL6, DL8, DL10, DL11, DL16, DL18 et DL20 pour
+// la page 2 ; DL25, cartes et notes du § 12 de .claude/conception-v173.md), dans l'application (Chromium, données fictives : « Nom
+// Fictif », « 12 rue Fictive », « Ville-Exemple », téléphone fictif). Le PDF est relevé appel par appel (C.relevePdf de commun.js). Les
+// textes fixes du constat n'y sont jamais écrits en clair : le témoin les garde par empreinte, les cas D ne nomment que des libellés
+// génériques et les valeurs saisies (les textes fixes de la page 2 ne se lisent que dans le relevé du formulaire du même dossier), et
 // un écart sur un relevé entier est dit en empreintes.
 // T0 (témoin des constats signés, DL25) : cinq dossiers fictifs imprimés, relevés sur toutes les pages (textes, traits, rectangles,
 //     images par empreinte, pages) et comparés appel par appel au témoin tests/navigateur/temoins/constat-signe.json, relevé sur la base
@@ -21,8 +22,18 @@
 //     cases cochées seules, aux premières places (contrôle, désagréments) ou enchaînées dès 245,6 (récupération) ; légende réduite aux
 //     codes imprimés ; tableau : celui de cstTableDeleste en 360 + dy, place du calcul ; position entière ; chaque rubrique décalée de son
 //     dy. Comparée appel par appel, au 0,004 pt près (arrondis du relevé). Une rubrique remplie au formulaire et absente du calcul
-//     (constatDeleste, appelé dans la page comme le dessin, mesure de production), ou l'inverse, est une faute. La page 2 du délesté est
-//     celle du formulaire du même dossier, appel par appel, état compris (couleurs, épaisseur, motif) : m160 la changera.
+//     (constatDeleste, appelé dans la page comme le dessin, mesure de production), ou l'inverse, est une faute.
+// Page 2 attendue (m160, DL10) : un calcul attendu (planP2), tiré des données du dossier : boîte (visite effectuée : rangées ayant une
+//     valeur, colonnes employées), conclusion, préconisations privées et publiques (lignes gardées selon les gardes de la conception),
+//     observations (texte imprimé non vide) ; le premier élément gardé en 22,5, chaque suivant au bas du précédent plus son écart,
+//     chaque ligne à la fin de la gardée d'avant plus le plus grand interligne qui l'en sépare. Le calcul constatDeleste lui est égal
+//     (éléments, ordre, dy, h, lignes, rangées, colonnes) et ne descend jamais sous la place du formulaire (dy ≤ 0, rien sous 581). La
+//     page 2 du délesté est la page 2 du formulaire du même dossier, coupée en lignes par leurs ordonnées (FEN2), transformée (cadre ;
+//     boîte réduite à ses rangées et à ses colonnes ; champ vide parti avec son libellé, sans pointillé ; cases cochées seules, aux
+//     premières places ; conclusion réduite à sa case choisie) et décalée de y − y0 ; puis le pied du formulaire, sans « Je, soussigné… »
+//     ni légende du propriétaire si la visite n'est pas effectuée (DL20). Comparée appel par appel, état compris (couleurs, épaisseur,
+//     motif). Une ligne remplie au formulaire (un texte de la couleur des valeurs, telle que le relevé la lit : la bibliothèque PDF
+//     arrondit 20, 40, 140 en 19, 40, 139 ; ou une case cochée) et absente du calcul attendu est une faute.
 // D1 (DL2, DL3) : liste « Constat imprimé » (#m-cforme) de « En-tête des fiches » : '' « Par défaut (formulaire complet) » en tête et
 //     choisie pour une étude neuve, puis « Délesté : seulement ce qui est rempli ou coché » et « Formulaire complet » ; enregistrer sans
 //     toucher la liste ne range aucune forme (clé absente) ; « Délesté » range 'deleste', montré à la réouverture ; « Par défaut » retire
@@ -31,7 +42,9 @@
 //     Gargouille, conforme) : ces deux rangées seules, dans cet ordre, de 17,5 pt ; en-têtes Installation, Nb, Raccordée sur, Réseau EU,
 //     D, Gar-, gouille, Conforme et Oui, sans autre ; verticales et largeurs de cstColonnes (somme 479), égales au calcul du test
 //     (surplus d'une colonne seule) ; croix au centre de leur colonne (0,1 pt), Nb et croix en 10,5 pt, posés comme au formulaire ;
-//     page 2 : la boîte de la présentation 2. Le même dossier en « Formulaire complet », puis sans choix : le tableau du formulaire.
+//     page 2 : au formulaire, la boîte de la présentation 2 ; au délesté (m160), sans valeur de boîte, aucun trait de boîte, et la
+//     conclusion seule (titre 30,5, installations 51,4). Le même dossier en « Formulaire complet », puis sans choix : le tableau du
+//     formulaire.
 //     m159 : le tableau du délesté se trouve par la description du calcul (en-tête en 360 + dy, rangées dès 402 + dy) ; page 1 attendue.
 // D3 : aucune ligne active (désagréments « non ») : ni description ni tableau, et les cases qui suivent gardent le fond du formulaire ;
 //     visite non effectuée (refus), une ligne remplie : rien non plus ; ni croix ni conformité : Installation et Nb seuls (libellés de
@@ -46,6 +59,8 @@
 //     demande) : calcul du nom, de l'adresse et de la description seuls (description en 191,9, place 565,3) ; page 1 attendue ; hors de
 //     l'en-tête et du tableau, les libellés du nom et de l'adresse, leurs valeurs et le titre de la description seuls ; ni « Demande du »,
 //     ni légende, ni case du motif, ni pointillé, ni gabarit. Le même sans adresse : le nom, puis la description en 171,6 (place 585,6).
+//     m160 : page 2 minimale, la conclusion seule en 22,5 (titre 30,5, installations 51,4), sans pointillé (« Je, soussigné » nommé) ;
+//     sans nom, un seul pointillé, celui de « Je, soussigné », en 596,5, de 140 pt (DL11).
 // D6 (m159) : dossier complet (identification, catégorie « collectif 21 à 50 », trois méthodes, deux rangées, deux cases de récupération,
 //     désagréments « oui » localisés, croquis de position) : calcul direct (ordre, 153,8, écarts, dy, h, place ≥ 234,5, rien sous 816,
 //     exemples de la conception : catégorie 254,5-278, contrôle en 285,9, description en 320,2, rangées dès 379, place 257,5, bas en
@@ -56,14 +71,42 @@
 //     propriétés publiques (deux lignes à 9,3 pt l'une de l'autre), catégorie sans nombre (partie) ; 30 rangées, ramenées à la place : les
 //     rubriques qui suivent descendent sous leur place du formulaire (récupération en 643,2, dy +16), et sans désagréments ni position,
 //     la récupération finit en 816 (805-816, dy +177,8 ; place 419,3).
+//     m160 : page 2 du dossier complet (boîte en EU et en EP, réseau territorial avec gestionnaire et rue, réserves, préconisations :
+//     boîte en EU, sur branchement à créer en EU, gargouille à créer, création à l'EU départementale et à l'EP territoriale ;
+//     observations) : l'exemple de la conception (boîte 22,5-66,5 ; conclusion, titre 82,5, dy −26,5, sans ligne des réserves ; privées,
+//     titre 154, dy −45,1 ; publiques, titre 263,1, dy −202,2 ; observations en 333,5, dy −216,9) ; le gestionnaire en 100,1, la rue
+//     en 114,9, la réserve sur la ligne des installations (135,8), l'observation en 341,5. Les variantes ont aussi leur page 2 attendue.
 // D9 (m159 ; E2) : sans plan de terrain, croquis de position, étude en « Délesté » : imprimé module du croquis présent, absent et
 //     désactivé (vc-actif, puis réactivé) : trois relevés identiques ; position présente et décalée (image en 40 ; 676 + dy, dy < 0).
 // D13 (m159 ; DL20) : refus de visite, dossier par ailleurs complet : identification et catégorie seules au calcul ; le motif « refus »
 //     seul, à la première place ; ni « Visite du », ni contrôle, ni tableau, ni récupération, ni désagréments, ni position ; variante :
-//     absence, avec ses dates d'absence.
-// Échouent sur 74dc8ef (avant m159), 99 contrôles sur 150 : D2, D3 (le tableau et la page 1 attendue), D5, D6, D9 et D13 (pas de
-// calcul constatDeleste, page 1 du formulaire). Y passent : T0, D1, les garde-fous du tableau du formulaire et de cstColonnes, la page 2
-// (inchangée), l'égalité des trois relevés de D9 (le croquis de terrain n'y change rien, avant comme après) et l'absence d'erreur.
+//     absence, avec ses dates d'absence. m160 : page 2 du refus, la conclusion (titre 30,5, réseau 48,1, rue 62,9), puis les observations
+//     en 72,9 ; pied sans « Je, soussigné… » ni légende du propriétaire (DL20).
+// D8 (m160 ; DL20) : refus de visite avec le réseau départemental et la rue, la boîte et des préconisations : la conclusion réduite au
+//     réseau et à la rue (« Conclusion : » en 30,5, réseau en 48,1, rue en 62,9), sans boîte, sans « Installations considérées » ni
+//     préconisation ; pied sans « Je, soussigné… » ni légende du propriétaire : la légende et la seule signature du technicien. Sans
+//     réseau ni rue : rien entre le cadre et le pied.
+// D10 (m160 ; DL8, DL18) : boîte EP seule (côté « extérieur », profondeur « 1,35 m environ ») : sa colonne à la place de celle des EU
+//     (sept traits jusqu'à 386,5, l'en-tête « EP » seul, du vert du formulaire, en 356,8) ; le côté en sa seule case, cochée, centrée en
+//     356,8 ; la profondeur, trop large pour sa case en 9,5 pt mais qui tient en 7 pt, sur la ligne de son libellé (63,375), de 7 à
+//     9,5 pt (règle de CLAUDE.md).
+// D11 (m160 ; DL8, DL10) : conclusion. Vide : le titre, les installations et la ligne des réserves, trois cases vides, sans pointillé ;
+//     « avec réserves » : sa case cochée en 184,3 et « Réserve fictive » sur la ligne des installations, sans ligne des réserves ; réseau
+//     seul (départemental, territorial avec gestionnaire, territorial sans gestionnaire) : la case cochée en 249,5, sur la ligne du réseau
+//     (48,1), puis son texte ou le gestionnaire ; rue seule : le libellé du réseau seul, sans case, en 48,1, puis « Rue fictive » en 62,9.
+// D12 (m160 ; DL8, DL10) : préconisations (WC conforme). Privées : « - sur branchement à créer » seule (la tête sans case, la sous-ligne
+//     et sa case en 269,4) ; raccordement des EP au branchement EP seul (une ligne, à la fin du paragraphe + 17,8, sa case en 170,2 sur la
+//     ligne du libellé) ; non conforme sans préconisation (anomalie EU posée en mémoire, retirée ensuite) : le titre et le paragraphe
+//     seuls, les observations gardées ; conforme sans préconisation : ni préconisations privées ni publiques. Publiques : création à
+//     l'unitaire départementale (UN au titre + 17,4, la note D à UN + 17,2) ; création à l'EU territoriale (EU au titre + 17,4, sa case
+//     « territorial » à la première place, 269,4, la note T à EU + 17,2).
+// Échouaient sur 74dc8ef (avant m159), 99 contrôles sur 150 : D2, D3 (le tableau et la page 1 attendue), D5, D6, D9 et D13 (pas de
+// calcul constatDeleste, page 1 du formulaire). Y passaient : T0, D1, les garde-fous du tableau du formulaire et de cstColonnes, la
+// page 2 (alors celle du formulaire), l'égalité des trois relevés de D9 (le croquis de terrain n'y change rien) et l'absence d'erreur.
+// Échouent sur 1c691b7 (avant m160), 104 contrôles sur 305, tous de la page 2 : le calcul de la page 2 (vide), sauf dans les deux cas
+// où rien n'y est gardé (D3 refus, D8 sans réseau ni rue) ; la page 2 attendue, dans les 41 cas ; les contrôles propres de la page 2 de
+// D2, D5, D6, D13, D8 et D10 à D12 (page 2 du formulaire). Y passent : T0, D1, la page 1 de chaque cas, les propriétés du calcul de la
+// page 2 (vide), la prémisse de D10 et le cas conforme sans préconisation de D12.
 'use strict';
 const C = require('./commun.js'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const R = C.rapport('constat-deleste');
@@ -264,18 +307,24 @@ function planAttendu(ids, somH){
   });
   return out;
 }
-/* deux plans égaux (1e-6 près), sans autre clé que id, page, dy, h et place (description seule) */
-const plansEgaux = (a, b) => Array.isArray(a) && a.length === b.length && a.every((e, i) => e.id === b[i].id && e.page === 1 && pres(e.dy, b[i].dy, 1e-6)
-  && pres(e.h, b[i].h, 1e-6) && (b[i].place === undefined ? !('place' in e) : pres(e.place, b[i].place, 1e-6))
-  && Object.keys(e).every(k => ['id', 'page', 'dy', 'h', 'place'].indexOf(k) >= 0));
-/* plan dit court : rubrique, haut + hauteur, place */
-const dire = plan => Array.isArray(plan) ? plan.map(e => e.id + ' ' + +(P1de(e.id)[1] + e.dy).toFixed(3) + '+' + +Number(e.h).toFixed(3)
+/* éléments de la page 1, ou de la page 2, d'un calcul (m160 : constatDeleste rend aussi ceux de la page 2, après ceux de la page 1) ; les
+   aides de la page 1 ne lisent que les premiers */
+const page1 = plan => Array.isArray(plan) ? plan.filter(e => e.page === 1) : plan;
+const page2 = plan => Array.isArray(plan) ? plan.filter(e => e.page === 2) : [];
+/* deux plans de la page 1 égaux (1e-6 près), sans autre clé que id, page, dy, h et place (description seule) ; chaque élément du calcul
+   est de la page 1 ou de la page 2, ceux de la page 1 d'abord */
+const plansEgaux = (a, b) => Array.isArray(a) && a.every((e, i) => (e.page === 1 || e.page === 2) && !(i && e.page === 1 && a[i - 1].page !== 1))
+  && (q => q.length === b.length && q.every((e, i) => e.id === b[i].id && e.page === 1 && pres(e.dy, b[i].dy, 1e-6)
+    && pres(e.h, b[i].h, 1e-6) && (b[i].place === undefined ? !('place' in e) : pres(e.place, b[i].place, 1e-6))
+    && Object.keys(e).every(k => ['id', 'page', 'dy', 'h', 'place'].indexOf(k) >= 0)))(page1(a));
+/* plan de la page 1 dit court : rubrique, haut + hauteur, place */
+const dire = plan => Array.isArray(plan) ? page1(plan).map(e => e.id + ' ' + +(P1de(e.id)[1] + e.dy).toFixed(3) + '+' + +Number(e.h).toFixed(3)
   + (e.place !== undefined ? ' (place ' + +Number(e.place).toFixed(3) + ')' : '')).join(', ') : 'pas de calcul';
-/* propriétés du plan : place d'au moins 234,5, rien sous 816 ; rend la faute ou '' */
-const proprietes = plan => { if (!Array.isArray(plan) || !plan.length) return 'plan vide ou absent';
-  const d = plan.find(e => e.id === 'description'), z = plan[plan.length - 1], bas = P1de(z.id)[1] + z.dy + z.h;
+/* propriétés du plan de la page 1 : place d'au moins 234,5, rien sous 816 ; rend la faute ou '' */
+const proprietes = plan => { const q = page1(plan); if (!Array.isArray(q) || !q.length) return 'plan vide ou absent';
+  const d = q.find(e => e.id === 'description'), z = q[q.length - 1], bas = P1de(z.id)[1] + z.dy + z.h;
   return d && !(d.place >= 234.5 - 1e-9) ? 'place ' + d.place + ' sous 234,5' : bas > 816 + 1e-6 ? 'bas ' + bas + ' sous 816' : ''; };
-/* calcul de la page 1 par la page, comme le dessin : constatDeleste(vv, E, mesure de production d'un document neuf) ; null s'il manque
+/* calcul par la page, comme le dessin : constatDeleste(vv, E, mesure de production d'un document neuf), pages 1 et 2 ; null s'il manque
    une fonction (version d'avant m159) */
 const calcul = p => p.evaluate(() => {
   const T = window.__VT, v = T.S.visites[0];
@@ -432,7 +481,7 @@ function attenduP1(Lc1, plan, ref){
   const D = decouper(Lc1, P1.map(e => [e[0], e[1], e[4]]));
   if (D.faute) return {att: [], faute: 'formulaire : ' + D.faute};
   const pl = {}, fautes = [], E0 = attenduEntete(D.entete);
-  (plan || []).forEach(e => { pl[e.id] = e; });
+  page1(plan || []).forEach(e => { pl[e.id] = e; });
   if (!E0) return {att: [], faute: 'en-tête du formulaire inattendu'};
   const att = E0.map(a => ['en-tête', a]);
   P1.forEach(e => {
@@ -458,17 +507,247 @@ function ecartTol(L, att, noms){
       + ' (' + L.length + ' appels, ' + att.length + ' attendus)';
   return '';
 }
-/* premier écart entre les pages 2 de deux relevés (page neuve comprise), en empreintes, ou '' */
-const ecartP2 = (Ld, Lc) => C.premierEcart(empreintes(Ld.filter(a => a[1] === 2), []), empreintes(Lc.filter(a => a[1] === 2), []));
-/* un dossier imprimé deux fois : délesté (L) et formulaire (Lc), avec le calcul (plan), la description du calcul (d) et le tableau de
-   référence (ref : cstTableDeleste en 360 + dy, place du calcul ; sans description du calcul, en 360 sur la place du formulaire) */
+/* ---------- Outils de la page 2 délestée (m160) ---------- */
+
+/* places de la page 2 au formulaire (carte m160 de la conception) : pour la conclusion et les préconisations, [écart avec l'élément
+   gardé d'avant, lignes [id, ligne de base, fin, interligne (avec la fin de la ligne d'avant)]], la première ligne étant le titre ; la
+   boîte va de 22,5 à 40 + 13,25 par rangée (93 au formulaire), les observations de 550,4 à 581 (écart 7) ; le pied (584,5 à 816) est fixe */
+const P2L = {
+  conclusion: [8, [['titre', 109, 109, 0], ['reseau', 126.6, 126.6, 17.6], ['rue', 141.4, 141.4, 14.8], ['installations', 162.3, 162.3, 20.9], ['reserves', 180.9, 180.9, 18.6]]],
+  privees: [7.2, [['titre', 199.1, 199.1, 0], ['parag', 216.9, 240.3, 17.8], ['boite', 257.6, 257.6, 17.3], ['boiteEx', 272.4, 272.4, 14.8], ['boiteCr', 287.2, 287.2, 14.8],
+    ['sep', 304.9, 304.9, 17.7], ['decoEU', 322.7, 322.7, 17.8], ['supp', 340.3, 340.3, 17.6], ['decoEP', 358.1, 358.1, 17.8], ['gestEP', 375.8, 397.7, 17.7],
+    ['garg', 414.8, 414.8, 17.1], ['racc', 432.5, 447.3, 17.7]]],
+  publiques: [7, [['titre', 465.3, 465.3, 0], ['EU', 482.7, 482.7, 17.4], ['EP', 497.5, 497.5, 14.8], ['UN', 512.2, 512.2, 14.7], ['noteD', 529.4, 529.4, 17.2],
+    ['noteT', 540.4, 540.4, 11]]]};
+/* haut de chaque élément au formulaire : dy = haut délesté − ce haut */
+const HAUT2 = {boite: 22.5, conclusion: 101, privees: 191.1, publiques: 457.3, observations: 550.4};
+const BOITE_K = ['dist', 'cote', 'prof', 'te'];
+/* préconisations de chaque ligne (la tête « création de boîte » se garde aussi pour ses sous-lignes) */
+const PRIV_K = {boite: ['boite_EU', 'boite_EP', 'boite_UN', 'boiteEx_EU', 'boiteEx_EP', 'boiteEx_UN', 'boiteCr_EU', 'boiteCr_EP', 'boiteCr_UN'],
+  boiteEx: ['boiteEx_EU', 'boiteEx_EP', 'boiteEx_UN'], boiteCr: ['boiteCr_EU', 'boiteCr_EP', 'boiteCr_UN'], sep: ['sepEU', 'sepEP'], decoEU: ['decoGarg', 'decoGout'],
+  supp: ['suppFosse', 'suppMilieu'], decoEP: ['decoEP'], gestEP: ['gestEP'], garg: ['gargEx', 'gargCr'], racc: ['raccEUsep', 'raccEUun', 'raccEPep', 'raccEPun']};
+const PRIV_TOUT = Array.from(new Set([].concat(...Object.values(PRIV_K))));
+const PUB_K = {EU: ['pubEU_D', 'pubEU_T'], EP: ['pubEP_D', 'pubEP_T'], UN: ['pubUN_D', 'pubUN_T'], noteD: ['pubEU_D', 'pubEP_D', 'pubUN_D'], noteT: ['pubEU_T', 'pubEP_T', 'pubUN_T']};
+const PUB_TOUT = PUB_K.EU.concat(PUB_K.EP, PUB_K.UN);
+/* préconisations d'un constat : celles de oui cochées, toutes les autres (automatiques comprises) à false */
+const precosSeules = oui => { const o = {}; PRIV_TOUT.concat(PUB_TOUT).forEach(k => { o[k] = oui.indexOf(k) >= 0; }); return o; };
+const n3 = x => +Number(x).toFixed(3);
+/* données de la page 2, telles que le dessin les reçoit (constatPourDessin) : visite effectuée, boîte, réseau, gestionnaire, rue,
+   conclusion, réserves, préconisations, une rangée active jugée « non », observations imprimées (pdfText, fins de ligne en « ; ») ; null
+   s'il manque une fonction */
+const donneesP2 = p => p.evaluate(() => {
+  const T = window.__VT, v = T.S.visites[0];
+  if (!['constatPourDessin', 'anomsOf', 'pdfText'].every(f => typeof T[f] === 'function')) return null;
+  const E = T.constatPourDessin(v, T.anomsOf(v.id)).E, c = E.c, actif = r => { const n = String(r.nb == null ? '' : r.nb).trim(); return n !== '' && n !== '0'; };
+  return JSON.parse(JSON.stringify({eff: !E.nonEffectue, B: c.boite || {}, reseau: c.reseau || '', gest: c.reseauGest || '', rue: c.reseauRue || '',
+    concl: E.conclusion || '', reserves: E.reservesText || '', precos: E.precos || {}, non: !E.nonEffectue && E.rows.some(x => actif(x.r) && x.conf === 'non'),
+    obs: T.pdfText(E.obsText || '').replace(/\s*\n\s*/g, ' ; ')}));
+});
+/* largeur de « int. » et de « ext. » en Times 9 pt (case du côté de la boîte), mesurée avec la bibliothèque PDF de la page */
+let WCOTE = null;
+const largeursCote = async p => WCOTE || (WCOTE = await p.evaluate(() => { const d = new window.jspdf.jsPDF({unit: 'pt', format: 'a4'}); d.setFont('times', 'normal');
+  d.setFontSize(9); return {'int.': d.getTextWidth('int.'), 'ext.': d.getTextWidth('ext.')}; }));
+/* plan attendu de la page 2, tiré des données du dossier : la boîte (visite effectuée : rangées ayant une valeur en EU ou en EP, colonnes
+   employées), la conclusion, les préconisations privées et publiques (lignes gardées selon les gardes de la conception) et les
+   observations (texte imprimé non vide) ; le premier élément gardé en 22,5, chaque suivant au bas du précédent gardé plus son écart ;
+   titre au haut + 8 ; chaque ligne suivante à la fin de la gardée d'avant plus le plus grand interligne des lignes qui l'en séparent (elle
+   comprise) ; étendue du formulaire gardée, sauf le raccordement (14,8 avec 3 ou 4 cases cochées, 0 sinon) ; bas = fin de la dernière
+   ligne + 3 */
+function planP2(D){
+  const r6 = x => Math.round(x * 1e6) / 1e6, pr = D.precos || {}, vrai = ks => ks.some(k => !!pr[k]), plein = s => !!String(s || '').trim();
+  const val = (k, n) => String(D.B[k + n] || '').trim();
+  const rangees = D.eff ? BOITE_K.filter(k => val(k, 'EU') || val(k, 'EP')) : [], colonnes = ['EU', 'EP'].filter(n => rangees.some(k => val(k, n)));
+  const reseau = D.reseau === 'departemental' || D.reseau === 'territorial' || plein(D.rue), priv = D.eff && (D.concl === 'non_conformes' || D.non || vrai(PRIV_TOUT));
+  const sous = K => Object.assign({titre: true}, ...Object.keys(K).map(k => ({[k]: vrai(K[k])})));
+  const G = {conclusion: {titre: D.eff || reseau, reseau, rue: plein(D.rue), installations: D.eff, reserves: D.eff && ['conformes', 'non_conformes', 'reserves'].indexOf(D.concl) < 0},
+    privees: priv ? Object.assign(sous(PRIV_K), {parag: true}) : {}, publiques: vrai(PUB_TOUT) ? sous(PUB_K) : {}};
+  const nRacc = PRIV_K.racc.filter(k => !!pr[k]).length, out = [];
+  let bas = null;
+  if (rangees.length){ out.push({id: 'boite', page: 2, dy: 0, h: r6(17.5 + 13.25 * rangees.length), rangees, colonnes}); bas = r6(40 + 13.25 * rangees.length); }
+  ['conclusion', 'privees', 'publiques'].forEach(id => {
+    const [ecart, L] = P2L[id], g = G[id], haut = bas === null ? 22.5 : r6(bas + ecart), lignes = [];
+    let fin = null, prec = -1;
+    L.forEach((l, j) => {
+      if (!g[l[0]]) return;
+      const y = prec < 0 ? r6(haut + 8) : r6(fin + Math.max(...L.slice(prec + 1, j + 1).map(m => m[3])));
+      fin = r6(y + (id === 'privees' && l[0] === 'racc' ? (nRacc >= 3 ? 14.8 : 0) : l[2] - l[1]));
+      lignes.push({id: l[0], y0: l[1], y}); prec = j;
+    });
+    if (!lignes.length) return;
+    out.push({id, page: 2, dy: r6(lignes[0].y - L[0][1]), h: r6(fin + 3 - haut), lignes}); bas = r6(fin + 3);
+  });
+  if (plein(D.obs)) out.push({id: 'observations', page: 2, dy: r6((bas === null ? 22.5 : r6(bas + 7)) - 550.4), h: 30.6});
+  return out;
+}
+/* deux plans de la page 2 égaux (1e-6 près) : mêmes éléments, mêmes clés ; lignes {id, y0, y}, rangées et colonnes */
+const plansP2Egaux = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((e, i) => { const f = b[i];
+  return e.id === f.id && e.page === 2 && pres(e.dy, f.dy, 1e-6) && pres(e.h, f.h, 1e-6) && Object.keys(e).sort().join() === Object.keys(f).sort().join()
+    && (!f.lignes || (Array.isArray(e.lignes) && e.lignes.length === f.lignes.length && e.lignes.every((l, j) => l.id === f.lignes[j].id
+      && pres(l.y0, f.lignes[j].y0, 1e-6) && pres(l.y, f.lignes[j].y, 1e-6) && Object.keys(l).sort().join() === 'id,y,y0')))
+    && JSON.stringify(e.rangees) === JSON.stringify(f.rangees) && JSON.stringify(e.colonnes) === JSON.stringify(f.colonnes); });
+/* plan de la page 2 dit court : élément, haut + hauteur, lignes et leur y, rangées et colonnes */
+const direP2 = plan => !Array.isArray(plan) ? 'pas de calcul' : !plan.length ? 'vide' : plan.map(e => e.id + ' ' + n3((HAUT2[e.id] || 0) + e.dy) + '+' + n3(e.h)
+  + (e.lignes ? ' [' + e.lignes.map(l => l.id + ' ' + n3(l.y)).join(', ') + ']' : '') + (e.rangees ? ' [' + e.rangees.join(' ') + ' ; ' + (e.colonnes || []).join(' ') + ']' : ''))
+  .join(', ');
+/* propriétés du plan de la page 2 : dy ≤ 0, hauteur positive, aucune ligne sous sa place du formulaire, rien sous 581 ; rend la faute ou '' */
+const proprietesP2 = plan => { if (!Array.isArray(plan)) return 'pas de calcul';
+  for (const e of plan){
+    const bas = (e.id in HAUT2 ? HAUT2[e.id] : NaN) + e.dy + e.h;
+    if (!(e.dy <= 1e-9)) return e.id + ' : dy ' + e.dy + ' positif';
+    if (!(e.h > 0)) return e.id + ' : hauteur ' + e.h;
+    if ((e.lignes || []).some(l => !(l.y <= l.y0 + 1e-9))) return e.id + ' : une ligne sous sa place du formulaire';
+    if (!(bas <= 581 + 1e-6)) return e.id + ' : bas ' + bas + ' sous 581';
+  }
+  return ''; };
+/* fenêtres de la page 2 du formulaire, dans l'ordre de la page : la boîte (au-dessus de 93), chaque ligne de la conclusion et des
+   préconisations ([ligne de base − 9 ; fin + 2]), les observations (550,4 à 581) */
+const FEN2 = [['boite', -1e9, 93]].concat(...['conclusion', 'privees', 'publiques'].map(id => P2L[id][1].map(l => [id + '.' + l[0], l[1] - 9, l[2] + 2])),
+  [['observations', 550.4, 581]]);
+/* page 2 du formulaire (L2, page neuve comprise) coupée : tête (page neuve, cadre en 15 ; 15), puis chaque appel dans la première
+   fenêtre qui le contient à partir de la dernière employée (la note D finit en 531,4, où la note T commence), jusqu'au rectangle cyan
+   (36,5 ; 584,5), d'où part le pied ; rend {tete, seg: {fenêtre: appels}, pied, faute} (faute : forme inattendue, appel hors des
+   fenêtres ou dans le désordre) */
+function decouperP2(L2){
+  const seg = {}, tete = L2.slice(0, 2), j = L2.findIndex(a => a[0] === 'r' && a[2] === 36.5 && a[3] === 584.5);
+  let k = 0, faute = '';
+  FEN2.forEach(f => { seg[f[0]] = []; });
+  if (!(tete.length === 2 && tete[0][0] === 'p' && tete[1][0] === 'r' && tete[1][2] === 15 && tete[1][3] === 15)) faute = 'tête (page neuve, cadre) inattendue';
+  if (j < 2) faute = faute || 'pas de rectangle cyan';
+  L2.slice(2, j < 2 ? L2.length : j).forEach((a, i) => {
+    const y = yRef(a);
+    let q = k;
+    while (q < FEN2.length && !(y !== null && y >= FEN2[q][1] - 0.002 && y <= FEN2[q][2] + 0.002)) q++;
+    if (q >= FEN2.length){ faute = faute || 'appel ' + (i + 3) + ' (' + a[0] + ', y ' + y + ') hors des fenêtres ou dans le désordre'; return; }
+    k = q; seg[FEN2[q][0]].push(a);
+  });
+  return {tete, seg, pied: j < 2 ? [] : L2.slice(j), faute};
+}
+/* couleur des valeurs saisies (CPC.val, 20, 40, 140) telle que le relevé la lit : la bibliothèque PDF l'arrondit (19, 40, 139) ; mesurée
+   une fois avec la bibliothèque de la page (deux), avant tout attenduP2 */
+let VALC = null;
+const couleurVal = async p => VALC || (VALC = await p.evaluate(() => { const d = new window.jspdf.jsPDF({unit: 'pt', format: 'a4'});
+  d.setTextColor(20, 40, 140); const t = d.getTextColor(); return [1, 3, 5].map(i => parseInt(t.slice(i, i + 2), 16)); }));
+/* appel qui montre une saisie au formulaire : texte non vide de la couleur des valeurs, ou trait d'une case cochée (1,2 pt) */
+const rempli = a => (a[0] === 't' && VALC && JSON.stringify(a[8]) === JSON.stringify(VALC) && String(a[4]).trim() !== '') || (a[0] === 'l' && a[6] === 1.2);
+/* cases cochées seules (cs : casesDe), la k-ième à la k-ième place (un x, ou [x, ligne de base]) ; rend {appels, dx de la dernière} */
+function auxPlaces(cs, places){
+  const appels = []; let dx = 0;
+  cs.filter(c => c.coche).forEach((c, k) => {
+    const pl = places[k], yc = c.appels[c.appels.length - 1][3], px = Array.isArray(pl) ? pl[0] : pl, py = Array.isArray(pl) ? pl[1] : yc;
+    dx = px - c.x; c.appels.forEach(a => appels.push(decale(a, dx, py - yc)));
+  });
+  return {appels, dx};
+}
+/* une ligne gardée de la page 2, d'après son segment S au formulaire (seg : tous les segments), avant le décalage de sa ligne ; null si
+   le formulaire n'a pas cette forme. Titres, paragraphe, rue, déconnexion des EP, gestion à la parcelle et notes : tels quels ; réseau :
+   le libellé, puis la case cochée en 249,5 (« territorial » : le gestionnaire à sa suite, ou le seul mot sans lui), le libellé seul
+   pour une rue sans réseau ; installations : la case choisie en 184,3 (réserves : leur case et leur texte remontés de la ligne d'en
+   dessous), ou les deux cases vides sans conclusion ; réserves : sans le pointillé ; cases des préconisations : les cochées seules,
+   aux premières places (note de la gargouille à créer à la suite de sa case) */
+function attenduLigne(el, lid, S, D, seg){
+  const k = el + '.' + lid, t0 = S[0];
+  if (['conclusion.titre', 'conclusion.rue', 'privees.titre', 'privees.parag', 'privees.decoEP', 'privees.gestEP', 'publiques.titre', 'publiques.noteD',
+    'publiques.noteT'].indexOf(k) >= 0) return S.length ? S.slice() : null;
+  if (k === 'conclusion.reserves') return S.filter(a => !pointille(a));
+  if (!t0 || t0[0] !== 't') return null;
+  const cs = casesDe(S, 1), seule = (n, m) => cs.length === n && 1 + nAppels(cs) + (m || 0) === S.length;
+  if (k === 'conclusion.reseau'){
+    if (cs.length !== 2) return null;
+    const apres = S.slice(1 + nAppels(cs)), dx = 249.5 - 367.5;
+    if (D.reseau === 'departemental') return [t0].concat(cs[0].appels);
+    if (D.reseau !== 'territorial') return [t0];
+    if (String(D.gest).trim()) return [t0].concat(cs[1].appels.map(a => decale(a, dx, 0)), apres.filter(a => a[0] === 't').map(a => decale(a, dx, 0)));
+    return [t0].concat(cs[1].appels.map((a, i, A) => { const b = decale(a, dx, 0); if (i === A.length - 1) b[4] = 'territorial'; return b; }));
+  }
+  if (k === 'conclusion.installations'){
+    if (!seule(2)) return null;
+    if (D.concl === 'conformes') return [t0].concat(cs[0].appels);
+    if (D.concl === 'non_conformes') return [t0].concat(cs[1].appels.map(a => decale(a, 184.3 - 315.3, 0)));
+    if (D.concl !== 'reserves') return S.slice();
+    const Rs = seg['conclusion.reserves'] || [], cr = casesDe(Rs, 0);
+    if (cr.length !== 1) return null;
+    return [t0].concat(Rs.slice(0, cr[0].appels.length).concat(Rs.slice(cr[0].appels.length).filter(a => a[0] === 't')).map(a => decale(a, 0, 162.3 - 180.9)));
+  }
+  if (['privees.boite', 'privees.boiteEx', 'privees.boiteCr'].indexOf(k) >= 0) return seule(3) ? [t0].concat(auxPlaces(cs, [269.4, 326.2, 382.9]).appels) : null;
+  if (['privees.sep', 'privees.decoEU', 'privees.supp'].indexOf(k) >= 0) return seule(2) ? [t0].concat(auxPlaces(cs, [269.4, 382.9]).appels) : null;
+  if (k === 'privees.garg'){
+    if (!seule(2, 1)) return null;
+    const A = auxPlaces(cs, [269.4, 382.9]);
+    return [t0].concat(A.appels, cs[1].coche ? [decale(S[S.length - 1], A.dx, 0)] : []);
+  }
+  if (k === 'privees.racc') return seule(4) ? [t0].concat(auxPlaces(cs, [[170.2, 432.5], [382.9, 432.5], [170.2, 447.3], [382.9, 447.3]]).appels) : null;
+  if (['publiques.EU', 'publiques.EP', 'publiques.UN'].indexOf(k) >= 0) return seule(2) ? [t0].concat(auxPlaces(cs, [269.4, 358]).appels) : null;
+  return null;
+}
+/* boîte délestée attendue (e : son élément du plan), d'après la boîte du formulaire (S : douze traits, deux en-têtes, puis les rangées) :
+   les traits dans l'état du premier trait du formulaire, jusqu'au bord droit 386,5 (une colonne) ou 446,5 ; les en-têtes des colonnes
+   employées (EP seule en 356,8) ; pour chaque rangée gardée, son libellé remonté à son rang, puis ses valeurs (« intérieur » ou
+   « extérieur » : la case cochée seule, centrée dans sa colonne ; case vide : rien) ; null si S n'a pas cette forme */
+function attenduBoite(S, e, wCote){
+  if (S.length < 14 || S.slice(0, 12).some(a => a[0] !== 'l') || S[12][0] !== 't' || S[12][2] !== 356.8 || S[13][0] !== 't' || S[13][2] !== 416.5) return null;
+  const n = e.rangees.length, R = e.colonnes.length === 2 ? 446.5 : 386.5, bas = 40 + 13.25 * n, st = S[0];
+  const tr = (x1, y1, x2, y2) => { const b = st.slice(); b[2] = x1; b[3] = y1; b[4] = x2; b[5] = y2; return b; };
+  const out = [tr(327, 22.5, R, 22.5)];
+  for (let i = 0; i <= n; i++) out.push(tr(43.5, 40 + 13.25 * i, R, 40 + 13.25 * i));
+  out.push(tr(43.5, 40, 43.5, bas));
+  [327, 386.5, 446.5].filter(x => x <= R).forEach(x => out.push(tr(x, 22.5, x, bas)));
+  e.colonnes.forEach((c, j) => { const a = S[c === 'EU' ? 12 : 13]; out.push(decale(a, (j ? 416.5 : 356.8) - a[2], 0)); });
+  const corps = S.slice(14), rang = a => Math.floor((yRef(a) - 40) / 13.25);
+  let ok = true;
+  e.rangees.forEach((k, i2) => {
+    const i = BOITE_K.indexOf(k), dyR = 13.25 * (i2 - i), Rg = corps.filter(a => rang(a) === i), lab = Rg.find(a => a[0] === 't' && a[2] === 48);
+    if (!lab){ ok = false; return; }
+    out.push(decale(lab, 0, dyR));
+    e.colonnes.forEach((c, j) => {
+      const cxF = c === 'EU' ? 356.8 : 416.5, cxD = j ? 416.5 : 356.8, V = Rg.filter(a => a !== lab && (a[2] < 386.5) === (c === 'EU'));
+      if (V.length && V[0][0] === 'r') casesDe(V, 0).filter(q => q.coche).forEach(q => {
+        const dx = cxD - (9.8 + (wCote[q.appels[q.appels.length - 1][4]] || 0)) / 2 - q.x; q.appels.forEach(a => out.push(decale(a, dx, dyR))); });
+      else V.forEach(a => out.push(decale(a, cxD - cxF, dyR)));
+    });
+  });
+  return ok ? out : null;
+}
+/* page 2 attendue : {att: [[élément, appel]], faute}, d'après la page 2 du formulaire du même dossier (Lc2), le plan attendu et les
+   données : tête ; chaque élément gardé (boîte : attenduBoite ; ligne : attenduLigne, décalée de y − y0 ; observations décalées de dy) ;
+   pied du formulaire, sans « Je, soussigné… » (deux textes et le pointillé) ni la légende du propriétaire si la visite n'est pas
+   effectuée (DL20) ; faute : formulaire d'une autre forme, ligne remplie au formulaire et absente du plan (sauf la ligne des réserves,
+   dont la case passe sur celle des installations) */
+function attenduP2(Lc2, plan, D, wCote){
+  const Z = decouperP2(Lc2);
+  if (Z.faute) return {att: [], faute: 'formulaire : ' + Z.faute};
+  const pl = {}, fautes = [], att = Z.tete.map(a => ['tête', a]);
+  page2(plan).forEach(e => { pl[e.id] = e; });
+  FEN2.forEach(f => {
+    const [el, lid] = f[0].split('.'), garde = lid ? !!pl[el] && pl[el].lignes.some(l => l.id === lid) : !!pl[el];
+    if (f[0] !== 'conclusion.reserves' && !garde && Z.seg[f[0]].some(rempli)) fautes.push(f[0] + ' : rempli au formulaire, absent du calcul attendu');
+  });
+  if (pl.boite){ const A = attenduBoite(Z.seg.boite, pl.boite, wCote); if (A) A.forEach(a => att.push(['boite', a])); else fautes.push('boite : formulaire inattendu'); }
+  ['conclusion', 'privees', 'publiques'].forEach(el => (pl[el] ? pl[el].lignes : []).forEach(l => {
+    const A = attenduLigne(el, l.id, Z.seg[el + '.' + l.id], D, Z.seg);
+    if (A) A.forEach(a => att.push([el + '.' + l.id, decale(a, 0, l.y - l.y0)])); else fautes.push(el + '.' + l.id + ' : formulaire inattendu');
+  }));
+  if (pl.observations) Z.seg.observations.forEach(a => att.push(['observations', decale(a, 0, pl.observations.dy)]));
+  let pied = Z.pied;
+  if (!D.eff){
+    const P = pied.filter(a => !(a[0] === 't' && pres(a[3], 595.9, 0.002)) && !(pointille(a) && pres(a[3], 596.5, 0.002)) && !(a[0] === 't' && a[2] === 326.2 && a[3] === 688));
+    if (pied.length - P.length !== 4) fautes.push('pied du formulaire : ' + (pied.length - P.length) + ' appels de « Je, soussigné… » et de la légende du propriétaire, au lieu de 4');
+    pied = P;
+  }
+  pied.forEach(a => att.push(['pied', a]));
+  return {att, faute: fautes.join(' ; ')};
+}
+/* un dossier imprimé deux fois : délesté (L) et formulaire (Lc), avec le calcul (plan, pages 1 et 2), la description du calcul (d), le
+   tableau de référence (ref : cstTableDeleste en 360 + dy, place du calcul ; sans description du calcul, en 360 sur la place du
+   formulaire), les données de la page 2 (D2) et la largeur des cases du côté de la boîte (wCote) ; mesure aussi la couleur des valeurs (VALC) */
 async function deux(p){
   const L = await imprimer(p, 'deleste'), plan = await calcul(p), Lc = await imprimer(p, 'complet');
-  const d = Array.isArray(plan) ? plan.find(e => e.id === 'description') || null : null;
+  const d = Array.isArray(plan) ? page1(plan).find(e => e.id === 'description') || null : null;
   const ref = d ? await releveTable(p, 360 + d.dy, 42 + d.place) : await releveTable(p, 360, 260.5);
-  return {L, plan, Lc, d, ref: ref || []};
+  await couleurVal(p);
+  return {L, plan, Lc, d, ref: ref || [], D2: await donneesP2(p), wCote: await largeursCote(p)};
 }
-/* contrôles communs d'un dossier : propriétés du calcul, page 1 attendue, page 2 du formulaire */
+/* contrôles communs d'un dossier : propriétés du calcul, page 1 attendue ; page 2 (m160) : calcul attendu (tiré des données du dossier),
+   ses propriétés, page 2 attendue */
 function verifP1(nom, X){
   const pr = proprietes(X.plan);
   R.ok(!pr, nom + ' : calcul : place d\'au moins 234,5, rien de la page 1 sous 816 (' + (pr || dire(X.plan)) + ')');
@@ -476,8 +755,14 @@ function verifP1(nom, X){
   const e = A.faute || ecartTol(X.L.filter(a => a[1] === 1), A.att.map(x => x[1]), A.att.map(x => x[0]));
   R.ok(!!X.plan && !e, nom + ' : page 1 délestée : chaque rubrique gardée vaut celle du formulaire du même dossier, transformée et décalée de son dy'
     + (X.plan ? '' : ' (pas de calcul constatDeleste)') + (e ? ' (' + e + ')' : ''));
-  const e2 = ecartP2(X.L, X.Lc);
-  R.ok(!e2, nom + ' : page 2 du délesté : celle du formulaire du même dossier, appel par appel, état compris' + (e2 ? ' (' + e2 + ')' : ''));
+  const P2 = page2(X.plan), att2 = X.D2 ? planP2(X.D2) : null, pr2 = proprietesP2(Array.isArray(X.plan) ? P2 : null);
+  R.ok(!!att2 && plansP2Egaux(P2, att2), nom + ' : calcul de la page 2 : éléments, ordre, dy, h, lignes, rangées et colonnes attendus (' + direP2(P2)
+    + ' ; attendu ' + direP2(att2) + ')');
+  R.ok(!pr2, nom + ' : calcul de la page 2 : dy ≤ 0, aucune ligne sous sa place du formulaire, rien sous 581 (' + (pr2 || direP2(P2)) + ')');
+  const A2 = att2 ? attenduP2(X.Lc.filter(a => a[1] === 2), att2, X.D2, X.wCote) : {att: [], faute: 'pas de données de la page 2'};
+  const e2 = A2.faute || ecartTol(X.L.filter(a => a[1] === 2), A2.att.map(x => x[1]), A2.att.map(x => x[0]));
+  R.ok(!e2, nom + ' : page 2 délestée : chaque élément gardé vaut celui du formulaire du même dossier, transformé et décalé ; pied du formulaire'
+    + (e2 ? ' (' + e2 + ')' : ''));
 }
 /* appels de la page 1 dans le tableau délesté : entre 360 + dy et le bas de la description du calcul */
 const tableauDel = (L, d) => d ? L.filter(a => { const y = a[1] === 1 ? yRef(a) : null; return y !== null && y >= 360 + d.dy - 0.002 && y <= 343.2 + d.dy + d.h + 0.002; }) : null;
@@ -551,8 +836,10 @@ async function d2(p){
     && pres(N[0].y, 402 + dy + 8.75 + 3.6, 0.001) && pres(N[1].y, 419.5 + dy + 8.75 + 3.6, 0.001) && pres(N[0].x, xs[1] + 11.5, 0.001),
     'D2 : rangées de 17,5 pt (libellés sur une ligne) en 419,5 + dy et 437 + dy, Nb centré en x_Nb + 11,5, Nb et croix en 10,5 pt au milieu + 3,6 (dy ' + dy + ' ; traits ' + lst(rg) + ' ; Nb '
     + N.map(t => t.x.toFixed(2) + '/' + t.y.toFixed(2) + '/' + t.sz).join(', ') + ')');
-  const p2 = horizontales(L.filter(a => a[1] === 2 && a[0] === 'l')).filter(h => h.x1 === 43.5 && h.x2 === 565.5 && h.y < 100).map(h => h.y);
-  R.ok(lst(p2) === '40, 53.25, 66.5, 79.75, 93', 'D2 : page 2 : la boîte de la présentation 2 (rangées de 13,25 pt, côté compris) (' + lst(p2) + ')');
+  const p2 = horizontales(X.Lc.filter(a => a[1] === 2 && a[0] === 'l')).filter(h => h.x1 === 43.5 && h.x2 === 565.5 && h.y < 100).map(h => h.y);
+  const tb = L.filter(a => a[1] === 2 && a[0] === 'l' && yRef(a) < 100 && [43.5, 327, 386.5, 446.5, 506, 565.5].some(x => a[2] === x || a[4] === x));
+  R.ok(lst(p2) === '40, 53.25, 66.5, 79.75, 93' && !tb.length, 'D2 : page 2 : au formulaire, la boîte de la présentation 2 (rangées de 13,25 pt, côté compris) ('
+    + lst(p2) + ') ; au délesté, sans valeur de boîte, aucun trait de boîte (' + tb.length + ')');
   const Lc = X.Lc, TBc = tableau(Lc) || [], Ln = await imprimer(p, ''), TBn = tableau(Ln) || [];
   R.ok(lst(xsVert(TBc)) === lst(FORM_X) && fondsRangees(TBc).length === 11 && entetes(TBc).length === 23,
     'D2 : le même dossier en « Formulaire complet » : le tableau du formulaire (verticales ' + lst(xsVert(TBc)) + ', ' + fondsRangees(TBc).length + ' rangées, ' + entetes(TBc).length + ' en-têtes)');
@@ -688,16 +975,21 @@ async function d3(p){
 /* ---------- D5 à D13 : page 1 délestée (m159) ---------- */
 
 /* dossier complet (D6, D13), fictif : identification, catégorie « collectif 21 à 50 », méthodes (visuel et résonance par les rangées,
-   eau cochée), deux rangées, deux cases de récupération sur quatre, désagréments « oui » localisés, croquis de position */
+   eau cochée), deux rangées, deux cases de récupération sur quatre, désagréments « oui » localisés, croquis de position ; page 2 (m160) :
+   boîte (distance en EU et en EP, côté « intérieur » en EU), réseau territorial avec gestionnaire, rue, conclusion « avec réserves » et
+   réserves, préconisations de l'exemple de la conception (création de boîte en EU, sur branchement à créer en EU, gargouille à créer ;
+   création de branchement EU départemental, EP territorial ; les automatiques à false), observations */
 const COMPLET = {visite: {nom: 'Nom Fictif', tel: '06 39 98 12 34', mail: 'nom.fictif@exemple.org', domicile: '12 rue Fictive', domVille: '99000 Ville-Exemple',
   adresse: '12 rue Fictive', commune: '99000 Ville-Exemple'},
   lignes: {wc: {nb: '1', raccord: 'EU_D', methodes: ['visuel']}, gout_av: {nb: '1', raccord: 'GARG', methodes: ['reso']}},
   champs: {demande: '10/11/2026', refCad: 'Parcelle fictive 12', typePropriete: 'Maison fictive', nbLogements: '1', categorie: 'c50', categorieNb: '3', methodes: {eau: true},
-    epRecup: {recup: true, autre: true}, desagr: 'oui', desagrLoc: 'Cave fictive', croquis: SIG}};
+    epRecup: {recup: true, autre: true}, desagr: 'oui', desagrLoc: 'Cave fictive', croquis: SIG,
+    boite: {distEU: '1,2 m', distEP: '0,8 m', coteEU: 'intérieur'}, reseau: 'territorial', reseauGest: 'Gestionnaire fictif', reseauRue: 'Rue fictive',
+    conclusion: 'reserves', reserves: 'Réserve fictive', precos: precosSeules(['boite_EU', 'boiteCr_EU', 'gargCr', 'pubEU_D', 'pubEP_T']), observations: 'Observation fictive'}};
 /* le dossier complet, changé par o (statut, visite, lignes, ajouts, champs) */
 const avec = o => ({statut: o.statut, visite: Object.assign({}, COMPLET.visite, o.visite), lignes: o.lignes || COMPLET.lignes, ajouts: o.ajouts,
   champs: Object.assign({}, COMPLET.champs, o.champs)});
-const rubrique = (plan, id) => Array.isArray(plan) ? plan.find(e => e.id === id) || null : null;
+const rubrique = (plan, id) => Array.isArray(plan) ? plan.find(e => e.page === 1 && e.id === id) || null : null;
 const hautDe = (plan, id) => { const e = rubrique(plan, id); return e ? P1de(id)[1] + e.dy : NaN; };
 /* textes de la page 1 hors de l'en-tête (y ≥ 153,8) et du tableau délesté */
 const textesHors = X => X.L.filter(a => a[0] === 't' && a[1] === 1 && a[3] >= 153.8 && !(X.d && a[3] >= 360 + X.d.dy - 0.002 && a[3] <= 343.2 + X.d.dy + X.d.h + 0.002));
@@ -710,6 +1002,12 @@ async function d5(p){
   R.ok(plansEgaux(X.plan, planAttendu(['nomRef', 'adresse', 'description'], 17.5)) && !!X.d && pres(X.d.dy, -151.3, 1e-6) && pres(X.d.place, 565.3, 1e-6),
     'D5 : dossier minimal : calcul du nom, de l\'adresse et de la description seuls, description en 191,9 (dy −151,3), place 565,3 (' + dire(X.plan) + ')');
   verifP1('D5', X);
+  /* page 2 minimale (m160) : le cadre, la conclusion du dossier (WC conforme : « conformes »), le pied ; « Je, soussigné » nommé */
+  const P5 = page2(X.plan);
+  R.ok(plansP2Egaux(P5, [{id: 'conclusion', page: 2, dy: -78.5, h: 31.9, lignes: [{id: 'titre', y0: 109, y: 30.5}, {id: 'installations', y0: 162.3, y: 51.4}]}]),
+    'D5 : page 2 minimale : la conclusion seule, en 22,5 (titre 30,5, dy −78,5 ; installations 51,4) (' + direP2(P5) + ')');
+  R.ok(!X.L.some(a => a[1] === 2 && pointille(a)) && X.Lc.some(a => a[1] === 2 && pointille(a)),
+    'D5 : page 2 sans pointillé (« Je, soussigné » nommé), quand le formulaire du même dossier en a');
   const titres = ['Nom du propriétaire :', 'Nom Fictif', 'Adresse du branchement :', '12 rue Fictive - 99000 Ville-Exemple', texteEn(X.Lc, 42.6, 351.2)];
   const hors = textesHors(X).map(a => a[4]);
   R.ok(hors.join(' | ') === titres.join(' | '), 'D5 : hors de l\'en-tête et du tableau, seuls le libellé du nom, « Nom Fictif », le libellé de l\'adresse, l\'adresse et le titre '
@@ -731,6 +1029,12 @@ async function d5(p){
   R.ok(plansEgaux(Y.plan, planAttendu(['nomRef', 'description'], 17.5)) && !!Y.d && pres(Y.d.dy, -171.6, 1e-6) && pres(Y.d.place, 585.6, 1e-6),
     'D5, sans adresse : calcul du nom et de la description seuls, description en 171,6 (dy −171,6), place 585,6 (' + dire(Y.plan) + ')');
   verifP1('D5, sans adresse', Y);
+  /* sans nom (m160, DL11) : « Je, soussigné » sans nom garde ses pointillés de 140, seul pointillé de la page 2 */
+  await poser(p, {lignes: {wc: {nb: '1', raccord: 'EU_D'}}, champs: VIDES});
+  const Z = await deux(p), pz = Z.L.filter(a => a[1] === 2 && pointille(a));
+  R.ok(pz.length === 1 && pres(pz[0][3], 596.5, 0.002) && pres(pz[0][5], 596.5, 0.002) && pres(pz[0][4] - pz[0][2], 140, 0.002),
+    'D5, sans nom : page 2 : un seul pointillé, celui de « Je, soussigné » sans nom, en 596,5, de 140 pt (' + pz.map(a => a[2] + '-' + a[4] + '/' + a[3]).join(', ') + ')');
+  verifP1('D5, sans nom', Z);
 }
 
 /* D6 : dossier complet et ses variantes */
@@ -747,6 +1051,16 @@ async function d6(p){
     'D6 : exemples de la conception : catégorie 254,5-278 (dy 0), contrôle en 285,9 (dy −23), description en 320,2 (en-tête en 337, rangées dès 379, place 257,5, bas en 414), '
     + 'récupération en 420,7, désagréments en 438,3, position en 456,1');
   verifP1('D6', X);
+  /* page 2 (m160) : l'exemple de la conception */
+  const lg = L => L.map(([id, y0, y]) => ({id, y0, y})), EX6 = [{id: 'boite', page: 2, dy: 0, h: 44, rangees: ['dist', 'cote'], colonnes: ['EU', 'EP']},
+    {id: 'conclusion', page: 2, dy: -26.5, h: 64.3, lignes: lg([['titre', 109, 82.5], ['reseau', 126.6, 100.1], ['rue', 141.4, 114.9], ['installations', 162.3, 135.8]])},
+    {id: 'privees', page: 2, dy: -45.1, h: 102.1, lignes: lg([['titre', 199.1, 154], ['parag', 216.9, 171.8], ['boite', 257.6, 212.5], ['boiteCr', 287.2, 227.3], ['garg', 414.8, 245.1]])},
+    {id: 'publiques', page: 2, dy: -202.2, h: 71.4, lignes: lg([['titre', 465.3, 263.1], ['EU', 482.7, 280.5], ['EP', 497.5, 295.3], ['noteD', 529.4, 312.5], ['noteT', 540.4, 323.5]])},
+    {id: 'observations', page: 2, dy: -216.9, h: 30.6}];
+  R.ok(plansP2Egaux(page2(plan), EX6), 'D6 : page 2 : l\'exemple de la conception : boîte 22,5-66,5 ; conclusion (titre 82,5, dy −26,5) sans ligne des réserves ; '
+    + 'préconisations privées (titre 154, dy −45,1) ; publiques (titre 263,1, dy −202,2) ; observations en 333,5 (dy −216,9) (' + direP2(page2(plan)) + ')');
+  R.ok(texte2(X.L, 'Gestionnaire fictif', 100.1) && texte2(X.L, 'Rue fictive', 114.9) && texte2(X.L, 'Réserve fictive', 135.8) && texte2(X.L, 'Observation fictive', 341.5),
+    'D6 : page 2 : le gestionnaire en 100,1, la rue en 114,9, la réserve sur la ligne des installations (135,8), l\'observation en 341,5');
   const r360 = d ? await releveTable(p, 360, 42 + d.place) : null;
   const e360 = r360 ? ecartTol(X.ref, r360.map(a => decale(a, 0, d.dy))) : 'pas de tableau';
   R.ok(!!r360 && r360.length > 0 && !e360, 'D6 : le tableau en 360 + dy est celui que cstTableDeleste dessine en 360, décalé de dy (' + (e360 || X.ref.length + ' appels') + ')');
@@ -829,6 +1143,10 @@ async function d13(p){
   const ids = ['nomRef', 'adresse', 'domicile', 'telMail', 'typeLog', 'categorie'];
   R.ok(plansEgaux(X.plan, planAttendu(ids, 0)), 'D13 : refus de visite : identification et catégorie seules au calcul (' + dire(X.plan) + ')');
   verifP1('D13', X);
+  /* page 2 du refus (m160, DL20) : la conclusion réduite au réseau et à la rue, les observations ; ni boîte, ni installations, ni préconisations */
+  const P13 = page2(X.plan), o13 = P13.find(e => e.id === 'observations');
+  R.ok(P13.map(e => e.id).join() === 'conclusion,observations' && lignesDe(X.plan, 'conclusion') === 'titre 30.5, reseau 48.1, rue 62.9' && !!o13 && pres(550.4 + o13.dy, 72.9, 1e-6)
+    && texte2(X.L, 'Observation fictive', 80.9), 'D13 : page 2 du refus : la conclusion (titre 30,5, réseau 48,1, rue 62,9), puis les observations en 72,9 (' + direP2(P13) + ')');
   const L1 = X.L.filter(a => a[1] === 1), Lc1 = X.Lc.filter(a => a[1] === 1);
   const i = L1.findIndex(a => a[0] === 't' && a[2] === 220.4 && a[3] === 141.5), j = Lc1.findIndex(a => a[0] === 't' && a[2] === 220.4 && a[3] === 141.5);
   const cs = i >= 0 ? casesDe(L1, i + 1) : [], csF = j >= 0 ? casesDe(Lc1, j + 1) : [];
@@ -844,6 +1162,144 @@ async function d13(p){
   verifP1('D13, absence avec ses dates', X);
 }
 
+/* ---------- D8, D10 à D12 : page 2 délestée (m160) ---------- */
+
+/* appels de la page 2 d'un relevé ; ceux d'entre le cadre (15 ; 15) et le pied (rectangle cyan en 584,5) */
+const page2De = L => L.filter(a => a[1] === 2);
+const corps2 = L => page2De(L).filter(a => { const y = yRef(a); return y !== null && y > 15.002 && y < 584.5 - 0.002; });
+/* lignes d'un élément de la page 2 du calcul, dites « id y », et ligne de base délestée de l'une d'elles (NaN sans elle) */
+const lignesDe = (plan, el) => { const e = page2(plan).find(f => f.id === el); return e && e.lignes ? e.lignes.map(l => l.id + ' ' + n3(l.y)).join(', ') : ''; };
+const ligneDe = (plan, el, id) => { const e = page2(plan).find(f => f.id === el), l = e && e.lignes ? e.lignes.find(m => m.id === id) : null; return l ? l.y : NaN; };
+/* appels de la page 2 sur la ligne de base y (de y − 9 à y + 2), et texte t posé sur la ligne de base y de la page 2 */
+const surLigne = (L, y) => page2De(L).filter(a => { const r = yRef(a); return r !== null && r >= y - 9 - 0.002 && r <= y + 2 + 0.002; });
+const texte2 = (L, t, y) => page2De(L).some(a => a[0] === 't' && a[4] === t && pres(a[3], y, 0.002));
+const NOM = {nom: 'Nom Fictif'}, OUI = {wc: {nb: '1', raccord: 'EU_D', conforme: 'oui'}};
+
+/* D8 (DL20) : refus de visite avec le réseau et la rue, la boîte et des préconisations : la conclusion réduite au réseau et à la rue
+   (« Conclusion : » en 30,5) ; pied sans « Je, soussigné… » ni légende du propriétaire, la seule signature du technicien. Puis sans
+   réseau ni rue : rien entre le cadre et le pied */
+async function d8(p){
+  await poser(p, {statut: 'refus', lignes: {wc: {nb: '1', raccord: 'EU_D'}}, champs: {reseau: 'departemental', reseauRue: 'Rue fictive',
+    boite: {distEU: '1,2 m', coteEP: 'extérieur'}, precos: precosSeules(['boite_EU', 'pubEU_D']), sigTech: SIG, sigProp: SIG}});
+  let X = await deux(p);
+  verifP1('D8', X);
+  const L2 = page2De(X.L), Lc2 = page2De(X.Lc), conc = Lc2.find(a => a[0] === 't' && a[2] === 42.6 && a[3] === 109), tc = conc ? conc[4] : null;
+  R.ok(!!tc && lignesDe(X.plan, 'conclusion') === 'titre 30.5, reseau 48.1, rue 62.9' && L2.some(a => a[0] === 't' && a[4] === tc && a[2] === 42.6 && pres(a[3], 30.5, 0.002))
+    && texte2(X.L, 'Rue fictive', 62.9), 'D8 : refus avec le réseau et la rue : « Conclusion : » en 30,5, réseau en 48,1, rue en 62,9 (' + direP2(page2(X.plan)) + ')');
+  const pied = L2.filter(a => yRef(a) !== null && yRef(a) >= 584.5 - 0.002), nI = L2.filter(a => a[0] === 'i').length;
+  R.ok(!pied.some(a => a[0] === 't' && pres(a[3], 595.9, 0.002)) && !pied.some(pointille) && !pied.some(a => a[0] === 't' && a[2] === 326.2 && a[3] === 688)
+    && pied.some(a => a[0] === 't' && a[2] === 42.6 && a[3] === 688) && nI === 1 && Lc2.filter(a => a[0] === 't' && pres(a[3], 595.9, 0.002)).length === 2,
+    'D8 : pied délesté : ni « Je, soussigné… » ni légende du propriétaire ; la légende et la seule signature du technicien (' + nI + ' image(s) ; le formulaire a « Je, soussigné… »)');
+  await poser(p, {statut: 'refus', lignes: {wc: {nb: '1', raccord: 'EU_D'}}});
+  X = await deux(p);
+  verifP1('D8, refus sans réseau ni rue', X);
+  const C2 = corps2(X.L);
+  R.ok(Array.isArray(X.plan) && !page2(X.plan).length && !C2.length && !page2De(X.L).some(a => a[0] === 't' && a[4] === tc),
+    'D8, refus sans réseau ni rue : ni « Conclusion : » ni autre élément entre le cadre et le pied (' + direP2(page2(X.plan)) + ' ; ' + C2.length + ' appel(s))');
+}
+
+/* D10 : boîte EP seule : sa colonne à la place de celle des EU (bord droit 386,5, en-tête vert en 356,8) ; le côté en une case centrée ;
+   une valeur trop large en 9,5 pt mais qui tient en 7 pt, sur la ligne de son libellé (règle de CLAUDE.md) */
+async function d10(p){
+  const VAL = '1,35 m environ';
+  const w = await p.evaluate(s => { const T = window.__VT, d = T.newPdf(); d.setFont(d.__font, 'normal'); d.setFontSize(9.5);
+    const a = d.getTextWidth(T.pdfText(s)); d.setFontSize(7); return [a, d.getTextWidth(T.pdfText(s))]; }, VAL);
+  R.ok(w[0] > 56 && w[1] <= 56, 'D10 : prémisse : « ' + VAL + ' » ne tient pas dans 56 pt en 9,5 pt, mais y tient en 7 pt (' + w.map(x => x.toFixed(2)).join(' ; ') + ')');
+  await poser(p, {visite: NOM, lignes: OUI, champs: {boite: {coteEP: 'extérieur', profEP: VAL}}});
+  const X = await deux(p), B = page2De(X.L).filter(a => yRef(a) !== null && yRef(a) > 15.002 && yRef(a) <= 66.502);
+  verifP1('D10', X);
+  const tr = B.filter(a => a[0] === 'l' && a[6] === 0.6 && JSON.stringify(a[7]) === '[0,0,255]'), xm = Math.max(...tr.map(a => Math.max(a[2], a[4])));
+  /* le vert de l'en-tête « EP » du formulaire (416,5 ; 33,4), tel que le relevé le lit */
+  const ent = B.filter(a => a[0] === 't' && pres(a[3], 33.4, 0.002)), vertF = page2De(X.Lc).find(a => a[0] === 't' && a[4] === 'EP' && a[2] === 416.5 && pres(a[3], 33.4, 0.002));
+  R.ok(tr.length === 7 && xm === 386.5 && ent.length === 1 && ent[0][4] === 'EP' && ent[0][2] === 356.8 && !!vertF && JSON.stringify(ent[0][8]) === JSON.stringify(vertF[8]),
+    'D10 : boîte d\'une colonne : sept traits jusqu\'à 386,5, l\'en-tête « EP » seul, en vert, en 356,8 (' + tr.length + ' traits jusqu\'à ' + xm + ' ; '
+    + ent.map(a => a[4] + ' ' + a[2] + ' ' + JSON.stringify(a[8])).join(', ') + ' ; formulaire : ' + (vertF ? JSON.stringify(vertF[8]) : 'pas d\'en-tête EP') + ')');
+  const wx = (X.wCote || {})['ext.'] || 0, rc = B.filter(a => a[0] === 'r'), cx = 356.8 - (9.8 + wx) / 2, ext = B.filter(a => a[0] === 't' && a[4] === 'ext.');
+  R.ok(rc.length === 1 && pres(rc[0][2], cx, 0.002) && pres(rc[0][3], 50.125 - 6.6, 0.002) && B.filter(a => a[0] === 'l' && a[6] === 1.2).length === 2 && ext.length === 1
+    && pres(ext[0][2], cx + 9.8, 0.002) && pres(ext[0][3], 50.125, 0.002) && !B.some(a => a[0] === 't' && a[4] === 'int.'),
+    'D10 : côté : la seule case « ext. », cochée, centrée en 356,8, sur la ligne 50,125 (case en ' + rc.map(a => a[2] + '/' + a[3]).join(', ') + ' ; attendu ' + n3(cx) + ')');
+  const vt = B.filter(a => a[0] === 't' && a[4] === VAL);
+  R.ok(vt.length === 1 && vt[0][2] === 356.8 && pres(vt[0][3], 63.375, 0.002) && vt[0][7] >= 7 && vt[0][7] < 9.5,
+    'D10 : la profondeur sur la ligne de son libellé (63,375), centrée en 356,8, d\'une taille de 7 à 9,5 pt (' + vt.map(a => a[2] + '/' + a[3] + '/' + a[7]).join(', ') + ')');
+}
+
+/* D11 : conclusion. Vide : le titre, les trois cases vides, sans pointillé ; « avec réserves » : sa case et son texte sur la ligne des
+   installations ; réseau seul (départemental, territorial avec et sans gestionnaire) : la case cochée en 249,5 ; rue seule : le
+   libellé du réseau, sans case, puis la rue */
+async function d11(p){
+  await poser(p, {visite: NOM, champs: {precos: precosSeules([])}});
+  let X = await deux(p);
+  verifP1('D11, conclusion vide', X);
+  const C2 = corps2(X.L);
+  R.ok(lignesDe(X.plan, 'conclusion') === 'titre 30.5, installations 51.4, reserves 70' && C2.filter(a => a[0] === 'r').length === 3 && !C2.some(a => a[0] === 'l' && a[6] === 1.2)
+    && !page2De(X.L).some(pointille), 'D11, conclusion vide : titre, installations et réserves ; trois cases vides, aucun pointillé (' + direP2(page2(X.plan)) + ')');
+  await poser(p, {visite: NOM, champs: {conclusion: 'reserves', reserves: 'Réserve fictive'}});
+  X = await deux(p);
+  verifP1('D11, réserves', X);
+  const yi = ligneDe(X.plan, 'conclusion', 'installations'), Li = surLigne(X.L, yi);
+  R.ok(lignesDe(X.plan, 'conclusion') === 'titre 30.5, installations 51.4' && texte2(X.L, 'Réserve fictive', yi) && Li.filter(a => a[0] === 'r').length === 1
+    && Li.some(a => a[0] === 'r' && a[2] === 184.3 && pres(a[3], yi - 8.3, 0.002)) && Li.filter(a => a[0] === 'l' && a[6] === 1.2).length === 2,
+    'D11, réserves : la case cochée en 184,3 et « Réserve fictive » sur la ligne des installations, pas de ligne des réserves (' + direP2(page2(X.plan)) + ')');
+  for (const [nom, ch, gest, mot] of [['départemental', {reseau: 'departemental'}, '', 'départemental'],
+    ['territorial avec gestionnaire', {reseau: 'territorial', reseauGest: 'Gestionnaire fictif'}, 'Gestionnaire fictif', ''], ['territorial sans gestionnaire', {reseau: 'territorial'}, '', 'territorial']]){
+    await poser(p, {visite: NOM, lignes: OUI, champs: ch});
+    X = await deux(p);
+    verifP1('D11, réseau ' + nom, X);
+    const yr = ligneDe(X.plan, 'conclusion', 'reseau'), Lr = surLigne(X.L, yr), rr = Lr.filter(a => a[0] === 'r'), tt = Lr.filter(a => a[0] === 't');
+    R.ok(pres(yr, 48.1, 1e-6) && rr.length === 1 && rr[0][2] === 249.5 && pres(rr[0][3], yr - 6.6, 0.002) && Lr.filter(a => a[0] === 'l' && a[6] === 1.2).length === 2
+      && (mot ? tt.length === 2 && tt[1][4] === mot && pres(tt[1][2], 259.3, 0.002) : tt.length === 3 && tt[2][4] === gest && pres(tt[2][3], yr, 0.002)),
+      'D11, réseau ' + nom + ' : la case cochée en 249,5, sur la ligne du réseau (48,1)' + (mot ? ', le texte « ' + mot + ' » en 259,3' : ', le gestionnaire à sa suite') + ' ('
+      + tt.map(a => dit(a[4]) + ' ' + a[2]).join(', ') + ')');
+  }
+  await poser(p, {visite: NOM, lignes: OUI, champs: {reseauRue: 'Rue fictive'}});
+  X = await deux(p);
+  verifP1('D11, rue seule', X);
+  const yr = ligneDe(X.plan, 'conclusion', 'reseau'), Lr = surLigne(X.L, yr);
+  R.ok(pres(yr, 48.1, 1e-6) && !Lr.some(a => a[0] === 'r' || a[0] === 'l') && Lr.filter(a => a[0] === 't').length === 1 && texte2(X.L, 'Rue fictive', 62.9),
+    'D11, rue seule : le libellé du réseau seul, sans case, en 48,1 ; « Rue fictive » en 62,9 (' + direP2(page2(X.plan)) + ')');
+}
+
+/* D12 : préconisations (WC conforme). Privées : « - sur branchement à créer » seule (tête sans case) ; raccordement des EP au branchement
+   EP seul (sa case en 170,2, sur la ligne du libellé) ; non conforme sans préconisation (anomalie EU ajoutée à la main) : titre et
+   paragraphe seuls ; conforme sans préconisation : rubrique absente. Publiques : les notes D et T, à l'interligne du formulaire */
+async function d12(p){
+  const avecP = async cles => { await poser(p, {visite: NOM, lignes: OUI, champs: {precos: precosSeules(cles)}}); return deux(p); };
+  let X = await avecP(['boiteCr_UN']);
+  verifP1('D12, « - sur branchement à créer » seule', X);
+  const yb = ligneDe(X.plan, 'privees', 'boite'), yc = ligneDe(X.plan, 'privees', 'boiteCr'), Lc = surLigne(X.L, yc);
+  R.ok(lignesDe(X.plan, 'privees') === 'titre 69.6, parag 87.4, boite 128.1, boiteCr 142.9' && !surLigne(X.L, yb).some(a => a[0] === 'r')
+    && Lc.filter(a => a[0] === 'r').length === 1 && Lc.some(a => a[0] === 'r' && a[2] === 269.4),
+    'D12, « - sur branchement à créer » seule : la tête sans case, puis la sous-ligne, sa case en 269,4 (' + direP2(page2(X.plan)) + ')');
+  X = await avecP(['raccEPep']);
+  verifP1('D12, raccordement des EP au branchement EP seul', X);
+  const yr = ligneDe(X.plan, 'privees', 'racc'), Lr = surLigne(X.L, yr);
+  R.ok(lignesDe(X.plan, 'privees') === 'titre 69.6, parag 87.4, racc 128.6' && Lr.filter(a => a[0] === 'r').length === 1 && Lr.some(a => a[0] === 'r' && a[2] === 170.2 && pres(a[3], 122, 0.002)),
+    'D12, raccordement des EP au branchement EP seul : une ligne, à la fin du paragraphe + 17,8, la case en 170,2 sur la ligne du libellé (' + direP2(page2(X.plan)) + ')');
+  X = await avecP(['pubUN_D']);
+  verifP1('D12, création à l\'unitaire, départemental', X);
+  R.ok(lignesDe(X.plan, 'publiques') === 'titre 69.4, UN 86.8, noteD 104', 'D12, création à l\'unitaire, départemental : UN au titre + 17,4, la note D à UN + 17,2 ('
+    + direP2(page2(X.plan)) + ')');
+  X = await avecP(['pubEU_T']);
+  verifP1('D12, création à l\'EU, territorial', X);
+  const Le = surLigne(X.L, 86.8);
+  R.ok(lignesDe(X.plan, 'publiques') === 'titre 69.4, EU 86.8, noteT 104' && Le.filter(a => a[0] === 'r').length === 1 && Le.some(a => a[0] === 'r' && a[2] === 269.4)
+    && texte2(X.L, 'territorial', 86.8), 'D12, création à l\'EU, territorial : EU au titre + 17,4, sa case « territorial » à la première place (269,4), la note T à EU + 17,2 ('
+    + direP2(page2(X.plan)) + ')');
+  /* non conforme sans préconisation : une anomalie EU, tampon béton (NC en EU), ajoutée à la main au dossier, puis retirée */
+  await poser(p, {visite: NOM, lignes: OUI, champs: {precos: precosSeules([])}});
+  await p.evaluate(() => { const T = window.__VT, v = T.S.visites[0]; T.S.anoms.push({id: 'anom-fictive-1', etudeId: v.etudeId, visiteId: v.id, reseau: 'EU',
+    observation: 'Regard EU : tampon béton', preconisation: '', localisation: '', photos: [], photoNonRequise: true, brouillon: false}); });
+  try { X = await deux(p); }
+  finally { await p.evaluate(() => { const A = window.__VT.S.anoms, i = A.findIndex(a => a.id === 'anom-fictive-1'); if (i >= 0) A.splice(i, 1); }); }
+  verifP1('D12, non conforme sans préconisation', X);
+  R.ok(!!X.D2 && X.D2.concl === 'non_conformes' && lignesDe(X.plan, 'privees') === 'titre 69.6, parag 87.4' && page2(X.plan).some(e => e.id === 'observations'),
+    'D12, non conforme sans préconisation : titre et paragraphe des préconisations privées, sans ligne ; observations gardées (' + direP2(page2(X.plan)) + ')');
+  X = await avecP([]);
+  verifP1('D12, conforme sans préconisation', X);
+  R.ok(!!X.D2 && X.D2.concl === 'conformes' && Array.isArray(X.plan) && !page2(X.plan).some(e => e.id === 'privees' || e.id === 'publiques'),
+    'D12, conforme sans préconisation : ni préconisations privées ni publiques (' + direP2(page2(X.plan)) + ')');
+}
+
 async function casD(){
   const A = await C.ouvrir({fuseau: 'Europe/Paris'}), p = A.p;
   try {
@@ -855,6 +1311,10 @@ async function casD(){
     await d6(p);
     await d9(p);
     await d13(p);
+    await d8(p);
+    await d10(p);
+    await d11(p);
+    await d12(p);
     R.ok(!A.erreurs.length, 'D1 à D13 : aucune erreur de la page (' + A.erreurs.slice(0, 2).join(' ; ').slice(0, 200) + ')');
   } finally { await A.fermer(); }
 }
