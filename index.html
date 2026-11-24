@@ -2975,6 +2975,22 @@ function cFill(doc, value, x1, x2, y, o){
   cTxt(doc, f.s, x1, y, Object.assign({col: CPC.val}, o, {sz: f.sz}));
 }
 function cLogo(doc, src, x, y, w, h, alias){ if (!src) return; try { var ip = doc.getImageProperties(src), s = Math.min(w / ip.width, h / ip.height); doc.addImage(src, /png/i.test(src.slice(0, 30)) ? 'PNG' : 'JPEG', x, y, ip.width * s, ip.height * s, alias, 'FAST'); } catch(e){} }
+/* m159 (DL8) : ligne à cases délestée. cases : [[cochée, libellé], ...] dans l'ordre du formulaire ; seules les cochées se dessinent,
+   dans cet ordre, par cOpt (en y, options o). places : une liste (un x, ou [x, y]) donne à la k-ième cochée la k-ième place ; un nombre
+   les enchaîne dès ce x, comme au formulaire (x suivant : x + largeur rendue par cOpt + ecart). Rend le bord droit de la dernière
+   cochée (son x + largeur de cOpt), ou null sans case cochée. Sert à la page 1 délestée (m159) et servira à la page 2 (m160). */
+function cOptsCoches(doc, cases, y, o, places, ecart){
+  var x = typeof places === 'number' ? places : null, k = 0, fin = null;
+  cases.forEach(function(cs){
+    if (!cs[0]) return;
+    var px = x, py = y;
+    if (x === null){ var pl = places[k]; if (Array.isArray(pl)){ px = pl[0]; py = pl[1]; } else px = pl; }
+    var w = cOpt(doc, px, py, cs[0], cs[1], o);
+    fin = px + w; k++;
+    if (x !== null) x = px + (w + (ecart || 0));
+  });
+  return fin;
+}
 /* Présentation du constat imprimé (m147, D13 ; m158, DL4), dite marque : 1, celle de la v1.7.1 ; 2, celle de la v1.7.2 (ni « Autres : »
    ni ligne laissée vide) ; 3, le délesté (m158 : seulement ce qui est rempli ou coché). Un constat non signé suit l'option « Constat
    imprimé » de l'étude ouverte (constatMepEtude : 3 pour « Délesté », 2 sinon ; CST_FORME_DEFAUT quand l'étude n'en range aucune). Le
@@ -2983,8 +2999,8 @@ function cLogo(doc, src, x, y, w, h, alias){ if (!src) return; try { var ip = do
    garde celle que le geste de signature a notée (c.fige.mep : 2 ou 3 ; toute autre valeur vaut 1) ; signé sans marque (avant la v1.7.2,
    ou gelé plus tard par constatGeler) : 1 : il garde à la réimpression « Autres : » et ses lignes vides ; constatEval y range aussi ses
    anomalies comme en v1.7.1, et l'éditeur de l'anomalie y propose la même ligne (m148 : l'évier lie la ligne de sa pièce, le lavabo
-   jamais). La marque 3 se lit partout comme 2, sauf au tableau des installations (cstTableDeleste) ; la boîte de la page 2 est celle de
-   la présentation 2 pour les marques 2 et 3 */
+   jamais). La marque 3 se lit partout comme 2, sauf au dessin : drawConstat l'aiguille vers drawConstatDeleste (m159 : page 1 délestée,
+   mise en page de constatDeleste) ; sa page 2 reste celle de la présentation 2, boîte comprise, jusqu'à m160 */
 var CST_FORME_DEFAUT = 'complet';
 function constatMepEtude(){ var f = (S.etude && S.etude.fiche && S.etude.fiche.constatForme) || CST_FORME_DEFAUT; return f === 'deleste' ? 3 : 2; }
 function constatMep(c){ if (!c || !c.signeLe) return constatMepEtude(); var m = Number(c.fige && c.fige.mep); return m === 3 ? 3 : m === 2 ? 2 : 1; }
@@ -3003,7 +3019,22 @@ function constatRowsForPrint(c, mep){
   var nEUstd = c.rows.filter(function(r){ return r.groupe === 'EU' && r.std; }).length;
   return grp('EU', nEUstd >= 6 ? 1 : 2).concat(grp('EP', 1));
 }
-function drawConstatP1(doc, v, E){
+/* m159 (DL6) : places du formulaire sorties de drawConstatP1 sans changement, pour servir aussi au délesté : motifs d'une visite non
+   effectuée, cases de la catégorie, méthodes du contrôle ; CST_LEG_METH : début de la légende des méthodes et mot de chaque code de
+   METH, dans l'ordre de METH */
+var CST_MOTIFS = [['absent', 'absence'], ['refus', 'refus'], ['hors_zone', 'hors zone d’étude']];
+var CST_CATEG_PLACES = {habitation: [52.4, 269.3], pc: [137.5, 269.3], c50: [222.7, 269.3], c100: [307.6, 269.3], c101: [392.7, 269.3], pub_acc: [475.2, 264.6, 'propriété publique', 'avec accueil :'],
+  hosp: [52.4, 292.4], usine: [137.5, 292.4], entreprise: [222.7, 292.4], commerce: [307.6, 292.4], ccial: [392.7, 292.4], pub_sans: [475.2, 287.7, 'propriété publique', 'sans accueil :']};
+var CST_METH_PLACES = [['visuel', 70.9, 'visuel'], ['eau', 170.2, 'à l’eau'], ['fluo', 269.4, 'à la fluorescéine'], ['fumee', 368.7, 'à la fumée'], ['reso', 453.8, 'à la résonnance']];
+var CST_LEG_METH = {debut: 'Méthode par installation : ', mots: [['V', 'visuel'], ['E', 'eau'], ['Fl', 'fluorescéine'], ['Fu', 'fumée'], ['R', 'résonance']]};
+/* m159 (DL6) : légende des codes de méthode donnés (codes de METH, dans l'ordre de METH) : '' sans code ; avec tous les codes, le texte
+   du formulaire */
+function cstLegMeth(codes){
+  var k = CST_LEG_METH.mots.filter(function(m){ return (codes || []).indexOf(m[0]) >= 0; });
+  return k.length ? CST_LEG_METH.debut + k.map(function(m){ return m[0] + ' ' + m[1]; }).join(', ') : '';
+}
+/* m159 (DL6) : en-tête de la page 1 (cadre, logos, titres), sorti de drawConstatP1 sans changement pour servir aussi au délesté */
+function cstEntete(doc, v, E){
   var c = E.c, A = window.VEDE_ASSETS || {}, P = CPC, ce = (S.etude && S.etude.fiche) || {};
   doc.setDrawColor(P.orange[0], P.orange[1], P.orange[2]); doc.setLineWidth(1); doc.rect(15, 15, 565, 811);
   /* Logo VÉDÉ par défaut ; celui du formulaire (bureau d'études) sur demande, dans « En-tête des fiches » */
@@ -3014,10 +3045,15 @@ function drawConstatP1(doc, v, E){
   cTxt(doc, 'en domaine privé', 304.7, 59.9, {sz: 10.5, col: P.bleu, al: 'center'});
   cTxt(doc, 'Contrôle de Branchement Particulier', 304.8, 85.4, {sz: 11.5, st: 'bolditalic', col: P.violet, al: 'center'});
   cTxt(doc, 'Constat/Attestation d’enquête', 304.8, 99, {sz: 11.5, st: 'bolditalic', col: P.bleuC, al: 'center'});
+}
+/* page 1 du constat des présentations 1 et 2 (marque 3, le délesté : drawConstatDeleste) */
+function drawConstatP1(doc, v, E){
+  var c = E.c, P = CPC;
+  cstEntete(doc, v, E);
   cTxt(doc, 'Demande du ' + (c.demande || '…..../…..../…....'), 563.3, 96.4, {f: 'times', st: 'italic', sz: 10.5, col: P.vert, al: 'right'});
   cTxt(doc, 'Visite du ' + (v.dateVisite && !constatNonEffectue(v) ? fmtDate(v.dateVisite) : '…..../…..../…....'), 562.7, 109.9, {f: 'times', st: 'italic', sz: 10.5, col: P.bleu, al: 'right'});
   var x = 220.4 + cTxt(doc, 'Si visite non effectuée, motif :  ', 220.4, 141.5, {st: 'italic', sz: 10.5, col: P.orangeV});
-  [['absent', 'absence'], ['refus', 'refus'], ['hors_zone', 'hors zone d’étude']].forEach(function(m){ x += cOpt(doc, x, 141.5, v.statut === m[0], m[1], {st: 'italic', sz: 10.5, col: P.orangeV}) + 8; });
+  CST_MOTIFS.forEach(function(m){ x += cOpt(doc, x, 141.5, v.statut === m[0], m[1], {st: 'italic', sz: 10.5, col: P.orangeV}) + 8; });
   if (constatNonEffectue(v) && (v.absences || []).length) cTxt(doc, 'Absences : ' + v.absences.map(fmtDate).join(', '), 563, 151, {sz: 7.5, st: 'italic', col: P.orangeV, al: 'right'});
   cTxt(doc, 'Nom du propriétaire :', 42.6, 161.8, {sz: 11, col: P.violet}); cFill(doc, ctc(v, 'nom'), 150, 308, 161.8);
   cTxt(doc, 'Réf. cadastrales :', 313.8, 161.8, {sz: 11, col: P.violet}); cFill(doc, c.refCad, 400, 566, 161.8);
@@ -3029,19 +3065,17 @@ function drawConstatP1(doc, v, E){
   cHead(doc, 'Nombre de logements :', 312.1, 246.2); cFill(doc, c.nbLogements, 430, 550.3, 246.2);
   doc.setDrawColor(P.violet[0], P.violet[1], P.violet[2]); doc.setLineWidth(0.6);
   [254.5, 278, 301].forEach(function(y){ doc.line(49.5, y, 560, y); }); [49.5, 134.5, 219.5, 304.5, 389.5, 474.5, 560].forEach(function(xx){ doc.line(xx, 254.5, xx, 301); });
-  var cells = {habitation: [52.4, 269.3], pc: [137.5, 269.3], c50: [222.7, 269.3], c100: [307.6, 269.3], c101: [392.7, 269.3], pub_acc: [475.2, 264.6, 'propriété publique', 'avec accueil :'],
-    hosp: [52.4, 292.4], usine: [137.5, 292.4], entreprise: [222.7, 292.4], commerce: [307.6, 292.4], ccial: [392.7, 292.4], pub_sans: [475.2, 287.7, 'propriété publique', 'sans accueil :']};
+  var cells = CST_CATEG_PLACES;
   CATEG.forEach(function(k){
     var p = cells[k[0]], sel = c.categorie === k[0] && String(c.categorieNb || '').trim(), w;
     if (p[2]){ cTxt(doc, p[2], p[0], p[1], {f: 'times', sz: 9}); w = cTxt(doc, p[3], p[0], p[1] + 9.3, {f: 'times', sz: 9}); if (sel) cTxt(doc, ' ' + c.categorieNb, p[0] + w, p[1] + 9.3, {sz: 9.5, col: P.bleuB}); }
     else { w = cTxt(doc, k[1] + ' :', p[0], p[1], {f: 'times', sz: 9}); if (sel) cTxt(doc, ' ' + c.categorieNb, p[0] + w, p[1], {sz: 9.5, col: P.bleuB}); }
   });
   cHead(doc, 'Contrôle des installations privatives :', 42.6, 316.9);
-  [['visuel', 70.9, 'visuel'], ['eau', 170.2, 'à l’eau'], ['fluo', 269.4, 'à la fluorescéine'], ['fumee', 368.7, 'à la fumée'], ['reso', 453.8, 'à la résonnance']].forEach(function(m){ cOpt(doc, m[1], 333.4, E.meth[m[0]], m[2], {f: 'times', sz: 10}); });
+  CST_METH_PLACES.forEach(function(m){ cOpt(doc, m[1], 333.4, E.meth[m[0]], m[2], {f: 'times', sz: 10}); });
   cHead(doc, 'Description des installations privatives :', 42.6, 351.2);
-  cTxt(doc, 'Méthode par installation : V visuel, E eau, Fl fluorescéine, Fu fumée, R résonance', 563, 351.2, {sz: 6.5, st: 'italic', col: P.gris, al: 'right'});
-  /* m158 : marque 3, le tableau délesté, à la place de celui du formulaire (en-tête en 360-402, rangées en 402-620,5 au plus) */
-  if (constatMep(c) === 3) cstTableDeleste(doc, E, 360, 260.5); else drawConstatTable(doc, E);
+  cTxt(doc, cstLegMeth(METH.map(function(m){ return m[2]; })), 563, 351.2, {sz: 6.5, st: 'italic', col: P.gris, al: 'right'});
+  drawConstatTable(doc, E);
   var wo = cTxt(doc, 'Ouvrages/procédés de récupération des EP', 42.6, 635.2, {f: 'times', sz: 10.5, col: P.vert}); cUnder(doc, 42.6, 42.6 + wo, 636.6, P.vert); cTxt(doc, ' :', 42.6 + wo, 635.2, {f: 'times', sz: 10.5, col: P.vert});
   x = 245.6; EP_RECUP.forEach(function(k){ x += cOpt(doc, x, 635.2, !E.nonEffectue && !!(c.epRecup || {})[k[0]], k[1], {f: 'times', st: 'italic', sz: 10, col: P.vert}) + 9; });
   x = 42.6 + cTxt(doc, 'Désagréments déjà subis ', 42.6, 652.8, {f: 'times', sz: 10.5, col: P.brun});
@@ -3050,6 +3084,12 @@ function drawConstatP1(doc, v, E){
   x += cOpt(doc, x, 652.8, dsg === 'non', 'non', {f: 'times', sz: 10.5, col: P.brun}) + 6;
   x += cOpt(doc, x, 652.8, dsg === 'oui', 'oui, localisation ', {f: 'times', sz: 10.5, col: P.brun});
   cFill(doc, dsg === 'oui' ? c.desagrLoc : '', x, 556, 652.8, {dot: P.brun});
+  cstPosition(doc, v, E);
+}
+/* m159 (DL6) : rubrique « Position du branchement » (titre, schéma, croquis de position s'il existe et que la visite est effectuée),
+   sortie de drawConstatP1 sans changement pour servir aussi au délesté */
+function cstPosition(doc, v, E){
+  var c = E.c;
   cHead(doc, 'Position du branchement particulier existant en plan & en altimétrie :', 42.6, 670.6);
   doc.setDrawColor(0, 0, 0); doc.setLineWidth(0.75); doc.line(240, 689.5, 240, 755); doc.line(240, 755, 449, 755); doc.line(332.5, 689.5, 332.5, 755);
   [[265, 707, 307.5, 735], [357.5, 726.5, 399.5, 755], [399.5, 715.5, 439.5, 755]].forEach(function(b){
@@ -3222,8 +3262,45 @@ function cstColonnes(rangs, mesure){
   G.forEach(function(g){ g.sc.forEach(function(s){ if (s.lettre) entetes.push({t: s.lettre, x: s.x + s.w / 2, dy: 39.8, sz: 10, col: g.g.col}); }); });
   return {colonnes: colonnes, verticales: verticales, traits: traits, fond: cf ? {x: cf.x, w: cf.w} : null, entetes: entetes};
 }
+/* m159 (DL16) : mesures du tableau délesté sur un document : largeur d'un en-tête (Times italique, comme cstColonnes l'attend),
+   largeur des codes de méthode (police du document, 5,5 pt), libellé qui tient sur une ligne (Times, lsz, splitTextToSize). Elles
+   changent la police du document, comme la mesure de cstTableDeleste en m158 : chaque texte du constat pose la sienne (cTxt) */
+function cstMesure(doc){
+  return {
+    entete: function(t, sz){ doc.setFont('times', 'italic'); doc.setFontSize(sz); return doc.getTextWidth(pdfText(t)); },
+    codes: function(m){ doc.setFont(doc.__font, 'normal'); doc.setFontSize(5.5); return doc.getTextWidth(m); },
+    uneLigne: function(t, sz, w){ doc.setFont('times', 'normal'); doc.setFontSize(sz); return doc.splitTextToSize(t, w).length === 1; }
+  };
+}
+/* m159 (DL13, DL15, DL16) : rangées du tableau délesté, sorties de cstTableDeleste sans changement (mesure : cstMesure). Rangées de la
+   présentation 2, actives seulement, aucune si la visite n'est pas effectuée ; pour chacune : libellé, couleur, croix « Raccordée sur »,
+   conformité imprimée, codes de méthode, largeur du libellé (lw). Rend {R, K (cstColonnes), X (colonnes par clé), lsz (9,5, ou 8
+   au-delà de 14 rangées), hs (hauteurs naturelles : 17,5 si le libellé tient sur une ligne, sinon 21,5), codes (ceux des rangées, dans
+   l'ordre de METH)}, ou null sans rangée */
+function cstRangees(E, mesure){
+  var c = E.c, P = CPC, conf = {}, PL = [];
+  E.rows.forEach(function(x){ conf[x.r.id] = x; });
+  CST_GROUPES.forEach(function(g){ if (g.reg === 'racc') g.sc.forEach(function(s){ PL.push(s[0]); }); });
+  var rows = E.nonEffectue ? [] : constatRowsForPrint(c, 2).filter(function(pr){ return pr.r && rowActive(pr.r); });
+  if (!rows.length) return null;
+  var R = rows.map(function(pr){
+    var r = pr.r, cf = conf[r.id] ? conf[r.id].conf : '';
+    return {r: r, col: pr.g === 'EP' ? P.vert : P.rouge, label: pdfText(r.label), place: PL.indexOf(r.raccord) >= 0 ? r.raccord : '', conf: cf === 'oui' || cf === 'non' ? cf : '',
+      m: (r.methodes || []).map(function(k){ for (var q = 0; q < METH.length; q++) if (METH[q][0] === k) return METH[q][2]; return ''; }).filter(Boolean).join(' ')};
+  });
+  var K = cstColonnes(R.map(function(x){ return {place: x.place, conf: x.conf}; }), mesure.entete);
+  var X = {}; K.colonnes.forEach(function(k){ X[k.cle] = k; });
+  var lsz = R.length > 14 ? 8 : 9.5;
+  var hs = R.map(function(x){
+    x.lw = X.lib.w - 7.5 - (x.m ? mesure.codes(x.m) + 2 : 0);
+    return mesure.uneLigne(x.label, lsz, x.lw) ? 17.5 : 21.5;
+  });
+  var codes = METH.map(function(m){ return m[2]; }).filter(function(k){ return R.some(function(x){ return x.m.split(' ').indexOf(k) >= 0; }); });
+  return {R: R, K: K, X: X, lsz: lsz, hs: hs, codes: codes};
+}
 /* m158 (DL12, DL13, DL15) : tableau des installations délesté (marque 3, constatMep). haut : ordonnée du haut de l'en-tête ; place :
-   hauteur disponible, en-tête de 42 pt compris (les rangées ont place − 42 ; en m158, 260,5 : la place du formulaire). Rangées : celles
+   hauteur disponible, en-tête de 42 pt compris (les rangées ont place − 42) ; drawConstatDeleste les tire de constatDeleste (m159 :
+   360 + dy et 42 + place de la description). Rangées, colonnes et hauteurs naturelles : cstRangees (m159). Rangées : celles
    de la présentation 2 (constatRowsForPrint), actives seulement (rowActive), aucune si la visite n'est pas effectuée ; sans rangée, rien
    n'est dessiné, ni en-tête ni trait. Colonnes de cstColonnes : croix « Raccordée sur » à la place de COLX, conformité imprimée de
    constatEval (E.rows), comme au formulaire. Rangée de 17,5 pt si son libellé tient sur une ligne (en 9,5 pt, ou 8 au-delà de 14 rangées,
@@ -3232,27 +3309,12 @@ function cstColonnes(rangs, mesure){
    au-dessous. En-tête, traits violets et fond jaune de la présentation 2, limités aux colonnes gardées. Rend la hauteur dessinée (0 sans
    rangée). */
 function cstTableDeleste(doc, E, haut, place){
-  var c = E.c, P = CPC, conf = {}, PL = [];
+  var P = CPC;
   /* couleurs et épaisseur posées d'abord, même sans rangée ni fond : le document reste dans l'état où drawConstatTable le laisse (fond
      jaune, traits violets de 0,6), et la suite du constat se dessine comme au formulaire */
   doc.setFillColor(255, 255, 204); doc.setDrawColor(P.violet[0], P.violet[1], P.violet[2]); doc.setLineWidth(0.6);
-  E.rows.forEach(function(x){ conf[x.r.id] = x; });
-  CST_GROUPES.forEach(function(g){ if (g.reg === 'racc') g.sc.forEach(function(s){ PL.push(s[0]); }); });
-  var rows = E.nonEffectue ? [] : constatRowsForPrint(c, 2).filter(function(pr){ return pr.r && rowActive(pr.r); });
-  if (!rows.length) return 0;
-  var R = rows.map(function(pr){
-    var r = pr.r, cf = conf[r.id] ? conf[r.id].conf : '';
-    return {r: r, col: pr.g === 'EP' ? P.vert : P.rouge, label: pdfText(r.label), place: PL.indexOf(r.raccord) >= 0 ? r.raccord : '', conf: cf === 'oui' || cf === 'non' ? cf : '',
-      m: (r.methodes || []).map(function(k){ for (var q = 0; q < METH.length; q++) if (METH[q][0] === k) return METH[q][2]; return ''; }).filter(Boolean).join(' ')};
-  });
-  var K = cstColonnes(R.map(function(x){ return {place: x.place, conf: x.conf}; }), function(t, sz){ doc.setFont('times', 'italic'); doc.setFontSize(sz); return doc.getTextWidth(pdfText(t)); });
-  var X = {}; K.colonnes.forEach(function(k){ X[k.cle] = k; });
-  var xNb = X.nb.x, lsz = R.length > 14 ? 8 : 9.5;
-  var hs = R.map(function(x){
-    doc.setFont(doc.__font, 'normal'); doc.setFontSize(5.5); x.lw = X.lib.w - 7.5 - (x.m ? doc.getTextWidth(x.m) + 2 : 0);
-    doc.setFont('times', 'normal'); doc.setFontSize(lsz);
-    return doc.splitTextToSize(x.label, x.lw).length === 1 ? 17.5 : 21.5;
-  });
+  var T = cstRangees(E, cstMesure(doc)); if (!T) return 0;
+  var R = T.R, K = T.K, X = T.X, xNb = X.nb.x, lsz = T.lsz, hs = T.hs;
   var som = hs.reduce(function(a, h){ return a + h; }, 0), dispo = place - 42;
   if (som > dispo){ hs = hs.map(function(h){ return h * dispo / som; }); som = dispo; }
   var bas = haut + 42 + som, y = haut + 42;
@@ -3272,6 +3334,63 @@ function cstTableDeleste(doc, E, haut, place){
     y += h;
   });
   return 42 + som;
+}
+/* m159 (DL7) : dessin() décalé de dy en ordonnée. Le temps du dessin, text (y, 3e argument), line (y1 et y2), rect (y) et addImage
+   (y, 4e argument) sont remplacées sur le document par une enveloppe : elle ajoute dy à une copie des arguments et appelle la méthode
+   remplacée, sur le document, en rendant son résultat. Remises dans un finally : la propriété propre rétablie, ou l'enveloppe retirée si
+   la méthode venait du prototype. Le constat ne dessine que par ces quatre méthodes ; les appels imbriqués ajoutent leurs décalages.
+   Rend ce que rend dessin() */
+function cstDecale(doc, dy, dessin){
+  var M = [['text', [2]], ['line', [1, 3]], ['rect', [1]], ['addImage', [3]]], avant = [];
+  M.forEach(function(m){
+    var nom = m[0], f = doc[nom];
+    avant.push([nom, Object.prototype.hasOwnProperty.call(doc, nom), f]);
+    doc[nom] = function(){
+      var a = Array.prototype.slice.call(arguments);
+      m[1].forEach(function(i){ if (typeof a[i] === 'number') a[i] += dy; });
+      return f.apply(doc, a);
+    };
+  });
+  try { return dessin(); }
+  finally { avant.forEach(function(b){ if (b[1]) doc[b[0]] = b[2]; else delete doc[b[0]]; }); }
+}
+/* m159 (DL16) : rubriques de la page 1 délestée, dans l'ordre de la page : [id, haut au formulaire, hauteur délestée, écart avec la
+   rubrique d'avant au formulaire]. La description (titre et en-tête du tableau, 343,2 à 402) a 58,8 de plus que ses rangées */
+var CST_P1 = [['nomRef', 153.8, 11, 0], ['adresse', 174.1, 11, 9.3], ['domicile', 194.4, 11, 9.3], ['telMail', 214.6, 11, 9.2], ['typeLog', 238.2, 11, 12.6],
+  ['categorie', 254.5, 23.5, 5.3], ['controle', 308.9, 27.5, 7.9], ['description', 343.2, 58.8, 6.8], ['recuperation', 627.2, 11, 6.7],
+  ['desagrements', 644.8, 11, 6.6], ['position', 662.6, 137.4, 6.8]];
+/* m159 : valeur non vide, au sens de cFill (blancs retirés) */
+function cstPlein(s){ return !!String(s || '').trim(); }
+/* m159 (DL9) : valeurs de l'identification de la page 1, telles que drawConstatP1 les passe à cFill */
+function cstIdent(v, c){
+  return {nom: ctc(v, 'nom'), refCad: c.refCad, adresse: [v.adresse, v.commune].filter(Boolean).join(' - '), domicile: ficheDomicile(v),
+    tel: fmtTel(fixTel(ctc(v, 'tel'))), mail: ctc(v, 'mail'), typePropriete: c.typePropriete, nbLogements: c.nbLogements};
+}
+/* m159 (DL9, DL16, DL20) : mise en page de la page 1 délestée, calcul pur (v figée et E de constatPourDessin ; mesure : cstMesure).
+   Rend les rubriques gardées, dans l'ordre de la page : [{id, page: 1, dy, h}] ; la première se pose en 153,8, chaque suivante au bas
+   de la précédente plus son écart (CST_P1) ; dy = haut délesté − haut au formulaire. La description a aussi place : la hauteur laissée
+   à ses rangées pour que les rubriques qui la suivent finissent au-dessus de 816 ; sa hauteur est 58,8 plus ses rangées, ramenées à
+   place si elles la dépassent (cstTableDeleste). Cette place est toujours plus grande que celle du formulaire (218,5 : de 402 à 620,5) :
+   les rubriques qui suivent une description très remplie peuvent donc descendre sous leur place du formulaire (dy > 0), sans passer
+   816. Valeurs arrondies au millionième */
+function constatDeleste(v, E, mesure){
+  var c = E.c, I = cstIdent(v, c), eff = !E.nonEffectue, T = cstRangees(E, mesure), som = T ? T.hs.reduce(function(a, h){ return a + h; }, 0) : 0;
+  var garde = {nomRef: cstPlein(I.nom) || cstPlein(I.refCad), adresse: cstPlein(I.adresse), domicile: cstPlein(I.domicile),
+    telMail: cstPlein(I.tel) || cstPlein(I.mail), typeLog: cstPlein(I.typePropriete) || cstPlein(I.nbLogements),
+    categorie: CATEG.some(function(k){ return !!(c.categorie === k[0] && String(c.categorieNb || '').trim()); }),
+    controle: CST_METH_PLACES.some(function(m){ return !!E.meth[m[0]]; }), description: !!T,
+    recuperation: eff && EP_RECUP.some(function(k){ return !!(c.epRecup || {})[k[0]]; }),
+    desagrements: eff && (c.desagr === 'non' || c.desagr === 'oui'), position: !!imgData(c.croquis) && eff};
+  var r6 = function(x){ return Math.round(x * 1e6) / 1e6; }, G = CST_P1.filter(function(e){ return garde[e[0]]; }), out = [], bas = null;
+  G.forEach(function(e, i){
+    var haut = bas === null ? 153.8 : r6(bas + e[3]), o = {id: e[0], page: 1, dy: r6(haut - e[1]), h: e[2]};
+    if (e[0] === 'description'){
+      var suite = G.slice(i + 1).reduce(function(a, f){ return a + f[3] + f[2]; }, 0);
+      o.place = r6(816 - (haut + 58.8) - suite); o.h = r6(58.8 + Math.min(som, o.place));
+    }
+    out.push(o); bas = r6(haut + o.h);
+  });
+  return out;
 }
 /* page 2, section Boîte de branchement, présentation 1 (constat signé avant la v1.7.2, sans marque : décision D13) : les trois rangées de
    17,5 pt, la distance imprimée telle qu'elle est gardée, comme avant m149 (code inchangé) */
@@ -3418,12 +3537,96 @@ function drawConstatP2(doc, v, E){
   cTxt(doc, 'AESN : Agence de l’Eau Seine Normandie ; DEA93 : Direction de l’Eau et de l’Assainissement de la Seine Saint Denis ;', 42.6, 803, {f: 'times', st: 'italic', sz: 9.5, col: P.bleu});
   cTxt(doc, 'EU : eaux usées ; EP : eaux pluviales ; T : réseau territorial ; D : réseau départemental.', 42.6, 813.6, {f: 'times', st: 'italic', sz: 9.5, col: P.bleu});
 }
-function drawConstat(doc, v, list, first){
+/* m159 (DL5, DL8, DL9, DL20) : constat délesté (marque 3), aiguillé par drawConstat. Page 1 : l'en-tête du formulaire, sans gabarit
+   de date, le motif réduit à sa case cochée ; puis les seules rubriques remplies ou cochées, aux places de constatDeleste, dessinées
+   comme au formulaire et décalées de leur dy (cstDecale) : un champ vide part avec son libellé, sans pointillé ; une ligne à cases ne
+   garde que ses cochées (cOptsCoches) ; la catégorie choisie, seule dans sa case ; la légende réduite aux codes du tableau. Visite non
+   effectuée : ni contrôle, ni tableau, ni récupération, ni désagréments, ni position. Page 2 : celle de la présentation 2, jusqu'à m160 */
+function drawConstatDeleste(doc, v, E){
+  var c = E.c, P = CPC, I = cstIdent(v, c), D = {}, x;
+  constatDeleste(v, E, cstMesure(doc)).forEach(function(e){ D[e.id] = e; });
+  function dec(id, dessin){ if (D[id]) cstDecale(doc, D[id].dy, dessin); }
+  cstEntete(doc, v, E);
+  if (cstPlein(c.demande)) cTxt(doc, 'Demande du ' + c.demande, 563.3, 96.4, {f: 'times', st: 'italic', sz: 10.5, col: P.vert, al: 'right'});
+  if (v.dateVisite && !constatNonEffectue(v)) cTxt(doc, 'Visite du ' + fmtDate(v.dateVisite), 562.7, 109.9, {f: 'times', st: 'italic', sz: 10.5, col: P.bleu, al: 'right'});
+  if (constatNonEffectue(v)){
+    x = 220.4 + cTxt(doc, 'Si visite non effectuée, motif :  ', 220.4, 141.5, {st: 'italic', sz: 10.5, col: P.orangeV});
+    cOptsCoches(doc, CST_MOTIFS.map(function(m){ return [v.statut === m[0], m[1]]; }), 141.5, {st: 'italic', sz: 10.5, col: P.orangeV}, x, 8);
+  }
+  if (constatNonEffectue(v) && (v.absences || []).length) cTxt(doc, 'Absences : ' + v.absences.map(fmtDate).join(', '), 563, 151, {sz: 7.5, st: 'italic', col: P.orangeV, al: 'right'});
+  dec('nomRef', function(){
+    if (cstPlein(I.nom)){ cTxt(doc, 'Nom du propriétaire :', 42.6, 161.8, {sz: 11, col: P.violet}); cFill(doc, I.nom, 150, 308, 161.8); }
+    if (cstPlein(I.refCad)){ cTxt(doc, 'Réf. cadastrales :', 313.8, 161.8, {sz: 11, col: P.violet}); cFill(doc, I.refCad, 400, 566, 161.8); }
+  });
+  dec('adresse', function(){ cTxt(doc, 'Adresse du branchement :', 42.6, 182.1, {sz: 11, col: P.violet}); cFill(doc, I.adresse, 177.3, 566, 182.1, {col: P.violetF}); });
+  dec('domicile', function(){ cTxt(doc, 'Adresse du propriétaire :', 42.6, 202.4, {sz: 11, col: P.violet}); cFill(doc, I.domicile, 177.3, 566, 202.4, {st: 'italic', col: P.brun}); });
+  dec('telMail', function(){
+    if (cstPlein(I.tel)){ cTxt(doc, 'Tél. :', 156, 222.6, {sz: 10.5, col: P.violet}); cFill(doc, I.tel, 180, 316, 222.6); }
+    if (cstPlein(I.mail)){ cTxt(doc, 'mail :', 324, 222.6, {sz: 11, col: P.violet}); cFill(doc, I.mail, 352, 541.5, 222.6); }
+  });
+  dec('typeLog', function(){
+    if (cstPlein(I.typePropriete)){ cHead(doc, 'Type de propriété :', 42.6, 246.2); cFill(doc, I.typePropriete, 145, 306, 246.2); }
+    if (cstPlein(I.nbLogements)){ cHead(doc, 'Nombre de logements :', 312.1, 246.2); cFill(doc, I.nbLogements, 430, 550.3, 246.2); }
+  });
+  dec('categorie', function(){
+    doc.setDrawColor(P.violet[0], P.violet[1], P.violet[2]); doc.setLineWidth(0.6);
+    doc.line(49.5, 254.5, 134.5, 254.5); doc.line(49.5, 278, 134.5, 278); doc.line(49.5, 254.5, 49.5, 278); doc.line(134.5, 254.5, 134.5, 278);
+    CATEG.forEach(function(k){
+      var p = CST_CATEG_PLACES[k[0]], sel = c.categorie === k[0] && String(c.categorieNb || '').trim(), w, gx = 49.5, gy, px, py;
+      if (!sel) return;
+      /* même écart au coin de la case délestée (49,5 ; 254,5) qu'au coin de sa case dans la grille du formulaire */
+      [49.5, 134.5, 219.5, 304.5, 389.5, 474.5].forEach(function(g){ if (g <= p[0]) gx = g; });
+      gy = p[1] < 278 ? 254.5 : 278; px = 49.5 + (p[0] - gx); py = 254.5 + (p[1] - gy);
+      if (p[2]){ cTxt(doc, p[2], px, py, {f: 'times', sz: 9}); w = cTxt(doc, p[3], px, py + 9.3, {f: 'times', sz: 9}); cTxt(doc, ' ' + c.categorieNb, px + w, py + 9.3, {sz: 9.5, col: P.bleuB}); }
+      else { w = cTxt(doc, k[1] + ' :', px, py, {f: 'times', sz: 9}); cTxt(doc, ' ' + c.categorieNb, px + w, py, {sz: 9.5, col: P.bleuB}); }
+    });
+  });
+  dec('controle', function(){
+    cHead(doc, 'Contrôle des installations privatives :', 42.6, 316.9);
+    cOptsCoches(doc, CST_METH_PLACES.map(function(m){ return [E.meth[m[0]], m[2]]; }), 333.4, {f: 'times', sz: 10}, CST_METH_PLACES.map(function(m){ return m[1]; }));
+  });
+  if (D.description){
+    dec('description', function(){
+      cHead(doc, 'Description des installations privatives :', 42.6, 351.2);
+      var T = cstRangees(E, cstMesure(doc)), leg = T ? cstLegMeth(T.codes) : '';
+      if (leg) cTxt(doc, leg, 563, 351.2, {sz: 6.5, st: 'italic', col: P.gris, al: 'right'});
+    });
+    cstTableDeleste(doc, E, 360 + D.description.dy, 42 + D.description.place);
+  } else {
+    /* sans tableau : l'état où cstTableDeleste laisse le document (fond jaune, traits violets de 0,6), pour la suite */
+    doc.setFillColor(255, 255, 204); doc.setDrawColor(P.violet[0], P.violet[1], P.violet[2]); doc.setLineWidth(0.6);
+  }
+  dec('recuperation', function(){
+    var wo = cTxt(doc, 'Ouvrages/procédés de récupération des EP', 42.6, 635.2, {f: 'times', sz: 10.5, col: P.vert}); cUnder(doc, 42.6, 42.6 + wo, 636.6, P.vert); cTxt(doc, ' :', 42.6 + wo, 635.2, {f: 'times', sz: 10.5, col: P.vert});
+    cOptsCoches(doc, EP_RECUP.map(function(k){ return [!!(c.epRecup || {})[k[0]], k[1]]; }), 635.2, {f: 'times', st: 'italic', sz: 10, col: P.vert}, 245.6, 9);
+  });
+  dec('desagrements', function(){
+    x = 42.6 + cTxt(doc, 'Désagréments déjà subis ', 42.6, 652.8, {f: 'times', sz: 10.5, col: P.brun});
+    x += cTxt(doc, '(inondation ou reflux de réseaux) ', x, 652.8, {f: 'times', st: 'italic', sz: 9.5, col: P.brun});
+    x = cOptsCoches(doc, [[c.desagr === 'non', 'non'], [c.desagr === 'oui', 'oui, localisation ']], 652.8, {f: 'times', sz: 10.5, col: P.brun}, x, 6);
+    if (c.desagr === 'oui' && cstPlein(c.desagrLoc)) cFill(doc, c.desagrLoc, x, 556, 652.8, {dot: P.brun});
+  });
+  dec('position', function(){ cstPosition(doc, v, E); });
+  /* fin de la page 1 : l'état où la laisse le formulaire (fond jaune du tableau ; trait et texte de la fin de cstPosition), pour que la
+     page 2 se dessine comme au formulaire */
+  doc.setFillColor(255, 255, 204); doc.setDrawColor(161, 89, 28); doc.setLineWidth(0.6); doc.setLineDash([]);
+  doc.setFont(doc.__font, 'normal'); doc.setFontSize(5.5); doc.setTextColor(161, 89, 28);
+  doc.addPage(); drawConstatP2(doc, v, E);
+}
+/* m159 (DL5, DL20) : visite figée (constatFige) et évaluation telles que drawConstat les dessine ; une visite non effectuée n'a ni
+   conformité, ni conclusion, ni préconisation, ni méthode. Rend {vv, E} */
+function constatPourDessin(v, list){
   var E = constatEval(v, list), vv = constatFige(v);
   if (constatNonEffectue(vv)){
     E = Object.assign({}, E, {rows: E.rows.map(function(x){ return Object.assign({}, x, {conf: ''}); }), conclusion: '', precos: {}, meth: {}, obsText: String(E.c.observations || '').trim(), reservesText: '', nonEffectue: true});
   }
+  return {vv: vv, E: E};
+}
+function drawConstat(doc, v, list, first){
+  var D = constatPourDessin(v, list), vv = D.vv, E = D.E;
   if (!first) doc.addPage();
+  /* m159 (DL5) : marque 3, le délesté */
+  if (constatMep(E.c) === 3){ drawConstatDeleste(doc, vv, E); return; }
   drawConstatP1(doc, vv, E); doc.addPage(); drawConstatP2(doc, vv, E);
 }
 function constatFileName(v){ var hd = ficheHeader(S.etude, v); return safeNameFr('Constat ' + v.numero + (hd.ville ? ' - ' + hd.ville : ''), 120) + '.pdf'; }
@@ -5400,7 +5603,7 @@ async function init(){
   await render();
   outboxRepair().then(function(){ refreshEnvoiUI(); return processOutbox(true); }).catch(function(){});
 }
-window.__VT = {VC: VC, vcOuvrir: vcOuvrir, vcAppliquer: vcAppliquer, vcPdf: vcPdf, vcPlansPdf: vcPlansPdf, planDe: planDe, fondLire: fondLire, vcResume: vcResume, constatDepuisCroquis: constatDepuisCroquis, vcEcarts: vcEcarts, vcBoiteCle: vcBoiteCle, VC_RESUMES: VC_RESUMES, S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, croqPng: croqPng, croquisAJour: croquisAJour, croquisType: croquisType, croqPlaceLabel: croqPlaceLabel, mailModal: mailModal, processOutbox: processOutbox, outboxAll: outboxAll, mailCfg: mailCfg, pdfText: pdfText, mailsDe: mailsDe, telsDe: telsDe, qualiteTxt: qualiteTxt, signataireAuto: signataireAuto, imgData: imgData, croqPlaceLabel: croqPlaceLabel, croqTextBox: croqTextBox, croqSegHitsBox: croqSegHitsBox, CROQ_GAB: CROQ_GAB, cstColonnes: cstColonnes, ready: null};
+window.__VT = {VC: VC, vcOuvrir: vcOuvrir, vcAppliquer: vcAppliquer, vcPdf: vcPdf, vcPlansPdf: vcPlansPdf, planDe: planDe, fondLire: fondLire, vcResume: vcResume, constatDepuisCroquis: constatDepuisCroquis, vcEcarts: vcEcarts, vcBoiteCle: vcBoiteCle, VC_RESUMES: VC_RESUMES, S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, croqPng: croqPng, croquisAJour: croquisAJour, croquisType: croquisType, croqPlaceLabel: croqPlaceLabel, mailModal: mailModal, processOutbox: processOutbox, outboxAll: outboxAll, mailCfg: mailCfg, pdfText: pdfText, mailsDe: mailsDe, telsDe: telsDe, qualiteTxt: qualiteTxt, signataireAuto: signataireAuto, imgData: imgData, croqPlaceLabel: croqPlaceLabel, croqTextBox: croqTextBox, croqSegHitsBox: croqSegHitsBox, CROQ_GAB: CROQ_GAB, cstColonnes: cstColonnes, cstTableDeleste: cstTableDeleste, constatDeleste: constatDeleste, cstMesure: cstMesure, newPdf: newPdf, constatPourDessin: constatPourDessin, anomsOf: anomsOf, ready: null};
 window.__VT.ready = init();
 })();
 </script>
