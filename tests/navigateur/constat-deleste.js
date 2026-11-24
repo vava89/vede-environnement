@@ -1,5 +1,6 @@
-// Constat délesté (m158 à m160 ; DL1 à DL9, DL12 à DL16, DL18, DL20 pour la page 1 ; DL6, DL8, DL10, DL11, DL16, DL18 et DL20 pour
-// la page 2 ; DL25, cartes et notes du § 12 de .claude/conception-v173.md), dans l'application (Chromium, données fictives : « Nom
+// Constat délesté (m158 à m161 ; DL1 à DL9, DL12 à DL16, DL18, DL20 pour la page 1 ; DL6, DL8, DL10, DL11, DL16, DL18 et DL20 pour
+// la page 2 ; DL17, page unique, et DL4, marque notée à la signature, pour m161 ;
+// DL25, cartes et notes du § 12 de .claude/conception-v173.md), dans l'application (Chromium, données fictives : « Nom
 // Fictif », « 12 rue Fictive », « Ville-Exemple », téléphone fictif). Le PDF est relevé appel par appel (C.relevePdf de commun.js). Les
 // textes fixes du constat n'y sont jamais écrits en clair : le témoin les garde par empreinte, les cas D ne nomment que des libellés
 // génériques et les valeurs saisies (les textes fixes de la page 2 ne se lisent que dans le relevé du formulaire du même dossier), et
@@ -11,7 +12,7 @@
 //     « oui », propriété publique, croquis de position ; (3) signé, gel retiré ; (4) signé, marque 2, refus de visite ; (5) non signé.
 //     Les quatre signés le sont étude en « Formulaire complet » et s'impriment étude en « Délesté » : un constat signé ne suit jamais
 //     l'option. Le non signé s'imprime avec « Formulaire complet » rangé (C.formeConstat), et reste ainsi valable quand le défaut changera
-//     (m161). Fixés : identifiants (« ID » dans les textes), date de signature (réécrite après c-lock), dates de la visite et de la
+//     (m163). Fixés : identifiants (« ID » dans les textes), date de signature (réécrite après c-lock), dates de la visite et de la
 //     demande, fuseau 'Europe/Paris' ; un second relevé, dans un profil neuf, est identique au premier. Toute chaîne du témoin autre que
 //     les valeurs fictives saisies par le test (FICTIFS) est une empreinte : contrôlé à chaque passage.
 //     Drapeau --relever (avec --app=<dossier de la base>) : ne lance que T0 et écrit le témoin (une ligne par appel). À refaire, sur la
@@ -34,6 +35,17 @@
 //     ni légende du propriétaire si la visite n'est pas effectuée (DL20). Comparée appel par appel, état compris (couleurs, épaisseur,
 //     motif). Une ligne remplie au formulaire (un texte de la couleur des valeurs, telle que le relevé la lit : la bibliothèque PDF
 //     arrondit 20, 40, 140 en 19, 40, 139 ; ou une case cochée) et absente du calcul attendu est une faute.
+// Page unique (m161, DL17) : le calcul finit par le pied, {id: 'pied', page: 1 ou 2, dy: 0, h: 231,5}, seul et dernier, les éléments de
+//     la page 2 dans la page du pied (forme du calcul). Calcul entier attendu (planEntier) : les pages 1 et 2 attendues ; s = (bas de la
+//     dernière rubrique + 8, ou 153,8 sans rubrique) − 22,5 ; fin : bas du dernier élément de la page 2 + s, ou bas de la page 1 si la
+//     page 2 est vide ; fin ≤ 580,5, ou rien : une seule page, chaque élément de la page 2 en page 1, dy + s, ses lignes en y + s ; sinon
+//     deux pages, comme en m160. Le calcul constatDeleste lui est égal ; aucune page neuve si et seulement si le pied est en page 1, au plus
+//     une ; relevé entier attendu : la page 1 attendue, puis la page 2 attendue sans sa page neuve ni son cadre, décalée de s et mise en
+//     page 1 (le pied non décalé), ou, sur deux pages, les deux pages attendues l'une après l'autre ; garde-fous : rien sous 816 (sauf le
+//     cadre), aucune page 3. Pour les contrôles écrits pour deux pages (m159, m160), une page unique est ramenée à deux (aide ramener : la
+//     suite de la page 1 remonte de s, en page 2, sous la page neuve et le cadre du formulaire du même dossier ; le pied en page 2). Chaque
+//     cas passe aussi par ces contrôles (verifP1) : 50 en tout, 31 sur une page et 19 sur deux ; les 41 cas de m159 et m160 : 26 et 15 ;
+//     D7 : 4 et 4 ; D4 : 1 sur une page.
 // D1 (DL2, DL3) : liste « Constat imprimé » (#m-cforme) de « En-tête des fiches » : '' « Par défaut (formulaire complet) » en tête et
 //     choisie pour une étude neuve, puis « Délesté : seulement ce qui est rempli ou coché » et « Formulaire complet » ; enregistrer sans
 //     toucher la liste ne range aucune forme (clé absente) ; « Délesté » range 'deleste', montré à la réouverture ; « Par défaut » retire
@@ -100,6 +112,21 @@
 //     seuls, les observations gardées ; conforme sans préconisation : ni préconisations privées ni publiques. Publiques : création à
 //     l'unitaire départementale (UN au titre + 17,4, la note D à UN + 17,2) ; création à l'EU territoriale (EU au titre + 17,4, sa case
 //     « territorial » à la première place, 269,4, la note T à EU + 17,2).
+// D7 (m161 ; DL17) : une seule page : dossier minimal (s 253,7), refus de visite (s 263,5) : aucune page neuve, le pied en page 1,
+//     « Conclusion : » en 30,5 + s ; rien en page 1, une boîte et des observations : aucune rubrique, s = 153,8 − 22,5 = 131,3, la
+//     boîte en 22,5 + s = 153,8, « Conclusion : » en 82,5 + s. Deux pages : dossier complet (position comprise ; la position seule
+//     n'impose pas deux pages : D9 tient sur une page), 30 rangées, quinze lignes avec toutes les préconisations et 600 caractères
+//     d'observations (préconisations et observations : les appels du formulaire décalés de leur dy) : une page neuve, suivie du cadre,
+//     le pied en page 2. Deux dossiers voisins : treize lignes, fin attendue 580,5 exactement, une page ; quatorze lignes, fin 598, deux
+//     pages.
+// D4 (m161 ; DL4) : signé (c-lock) étude en « Délesté » : marque 3, imprimé délesté (contrôles de la page unique) ; l'étude passée à
+//     « Formulaire complet » : le constat signé ne change pas, appel par appel ; « Modifier », puis signé de nouveau : marque 2, le
+//     formulaire du même dossier ; dossiers neufs signés étude en « Formulaire complet » puis sans choix : marque 2 ; [p] la fiche qui
+//     suit le constat signé (fichePdfBlob, constat compris : C.relevePdf avec o.fiche) se dessine après un constat en 3 comme après le même
+//     en 2 (une page, deux pages, refus de visite), et le constat en 3 laisse le document dans l'état où le laisse le même en 2 (o.etat :
+//     trait, couleurs, police, taille, motif, interligne, espacement des lettres ; en visite non effectuée, le délesté le laissait en trait
+//     cyan de 0,75, le formulaire en gris de 0,6, celui de ses pointillés : état remis en fin de drawConstatDeleste) ; un constat signé
+//     sans gel, gelé à l'ouverture du croquis (constatGeler) : gel posé, sans marque.
 // Échouaient sur 74dc8ef (avant m159), 99 contrôles sur 150 : D2, D3 (le tableau et la page 1 attendue), D5, D6, D9 et D13 (pas de
 // calcul constatDeleste, page 1 du formulaire). Y passaient : T0, D1, les garde-fous du tableau du formulaire et de cstColonnes, la
 // page 2 (alors celle du formulaire), l'égalité des trois relevés de D9 (le croquis de terrain n'y change rien) et l'absence d'erreur.
@@ -107,6 +134,13 @@
 // où rien n'y est gardé (D3 refus, D8 sans réseau ni rue) ; la page 2 attendue, dans les 41 cas ; les contrôles propres de la page 2 de
 // D2, D5, D6, D13, D8 et D10 à D12 (page 2 du formulaire). Y passent : T0, D1, la page 1 de chaque cas, les propriétés du calcul de la
 // page 2 (vide), la prémisse de D10 et le cas conforme sans préconisation de D12.
+// Échouent sur 67e85ae (avant m161), 225 contrôles sur 627 : dans les 50 cas, la forme du calcul, le calcul entier attendu et les
+// garde-fous (pas de pied au calcul) ; dans les 31 cas qui tiennent sur une page, la règle d'une page et le relevé entier attendu (deux
+// pages imprimées) ; D7 : les quatre « une seule page », les trois valeurs de s (la boîte en 153,8 comprise) et les dossiers voisins ;
+// D4 : la marque 3 (2 notée), les pages 1 et 2 délestées du constat signé (le formulaire imprimé) et son identité quand l'étude change ;
+// D4 [p] : l'état de fin du refus de visite (le délesté imprimé en 3, le formulaire en 2). Y passent : T0, D1, les contrôles de m159 et
+// m160 des autres cas, les cas de D7 sur deux pages, la marque 2 de D4 (après « Modifier » et dossiers neufs), la fiche de D4 [p] et
+// l'état de fin de ses deux autres dossiers, le gel sans marque et l'absence d'erreur.
 'use strict';
 const C = require('./commun.js'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const R = C.rapport('constat-deleste');
@@ -307,21 +341,23 @@ function planAttendu(ids, somH){
   });
   return out;
 }
-/* éléments de la page 1, ou de la page 2, d'un calcul (m160 : constatDeleste rend aussi ceux de la page 2, après ceux de la page 1) ; les
-   aides de la page 1 ne lisent que les premiers */
-const page1 = plan => Array.isArray(plan) ? plan.filter(e => e.page === 1) : plan;
-const page2 = plan => Array.isArray(plan) ? plan.filter(e => e.page === 2) : [];
-/* deux plans de la page 1 égaux (1e-6 près), sans autre clé que id, page, dy, h et place (description seule) ; chaque élément du calcul
-   est de la page 1 ou de la page 2, ceux de la page 1 d'abord */
-const plansEgaux = (a, b) => Array.isArray(a) && a.every((e, i) => (e.page === 1 || e.page === 2) && !(i && e.page === 1 && a[i - 1].page !== 1))
+/* rubriques de la page 1, ou éléments de la page 2, d'un calcul, choisis par leur identifiant (m161 : en page unique, les éléments de la
+   page 2 passent en page 1) : la page 1, les identifiants de IDS ; la page 2, les autres, sauf le pied (m160 : constatDeleste rend aussi
+   ceux de la page 2, après ceux de la page 1 ; m161 : puis le pied) ; les aides de la page 1 ne lisent que les premiers */
+const page1 = plan => Array.isArray(plan) ? plan.filter(e => IDS.indexOf(e.id) >= 0) : plan;
+const page2 = plan => Array.isArray(plan) ? plan.filter(e => IDS.indexOf(e.id) < 0 && e.id !== 'pied') : [];
+/* deux plans de la page 1 égaux (1e-6 près), en page 1, sans autre clé que id, page, dy, h et place (description seule). Depuis m161, la
+   forme du calcul entier (page 1, puis page 2, puis le pied) est contrôlée à part (formeCalcul, dans verifP1, qui suit chaque emploi) */
+const plansEgaux = (a, b) => Array.isArray(a)
   && (q => q.length === b.length && q.every((e, i) => e.id === b[i].id && e.page === 1 && pres(e.dy, b[i].dy, 1e-6)
     && pres(e.h, b[i].h, 1e-6) && (b[i].place === undefined ? !('place' in e) : pres(e.place, b[i].place, 1e-6))
     && Object.keys(e).every(k => ['id', 'page', 'dy', 'h', 'place'].indexOf(k) >= 0)))(page1(a));
 /* plan de la page 1 dit court : rubrique, haut + hauteur, place */
 const dire = plan => Array.isArray(plan) ? page1(plan).map(e => e.id + ' ' + +(P1de(e.id)[1] + e.dy).toFixed(3) + '+' + +Number(e.h).toFixed(3)
-  + (e.place !== undefined ? ' (place ' + +Number(e.place).toFixed(3) + ')' : '')).join(', ') : 'pas de calcul';
-/* propriétés du plan de la page 1 : place d'au moins 234,5, rien sous 816 ; rend la faute ou '' */
-const proprietes = plan => { const q = page1(plan); if (!Array.isArray(q) || !q.length) return 'plan vide ou absent';
+  + (e.place !== undefined ? ' (place ' + +Number(e.place).toFixed(3) + ')' : '')).join(', ') || 'aucune rubrique' : 'pas de calcul';
+/* propriétés du plan de la page 1 : place d'au moins 234,5, rien sous 816 ; rend la faute ou ''. Sans rubrique (m161, D7 : rien en
+   page 1), rien à contrôler si le calcul rend autre chose (la page 2, le pied) */
+const proprietes = plan => { const q = page1(plan); if (!Array.isArray(q)) return 'plan absent'; if (!q.length) return plan.length ? '' : 'plan vide';
   const d = q.find(e => e.id === 'description'), z = q[q.length - 1], bas = P1de(z.id)[1] + z.dy + z.h;
   return d && !(d.place >= 234.5 - 1e-9) ? 'place ' + d.place + ' sous 234,5' : bas > 816 + 1e-6 ? 'bas ' + bas + ' sous 816' : ''; };
 /* calcul par la page, comme le dessin : constatDeleste(vv, E, mesure de production d'un document neuf), pages 1 et 2 ; null s'il manque
@@ -736,18 +772,111 @@ function attenduP2(Lc2, plan, D, wCote){
   pied.forEach(a => att.push(['pied', a]));
   return {att, faute: fautes.join(' ; ')};
 }
+/* ---------- Outils de la page unique (m161, DL17) ---------- */
+
+const r6 = x => Math.round(x * 1e6) / 1e6, r3 = x => Math.round(x * 1000) / 1000;
+/* appel copié en page n */
+const enPage = (a, n) => { const b = a.slice(); b[1] = n; return b; };
+/* calcul attendu entier : la page 1 attendue (planAttendu des rubriques ids, rangées de hauteur naturelle somH), arrondie au millionième ;
+   la page 2 attendue (planP2, tirée des données D) ; bas1, bas de la dernière rubrique (null sans rubrique) ; s = (bas1 + 8, ou 153,8 sans
+   rubrique) − 22,5 ; fin : bas du dernier élément de la page 2 (son haut au formulaire + dy + h) + s, ou bas1 si la page 2 est vide ; une
+   seule page si fin ≤ 580,5 (valeur arrondie), ou sans rien : chaque élément de la page 2 en page 1, dy + s, chaque ligne y + s (y0, h,
+   rangées et colonnes inchangés) ; enfin le pied {id: 'pied', page: 1 ou 2, dy: 0, h: 231,5}. Rend {plan, bas1, s, fin, une} */
+function planEntier(ids, somH, D){
+  const P1a = planAttendu(ids, somH).map(e => Object.assign({}, e, {dy: r6(e.dy), h: r6(e.h)}, e.place === undefined ? {} : {place: r6(e.place)}));
+  const z = P1a[P1a.length - 1], bas1 = z ? r6(P1de(z.id)[1] + z.dy + z.h) : null, s = r6((bas1 === null ? 153.8 : r6(bas1 + 8)) - 22.5);
+  const P2a = D ? planP2(D) : [], y = P2a[P2a.length - 1], fin = y ? r6(HAUT2[y.id] + y.dy + y.h + s) : bas1, une = fin === null || fin <= 580.5;
+  const P2m = !une ? P2a : P2a.map(e => Object.assign({}, e, {page: 1, dy: r6(e.dy + s)}, e.lignes ? {lignes: e.lignes.map(l => ({id: l.id, y0: l.y0, y: r6(l.y + s)}))} : {}));
+  return {plan: P1a.concat(P2m, [{id: 'pied', page: une ? 1 : 2, dy: 0, h: 231.5}]), bas1, s, fin, une};
+}
+/* deux calculs entiers égaux (1e-6 près) : mêmes éléments, dans le même ordre, mêmes pages et mêmes clés ; dy, h et place ; lignes
+   {id, y0, y}, rangées et colonnes */
+const plansEntiersEgaux = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((e, i) => { const f = b[i];
+  return e.id === f.id && e.page === f.page && pres(e.dy, f.dy, 1e-6) && pres(e.h, f.h, 1e-6) && Object.keys(e).sort().join() === Object.keys(f).sort().join()
+    && (f.place === undefined || pres(e.place, f.place, 1e-6))
+    && (!f.lignes || (Array.isArray(e.lignes) && e.lignes.length === f.lignes.length && e.lignes.every((l, j) => l.id === f.lignes[j].id
+      && pres(l.y0, f.lignes[j].y0, 1e-6) && pres(l.y, f.lignes[j].y, 1e-6) && Object.keys(l).sort().join() === 'id,y,y0')))
+    && JSON.stringify(e.rangees) === JSON.stringify(f.rangees) && JSON.stringify(e.colonnes) === JSON.stringify(f.colonnes); });
+/* forme du calcul : les rubriques de la page 1 (en page 1), puis les éléments de la page 2, puis le pied, seul et dernier, {id: 'pied',
+   page: 1 ou 2, dy: 0, h: 231,5} ; les éléments de la page 2 sont dans la page du pied ; rend la faute ou '' */
+const formeCalcul = plan => {
+  if (!Array.isArray(plan)) return 'pas de calcul';
+  const z = plan[plan.length - 1], n1 = page1(plan).length, n2 = page2(plan).length;
+  if (!z || z.id !== 'pied') return 'pas de pied en dernier';
+  if (plan.filter(e => e.id === 'pied').length !== 1) return 'plus d\'un pied';
+  if (!((z.page === 1 || z.page === 2) && z.dy === 0 && z.h === 231.5 && Object.keys(z).sort().join() === 'dy,h,id,page')) return 'pied ' + JSON.stringify(z);
+  if (!plan.slice(0, n1).every(e => IDS.indexOf(e.id) >= 0 && e.page === 1)) return 'rubriques de la page 1 : d\'abord, et en page 1';
+  if (!plan.slice(n1, n1 + n2).every(e => e.id in HAUT2 && e.page === z.page)) return 'éléments de la page 2 : ensuite, connus, dans la page du pied';
+  return '';
+};
+/* calcul entier dit court : page 1, page 2 (haut + hauteur, lignes), pied et sa page */
+const direEntier = plan => !Array.isArray(plan) ? 'pas de calcul' : dire(plan) + ' | ' + direP2(page2(plan)) + ' | '
+  + (plan.filter(e => e.id === 'pied').map(e => 'pied en page ' + e.page).join(', ') || 'pas de pied');
+/* bas d'un appel : texte par sa ligne de base, trait par son point le plus bas, rectangle et image par leur bas */
+const basDe = a => a[0] === 't' ? a[3] : a[0] === 'l' ? Math.max(a[3], a[5]) : a[0] === 'r' ? a[3] + a[5] : a[0] === 'i' ? a[5] + a[7] : null;
+const cadre = a => !!a && a[0] === 'r' && a[2] === 15 && a[3] === 15 && a[4] === 565 && a[5] === 811;
+/* garde-fous d'un relevé délesté et de son calcul (B : {L, plan}) : rien sous 816 (sauf le cadre de la page), aucune page 3, une page
+   neuve si et seulement si le pied du calcul est en page 2 ; rend la faute ou '' */
+const gardes = B => {
+  const pied = Array.isArray(B.plan) ? B.plan.find(e => e.id === 'pied') : null, nP = B.L.filter(a => a[0] === 'p').length;
+  const sous = B.L.find(a => !cadre(a) && basDe(a) !== null && basDe(a) > 816.002), p3 = B.L.find(a => a[1] > 2);
+  return sous ? 'appel sous 816 (' + sous[0] + ', bas ' + n3(basDe(sous)) + ')' : p3 ? 'page ' + p3[1] : !pied ? 'pas de pied au calcul'
+    : nP !== (pied.page === 2 ? 1 : 0) ? nP + ' page(s) neuve(s), pied en page ' + pied.page : '';
+};
+/* s d'un calcul : (bas de sa dernière rubrique de la page 1 + 8, ou 153,8 sans rubrique) − 22,5 */
+const decalage = plan => { const q = page1(plan || []), z = q[q.length - 1]; return r6((z ? r6(r6(P1de(z.id)[1] + z.dy + z.h) + 8) : 153.8) - 22.5); };
+/* aide qui ramène une page unique à deux pages, pour les contrôles écrits pour deux pages (m159, m160). Page unique : pied du calcul en page
+   1, ou aucune page neuve au relevé. Relevé : la page 1 garde ses appels ; ceux qui la suivent (dès le premier, en remontant depuis le
+   pied, dont l'ordonnée est sous 22,5 + s), jusqu'au rectangle cyan (36,5 ; 584,5) exclu, passent en y − s (au millième) et en page 2 ;
+   le pied, dès ce rectangle, passe en page 2 sans décalage ; la page neuve et le cadre du formulaire du même dossier (Lc) sont insérés
+   avant eux, comme la page 2 attendue les attend. Plan : les éléments de la page 2 mis en page 1 passent en dy − s, leurs lignes en
+   y − s, en page 2 ; le pied en page 2. Sur deux pages, tout est rendu tel quel. Rend {L, plan, une, s} */
+const Y_DE = {t: [3], r: [3], l: [3, 5], i: [5]};
+function ramener(L, plan, Lc){
+  const pied = Array.isArray(plan) ? plan.find(e => e.id === 'pied') : null;
+  if (!Array.isArray(plan) || !((pied && pied.page === 1) || !L.some(a => a[0] === 'p'))) return {L, plan, une: false, s: 0};
+  const s = decalage(plan), j = L.findIndex(a => a[0] === 'r' && a[2] === 36.5 && a[3] === 584.5), fin = j < 0 ? L.length : j;
+  let k = fin;
+  while (k > 0 && yRef(L[k - 1]) !== null && yRef(L[k - 1]) >= 22.5 + s - 0.002) k--;
+  const i = Lc.findIndex(a => a[0] === 'p'), tete = i >= 0 ? Lc.slice(i, i + 2) : [];
+  const monte = a => { const b = enPage(decale(a, 0, -s), 2); (Y_DE[a[0]] || []).forEach(q => { b[q] = r3(b[q]); }); return b; };
+  const L2 = L.slice(0, k).concat(tete, L.slice(k, fin).map(monte), L.slice(fin).map(a => enPage(a, 2)));
+  const plan2 = plan.map(e => e.id === 'pied' ? Object.assign({}, e, {page: 2}) : IDS.indexOf(e.id) >= 0 || e.page !== 1 ? e
+    : Object.assign({}, e, {page: 2, dy: r6(e.dy - s)}, e.lignes ? {lignes: e.lignes.map(l => ({id: l.id, y0: l.y0, y: r6(l.y - s)}))} : {}));
+  return {L: L2, plan: plan2, une: true, s};
+}
+/* premier écart entre deux relevés, appel par appel et sans tolérance, dit en empreintes, ou '' */
+const ecartEmp = (L, att) => { for (let i = 0; i < Math.max(L.length, att.length); i++) if (JSON.stringify(L[i]) !== JSON.stringify(att[i]))
+  return 'appel ' + (i + 1) + ' : ' + (L[i] ? JSON.stringify(empreintes([L[i]], [])[0]) : 'aucun') + ' au lieu de ' + (att[i] ? JSON.stringify(empreintes([att[i]], [])[0]) : 'aucun')
+    + ' (' + L.length + ' appels, ' + att.length + ' attendus)';
+  return ''; };
+/* relevé du formulaire d'un constat signé : sa marque (c.fige.mep) mise à 2 en mémoire le temps du relevé, puis remise */
+async function formulaireSigne(p){
+  const m = await p.evaluate(() => { const f = window.__VT.S.visites[0].constat.fige, m = f.mep; f.mep = 2; return m === undefined ? null : m; });
+  try { return await C.relevePdf(p); }
+  finally { await p.evaluate(m => { const f = window.__VT.S.visites[0].constat.fige; if (m === null) delete f.mep; else f.mep = m; }, m); }
+}
+
 /* un dossier imprimé deux fois : délesté (L) et formulaire (Lc), avec le calcul (plan, pages 1 et 2), la description du calcul (d), le
    tableau de référence (ref : cstTableDeleste en 360 + dy, place du calcul ; sans description du calcul, en 360 sur la place du
-   formulaire), les données de la page 2 (D2) et la largeur des cases du côté de la boîte (wCote) ; mesure aussi la couleur des valeurs (VALC) */
-async function deux(p){
-  const L = await imprimer(p, 'deleste'), plan = await calcul(p), Lc = await imprimer(p, 'complet');
+   formulaire), les données de la page 2 (D2) et la largeur des cases du côté de la boîte (wCote) ; mesure aussi la couleur des valeurs (VALC).
+   m161 : L et plan ramenés à deux pages (ramener), pour les contrôles de m159 et m160 ; brut : {L, plan} tels qu'imprimés et calculés ;
+   une, s : page unique et son décalage ; som : hauteur naturelle des rangées (calcul entier attendu). signe : constat signé (D4), imprimé
+   tel qu'il est (sa marque), le formulaire relevé par formulaireSigne */
+async function deux(p, signe){
+  const L = signe ? await C.relevePdf(p) : await imprimer(p, 'deleste'), plan = await calcul(p), Lc = signe ? await formulaireSigne(p) : await imprimer(p, 'complet');
   const d = Array.isArray(plan) ? page1(plan).find(e => e.id === 'description') || null : null;
   const ref = d ? await releveTable(p, 360 + d.dy, 42 + d.place) : await releveTable(p, 360, 260.5);
   await couleurVal(p);
-  return {L, plan, Lc, d, ref: ref || [], D2: await donneesP2(p), wCote: await largeursCote(p)};
+  const Q = ramener(L, plan, Lc);
+  return {L: Q.L, plan: Q.plan, brut: {L, plan}, une: Q.une, s: Q.s, Lc, d, ref: ref || [], D2: await donneesP2(p), wCote: await largeursCote(p), som: d ? await sommeNaturelle(p) : 0};
 }
 /* contrôles communs d'un dossier : propriétés du calcul, page 1 attendue ; page 2 (m160) : calcul attendu (tiré des données du dossier),
-   ses propriétés, page 2 attendue */
+   ses propriétés, page 2 attendue (sur le relevé et le calcul ramenés à deux pages : m161). m161 (DL17) : forme du calcul entier ; calcul
+   entier attendu (planEntier : la page 1 de planAttendu sur les rubriques du calcul, dont le choix est contrôlé par la page 1 attendue et
+   par chaque cas, et les rangées naturelles ; la page 2 de planP2) ; la règle « une page si et seulement si la fin attendue ≤ 580,5 » ;
+   le relevé entier attendu (deux pages : la page 1 attendue, puis la page 2 attendue ; une page : la page 1 attendue, puis la page 2
+   attendue sans sa tête, décalée de s, puis le pied du formulaire non décalé, tous en page 1), au 0,004 près ; les garde-fous (gardes) */
 function verifP1(nom, X){
   const pr = proprietes(X.plan);
   R.ok(!pr, nom + ' : calcul : place d\'au moins 234,5, rien de la page 1 sous 816 (' + (pr || dire(X.plan)) + ')');
@@ -763,6 +892,22 @@ function verifP1(nom, X){
   const e2 = A2.faute || ecartTol(X.L.filter(a => a[1] === 2), A2.att.map(x => x[1]), A2.att.map(x => x[0]));
   R.ok(!e2, nom + ' : page 2 délestée : chaque élément gardé vaut celui du formulaire du même dossier, transformé et décalé ; pied du formulaire'
     + (e2 ? ' (' + e2 + ')' : ''));
+  /* m161 (DL17) : le calcul et le relevé tels quels (X.brut) */
+  const B = X.brut, fc = formeCalcul(B.plan);
+  R.ok(!fc, nom + ' : forme du calcul : rubriques de la page 1, puis éléments de la page 2, dans la page du pied, puis le pied, seul et dernier '
+    + '{id: \'pied\', page, dy: 0, h: 231,5} (' + (fc ? fc + ' ; ' : '') + direEntier(B.plan) + ')');
+  const PE = planEntier(Array.isArray(B.plan) ? page1(B.plan).map(e => e.id) : [], X.som, X.D2), okE = plansEntiersEgaux(B.plan, PE.plan);
+  R.ok(okE, nom + ' : calcul entier attendu : page 1, page 2 (en page 1 et décalée de s en page unique), pied (bas1 ' + PE.bas1 + ', s ' + PE.s + ', fin ' + PE.fin
+    + ' ; ' + direEntier(B.plan) + (okE ? '' : ' ; attendu ' + direEntier(PE.plan)) + ')');
+  const nP = B.L.filter(a => a[0] === 'p').length;
+  R.ok((nP === 0) === PE.une && nP <= 1, nom + ' : une seule page si et seulement si la fin attendue tient (≤ 580,5) (fin attendue ' + PE.fin + ', ' + (nP + 1) + ' page(s))');
+  const att = A.faute || A2.faute ? null : PE.une ? A.att.concat(A2.att.filter(x => x[0] !== 'tête').map(x => [x[0], enPage(x[0] === 'pied' ? x[1] : decale(x[1], 0, PE.s), 1)]))
+    : A.att.concat(A2.att);
+  const e3 = att ? ecartTol(B.L, att.map(x => x[1]), att.map(x => x[0])) : 'attendu incomplet (' + (A.faute || A2.faute) + ')';
+  R.ok(!e3, nom + ' : relevé entier attendu, ' + (PE.une ? 'une page : la page 1 attendue, puis la page 2 attendue sans sa tête, décalée de s (' + PE.s
+    + '), puis le pied du formulaire, non décalé, tous en page 1' : 'deux pages : la page 1 attendue, puis la page 2 attendue') + (e3 ? ' (' + e3 + ')' : ''));
+  const g = gardes(B);
+  R.ok(!g, nom + ' : rien sous 816 (sauf le cadre), aucune page 3, une page neuve si et seulement si le pied du calcul est en page 2' + (g ? ' (' + g + ')' : ''));
 }
 /* appels de la page 1 dans le tableau délesté : entre 360 + dy et le bas de la description du calcul */
 const tableauDel = (L, d) => d ? L.filter(a => { const y = a[1] === 1 ? yRef(a) : null; return y !== null && y >= 360 + d.dy - 0.002 && y <= 343.2 + d.dy + d.h + 0.002; }) : null;
@@ -1300,6 +1445,164 @@ async function d12(p){
     'D12, conforme sans préconisation : ni préconisations privées ni publiques (' + direP2(page2(X.plan)) + ')');
 }
 
+/* ---------- D7 et D4 : page unique et marque notée à la signature (m161) ---------- */
+
+/* D7 (DL17) : une seule page quand tout tient (fin ≤ 580,5), deux sinon ; chaque cas passe aussi par verifP1 (calcul et relevé entiers,
+   garde-fous) */
+async function d7(p){
+  const VIDES = {demande: '', refCad: '', typePropriete: '', nbLogements: '', categorieNb: ''};
+  const conclusionDe = Lc => { const a = page2De(Lc).find(t => t[0] === 't' && t[2] === 42.6 && t[3] === 109); return a ? a[4] : null; };
+  /* une page : aucune page neuve ; le pied en page 1 (rectangle cyan en 36,5 ; 584,5) ; « Conclusion : » en page 1, en yc + s (yc : sa
+     place sur deux pages, 30,5 sans boîte) */
+  const une = async (nom, s, yc) => {
+    await poser(p, s);
+    const X = await deux(p), B = X.brut, nP = B.L.filter(a => a[0] === 'p').length, cy = B.L.filter(a => a[0] === 'r' && a[2] === 36.5 && a[3] === 584.5);
+    verifP1(nom, X);
+    const y0 = yc === undefined ? 30.5 : yc, tc = conclusionDe(X.Lc), c1 = B.L.filter(a => a[0] === 't' && a[1] === 1 && a[4] === tc && a[2] === 42.6);
+    R.ok(X.une && nP === 0 && cy.length === 1 && cy[0][1] === 1 && !!tc && c1.length === 1 && pres(c1[0][3], y0 + X.s, 0.002),
+      nom + ' : une seule page : aucune page neuve, le pied en page 1 (rectangle cyan en 584,5), « Conclusion : » en page 1 en ' + String(y0).replace('.', ',')
+      + ' + s (s ' + X.s + ' ; '
+      + nP + ' page(s) neuve(s), rectangle cyan en page ' + cy.map(a => a[1]).join() + ', « Conclusion : » en ' + c1.map(a => a[1] + '/' + a[3]).join() + ')');
+    return X;
+  };
+  /* deux pages : une page neuve, en page 2, suivie du cadre ; le pied en page 2 */
+  const deuxP = async (nom, s) => {
+    await poser(p, s);
+    const X = await deux(p), B = X.brut, i = B.L.findIndex(a => a[0] === 'p'), cy = B.L.filter(a => a[0] === 'r' && a[2] === 36.5 && a[3] === 584.5);
+    verifP1(nom, X);
+    R.ok(!X.une && i > 0 && B.L[i][1] === 2 && cadre(B.L[i + 1]) && B.L[i + 1][1] === 2 && B.L.filter(a => a[0] === 'p').length === 1 && cy.length === 1 && cy[0][1] === 2,
+      nom + ' : deux pages : une page neuve, suivie du cadre en page 2, le pied en page 2 (' + B.L.filter(a => a[0] === 'p').length + ' page(s) neuve(s), rectangle cyan en page '
+      + cy.map(a => a[1]).join() + ')');
+    return X;
+  };
+  let X = await une('D7, dossier minimal', {visite: NOM, lignes: {wc: {nb: '1', raccord: 'EU_D'}}, champs: VIDES});
+  R.ok(pres(X.s, 253.7, 1e-6) && !!X.d && pres(X.d.dy, -151.3, 1e-6), 'D7, dossier minimal : description en 191,9, bas de la page 1 en 268,2, s = 253,7 (s ' + X.s + ')');
+  X = await une('D7, refus de visite', avec({statut: 'refus'}));
+  R.ok(pres(X.s, 263.5, 1e-6), 'D7, refus de visite : bas de la page 1 en 278 (catégorie), s = 263,5 (s ' + X.s + ')');
+  /* rien en page 1 (ni nom, ni adresse, ni coordonnées, ni type, ni catégorie, ni méthode, ni ligne remplie), une boîte (deux rangées, EP)
+     et des observations : s = 153,8 − 22,5 = 131,3 ; la boîte en 22,5 + s = 153,8, place de la première rubrique ; « Conclusion : » sous
+     elle, en 82,5 + s */
+  X = await une('D7, rien en page 1, une boîte et des observations', {visite: {adresse: '', commune: ''},
+    champs: Object.assign({boite: {distEP: '0,5 m', coteEP: 'extérieur'}, observations: 'Observation fictive'}, VIDES)}, 82.5);
+  const bt = page2(X.brut.plan).find(e => e.id === 'boite');
+  const b1 = X.brut.L.filter(a => a[0] === 'l' && a[1] === 1 && a[2] === 327 && pres(a[3], 153.8, 0.002) && pres(a[5], 153.8, 0.002));
+  R.ok(Array.isArray(X.brut.plan) && !page1(X.brut.plan).length && pres(X.s, 131.3, 1e-6) && !!bt && pres(bt.dy, 131.3, 1e-6) && b1.length === 1,
+    'D7, rien en page 1 : aucune rubrique, s = 131,3, la boîte en 22,5 + s = 153,8 (dy de la boîte ' + (bt ? bt.dy : 'absent') + ' ; ' + b1.length
+    + ' trait du haut de la boîte en 153,8 ; ' + direEntier(X.brut.plan) + ')');
+  X = await deuxP('D7, dossier complet avec croquis de position', avec({}));
+  R.ok(!!rubrique(X.plan, 'position'), 'D7, dossier complet : la position au calcul (' + dire(X.plan) + ')');
+  const T30 = {}; ['wc', 'lavelinge', 'evier', 'sdb', 'cuisine', 'siphon', 'gout_av', 'gout_ar', 'grilles', 'siphon_sol'].forEach((id, i) => { T30[id] = {nb: '1', raccord: i < 6 ? 'EU_D' : 'EP_D', methodes: ['visuel']}; });
+  const aj = []; for (let i = 1; i <= 20; i++) aj.push({groupe: i <= 10 ? 'EU' : 'EP', label: 'Ligne fictive ' + i, nb: '1', raccord: i <= 10 ? 'EU_T' : 'GARG'});
+  await deuxP('D7, 30 rangées', avec({lignes: T30, ajouts: aj}));
+  /* quinze lignes, toutes les préconisations, 600 caractères d'observations : préconisations et observations gardées en entier, égales
+     aux appels du formulaire du même dossier décalés de leur dy */
+  const OBS = Array(30).fill('Observation fictive').join(' ') + '.';
+  X = await deuxP('D7, quinze lignes, toutes les préconisations', {visite: NOM, lignes: T30, ajouts: aj.slice(0, 5),
+    champs: {precos: precosSeules(PRIV_TOUT.concat(PUB_TOUT)), observations: OBS}});
+  const fen = id => { const F = FEN2.filter(f => f[0] === id || f[0].indexOf(id + '.') === 0); return [Math.min(...F.map(f => f[1])), Math.max(...F.map(f => f[2]))]; };
+  ['privees', 'publiques', 'observations'].forEach(id => {
+    const e = page2(X.brut.plan).find(f => f.id === id), [y1, y2] = fen(id);
+    const dans = (L, dy) => L.filter(a => a[1] === 2 && yRef(a) !== null && yRef(a) >= y1 + dy - 0.002 && yRef(a) <= y2 + dy + 0.002);
+    const att = e ? dans(X.Lc, 0).map(a => decale(a, 0, e.dy)) : [], ec = e ? ecartTol(dans(X.brut.L, e.dy), att) : 'absent du calcul';
+    R.ok(OBS.length === 600 && !!e && att.length > 0 && !ec, 'D7, quinze lignes, ' + id + ' : les appels du formulaire, décalés de dy (' + (e ? n3(e.dy) : '?') + ' ; '
+      + att.length + ' appels)' + (ec ? ' (' + ec + ')' : ''));
+  });
+  /* deux dossiers voisins : treize lignes (fin attendue 580,5, une page), quatorze (fin 598, deux pages) ; rangées de 17,5, sans raccord
+     ni conformité (conclusion vide : sa ligne des réserves ; bas de la page 2 en 73) */
+  const voisin = n => {
+    const L = {}; ['wc', 'lavelinge', 'evier', 'sdb', 'cuisine', 'siphon', 'gout_av', 'gout_ar', 'grilles', 'siphon_sol'].slice(0, Math.min(n, 10)).forEach(id => { L[id] = {nb: '1'}; });
+    const A = []; for (let i = 1; i <= n - 10; i++) A.push({groupe: 'EU', label: 'Ligne fictive ' + i, nb: '1'});
+    return {visite: {nom: 'Nom Fictif', tel: '06 39 98 12 34'}, lignes: L, ajouts: A,
+      champs: {demande: '', refCad: '', typePropriete: 'Maison fictive', nbLogements: '', categorieNb: '', precos: precosSeules([])}};
+  };
+  const fin = X => planEntier(Array.isArray(X.brut.plan) ? page1(X.brut.plan).map(e => e.id) : [], X.som, X.D2);
+  const X13 = await une('D7, treize lignes (fin 580,5)', voisin(13)), F13 = fin(X13);
+  const X14 = await deuxP('D7, quatorze lignes (fin 598)', voisin(14)), F14 = fin(X14);
+  R.ok(F13.fin === 580.5 && F13.une && X13.une && F14.fin > 580.5 && !F14.une && !X14.une, 'D7, deux dossiers voisins : fin attendue 580,5 exactement : une page ; '
+    + 'au-delà : deux pages (fins attendues ' + F13.fin + ' et ' + F14.fin + ' ; ' + (X13.une ? 'une' : 'deux') + ' et ' + (X14.une ? 'une' : 'deux') + ' page(s))');
+}
+
+/* D4 (DL4) : la marque notée à la signature, d'après l'option de l'étude (« Délesté » : 3 ; « Formulaire complet » ou sans choix : 2) ; un
+   constat signé en 3 s'imprime délesté et ne bouge plus quand l'étude change ; « Modifier », puis signer de nouveau, note celle du jour ;
+   [p] la fiche qui suit un constat signé en 3 (fichePdfBlob, constat compris) se dessine comme après le même constat en 2 ; le gel
+   (constatGeler, à l'ouverture du croquis) ne pose aucune marque. Le gel vient en dernier : ouvrir le croquis crée le document du plan */
+async function d4(p){
+  const DOS = {visite: NOM, lignes: {wc: {nb: '1', raccord: 'EU_D'}}, champs: {demande: '', refCad: '', typePropriete: '', nbLogements: '', categorieNb: '', soussigne: 'Nom Fictif'}};
+  /* geste « Signer » (c-lock, page sur le dossier), date réécrite comme dans preparerT0 ; rend la marque (null sans marque) */
+  const signer = () => p.evaluate(async png => {
+    const T = window.__VT, v = T.S.visites[0];
+    v.constat.sigTech = png; v.constat.sigProp = png;
+    await T.ACTIONS['c-lock']();
+    if (!v.constat.signeLe) return 'non signé';
+    v.constat.signeLe = '2026-11-18T09:30:00.000Z';
+    await T.DB.put('visites', v); await T.flushSaves();
+    return !v.constat.fige ? 'sans gel' : v.constat.fige.mep === undefined ? null : v.constat.fige.mep;
+  }, SIG);
+  /* « Modifier » confirmé (comme modifierSigne de dossier.js) */
+  const modifier = async () => {
+    await p.evaluate(() => { window.__m161 = window.__VT.ACTIONS['c-unlock'](); });
+    await p.waitForSelector('#modal-root .modal .m-foot [data-mi="1"]');
+    await p.click('#modal-root .modal .m-foot [data-mi="1"]');
+    await p.evaluate(async () => { await window.__m161; delete window.__m161; }); await C.pause(p, 400);
+  };
+  await poser(p, DOS); await C.formeConstat(p, 'deleste');
+  const m1 = await signer();
+  R.ok(m1 === 3, 'D4 : signé, étude en « Délesté » : marque 3 (' + m1 + ')');
+  const X = await deux(p, true);
+  verifP1('D4, signé en « Délesté »', X);
+  await C.formeConstat(p, 'complet');
+  const e1 = ecartEmp(await C.relevePdf(p), X.brut.L);
+  R.ok(m1 === 3 && !e1, 'D4 : signé en 3, puis l\'étude passée à « Formulaire complet » : le constat signé ne change pas, appel par appel' + (e1 ? ' (' + e1 + ')' : ''));
+  await modifier();
+  const nu = await p.evaluate(() => { const c = window.__VT.S.visites[0].constat; return !c.signeLe && !c.fige; });
+  const m2 = await signer(), e2 = ecartEmp(await C.relevePdf(p), X.Lc);
+  R.ok(nu && m2 === 2 && !e2, 'D4 : « Modifier », puis signé de nouveau, étude en « Formulaire complet » : marque 2, le formulaire du même dossier (' + m2 + ')' + (e2 ? ' (' + e2 + ')' : ''));
+  await poser(p, DOS); await C.formeConstat(p, 'complet');
+  const m3 = await signer();
+  await poser(p, DOS); await C.formeConstat(p, '');
+  const m4 = await signer();
+  R.ok(m3 === 2 && m4 === 2, 'D4 : dossiers neufs signés, étude en « Formulaire complet » puis sans choix (défaut \'complet\') : marque 2 (' + m3 + ', ' + m4 + ')');
+  /* [p] relevé du dossier (o : options de C.relevePdf), la marque de son constat signé mise à m en mémoire le temps du relevé */
+  const releveEn = async (m, o) => {
+    const a = await p.evaluate(m => { const f = window.__VT.S.visites[0].constat.fige, a = f.mep; f.mep = m; return a === undefined ? null : a; }, m);
+    try { return await C.relevePdf(p, o); }
+    finally { await p.evaluate(a => { const f = window.__VT.S.visites[0].constat.fige; if (a === null) delete f.mep; else f.mep = a; }, a); }
+  };
+  /* [p] fiche du dossier, constat signé compris, en marque m ; rend les appels qui suivent le constat, dès la page neuve de la fiche (la
+     n-ième, n : pages du constat), pages comptées depuis elle (null sans elle) */
+  const ficheApres = async (m, n) => {
+    const L = await releveEn(m, {fiche: {constat: true, photos: false}});
+    const j = L.map((x, i) => x[0] === 'p' ? i : -1).filter(i => i >= 0)[n - 1];
+    if (j === undefined) return null;
+    const k = L[j][1] - 1;
+    return L.slice(j).map(x => { const b = x.slice(); b[1] = x[1] - k; return b; });
+  };
+  /* [p] état où le constat signé, en marque m, laisse le document (C.relevePdf avec o.etat : trait, couleurs, police, taille, motif,
+     interligne, espacement des lettres, au moment où le PDF est produit), sans sa page ; null sans lui. Les appels de la fiche ne le
+     montrent pas : chaque trait de son tableau pose d'abord le sien */
+  const etatFin = async m => { const L = await releveEn(m, {etat: true}), z = L[L.length - 1]; return z && z[0] === 'e' ? [z[0]].concat(z.slice(2)) : null; };
+  for (const [nom, s] of [['une page', DOS], ['deux pages', avec({champs: {soussigne: 'Nom Fictif'}})], ['refus de visite, sans nom du signataire', avec({statut: 'refus', champs: {soussigne: ''}})]]){
+    await poser(p, s); await C.formeConstat(p, 'deleste');
+    const m = await signer(), nC = 1 + (await C.relevePdf(p)).filter(a => a[0] === 'p').length;
+    const F3 = await ficheApres(3, nC), F2 = await ficheApres(2, 2), e = !F3 || !F2 ? 'page neuve de la fiche introuvable' : ecartEmp(F3, F2);
+    R.ok(!e, 'D4 [p], ' + nom + ' : la fiche qui suit le constat en 3 (' + nC + ' page(s) ; signé en ' + m + ') se dessine comme après le même constat en 2, appel par appel'
+      + (e ? ' (' + e + ')' : ' (' + F3.length + ' appels)'));
+    const E3 = await etatFin(3), E2 = await etatFin(2), ee = !E3 || !E2 ? 'état introuvable' : JSON.stringify(E3) !== JSON.stringify(E2)
+      ? 'en 3 : ' + JSON.stringify(E3) + ' ; en 2 : ' + JSON.stringify(E2) : '';
+    R.ok(!ee, 'D4 [p], ' + nom + ' : le constat en 3 laisse le document dans l\'état où le laisse le même en 2 (trait, couleurs, police, taille, motif, interligne, '
+      + 'espacement' + (ee ? ' ; ' + ee : ' : ' + JSON.stringify(E3)) + ')');
+  }
+  /* gel : un constat signé sans gel (c.fige retiré), étude en « Délesté », gelé par l'ouverture du croquis : gel posé, sans marque */
+  await poser(p, DOS); await C.formeConstat(p, 'deleste');
+  await signer();
+  await p.evaluate(async () => { const T = window.__VT, v = T.S.visites[0]; delete v.constat.fige; await T.DB.put('visites', v); await T.flushSaves(); });
+  let faute = '';
+  try { await C.ouvrirCroquis(p, {fond: false}); await C.fermerCroquis(p); } catch (e){ faute = String(e && e.message || e).split('\n')[0].slice(0, 120); }
+  const g = await p.evaluate(() => { const c = window.__VT.S.visites[0].constat; return {signe: !!c.signeLe, fige: !!c.fige, mep: !!c.fige && 'mep' in c.fige}; });
+  R.ok(!faute && g.signe && g.fige && !g.mep, 'D4 : un constat signé sans gel, étude en « Délesté », gelé à l\'ouverture du croquis (constatGeler) : gel posé, sans marque ('
+    + JSON.stringify(g) + (faute ? ' ; ' + faute : '') + ')');
+}
+
 async function casD(){
   const A = await C.ouvrir({fuseau: 'Europe/Paris'}), p = A.p;
   try {
@@ -1315,7 +1618,9 @@ async function casD(){
     await d10(p);
     await d11(p);
     await d12(p);
-    R.ok(!A.erreurs.length, 'D1 à D13 : aucune erreur de la page (' + A.erreurs.slice(0, 2).join(' ; ').slice(0, 200) + ')');
+    await d7(p);
+    await d4(p);
+    R.ok(!A.erreurs.length, 'D1 à D13, D4 et D7 compris : aucune erreur de la page (' + A.erreurs.slice(0, 2).join(' ; ').slice(0, 200) + ')');
   } finally { await A.fermer(); }
 }
 

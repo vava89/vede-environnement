@@ -3000,8 +3000,9 @@ function cOptsCoches(doc, cases, y, o, places, ecart){
    garde celle que le geste de signature a notée (c.fige.mep : 2 ou 3 ; toute autre valeur vaut 1) ; signé sans marque (avant la v1.7.2,
    ou gelé plus tard par constatGeler) : 1 : il garde à la réimpression « Autres : » et ses lignes vides ; constatEval y range aussi ses
    anomalies comme en v1.7.1, et l'éditeur de l'anomalie y propose la même ligne (m148 : l'évier lie la ligne de sa pièce, le lavabo
-   jamais). La marque 3 se lit partout comme 2, sauf au dessin : drawConstat l'aiguille vers drawConstatDeleste, qui la déleste sur
-   ses deux pages (m159 : page 1 ; m160 : page 2 ; mise en page de constatDeleste) ; toujours sur deux pages jusqu'à m161 */
+   jamais). La marque 3 se lit partout comme 2, sauf au dessin : drawConstat l'aiguille vers drawConstatDeleste, qui la déleste (m159 :
+   page 1 ; m160 : page 2 ; m161 : une seule page quand tout tient, sinon deux (DL17) ; mise en page de constatDeleste). La signature
+   (c-lock) note la forme que l'étude a choisie ce jour-là (m161, DL4 : constatMepEtude, 3 pour « Délesté », 2 sinon) */
 var CST_FORME_DEFAUT = 'complet';
 function constatMepEtude(){ var f = (S.etude && S.etude.fiche && S.etude.fiche.constatForme) || CST_FORME_DEFAUT; return f === 'deleste' ? 3 : 2; }
 function constatMep(c){ if (!c || !c.signeLe) return constatMepEtude(); var m = Number(c.fige && c.fige.mep); return m === 3 ? 3 : m === 2 ? 2 : 1; }
@@ -3392,13 +3393,22 @@ function cstIdent(v, c){
     tel: fmtTel(fixTel(ctc(v, 'tel'))), mail: ctc(v, 'mail'), typePropriete: c.typePropriete, nbLogements: c.nbLogements};
 }
 /* m159 (DL9, DL16, DL20) : mise en page du constat délesté, calcul pur (v figée et E de constatPourDessin ; mesure : cstMesure).
-   Rend les éléments gardés de la page 1, puis (m160) ceux de la page 2 (cstPage2), chacun dans l'ordre de sa page. Page 1 :
-   [{id, page: 1, dy, h}] ; la première rubrique se pose en 153,8, chaque suivante au bas de la précédente plus son écart (CST_P1) ;
-   dy = haut délesté − haut au formulaire. La description a aussi place : la hauteur laissée à ses rangées pour que les rubriques qui la
-   suivent finissent au-dessus de 816 ; sa hauteur est 58,8 plus ses rangées, ramenées à place si elles la dépassent (cstTableDeleste).
-   Cette place est toujours plus grande que celle du formulaire (218,5 : de 402 à 620,5) : les rubriques qui suivent une description
-   très remplie peuvent donc descendre sous leur place du formulaire (dy > 0), sans passer 816. La page 2 ne dépend pas de la page 1
-   (toujours deux pages jusqu'à m161). Valeurs arrondies au millionième */
+   Rend les éléments gardés de la page 1, puis (m160) ceux de la page 2 (cstPage2), chacun dans l'ordre de sa page, puis (m161) le
+   pied. Page 1 : [{id, page: 1, dy, h}] ; la première rubrique se pose en 153,8, chaque suivante au bas de la précédente plus son écart
+   (CST_P1) ; dy = haut délesté − haut au formulaire. La description a aussi place : la hauteur laissée à ses rangées pour que les
+   rubriques qui la suivent finissent au-dessus de 816 ; sa hauteur est 58,8 plus ses rangées, ramenées à place si elles la dépassent
+   (cstTableDeleste). Cette place est toujours plus grande que celle du formulaire (218,5 : de 402 à 620,5) : les rubriques qui suivent
+   une description très remplie peuvent donc descendre sous leur place du formulaire (dy > 0), sans passer 816. La page 2 se calcule
+   d'abord seule, comme sur deux pages (cstPage2).
+   m161 (DL17) : une seule page quand tout tient. s = (bas de la dernière rubrique de la page 1 + 8, ou 153,8 sans rubrique) − 22,5 :
+   ce dont la page 2 descend pour venir sous la page 1 ; fin = bas du dernier élément de la page 2 (son haut au formulaire, CST_P2, plus
+   dy et h) + s, ou le bas de la page 1 si la page 2 est vide. Si fin ≤ 580,5 (le pied commence en 584,5), ou s'il n'y a rien ni en
+   page 1 ni en page 2, chaque élément de la page 2 passe en page 1, dy + s, et chaque ligne y + s (y0, h, rangées et colonnes
+   inchangés). La place de la description ne change pas : en page unique, ses rangées y tiennent toujours, car des rangées ramenées à
+   place mettent le bas de la description, ou de la dernière rubrique qui la suit, en 816, d'où fin > 580,5 et deux pages. Enfin le
+   pied : {id: 'pied', page: 1 en page unique, 2 sinon, dy: 0, h: 231,5} ; le dessin choisit les éléments par leur identifiant (CST_P1,
+   CST_P2) et la page neuve par celle du pied, sans compter les pages. Valeurs arrondies au millionième (fin aussi, avant de la
+   comparer à 580,5) */
 function constatDeleste(v, E, mesure){
   var c = E.c, I = cstIdent(v, c), eff = !E.nonEffectue, T = cstRangees(E, mesure), som = T ? T.hs.reduce(function(a, h){ return a + h; }, 0) : 0;
   var garde = {nomRef: cstPlein(I.nom) || cstPlein(I.refCad), adresse: cstPlein(I.adresse), domicile: cstPlein(I.domicile),
@@ -3416,7 +3426,16 @@ function constatDeleste(v, E, mesure){
     }
     out.push(o); bas = r6(haut + o.h);
   });
-  return out.concat(cstPage2(E, T));
+  /* m161 (DL17) : page unique quand tout tient (voir plus haut) */
+  var P2 = cstPage2(E, T), z = P2[P2.length - 1], s = r6((bas === null ? 153.8 : r6(bas + 8)) - 22.5), fin = bas, une;
+  if (z) fin = r6(CST_P2.filter(function(f){ return f[0] === z.id; })[0][1] + z.dy + z.h + s);
+  une = fin === null || fin <= 580.5;
+  if (une) P2 = P2.map(function(e){
+    var o = Object.assign({}, e, {page: 1, dy: r6(e.dy + s)});
+    if (e.lignes) o.lignes = e.lignes.map(function(l){ return {id: l.id, y0: l.y0, y: r6(l.y + s)}; });
+    return o;
+  });
+  return out.concat(P2, [{id: 'pied', page: une ? 1 : 2, dy: 0, h: 231.5}]);
 }
 /* m160 (DL10, DL16, DL18, DL20) : éléments de la page 2 délestée, dans l'ordre de la page (T : cstRangees, rangées du tableau).
    Gardes : la boîte, visite effectuée : ses rangées ayant une valeur en EU ou en EP, ses colonnes employées ; la conclusion : le réseau
@@ -3655,11 +3674,12 @@ function cstMentions(doc){
    comme au formulaire et décalées de leur dy (cstDecale) : un champ vide part avec son libellé, sans pointillé ; une ligne à cases ne
    garde que ses cochées (cOptsCoches) ; la catégorie choisie, seule dans sa case ; la légende réduite aux codes du tableau. Visite non
    effectuée : ni contrôle, ni tableau, ni récupération, ni désagréments, ni position. Page 2 (m160) : drawConstatP2Deleste, sur les
-   éléments de la page 2 du même calcul ; toujours deux pages jusqu'à m161 */
+   éléments de la page 2 du même calcul, sur une page neuve si le pied du calcul est en page 2 ; sinon (m161, DL17), sous la page 1, sur
+   la même page. Les rubriques de la page 1 se choisissent par leur identifiant (CST_P1), plus par leur page */
 function drawConstatDeleste(doc, v, E){
   var c = E.c, P = CPC, I = cstIdent(v, c), D = {}, x;
-  var L = constatDeleste(v, E, cstMesure(doc));
-  L.forEach(function(e){ if (e.page === 1) D[e.id] = e; });
+  var L = constatDeleste(v, E, cstMesure(doc)), ids1 = CST_P1.map(function(f){ return f[0]; });
+  L.forEach(function(e){ if (ids1.indexOf(e.id) >= 0) D[e.id] = e; });
   function dec(id, dessin){ if (D[id]) cstDecale(doc, D[id].dy, dessin); }
   cstEntete(doc, v, E);
   if (cstPlein(c.demande)) cTxt(doc, 'Demande du ' + c.demande, 563.3, 96.4, {f: 'times', st: 'italic', sz: 10.5, col: P.vert, al: 'right'});
@@ -3723,10 +3743,17 @@ function drawConstatDeleste(doc, v, E){
   });
   dec('position', function(){ cstPosition(doc, v, E); });
   /* fin de la page 1 : l'état où la laisse le formulaire (fond jaune du tableau ; trait et texte de la fin de cstPosition), pour que la
-     page 2 se dessine comme au formulaire */
+     page 2 se dessine comme au formulaire ; posé aussi en page unique (m161) */
   doc.setFillColor(255, 255, 204); doc.setDrawColor(161, 89, 28); doc.setLineWidth(0.6); doc.setLineDash([]);
   doc.setFont(doc.__font, 'normal'); doc.setFontSize(5.5); doc.setTextColor(161, 89, 28);
-  doc.addPage(); drawConstatP2Deleste(doc, v, E, L);
+  /* m161 (DL17) : page neuve seulement si le pied du calcul est en page 2 */
+  if (L.some(function(e){ return e.id === 'pied' && e.page === 2; })) doc.addPage();
+  drawConstatP2Deleste(doc, v, E, L);
+  /* m161 : en fin de constat, l'état où le formulaire laisse le document (ce qui suit, la fiche par exemple, part du même). Il n'en
+     diffère qu'en visite non effectuée : le délesté n'y écrit pas « Je, soussigné… », dont le formulaire trace les pointillés (cDots :
+     trait gris de 0,6, sans motif). Après eux, le pied n'a que des textes et des images : remis ici, cet état ne change aucun appel
+     relevé */
+  if (E.nonEffectue){ doc.setDrawColor(P.gris[0], P.gris[1], P.gris[2]); doc.setLineWidth(0.6); doc.setLineDash([]); }
 }
 /* m160 (DL8, DL18) : boîte de branchement délestée (e : son élément de constatDeleste). Le cadre de la présentation 2 réduit à ses
    rangées gardées (13,25 dès 40) et à ses colonnes (bord droit 386,5 avec une, 446,5 avec deux), dans l'état de trait que pose le cadre
@@ -3762,10 +3789,13 @@ function cstBoiteDeleste(doc, B, e){
    « territorial » sans gestionnaire, sans « géré par » ; la note de la gargouille à créer, avec sa case ; la boîte réduite
    (cstBoiteDeleste). Le pied ne bouge pas (cstSignatures, cstMentions) : visite non effectuée, ni « Je, soussigné… » ni légende du
    propriétaire ; visite effectuée, « Je, soussigné » sans nom garde ses pointillés, seuls de la page (DL11). L'état de départ est celui
-   où le formulaire laisse la page 1 (drawConstatDeleste) */
+   où le formulaire laisse la page 1 (drawConstatDeleste). m161 (DL17) : les éléments se choisissent par leur identifiant (CST_P2), le
+   pied compris ; en page unique (pied du calcul en page 1), ni page neuve ni cadre (celui de la page 1 vaut pour toute la page) : chaque
+   élément, la boîte comprise, descend de son dy sous la page 1 ; sur deux pages, le dy de la boîte vaut 0 et tout reste comme en m160 */
 function drawConstatP2Deleste(doc, v, E, els){
   var c = E.c, P = CPC, B = c.boite || {}, D = {}, x, T = {f: 'times', sz: 10.5}, pr = E.precos || {}, K = CST_P2_CLES;
-  (els || constatDeleste(v, E, cstMesure(doc))).forEach(function(e){ if (e.page === 2) D[e.id] = e; });
+  var ids2 = CST_P2.map(function(f){ return f[0]; });
+  (els || constatDeleste(v, E, cstMesure(doc))).forEach(function(e){ if (e.id === 'pied' || ids2.indexOf(e.id) >= 0) D[e.id] = e; });
   /* lignes gardées d'un élément : chacune dessinée aux ordonnées du formulaire, décalée de y − y0 */
   function lignes(id, dessins){ (D[id] ? D[id].lignes : []).forEach(function(l){ if (dessins[l.id]) cstDecale(doc, l.y - l.y0, dessins[l.id]); }); }
   function row3(label, lx, y, keys, lcol){
@@ -3779,9 +3809,10 @@ function drawConstatP2Deleste(doc, v, E, els){
       cOptsCoches(doc, [[pr['pub' + n + '_D'], 'départemental'], [pr['pub' + n + '_T'], 'territorial']], y, Object.assign({col: col}, T), [269.4, 358]);
     };
   }
-  doc.setDrawColor(P.orange[0], P.orange[1], P.orange[2]); doc.setLineWidth(1); doc.rect(15, 15, 565, 811);
+  /* m161 : le cadre, seulement sur une page neuve (pied en page 2) */
+  if (!(D.pied && D.pied.page === 1)){ doc.setDrawColor(P.orange[0], P.orange[1], P.orange[2]); doc.setLineWidth(1); doc.rect(15, 15, 565, 811); }
   doc.setDrawColor(0, 0, 255); doc.setLineWidth(0.6);
-  if (D.boite) cstBoiteDeleste(doc, B, D.boite);
+  if (D.boite) cstDecale(doc, D.boite.dy, function(){ cstBoiteDeleste(doc, B, D.boite); });
   lignes('conclusion', {
     titre: function(){ cHead(doc, 'Conclusion :', 42.6, 109); },
     reseau: function(){
@@ -5111,9 +5142,10 @@ var CONSTAT_ACTIONS = {
     if (curVisit()){ await croquisAJour(curVisit()); await vcResumeSiBesoin(curVisit()); }
     var v = curVisit(), c = v.constat; if (!c || !c.sigTech) return;
     c.fige = constatFigeCalc(v);
-    /* présentation du constat imprimé notée à la signature (m147, D13), jamais au gel (constatGeler) : celle de la v1.7.2 ; signer de nouveau
-       après « Modifier » (c-unlock, qui efface c.fige) note celle du jour */
-    c.fige.mep = 2;
+    /* présentation du constat imprimé notée à la signature (m147, D13), jamais au gel (constatGeler) : m161 (DL4), celle que l'option
+       « Constat imprimé » de l'étude donne ce jour-là (constatMepEtude : 3 pour « Délesté », 2 sinon) ; signer de nouveau après
+       « Modifier » (c-unlock, qui efface c.fige) note celle du jour */
+    c.fige.mep = constatMepEtude();
     c.signeLe = nowISO(); constatTouch(v); await flushSaves(); toast('Constat validé et verrouillé'); render();
   },
   'c-unlock': async function(){ var v = curVisit(), c = constatOf(v); if (!(await confirmModal('Modifier le constat signé ?', 'Les signatures du technicien et du propriétaire seront effacées : il faudra faire signer à nouveau.', 'Modifier', true))) return; c.signeLe = ''; c.sigTech = ''; c.sigProp = ''; delete c.fige; if (c.soussigneAuto){ c.soussigne = ''; delete c.soussigneAuto; } constatTouch(v); await flushSaves(); render(); },
@@ -5623,7 +5655,8 @@ async function ficheHeaderForm(){
       + '<label class="field"><span class="lbl">Ligne de la commune</span><input type="text" id="m-com" value="' + esc(f.commune || '') + '" placeholder="' + esc(auto.com || 'Commune de …') + '"></label>'
       + '<p class="muted small">Laissez vide pour l\'automatique : département déduit du code postal, commune propre à chaque dossier.</p>'
       + '<label class="field"><span class="lbl">Logo du constat de visite</span><select id="m-clogo"><option value="">VÉDÉ Environnement</option><option value="formulaire"' + (f.constatLogo === 'formulaire' ? ' selected' : '') + '>Celui du formulaire (bureau d\'études)</option></select></label>'
-      /* m158 (DL2, DL3) : forme du constat imprimé, pour les constats non signés de l'étude ; '' : aucune forme rangée, le défaut (CST_FORME_DEFAUT) */
+      /* m158 (DL2, DL3) : forme du constat imprimé, pour les constats non signés de l'étude, et notée à la signature (m161, DL4 : c.fige.mep) ;
+         '' : aucune forme rangée, le défaut (CST_FORME_DEFAUT) */
       + '<label class="field"><span class="lbl">Constat imprimé</span><select id="m-cforme">'
       + [['', 'Par défaut (' + (CST_FORME_DEFAUT === 'deleste' ? 'délesté' : 'formulaire complet') + ')'], ['deleste', 'Délesté : seulement ce qui est rempli ou coché'], ['complet', 'Formulaire complet']].map(function(o){
           return '<option value="' + o[0] + '"' + ((f.constatForme || '') === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></label>',

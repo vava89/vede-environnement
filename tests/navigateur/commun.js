@@ -250,7 +250,11 @@ const formeConstat = (p, forme) => p.evaluate(async f => {
      autre       ['?', page, nom de la primitive] (lines, circle… : aucune au constat ; une nouvelle se verrait)
    Couleurs [r, v, b] (telles que la bibliothèque les relit) ; motif : celui du dernier setLineDash, [[], 0] sans motif ; options du texte
    et style en JSON. Un appel fait par un autre appel relevé (line passe par lines) n'est pas relevé. o.sansModule : module du croquis
-   retiré le temps de l'impression (croquis absent), comme dans constat-boite.js. */
+   retiré le temps de l'impression (croquis absent), comme dans constat-boite.js. o.fiche (m161) : relève la fiche du dossier,
+   fichePdfBlob(v, o.fiche) (par exemple {constat: true, photos: false} : le constat signé, puis la fiche), au lieu du constat. o.etat
+   (m161) : ajoute en dernier l'état du document quand le PDF est produit (output) ; sans o.fiche, celui où le constat le laisse :
+     état       ['e', page, épaisseur, couleur du trait, couleur du fond, couleur du texte, police, style, taille, motif, interligne,
+                 espacement des lettres] */
 const relevePdf = (p, o) => p.evaluate(async o => {
   const T = window.__VT, v = T.S.visites[o.i || 0], J0 = window.jspdf.jsPDF, L = [], M = Object.getOwnPropertyDescriptor(window, 'VCroquis');
   const m = x => typeof x === 'number' ? Math.round(x * 1000) / 1000 : x === undefined ? null : x;
@@ -272,6 +276,8 @@ const relevePdf = (p, o) => p.evaluate(async o => {
     env('rect', (x, y, w, h, st) => ['r', pg(), m(x), m(y), m(w), m(h), JSON.stringify(m(st)), m(d.getLineWidth()), coul(d.getDrawColor()), coul(d.getFillColor()), motif]);
     env('addImage', (img, fmt, x, y, w, h, al, comp, rot) => ['i', pg(), emp(img), m(fmt), m(x), m(y), m(w), m(h), m(al), m(comp), m(rot)]);
     env('addPage', null, () => ['p', pg()]);
+    if (o.etat) env('output', () => { const f = d.getFont(); return ['e', pg(), m(d.getLineWidth()), coul(d.getDrawColor()), coul(d.getFillColor()),
+      coul(d.getTextColor()), f.fontName, f.fontStyle, m(d.getFontSize()), motif, m(d.getLineHeightFactor()), m(d.getCharSpace())]; });
     ['lines', 'circle', 'ellipse', 'triangle', 'roundedRect', 'polygon', 'path', 'moveTo', 'lineTo', 'curveTo', 'textWithLink', 'link']
       .forEach(nom => env(nom, () => ['?', pg(), nom]));
     const sd = d.setLineDash;
@@ -281,7 +287,7 @@ const relevePdf = (p, o) => p.evaluate(async o => {
   W.API = J0.API; window.jspdf.jsPDF = W;
   /* module retiré sans passer par le crochet de commun.js (son setter), puis remis tel quel */
   if (o.sansModule) Object.defineProperty(window, 'VCroquis', {value: undefined, configurable: true, writable: true});
-  try { await T.constatPdfBlob(v); }
+  try { if (o.fiche) await T.fichePdfBlob(v, o.fiche); else await T.constatPdfBlob(v); }
   finally { window.jspdf.jsPDF = J0; if (o.sansModule){ if (M) Object.defineProperty(window, 'VCroquis', M); else delete window.VCroquis; } }
   return L;
 }, o || {});
