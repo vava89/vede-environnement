@@ -240,9 +240,8 @@ const MEP1 = [['r', 15, 15, 565, 811], ['l', 327, 22.5, 565.5, 22.5], ['l', 43.5
   ['t', 'EU', 356.8, 33.4, 10], ['t', 'EP', 416.5, 33.4, 10], ['t', 'Distance entre la limite parcellaire et la boîte de branchement', 48, 52.5, 10],
   ['t', '0,80 m intérieur', 356.8, 52.5, 8], ['t', 'en limite', 416.5, 52.5, 9.5], ['t', 'Profondeur de la boîte de branchement', 48, 70, 10],
   ['t', '0,80 m', 356.8, 70, 9.5], ['t', '1,10 m', 416.5, 70, 9.5], ['t', 'Présence de té hermétique', 48, 87.5, 10]];
-/* premier appel différent de l'attendu, ou '' */
-const premierEcart = (L, att) => { for (let i = 0; i < Math.max(L.length, att.length); i++) if (JSON.stringify(L[i]) !== JSON.stringify(att[i])) return 'appel ' + (i + 1) + ' : '
-  + (L[i] ? JSON.stringify(L[i]) : 'aucun') + ' au lieu de ' + (att[i] ? JSON.stringify(att[i]) : 'aucun') + ' (' + L.length + ' appels)'; return ''; };
+/* premier appel différent de l'attendu, ou '' (m158 : rangé dans commun.js, pour le témoin de constat-deleste.js) */
+const premierEcart = C.premierEcart;
 
 async function parcours(){
   const A = await C.ouvrir(), p = A.p;

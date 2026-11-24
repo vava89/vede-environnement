@@ -2975,15 +2975,19 @@ function cFill(doc, value, x1, x2, y, o){
   cTxt(doc, f.s, x1, y, Object.assign({col: CPC.val}, o, {sz: f.sz}));
 }
 function cLogo(doc, src, x, y, w, h, alias){ if (!src) return; try { var ip = doc.getImageProperties(src), s = Math.min(w / ip.width, h / ip.height); doc.addImage(src, /png/i.test(src.slice(0, 30)) ? 'PNG' : 'JPEG', x, y, ip.width * s, ip.height * s, alias, 'FAST'); } catch(e){} }
-/* Présentation du constat imprimé (m147, D13) : 2 (v1.7.2 : ni « Autres : » ni ligne laissée vide) pour un constat non signé, croquis
-   activé, désactivé ou absent (S2 b) ; un constat signé garde celle que le geste de signature a notée (c.fige.mep) ; signé sans marque
-   (avant la v1.7.2, ou gelé plus tard par constatGeler) : 1, celle de la v1.7.1 : il garde à la réimpression « Autres : » et ses lignes
-   vides ; constatEval y range aussi ses anomalies comme en v1.7.1, et l'éditeur de l'anomalie y propose la même ligne (m148 : l'évier
-   lie la ligne de sa pièce, le lavabo jamais) */
-function constatMep(c){
-  if (!c || !c.signeLe) return 2;
-  return c.fige && Number(c.fige.mep) >= 2 ? 2 : 1;
-}
+/* Présentation du constat imprimé (m147, D13 ; m158, DL4), dite marque : 1, celle de la v1.7.1 ; 2, celle de la v1.7.2 (ni « Autres : »
+   ni ligne laissée vide) ; 3, le délesté (m158 : seulement ce qui est rempli ou coché). Un constat non signé suit l'option « Constat
+   imprimé » de l'étude ouverte (constatMepEtude : 3 pour « Délesté », 2 sinon ; CST_FORME_DEFAUT quand l'étude n'en range aucune). Le
+   croquis de terrain, activé, désactivé ou absent, n'y change rien : la présentation 2 vaut sans lui comme avec lui (S2 b), le choix de
+   l'étude aussi (réponse du 16 nov., S13 c) ; le défaut reste 'complet' (DL3) en attendant la réponse à Q1. Un constat signé
+   garde celle que le geste de signature a notée (c.fige.mep : 2 ou 3 ; toute autre valeur vaut 1) ; signé sans marque (avant la v1.7.2,
+   ou gelé plus tard par constatGeler) : 1 : il garde à la réimpression « Autres : » et ses lignes vides ; constatEval y range aussi ses
+   anomalies comme en v1.7.1, et l'éditeur de l'anomalie y propose la même ligne (m148 : l'évier lie la ligne de sa pièce, le lavabo
+   jamais). La marque 3 se lit partout comme 2, sauf au tableau des installations (cstTableDeleste) ; la boîte de la page 2 est celle de
+   la présentation 2 pour les marques 2 et 3 */
+var CST_FORME_DEFAUT = 'complet';
+function constatMepEtude(){ var f = (S.etude && S.etude.fiche && S.etude.fiche.constatForme) || CST_FORME_DEFAUT; return f === 'deleste' ? 3 : 2; }
+function constatMep(c){ if (!c || !c.signeLe) return constatMepEtude(); var m = Number(c.fige && c.fige.mep); return m === 3 ? 3 : m === 2 ? 2 : 1; }
 /* Rangées du tableau des installations : les lignes du formulaire, puis les lignes ajoutées, de chaque groupe. Présentation 1 (v1.7.1) :
    une ligne ajoutée s'imprime « Autres : <libellé> » (autres) et des lignes vides (blank) complètent le groupe, la première libellée
    « Autres : » s'il n'a aucune ligne ajoutée ; présentation 2 (m147, D14) : sous son seul libellé, sans ligne vide */
@@ -3036,7 +3040,8 @@ function drawConstatP1(doc, v, E){
   [['visuel', 70.9, 'visuel'], ['eau', 170.2, 'à l’eau'], ['fluo', 269.4, 'à la fluorescéine'], ['fumee', 368.7, 'à la fumée'], ['reso', 453.8, 'à la résonnance']].forEach(function(m){ cOpt(doc, m[1], 333.4, E.meth[m[0]], m[2], {f: 'times', sz: 10}); });
   cHead(doc, 'Description des installations privatives :', 42.6, 351.2);
   cTxt(doc, 'Méthode par installation : V visuel, E eau, Fl fluorescéine, Fu fumée, R résonance', 563, 351.2, {sz: 6.5, st: 'italic', col: P.gris, al: 'right'});
-  drawConstatTable(doc, E);
+  /* m158 : marque 3, le tableau délesté, à la place de celui du formulaire (en-tête en 360-402, rangées en 402-620,5 au plus) */
+  if (constatMep(c) === 3) cstTableDeleste(doc, E, 360, 260.5); else drawConstatTable(doc, E);
   var wo = cTxt(doc, 'Ouvrages/procédés de récupération des EP', 42.6, 635.2, {f: 'times', sz: 10.5, col: P.vert}); cUnder(doc, 42.6, 42.6 + wo, 636.6, P.vert); cTxt(doc, ' :', 42.6 + wo, 635.2, {f: 'times', sz: 10.5, col: P.vert});
   x = 245.6; EP_RECUP.forEach(function(k){ x += cOpt(doc, x, 635.2, !E.nonEffectue && !!(c.epRecup || {})[k[0]], k[1], {f: 'times', st: 'italic', sz: 10, col: P.vert}) + 9; });
   x = 42.6 + cTxt(doc, 'Désagréments déjà subis ', 42.6, 652.8, {f: 'times', sz: 10.5, col: P.brun});
@@ -3055,6 +3060,21 @@ function drawConstatP1(doc, v, E){
   doc.setDrawColor(161, 89, 28); doc.setLineWidth(0.6); doc.setLineDash([3, 2]); doc.line(240, 762.5, 452, 762.5); doc.setLineDash([]);
   cTxt(doc, 'LIMITE DE PROPRIETE', 454.3, 755.8, {sz: 5.5}); cTxt(doc, 'BORDURE / ACCOTEMENT', 454.3, 765, {sz: 5.5, col: [161, 89, 28]});
   if (imgData(c.croquis) && !E.nonEffectue){ try { doc.addImage(imgData(c.croquis), 'PNG', CROQ.x0, CROQ.y0, CROQ.w, CROQ.h, 'croquis-' + v.id + '-' + fnv32(c.croquis), 'FAST'); } catch(e){} }
+}
+/* m158 (DL6) : libellé d'une rangée du tableau des installations, sorti de drawConstatTable sans changement, pour servir aussi au tableau
+   délesté : écrit en x, dans la largeur lw (codes de méthode déjà déduits), sur une rangée de hauteur h et de milieu mid, à la couleur
+   col, en lsz ou plus petit (6,5 pt au moins) pour tenir sur une ligne ou deux, sinon sur une ligne raccourcie (cFit) */
+function cstLibelle(doc, label, x, lw, lsz, h, mid, col){
+  /* Taille choisie pour que le libellé tienne dans la ligne (2 lignes au plus), sans toucher les codes de méthode */
+  var sz = lsz, lines;
+  for (;;){
+    doc.setFont('times', 'normal'); doc.setFontSize(sz); lines = doc.splitTextToSize(label, lw);
+    if ((lines.length === 1 || (lines.length === 2 && 2 * sz * 1.02 <= h - 1.5)) || sz <= 6.5) break;
+    sz -= 0.25;
+  }
+  if (lines.length > 2 || (lines.length === 2 && 2 * sz * 1.02 > h - 1.5)){ var f1 = cFit(doc, label, lw, sz, {f: 'times'}, 6); lines = [f1.s]; sz = f1.sz; }
+  var lh = sz * 1.02, ly = mid + sz * 0.34 - (lines.length - 1) * lh / 2;
+  lines.forEach(function(t, j){ cTxt(doc, t, x, ly + j * lh, {f: 'times', sz: sz, col: col}); });
 }
 function drawConstatTable(doc, E){
   var c = E.c, P = CPC, top = 402, bottom = 620.5, mep = constatMep(c), rows = constatRowsForPrint(c, mep), n = rows.length, hs;
@@ -3109,16 +3129,7 @@ function drawConstatTable(doc, E){
     var r = pr.r, on = rowActive(r) && !E.nonEffectue, label = pdfText(pr.autres ? 'Autres : ' + r.label : r.label);
     var m = on ? (r.methodes || []).map(function(k){ for (var q = 0; q < METH.length; q++) if (METH[q][0] === k) return METH[q][2]; return ''; }).filter(Boolean).join(' ') : '';
     doc.setFont(doc.__font, 'normal'); doc.setFontSize(5.5); var mw = m ? doc.getTextWidth(m) + 2 : 0, lw = 100 - mw;
-    /* Taille choisie pour que le libellé tienne dans la ligne (2 lignes au plus), sans toucher les codes de méthode */
-    var sz = lsz, lines;
-    for (;;){
-      doc.setFont('times', 'normal'); doc.setFontSize(sz); lines = doc.splitTextToSize(label, lw);
-      if ((lines.length === 1 || (lines.length === 2 && 2 * sz * 1.02 <= h - 1.5)) || sz <= 6.5) break;
-      sz -= 0.25;
-    }
-    if (lines.length > 2 || (lines.length === 2 && 2 * sz * 1.02 > h - 1.5)){ var f1 = cFit(doc, label, lw, sz, {f: 'times'}, 6); lines = [f1.s]; sz = f1.sz; }
-    var lh = sz * 1.02, ly = mid + sz * 0.34 - (lines.length - 1) * lh / 2;
-    lines.forEach(function(t, j){ cTxt(doc, t, 70.8, ly + j * lh, {f: 'times', sz: sz, col: col}); });
+    cstLibelle(doc, label, 70.8, lw, lsz, h, mid, col);
     if (m) cTxt(doc, m, 171, y + h - 1.6, {sz: 5.5, col: P.gris, al: 'right'});
     if (on) cTxt(doc, String(r.nb), 184, mid + 3.6, {sz: 10.5, col: P.val, al: 'center'});
     if (on && COLX[r.raccord]) cTxt(doc, 'X', COLX[r.raccord], mid + 3.6, {sz: 10.5, st: 'bold', col: P.val, al: 'center'});
@@ -3127,6 +3138,140 @@ function drawConstatTable(doc, E){
     if (cf === 'non') cTxt(doc, 'X', 531.3, mid + 3.6, {sz: 10.5, st: 'bold', col: P.val, al: 'center'});
     y += h;
   });
+}
+/* m158 (DL14) : colonnes du tableau délesté, par un calcul pur (aucun appel au document : D3 l'appelle directement, par __VT).
+   rangs : les rangées imprimées, chacune réduite à {place, conf} : place, la clé de sa croix « Raccordée sur » (clé de COLX de la
+   présentation 2 : EU_D, EU_T, EP_D, EP_T, UN_D, UN_T, FOSSE, MILIEU, PUITS ou GARG ; '' ou toute autre valeur, comme 'plusieurs' :
+   aucune croix) ; conf, la conformité imprimée ('oui' ou 'non' ; toute autre valeur : aucune). mesure(texte, taille) : largeur du texte
+   dans la police de l'en-tête (Times italique).
+   Installation et Nb restent toujours ; une sous-colonne reste si une rangée y a sa croix, Oui ou Non si une rangée a cette conformité.
+   Largeurs du formulaire, prises sur ses traits (présentation 2, drawConstatTable) : Installation 107,5 ; Nb 23 ; D et T des réseaux 28
+   ou 28,5 ; Fosse septique, Milieu naturel, Puits et Gargouille 31,9, 31,9, 31,8 et 31,9 ; Oui et Non 25,5. Groupes : Réseau EU, Réseau EP
+   et Réseau Unitaire ; chaque colonne de rejet est le sien, comme Oui et Non. Un groupe vaut au moins sa plus large ligne d'en-tête + 4,
+   une région (« Raccordée sur », « Conforme ») au moins son en-tête + 4 : le surplus d'un groupe se partage à parts égales entre ses
+   sous-colonnes gardées, celui d'une région entre ses groupes gardés, puis entre leurs sous-colonnes (en pratique, seule une colonne
+   restée seule en reçoit). Les libellés prennent le reste, 479 − 23 − régions, au moins 107,5 : la somme vaut 479, de 65 à 544 ; tout
+   gardé, on retrouve les traits de la présentation 2. Des régions plus larges que 479 − 23 − 107,5 (impossible avec ces en-têtes) sont
+   réduites en proportion.
+   Rend {colonnes : [{cle, groupe, x, w}] ('lib' et 'nb', puis les sous-colonnes gardées, dans l'ordre du formulaire ; groupe : 'EU',
+   'EP', 'UN', 'FOSSE', … 'oui', 'non', '' pour lib et nb), verticales : [{x, dy}] (de gauche à droite ; dy, départ sous le haut de
+   l'en-tête : 0 pour les bords et les frontières de régions, 11 pour celles des groupes, 31 pour celles des sous-colonnes), traits :
+   [{dy, x1, x2}] (horizontales de l'en-tête), fond : {x, w} de « Conforme », ou null, entetes : [{t, x, dy, sz, col}] (x : centre ; dy :
+   ligne de base sous le haut de l'en-tête ; col : clé de CPC, '' pour le noir), dans l'ordre du formulaire} */
+var CST_GROUPES = [
+  {cle: 'EU', reg: 'racc', l: [['Réseau EU', 24.3]], sz: 10, col: 'rouge', sc: [['EU_D', 28, 'D'], ['EU_T', 28.5, 'T']]},
+  {cle: 'EP', reg: 'racc', l: [['Réseau EP', 24.3]], sz: 10, col: 'vert', sc: [['EP_D', 28.5, 'D'], ['EP_T', 28.5, 'T']]},
+  {cle: 'UN', reg: 'racc', l: [['Réseau', 19.8], ['Unitaire', 30.5]], sz: 10, col: 'bleu', sc: [['UN_D', 28, 'D'], ['UN_T', 28.5, 'T']]},
+  {cle: 'FOSSE', reg: 'racc', l: [['Fosse', 25.7], ['septique', 34.2]], sz: 8, col: 'rouge', sc: [['FOSSE', 31.9]]},
+  {cle: 'MILIEU', reg: 'racc', l: [['Milieu', 25.7], ['naturel', 34.2]], sz: 8, col: 'vert', sc: [['MILIEU', 31.9]]},
+  {cle: 'PUITS', reg: 'racc', l: [['Puits', 29.9]], sz: 8, col: 'vert', sc: [['PUITS', 31.8]]},
+  {cle: 'GARG', reg: 'racc', l: [['Gar-', 25.7], ['gouille', 34.2]], sz: 8, col: 'vert', sc: [['GARG', 31.9]]},
+  {cle: 'oui', reg: 'conf', l: [['Oui', 29.9]], sz: 10, col: '', sc: [['oui', 25.5]]},
+  {cle: 'non', reg: 'conf', l: [['Non', 29.9]], sz: 10, col: '', sc: [['non', 25.5]]}
+];
+var CST_REGIONS = [['racc', 'Raccordée sur'], ['conf', 'Conforme']];
+function cstColonnes(rangs, mesure){
+  var R = rangs || [];
+  var garde = function(reg, k){ return R.some(function(r){ return !!r && (reg === 'conf' ? r.conf : r.place) === k; }); };
+  var mes = function(t, sz){ return Number(mesure(t, sz)) || 0; };
+  /* groupes gardés : au moins leur plus large ligne d'en-tête + 4, le surplus à parts égales entre leurs sous-colonnes */
+  var G = [];
+  CST_GROUPES.forEach(function(g){
+    var sc = g.sc.filter(function(s){ return garde(g.reg, s[0]); }).map(function(s){ return {cle: s[0], w: s[1], lettre: s[2] || ''}; });
+    if (!sc.length) return;
+    var somme = sc.reduce(function(a, s){ return a + s.w; }, 0), tete = 0;
+    g.l.forEach(function(l){ tete = Math.max(tete, mes(l[0], g.sz) + 4); });
+    var w = Math.max(somme, tete);
+    sc.forEach(function(s){ s.w += (w - somme) / sc.length; });
+    G.push({g: g, sc: sc, w: w, x: 0});
+  });
+  /* régions gardées : au moins leur en-tête + 4, le surplus à parts égales entre leurs groupes, puis entre leurs sous-colonnes */
+  var RG = [];
+  CST_REGIONS.forEach(function(rg){
+    var gs = G.filter(function(x){ return x.g.reg === rg[0]; });
+    if (!gs.length) return;
+    var somme = gs.reduce(function(a, x){ return a + x.w; }, 0), w = Math.max(somme, mes(rg[1], 10) + 4), sur = (w - somme) / gs.length;
+    gs.forEach(function(x){ x.w += sur; x.sc.forEach(function(s){ s.w += sur / x.sc.length; }); });
+    RG.push({cle: rg[0], t: rg[1], gs: gs, w: w, x: 0});
+  });
+  var regs = RG.reduce(function(a, x){ return a + x.w; }, 0), lib = 479 - 23 - regs;
+  if (lib < 107.5 - 1e-9){
+    var k = (479 - 23 - 107.5) / regs;
+    RG.forEach(function(x){ x.w *= k; x.gs.forEach(function(g){ g.w *= k; g.sc.forEach(function(s){ s.w *= k; }); }); });
+    lib = 107.5;
+  }
+  var x = 65 + lib + 23, colonnes = [{cle: 'lib', groupe: '', x: 65, w: lib}, {cle: 'nb', groupe: '', x: 65 + lib, w: 23}];
+  var verticales = [{x: 65, dy: 0}, {x: 65 + lib, dy: 0}];
+  RG.forEach(function(rg){
+    rg.x = x; verticales.push({x: x, dy: 0});
+    rg.gs.forEach(function(g, gi){
+      g.x = x; if (gi) verticales.push({x: x, dy: 11});
+      g.sc.forEach(function(s, si){ s.x = x; if (si) verticales.push({x: x, dy: 31}); colonnes.push({cle: s.cle, groupe: g.g.cle, x: x, w: s.w}); x += s.w; });
+    });
+  });
+  verticales.push({x: 544, dy: 0});
+  var traits = [{dy: 0, x1: 65, x2: 544}];
+  if (RG.length) traits.push({dy: 11, x1: RG[0].x, x2: 544});
+  var res = colonnes.filter(function(k){ return k.groupe === 'EU' || k.groupe === 'EP' || k.groupe === 'UN'; });
+  if (res.length) traits.push({dy: 31, x1: res[0].x, x2: res[res.length - 1].x + res[res.length - 1].w});
+  traits.push({dy: 42, x1: 65, x2: 544});
+  var cf = RG.filter(function(rg){ return rg.cle === 'conf'; })[0], entetes = [];
+  RG.forEach(function(rg){ entetes.push({t: rg.t, x: rg.x + rg.w / 2, dy: 9, sz: 10, col: ''}); });
+  entetes.push({t: 'Installation', x: 65 + lib / 2, dy: 24.4, sz: 10, col: ''}, {t: 'Nb', x: 65 + lib + 11.5, dy: 24.4, sz: 10, col: ''});
+  G.forEach(function(g){ g.g.l.forEach(function(l){ entetes.push({t: l[0], x: g.x + g.w / 2, dy: l[1], sz: g.g.sz, col: g.g.col}); }); });
+  G.forEach(function(g){ g.sc.forEach(function(s){ if (s.lettre) entetes.push({t: s.lettre, x: s.x + s.w / 2, dy: 39.8, sz: 10, col: g.g.col}); }); });
+  return {colonnes: colonnes, verticales: verticales, traits: traits, fond: cf ? {x: cf.x, w: cf.w} : null, entetes: entetes};
+}
+/* m158 (DL12, DL13, DL15) : tableau des installations délesté (marque 3, constatMep). haut : ordonnée du haut de l'en-tête ; place :
+   hauteur disponible, en-tête de 42 pt compris (les rangées ont place − 42 ; en m158, 260,5 : la place du formulaire). Rangées : celles
+   de la présentation 2 (constatRowsForPrint), actives seulement (rowActive), aucune si la visite n'est pas effectuée ; sans rangée, rien
+   n'est dessiné, ni en-tête ni trait. Colonnes de cstColonnes : croix « Raccordée sur » à la place de COLX, conformité imprimée de
+   constatEval (E.rows), comme au formulaire. Rangée de 17,5 pt si son libellé tient sur une ligne (en 9,5 pt, ou 8 au-delà de 14 rangées,
+   dans la case des libellés moins 7,5 et les codes de méthode), sinon 21,5 ; toutes réduites en proportion si elles dépassent place − 42.
+   Nb et croix en min(10,5 ; (h − 1) / 0,72) pt : à 10,5 pt, posés comme au formulaire (milieu + 3,6), le décalage réduit en proportion
+   au-dessous. En-tête, traits violets et fond jaune de la présentation 2, limités aux colonnes gardées. Rend la hauteur dessinée (0 sans
+   rangée). */
+function cstTableDeleste(doc, E, haut, place){
+  var c = E.c, P = CPC, conf = {}, PL = [];
+  /* couleurs et épaisseur posées d'abord, même sans rangée ni fond : le document reste dans l'état où drawConstatTable le laisse (fond
+     jaune, traits violets de 0,6), et la suite du constat se dessine comme au formulaire */
+  doc.setFillColor(255, 255, 204); doc.setDrawColor(P.violet[0], P.violet[1], P.violet[2]); doc.setLineWidth(0.6);
+  E.rows.forEach(function(x){ conf[x.r.id] = x; });
+  CST_GROUPES.forEach(function(g){ if (g.reg === 'racc') g.sc.forEach(function(s){ PL.push(s[0]); }); });
+  var rows = E.nonEffectue ? [] : constatRowsForPrint(c, 2).filter(function(pr){ return pr.r && rowActive(pr.r); });
+  if (!rows.length) return 0;
+  var R = rows.map(function(pr){
+    var r = pr.r, cf = conf[r.id] ? conf[r.id].conf : '';
+    return {r: r, col: pr.g === 'EP' ? P.vert : P.rouge, label: pdfText(r.label), place: PL.indexOf(r.raccord) >= 0 ? r.raccord : '', conf: cf === 'oui' || cf === 'non' ? cf : '',
+      m: (r.methodes || []).map(function(k){ for (var q = 0; q < METH.length; q++) if (METH[q][0] === k) return METH[q][2]; return ''; }).filter(Boolean).join(' ')};
+  });
+  var K = cstColonnes(R.map(function(x){ return {place: x.place, conf: x.conf}; }), function(t, sz){ doc.setFont('times', 'italic'); doc.setFontSize(sz); return doc.getTextWidth(pdfText(t)); });
+  var X = {}; K.colonnes.forEach(function(k){ X[k.cle] = k; });
+  var xNb = X.nb.x, lsz = R.length > 14 ? 8 : 9.5;
+  var hs = R.map(function(x){
+    doc.setFont(doc.__font, 'normal'); doc.setFontSize(5.5); x.lw = X.lib.w - 7.5 - (x.m ? doc.getTextWidth(x.m) + 2 : 0);
+    doc.setFont('times', 'normal'); doc.setFontSize(lsz);
+    return doc.splitTextToSize(x.label, x.lw).length === 1 ? 17.5 : 21.5;
+  });
+  var som = hs.reduce(function(a, h){ return a + h; }, 0), dispo = place - 42;
+  if (som > dispo){ hs = hs.map(function(h){ return h * dispo / som; }); som = dispo; }
+  var bas = haut + 42 + som, y = haut + 42;
+  if (K.fond) doc.rect(K.fond.x, haut, K.fond.w, bas - haut, 'F');
+  K.traits.forEach(function(t){ doc.line(t.x1, haut + t.dy, t.x2, haut + t.dy); });
+  K.verticales.forEach(function(v){ doc.line(v.x, haut + v.dy, v.x, bas); });
+  hs.forEach(function(h){ y += h; doc.line(65, y, 544, y); });
+  K.entetes.forEach(function(e){ cTxt(doc, e.t, e.x, haut + e.dy, {f: 'times', st: 'italic', sz: e.sz, al: 'center', col: P[e.col] || P.noir}); });
+  y = haut + 42;
+  R.forEach(function(x, i){
+    var h = hs[i], mid = y + h / 2, tz = Math.min(10.5, (h - 1) / 0.72), dz = 3.6 * tz / 10.5, o = {sz: tz, st: 'bold', col: P.val, al: 'center'};
+    cstLibelle(doc, x.label, 70.8, x.lw, lsz, h, mid, x.col);
+    if (x.m) cTxt(doc, x.m, xNb - 1.5, y + h - 1.6, {sz: 5.5, col: P.gris, al: 'right'});
+    cTxt(doc, String(x.r.nb), xNb + 11.5, mid + dz, {sz: tz, col: P.val, al: 'center'});
+    if (x.place) cTxt(doc, 'X', X[x.place].x + X[x.place].w / 2, mid + dz, o);
+    if (x.conf) cTxt(doc, 'X', X[x.conf].x + X[x.conf].w / 2, mid + dz, o);
+    y += h;
+  });
+  return 42 + som;
 }
 /* page 2, section Boîte de branchement, présentation 1 (constat signé avant la v1.7.2, sans marque : décision D13) : les trois rangées de
    17,5 pt, la distance imprimée telle qu'elle est gardée, comme avant m149 (code inchangé) */
@@ -3195,8 +3340,9 @@ function drawConstatP2(doc, v, E){
   var c = E.c, P = CPC, B = c.boite || {}, x;
   doc.setDrawColor(P.orange[0], P.orange[1], P.orange[2]); doc.setLineWidth(1); doc.rect(15, 15, 565, 811);
   doc.setDrawColor(0, 0, 255); doc.setLineWidth(0.6);
-  /* m149 : présentation notée à la signature (constatMep, m147) : la rangée du côté de la boîte en présentation 2 seulement */
-  if (constatMep(c) === 2) drawBoiteMep2(doc, E, B); else drawBoiteMep1(doc, E, B);
+  /* m149 : présentation notée à la signature (constatMep, m147) : la rangée du côté de la boîte en présentation 2 seulement, que le
+     délesté (marque 3, m158) garde */
+  if (constatMep(c) === 1) drawBoiteMep1(doc, E, B); else drawBoiteMep2(doc, E, B);
   cHead(doc, 'Conclusion :', 42.6, 109);
   cTxt(doc, 'Habitation desservie par un réseau', 42.6, 126.6, {f: 'times', sz: 10.5});
   cOpt(doc, 249.5, 126.6, c.reseau === 'departemental', 'départemental', {f: 'times', sz: 10.5});
@@ -5037,10 +5183,16 @@ async function ficheHeaderForm(){
     html: '<label class="field"><span class="lbl">Ligne du département</span><input type="text" id="m-dep" value="' + esc(f.departement || '') + '" placeholder="' + esc(auto.dep || 'Département de …') + '"></label>'
       + '<label class="field"><span class="lbl">Ligne de la commune</span><input type="text" id="m-com" value="' + esc(f.commune || '') + '" placeholder="' + esc(auto.com || 'Commune de …') + '"></label>'
       + '<p class="muted small">Laissez vide pour l\'automatique : département déduit du code postal, commune propre à chaque dossier.</p>'
-      + '<label class="field"><span class="lbl">Logo du constat de visite</span><select id="m-clogo"><option value="">VÉDÉ Environnement</option><option value="formulaire"' + (f.constatLogo === 'formulaire' ? ' selected' : '') + '>Celui du formulaire (bureau d\'études)</option></select></label>',
-    actions: [{label: 'Annuler', value: null}, {label: 'Enregistrer', cls: 'primary', collect: function(w){ return {departement: w.querySelector('#m-dep').value.trim(), commune: w.querySelector('#m-com').value.trim(), constatLogo: w.querySelector('#m-clogo').value}; }}]});
+      + '<label class="field"><span class="lbl">Logo du constat de visite</span><select id="m-clogo"><option value="">VÉDÉ Environnement</option><option value="formulaire"' + (f.constatLogo === 'formulaire' ? ' selected' : '') + '>Celui du formulaire (bureau d\'études)</option></select></label>'
+      /* m158 (DL2, DL3) : forme du constat imprimé, pour les constats non signés de l'étude ; '' : aucune forme rangée, le défaut (CST_FORME_DEFAUT) */
+      + '<label class="field"><span class="lbl">Constat imprimé</span><select id="m-cforme">'
+      + [['', 'Par défaut (' + (CST_FORME_DEFAUT === 'deleste' ? 'délesté' : 'formulaire complet') + ')'], ['deleste', 'Délesté : seulement ce qui est rempli ou coché'], ['complet', 'Formulaire complet']].map(function(o){
+          return '<option value="' + o[0] + '"' + ((f.constatForme || '') === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></label>',
+    actions: [{label: 'Annuler', value: null}, {label: 'Enregistrer', cls: 'primary', collect: function(w){ return {departement: w.querySelector('#m-dep').value.trim(), commune: w.querySelector('#m-com').value.trim(), constatLogo: w.querySelector('#m-clogo').value, constatForme: w.querySelector('#m-cforme').value}; }}]});
   if (!res) return;
-  e.fiche = res; touchEtude(); await flushSaves(); toast('En-tête des fiches enregistré');
+  /* m158 : les autres clés de la fiche restent ; « Par défaut » ne range aucune forme */
+  e.fiche = Object.assign({}, e.fiche || {}, res); if (e.fiche.constatForme === '') delete e.fiche.constatForme;
+  touchEtude(); await flushSaves(); toast('En-tête des fiches enregistré');
 }
 
 /* ---------- Anomalies types ---------- */
@@ -5248,7 +5400,7 @@ async function init(){
   await render();
   outboxRepair().then(function(){ refreshEnvoiUI(); return processOutbox(true); }).catch(function(){});
 }
-window.__VT = {VC: VC, vcOuvrir: vcOuvrir, vcAppliquer: vcAppliquer, vcPdf: vcPdf, vcPlansPdf: vcPlansPdf, planDe: planDe, fondLire: fondLire, vcResume: vcResume, constatDepuisCroquis: constatDepuisCroquis, vcEcarts: vcEcarts, vcBoiteCle: vcBoiteCle, VC_RESUMES: VC_RESUMES, S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, croqPng: croqPng, croquisAJour: croquisAJour, croquisType: croquisType, croqPlaceLabel: croqPlaceLabel, mailModal: mailModal, processOutbox: processOutbox, outboxAll: outboxAll, mailCfg: mailCfg, pdfText: pdfText, mailsDe: mailsDe, telsDe: telsDe, qualiteTxt: qualiteTxt, signataireAuto: signataireAuto, imgData: imgData, croqPlaceLabel: croqPlaceLabel, croqTextBox: croqTextBox, croqSegHitsBox: croqSegHitsBox, CROQ_GAB: CROQ_GAB, ready: null};
+window.__VT = {VC: VC, vcOuvrir: vcOuvrir, vcAppliquer: vcAppliquer, vcPdf: vcPdf, vcPlansPdf: vcPlansPdf, planDe: planDe, fondLire: fondLire, vcResume: vcResume, constatDepuisCroquis: constatDepuisCroquis, vcEcarts: vcEcarts, vcBoiteCle: vcBoiteCle, VC_RESUMES: VC_RESUMES, S: S, DB: DB, startImport: startImport, computeImport: computeImport, guessMap: guessMap, issuesOf: issuesOf, createEtude: createEtude, applyUpdate: applyUpdate, exportEtude: exportEtude, restoreZip: restoreZip, addPhotos: addPhotos, ACTIONS: ACTIONS, render: render, flushSaves: flushSaves, recapXlsx: recapXlsx, deleteEtudeData: deleteEtudeData, etudeCsv: etudeCsv, fichePdfBlob: fichePdfBlob, ficheFileName: ficheFileName, ficheHeader: ficheHeader, exportFichesPdf: exportFichesPdf, exportCsv: exportCsv, fmtDateLong: fmtDateLong, autoCat: autoCat, constatEval: constatEval, constatIssues: constatIssues, constatPdfBlob: constatPdfBlob, anomRow: anomRow, anomRows: anomRows, anomNC: anomNC, ctc: ctc, croqPng: croqPng, croquisAJour: croquisAJour, croquisType: croquisType, croqPlaceLabel: croqPlaceLabel, mailModal: mailModal, processOutbox: processOutbox, outboxAll: outboxAll, mailCfg: mailCfg, pdfText: pdfText, mailsDe: mailsDe, telsDe: telsDe, qualiteTxt: qualiteTxt, signataireAuto: signataireAuto, imgData: imgData, croqPlaceLabel: croqPlaceLabel, croqTextBox: croqTextBox, croqSegHitsBox: croqSegHitsBox, CROQ_GAB: CROQ_GAB, cstColonnes: cstColonnes, ready: null};
 window.__VT.ready = init();
 })();
 </script>
