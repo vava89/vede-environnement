@@ -1523,7 +1523,7 @@ function visitHtml(){
     : '<label class="check big"><input type="checkbox" data-vf="aucuneAnomalie"' + (v.aucuneAnomalie ? ' checked' : '') + '><span>Aucune anomalie constatée</span></label>';
   var cst = v.constat, cE = cst && cst.signeLe && cst.fige ? constatEval(v, list) : null;
   var cstTxt = !cst ? 'Pas encore commencé.' : cst.signeLe ? 'Signé le ' + fmtDT(cst.signeLe) + '.' + (cE && cE.changed ? ' Le dossier a changé depuis la signature.' : cE && cE.coordChange ? ' Coordonnées modifiées depuis la signature (le constat garde celles du jour).' : '') : (cst.sigTech || cst.sigProp ? 'En cours de signature.' : 'Commencé, à signer.');
-  h += '</section>' + vcCarteHtml(v) + '<section class="sec card cst-card"><div><h2 class="h2">Constat de visite</h2><p class="muted small">' + esc(cstTxt) + ' Formulaire du Département : installations, raccordements, méthodes de contrôle, conclusion et signatures.</p></div>'
+  h += '</section>' + vcCarteHtml(v) + '<section class="sec card cst-card"><div><h2 class="h2">Constat de visite</h2><p class="muted small">' + esc(cstTxt) + ' Installations, raccordements, méthodes de contrôle, conclusion et signatures.</p></div>'
     + '<div class="btnrow"><a class="btn primary" href="#/e/' + esc(e.id) + '/v/' + esc(v.id) + '/constat">' + svg(I.doc) + (cst ? 'Ouvrir le constat' : 'Remplir le constat') + '</a>' + (cst ? '<button type="button" class="btn" data-act="dl-constat" data-vid="' + esc(v.id) + '">' + svg(I.download) + 'Constat PDF</button>' : '')
     + (cst && cst.signeLe ? '<button type="button" class="btn" data-act="c-mail" data-vid="' + esc(v.id) + '">' + svg(I.mail) + 'Envoyer par mail</button>' : '') + '</div>' + (cst && cst.signeLe ? envoiHtml(v) : '');
   h += '</section><section class="sec"><h2 class="h2">Observations sur la fiche</h2><p class="muted small">Elles s\'impriment sous la rubrique correspondante, comme dans vos fiches.</p>'
@@ -1901,7 +1901,7 @@ async function downloadFichePdf(vid){
   catch(err){ reportError(err, 'Fiche PDF impossible'); return false; }
 }
 
-/* ---------- Constat de visite : formulaire « Contrôle de Branchement Particulier » du Département, rempli sur la tablette ---------- */
+/* ---------- Constat de visite « Contrôle de Branchement Particulier » : rempli sur la tablette, imprimé en formulaire complet ou délesté ---------- */
 var RACC = [['EU_D', 'Réseau EU départemental'], ['EU_T', 'Réseau EU territorial'], ['EP_D', 'Réseau EP départemental'], ['EP_T', 'Réseau EP territorial'], ['UN_D', 'Réseau unitaire départemental'], ['UN_T', 'Réseau unitaire territorial'], ['FOSSE', 'Fosse septique'], ['MILIEU', 'Milieu naturel'], ['PUITS', 'Puits'], ['GARG', 'Gargouille']];
 var METH = [['visuel', 'Visuel', 'V'], ['eau', 'À l\'eau', 'E'], ['fluo', 'Fluorescéine', 'Fl'], ['fumee', 'Fumée', 'Fu'], ['reso', 'Résonance', 'R']];
 /* Le siphon de garage se raccorde aux EU ; le siphon de sol figure côté EP */
@@ -2206,7 +2206,8 @@ function boiteCoteHtml(val, n, dis){
 function constatHtml(){
   var v0 = curVisit(), list = anomsOf(v0.id), E = constatEval(v0, list), c = E.c, lock = !!c.signeLe, dis = lock ? ' disabled' : '', h = '', v = lock ? constatFige(v0) : v0;
   cXlsOk = (v0.excel || []).some(function(p){ return String(p[1] == null ? '' : p[1]).trim(); });
-  h += '<div class="ed-head"><h2 class="h2">Constat de visite, dossier ' + esc(v.numero) + '</h2><p class="muted">Formulaire « Contrôle de Branchement Particulier » du Département, rempli ici puis signé sur la tablette. Le PDF reprend sa mise en page.</p></div>';
+  h += '<div class="ed-head"><h2 class="h2">Constat de visite, dossier ' + esc(v.numero) + '</h2><p class="muted">Constat « Contrôle de Branchement Particulier », rempli ici puis signé sur la tablette. '
+    + (constatMep(c) === 3 ? 'Le PDF n\'imprime que ce qui est rempli ou coché' : 'Le PDF reprend la mise en page du formulaire') + (lock ? ' (présentation figée à la signature).' : ' (« En-tête des fiches »).') + '</p></div>';
   if (lock) h += '<div class="lockbar">' + svg(I.check) + '<span>Constat signé le ' + esc(fmtDT(c.signeLe)) + '. Il n\'est plus modifiable.</span><button type="button" class="btn sm" data-act="c-unlock">Modifier</button></div>'
     + (E.changed ? '<p class="inline-warn">Le dossier a changé depuis la signature (' + esc(E.changeWhy.join(', ')) + '). Le constat reste tel qu\'il a été signé ; touchez « Modifier » pour le mettre à jour et le faire signer à nouveau.</p>' : '')
     + (E.coordChange ? '<p class="muted small">Coordonnées du propriétaire modifiées depuis la signature : le constat signé garde celles du jour de la signature.</p>' : '');
@@ -2936,7 +2937,7 @@ async function croquisEditor(v){
   return res;
 }
 
-/* Constat en PDF : 2 pages, mise en page du formulaire du Département (coordonnées relevées sur l'original, en points) */
+/* Constat en PDF : le formulaire complet, en 2 pages (coordonnées relevées sur l'original, en points) ; le délesté : drawConstatDeleste, une page ou deux */
 var CPC = {orange: [227, 108, 10], violet: [157, 59, 255], violetF: [112, 48, 160], bleu: [0, 112, 192], bleuC: [51, 102, 255], rouge: [255, 0, 0], vert: [0, 176, 80], orangeV: [255, 102, 0], brun: [152, 72, 6], noir: [0, 0, 0], val: [20, 40, 140], bleuB: [0, 0, 255], cyan: [0, 176, 240], gris: [120, 120, 120]};
 function cTxt(doc, s, x, y, o){
   o = o || {}; doc.setFont(o.f === 'times' ? 'times' : doc.__font, o.st || 'normal'); doc.setFontSize(o.sz || 11);
@@ -2996,13 +2997,15 @@ function cOptsCoches(doc, cases, y, o, places, ecart){
    ni ligne laissée vide) ; 3, le délesté (m158 : seulement ce qui est rempli ou coché). Un constat non signé suit l'option « Constat
    imprimé » de l'étude ouverte (constatMepEtude : 3 pour « Délesté », 2 sinon ; CST_FORME_DEFAUT quand l'étude n'en range aucune). Le
    croquis de terrain, activé, désactivé ou absent, n'y change rien : la présentation 2 vaut sans lui comme avec lui (S2 b), le choix de
-   l'étude aussi (réponse du 16 nov., S13 c) ; le défaut reste 'complet' (DL3) en attendant la réponse à Q1. Un constat signé
+   l'étude aussi (réponse du 16 nov., S13 c) ; le défaut reste 'complet' (DL3) jusqu'à m163 (réponse du 24 nov. à Q1 : a). Un constat signé
    garde celle que le geste de signature a notée (c.fige.mep : 2 ou 3 ; toute autre valeur vaut 1) ; signé sans marque (avant la v1.7.2,
    ou gelé plus tard par constatGeler) : 1 : il garde à la réimpression « Autres : » et ses lignes vides ; constatEval y range aussi ses
    anomalies comme en v1.7.1, et l'éditeur de l'anomalie y propose la même ligne (m148 : l'évier lie la ligne de sa pièce, le lavabo
    jamais). La marque 3 se lit partout comme 2, sauf au dessin : drawConstat l'aiguille vers drawConstatDeleste, qui la déleste (m159 :
-   page 1 ; m160 : page 2 ; m161 : une seule page quand tout tient, sinon deux (DL17) ; mise en page de constatDeleste). La signature
-   (c-lock) note la forme que l'étude a choisie ce jour-là (m161, DL4 : constatMepEtude, 3 pour « Délesté », 2 sinon) */
+   page 1 ; m160 : page 2 ; m161 : une seule page quand tout tient, sinon deux (DL17) ; mise en page de constatDeleste), et dans l'en-tête
+   de l'éditeur du constat, qui dit la forme du PDF d'après constatMep (m162, DL23 : 3, seulement ce qui est rempli ou coché ; 1 et 2, la
+   mise en page du formulaire). La signature (c-lock) note la forme que l'étude a choisie ce jour-là (m161, DL4 : constatMepEtude, 3 pour
+   « Délesté », 2 sinon) */
 var CST_FORME_DEFAUT = 'complet';
 function constatMepEtude(){ var f = (S.etude && S.etude.fiche && S.etude.fiche.constatForme) || CST_FORME_DEFAUT; return f === 'deleste' ? 3 : 2; }
 function constatMep(c){ if (!c || !c.signeLe) return constatMepEtude(); var m = Number(c.fige && c.fige.mep); return m === 3 ? 3 : m === 2 ? 2 : 1; }

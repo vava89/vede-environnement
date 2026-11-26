@@ -1,5 +1,6 @@
-// Constat délesté (m158 à m161 ; DL1 à DL9, DL12 à DL16, DL18, DL20 pour la page 1 ; DL6, DL8, DL10, DL11, DL16, DL18 et DL20 pour
-// la page 2 ; DL17, page unique, et DL4, marque notée à la signature, pour m161 ;
+// Constat délesté (m158 à m162 ; DL1 à DL9, DL12 à DL16, DL18, DL20 pour la page 1 ; DL6, DL8, DL10, DL11, DL16, DL18 et DL20 pour
+// la page 2 ; DL17, page unique, et DL4, marque notée à la signature, pour m161 ; DL21, onglet « Constat déduit » du croquis, et DL23,
+// textes de l'écran du constat, pour m162 ;
 // DL25, cartes et notes du § 12 de .claude/conception-v173.md), dans l'application (Chromium, données fictives : « Nom
 // Fictif », « 12 rue Fictive », « Ville-Exemple », téléphone fictif). Le PDF est relevé appel par appel (C.relevePdf de commun.js). Les
 // textes fixes du constat n'y sont jamais écrits en clair : le témoin les garde par empreinte, les cas D ne nomment que des libellés
@@ -127,6 +128,18 @@
 //     trait, couleurs, police, taille, motif, interligne, espacement des lettres ; en visite non effectuée, le délesté le laissait en trait
 //     cyan de 0,75, le formulaire en gris de 0,6, celui de ses pointillés : état remis en fin de drawConstatDeleste) ; un constat signé
 //     sans gel, gelé à l'ouverture du croquis (constatGeler) : gel posé, sans marque.
+// P1 (m162 ; DL21) : l'onglet « Constat déduit » du croquis (window.__vcEd.ouvrirPanneau('constat')) ne liste que les installations
+//     dessinées : un WC et un lavabo, le tableau n'a que leurs deux rangées, « EU WC | 1 » puis « EU Évier | 1 » (le lavabo sur la
+//     ligne « Évier »), sans classe ni rangée sans nombre, sous l'introduction nouvelle ; une boîte seule, une descente EP sans façade
+//     (sa note gardée) et un WC en projet (rien qui compte au constat), puis rien de dessiné : pas de tableau, la phrase « Aucune
+//     installation dessinée n'est comptée au constat. » (p.vc-muet) à sa place, juste aussi quand une installation est dessinée
+//     (relecture de m162, M1 et M2), la suite du panneau gardée (« Méthodes de contrôle », « Conclusion proposée »).
+// P2 (m162 ; DL23, R10) : dossier fictif sans croquis ; la carte du dossier (section.cst-card) ne nomme plus le Département et ne
+//     dépend pas de la forme (« Signé le … » d'abord pour un signé) ; l'en-tête de l'éditeur du constat (.ed-head) dit la forme du PDF
+//     d'après constatMep : non signé, celle de l'option de l'étude (« Formulaire complet » : la mise en page du formulaire ; « Délesté » :
+//     ce qui est rempli ou coché), suivie de « (« En-tête des fiches »). » ; signé (c-lock), la marque notée (3, étude en « Délesté »,
+//     gardée quand l'étude passe à « Formulaire complet » ; 2 après « Modifier », étude en « Formulaire complet » ; 1, marque retirée,
+//     étude en « Délesté »), suivie de « (présentation figée à la signature). ». Textes attendus écrits en entier (textes de l'écran).
 // Échouaient sur 74dc8ef (avant m159), 99 contrôles sur 150 : D2, D3 (le tableau et la page 1 attendue), D5, D6, D9 et D13 (pas de
 // calcul constatDeleste, page 1 du formulaire). Y passaient : T0, D1, les garde-fous du tableau du formulaire et de cstColonnes, la
 // page 2 (alors celle du formulaire), l'égalité des trois relevés de D9 (le croquis de terrain n'y change rien) et l'absence d'erreur.
@@ -141,6 +154,12 @@
 // D4 [p] : l'état de fin du refus de visite (le délesté imprimé en 3, le formulaire en 2). Y passent : T0, D1, les contrôles de m159 et
 // m160 des autres cas, les cas de D7 sur deux pages, la marque 2 de D4 (après « Modifier » et dossiers neufs), la fiche de D4 [p] et
 // l'état de fin de ses deux autres dossiers, le gel sans marque et l'absence d'erreur.
+// Échouent sur 7a0280f (avant m162), 17 contrôles sur 649, tous de P1 et P2 : P1, sept (les deux rangées attendues, aucune rangée
+// de classe 'vide' ni sans nombre, l'introduction, la boîte seule, la descente EP sans façade, le WC en projet et rien de dessiné : le
+// tableau de toutes les lignes du formulaire, sans la phrase « Aucune installation dessinée n'est comptée au constat. ») ; P2, les dix
+// contrôles des textes (la carte et l'en-tête d'avant, « Formulaire du Département », « Le PDF reprend sa mise en page. », quelle que
+// soit la forme). Y passent : T0, D1 à D13 (les contrôles de m158 à m161), la suite du panneau de P1 (quatre contrôles) et l'absence
+// d'erreur de P1 et P2.
 'use strict';
 const C = require('./commun.js'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const R = C.rapport('constat-deleste');
@@ -1603,6 +1622,136 @@ async function d4(p){
     + JSON.stringify(g) + (faute ? ' ; ' + faute : '') + ')');
 }
 
+/* P1 (m162, DL21) : onglet « Constat déduit » du croquis du dossier (sans fond), qui ne liste que les installations dessinées. Un WC et
+   un lavabo dessinés : deux rangées, « EU WC | 1 » puis « EU Évier | 1 » (le lavabo compte sur la ligne « Évier », règle de CLAUDE.md),
+   aucune rangée de classe 'vide', sans nombre ou avec une classe ; l'introduction nouvelle, en entier, en tête du panneau. Une boîte
+   seule, une descente EP sans façade (dessinée, comptée sur aucune ligne : sa note reste), un WC en projet (non analysé à l'état des
+   lieux), puis rien de dessiné : pas de tableau, la phrase « Aucune installation dessinée n'est comptée au constat. » à sa place, juste
+   aussi quand une installation est dessinée (relecture de m162, M1 et M2), sous l'introduction, dans un paragraphe de sa classe ; la
+   suite du panneau reste (méthodes de contrôle, conclusion proposée). Le croquis est vide quand il se ferme : P2 suit sur un dossier
+   sans croquis */
+const INTRO_P1 = 'Ce que le croquis permet de remplir dans le constat : nombre d\'installations, raccordement, conformité et méthodes. '
+  + 'Seules les installations dessinées sont listées.';
+const AUCUNE_P1 = 'Aucune installation dessinée n\'est comptée au constat.';
+const NOTE_P1 = 'Une descente EP sans façade indiquée n\'est comptée ni en façade avant ni en façade arrière.';
+async function p1(p){
+  await C.ouvrirCroquis(p, {fond: false});
+  const v0 = await C.vue(p);
+  /* panneau « Constat déduit » ouvert, lu, puis fermé : ses éléments (balise et classe), ses tableaux, les rangées du tableau (deux
+     premières cellules), les rangées de classe 'vide' ou sans nombre, celles qui ont une classe, ses phrases p.vc-muet et les titres en
+     gras de ses paragraphes */
+  const panneau = () => p.evaluate(() => {
+    const ed = window.__vcEd; ed.ouvrirPanneau('constat');
+    const c = document.querySelector('.vc .vc-panneau .vc-pcorps');
+    if (!c){ ed.ouvrirPanneau(null); return null; }
+    const tr = [...c.querySelectorAll('table.vc-tab tbody tr')];
+    const r = {elements: [...c.children].map(x => x.tagName.toLowerCase() + (x.className ? '.' + x.className : '')), tables: c.querySelectorAll('table').length,
+      rangees: tr.map(t => [...t.cells].slice(0, 2).map(x => x.textContent.trim()).join(' | ')),
+      vides: tr.filter(t => t.classList.contains('vide') || !(t.cells[1] && t.cells[1].textContent.trim())).length, classes: tr.filter(t => t.hasAttribute('class')).length,
+      intro: c.firstElementChild ? c.firstElementChild.textContent.trim() : '', muets: [...c.querySelectorAll('p.vc-muet')].map(x => x.textContent.trim()),
+      gras: [...c.querySelectorAll('p > strong')].map(x => x.textContent.trim())};
+    ed.ouvrirPanneau(null);
+    return r;
+  });
+  const voir = a => !a ? 'panneau introuvable' : 'éléments ' + a.elements.join(', ') + ' ; rangées ' + (a.rangees.join(' ; ') || 'aucune') + ' ; vides ' + a.vides
+    + ' ; avec une classe ' + a.classes + ' ; phrases ' + JSON.stringify(a.muets);
+  await C.injecter(p, {el: [C.P('w', 'wc', v0.cx - 3, v0.cy), C.P('l', 'lavabo', v0.cx + 3, v0.cy)]});
+  const a = await panneau();
+  R.ok(!!a && a.tables === 1 && a.elements[1] === 'table.vc-tab' && JSON.stringify(a.rangees) === JSON.stringify(['EU WC | 1', 'EU Évier | 1']),
+    'P1, WC et lavabo dessinés : le tableau n\'a que deux rangées, « EU WC | 1 » puis « EU Évier | 1 » (' + voir(a) + ')');
+  R.ok(!!a && a.vides === 0 && a.classes === 0, 'P1, WC et lavabo dessinés : aucune rangée de classe \'vide\' ni sans nombre, aucune avec une classe (' + voir(a) + ')');
+  R.ok(!!a && a.elements[0] === 'p.vc-muet' && a.intro === INTRO_P1, 'P1 : l\'introduction, en tête du panneau, est la nouvelle, en entier (' + (a ? a.intro : 'panneau introuvable') + ')');
+  for (const [nom, el, note] of [['une boîte seule (rien qui compte au constat)', [C.P('B', 'boite', v0.cx, v0.cy)]],
+      ['une descente EP sans façade (dessinée, comptée sur aucune ligne)', [C.P('d', 'descente', v0.cx, v0.cy)], NOTE_P1],
+      ['un WC en projet (dessiné, non analysé à l\'état des lieux)', [C.P('w', 'wc', v0.cx, v0.cy, {st: 'projet'})]], ['rien de dessiné', []]]){
+    await C.injecter(p, {el});
+    const b = await panneau();
+    R.ok(!!b && b.tables === 0 && b.elements[0] === 'p.vc-muet' && b.intro === INTRO_P1 && b.elements[1] === 'p.vc-muet' && b.muets[1] === AUCUNE_P1
+      && (!note || b.muets.indexOf(note) >= 0),
+      'P1, ' + nom + ' : pas de tableau ; sous l\'introduction, la phrase « ' + AUCUNE_P1 + ' » dans un paragraphe de sa classe'
+      + (note ? ', et la note « ' + note + ' »' : '') + ' (' + voir(b) + ')');
+    R.ok(!!b && b.gras.indexOf('Méthodes de contrôle :') >= 0 && b.gras.indexOf('Conclusion proposée :') >= 0,
+      'P1, ' + nom + ' : la suite du panneau reste (« Méthodes de contrôle », « Conclusion proposée ») (' + (b ? JSON.stringify(b.gras) : 'panneau introuvable') + ')');
+  }
+  await p.evaluate(() => window.__vcEd.ouvrirPanneau(null));
+  await C.fermerCroquis(p);
+}
+
+/* P2 (m162, DL23, R10) : textes de l'écran du constat, sur le dossier fictif de D4, sans croquis. Carte du dossier (section.cst-card
+   p.muted.small) : l'état du constat, puis « Installations, raccordements, méthodes de contrôle, conclusion et signatures. », sans
+   « Formulaire du » ni « Département », quelle que soit la forme. En-tête de l'éditeur du constat (.ed-head p.muted) : « Constat
+   « Contrôle de Branchement Particulier », rempli ici puis signé sur la tablette. », puis, d'après constatMep, « Le PDF n'imprime que ce
+   qui est rempli ou coché » (marque 3) ou « Le PDF reprend la mise en page du formulaire » (1 et 2), suivi de « (« En-tête des
+   fiches »). » pour un non signé (sa forme suit l'option de l'étude) ou de « (présentation figée à la signature). » pour un signé (sa
+   forme suit sa marque). (a) non signé, étude en « Formulaire complet » ; (b) non signé, étude en « Délesté » ; (c) signé (c-lock) étude
+   en « Délesté » : marque 3, puis, l'étude passée à « Formulaire complet », le même texte ; (d) « Modifier », puis signé étude en
+   « Formulaire complet » : marque 2 ; (e) signé, marque retirée (présentation 1), étude en « Délesté » : le texte de (d). Chaque page
+   est rendue de nouveau avant sa lecture. Textes de l'écran : écrits en entier */
+const CARTE_P2 = 'Installations, raccordements, méthodes de contrôle, conclusion et signatures.';
+const TETE_P2 = 'Constat « Contrôle de Branchement Particulier », rempli ici puis signé sur la tablette. ';
+const COMPLET_P2 = 'Le PDF reprend la mise en page du formulaire', DELESTE_P2 = 'Le PDF n\'imprime que ce qui est rempli ou coché';
+const NON_SIGNE_P2 = ' (« En-tête des fiches »).', SIGNE_P2 = ' (présentation figée à la signature).';
+async function p2(p){
+  const DOS = {visite: NOM, lignes: {wc: {nb: '1', raccord: 'EU_D'}}, champs: {demande: '', refCad: '', typePropriete: '', nbLogements: '', categorieNb: '', soussigne: 'Nom Fictif'}};
+  /* texte de la carte du dossier (k faux) ou de l'en-tête de l'éditeur du constat (k vrai), lu sur sa page, rendue de nouveau ; null s'il manque */
+  const lire = async k => {
+    const h = await p.evaluate(k => { const v = window.__VT.S.visites[0], h = '#/e/' + v.etudeId + '/v/' + v.id + (k ? '/constat' : '');
+      if (location.hash !== h) location.hash = h; return h; }, k);
+    await p.waitForFunction(h => window.__VT.S.shownHash === h, h, {timeout: 10000});
+    return p.evaluate(async k => { await window.__VT.render(); const x = document.querySelector(k ? '.ed-head p.muted' : 'section.cst-card p.muted.small');
+      return x ? x.textContent : null; }, k);
+  };
+  /* geste « Signer » (c-lock), comme signer de D4 : date réécrite ; rend la marque (null sans marque) */
+  const signer = () => p.evaluate(async png => {
+    const T = window.__VT, v = T.S.visites[0];
+    v.constat.sigTech = png; v.constat.sigProp = png;
+    await T.ACTIONS['c-lock']();
+    if (!v.constat.signeLe) return 'non signé';
+    v.constat.signeLe = '2026-11-18T09:30:00.000Z';
+    await T.DB.put('visites', v); await T.flushSaves();
+    return !v.constat.fige ? 'sans gel' : v.constat.fige.mep === undefined ? null : v.constat.fige.mep;
+  }, SIG);
+  /* « Modifier » confirmé, comme modifier de D4 */
+  const modifier = async () => {
+    await p.evaluate(() => { window.__m162 = window.__VT.ACTIONS['c-unlock'](); });
+    await p.waitForSelector('#modal-root .modal .m-foot [data-mi="1"]');
+    await p.click('#modal-root .modal .m-foot [data-mi="1"]');
+    await p.evaluate(async () => { await window.__m162; delete window.__m162; }); await C.pause(p, 400);
+  };
+  const sans = t => typeof t === 'string' && t.indexOf('Département') < 0 && t.indexOf('Formulaire du') < 0;
+  const SIGNE_LE = 'Signé le 18/11/2026 à 10h30. ';
+  const pre = await p.evaluate(() => { const T = window.__VT, v = T.S.visites[0]; return {plan: T.planDe(v.id), anomalies: T.anomsOf(v.id).length}; });
+  await poser(p, DOS); await C.formeConstat(p, 'complet');
+  let carte = await lire(false), tete = await lire(true);
+  R.ok(!pre.plan && !pre.anomalies && carte === 'Commencé, à signer. ' + CARTE_P2 && sans(carte),
+    'P2 (a), dossier sans croquis, non signé, étude en « Formulaire complet » : la carte finit par la phrase nouvelle, sans « Département » ni « Formulaire du » ('
+    + JSON.stringify(pre) + ' ; ' + carte + ')');
+  R.ok(tete === TETE_P2 + COMPLET_P2 + NON_SIGNE_P2, 'P2 (a), non signé, étude en « Formulaire complet » : l\'en-tête dit la mise en page du formulaire et renvoie à « En-tête des fiches » (' + tete + ')');
+  await C.formeConstat(p, 'deleste');
+  carte = await lire(false); tete = await lire(true);
+  R.ok(carte === 'Commencé, à signer. ' + CARTE_P2 && sans(carte), 'P2 (b), non signé, étude en « Délesté » : la carte ne dépend pas de la forme (' + carte + ')');
+  R.ok(tete === TETE_P2 + DELESTE_P2 + NON_SIGNE_P2, 'P2 (b), non signé, étude en « Délesté » : l\'en-tête dit que le PDF n\'imprime que ce qui est rempli ou coché et renvoie à « En-tête des fiches » (' + tete + ')');
+  const m3 = await signer();
+  tete = await lire(true); carte = await lire(false);
+  R.ok(m3 === 3 && tete === TETE_P2 + DELESTE_P2 + SIGNE_P2, 'P2 (c), signé (c-lock) étude en « Délesté » : marque 3, l\'en-tête renvoie à la présentation figée à la signature ('
+    + m3 + ' ; ' + tete + ')');
+  R.ok(carte === SIGNE_LE + CARTE_P2 && sans(carte), 'P2 (c), signé : la carte dit « Signé le … », puis la phrase nouvelle (' + carte + ')');
+  await C.formeConstat(p, 'complet');
+  tete = await lire(true);
+  R.ok(tete === TETE_P2 + DELESTE_P2 + SIGNE_P2, 'P2 (c), signé en 3, puis l\'étude passée à « Formulaire complet » : le même en-tête, un signé suit sa marque (' + tete + ')');
+  await modifier();
+  const m2 = await signer();
+  tete = await lire(true); carte = await lire(false);
+  R.ok(m2 === 2 && tete === TETE_P2 + COMPLET_P2 + SIGNE_P2, 'P2 (d), « Modifier », puis signé étude en « Formulaire complet » : marque 2, l\'en-tête dit la mise en page du '
+    + 'formulaire, figée à la signature (' + m2 + ' ; ' + tete + ')');
+  R.ok(carte === SIGNE_LE + CARTE_P2 && sans(carte), 'P2 (d), signé : la carte dit « Signé le … », puis la phrase nouvelle (' + carte + ')');
+  const m1 = await p.evaluate(async () => { const T = window.__VT, v = T.S.visites[0]; delete v.constat.fige.mep; await T.DB.put('visites', v); await T.flushSaves();
+    return !!v.constat.signeLe && !!v.constat.fige && !('mep' in v.constat.fige); });
+  await C.formeConstat(p, 'deleste');
+  tete = await lire(true);
+  R.ok(m1 && tete === TETE_P2 + COMPLET_P2 + SIGNE_P2, 'P2 (e), signé, marque retirée (présentation 1), étude en « Délesté » : le texte de (d) (' + m1 + ' ; ' + tete + ')');
+}
+
 async function casD(){
   const A = await C.ouvrir({fuseau: 'Europe/Paris'}), p = A.p;
   try {
@@ -1624,10 +1773,21 @@ async function casD(){
   } finally { await A.fermer(); }
 }
 
+/* m162 : P1 (onglet « Constat déduit » du croquis) et P2 (textes de l'écran du constat), dans leur propre page */
+async function casP(){
+  const A = await C.ouvrir({fuseau: 'Europe/Paris'}), p = A.p;
+  try {
+    await C.etudeEtDossier(p);
+    await p1(p);
+    await p2(p);
+    R.ok(!A.erreurs.length, 'P1 et P2 : aucune erreur de la page (' + A.erreurs.slice(0, 2).join(' ; ').slice(0, 200) + ')');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
   try {
     await t0();
-    if (!RELEVER) await casD();
+    if (!RELEVER){ await casD(); await casP(); }
   } catch (e){ R.ok(false, 'exception : ' + String(e && e.message || e).split('\n')[0].slice(0, 300)); }
   R.fin();
 })();

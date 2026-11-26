@@ -6986,11 +6986,14 @@ function editeur(racine, opts){
     return h;
   }
   function constatHtml(){
-    var cd = constatDeduit(S.doc, S.an), rows = cd.rows.filter(function(r){ return r.nb || r.std; });
-    var h = '<p class="vc-muet">Ce que le croquis permet de remplir dans le constat : nombre d\'installations, raccordement, conformité et méthodes. Les lignes reprennent celles du constat de l\'application.</p>';
-    h += '<table class="vc-tab"><thead><tr><th>Installation</th><th>Nb</th><th>Raccordement</th><th>Conf.</th><th>Méthodes</th></tr></thead><tbody>' + rows.map(function(r){
+    /* m162 (DL21) : seules les installations dessinées (rangées qui ont un nombre) ; sans rangée, une phrase à la place du tableau,
+       juste aussi quand une installation dessinée ne compte sur aucune ligne (descente EP sans façade, WC en projet) */
+    var cd = constatDeduit(S.doc, S.an), rows = cd.rows.filter(function(r){ return r.nb; });
+    var h = '<p class="vc-muet">Ce que le croquis permet de remplir dans le constat : nombre d\'installations, raccordement, conformité et méthodes. Seules les installations dessinées sont listées.</p>';
+    if (!rows.length) h += '<p class="vc-muet">Aucune installation dessinée n\'est comptée au constat.</p>';
+    else h += '<table class="vc-tab"><thead><tr><th>Installation</th><th>Nb</th><th>Raccordement</th><th>Conf.</th><th>Méthodes</th></tr></thead><tbody>' + rows.map(function(r){
       var rac = r.raccord === 'plusieurs' ? 'plusieurs : ' + r.libs.join(' ; ') : (r.libs.join(' ; ') || (r.nb ? 'à préciser' : ''));
-      return '<tr class="' + (r.nb ? '' : 'vide') + '"><td><span class="vc-g ' + r.groupe + '">' + r.groupe + '</span> ' + esc(r.label) + '</td><td>' + (r.nb || '') + '</td><td>' + esc(rac) + '</td><td>' + (r.conforme === 'oui' ? 'Oui' : r.conforme === 'non' ? '<strong class="ko">Non</strong>' : '') + '</td><td>' + esc(r.meth.map(function(m){ for (var i = 0; i < METH.length; i++) if (METH[i][0] === m) return METH[i][2]; return m; }).join(' ')) + '</td></tr>';
+      return '<tr><td><span class="vc-g ' + r.groupe + '">' + r.groupe + '</span> ' + esc(r.label) + '</td><td>' + (r.nb || '') + '</td><td>' + esc(rac) + '</td><td>' + (r.conforme === 'oui' ? 'Oui' : r.conforme === 'non' ? '<strong class="ko">Non</strong>' : '') + '</td><td>' + esc(r.meth.map(function(m){ for (var i = 0; i < METH.length; i++) if (METH[i][0] === m) return METH[i][2]; return m; }).join(' ')) + '</td></tr>';
     }).join('') + '</tbody></table>';
     var ms = METH.filter(function(m){ return cd.methodes[m[0]]; }).map(function(m){ return m[1].toLowerCase(); });
     h += '<p><strong>Méthodes de contrôle :</strong> ' + (ms.length ? esc(ms.join(', ')) : 'aucune indiquée') + '</p>';
@@ -7722,7 +7725,6 @@ var CSS = [
 '.vc-ctl.info button{border-color:var(--line-2,#DEE5EA);background:var(--surface-2,#F3F6F8)}',
 '.vc-tab{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0}',
 '.vc-tab th,.vc-tab td{border-bottom:1px solid var(--line-2,#DEE5EA);padding:6px 4px;text-align:left;vertical-align:top}',
-'.vc-tab tr.vide td{color:var(--muted,#5C6C78)}',
 '.vc-tab .ko{color:var(--danger,#B42318)}',
 '.vc-g{display:inline-block;min-width:26px;padding:0 4px;border-radius:6px;font-size:11.5px;font-weight:700;text-align:center;color:#fff}',
 '.vc-g.EU{background:#c20000}.vc-g.EP{background:#00813b}.vc-g.UN{background:#9c0a7c}',
