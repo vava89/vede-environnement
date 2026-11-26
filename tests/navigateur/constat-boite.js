@@ -123,6 +123,10 @@
 // Sur la première version de m149 (avant la correction des défauts C1 et C2 de la relecture), 10 vérifications sur 112 échouent :
 //     les cinq du cas 12 sur les valeurs trop longues pour une ligne de 5,5 pt et les cinq du cas 20. Sur la version corrigée d'avant la
 //     retouche de la relecture (deux lignes de 6 pt, y 45,825 et 51,825), 5 sur 112 : ces cinq du cas 12.
+// m163 (DL3 ; réponse du 24 nov. 2026 à Q1 : a) : le constat imprimé est délesté par défaut, sur une seule page quand tout tient.
+//     Les cas qui lisent le PDF du constat ou la marque notée à la signature, écrits pour le formulaire complet (section Boîte de
+//     branchement en page 2), le rangent dans leur étude dès sa création (C.formeConstat) : 12, 15 à 20. Leurs attentes ne
+//     changent pas ; sans ce rangement, 21 vérifications sur 115 échouent.
 // usage : node tests/navigateur/constat-boite.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -498,11 +502,12 @@ async function enregistrement(){
    5,5 pt qui tient, sur la ligne de base de son libellé (50,125 pour la distance) ; « en limite » en 9,5 pt ; un texte plus large que
    56 pt à 7 pt, sur une ligne entière, de 5,5 à 7 pt. Témoins, présentation 1 (constat signé sans marque, D13) : comme en m115, sur la
    ligne de base 52,5, de 7 à 9,5 pt ; deux lignes de 7 pt (48,9 et 56,3). Texte, position, taille et page relevés aux appels de la
-   bibliothèque PDF */
+   bibliothèque PDF. m163 : formulaire complet rangé, le défaut étant le délesté */
 async function pdfBoite(){
   const A = await C.ouvrir(), p = A.p;
   try {
     await C.etudeEtDossier(p);
+    await C.formeConstat(p, 'complet'); /* m163 : formulaire complet rangé, le défaut étant le délesté */
     const LONG = 'à 1,20 m, sous la haie';
     /* constat neuf, boîte B ; signe 2 : signé par cette version (« c-lock », marque de la v1.7.2) ; 1 : signé sans marque (v1.7.1) */
     const imprime = (B, signe) => p.evaluate(async ([B, signe, png]) => {
@@ -573,7 +578,8 @@ async function pdfBoite(){
   finally { R.ok(!A.erreurs.length, 'PDF de la boîte : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
-/* 15 à 17 et 19 (m149, D17) : côté de la boîte au constat, rangée « Boîte à l'intérieur ou à l'extérieur de la propriété » */
+/* 15 à 17, 19 et 20 (m149, D17) : côté de la boîte au constat, rangée « Boîte à l'intérieur ou à l'extérieur de la propriété ».
+   m163 : formulaire complet rangé, le défaut étant le délesté */
 async function coteBoite(){
   const A = await C.ouvrir(), p = A.p;
   const A1 = ['0,80 m', '0,80 m', 'en limite', '1,10 m'];
@@ -598,6 +604,7 @@ async function coteBoite(){
   }, [B || VIEUX, prov]);
   try {
     await C.etudeEtDossier(p);
+    await C.formeConstat(p, 'complet'); /* m163 : formulaire complet rangé, le défaut étant le délesté */
     await croquis(p, dessin(), true);
     await p.evaluate(async () => { const T = window.__VT; T.S.visites[0].statut = 'visitee'; await T.flushSaves(); });
     await constat(p);
@@ -709,11 +716,13 @@ async function coteBoite(){
   finally { R.ok(!A.erreurs.length, 'côté de la boîte : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
-/* 18 (m149, réponse S2 b) : croquis désactivé, puis module du croquis absent : la rangée du côté, vide d'office */
+/* 18 (m149, réponse S2 b) : croquis désactivé, puis module du croquis absent : la rangée du côté, vide d'office. m163 : formulaire
+   complet rangé, le défaut étant le délesté */
 async function sansCroquis(){
   const A = await C.ouvrir(), p = A.p;
   try {
     await C.etudeEtDossier(p);
+    await C.formeConstat(p, 'complet'); /* m163 : formulaire complet rangé, le défaut étant le délesté */
     await p.evaluate(async () => { const T = window.__VT; T.S.visites[0].statut = 'visitee'; await T.flushSaves(); await T.ACTIONS['vc-actif']({checked: false}); });
     let e = await constat(p);
     R.ok(coteOk(e, '', '') && e.bouton === 'absent', '18 croquis désactivé : rangée du côté affichée, vide d\'office, rien de pressé, sans bouton de reprise (' + coteVu(e)

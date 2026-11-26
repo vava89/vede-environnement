@@ -188,6 +188,11 @@
 //     « WC : déclarée conforme alors qu'une anomalie liée est une non-conformité. » (échoue sur c5f8caf : « alors que une anomalie liée »).
 //     Témoins : « Gouttière(s) avant » raccordée au réseau EU, déclarée conforme : « … alors que son raccordement (réseau eu départemental)
 //     ne l'est pas. », mot pour mot ; le rappel du puits (RAP_PUITS, 132) reste tel quel.
+// m163 (DL3 ; réponse du 24 nov. 2026 à Q1 : a) : le constat imprimé est délesté par défaut. Les cas qui lisent le PDF du constat ou
+//     la marque notée à la signature, écrits pour le formulaire complet, le rangent dans leur étude dès sa création (C.formeConstat ;
+//     o.complet de constatVu) : 74 à 82, 94, 95 à 102 sauf 99 (signé sans gel : la présentation de la v1.7.1), 109 à 117, 124 à 131,
+//     132 à 134, 140 et 141. Leurs attentes ne changent pas ; sans ce rangement, 29 vérifications sur 240 échouent (PDF délesté,
+//     marque 3 à la signature).
 // usage : node tests/navigateur/dossier.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -252,11 +257,14 @@ async function lavabo(){
    lecture de plus, rendue dans fin ; o.finAvant(p) (m143) : la même lecture, faite au premier affichage du constat, avant la réouverture
    du croquis et la reprise (rendue dans avant.fin quand l'une d'elles suit). autres : les lignes « Autres » du constat, libellé, nombre
    et ligne du croquis liée (croq). o.decisions (m150) : décisions de Contrôles posées dans le croquis avant son enregistrement
-   ({clé : {st}}) */
+   ({clé : {st}}). o.complet (m163) : « Formulaire complet » rangé dans l'étude dès sa création (C.formeConstat), le défaut étant le
+   délesté */
 async function constatVu(nom, objs, traces, prep, apres, panneau, o){
   const A = await C.ouvrir(), p = A.p;
   try {
-    await C.etudeEtDossier(p); await C.ouvrirCroquis(p, {fond: false});
+    await C.etudeEtDossier(p);
+    if (o && o.complet) await C.formeConstat(p, 'complet'); /* m163 : formulaire complet rangé, le défaut étant le délesté */
+    await C.ouvrirCroquis(p, {fond: false});
     const v0 = await C.vue(p), els = objs.map(([id, t, x, y, q]) => C.P(id, t, v0.cx + x, v0.cy + y, q)), I = C.index(els);
     traces.forEach(([id, a, b]) => els.push(C.L(id, 'tr', [a, b], I)));
     /* o.anomManu : anomalies saisies à la main dans le croquis (75, 76) */
@@ -600,7 +608,8 @@ const pageSigneLe = p => p.evaluate(() => new Promise(ok => { const v = window._
    « oui », rien n'est dit changé (116). Constat signé avant la v1.7.2 (gel de la v1.7.1 simulé : sans marque, la ligne « Cuisine » « non »
    comme la base la calculait) : lignes, boutons, anomalies liées, croix du PDF et conclusion gardés, et rien n'est dit changé depuis la
    signature, ni par constatEval, ni par issuesOf, ni à l'écran du constat, ni sur la page du dossier (111). Pour ces deux gels, l'anomalie
-   supprimée après la signature est toujours signalée (117, témoin). Dossier fictif (12 rue Fictive, Ville-Exemple) */
+   supprimée après la signature est toujours signalée (117, témoin). Dossier fictif (12 rue Fictive, Ville-Exemple).
+   m163 : formulaire complet rangé, le défaut étant le délesté */
 const EV_CU = 'Évier : siphon fuyard';
 async function evierPiece(){
   const A = await C.ouvrir(), p = A.p, LIEE = lieeA(EV_CU);
@@ -611,6 +620,7 @@ async function evierPiece(){
     && croixOk(e.pdf.evier, 'Non') && croixOk(e.pdf.cuisine, 'Oui');
   try {
     await C.etudeEtDossier(p);
+    await C.formeConstat(p, 'complet'); /* m163 : formulaire complet rangé, le défaut étant le délesté */
     await constatAnomalie(p, ['evier', 'cuisine'], {id: 'a-ev1', observation: EV_CU, preconisation: 'Remplacer le siphon de l\'évier', localisation: 'Cuisine'});
     const e109 = await lireEvier(p);
     R.ok(e109.pret && seule(e109), '109 « ' + EV_CU + ' », localisation « Cuisine », Évier et Cuisine comptés, croquis activé : seule la ligne « Évier » est non '
@@ -669,7 +679,8 @@ async function evierPiece(){
    du constat, ni sur la page du dossier (128, témoin, comme sur 7f750a8). Pour ces deux gels, l'anomalie supprimée après la signature est
    toujours signalée, au moins par les observations (129, témoin). Éditeur de l'anomalie : l'option « Automatique » nomme la ligne où le
    constat signé la range, « Salle de bain » avec la marque (130 ; échoue sur 7f750a8 : « Automatique, aucune trouvée »), aucune pour le
-   gel de la v1.7.1, comme en v1.7.1 (131, témoin sur 7f750a8). Dossier fictif (12 rue Fictive, Ville-Exemple) */
+   gel de la v1.7.1, comme en v1.7.1 (131, témoin sur 7f750a8). Dossier fictif (12 rue Fictive, Ville-Exemple).
+   m163 : formulaire complet rangé, le défaut étant le délesté */
 const LA_SDB = 'Lavabo : siphon fuyard';
 async function lavaboConstat(){
   const A = await C.ouvrir(), p = A.p, lire = sm => lireEvier(p, sm, LIGNES_LA);
@@ -680,6 +691,7 @@ async function lavaboConstat(){
     .then(() => p.evaluate(() => { const o = document.querySelector('select[data-af="installation"] option'); return o ? o.textContent : 'aucune option'; }));
   try {
     await C.etudeEtDossier(p);
+    await C.formeConstat(p, 'complet'); /* m163 : formulaire complet rangé, le défaut étant le délesté */
     await constatAnomalie(p, ['sdb'], {id: 'a-la1', observation: LA_SDB, preconisation: 'Remplacer le siphon du lavabo', localisation: 'Salle de bain'});
     const e124 = await lire();
     R.ok(e124.pret && pieceSeule(e124, 'sdb', LA_SDB), '124 « ' + LA_SDB + ' », localisation « Salle de bain », Salle de bain comptée sans ligne « Évier », '
@@ -1094,7 +1106,8 @@ async function autresRestaures(){
 /* 74 (m132) : PDF du constat à dix lignes « Autres » (sept en EU, trois en EP ; vingt lignes, police 8 au-delà de 14) : chaque libellé
    imprimé sur une ligne, dans sa case (x 70,8 ; avant la colonne Nb, à 172,5), entre le haut et le bas du tableau (402 et 620,5), en
    6 pt au moins, sans chevauchement. Depuis m147 (D14) : sous le seul nom de l'appareil, aucun texte « Autres : » sur la page. Texte,
-   position, taille, largeur et page relevés aux appels de la bibliothèque PDF */
+   position, taille, largeur et page relevés aux appels de la bibliothèque PDF. m163 : formulaire complet rangé, le défaut étant le
+   délesté */
 async function autresPdf(){
   const EU = ['Bidet', 'Urinoir', 'Climatisation', 'Fontaine', 'Adoucisseur', 'Pompe à chaleur', 'Abreuvoir'], EP = ['Avaloir de terrasse', 'Bassin d\'agrément', 'Pédiluve'];
   const objs = EU.map((n, i) => ['e' + i, 'autre_eu', 3 * i - 9, 0, {nom: n}]).concat(EP.map((n, i) => ['p' + i, 'autre_ep', 3 * i - 3, 8, {nom: n}]))
@@ -1111,7 +1124,7 @@ async function autresPdf(){
     return {n: (v.constat.rows || []).length, L: rec.filter(r => r.pg === 1 && Math.abs(r.x - 70.8) < 0.01 && noms.indexOf(r.t) >= 0),
       autres: rec.filter(r => r.pg === 1 && /^Autres :/.test(r.t)).map(r => r.t)};
   }, EU.concat(EP));
-  const e = await constatVu('74', objs, tr, '', false, false, {fin}), F = e.fin || {}, L = F.L || [], att = EU.concat(EP);
+  const e = await constatVu('74', objs, tr, '', false, false, {fin, complet: true}), F = e.fin || {}, L = F.L || [], att = EU.concat(EP);
   const ys = L.slice().sort((a, b) => a.y - b.y), mal = L.filter(r => Math.abs(r.x - 70.8) > 0.01 || !(r.y > 402 && r.y < 620.5) || r.sz < 6 || r.x + r.w > 172.5);
   const serre = ys.filter((r, i) => i && r.y - ys[i - 1].y < 0.9 * Math.max(r.sz, ys[i - 1].sz));
   R.ok(JSON.stringify(L.map(r => r.t).sort()) === JSON.stringify(att.slice().sort()) && !mal.length && !serre.length && !(F.autres || ['?']).length, '74 PDF du constat, '
@@ -1125,7 +1138,8 @@ async function autresPdf(){
    (sans croqAuto : le suivi ne crée rien), une ligne « Chaudière et attente » ×2, EU_D, saisie à la main. L'attente prend cette
    ligne (vcApparier), la chaudière n'en a pas : vcArbitrage se replie sur la ressemblance d'avant m132. Attendu : la ligne saisie marquée
    à arbitrer, ni « oui » ni « non » ; au PDF du constat, la seule croix de sa rangée est celle du raccordement, aucune sous « Oui » ni sous
-   « Non » ; un constat signé avant m132 pendant cet arbitrage (la ligne saisie dans c.fige.arbitrer, simulé) ne se dit pas changé depuis */
+   « Non » ; un constat signé avant m132 pendant cet arbitrage (la ligne saisie dans c.fige.arbitrer, simulé) ne se dit pas changé depuis.
+   m163 : formulaire complet rangé, le défaut étant le délesté */
 async function autresAvantReprise(){
   const O = {ch: ['ch', 'chaudiere', -3, 0], at: ['at', 'attente', 3, 0]}, B = ['B', 'boite', 0, -4, {res: 'EU'}];
   const anomManu = [{id: 'M1', objId: 'ch', reseau: 'EU', obs: 'Purge fictive à contrôler', preco: '', nc: true, st: 'arbitrer'}];
@@ -1157,7 +1171,7 @@ async function autresAvantReprise(){
     return {arb, ligne: x ? JSON.stringify(x.conf) + (x.arbitrer ? ' à arbitrer' : '') : 'absente', pdf, change: why.indexOf('anomalies à arbitrer') >= 0};
   });
   for (const [n, ordre] of [['75', ['ch', 'at']], ['76', ['at', 'ch']]]){
-    const e = await constatVu(n, ordre.map(k => O[k]).concat([B]), [['Bc', 'ch', 'B'], ['Ba', 'at', 'B']], prep, false, false, {fin, anomManu}), F = e.fin || {};
+    const e = await constatVu(n, ordre.map(k => O[k]).concat([B]), [['Bc', 'ch', 'B'], ['Ba', 'at', 'B']], prep, false, false, {fin, anomManu, complet: true}), F = e.fin || {};
     const dit = n + ' chaudière et attente dessinées ' + (n === '75' ? 'dans cet ordre' : 'dans l\'ordre inverse') + ', chaudière à arbitrer, constat jamais repris';
     R.ok(F.arb === 'autre:Chaudière (purge, condensat)' && e.autres === 'Chaudière et attente ×2' && F.ligne === '"" à arbitrer', dit + ' : la ligne saisie « Chaudière et '
       + 'attente » ×2 est marquée à arbitrer, ni « oui » ni « non », aucune ligne créée (obtenu ' + JSON.stringify([F.arb, e.autres, F.ligne]) + ')');
@@ -1170,7 +1184,7 @@ async function autresAvantReprise(){
 /* 77 à 82 (m133 ; M2 de la relecture de m132, M3 de celle de m133) : « Bidet » et « Bidet suspendu » reliés à la boîte EU, anomalie
    saisie dans le croquis sur le bidet suspendu, retenue (non conforme). Reportée dans le dossier, elle est rangée sur la ligne
    « Bidet suspendu » que vcApparier lie à sa ligne du croquis (a.installation), notée dans croquis.auto.installation (ce n'est pas une
-   retouche, rien n'est « à reporter ») */
+   retouche, rien n'est « à reporter »). m163 : formulaire complet rangé, le défaut étant le délesté */
 const BIDETS = [['b1', 'autre_eu', -3, 0, {nom: 'Bidet'}], ['b2', 'autre_eu', 3, 0, {nom: 'Bidet suspendu'}], ['B', 'boite', 0, -4, {res: 'EU'}]];
 const BIDETS_TR = [['T1', 'b1', 'B'], ['T2', 'b2', 'B']];
 const BIDETS_ANOM = [{id: 'M1', objId: 'b2', reseau: 'EU', obs: 'Bidet suspendu : fuite au raccord', preco: 'Réparation du raccord', nc: true, st: 'retenue'}];
@@ -1207,7 +1221,7 @@ const finBidets = p => p.evaluate(async () => {
 });
 async function autresAnomalie(){
   /* 77 : constat repris du croquis */
-  let e = await constatVu('77', BIDETS, BIDETS_TR, '', false, false, {anomManu: BIDETS_ANOM, fin: finBidets}), F = e.fin || {};
+  let e = await constatVu('77', BIDETS, BIDETS_TR, '', false, false, {anomManu: BIDETS_ANOM, fin: finBidets, complet: true}), F = e.fin || {};
   const dit = 'Bidet et Bidet suspendu dessinés, anomalie retenue sur le bidet suspendu';
   R.ok(F.n === 1 && !!F.ligne && F.inst === F.ligne && F.auto === F.ligne && F.aReporter === 0 && !e.ecarts.some(x => /ne suit pas encore|n'est rangée sur aucune ligne/.test(x)),
     '77 ' + dit + ', constat repris du croquis : l\'anomalie est rangée sur la ligne « Bidet suspendu », valeur notée (ni retouche ni « à reporter ») (obtenu '
@@ -1220,7 +1234,7 @@ async function autresAnomalie(){
   R.ok(!!F.signe && F.signe.n === 0 && F.signe.inst === '', '77 garde : constat signé, l\'anomalie remise sans ligne n\'est pas rangée (obtenu ' + JSON.stringify(F.signe) + ')');
 
   /* 78 : croquis rouvert puis refermé : rien ne change */
-  e = await constatVu('78', BIDETS, BIDETS_TR, '', true, false, {anomManu: BIDETS_ANOM, fin: finBidets}); F = e.fin || {};
+  e = await constatVu('78', BIDETS, BIDETS_TR, '', true, false, {anomManu: BIDETS_ANOM, fin: finBidets, complet: true}); F = e.fin || {};
   R.ok(!!F.ligne && F.inst === F.ligne && F.auto === F.ligne && F.aReporter === 0 && e.apres && e.apres.inst === e.avant.inst && F.bs === '"non" anomalies 1' && F.bi === '"oui" anomalies 0'
     && !e.apres.ecarts.some(x => /ne suit pas encore|n'est rangée sur aucune ligne/.test(x)), '78 ' + dit + ', croquis rouvert puis refermé : l\'anomalie reste sur sa ligne, rien « à reporter » '
     + '(obtenu ' + JSON.stringify({inst: F.inst, auto: F.auto, ligne: F.ligne, aReporter: F.aReporter, bs: F.bs, bi: F.bi, ecarts: e.apres && e.apres.ecarts}) + ')');
@@ -1228,7 +1242,7 @@ async function autresAnomalie(){
   /* 79 et 80 : constat sans ces lignes, jamais repris du croquis : rappel ; « Reprendre du croquis » crée les lignes et y range l'anomalie */
   const prep = "c.rows = c.rows.filter(r => r.std); c.rows.forEach(r => { r.nb = ''; r.raccord = ''; r.methodes = []; }); delete c.croqAuto;"
     + " a.installation = ''; a.croquis = Object.assign({}, a.croquis, {auto: Object.assign({}, a.croquis.auto, {installation: ''})});";
-  e = await constatVu('79', BIDETS, BIDETS_TR, prep, false, false, {anomManu: BIDETS_ANOM, fin: finBidets, reprise: true}); F = e.fin || {};
+  e = await constatVu('79', BIDETS, BIDETS_TR, prep, false, false, {anomManu: BIDETS_ANOM, fin: finBidets, reprise: true, complet: true}); F = e.fin || {};
   const av = e.avant || {}, ap = e.apres || {};
   R.ok(av.inst === '' && (av.ecarts || []).indexOf(SANS_LIGNE) >= 0 && !(av.ecarts || []).some(x => /^Bidet : une anomalie/.test(x)), '79 ' + dit + ', constat jamais repris, '
     + 'sans ligne « Autres » : rappel « ' + SANS_LIGNE + ' », aucun pour le bidet (obtenu ' + JSON.stringify({inst: av.inst, ecarts: av.ecarts}) + ')');
@@ -1239,7 +1253,7 @@ async function autresAnomalie(){
   /* 81 et 82 (relecture de m133, M3) : le même constat, mais l'anomalie mise sur « Aucune » par le technicien (la valeur notée reste
      vide) : la reprise ne la range pas, aucun rappel ne le promet */
   const prepAucune = prep.replace("a.installation = '';", "a.installation = 'aucune';");
-  e = await constatVu('81', BIDETS, BIDETS_TR, prepAucune, false, false, {anomManu: BIDETS_ANOM, fin: finBidets, reprise: true}); F = e.fin || {};
+  e = await constatVu('81', BIDETS, BIDETS_TR, prepAucune, false, false, {anomManu: BIDETS_ANOM, fin: finBidets, reprise: true, complet: true}); F = e.fin || {};
   const av81 = e.avant || {}, ap81 = e.apres || {}, rappel = x => (x.ecarts || []).some(t => /sur aucune ligne du constat/.test(t));
   R.ok(prepAucune !== prep && av81.inst === 'aucune' && !rappel(av81), '81 ' + dit + ', constat jamais repris, l\'anomalie mise sur « Aucune » par le technicien : '
     + 'aucun rappel « … n\'est rangée sur aucune ligne du constat ; « Reprendre du croquis » … l\'y range » (obtenu ' + JSON.stringify({inst: av81.inst, ecarts: av81.ecarts}) + ')');
@@ -1412,8 +1426,9 @@ async function autresParObjet(){
     + 'la chaudière, « Aucune » pour un drain) gardées après le suivi et la reprise (obtenu ' + js({ch: ch93, d1: d93}) + ')');
 
   /* 94 (témoin du livrable) : comme 91, sans l'anomalie saisie au dossier, lu au suivi, sans reprise : l'anomalie de la chaudière, rangée sur
-     « Chaudière fioul », rend cette ligne non conforme, au constat comme au PDF du constat (v1.7.1 : sur aucune ligne, la ligne conforme) */
-  e = await constatVu('94', CHD, CHD_TR, jamaisRepris, false, false, {fin: async p => Object.assign(await finChd(p), {pdf: await croixPdf(p, FIOUL)})});
+     « Chaudière fioul », rend cette ligne non conforme, au constat comme au PDF du constat (v1.7.1 : sur aucune ligne, la ligne conforme).
+     m163 : formulaire complet rangé, le défaut étant le délesté */
+  e = await constatVu('94', CHD, CHD_TR, jamaisRepris, false, false, {fin: async p => Object.assign(await finChd(p), {pdf: await croixPdf(p, FIOUL)}), complet: true});
   F = e.fin || {}; const ch94 = (F.anom || {})['eu-inf:ch'] || {}, id94 = (F.ids || {})[FIOUL], cx = String(F.pdf || '').split(', ');
   R.ok(!!id94 && ch94.inst === id94 && ch94.ligne === FIOUL && !(F.anom || {}).dossier && (F.lignes || {})[FIOUL] === '"non" 1' && cx.indexOf('Non') >= 0 && cx.indexOf('Oui') < 0,
     '94 témoin du livrable : ' + dit + ', constat jamais repris, « ' + FIOUL + ' » tapée seule, sans anomalie saisie au dossier : au suivi, l\'anomalie de la chaudière '
@@ -1426,7 +1441,8 @@ async function autresParObjet(){
    jointes) et sa hauteur ; taille des libellés (la plus grande : celle du tableau) ; textes « Autres : » de la page ; lignes du constat ;
    marque de la présentation notée à la signature (c.fige.mep : « sans gel », « sans marque » ou sa valeur). sansModule : croquis absent,
    le module du croquis retiré le temps de l'impression, comme s'il n'était pas chargé ; pret : l'état vu à l'impression (croquis activé
-   dans les Réglages et module chargé, comme vcPret) */
+   dans les Réglages et module chargé, comme vcPret). m163 : formulaire complet rangé, le défaut étant le délesté (99, signé sans
+   gel, s'imprime dans la présentation de la v1.7.1, quel que soit le choix de l'étude) */
 const SIG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 const tablePdf = (p, sansModule) => p.evaluate(async sm => {
   const T = window.__VT, v = T.S.visites[0], J0 = window.jspdf.jsPDF, tx = [], ln = [], M = Object.getOwnPropertyDescriptor(window, 'VCroquis');
@@ -1505,7 +1521,7 @@ const taperEU = (p, labs) => p.evaluate(async L => { const T = window.__VT, c = 
   await T.flushSaves(); }, labs);
 async function constatImprime(){
   /* 95 : constat non signé, croquis activé, lignes types seules : dix rangées */
-  let e = await constatVu('95', WC_EV, WC_EV_TR, '', false, false, {fin: tablePdf}), F = e.fin;
+  let e = await constatVu('95', WC_EV, WC_EV_TR, '', false, false, {fin: tablePdf, complet: true}), F = e.fin;
   let d = sans2(F);
   R.ok(!!F && !F.signe && F.rangees.length === 10 && !d, '95 constat non signé, croquis activé, dix lignes types : dix rangées sous leur libellé, ni « Autres : » ni ligne vide, '
     + 'hauteurs du formulaire × 218,5 / 183,5, texte en 9,5 pt' + (d ? ' (écart : ' + d + ' ; lu : ' + vuTableau(F) + ')' : ''));
@@ -1515,7 +1531,7 @@ async function constatImprime(){
     ['dr', 'drain', 5, 0], ['Bp', 'boite', 5, -5, {res: 'EP'}]];
   const tr = [['Tw', 'w', 'B'], ['Tb', 'b', 'B'], ['Tc', 'ch', 'B'], ['Td', 'dr', 'Bp']];
   e = await constatVu('96', objs, tr, "c.rows.push({id: 'au1', groupe: 'EU', label: 'Fontaine', std: false, nb: '1', raccord: 'EU_D', conforme: '', methodes: []});", false, false,
-    {fin: tablePdf}); F = e.fin; d = sans2(F);
+    {fin: tablePdf, complet: true}); F = e.fin; d = sans2(F);
   const ajout = F ? F.rows.filter(r => !r.std).map(r => r.groupe + ' ' + r.label).sort().join(' ; ') : '';
   R.ok(ajout === 'EP Drain ; EU Bidet ; EU Chaudière (purge, condensat) ; EU Fontaine' && F.rangees.length === 14 && !d, '96 « Bidet », « Chaudière (purge, condensat) » '
     + 'et « Drain » repris du croquis, « Fontaine » tapée : quatorze rangées, chacune sous son seul libellé, aucune ligne vide, hauteurs du formulaire mises à l\'échelle '
@@ -1531,7 +1547,7 @@ async function constatImprime(){
     await signer(p); await C.pause(p, 300);
     return {avant, titre, libre, apres: await tablePdf(p)};
   };
-  e = await constatVu('98', WC_BI, WC_BI_TR, '', false, false, {fin: fin101}); F = e.fin || {};
+  e = await constatVu('98', WC_BI, WC_BI_TR, '', false, false, {fin: fin101, complet: true}); F = e.fin || {};
   const av = F.avant;
   d = ecartTableau(av, 1);
   R.ok(!!av && av.signe && av.mep === 'sans marque' && !d && av.rangees.some(r => r.t === 'Autres : Bidet') && av.rangees[11] && av.rangees[11].t === 'Autres :',
@@ -1560,7 +1576,7 @@ async function constatImprime(){
     const actif = await p.evaluate(() => !!(window.__VT.S.croq && window.__VT.S.croq.actif));
     return {signe, actif, sans: await tablePdf(p)};
   };
-  e = await constatVu('100', WC_BI, WC_BI_TR, '', false, false, {fin: fin100}); F = e.fin || {};
+  e = await constatVu('100', WC_BI, WC_BI_TR, '', false, false, {fin: fin100, complet: true}); F = e.fin || {};
   const ds = sans2(F.signe), dd = sans2(F.sans);
   R.ok(!!F.signe && F.signe.signe && F.signe.mep === 2 && !ds && F.actif === false && !!F.sans && F.sans.mep === 2 && !dd && F.sans.rangees.some(r => r.t === 'Bidet'),
     '100 constat signé par le geste de signature : marque 2, la présentation de la v1.7.2 (« Bidet », aucune ligne vide) ; croquis désactivé ensuite : la même ('
@@ -1579,7 +1595,7 @@ async function constatImprime(){
     return {s13, l14, l15, s16: await tablePdf(p)};
   };
   e = await constatVu('102', WC_BI, WC_BI_TR, "c.rows.push({id: 'au1', groupe: 'EU', label: 'Fontaine', std: false, nb: '1', raccord: 'EU_D', conforme: '', methodes: []});",
-    false, false, {fin: fin102}); F = e.fin || {};
+    false, false, {fin: fin102, complet: true}); F = e.fin || {};
   const egales = lu => !!lu && lu.rangees.every(r => Math.abs(r.h - 218.5 / lu.rangees.length) <= 0.01);
   const s13 = F.s13, d13 = ecartTableau(s13, 1);
   R.ok(!!s13 && s13.signe && s13.mep === 'sans marque' && !d13 && s13.rangees.length === 13 && egales(s13) && s13.sz === 9.5
@@ -1607,11 +1623,13 @@ async function constatImprime(){
 /* 97 (S2 b) : croquis désactivé dans les Réglages, constat saisi à la main, « Autres : Fontaine » tapée dans la feuille « Autre
    installation EU » : la présentation de la v1.7.2, la ligne tapée gardée telle quelle (v1.7.1 : « Autres : Autres : Fontaine » et une
    ligne vide « Autres : » en EP) ; puis croquis réactivé, sans croquis commencé : la même ; puis croquis absent (module du croquis
-   retiré le temps de l'impression, comme s'il n'était pas chargé : vcPret() faux, comme croquis désactivé) : la même */
+   retiré le temps de l'impression, comme s'il n'était pas chargé : vcPret() faux, comme croquis désactivé) : la même.
+   m163 : formulaire complet rangé, le défaut étant le délesté */
 async function constatSansCroquis(){
   const A = await C.ouvrir(), p = A.p;
   try {
     await C.etudeEtDossier(p);
+    await C.formeConstat(p, 'complet'); /* m163 : formulaire complet rangé, le défaut étant le délesté */
     await p.evaluate(async () => { await window.__VT.ACTIONS['vc-actif']({checked: false}); });
     const versConstat = async () => {
       await p.evaluate(() => { const v = window.__VT.S.visites[0]; location.hash = '#/e/' + v.etudeId + '/v/' + v.id + '/constat'; });
@@ -1689,7 +1707,8 @@ const TETES4 = 'Fosse@381.4/385.7/8 EU | septique@381.4/394.2/8 EU | Milieu@413.
 const TETES3 = 'Fosse@386.9/384.6/10 EU | septique@386.9/395.2/10 EU | Milieu@429.4/384.6/10 EP | naturel@429.4/395.2/10 EP | Gargouille@471.8/389.9/10 EP';
 const vuPuits = e => JSON.stringify({pret: e.pret, conf: e.conf, precos: e.precos, mep: e.mep, ecran: e.ecran, cols: e.cols, tetes: e.tetes, pdf: e.pdf,
   issues: (e.issues || []).filter(t => /^Gouttière/.test(t))});
-/* 132 à 134 : « Gouttière(s) avant » (EP) mise à la main sur « Puits », sans anomalie ; 140 et 141 : constat signé */
+/* 132 à 134 : « Gouttière(s) avant » (EP) mise à la main sur « Puits », sans anomalie ; 140 et 141 : constat signé. m163 : formulaire
+   complet rangé, le défaut étant le délesté */
 const RAP_PUITS = 'Gouttière(s) avant : déclarée conforme alors que son raccordement (puits) ne l\'est pas.';
 async function puitsMain(){
   const A = await C.ouvrir(), p = A.p, SEL = 'select[data-cr="raccord"][data-row="gout_av"]';
@@ -1698,6 +1717,7 @@ async function puitsMain(){
     && (!e.ecran || (e.ecran.gout_av.puits && e.ecran.gout_av.val === 'PUITS' && e.ecran.gout_av.conf === 'non' && e.ecran.gout_av.tag === 'proposé'));
   try {
     await C.etudeEtDossier(p);
+    await C.formeConstat(p, 'complet'); /* m163 : formulaire complet rangé, le défaut étant le délesté */
     /* dossier visité, « Gouttière(s) avant » comptée une fois, sans raccordement ni anomalie, puis le constat affiché */
     await p.evaluate(() => { const T = window.__VT, v = T.S.visites[0]; v.statut = 'visitee'; v.constat = T.constatEval(v, []).c;
       v.constat.rows.forEach(x => { if (x.id === 'gout_av') x.nb = '1'; });
@@ -1769,11 +1789,12 @@ async function puitsCroquis(){
     + 'anomalie écartée : « oui » (échoue sur 3035f1d : MILIEU ; sur la première version de m150 : raccordement vidé) (' + vu(e) + ' ; ' + vu(e3) + ')');
 }
 /* 140 et 141 : constat signé, lignes saisies à la main : WC sur une fosse septique, gouttières avant sur le milieu naturel, arrière sur
-   une gargouille */
+   une gargouille. m163 : formulaire complet rangé, le défaut étant le délesté */
 async function puitsSigne(){
   const A = await C.ouvrir(), p = A.p;
   try {
     await C.etudeEtDossier(p);
+    await C.formeConstat(p, 'complet'); /* m163 : formulaire complet rangé, le défaut étant le délesté */
     await p.evaluate(() => { const T = window.__VT, v = T.S.visites[0]; v.statut = 'visitee'; v.constat = T.constatEval(v, []).c;
       const R0 = {wc: 'FOSSE', gout_av: 'MILIEU', gout_ar: 'GARG'};
       v.constat.rows.forEach(x => { if (R0[x.id]){ x.nb = '1'; x.raccord = R0[x.id]; x.methodes = ['visuel']; } });

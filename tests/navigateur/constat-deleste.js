@@ -1,6 +1,6 @@
-// Constat délesté (m158 à m162 ; DL1 à DL9, DL12 à DL16, DL18, DL20 pour la page 1 ; DL6, DL8, DL10, DL11, DL16, DL18 et DL20 pour
+// Constat délesté (m158 à m163 ; DL1 à DL9, DL12 à DL16, DL18, DL20 pour la page 1 ; DL6, DL8, DL10, DL11, DL16, DL18 et DL20 pour
 // la page 2 ; DL17, page unique, et DL4, marque notée à la signature, pour m161 ; DL21, onglet « Constat déduit » du croquis, et DL23,
-// textes de l'écran du constat, pour m162 ;
+// textes de l'écran du constat, pour m162 ; Q1 a (DL3), le délesté, défaut de toutes les études, avec ou sans croquis, pour m163 ;
 // DL25, cartes et notes du § 12 de .claude/conception-v173.md), dans l'application (Chromium, données fictives : « Nom
 // Fictif », « 12 rue Fictive », « Ville-Exemple », téléphone fictif). Le PDF est relevé appel par appel (C.relevePdf de commun.js). Les
 // textes fixes du constat n'y sont jamais écrits en clair : le témoin les garde par empreinte, les cas D ne nomment que des libellés
@@ -12,10 +12,10 @@
 //     marque 2 : rejet des EP dans un puits, boîte et côté, réserves, préconisations (boîte et gargouille à créer, D et T), désagréments
 //     « oui », propriété publique, croquis de position ; (3) signé, gel retiré ; (4) signé, marque 2, refus de visite ; (5) non signé.
 //     Les quatre signés le sont étude en « Formulaire complet » et s'impriment étude en « Délesté » : un constat signé ne suit jamais
-//     l'option. Le non signé s'imprime avec « Formulaire complet » rangé (C.formeConstat), et reste ainsi valable quand le défaut changera
-//     (m163). Fixés : identifiants (« ID » dans les textes), date de signature (réécrite après c-lock), dates de la visite et de la
-//     demande, fuseau 'Europe/Paris' ; un second relevé, dans un profil neuf, est identique au premier. Toute chaîne du témoin autre que
-//     les valeurs fictives saisies par le test (FICTIFS) est une empreinte : contrôlé à chaque passage.
+//     l'option. Le non signé s'imprime avec « Formulaire complet » rangé (C.formeConstat) : il reste ainsi valable, le défaut étant le
+//     délesté (m163). Fixés : identifiants (« ID » dans les textes), date de signature (réécrite après c-lock), dates de la visite et de
+//     la demande, fuseau 'Europe/Paris' ; un second relevé, dans un profil neuf, est identique au premier. Toute chaîne du témoin autre
+//     que les valeurs fictives saisies par le test (FICTIFS) est une empreinte : contrôlé à chaque passage.
 //     Drapeau --relever (avec --app=<dossier de la base>) : ne lance que T0 et écrit le témoin (une ligne par appel). À refaire, sur la
 //     version d'avant le changement, après une mise à jour de jsPDF, des polices ou du fuseau (§ 13 de la conception).
 // Page 1 attendue (m159, DL8 et DL9) : la page 1 du formulaire du même dossier, coupée en rubriques par leurs boîtes au formulaire
@@ -47,7 +47,7 @@
 //     suite de la page 1 remonte de s, en page 2, sous la page neuve et le cadre du formulaire du même dossier ; le pied en page 2). Chaque
 //     cas passe aussi par ces contrôles (verifP1) : 50 en tout, 31 sur une page et 19 sur deux ; les 41 cas de m159 et m160 : 26 et 15 ;
 //     D7 : 4 et 4 ; D4 : 1 sur une page.
-// D1 (DL2, DL3) : liste « Constat imprimé » (#m-cforme) de « En-tête des fiches » : '' « Par défaut (formulaire complet) » en tête et
+// D1 (DL2, DL3) : liste « Constat imprimé » (#m-cforme) de « En-tête des fiches » : '' « Par défaut (délesté) » (m163) en tête et
 //     choisie pour une étude neuve, puis « Délesté : seulement ce qui est rempli ou coché » et « Formulaire complet » ; enregistrer sans
 //     toucher la liste ne range aucune forme (clé absente) ; « Délesté » range 'deleste', montré à la réouverture ; « Par défaut » retire
 //     la clé ; le département, la commune, le logo et une clé posée avant restent (en mémoire et dans la base de la tablette).
@@ -56,8 +56,8 @@
 //     D, Gar-, gouille, Conforme et Oui, sans autre ; verticales et largeurs de cstColonnes (somme 479), égales au calcul du test
 //     (surplus d'une colonne seule) ; croix au centre de leur colonne (0,1 pt), Nb et croix en 10,5 pt, posés comme au formulaire ;
 //     page 2 : au formulaire, la boîte de la présentation 2 ; au délesté (m160), sans valeur de boîte, aucun trait de boîte, et la
-//     conclusion seule (titre 30,5, installations 51,4). Le même dossier en « Formulaire complet », puis sans choix : le tableau du
-//     formulaire.
+//     conclusion seule (titre 30,5, installations 51,4). Le même dossier en « Formulaire complet » : le tableau du formulaire ; sans
+//     choix (m163) : le délesté, égal appel par appel au relevé en « Délesté ».
 //     m159 : le tableau du délesté se trouve par la description du calcul (en-tête en 360 + dy, rangées dès 402 + dy) ; page 1 attendue.
 // D3 : aucune ligne active (désagréments « non ») : ni description ni tableau, et les cases qui suivent gardent le fond du formulaire ;
 //     visite non effectuée (refus), une ligne remplie : rien non plus ; ni croix ni conformité : Installation et Nb seuls (libellés de
@@ -122,12 +122,12 @@
 //     pages.
 // D4 (m161 ; DL4) : signé (c-lock) étude en « Délesté » : marque 3, imprimé délesté (contrôles de la page unique) ; l'étude passée à
 //     « Formulaire complet » : le constat signé ne change pas, appel par appel ; « Modifier », puis signé de nouveau : marque 2, le
-//     formulaire du même dossier ; dossiers neufs signés étude en « Formulaire complet » puis sans choix : marque 2 ; [p] la fiche qui
-//     suit le constat signé (fichePdfBlob, constat compris : C.relevePdf avec o.fiche) se dessine après un constat en 3 comme après le même
-//     en 2 (une page, deux pages, refus de visite), et le constat en 3 laisse le document dans l'état où le laisse le même en 2 (o.etat :
-//     trait, couleurs, police, taille, motif, interligne, espacement des lettres ; en visite non effectuée, le délesté le laissait en trait
-//     cyan de 0,75, le formulaire en gris de 0,6, celui de ses pointillés : état remis en fin de drawConstatDeleste) ; un constat signé
-//     sans gel, gelé à l'ouverture du croquis (constatGeler) : gel posé, sans marque.
+//     formulaire du même dossier ; dossiers neufs signés étude en « Formulaire complet » : marque 2 ; sans choix : marque 3 depuis m163
+//     (2 avant) ; [p] la fiche qui suit le constat signé (fichePdfBlob, constat compris : C.relevePdf avec o.fiche) se dessine après un
+//     constat en 3 comme après le même en 2 (une page, deux pages, refus de visite), et le constat en 3 laisse le document dans l'état où
+//     le laisse le même en 2 (o.etat : trait, couleurs, police, taille, motif, interligne, espacement des lettres ; en visite non
+//     effectuée, le délesté le laissait en trait cyan de 0,75, le formulaire en gris de 0,6, celui de ses pointillés : état remis en fin
+//     de drawConstatDeleste) ; un constat signé sans gel, gelé à l'ouverture du croquis (constatGeler) : gel posé, sans marque.
 // P1 (m162 ; DL21) : l'onglet « Constat déduit » du croquis (window.__vcEd.ouvrirPanneau('constat')) ne liste que les installations
 //     dessinées : un WC et un lavabo, le tableau n'a que leurs deux rangées, « EU WC | 1 » puis « EU Évier | 1 » (le lavabo sur la
 //     ligne « Évier »), sans classe ni rangée sans nombre, sous l'introduction nouvelle ; une boîte seule, une descente EP sans façade
@@ -140,6 +140,21 @@
 //     ce qui est rempli ou coché), suivie de « (« En-tête des fiches »). » ; signé (c-lock), la marque notée (3, étude en « Délesté »,
 //     gardée quand l'étude passe à « Formulaire complet » ; 2 après « Modifier », étude en « Formulaire complet » ; 1, marque retirée,
 //     étude en « Délesté »), suivie de « (présentation figée à la signature). ». Textes attendus écrits en entier (textes de l'écran).
+// F1 à F3, T3 (m163 ; Q1 a, DL3) : le délesté, défaut de toutes les études, avec ou sans croquis ; F1 à F3 dans leur propre page (casF,
+//     après casP). F1 : étude neuve, croquis actif, le dossier fictif de D4 : « En-tête des fiches » ouvert, la liste « Constat imprimé »
+//     montre « Par défaut (délesté) », choisie ; l'en-tête de l'éditeur dit que le PDF n'imprime que ce qui est rempli ou coché (textes
+//     de P2) ; le non signé, sans choix, s'imprime égal appel par appel au relevé en « Délesté », et différent de celui en
+//     « Formulaire complet » ; de même après l'en-tête enregistré par le geste sans toucher la liste (département et commune fictifs ; la
+//     clé reste absente) ; signé (c-lock) : marque 3. F2 (a) : la même étude, sans choix, croquis désactivé (vc-actif, réactivé ensuite,
+//     comme dans D9), puis module du croquis absent : le relevé en « Délesté » ; signé croquis désactivé : marque 3. F3 (a), garde : une
+//     étude neuve de la même page, « Formulaire complet » choisi par le geste : le dossier 5 de T0 (non signé) identique au témoin de T0,
+//     appel par appel. T3, garde : les dossiers 2 et 4 de T0 signés étude en « Délesté » (marque 3), imprimés étude en
+//     « Formulaire complet », puis sans choix : identiques au témoin tests/navigateur/temoins/constat-deleste-signe.json, relevé sur la
+//     base (7c2825b) par le drapeau --relever=T3 (ne lance que T3 et n'écrit que son témoin ; --relever seul ne lance que T0, comme
+//     avant) ; fixés et contrôlés comme T0 (identifiants, date de signature, fuseau ; un second relevé, dans un profil neuf, identique au
+//     premier ; toute chaîne du témoin une empreinte ou une valeur fictive). Migration : les cas de dossier.js, constat-boite.js et
+//     rejets.js qui supposaient le formulaire complet par défaut le rangent (C.formeConstat), leurs attentes inchangées ; ici, seuls D1
+//     (« Par défaut (délesté) »), D2 (sans choix : le délesté) et D4 (dossier neuf signé sans choix : marque 3) changent d'attente.
 // Échouaient sur 74dc8ef (avant m159), 99 contrôles sur 150 : D2, D3 (le tableau et la page 1 attendue), D5, D6, D9 et D13 (pas de
 // calcul constatDeleste, page 1 du formulaire). Y passaient : T0, D1, les garde-fous du tableau du formulaire et de cstColonnes, la
 // page 2 (alors celle du formulaire), l'égalité des trois relevés de D9 (le croquis de terrain n'y change rien) et l'absence d'erreur.
@@ -160,11 +175,19 @@
 // contrôles des textes (la carte et l'en-tête d'avant, « Formulaire du Département », « Le PDF reprend sa mise en page. », quelle que
 // soit la forme). Y passent : T0, D1 à D13 (les contrôles de m158 à m161), la suite du panneau de P1 (quatre contrôles) et l'absence
 // d'erreur de P1 et P2.
+// Échouent sur 7c2825b (avant m163), 11 contrôles sur 668 : D1 (la liste en tête : « Par défaut (formulaire complet) »), D2 (sans choix :
+// le formulaire) et D4 (dossier neuf signé sans choix : marque 2) ; F1, ses cinq contrôles (la liste, l'en-tête de l'éditeur, le
+// formulaire imprimé sans choix, avant et après l'en-tête enregistré, la marque 2 à la signature) ; F2 (a), ses trois contrôles (le
+// formulaire imprimé, croquis désactivé ou module absent ; la marque 2). Y passent : T0, T3 (son témoin y est relevé), F3 (a), les autres
+// contrôles de D1 à D13, P1 et P2, et l'absence d'erreur.
 'use strict';
 const C = require('./commun.js'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const R = C.rapport('constat-deleste');
 const RELEVER = process.argv.indexOf('--relever') >= 0;
 const TEMOIN = path.join(__dirname, 'temoins', 'constat-signe.json');
+/* m163 : témoin de T3 (constats signés délestés), relevé par --relever=T3, qui ne lance que T3 ; il ne réécrit jamais celui de T0 */
+const RELEVER_T3 = process.argv.indexOf('--relever=T3') >= 0;
+const TEMOIN_T3 = path.join(__dirname, 'temoins', 'constat-deleste-signe.json');
 /* signature fictive (image PNG d'un point), comme dans constat-boite.js ; sert aussi de croquis de position */
 const SIG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 /* valeurs fictives saisies par le test : seules chaînes que le témoin garde en clair (chacune doit se dire fictive) */
@@ -202,7 +225,8 @@ function controle(T){
 const texteTemoin = T => '{' + Object.keys(T).map(n => JSON.stringify(n) + ':[\n' + T[n].map(a => JSON.stringify(a)).join(',\n') + '\n]').join(',\n') + '}\n';
 
 /* dossier n de T0 (1 à 5), préparé sur le dossier unique de l'étude ; 1 à 4 signés par le geste « Signer » (c-lock, page sur le
-   dossier), étude en « Formulaire complet » ; rend l'état du constat (« marque 2 », « sans marque », « sans gel », « non signé ») */
+   dossier), étude en « Formulaire complet » pour T0, en « Délesté » pour T3 (m163) ; rend l'état du constat (« marque 2 » ou
+   « marque 3 », « sans marque », « sans gel », « non signé ») */
 const preparerT0 = (p, n) => p.evaluate(async ([n, png]) => {
   const T = window.__VT, v = T.S.visites[0];
   Object.assign(v, {statut: n === 4 ? 'refus' : 'visitee', dateVisite: '2026-11-18', absences: [], nom: 'Nom Fictif', tel: '06 39 98 12 34', mail: 'nom.fictif@exemple.org',
@@ -283,6 +307,60 @@ async function t0(){
   }
 }
 
+/* ---------- T3 (m163) : témoin des constats signés délestés ---------- */
+
+/* dossiers 2 et 4 de T0 signés étude en « Délesté » (marque 3), dans un profil neuf, fixés comme dans releveT0 ; chacun relevé en
+   empreintes étude en « Formulaire complet » (T), puis sans choix (sans) : un constat signé ne suit jamais l'option */
+async function releveT3(){
+  const A = await C.ouvrir({fuseau: 'Europe/Paris'}), p = A.p, T = {}, sans = {}, etats = [];
+  try {
+    await C.etudeEtDossier(p);
+    const ids = await p.evaluate(() => [window.__VT.S.etude.id, window.__VT.S.visites[0].id]);
+    for (const n of [2, 4]){
+      await C.formeConstat(p, 'deleste');
+      etats.push(await preparerT0(p, n));
+      await C.formeConstat(p, 'complet');
+      T[n] = empreintes(await C.relevePdf(p), ids);
+      await C.formeConstat(p, '');
+      sans[n] = empreintes(await C.relevePdf(p), ids);
+    }
+    if (A.erreurs.length) R.info('erreurs de la page : ' + A.erreurs.length);
+  } finally { await A.fermer(); }
+  return {T, sans, etats, erreurs: A.erreurs.length};
+}
+
+/* T3 : deux relevés, chacun dans un profil neuf. Avec --relever=T3, le témoin est écrit (relevé en « Formulaire complet », égal à
+   celui sans choix) si tout va bien ; sans drapeau, chaque relevé du premier passage est comparé au témoin, appel par appel */
+async function t3(){
+  const a = await releveT3(), b = await releveT3(), ETATS = 'marque 3, marque 3';
+  const pret = a.etats.join(', ') === ETATS && b.etats.join(', ') === ETATS && !a.erreurs && !b.erreurs;
+  R.ok(pret, 'T3 : dossiers 2 et 4 de T0 signés étude en « Délesté » (' + a.etats.join(', ') + ' ; ' + (a.erreurs + b.erreurs) + ' erreur(s) de la page)');
+  const ec = [2, 4].map(n => { const e = C.premierEcart(b.T[n], a.T[n]) || C.premierEcart(b.sans[n], a.sans[n]); return e ? 'dossier ' + n + ', ' + e : ''; }).filter(Boolean);
+  R.ok(!ec.length, 'T3 : un second relevé, dans un profil neuf, est identique au premier' + (ec.length ? ' (' + ec[0] + ')' : ''));
+  const f = controle(a.T).concat(controle(a.sans));
+  R.ok(!f.length, 'T3 : toute chaîne du relevé est une empreinte ou une valeur fictive saisie par le test' + (f.length ? ' (' + f.slice(0, 3).join(' ; ') + ')' : ''));
+  if (RELEVER_T3){
+    const es = [2, 4].map(n => { const e = C.premierEcart(a.sans[n], a.T[n]); return e ? 'dossier ' + n + ', ' + e : ''; }).filter(Boolean);
+    if (es.length) R.info('T3 : relevés sans choix et en « Formulaire complet » différents (' + es[0] + ')');
+    if (pret && !ec.length && !f.length && !es.length){
+      fs.mkdirSync(path.dirname(TEMOIN_T3), {recursive: true}); fs.writeFileSync(TEMOIN_T3, texteTemoin(a.T));
+      R.info('témoin T3 écrit : ' + path.relative(C.RACINE, TEMOIN_T3) + ' (' + [2, 4].map(n => a.T[n].length).join(', ') + ' appels)');
+    } else R.info('témoin T3 non écrit');
+    return;
+  }
+  let tem = null;
+  try { tem = JSON.parse(fs.readFileSync(TEMOIN_T3, 'utf8')); } catch (e){}
+  if (!R.ok(!!tem, 'T3 : témoin présent et lisible (' + path.relative(C.RACINE, TEMOIN_T3) + ' ; à relever sur la base par --relever=T3)')) return;
+  const ft = controle(tem);
+  R.ok(!ft.length && Object.keys(tem).join() === '2,4', 'T3 : le témoin ne garde en clair que des valeurs fictives (dossiers ' + Object.keys(tem).join(', ') + ')'
+    + (ft.length ? ' (' + ft.slice(0, 3).join(' ; ') + ')' : ''));
+  for (const n of [2, 4]) for (const [X, quoi] of [[a.T, 'étude en « Formulaire complet »'], [a.sans, 'sans choix']]){
+    const e = C.premierEcart(X[n], tem[n] || []);
+    R.ok(!e, 'T3 : dossier ' + n + ' (' + a.etats[n === 2 ? 0 : 1] + '), imprimé ' + quoi + ' : identique au témoin, appel par appel (' + X[n].length + ' appels)'
+      + (e ? ' ; premier écart : ' + e : ''));
+  }
+}
+
 /* ---------- Outils des cas D (relevé brut, lu seulement dans le tableau des installations) ---------- */
 
 /* dossier d'un cas D : constat neuf, non signé, visite effectuée (s.statut sinon) ; s.visite : champs du dossier (nom, tel, mail,
@@ -337,6 +415,17 @@ const FORM_X = [65, 172.5, 195.5, 223.5, 252, 280.5, 309, 337, 365.5, 397.4, 429
 const FORM_V = [[65, 360], [172.5, 360], [195.5, 360], [223.5, 391], [252, 371], [280.5, 391], [309, 371], [337, 391], [365.5, 371], [397.4, 371], [429.3, 371],
   [461.1, 371], [493, 360], [518.5, 371], [544, 360]];
 const imprimer = async (p, forme) => { await C.formeConstat(p, forme); return C.relevePdf(p); };
+/* geste « Signer » (c-lock, page sur le dossier) du dossier ouvert, signatures fictives, date réécrite comme dans preparerT0 ; rend la
+   marque (null sans marque). Pour D4 et P2, puis F1 et F2 (m163) */
+const signerDossier = p => p.evaluate(async png => {
+  const T = window.__VT, v = T.S.visites[0];
+  v.constat.sigTech = png; v.constat.sigProp = png;
+  await T.ACTIONS['c-lock']();
+  if (!v.constat.signeLe) return 'non signé';
+  v.constat.signeLe = '2026-11-18T09:30:00.000Z';
+  await T.DB.put('visites', v); await T.flushSaves();
+  return !v.constat.fige ? 'sans gel' : v.constat.fige.mep === undefined ? null : v.constat.fige.mep;
+}, SIG);
 
 /* ---------- Outils de la page 1 délestée (m159) ---------- */
 
@@ -935,20 +1024,29 @@ const texteEn = (L, x, y) => { const a = L.find(a => a[0] === 't' && a[1] === 1 
 const dit = t => FICTIFS.indexOf(t) >= 0 ? t : H(t);
 
 /* ---------- D1 : option « Constat imprimé » dans « En-tête des fiches » ---------- */
+
+/* « En-tête des fiches » de l'étude ouverte, par les gestes de l'écran (page sur le dossier) : l'ouvrir ; lire sa liste « Constat
+   imprimé » (options et valeur, null sans elle) ; le fermer par « Enregistrer » (ok vrai) ou « Annuler » ; lire la fiche de l'étude, en
+   mémoire et dans la base. Pour D1, puis F1 et F3 (m163) */
+const enteteOuvrir = async p => { await p.click('[data-act="etude-menu"]'); await p.click('[data-m="ch"][data-v="entete"]'); await p.waitForSelector('#m-dep'); };
+const enteteListe = p => p.evaluate(() => { const s = document.querySelector('#m-cforme'); return s ? {opts: Array.from(s.options).map(o => [o.value, o.textContent]), val: s.value} : null; });
+const enteteFermer = async (p, ok) => {
+  await p.click(ok ? '#modal-root button.primary' : '#modal-root .modal .m-foot [data-mi="0"]');
+  await p.waitForSelector('#m-dep', {state: 'detached'}); await p.evaluate(() => window.__VT.flushSaves());
+};
+const enteteFiche = p => p.evaluate(async () => { const T = window.__VT, d = await T.DB.get('etudes', T.S.etude.id); return {mem: T.S.etude.fiche, db: d && d.fiche}; });
 async function d1(p){
   await p.evaluate(async () => { const T = window.__VT, e = T.S.etude; e.fiche = Object.assign({}, e.fiche, {cleFictive: 'Valeur fictive'}); await T.DB.put('etudes', e); });
-  const ouvrirEntete = async () => { await p.click('[data-act="etude-menu"]'); await p.click('[data-m="ch"][data-v="entete"]'); await p.waitForSelector('#m-dep'); };
-  const liste = () => p.evaluate(() => { const s = document.querySelector('#m-cforme'); return s ? {opts: Array.from(s.options).map(o => [o.value, o.textContent]), val: s.value} : null; });
-  const enregistrer = async () => { await p.click('#modal-root button.primary'); await p.waitForSelector('#m-dep', {state: 'detached'}); await p.evaluate(() => window.__VT.flushSaves()); };
-  const fiche = () => p.evaluate(async () => { const T = window.__VT, d = await T.DB.get('etudes', T.S.etude.id); return {mem: T.S.etude.fiche, db: d && d.fiche}; });
+  const ouvrirEntete = () => enteteOuvrir(p), liste = () => enteteListe(p), enregistrer = () => enteteFermer(p, true), fiche = () => enteteFiche(p);
   const AUTRES = {departement: 'Département fictif', commune: 'Commune fictive', constatLogo: 'formulaire', cleFictive: 'Valeur fictive'};
   const garde = f => !!f && Object.keys(AUTRES).every(k => f[k] === AUTRES[k]);
   const dire = f => JSON.stringify(f || null).replace(/"cleFictive"/, '"cle"');
-  const OPTS = [['', 'Par défaut (formulaire complet)'], ['deleste', 'Délesté : seulement ce qui est rempli ou coché'], ['complet', 'Formulaire complet']];
+  /* m163 (Q1 a, DL3) : le défaut est le délesté, « Par défaut (délesté) » en tête (« Par défaut (formulaire complet) » jusqu'à m162) */
+  const OPTS = [['', 'Par défaut (délesté)'], ['deleste', 'Délesté : seulement ce qui est rempli ou coché'], ['complet', 'Formulaire complet']];
 
   await ouvrirEntete();
   const l1 = await liste();
-  R.ok(!!l1 && JSON.stringify(l1.opts) === JSON.stringify(OPTS) && l1.val === '', 'D1 : liste « Constat imprimé » : « Par défaut (formulaire complet) » en tête et choisie pour une '
+  R.ok(!!l1 && JSON.stringify(l1.opts) === JSON.stringify(OPTS) && l1.val === '', 'D1 : liste « Constat imprimé » : « Par défaut (délesté) » en tête et choisie pour une '
     + 'étude neuve, puis « Délesté… » et « Formulaire complet » (obtenu ' + JSON.stringify(l1) + ')');
   await p.fill('#m-dep', AUTRES.departement); await p.fill('#m-com', AUTRES.commune); await p.selectOption('#m-clogo', 'formulaire');
   await enregistrer();
@@ -1004,10 +1102,11 @@ async function d2(p){
   const tb = L.filter(a => a[1] === 2 && a[0] === 'l' && yRef(a) < 100 && [43.5, 327, 386.5, 446.5, 506, 565.5].some(x => a[2] === x || a[4] === x));
   R.ok(lst(p2) === '40, 53.25, 66.5, 79.75, 93' && !tb.length, 'D2 : page 2 : au formulaire, la boîte de la présentation 2 (rangées de 13,25 pt, côté compris) ('
     + lst(p2) + ') ; au délesté, sans valeur de boîte, aucun trait de boîte (' + tb.length + ')');
-  const Lc = X.Lc, TBc = tableau(Lc) || [], Ln = await imprimer(p, ''), TBn = tableau(Ln) || [];
+  const Lc = X.Lc, TBc = tableau(Lc) || [], Ln = await imprimer(p, ''), en = ecartEmp(Ln, X.brut.L);
   R.ok(lst(xsVert(TBc)) === lst(FORM_X) && fondsRangees(TBc).length === 11 && entetes(TBc).length === 23,
     'D2 : le même dossier en « Formulaire complet » : le tableau du formulaire (verticales ' + lst(xsVert(TBc)) + ', ' + fondsRangees(TBc).length + ' rangées, ' + entetes(TBc).length + ' en-têtes)');
-  R.ok(TBn.length > 0 && JSON.stringify(TBn) === JSON.stringify(TBc), 'D2 : sans choix : le même tableau du formulaire (défaut \'complet\')');
+  /* m163 : sans choix, le délesté (jusqu'à m162, le tableau du formulaire) */
+  R.ok(Ln.length > 0 && !en, 'D2 : sans choix : le délesté, égal appel par appel au relevé en « Délesté » (défaut \'deleste\', m163)' + (en ? ' (' + en + ')' : ''));
   verifP1('D2', X);
 }
 
@@ -1541,22 +1640,15 @@ async function d7(p){
     + 'au-delà : deux pages (fins attendues ' + F13.fin + ' et ' + F14.fin + ' ; ' + (X13.une ? 'une' : 'deux') + ' et ' + (X14.une ? 'une' : 'deux') + ' page(s))');
 }
 
-/* D4 (DL4) : la marque notée à la signature, d'après l'option de l'étude (« Délesté » : 3 ; « Formulaire complet » ou sans choix : 2) ; un
-   constat signé en 3 s'imprime délesté et ne bouge plus quand l'étude change ; « Modifier », puis signer de nouveau, note celle du jour ;
-   [p] la fiche qui suit un constat signé en 3 (fichePdfBlob, constat compris) se dessine comme après le même constat en 2 ; le gel
-   (constatGeler, à l'ouverture du croquis) ne pose aucune marque. Le gel vient en dernier : ouvrir le croquis crée le document du plan */
+/* D4 (DL4) : la marque notée à la signature, d'après l'option de l'étude (3 pour « Délesté » ou sans choix, depuis m163 ; 2 pour
+   « Formulaire complet ») ; un constat signé en 3 s'imprime délesté et ne bouge plus quand l'étude change ; « Modifier », puis signer de
+   nouveau, note celle du jour ; [p] la fiche qui suit un constat signé en 3 (fichePdfBlob, constat compris) se dessine comme après le
+   même constat en 2 ; le gel (constatGeler, à l'ouverture du croquis) ne pose aucune marque. Le gel vient en dernier : ouvrir le croquis
+   crée le document du plan */
 async function d4(p){
   const DOS = {visite: NOM, lignes: {wc: {nb: '1', raccord: 'EU_D'}}, champs: {demande: '', refCad: '', typePropriete: '', nbLogements: '', categorieNb: '', soussigne: 'Nom Fictif'}};
-  /* geste « Signer » (c-lock, page sur le dossier), date réécrite comme dans preparerT0 ; rend la marque (null sans marque) */
-  const signer = () => p.evaluate(async png => {
-    const T = window.__VT, v = T.S.visites[0];
-    v.constat.sigTech = png; v.constat.sigProp = png;
-    await T.ACTIONS['c-lock']();
-    if (!v.constat.signeLe) return 'non signé';
-    v.constat.signeLe = '2026-11-18T09:30:00.000Z';
-    await T.DB.put('visites', v); await T.flushSaves();
-    return !v.constat.fige ? 'sans gel' : v.constat.fige.mep === undefined ? null : v.constat.fige.mep;
-  }, SIG);
+  /* geste « Signer » (c-lock) : signerDossier ; rend la marque (null sans marque) */
+  const signer = () => signerDossier(p);
   /* « Modifier » confirmé (comme modifierSigne de dossier.js) */
   const modifier = async () => {
     await p.evaluate(() => { window.__m161 = window.__VT.ACTIONS['c-unlock'](); });
@@ -1580,7 +1672,8 @@ async function d4(p){
   const m3 = await signer();
   await poser(p, DOS); await C.formeConstat(p, '');
   const m4 = await signer();
-  R.ok(m3 === 2 && m4 === 2, 'D4 : dossiers neufs signés, étude en « Formulaire complet » puis sans choix (défaut \'complet\') : marque 2 (' + m3 + ', ' + m4 + ')');
+  /* m163 : sans choix, marque 3 (2 jusqu'à m162) */
+  R.ok(m3 === 2 && m4 === 3, 'D4 : dossiers neufs signés, étude en « Formulaire complet » : marque 2 ; sans choix (défaut \'deleste\', m163) : marque 3 (' + m3 + ', ' + m4 + ')');
   /* [p] relevé du dossier (o : options de C.relevePdf), la marque de son constat signé mise à m en mémoire le temps du relevé */
   const releveEn = async (m, o) => {
     const a = await p.evaluate(m => { const f = window.__VT.S.visites[0].constat.fige, a = f.mep; f.mep = m; return a === undefined ? null : a; }, m);
@@ -1691,26 +1784,25 @@ const CARTE_P2 = 'Installations, raccordements, méthodes de contrôle, conclusi
 const TETE_P2 = 'Constat « Contrôle de Branchement Particulier », rempli ici puis signé sur la tablette. ';
 const COMPLET_P2 = 'Le PDF reprend la mise en page du formulaire', DELESTE_P2 = 'Le PDF n\'imprime que ce qui est rempli ou coché';
 const NON_SIGNE_P2 = ' (« En-tête des fiches »).', SIGNE_P2 = ' (présentation figée à la signature).';
+/* page du dossier (k faux) ou de l'éditeur de son constat (k vrai), ouverte par son adresse. Pour P2, puis F1 (m163) */
+const allerEcran = async (p, k) => {
+  const h = await p.evaluate(k => { const v = window.__VT.S.visites[0], h = '#/e/' + v.etudeId + '/v/' + v.id + (k ? '/constat' : '');
+    if (location.hash !== h) location.hash = h; return h; }, k);
+  await p.waitForFunction(h => window.__VT.S.shownHash === h, h, {timeout: 10000});
+};
+/* texte de la carte du dossier (k faux) ou de l'en-tête de l'éditeur du constat (k vrai), lu sur sa page, rendue de nouveau ; null
+   s'il manque */
+const lireEcran = async (p, k) => {
+  await allerEcran(p, k);
+  return p.evaluate(async k => { await window.__VT.render(); const x = document.querySelector(k ? '.ed-head p.muted' : 'section.cst-card p.muted.small');
+    return x ? x.textContent : null; }, k);
+};
 async function p2(p){
   const DOS = {visite: NOM, lignes: {wc: {nb: '1', raccord: 'EU_D'}}, champs: {demande: '', refCad: '', typePropriete: '', nbLogements: '', categorieNb: '', soussigne: 'Nom Fictif'}};
-  /* texte de la carte du dossier (k faux) ou de l'en-tête de l'éditeur du constat (k vrai), lu sur sa page, rendue de nouveau ; null s'il manque */
-  const lire = async k => {
-    const h = await p.evaluate(k => { const v = window.__VT.S.visites[0], h = '#/e/' + v.etudeId + '/v/' + v.id + (k ? '/constat' : '');
-      if (location.hash !== h) location.hash = h; return h; }, k);
-    await p.waitForFunction(h => window.__VT.S.shownHash === h, h, {timeout: 10000});
-    return p.evaluate(async k => { await window.__VT.render(); const x = document.querySelector(k ? '.ed-head p.muted' : 'section.cst-card p.muted.small');
-      return x ? x.textContent : null; }, k);
-  };
-  /* geste « Signer » (c-lock), comme signer de D4 : date réécrite ; rend la marque (null sans marque) */
-  const signer = () => p.evaluate(async png => {
-    const T = window.__VT, v = T.S.visites[0];
-    v.constat.sigTech = png; v.constat.sigProp = png;
-    await T.ACTIONS['c-lock']();
-    if (!v.constat.signeLe) return 'non signé';
-    v.constat.signeLe = '2026-11-18T09:30:00.000Z';
-    await T.DB.put('visites', v); await T.flushSaves();
-    return !v.constat.fige ? 'sans gel' : v.constat.fige.mep === undefined ? null : v.constat.fige.mep;
-  }, SIG);
+  /* texte de la carte du dossier (k faux) ou de l'en-tête de l'éditeur du constat (k vrai) : lireEcran */
+  const lire = k => lireEcran(p, k);
+  /* geste « Signer » (c-lock), comme dans D4 : signerDossier ; rend la marque (null sans marque) */
+  const signer = () => signerDossier(p);
   /* « Modifier » confirmé, comme modifier de D4 */
   const modifier = async () => {
     await p.evaluate(() => { window.__m162 = window.__VT.ACTIONS['c-unlock'](); });
@@ -1784,10 +1876,103 @@ async function casP(){
   } finally { await A.fermer(); }
 }
 
+/* ---------- F1 à F3 (m163 ; Q1 a, DL3) : le délesté, défaut de toutes les études, avec ou sans croquis ---------- */
+
+/* dossier fictif de F1 et F2 : celui de D4 et de P2 */
+const DOS_F = {visite: NOM, lignes: {wc: {nb: '1', raccord: 'EU_D'}}, champs: {demande: '', refCad: '', typePropriete: '', nbLogements: '', categorieNb: '', soussigne: 'Nom Fictif'}};
+
+/* F1 : étude neuve, sans choix, croquis actif : la liste de « En-tête des fiches », l'en-tête de l'éditeur, le non signé imprimé (avant
+   et après l'en-tête enregistré sans toucher la liste), la marque à la signature */
+async function f1(p){
+  await poser(p, DOS_F);
+  const pre = await p.evaluate(() => { const T = window.__VT, f = T.S.etude.fiche || {}; return {actif: !!(T.S.croq && T.S.croq.actif), module: !!window.VCroquis, cle: 'constatForme' in f}; });
+  await allerEcran(p, false);
+  await enteteOuvrir(p);
+  const l = await enteteListe(p), choisie = l ? (l.opts.find(o => o[0] === l.val) || [])[1] : null;
+  await enteteFermer(p, false);
+  R.ok(pre.actif && pre.module && !pre.cle && !!l && l.val === '' && choisie === 'Par défaut (délesté)', 'F1 : étude neuve, sans choix, croquis actif : '
+    + '« En-tête des fiches » ouvert, la liste « Constat imprimé » montre « Par défaut (délesté) », choisie (' + JSON.stringify(pre) + ' ; ' + JSON.stringify(choisie) + ')');
+  const tete = await lireEcran(p, true);
+  R.ok(tete === TETE_P2 + DELESTE_P2 + NON_SIGNE_P2, 'F1 : non signé, sans choix : l\'en-tête de l\'éditeur dit que le PDF n\'imprime que ce qui est rempli ou coché, '
+    + 'et renvoie à « En-tête des fiches » (' + tete + ')');
+  const L0 = await C.relevePdf(p), Ld = await imprimer(p, 'deleste'), Lc = await imprimer(p, 'complet');
+  await C.formeConstat(p, '');
+  const e0 = ecartEmp(L0, Ld);
+  R.ok(L0.length > 0 && !e0 && !!ecartEmp(L0, Lc), 'F1 : non signé, sans choix : imprimé égal, appel par appel, au relevé en « Délesté », et différent de celui en '
+    + '« Formulaire complet » (' + L0.length + ', ' + Ld.length + ' et ' + Lc.length + ' appels' + (e0 ? ' ; ' + e0 : '') + ')');
+  await allerEcran(p, false);
+  await enteteOuvrir(p);
+  await p.fill('#m-dep', 'Département fictif'); await p.fill('#m-com', 'Commune fictive');
+  await enteteFermer(p, true);
+  const fi = await enteteFiche(p), L1 = await C.relevePdf(p), Ld1 = await imprimer(p, 'deleste');
+  await C.formeConstat(p, '');
+  const garde = f => !!f && !('constatForme' in f) && f.departement === 'Département fictif' && f.commune === 'Commune fictive';
+  const e1 = ecartEmp(L1, Ld1);
+  R.ok(garde(fi.mem) && garde(fi.db) && L1.length > 0 && !e1, 'F1 : en-tête enregistré par le geste sans toucher la liste (département et commune fictifs) : '
+    + 'la clé reste absente, et le non signé s\'imprime délesté, égal appel par appel au relevé en « Délesté » (' + JSON.stringify(fi.db) + (e1 ? ' ; ' + e1 : '') + ')');
+  const m = await signerDossier(p);
+  R.ok(m === 3, 'F1 : signé (c-lock), sans choix : marque 3 (' + m + ')');
+}
+
+/* F2 (a) : la même étude, sans choix, dossier non signé : croquis désactivé (vc-actif, réactivé ensuite, comme dans D9), puis module
+   du croquis absent : le relevé en « Délesté » ; signé croquis désactivé : marque 3 */
+async function f2(p){
+  const actif = on => p.evaluate(async on => { await window.__VT.ACTIONS['vc-actif']({checked: on}); return !!window.__VT.S.croq.actif; }, on);
+  await poser(p, DOS_F);
+  const Ld = await imprimer(p, 'deleste');
+  await C.formeConstat(p, '');
+  let L2 = [], a2 = null;
+  try { a2 = await actif(false); L2 = await C.relevePdf(p); }
+  finally { await actif(true); }
+  const L3 = await C.relevePdf(p, {sansModule: true}), e2 = ecartEmp(L2, Ld), e3 = ecartEmp(L3, Ld);
+  R.ok(a2 === false && L2.length > 0 && !e2, 'F2 (a) : non signé, sans choix, croquis désactivé : imprimé égal, appel par appel, au relevé en « Délesté » ('
+    + L2.length + ' appels' + (e2 ? ' ; ' + e2 : '') + ')');
+  R.ok(L3.length > 0 && !e3, 'F2 (a) : non signé, sans choix, module du croquis absent : imprimé égal, appel par appel, au relevé en « Délesté » ('
+    + L3.length + ' appels' + (e3 ? ' ; ' + e3 : '') + ')');
+  let m = null, a4 = null;
+  try { a4 = await actif(false); m = await signerDossier(p); }
+  finally { await actif(true); }
+  R.ok(a4 === false && m === 3, 'F2 (a) : signé (c-lock), sans choix, croquis désactivé : marque 3 (' + m + ')');
+}
+
+/* F3 (a), garde : une étude neuve de la même page, « Formulaire complet » choisi par le geste de l'écran ; le dossier 5 de T0 (non
+   signé), imprimé, identique au témoin de T0 (dossier 5), appel par appel */
+async function f3(p){
+  await p.evaluate(() => { location.hash = '#/'; });
+  await p.waitForSelector('[data-act="etude-new"]');
+  await C.etudeEtDossier(p);
+  const ids = await p.evaluate(() => [window.__VT.S.etude.id, window.__VT.S.visites[0].id]);
+  await enteteOuvrir(p);
+  await p.selectOption('#m-cforme', 'complet');
+  await enteteFermer(p, true);
+  const fi = await enteteFiche(p), etat = await preparerT0(p, 5), L = empreintes(await C.relevePdf(p), ids);
+  let tem = null;
+  try { tem = JSON.parse(fs.readFileSync(TEMOIN, 'utf8')); } catch (e){}
+  const e = !tem || !tem[5] ? 'témoin de T0 absent' : C.premierEcart(L, tem[5]);
+  R.ok(!!fi.mem && fi.mem.constatForme === 'complet' && !!fi.db && fi.db.constatForme === 'complet' && etat === 'non signé' && !e,
+    'F3 (a) : étude neuve, « Formulaire complet » choisi par le geste : le dossier 5 de T0 (' + etat + ') identique au témoin de T0, appel par appel ('
+    + L.length + ' appels' + (e ? ' ; premier écart : ' + e : '') + ')');
+}
+
+/* m163 : F1 à F3 (le délesté, défaut de toutes les études, avec ou sans croquis), dans leur propre page */
+async function casF(){
+  const A = await C.ouvrir({fuseau: 'Europe/Paris'}), p = A.p;
+  try {
+    await C.etudeEtDossier(p);
+    await f1(p);
+    await f2(p);
+    await f3(p);
+    R.ok(!A.erreurs.length, 'F1 à F3 : aucune erreur de la page (' + A.erreurs.slice(0, 2).join(' ; ').slice(0, 200) + ')');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
   try {
-    await t0();
-    if (!RELEVER){ await casD(); await casP(); }
+    if (RELEVER_T3) await t3();
+    else {
+      await t0();
+      if (!RELEVER){ await t3(); await casD(); await casP(); await casF(); }
+    }
   } catch (e){ R.ok(false, 'exception : ' + String(e && e.message || e).split('\n')[0].slice(0, 300)); }
   R.fin();
 })();

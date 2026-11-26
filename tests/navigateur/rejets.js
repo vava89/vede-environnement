@@ -135,6 +135,9 @@
 // m4 à m7 échouent sur 769d1af (aucun refus de même nom, ni question, ni refus de « Fosse » : 87/102), sauf l'absence d'erreur dans la
 //     console de m4, m6 et m7 ; m5 s'y interrompt (exception : sans la question, Échap ferme l'éditeur). Sur m144 tel que relu,
 //     avant ses corrections : 101/106, les cas des relectures M2, M3, M5, M9 et M11 échouent.
+// m163 (DL3 ; réponse du 24 nov. 2026 à Q1 : a) : le constat imprimé est délesté par défaut. p3, écrit pour le formulaire complet
+//     (trois colonnes de raccordement et « Puits »), le range dans son étude dès sa création (C.formeConstat) ; ses attentes ne
+//     changent pas ; sans ce rangement, 2 vérifications sur 116 échouent (p3).
 // usage : node tests/navigateur/rejets.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -496,11 +499,14 @@ async function puits(){
 
 /* p3 (m150, décision D18) : PDF du constat de l'application, repris du croquis : descente avant et WC reliés à un puits, descente arrière
    reliée au milieu naturel dessiné (témoin) ; page 1 : en-tête « Puits » vers x 445,2, en 8 pt, vert comme « Réseau EP » ; croix de
-   raccordement de la descente avant et du WC dessous ; celle de la descente arrière sous « Milieu naturel », vers x 413,3 */
+   raccordement de la descente avant et du WC dessous ; celle de la descente arrière sous « Milieu naturel », vers x 413,3. m163 :
+   formulaire complet rangé, le défaut étant le délesté */
 async function puitsPdf(){
   const A = await C.ouvrir(), p = A.p;
   try {
-    await C.etudeEtDossier(p); await C.ouvrirCroquis(p, {fond: false});
+    await C.etudeEtDossier(p);
+    await C.formeConstat(p, 'complet'); /* m163 : formulaire complet rangé, le défaut étant le délesté */
+    await C.ouvrirCroquis(p, {fond: false});
     const v0 = await C.vue(p), o = (x, y) => [v0.cx + x, v0.cy + y];
     const els = [C.P('W', 'puits', ...o(0, -5)), C.P('M', 'milieu', ...o(10, -5)), C.P('d', 'descente', ...o(-4, 0), {cote: 'avant', visitable: 'oui'}),
       C.P('w', 'wc', ...o(4, 0)), C.P('d2', 'descente', ...o(10, 0), {cote: 'arriere', visitable: 'oui'})], I = C.index(els);

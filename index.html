@@ -2995,9 +2995,10 @@ function cOptsCoches(doc, cases, y, o, places, ecart){
 }
 /* Présentation du constat imprimé (m147, D13 ; m158, DL4), dite marque : 1, celle de la v1.7.1 ; 2, celle de la v1.7.2 (ni « Autres : »
    ni ligne laissée vide) ; 3, le délesté (m158 : seulement ce qui est rempli ou coché). Un constat non signé suit l'option « Constat
-   imprimé » de l'étude ouverte (constatMepEtude : 3 pour « Délesté », 2 sinon ; CST_FORME_DEFAUT quand l'étude n'en range aucune). Le
-   croquis de terrain, activé, désactivé ou absent, n'y change rien : la présentation 2 vaut sans lui comme avec lui (S2 b), le choix de
-   l'étude aussi (réponse du 16 nov., S13 c) ; le défaut reste 'complet' (DL3) jusqu'à m163 (réponse du 24 nov. à Q1 : a). Un constat signé
+   imprimé » de l'étude ouverte (constatMepEtude : 3 pour « Délesté » ou sans choix, 2 pour « Formulaire complet » ; CST_FORME_DEFAUT quand
+   l'étude n'en range aucune). Le croquis de terrain, activé, désactivé ou absent, n'y change rien : la présentation 2 vaut sans lui comme
+   avec lui (S2 b), le choix de l'étude aussi (réponse du 16 nov., S13 c) ; le défaut est 'deleste' depuis m163 (DL3 ; réponse du 24 nov. à
+   Q1 : a : délesté pour toutes les études, avec ou sans croquis de terrain, le formulaire complet au choix de l'étude). Un constat signé
    garde celle que le geste de signature a notée (c.fige.mep : 2 ou 3 ; toute autre valeur vaut 1) ; signé sans marque (avant la v1.7.2,
    ou gelé plus tard par constatGeler) : 1 : il garde à la réimpression « Autres : » et ses lignes vides ; constatEval y range aussi ses
    anomalies comme en v1.7.1, et l'éditeur de l'anomalie y propose la même ligne (m148 : l'évier lie la ligne de sa pièce, le lavabo
@@ -3005,8 +3006,8 @@ function cOptsCoches(doc, cases, y, o, places, ecart){
    page 1 ; m160 : page 2 ; m161 : une seule page quand tout tient, sinon deux (DL17) ; mise en page de constatDeleste), et dans l'en-tête
    de l'éditeur du constat, qui dit la forme du PDF d'après constatMep (m162, DL23 : 3, seulement ce qui est rempli ou coché ; 1 et 2, la
    mise en page du formulaire). La signature (c-lock) note la forme que l'étude a choisie ce jour-là (m161, DL4 : constatMepEtude, 3 pour
-   « Délesté », 2 sinon) */
-var CST_FORME_DEFAUT = 'complet';
+   « Délesté » ou sans choix, 2 pour « Formulaire complet ») */
+var CST_FORME_DEFAUT = 'deleste';
 function constatMepEtude(){ var f = (S.etude && S.etude.fiche && S.etude.fiche.constatForme) || CST_FORME_DEFAUT; return f === 'deleste' ? 3 : 2; }
 function constatMep(c){ if (!c || !c.signeLe) return constatMepEtude(); var m = Number(c.fige && c.fige.mep); return m === 3 ? 3 : m === 2 ? 2 : 1; }
 /* Rangées du tableau des installations : les lignes du formulaire, puis les lignes ajoutées, de chaque groupe. Présentation 1 (v1.7.1) :
@@ -5146,8 +5147,8 @@ var CONSTAT_ACTIONS = {
     var v = curVisit(), c = v.constat; if (!c || !c.sigTech) return;
     c.fige = constatFigeCalc(v);
     /* présentation du constat imprimé notée à la signature (m147, D13), jamais au gel (constatGeler) : m161 (DL4), celle que l'option
-       « Constat imprimé » de l'étude donne ce jour-là (constatMepEtude : 3 pour « Délesté », 2 sinon) ; signer de nouveau après
-       « Modifier » (c-unlock, qui efface c.fige) note celle du jour */
+       « Constat imprimé » de l'étude donne ce jour-là (constatMepEtude : 3 pour « Délesté » ou sans choix, 2 pour « Formulaire
+       complet ») ; signer de nouveau après « Modifier » (c-unlock, qui efface c.fige) note celle du jour */
     c.fige.mep = constatMepEtude();
     c.signeLe = nowISO(); constatTouch(v); await flushSaves(); toast('Constat validé et verrouillé'); render();
   },
