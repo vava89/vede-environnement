@@ -2620,16 +2620,21 @@ VC.constatDeduit = constatDeduit; VC.RACC_LIB = RACC_LIB;
    champs du constat (« 0,80 m », « en limite » ; 'intérieur', 'extérieur' ; « 0,80 m »). m149 (décision D17, réponse pr12-11 du 16 nov.
    2026) : la distance s'écrit seule et le côté à part, dans cote (avant : « 0,80 m intérieur ») ; en limite, pas de côté ; un côté sans
    distance donne une distance vide et son côté. Réseau : p.res, sinon celui que l'analyse déduit du dessin (celui de l'étiquette) ;
-   une boîte indiquée unitaire dans sa fiche compte en EU et en EP ; une boîte de réseau inconnu ou mêlé ne compte nulle part. En zone unitaire
-   (m140, décision D6, réponse pr12-5 du 16 nov. 2026), une boîte sans réseau indiqué que le dessin dit unitaire compte pour le réseau propre
-   des sources dont l'eau la traverse sur les plus courts chemins de l'analyse jusqu'à leurs exutoires dessinés (traversees) : en EU si seules
-   des sources EU y passent, en EP si seules des sources EP y passent, en EU et en EP si les deux y passent ou si aucune n'y passe ; son
-   étiquette reste « unitaire ». m156 (AC1) : ces chemins passent aussi par le trop-plein d'un puisard ou d'une infiltration au sol quand
-   l'analyse compte ce qu'il atteint (m145) ; une boîte sur ce trop-plein compte alors pour la source. p.limCote, p.limDist et p.prof sont lus
-   tels qu'ils sont enregistrés, sans recalcul d'après le plan. Distance : deux décimales, 0,00 = « en limite » ; une distance négative ou
-   illisible est ignorée, comme sur l'étiquette. Zéro ou plusieurs boîtes sur un réseau : dist, cote et prof vides. nDist et nProf : nombre de
-   boîtes du réseau qui portent une distance et une profondeur ; avec plusieurs boîtes, le constat rappelle ce qui n'est pas repris (m149 :
-   un côté seul n'est plus une distance, il ne compte pas dans nDist). Ne modifie ni doc ni an. */
+   une boîte indiquée unitaire dans sa fiche compte en EU et en EP ; une boîte de réseau inconnu ne compte nulle part ; une boîte mêlée non
+   plus, sauf en zone unitaire, comme le dit m164 plus bas. En zone unitaire (m140, décision D6, réponse pr12-5 du 16 nov. 2026), une boîte
+   sans réseau indiqué que le dessin dit unitaire compte pour le réseau propre des sources dont l'eau la traverse sur les plus courts chemins
+   de l'analyse jusqu'à leurs exutoires dessinés (traversees) : en EU si seules des sources EU y passent, en EP si seules des sources EP y
+   passent, en EU et en EP si les deux y passent ou si aucune n'y passe ; son étiquette reste « unitaire ». m156 (AC1) : ces chemins passent
+   aussi par le trop-plein d'un puisard ou d'une infiltration au sol quand l'analyse compte ce qu'il atteint (m145) ; une boîte sur ce
+   trop-plein compte alors pour la source. m164 (réponse du 23 nov. 2026 à la question née de m140 : « b. La compter ») : en zone unitaire,
+   une boîte sans réseau indiqué que le dessin dit mêlée (MIX ; par exemple, un tuyau tracé à l'outil « Tronçon EU », « Tronçon EP » ou
+   « Drain » y arrive) compte de même, comme une boîte unitaire, quand elle ne touche que l'unitaire (meleeUnitaire) ; son étiquette reste
+   « Boîte de branchement », sans réseau. Une boîte mêlée dont un tuyau mène aussi à un autre réseau ou en porte un autre, ou dont aucun
+   tuyau ne mène à l'unitaire ni ne l'indique, ne compte nulle part : on indique alors son réseau dans sa fiche. p.limCote, p.limDist et
+   p.prof sont lus tels qu'ils sont enregistrés, sans recalcul d'après le plan. Distance : deux décimales, 0,00 = « en limite » ; une
+   distance négative ou illisible est ignorée, comme sur l'étiquette. Zéro ou plusieurs boîtes sur un réseau : dist, cote et prof vides.
+   nDist et nProf : nombre de boîtes du réseau qui portent une distance et une profondeur ; avec plusieurs boîtes, le constat rappelle ce qui
+   n'est pas repris (m149 : un côté seul n'est plus une distance, il ne compte pas dans nDist). Ne modifie ni doc ni an. */
 function boitesConstat(doc, an){
   var out = {EU: {n: 0, dist: '', cote: '', prof: '', nDist: 0, nProf: 0}, EP: {n: 0, dist: '', cote: '', prof: '', nDist: 0, nProf: 0}}, vues = [];
   /* distance, côté (à part depuis m149) et profondeur d'une boîte, écrits comme dans les champs du constat ; en limite, pas de côté */
@@ -2701,15 +2706,37 @@ function boitesConstat(doc, an){
     });
     return par;
   }
+  /* m164 (réponse du 23 nov. 2026 à la question née de m140 : « b. La compter ») : la boîte id, mêlée d'après l'analyse A (MIX), ne touche
+     que l'unitaire. Pour chacune de ses pièces dans A (A.adj[id]) : (i) les réseaux que l'eau y atteint (A.resPiece[pièce].nets) sont tous
+     unitaires (aucun, ou « UN » seul) ; (ii) le réseau indiqué (res, quand deduit est faux : tuyau tracé à l'outil « Tronçon EU », « Tronçon
+     EP », « Tronçon unitaire » ou « Drain ») est EU, EP ou UN ; et (iii) « UN » figure parmi ces réseaux atteints ou indiqués. Une pièce
+     sans entrée dans A.resPiece (collecteur, drain d'infiltration) est ignorée. Une telle boîte compte comme une boîte que le dessin dit
+     unitaire (traversees, dans la même analyse). A, A.adj, A.resPiece ou A.adj[id] absents ou d'un autre type, pièce sans id, entrée de
+     A.resPiece qui vaut null, n'est pas un objet ou dont nets n'est pas un tableau : false, sans exception. Ne modifie pas A. */
+  function meleeUnitaire(A, id){
+    var ps = A && A.adj ? A.adj[id] : null, rp = A ? A.resPiece : null, un = false;
+    if (!Array.isArray(ps) || !rp || typeof rp !== 'object') return false;
+    return ps.every(function(q){
+      if (!q || typeof q !== 'object' || q.id == null) return false;
+      if (!Object.prototype.hasOwnProperty.call(rp, q.id)) return true;
+      var r = rp[q.id];
+      if (!r || typeof r !== 'object' || !Array.isArray(r.nets) || r.nets.some(function(x){ return x !== 'UN'; })) return false;
+      if (r.nets.length || !r.deduit && r.res === 'UN') un = true;
+      return !!r.deduit || r.res === 'EU' || r.res === 'EP' || r.res === 'UN';
+    }) && un;
+  }
   (doc && Array.isArray(doc.el) ? doc.el : []).forEach(function(e){
     if (!e || e.k !== 'pt' || !T[e.t] || !T[e.t].boite) return;
     var p = e.p && typeof e.p === 'object' ? e.p : {};
     if (p.st === 'projet' || p.st === 'supprimer') return;
     var ind = /^(EU|EP|UN)$/.test(p.res), res = ind ? p.res : an && an.resPt ? an.resPt[e.id] || (an.ref && an.ref.resPt && an.ref.resPt[e.id]) : '', m = mesures(p);
+    /* m164 : boîte mêlée d'après le dessin qui ne touche que l'unitaire (meleeUnitaire), lue dans l'analyse qui donne son réseau, comme
+       traversees : comptée comme une boîte unitaire (branche m140 ci-dessous) ; son étiquette reste « Boîte de branchement » */
+    if (res === 'MIX' && !ind && meleeUnitaire(an.resPt[e.id] ? an : an.ref, e.id)) res = 'UN';
     var rs = res === 'UN' ? ['EU', 'EP'] : res === 'EU' || res === 'EP' ? [res] : [];
-    /* m140 : boîte unitaire d'après le dessin seulement : réseau des sources dont l'eau la traverse (les deux si aucune n'y passe). Les
-       chemins sont lus dans l'analyse qui donne le réseau : an.ref quand an ne porte pas la boîte (cela n'arrive pas dans l'application :
-       une boîte existante a toujours un réseau dans l'analyse donnée) */
+    /* m140 : boîte unitaire d'après le dessin seulement (m164 : ou mêlée qui ne touche que l'unitaire) : réseau des sources dont l'eau la
+       traverse (les deux si aucune n'y passe). Les chemins sont lus dans l'analyse qui donne le réseau : an.ref quand an ne porte pas la
+       boîte (cela n'arrive pas dans l'application : une boîte existante a toujours un réseau dans l'analyse donnée) */
     if (res === 'UN' && !ind){
       var t = traversees(an.resPt[e.id] ? an : an.ref)[e.id];
       if (t && (t.EU || t.EP)) rs = rs.filter(function(g){ return t[g]; });

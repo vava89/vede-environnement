@@ -384,12 +384,17 @@ CROQUIS DE TERRAIN (facultatif)
   passent pour rejoindre l'exutoire dessiné, y compris par le trop-plein
   d'un puisard ou d'une infiltration au sol : pour les deux si elle
   reçoit des EU et des EP, ou si aucun appareil n'y passe. Le réseau
-  indiqué dans la fiche l'emporte. Une boîte que le dessin dit mêlée
-  (étiquette « Boîte de branchement » seule, par exemple quand un tuyau
-  tracé à l'outil « Tronçon EU », « Tronçon EP » ou « Drain » y arrive)
-  n'est pas reprise : on indique alors son réseau dans sa fiche. Une
-  boîte sans réseau (ni indiqué dans sa fiche, ni déduit du dessin)
-  n'est pas reprise non plus.
+  indiqué dans la fiche l'emporte. En zone unitaire, une boîte sans
+  réseau indiqué que le dessin dit mêlée (étiquette « Boîte de
+  branchement » seule, par exemple quand un tuyau tracé à l'outil
+  « Tronçon EU », « Tronçon EP » ou « Drain » y arrive) compte de même,
+  pour le réseau des appareils dont les eaux y passent ; son étiquette
+  ne change pas. Une boîte mêlée dont un tuyau mène aussi à un autre
+  réseau ou à un autre exutoire (un puisard, par exemple), ou dont aucun
+  tuyau ne rejoint le réseau unitaire ni n'est tracé à l'outil
+  « Tronçon unitaire », n'est pas reprise : on indique alors son réseau
+  dans sa fiche. Une boîte sans réseau (ni indiqué dans sa fiche, ni
+  déduit du dessin) n'est pas reprise non plus.
   Avec deux boîtes ou plus sur un réseau, rien n'y est repris (une valeur
   reprise avant, et non modifiée, est vidée) ; le constat rappelle de les
   saisir avant la signature. Ensuite ces valeurs suivent le croquis tant
@@ -590,7 +595,10 @@ MISE À JOUR DE L'APPLICATION
   puces d'orientation. Une tablette restée en v1.7.2 imprime au
   formulaire complet (présentation de la v1.7.2) un constat signé
   délesté sur une tablette à jour : réimprimez-le sur une tablette à
-  jour.
+  jour. Une tablette restée en v1.7.2 ne compte pas une boîte mêlée en
+  zone unitaire : au suivi du croquis, elle vide les valeurs de la boîte
+  qu'une tablette à jour a reprises du croquis et que personne n'a
+  retouchées ; une tablette à jour les remet.
 - Une tablette remise en v1.7.0, ou plus ancienne, garde les
   destinations ajoutées (« + Nouvelle destination ») sans les proposer,
   puis les efface dès qu'un réglage du croquis y change (une aide au
