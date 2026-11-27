@@ -1762,8 +1762,9 @@ function analyser(doc, mode){
        courts chemins de rx (puisard traversé), une fois par source, sans les pièces du drain ni les pièces virtuelles. Une source EP y
        compte aussi sur chaque tuyau orienté que son eau prend dans son sens, au-delà d'un puisard aussi (rxp, même laissé), puis sur les
        plus courts chemins de son bout aval jusqu'au drain (avalDrain) : dans le doute, vert ; pas une source EU (en boucle, la branche
-       plus longue ne porte pas ses eaux). La boucle des pièces n'en garde que celles des tuyaux sans réseau qui ne mènent qu'à des drains
-       d'infiltration (an.eauxPieces) : elles en prennent la couleur (resMorceau) */
+       plus longue ne porte pas ses eaux). La boucle des pièces n'en garde que celles des tuyaux sans réseau qui, avant le drain (sans
+       ses liens, m166), ne mènent qu'à des drains d'infiltration (an.eauxPieces) : elles en prennent la couleur (resMorceau), sauf une
+       pièce MIX (réseau EU ou unitaire au-delà du drain), qui reste MIX */
     var nat = !ld && T[objs[id].t].nat === 'EU' ? 'EU' : 'EP', gx = null, vusP = {}, versD = false;
     (rx || r).term.forEach(function(t){
       if (t.via !== 'drain') return;
@@ -1896,9 +1897,18 @@ function analyser(doc, mode){
     nets.sort(function(x, y){ var a = ['EU', 'EP', 'UN'].indexOf(x), b = ['EU', 'EP', 'UN'].indexOf(y); return (a < 0 ? 9 : a) - (b < 0 ? 9 : b); });
     var expl = RES[p.l.p.res] ? p.l.p.res : null, res = expl || (nets.length === 1 ? nets[0] : nets.length > 1 ? 'MIX' : 'INC');
     resPiece[p.id] = {res: res, deduit: !expl, nets: nets, contredit: !!(expl && nets.length && nets.indexOf(expl) < 0 && !(nets.length === 1 && nets[0] === 'UN'))};
-    /* m165 : pièce d'un tuyau sans réseau (pas un drain) dont chaque exutoire atteint est un drain d'infiltration : ses eaux (eauxP) */
-    if (!expl && !drainDe(p.l) && r.term.length && r.term.every(function(t){ return t.via === 'drain'; })
-      && Object.prototype.hasOwnProperty.call(eauxP, p.id)) eauxPieces[p.id] = eauxP[p.id];
+    /* m165 : pièce d'un tuyau sans réseau (pas un drain) dont chaque exutoire atteint avant le drain, sans ses liens, est un drain
+       d'infiltration : ses eaux (eauxP). m166 (relecture d'ensemble de la v1.7.3, CL1) : ce que le drain atteint au-delà de lui (trop-plein
+       parti d'un autre de ses sommets, ouvrage posé sur lui) ne change pas la couleur, comme pour la source (m129) ; ce qui part du sommet
+       où arrive le tuyau est avant le drain (bifurcation). Un réseau EU ou unitaire au-delà laisse la pièce MIX (resPiece, resMorceau).
+       Le parcours sans les liens n'est refait que si r mêle un drain d'infiltration et un autre exutoire ; sinon la réponse est la même :
+       ce qu'il atteint, r l'atteint aussi, et il atteint un drain dès que r en atteint un (le premier lien d'un chemin de r part d'un
+       sommet atteint sans lien, d'où il gagne le drain de ce sommet) */
+    if (!expl && !drainDe(p.l) && r.term.length && Object.prototype.hasOwnProperty.call(eauxP, p.id)){
+      var avecDrain = r.term.some(function(t){ return t.via === 'drain'; }), avecAutre = r.term.some(function(t){ return t.via !== 'drain'; });
+      var avant = avecDrain && avecAutre ? parcours(dep, {sansLiens: true}).term : r.term;
+      if (avant.length && avant.every(function(t){ return t.via === 'drain'; })) eauxPieces[p.id] = eauxP[p.id];
+    }
     [p.a, p.b].forEach(function(n){ if (!objs[n]) return; var q = resNoeud[n] || (resNoeud[n] = {}); nets.forEach(function(x){ q[x] = true; }); if (expl) q[expl] = true; });
   });
   /* Distances aux exutoires pour le sens d'écoulement */
@@ -2793,9 +2803,11 @@ var MAT_LIB = {PVC: 'PVC', fonte: 'fonte', gres: 'grès', beton: 'béton', fibro
 var STATUT_LIB = {existant: 'existant', presume: 'présumé', projet: 'projet', supprimer: 'à supprimer'};
 function methLib(m){ return (m || []).map(function(k){ for (var i = 0; i < METH.length; i++) if (METH[i][0] === k) return METH[i][1].toLowerCase(); return k; }).join(', '); }
 /* Réseau dessiné d'une pièce de tuyau (m165, réponse du 23 nov. 2026 : « Le passer en rouge ») : celui de l'analyse (resPiece), sauf pour
-   la pièce d'un tuyau sans réseau qui ne mène qu'à un drain d'infiltration (an.eauxPieces) : elle prend la couleur des eaux qu'elle porte,
-   comme le drain : EU si elle ne porte que des EU, sinon EP. Changent sa couleur et ce qui lit resLigne (étiquette, tête de la fiche,
-   message de fin de tracé, réseau proposé à une anomalie ajoutée à la main) ; rejets, anomalies calculées, constat et regards, non */
+   la pièce d'un tuyau sans réseau qui, avant le drain, ne mène qu'à des drains d'infiltration (an.eauxPieces ; m166 : ce que le drain
+   atteint au-delà de lui ne compte pas) : elle prend la couleur des eaux qu'elle porte, comme le drain : EU si elle ne porte que des EU,
+   sinon EP ; une pièce MIX (réseau EU ou unitaire au-delà du drain) reste MIX. Changent sa couleur et ce qui lit resLigne (étiquette,
+   tête de la fiche, message de fin de tracé, réseau proposé à une anomalie ajoutée à la main) ; rejets, anomalies calculées, constat
+   et regards, non */
 function resMorceau(p, an){
   var rp = an.resPiece[p.id], ep = an.eauxPieces, q = ep && typeof ep === 'object' && Object.prototype.hasOwnProperty.call(ep, p.id) ? ep[p.id] : null;
   return rp.deduit === true && rp.res === 'EP' && q && typeof q === 'object' && typeof q.EU === 'number' && q.EU > 0 && q.EP === 0 ? 'EU' : rp.res;
@@ -2809,10 +2821,11 @@ function resLigne(e, an){
      « si uniquement des EU alors drain en rouge, si au moins un EP alors vert ») : EP dès qu'une source qui l'atteint est EP, EU si toutes
      sont EU (an.eauxDrains). Sans source : vert, comme sans analyse (m122) ; sur le plan d'avant-projet, un drain « à supprimer » (absent
      de cette analyse) garde la couleur qu'il a à l'état des lieux (an.ref), comme un tuyau [p]. Ses segments ne sont pas des pièces de
-     l'analyse ; son p.res n'est pas lu. Un tuyau sans réseau qui ne mène qu'à un tel drain prend de même, pièce par pièce, la couleur
-     des eaux qu'il porte (m165, resMorceau : rouge s'il ne porte que des EU) ; lui-même est EU si ses pièces rouges sont plus nombreuses
-     que celles de tout autre réseau, sinon il garde le réseau de la plupart de ses pièces (resPiece) : à égalité, vert, quel que soit le
-     sens du tracé */
+     l'analyse ; son p.res n'est pas lu. Un tuyau sans réseau qui, avant le drain, ne mène qu'à de tels drains prend de même, pièce par
+     pièce, la couleur des eaux qu'il porte (m165, resMorceau : rouge s'il ne porte que des EU ; m166 : ce que le drain atteint au-delà de
+     lui ne compte pas, sauf un réseau EU ou unitaire, qui laisse la pièce MIX). Lui-même prend le réseau de la plupart de ses pièces
+     (resPiece ; à égalité, celui que le tracé rencontre le premier, comme en v1.7.2 : le sens du tracé compte alors) ; s'il est EP, il
+     passe en EU quand ses pièces rouges sont plus nombreuses que celles de toute autre couleur (à égalité, il reste vert) */
   if (drainDe(e) === 'infiltration'){
     var q = an && an.eauxDrains && Object.prototype.hasOwnProperty.call(an.eauxDrains, e.id) ? an.eauxDrains[e.id] : null;
     if (q && q.EP) return 'EP';
@@ -8177,8 +8190,11 @@ function legende(doc, an, mode, ext, oL){
       if (e.p.st === 'presume') st.presume = 1; if (e.p.st === 'supprimer' && mode === 'avp') st.supprimer = 1;
       /* drain (m121) : sa sorte, s'il est dessiné ; il garde aussi la ligne de son réseau */
       var dr = drainDe(e); if (dr && e.v.length >= 2) st[dr] = 1;
-      /* m165 : un tuyau qui reste vert mais dont une pièce est dessinée en rouge (resMorceau) donne aussi la ligne EU */
-      var rr = [r]; if (r !== 'PRJ' && r !== 'EU' && an && an.pieces && an.pieces.some(function(p){ return p.l.id === e.id && resMorceau(p, an) === 'EU' && an.resPiece[p.id].res !== 'EU'; })) rr.push('EU');
+      /* m165 : un tuyau dont une pièce est dessinée en rouge (resMorceau) sans être EU dans l'analyse a aussi la ligne de chaque couleur
+         que dessinent ses pièces (m166, relecture d'ensemble de la v1.7.3, CL2 : la pièce verte d'un tuyau rouge donne la ligne EP), dans
+         un ordre fixe, quel que soit le sens du tracé ; un autre tuyau, la seule ligne de resLigne */
+      var rr = [r], pm = r !== 'PRJ' && an && an.pieces ? an.pieces.filter(function(p){ return p.l.id === e.id; }) : [], cm = pm.map(function(p){ return resMorceau(p, an); });
+      if (pm.some(function(p, i){ return cm[i] === 'EU' && an.resPiece[p.id].res !== 'EU'; })) ['EU', 'EP', 'UN', 'INC', 'MIX'].forEach(function(k){ if (cm.indexOf(k) >= 0) rr.push(k); });
       rr.forEach(function(r){ if (/^(EU|EP|UN|INC|MIX|PRJ)$/.test(r) && !vus['l' + r]){ vus['l' + r] = 1; out.push({k: 'ln', res: r, lib: r === 'PRJ' ? 'Canalisation projetée' : r === 'INC' ? 'Réseau non déterminé' : r === 'MIX' ? 'Plusieurs réseaux atteints' : 'Canalisation ' + libRes(r) + (r === 'UN' ? '' : ' (' + RES[r].nom + ')'), o: 1}); } });
       return;
     }

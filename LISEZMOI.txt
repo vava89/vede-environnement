@@ -166,10 +166,14 @@ CROQUIS DE TERRAIN (facultatif)
   bouts libres n'attendent pas d'exutoire. Il est vert, avec l'étiquette
   « Dispersion dans le sol » ; s'il ne reçoit que des eaux usées (un WC,
   sans descente ni grille qui y mène), il est rouge, son étiquette aussi,
-  à l'écran, au PDF et au DXF. Un tuyau sans réseau qui ne mène qu'à
-  des drains d'infiltration prend la couleur des eaux qu'il porte :
-  rouge s'il ne porte que des eaux usées (le tuyau d'un WC), vert dès
-  que l'eau d'une descente ou d'une grille passe par lui. Un regard
+  à l'écran, au PDF et au DXF. Un tuyau sans réseau qui, avant le
+  drain, ne mène qu'à des drains d'infiltration prend la couleur des
+  eaux qu'il porte : rouge s'il ne porte que des eaux usées (le tuyau
+  d'un WC), vert dès que l'eau d'une descente ou d'une grille passe par
+  lui ; ce que le drain atteint au-delà de lui (trop-plein parti plus
+  loin sur le drain, ouvrage posé sur lui) ne change pas cette couleur,
+  sauf un réseau EU ou unitaire ainsi atteint : le tuyau garde alors la
+  couleur « Plusieurs réseaux atteints », comme en v1.7.2. Un regard
   posé sur ce tuyau, comme celui posé sur le drain, reste un regard EP
   (tampon béton : réserve). Ce que le drain d'infiltration atteint
   au-delà de lui (trop-plein parti du drain vers une boîte de
