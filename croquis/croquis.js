@@ -1497,20 +1497,36 @@ function analyser(doc, mode){
   }
   /* Graphe des plus courts chemins d'un parcours r depuis s : prédécesseurs de chaque nœud atteint (un exutoire n'est pas traversé, un
      tronçon orienté ne se remonte pas). Contrairement au chemin gardé par le parcours (le premier trouvé), il ne dépend pas de l'ordre du
-     dessin quand plusieurs chemins ont la même longueur (tuyaux parallèles, by-pass) */
-  function predsDe(r, s){
+     dessin quand plusieurs chemins ont la même longueur (tuyaux parallèles, by-pass). inf (m165) : pour un parcours fait avec traverserInf,
+     un puisard ou une infiltration au sol est traversé ; le garde-fou de ce parcours (tuyau sans sens qui part de l'ouvrage) n'est pas
+     appliqué, sans effet sur la couleur : un tel tuyau atteint l'ouvrage, il sort de la règle de m165 (boucle des pièces) */
+  function predsDe(r, s, inf){
     var pr = {};
     Object.keys(r.vus).forEach(function(v){
       if (v === s) return;
       (adj[v] || []).forEach(function(p){
         var u = p.a === v ? p.b : p.a; if (u === v || !r.vus[u] || r.dist[u] + 1 !== r.dist[v]) return;
-        if (u !== s && terminal(u)) return;
+        var tu = u !== s && terminal(u); if (tu && !(inf && /^(INF|SOL)$/.test(tu.res))) return;
         if (p.sens === 1 && p.a !== u) return;
         if (p.sens === -1 && p.b !== u) return;
         (pr[v] = pr[v] || []).push({n: u, p: p});
       });
     });
     return pr;
+  }
+  /* m165 : note dans vu les pièces de tuyau (ni d'un collecteur ou d'un drain, ni virtuelles) des plus courts chemins de pr qui mènent à t */
+  function remonter(pr, t, vu){
+    var vn = {}, fd = [t]; vn[t] = true;
+    while (fd.length) (pr[fd.shift()] || []).forEach(function(w){ if (!w.p.col && !w.p.virt) vu[w.p.id] = true; if (!vn[w.n]){ vn[w.n] = true; fd.push(w.n); } });
+  }
+  /* m165 : pièces des plus courts chemins du bout aval du tuyau orienté p jusqu'à chaque drain d'infiltration qu'il atteint (une fois
+     par analyse ; les pièces virtuelles d'un drain de collecte ne se prennent pas à rebours) */
+  var avalP = {};
+  function avalDrain(p){
+    if (Object.prototype.hasOwnProperty.call(avalP, p.id)) return avalP[p.id];
+    var b = p.sens === 1 ? p.b : p.a, rb = parcours([b]), gb = predsDe(rb, b), vu = {};
+    rb.term.forEach(function(t){ if (t.via === 'drain') remonter(gb, t.noeud, vu); });
+    return (avalP[p.id] = Object.keys(vu));
   }
   /* boîte sur chaque plus court chemin de la source s jusqu'à l'exutoire t (ou l'exutoire est la boîte) ; null sinon */
   function boiteSur(pr, s, t){
@@ -1706,7 +1722,7 @@ function analyser(doc, mode){
      équipement disperse (dispE), et porte l'étiquette « Dispersion dans le sol » (an.drainsDisp ; un point « Drain » la donne au drain qui
      le tient). Un drain qu'aucun équipement n'atteint, ou dont la sortie est dessinée, ne change pas. Les équipements sont donc analysés
      avant les points « Drain », puis les drains de collecte comptés ; les résultats restent rangés dans l'ordre des sources */
-  var dispE = {}, dispA = {}, drainsDisp = {}, eauxDrains = {};
+  var dispE = {}, dispA = {}, drainsDisp = {}, eauxDrains = {}, eauxP = {};
   /* drain source : un drain de collecte compté, ou un point « Drain », même posé hors du drain et relié par un tuyau [p] : il suit le
      drain (dispersion dans le sol seulement là où un équipement disperse), sinon il garde le réseau présumé */
   function estDrainSrc(id){ return !objs[id] || objs[id].t === 'drain'; }
@@ -1736,16 +1752,30 @@ function analyser(doc, mode){
        ci-dessous, eauxDrains) ; la boîte, l'entrée, la fosse, le sens de l'eau, les pièces, le réseau présumé et les sorties libres restent
        ceux du parcours ordinaire (r). Laissé quand il n'atteint aucun exutoire de plus. m156 (AC1) : le constat des boîtes (boitesConstat,
        en zone unitaire) suit aussi le trop-plein quand ce qu'il atteint compte (bloc ci-dessous : cheminTp) ; resObj.boite, non */
-    var rx = r.term.some(function(t){ return /^(INF|SOL)$/.test(t.res); }) ? parcours([s], {traverserInf: true}) : null;
+    var rx = r.term.some(function(t){ return /^(INF|SOL)$/.test(t.res); }) ? parcours([s], {traverserInf: true}) : null, rxp = rx;
     if (rx && rx.term.length > r.term.length) rx.term.sort(function(a, b){ return a.dist - b.dist || (a.noeud < b.noeud ? -1 : a.noeud > b.noeud ? 1 : 0); }); else rx = null;
     /* m142 (décision D8 ; réponse drain-infiltration-dessin du 16 nov. 2026) : eaux reçues par chaque drain d'infiltration que la source
        atteint (an.eauxDrains) : une de plus à sa nature, EU ou EP ; un drain de collecte compté apporte des EP. Elles donnent sa couleur au
-       drain (resLigne). Le sens du drain et son réseau saisi ne sont pas lus. Aussi un drain que le trop-plein atteint (rx, m145) */
+       drain (resLigne). Le sens du drain et son réseau saisi ne sont pas lus. Aussi un drain que le trop-plein atteint (rx, m145).
+       m165 (réponse du 23 nov. 2026 : « Le passer en rouge ») : de même, eaux portées par chaque pièce de tuyau où l'eau de la source passe
+       pour aller au drain (eauxP) : les pièces des plus courts chemins du parcours ordinaire (pr) et, avec le trop-plein, celles des plus
+       courts chemins de rx (puisard traversé), une fois par source, sans les pièces du drain ni les pièces virtuelles. Une source EP y
+       compte aussi sur chaque tuyau orienté que son eau prend dans son sens, au-delà d'un puisard aussi (rxp, même laissé), puis sur les
+       plus courts chemins de son bout aval jusqu'au drain (avalDrain) : dans le doute, vert ; pas une source EU (en boucle, la branche
+       plus longue ne porte pas ses eaux). La boucle des pièces n'en garde que celles des tuyaux sans réseau qui ne mènent qu'à des drains
+       d'infiltration (an.eauxPieces) : elles en prennent la couleur (resMorceau) */
+    var nat = !ld && T[objs[id].t].nat === 'EU' ? 'EU' : 'EP', gx = null, vusP = {}, versD = false;
     (rx || r).term.forEach(function(t){
       if (t.via !== 'drain') return;
       var q = Object.prototype.hasOwnProperty.call(eauxDrains, t.id) ? eauxDrains[t.id] : (eauxDrains[t.id] = {EU: 0, EP: 0});
-      q[!ld && T[objs[id].t].nat === 'EU' ? 'EU' : 'EP']++;
+      q[nat]++; versD = true;
+      if (rx) gx = gx || predsDe(rx, s, true);
+      [r.vus[t.noeud] ? pr : null, gx].forEach(function(g){ if (g) remonter(g, t.noeud, vusP); });
     });
+    if (versD && nat === 'EP') Object.keys((rxp || r).pieces).forEach(function(k){ var p = (rxp || r).pieces[k];
+      if (p.sens && !p.col && !p.virt){ vusP[k] = true; avalDrain(p).forEach(function(k2){ vusP[k2] = true; }); }
+    });
+    Object.keys(vusP).forEach(function(k){ var q = Object.prototype.hasOwnProperty.call(eauxP, k) ? eauxP[k] : (eauxP[k] = {EU: 0, EP: 0}); q[nat]++; });
     if (r.term.length){ fosse = fosseDe(s, r, pr, r.term.map(function(t){ return t.noeud; })); if (!ld) noterSens(pr, r.term.map(function(t){ return t.noeud; })); }
     /* m129 (Q7 a) : drain d'infiltration qui atteint aussi un autre exutoire (ouvrage qu'il tient, tuyau parti d'un de ses sommets) : les
        exutoires que la source atteint sans ses liens sont avant lui ; s'il est le seul, elle disperse dans le sol (le drain compte pour un)
@@ -1857,7 +1887,7 @@ function analyser(doc, mode){
   /* résultats dans l'ordre des sources, quel que soit l'ordre d'analyse (m129) */
   var ro = resObj; resObj = {}; srcs.forEach(function(id){ resObj[id] = ro[id]; });
   /* Réseau de chaque pièce (couleur), regards traversés, flèches d'écoulement */
-  var resPiece = {}, resNoeud = {};
+  var resPiece = {}, resNoeud = {}, eauxPieces = {};
   pieces.forEach(function(p){
     var dep = p.sens === 1 ? [p.b] : p.sens === -1 ? [p.a] : [p.a, p.b];
     var r = parcours(dep), nets = [];
@@ -1866,6 +1896,9 @@ function analyser(doc, mode){
     nets.sort(function(x, y){ var a = ['EU', 'EP', 'UN'].indexOf(x), b = ['EU', 'EP', 'UN'].indexOf(y); return (a < 0 ? 9 : a) - (b < 0 ? 9 : b); });
     var expl = RES[p.l.p.res] ? p.l.p.res : null, res = expl || (nets.length === 1 ? nets[0] : nets.length > 1 ? 'MIX' : 'INC');
     resPiece[p.id] = {res: res, deduit: !expl, nets: nets, contredit: !!(expl && nets.length && nets.indexOf(expl) < 0 && !(nets.length === 1 && nets[0] === 'UN'))};
+    /* m165 : pièce d'un tuyau sans réseau (pas un drain) dont chaque exutoire atteint est un drain d'infiltration : ses eaux (eauxP) */
+    if (!expl && !drainDe(p.l) && r.term.length && r.term.every(function(t){ return t.via === 'drain'; })
+      && Object.prototype.hasOwnProperty.call(eauxP, p.id)) eauxPieces[p.id] = eauxP[p.id];
     [p.a, p.b].forEach(function(n){ if (!objs[n]) return; var q = resNoeud[n] || (resNoeud[n] = {}); nets.forEach(function(x){ q[x] = true; }); if (expl) q[expl] = true; });
   });
   /* Distances aux exutoires pour le sens d'écoulement */
@@ -1905,6 +1938,7 @@ function analyser(doc, mode){
   if (exuX) an.exu = exuX;
   if (Object.keys(drainsDisp).length) an.drainsDisp = drainsDisp;
   if (Object.keys(eauxDrains).length) an.eauxDrains = eauxDrains;
+  if (Object.keys(eauxPieces).length) an.eauxPieces = eauxPieces;
   /* après l'avant-projet : l'état des lieux sert de référence (numéros d'anomalie, réseau des tracés à supprimer) */
   if (mode === 'avp') an.ref = analyser(doc, 'edl');
   an.anomalies = reglesAnomalies(doc, an);
@@ -2758,6 +2792,14 @@ var NIV_LIB = {ss: 'sous-sol', rdc: 'RDC', etage: 'étage'}, TAMPON_LIB = {beton
 var MAT_LIB = {PVC: 'PVC', fonte: 'fonte', gres: 'grès', beton: 'béton', fibro: 'fibrociment', PEHD: 'PEHD'}, GEST_LIB = {D: 'départemental', T: 'territorial', P: 'privé'};
 var STATUT_LIB = {existant: 'existant', presume: 'présumé', projet: 'projet', supprimer: 'à supprimer'};
 function methLib(m){ return (m || []).map(function(k){ for (var i = 0; i < METH.length; i++) if (METH[i][0] === k) return METH[i][1].toLowerCase(); return k; }).join(', '); }
+/* Réseau dessiné d'une pièce de tuyau (m165, réponse du 23 nov. 2026 : « Le passer en rouge ») : celui de l'analyse (resPiece), sauf pour
+   la pièce d'un tuyau sans réseau qui ne mène qu'à un drain d'infiltration (an.eauxPieces) : elle prend la couleur des eaux qu'elle porte,
+   comme le drain : EU si elle ne porte que des EU, sinon EP. Changent sa couleur et ce qui lit resLigne (étiquette, tête de la fiche,
+   message de fin de tracé, réseau proposé à une anomalie ajoutée à la main) ; rejets, anomalies calculées, constat et regards, non */
+function resMorceau(p, an){
+  var rp = an.resPiece[p.id], ep = an.eauxPieces, q = ep && typeof ep === 'object' && Object.prototype.hasOwnProperty.call(ep, p.id) ? ep[p.id] : null;
+  return rp.deduit === true && rp.res === 'EP' && q && typeof q === 'object' && typeof q.EU === 'number' && q.EU > 0 && q.EP === 0 ? 'EU' : rp.res;
+}
 function resLigne(e, an){
   if (e.t === 'col') return RES[e.p.res] ? e.p.res : 'EU';
   /* complément du fond, escalier, tracé d'un type inconnu : gris du complément */
@@ -2767,7 +2809,10 @@ function resLigne(e, an){
      « si uniquement des EU alors drain en rouge, si au moins un EP alors vert ») : EP dès qu'une source qui l'atteint est EP, EU si toutes
      sont EU (an.eauxDrains). Sans source : vert, comme sans analyse (m122) ; sur le plan d'avant-projet, un drain « à supprimer » (absent
      de cette analyse) garde la couleur qu'il a à l'état des lieux (an.ref), comme un tuyau [p]. Ses segments ne sont pas des pièces de
-     l'analyse ; son p.res n'est pas lu */
+     l'analyse ; son p.res n'est pas lu. Un tuyau sans réseau qui ne mène qu'à un tel drain prend de même, pièce par pièce, la couleur
+     des eaux qu'il porte (m165, resMorceau : rouge s'il ne porte que des EU) ; lui-même est EU si ses pièces rouges sont plus nombreuses
+     que celles de tout autre réseau, sinon il garde le réseau de la plupart de ses pièces (resPiece) : à égalité, vert, quel que soit le
+     sens du tracé */
   if (drainDe(e) === 'infiltration'){
     var q = an && an.eauxDrains && Object.prototype.hasOwnProperty.call(an.eauxDrains, e.id) ? an.eauxDrains[e.id] : null;
     if (q && q.EP) return 'EP';
@@ -2776,9 +2821,11 @@ function resLigne(e, an){
   }
   if (RES[e.p.res] && e.p.res !== 'PRJ') return e.p.res;
   if (!an) return 'INC';
-  var vu = {}, k = null; an.pieces.forEach(function(p){ if (p.l.id === e.id){ var r = an.resPiece[p.id].res; vu[r] = (vu[r] || 0) + 1; } });
+  var vu = {}, vm = {}, k = null;
+  an.pieces.forEach(function(p){ if (p.l.id === e.id){ var r = an.resPiece[p.id].res, m = resMorceau(p, an); vu[r] = (vu[r] || 0) + 1; vm[m] = (vm[m] || 0) + 1; } });
   Object.keys(vu).forEach(function(r){ if (!k || vu[r] > vu[k]) k = r; });
   if (!k && an.ref) return resLigne(e, an.ref);
+  if (k === 'EP' && vm.EU && Object.keys(vm).every(function(r){ return r === 'EU' || vm[r] < vm.EU; })) return 'EU';
   return k || 'INC';
 }
 /* Boîte en limite de propriété (souhait 10, décision D4) : ligne de l'étiquette, d'après p.limCote ('int' | 'ext') et p.limDist (en mètres,
@@ -2968,7 +3015,7 @@ function texteEtiquette(e, an){
   }
   return '';
 }
-VC.texteEtiquette = texteEtiquette; VC.resLigne = resLigne; VC.texteLimite = texteLimite;
+VC.texteEtiquette = texteEtiquette; VC.resLigne = resLigne; VC.resMorceau = resMorceau; VC.texteLimite = texteLimite;
 
 /* ---------- Symboles : primitives en millimètres papier, y en haut, centrées sur l'objet ---------- */
 var BLANC = [255, 255, 255];
@@ -3325,7 +3372,7 @@ function dessinerCroquis(ctx, doc, an, vue, dpr, o){
     var W = lignePts(e, idx).map(function(p){ return vue.ecran(p.x, p.y); }), st = e.p.st || 'existant';
     ctx.globalAlpha = attenue(e) ? .3 : 1;
     if (e.t === 'esc'){ zones.push(escalierEcran(ctx, e, idx, vue, W, px(.3, 1.2, 5))); return; }
-    var morceaux = (parLigne[e.id] || []).map(function(p){ return {pts: W.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
+    var morceaux = (parLigne[e.id] || []).map(function(p){ return {pts: W.slice(p.i0, p.i1 + 1), res: resMorceau(p, an), p: p}; });
     if (!morceaux.length || e.t !== 'tr') morceaux = [{pts: W, res: resLigne(e, an)}];
     /* complément du fond et tracé d'un type inconnu : trait neutre, fin, gris, plein */
     var neutre = !estCanalisation(e.t), larg = e.t === 'col' ? px(.9, 3, 14) : neutre ? px(.3, 1.2, 5) : px(.5, 2, 9), drain = drainDe(e);
@@ -7966,7 +8013,7 @@ function pdfPlan(doc, fond, o){
   doc.el.filter(function(e){ return e.k === 'ln' && e.v.length >= 2 && montrer(e); }).sort(function(a, b2){ return rangTrace(a.t) - rangTrace(b2.t); }).forEach(function(e){
     if (e.t === 'esc'){ escalierPdf(pdf, geoEscalier(e, idx), papier, m); return; }
     var W = lignePts(e, idx).map(function(p){ return papier(p.x, p.y); }), st = e.p.st || 'existant';
-    var morceaux = (parLigne[e.id] || []).map(function(p){ return {pts: W.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
+    var morceaux = (parLigne[e.id] || []).map(function(p){ return {pts: W.slice(p.i0, p.i1 + 1), res: resMorceau(p, an), p: p}; });
     if (!morceaux.length || e.t !== 'tr') morceaux = [{pts: W, res: resLigne(e, an)}];
     /* complément du fond et tracé d'un type inconnu : trait neutre, fin, gris, plein */
     var neutre = !estCanalisation(e.t), larg = e.t === 'col' ? .7 : neutre ? .25 : .45, drain = drainDe(e);
@@ -8130,7 +8177,9 @@ function legende(doc, an, mode, ext, oL){
       if (e.p.st === 'presume') st.presume = 1; if (e.p.st === 'supprimer' && mode === 'avp') st.supprimer = 1;
       /* drain (m121) : sa sorte, s'il est dessiné ; il garde aussi la ligne de son réseau */
       var dr = drainDe(e); if (dr && e.v.length >= 2) st[dr] = 1;
-      if (/^(EU|EP|UN|INC|MIX|PRJ)$/.test(r) && !vus['l' + r]){ vus['l' + r] = 1; out.push({k: 'ln', res: r, lib: r === 'PRJ' ? 'Canalisation projetée' : r === 'INC' ? 'Réseau non déterminé' : r === 'MIX' ? 'Plusieurs réseaux atteints' : 'Canalisation ' + libRes(r) + (r === 'UN' ? '' : ' (' + RES[r].nom + ')'), o: 1}); }
+      /* m165 : un tuyau qui reste vert mais dont une pièce est dessinée en rouge (resMorceau) donne aussi la ligne EU */
+      var rr = [r]; if (r !== 'PRJ' && r !== 'EU' && an && an.pieces && an.pieces.some(function(p){ return p.l.id === e.id && resMorceau(p, an) === 'EU' && an.resPiece[p.id].res !== 'EU'; })) rr.push('EU');
+      rr.forEach(function(r){ if (/^(EU|EP|UN|INC|MIX|PRJ)$/.test(r) && !vus['l' + r]){ vus['l' + r] = 1; out.push({k: 'ln', res: r, lib: r === 'PRJ' ? 'Canalisation projetée' : r === 'INC' ? 'Réseau non déterminé' : r === 'MIX' ? 'Plusieurs réseaux atteints' : 'Canalisation ' + libRes(r) + (r === 'UN' ? '' : ' (' + RES[r].nom + ')'), o: 1}); } });
       return;
     }
     /* destination (m126, décision D8) : une ligne par nom et abréviation, « Étang (Ét) », comme « Rejet en milieu naturel (MN) » ; son
@@ -8379,7 +8428,7 @@ function ecrireDxf(doc, an, liste){
        l'écran (et qu'au PDF jusqu'au 1/500) */
     var drain = drainDe(e), dents = drain ? dentsPeigne(P, 1, .4, drain === 'infiltration', false) : [];
     if (st === 'projet'){ poly(P, 'VEDE-PROJET', {lt: 'VEDE_PROJET'}); dentsDxf(dents, 'VEDE-PROJET', null, 'CONTINUOUS'); return; }
-    var ms = (parLigne[e.id] || []).map(function(p){ return {pts: P.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
+    var ms = (parLigne[e.id] || []).map(function(p){ return {pts: P.slice(p.i0, p.i1 + 1), res: resMorceau(p, an), p: p}; });
     if (!ms.length) ms = [{pts: P, res: resLigne(e, an)}];
     ms.forEach(function(mc){
       var cal = st === 'supprimer' ? 'VEDE-A-SUPPRIMER' : drain ? 'VEDE-DRAINS' : calRes(mc.res), aci = (RES[mc.res] || RES.INC).aci;
