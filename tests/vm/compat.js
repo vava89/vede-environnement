@@ -3,6 +3,9 @@
 // sens, anomalies, contrôles, conclusion), texte d'étiquette de chaque objet et DXF écrit par le module (entités ; en-tête, tables et blocs).
 // Depuis m116 (décision D11 de .claude/conception-rejets.md), aussi le constat déduit de l'état des lieux (lignes, ouvrages de récupération des EP,
 // descentes sans façade), figé sur 52cd3c8, dont les cinq autres sorties sont celles de 1e27c7b.
+// Depuis m167, aussi le plan PDF (« pdf-plan ») : les ordres de la page 1 que le module donne à la bibliothèque PDF (vrai jsPDF relevé par un
+// espion ; fond de démonstration, date figée, sans logo ni réseau), en état des lieux puis en avant-projet, figés sur 1ac2088 (avant m167) ;
+// une empreinte qui change veut dire que le plan PDF d'un croquis déjà fait sort autrement.
 // Croquis, tous fictifs : la démonstration (VCroquis.demoCroquis) ; un croquis fixe qui complète (traits « Complément du fond », texte libre,
 // zone, étiquette personnalisée, étiquette déplacée ou masquée, anomalie saisie à la main, échelle, origine et rotation données), puis le même
 // dans un fond en millimètres et en miles (u = 0,001 et 1609,344 : le DXF divise par u et règle ses décimales sur u) ; un croquis fixe des
@@ -10,25 +13,26 @@
 // orientés) ; 30 croquis du générateur (vm/generateur.js, graines 1 à 30, réglages d'aleatoire.js sans ses options exutoires (m118),
 // drains (m124), sources (m132) et champs (m134), étiquettes placées d'office).
 // Dans vm/compat.json, par croquis : une empreinte sha256 (16 premiers caractères) du croquis d'entrée (« entree ») et une par sortie.
-// La garde passe sur 52cd3c8 (ses cinq premières sorties aussi sur 1e27c7b) et doit passer après chaque correctif.
+// La garde passe sur 1ac2088 (ses six premières sorties aussi sur 52cd3c8, ses cinq premières sur 1e27c7b) et doit passer après chaque
+// correctif.
 // usage : node tests/vm/compat.js [-v] [--app=<dossier>] [--detail=<dossier>] [--regenerer[=<origine>]]
 //   --detail=<dossier> : écrit chaque sortie en clair (<croquis>.<sortie>.txt) ; lancé sur deux versions, « diff -r » montre l'écart.
 //   --regenerer[=<origine>] : réécrit vm/compat.json avec la version lue et liste ce qui change ; l'origine est gardée dans le fichier
 //   (par défaut : le dossier lu et la date). Seulement sur décision, car une empreinte qui change veut dire qu'un croquis déjà fait sort
-//   autrement (analyse, étiquette, DXF ou constat). Et sur la bonne version :
-//   - le test change (générateur partagé avec aleatoire.js, croquis fixes, sorties gardées) : régénérer sur une copie de 52cd3c8, sinon
-//     on fige aussi les écarts entrés depuis. Par exemple, depuis la racine du dépôt :
-//       mkdir <dossier> && git archive 52cd3c8 | tar -x -C <dossier>
-//       node tests/vm/compat.js --app=<dossier> --regenerer="1e27c7b (v1.7.0, m97) ; constat : 52cd3c8"
+//   autrement (analyse, étiquette, DXF, constat ou plan PDF). Et sur la bonne version :
+//   - le test change (générateur partagé avec aleatoire.js, croquis fixes, sorties gardées) : régénérer sur une copie de 1ac2088 (ses six
+//     premières sorties sont celles de 52cd3c8), sinon on fige aussi les écarts entrés depuis. Par exemple, depuis la racine du dépôt :
+//       mkdir <dossier> && git archive 1ac2088 | tar -x -C <dossier>
+//       node tests/vm/compat.js --app=<dossier> --regenerer="1e27c7b (v1.7.0, m97) ; constat : 52cd3c8 ; pdf-plan : 1ac2088 (avant m167)"
 //   - une sortie doit changer (décision) : régénérer sur la nouvelle version, le correctif pour origine (--regenerer="m1xx : …").
 'use strict';
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const {charger, doc, copie, rapport} = require('./charger.js');
 const Gen = require('./generateur.js');
-const {V, ctx, dir} = charger(), R = rapport('compat');
+const {V, ctx, dir} = charger({pdf: true}), R = rapport('compat');
 const FICHIER = path.join(__dirname, 'compat.json');
 const option = n => { const a = process.argv.find(x => x === '--' + n || x.indexOf('--' + n + '=') === 0); return a == null ? null : a.indexOf('=') > 0 ? a.slice(a.indexOf('=') + 1) : true; };
-const SORTIES = ['analyse-edl', 'analyse-avp', 'etiquettes', 'dxf-entites', 'dxf-tables', 'constat'];
+const SORTIES = ['analyse-edl', 'analyse-avp', 'etiquettes', 'dxf-entites', 'dxf-tables', 'constat', 'pdf-plan'];
 
 /* Croquis de démonstration. Le module tire ses identifiants au hasard (uid) : le tirage est figé pendant la création, puis les identifiants
    sont renommés d1, d2… dans l'ordre du dessin (les sorties n'en dépendent pas : seule l'empreinte de l'analyse les cite). */
@@ -115,6 +119,42 @@ function canon(v, els, pile){
   return s;
 }
 
+/* Plan PDF (m167) : ordres de la page 1 que le module donne au vrai jsPDF, relevés par un espion (appels du premier niveau, pas ceux de jsPDF
+   lui-même ; sans les mesures get…, splitTextToSize, ni output), arguments écrits par canon avant l'appel (jsPDF écrit dans l'objet
+   d'options de text()), une ligne par ordre, le constructeur en tête ;
+   en état des lieux puis en avant-projet, sur le fond de démonstration ; date du cartouche figée (le 1er novembre 2026 à midi UTC : le même
+   jour dans tous les fuseaux d'Europe et d'Amérique) ; sans logo ni réseau. */
+const FOND = V.lireFondDxf(Buffer.from(V.demoDxf(), 'utf8'), 'Plan fictif');
+function planPdf(d0){
+  const J0 = ctx.jspdf.jsPDF, D = ctx.Date, T0 = Date.UTC(2026, 10, 1, 12), out = [];
+  class Df extends Date { constructor(...a){ if (a.length) super(...a); else super(T0); } static now(){ return T0; } }
+  const W = function(...args){
+    const t = new J0(...args);
+    let page = 1;
+    out.push('new\t' + canon(args, new Set(), []));
+    const P = new Proxy(t, {get(tt, k){
+      const v = tt[k];
+      if (typeof v !== 'function') return v;
+      return function(...a){
+        const s = page === 1 && k !== 'addPage' && k !== 'setPage' && !/^(get|splitTextToSize$|output$)/.test(k) ? k + '\t' + canon(a, new Set(), []) : null;
+        const r = v.apply(tt, a);
+        if (k === 'addPage') page = tt.getNumberOfPages();
+        else if (k === 'setPage') page = a[0];
+        else if (s !== null) out.push(s);
+        return r === tt ? P : r;
+      };
+    }});
+    return P;
+  };
+  W.API = J0.API;
+  ['edl', 'avp'].forEach(mode => {
+    out.push('mode\t' + mode);
+    ctx.jspdf.jsPDF = W; ctx.Date = Df;
+    try { V.pdfPlan(copie(d0), FOND, {mode}); } finally { ctx.jspdf.jsPDF = J0; ctx.Date = D; }
+  });
+  return out.join('\n');
+}
+
 /* Sorties du module pour un croquis, chacune sur une copie neuve (anomaliesDoc complète doc.ordre) */
 function sorties(d0){
   const o = {};
@@ -130,6 +170,7 @@ function sorties(d0){
   /* constat déduit de l'état des lieux (m116) : lignes, ouvrages de récupération des EP, descentes sans façade */
   const dC = copie(d0), cd = V.constatDeduit(dC, V.analyser(dC, 'edl'));
   o.constat = canon({rows: cd.rows, epRecup: cd.epRecup, sansCote: cd.sansCote}, new Set(dC.el), []);
+  o['pdf-plan'] = planPdf(d0);
   return o;
 }
 const empreinte = s => crypto.createHash('sha256').update(s, 'utf8').digest('hex').slice(0, 16);
@@ -152,7 +193,7 @@ croquis.forEach(d => {
 
 const regen = option('regenerer'), depot = path.resolve(dir) === path.resolve(__dirname, '..', '..');
 if (regen){
-  if (depot) R.info('attention : --regenerer lit le dépôt lui-même ; si c\'est le test qui a changé, régénérer sur une copie de 52cd3c8 (--app=<dossier>, voir l\'en-tête)');
+  if (depot) R.info('attention : --regenerer lit le dépôt lui-même ; si c\'est le test qui a changé, régénérer sur une copie de 1ac2088 (--app=<dossier>, voir l\'en-tête)');
   /* écarts avec les valeurs en place, pour la trace de la décision */
   let avant = {};
   try { avant = JSON.parse(fs.readFileSync(FICHIER, 'utf8')).empreintes || {}; } catch (e){ avant = {}; }
@@ -179,7 +220,7 @@ if (regen){
       const memeEntree = fige[d.id].entree === obtenu[d.id].entree;
       if (!memeEntree) ecarts++;
       R.ok(memeEntree, 'croquis ' + d.id + ', croquis d\'entrée' + (memeEntree ? ' : identique' : ' : changé (figé ' + fige[d.id].entree + ', obtenu ' + obtenu[d.id].entree
-        + ') ; si c\'est le test qui a changé (générateur, croquis fixe), régénérer sur une copie de 52cd3c8 (--app=<dossier>, voir l\'en-tête)'));
+        + ') ; si c\'est le test qui a changé (générateur, croquis fixe), régénérer sur une copie de 1ac2088 (--app=<dossier>, voir l\'en-tête)'));
       SORTIES.forEach(k => {
         const bon = fige[d.id][k] === obtenu[d.id][k];
         if (!bon) ecarts++;

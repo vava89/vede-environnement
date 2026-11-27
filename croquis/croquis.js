@@ -7930,7 +7930,10 @@ function escalierPdf(pdf, G, papier, m){
 }
 function pdfPlan(doc, fond, o){
   o = o || {};
-  var mode = o.mode || 'edl', J = global.jspdf.jsPDF, pdf = new J({orientation: 'landscape', unit: 'mm', format: 'a4', compress: true});
+  /* o.cible : objet qui reçoit les ordres à la place de jsPDF (releveur de l'aperçu du plan, releveurPdf) ; pdfPlan rend alors ce que rend son
+     output('blob') : le releveur lui-même. o.marque : fonction appelée avant les ordres d'un élément (symbole, étiquette, texte libre, bulle,
+     nord, échelle, mention) avec sa description, puis avec null ; une fois avec {k: 'segs', liste}. Sorties et index.html n'en passent pas. */
+  var mode = o.mode || 'edl', J = global.jspdf.jsPDF, pdf = o.cible || new J({orientation: 'landscape', unit: 'mm', format: 'a4', compress: true});
   /* o.anomalies : anomalies du dossier (mode intégré), pour des numéros et des textes identiques à ceux du dossier */
   var ext = o.anomalies || null, oL = {telQuel: !!o.telQuel}, an = analyser(doc, mode), liste = anomaliesDoc(doc, an, ext, oL), idx = indexDoc(doc), rot = doc.rot || 0, rotDeg = rot * 180 / Math.PI;
   var Ech = doc.echelle > 0 ? doc.echelle : echelleAuto(doc, mode), m = Ech / 1000;
@@ -8054,10 +8057,13 @@ function pdfPlan(doc, fond, o){
   doc.el.forEach(function(e){
     if (e.k !== 'pt' || e.t === 'zone' || !montrer(e)) return;
     var c = papier(e.x, e.y), rgb = couleurPt(e, an);
+    if (o.marque) o.marque({k: 'symb', id: e.id, A: {x: c.x, y: c.y}, R: rayonSymbole(e.t), forme: formeSymbole(e.t)});
     primsPdf(pdf, primitives(e, rgb, angleSymbole(e.t, e.p.a, rot)), c.x, c.y, 1);
     if (mode === 'avp' && e.p.st === 'supprimer'){ var R = rayonSymbole(e.t); pdf.setDrawColor(rgb[0], rgb[1], rgb[2]); pdf.setLineWidth(.3); pdf.line(c.x - R, c.y - R, c.x + R, c.y + R); pdf.line(c.x - R, c.y + R, c.x + R, c.y - R); }
+    if (o.marque) o.marque(null);
   });
   /* étiquettes et textes libres, horizontaux sur le papier */
+  if (o.marque) o.marque({k: 'segs', liste: segsPapier()}); /* aperçu du plan : segments des traits, gardés à part */
   doc.el.forEach(function(e){
     if (!montrer(e) && e.k !== 'tx') return;
     var libre = e.k === 'tx', txt = libre ? e.txt : texteEtiquette(e, an);
@@ -8085,12 +8091,15 @@ function pdfPlan(doc, fond, o){
         cx = meil.x; cy = meil.y;
       }
     }
+    if (o.marque){ var stM = libre || (e.lab && e.lab.main) ? 'main' : e.lab && e.lab.ecart ? 'ecart' : mv ? 'collecteur' : 'office';
+      o.marque({k: libre ? 'tx' : 'etiq', id: e.id, A: {x: A.x, y: A.y}, cx: cx, cy: cy, w: bq.w, h: bq.h, em: em, statut: stM, support: stM === 'collecteur' ? mv : null}); }
     imprimees.push([cx - bq.w / 2, cy - bq.h / 2, cx + bq.w / 2, cy + bq.h / 2]);
     if (!libre && e.k === 'pt'){
       var bt = boiteTexte(txt, em), bx = [cx - bt.w / 2, cy - bt.h / 2, cx + bt.w / 2, cy + bt.h / 2], R = departTrait(e.t), dd = Math.hypot(cx - A.x, cy - A.y), bord = boiteBord(bx, A.x, A.y, cx, cy);
       if (bord && dd > R + 3 && Math.hypot(bord.x - A.x, bord.y - A.y) > R + .8){ pdf.setDrawColor(col[0], col[1], col[2]); pdf.setLineWidth(.15); pdf.line(A.x + (cx - A.x) / dd * R, A.y + (cy - A.y) / dd * R, bord.x, bord.y); }
     }
     textePdf(pdf, txt, cx, cy, em, 0, {coul: col, halo: true, gras: !libre});
+    if (o.marque) o.marque(null);
   });
   /* bulles : sur l'avant-projet, celles de l'état des lieux (une préconisation par anomalie) */
   var listeB = mode === 'avp' ? anomaliesDoc(doc, an.ref, ext, oL) : liste, posB = placerBulles(doc, an, listeB, Ech, idx);
@@ -8099,26 +8108,34 @@ function pdfPlan(doc, fond, o){
     var ob = idx[an2.objId]; if (!montrer(ob)) return;
     var P0 = ancreBulle(ob, idx), A = papier(P0.x, P0.y), d = posB[an2.cle] || bulleDefaut(ob, Ech), cx = A.x + d.dx / m, cy = A.y - d.dy / m, r = TAILLE_BULLE, R = ob.k === 'pt' ? rayonSymbole(ob.t) : 1;
     if (dansRC(A)){ var qb = dansCadre(cx, cy, 2 * r + .6, 2 * r + .6); cx = qb.x; cy = qb.y; } var dd = Math.hypot(cx - A.x, cy - A.y);
+    if (o.marque) o.marque({k: 'bulle', cle: an2.cle, id: an2.objId, num: an2.num, A: {x: A.x, y: A.y}, cx: cx, cy: cy, r: r, R: R, statut: an2.bulle ? (an2.bulle.ecart ? 'ecart' : 'main') : 'office'});
     pdf.setDrawColor(212, 101, 10); pdf.setLineWidth(.25);
     if (dd > R + r + .3) pdf.line(A.x + (cx - A.x) / dd * R, A.y + (cy - A.y) / dd * R, cx - (cx - A.x) / dd * r, cy - (cy - A.y) / dd * r);
     pdf.setFillColor(255, 255, 255); pdf.circle(cx, cy, r, 'FD');
     textePdf(pdf, String(an2.num), cx, cy, r * 1.05, 0, {coul: [212, 101, 10], gras: true});
+    if (o.marque) o.marque(null);
   });
   pdf.restoreGraphicsState();
   /* cadre, nord, échelle, nota */
   pdf.setDrawColor(40, 40, 40); pdf.setLineWidth(.35); pdf.rect(F.x, F.y, F.w, F.h, 'S');
   var nx = F.x + F.w - 11, ny = F.y + 12, dn = versPlan(0, 1, rot), vx = dn.x, vy = -dn.y;
+  if (o.marque) o.marque({k: 'fixe', cle: 'nord'});
   pdf.setFillColor(255, 255, 255); pdf.setDrawColor(40, 40, 40); pdf.setLineWidth(.25); pdf.circle(nx, ny, 7, 'FD');
   pdf.setFillColor(30, 30, 30); pdf.triangle(nx + vx * 6, ny + vy * 6, nx - vx * 3.5 - vy * 2.8, ny - vy * 3.5 + vx * 2.8, nx - vx * 1.5, ny - vy * 1.5, 'F');
   pdf.setFillColor(255, 255, 255); pdf.triangle(nx + vx * 6, ny + vy * 6, nx - vx * 3.5 + vy * 2.8, ny - vy * 3.5 - vx * 2.8, nx - vx * 1.5, ny - vy * 1.5, 'FD');
   textePdf(pdf, 'N', nx + vx * 9.5, ny + vy * 9.5, 2.6, 0, {gras: true, coul: [30, 30, 30], halo: true});
+  if (o.marque) o.marque(null);
   var Lm = barreEchelle(m);
   var sx = F.x + 6, sy = F.y + F.h - 8, Lp = Lm / m;
+  if (o.marque) o.marque({k: 'fixe', cle: 'echelle'});
   pdf.setFillColor(255, 255, 255); pdf.setDrawColor(255, 255, 255); pdf.rect(sx - 2, sy - 6, Lp + 34, 10, 'F');
   pdf.setDrawColor(30, 30, 30); pdf.setLineWidth(.2); pdf.setFillColor(30, 30, 30); pdf.rect(sx, sy, Lp / 2, 1.4, 'FD'); pdf.setFillColor(255, 255, 255); pdf.rect(sx + Lp / 2, sy, Lp / 2, 1.4, 'FD');
   textePdf(pdf, '0', sx, sy - 2, 2, 0, {coul: [30, 30, 30]}); textePdf(pdf, frNum(Lm) + ' m', sx + Lp, sy - 2, 2, 0, {coul: [30, 30, 30]});
   textePdf(pdf, 'Échelle 1/' + Ech, sx + Lp + 16, sy + .7, 2.3, 0, {gras: true, coul: [30, 30, 30]});
+  if (o.marque) o.marque(null);
+  if (o.marque) o.marque({k: 'fixe', cle: 'mention'});
   textePdf(pdf, 'Schéma de principe : limites et positions non garanties', F.x + F.w - 50, F.y + F.h - 3.2, 1.9, 0, {italique: true, coul: [90, 90, 90], halo: true});
+  if (o.marque) o.marque(null);
   /* colonne de droite : cartouche et légende */
   var X = F.x + F.w + 4, W = 297 - 7 - X, y = 7;
   pdf.setDrawColor(40, 40, 40); pdf.setLineWidth(.35); pdf.rect(X, F.y, W, F.h, 'S');
@@ -8305,6 +8322,375 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL, conclC){
   pdf.text(pdfTxt(cc ? 'Conclusion du constat : ' + CONCL[cc] : 'Conclusion proposée : ' + (CONCL[c] || 'sans objet')), 10, y);
 }
 VC.pdfPlan = pdfPlan;
+
+/* ---------- Aperçu du plan (m167, moteur) : relevé des ordres du plan PDF, rejeu sur un canevas, chevauchements ---------- */
+/* Symboles comptés comme un carré par l'aperçu du plan (A17) ; les autres comptent comme un disque. Formes approchées, en attente d'une
+   décision : le carré ne tourne pas avec le symbole (regard, boîte, grille, fosse ou clapet tourné en sort) ; caniveau, fosse et gargouille
+   sont plus étroits que leur carré ; l'hexagone d'une destination tient dans son disque ; le drapeau du point de test monte à 3,4 mm
+   (R = 2) ; la croix « à supprimer » de l'avant-projet va jusqu'aux coins du carré ± R */
+var FORMES_CARREES = {grille: 1, caniveau: 1, regard: 1, boite: 1, clapet: 1, fosse: 1, exutoire: 1, gargouille: 1, test: 1, zone: 1};
+/* Rend la forme d'un symbole pour l'aperçu du plan : 'carre' (côté 2 R) ou 'disque' (rayon R), R étant celui de rayonSymbole */
+function formeSymbole(t){ var f = (T[t] || {forme: 'app'}).forme; return FORMES_CARREES[f] === 1 ? 'carre' : 'disque'; }
+/* Rend une copie des arguments d'un ordre, pour le releveur de l'aperçu du plan : tableaux et objets simples sont copiés en profondeur ;
+   nombres, textes, null, undefined et images restent tels quels */
+function copiePdf(v){
+  if (Array.isArray(v)) return v.map(copiePdf);
+  if (v && typeof v === 'object' && Object.prototype.toString.call(v) === '[object Object]'){
+    var r = {}; Object.keys(v).forEach(function(k){ r[k] = copiePdf(v[k]); }); return r;
+  }
+  return v;
+}
+/* Numéros PDF des bouts et des jonctions de trait (comme jsPDF), pour le releveur et le rejeu de l'aperçu du plan */
+var CAPJOIN_PDF = {0: 0, butt: 0, but: 0, miter: 0, 1: 1, round: 1, rounded: 1, circle: 1, 2: 2, projecting: 2, project: 2, square: 2, bevel: 2};
+/* Vraie instance de jsPDF qui fait les mesures du releveur (largeurs, découpe en lignes) : {J, pdf}, gardée */
+var mesurePdf = null;
+/* Rend le releveur du plan PDF, pour l'aperçu du plan (A2). pdfPlan le reçoit à la place de jsPDF (o.cible) : il note chaque ordre, page
+   par page, sans rien imprimer. Il offre les 27 méthodes que pdfPlan appelle sur jsPDF : addImage addPage circle clip discardPath
+   getNumberOfPages getTextWidth line lines output rect restoreGraphicsState saveGraphicsState setDrawColor setFillColor setFont
+   setFontSize setLineCap setLineDashPattern setLineJoin setLineWidth setPage setProperties setTextColor splitTextToSize text triangle.
+   rel.pages[i] = {n, ordres, etat, format, epFin} ; un ordre = {m : la méthode, a : une copie de ses arguments, mq : la marque ouverte,
+   -1 sans marque}. addPage et setPage changent de page sans être notés ; les mesures et output ne sont pas notés. Un ordre text porte
+   aussi lignes [{t, x, y, w, ang}] (texte imprimé, départ et ligne de base en mm, largeur imprimée sans crénage, angle en degrés),
+   police {nom, style, pt}, coul (couleur du texte), mode ('plein' ou 'trait') et ep (épaisseur du trait en mode trait, sinon null).
+   etat : épaisseur, couleur, bouts et jonctions du trait que jsPDF reporte sur une page ajoutée (null pour la page 1).
+   rel.marques : les marques de pdfPlan (o.marque = rel.marque), chacune avec sa page et ses ordres (indices dans la page) ;
+   rel.segs : les segments des traits sur le papier, [x0, y0, x1, y1, id] (null sans marques).
+   J : la classe jsPDF (celle du module par défaut). opt.strict : une méthode absente, une option de text() autre qu'angle, renderingMode
+   ou align, ou un cas non pris en charge lèvent une erreur ; sans lui, une méthode absente est notée telle quelle. Avec ou sans strict,
+   ce que jsPDF refuse pour un texte (coordonnée, type, alignement), un tracé, un pointillé, un bout, une jonction ou une image lève la
+   même erreur que lui, sans rien noter ; une couleur donnée en texte n'est pas contrôlée (pdfPlan n'en donne pas). */
+function releveurPdf(J, opt){
+  opt = opt || {}; J = J || global.jspdf.jsPDF;
+  var strict = !!opt.strict, MMPT = 25.4 / 72, tranche = Array.prototype.slice;
+  if (!mesurePdf || mesurePdf.J !== J) mesurePdf = {J: J, pdf: new J({orientation: 'landscape', unit: 'mm', format: 'a4'})};
+  var mes = mesurePdf.pdf;
+  /* et : état que le PDF suit (police, taille, couleur du texte, épaisseur), repris par restoreGraphicsState ; jv : valeurs internes de
+     jsPDF, jamais reprises, qu'il reporte sur une page ajoutée */
+  var et = {police: 'helvetica', style: 'normal', pt: 16, coul: null, ep: .200025}, jv = {ep: .200025, trait: null, cap: 0, join: 0}, pile = [];
+  var rel = {pages: [{n: 1, ordres: [], etat: null, format: null, epFin: null}], marques: [], segs: null}, cur = rel.pages[0], ouverte = -1, P = rel;
+  function erreur(s){ throw new Error('releveurPdf : ' + s); }
+  /* l'instance de mesure, mise à la police et à la taille du moment */
+  function mesure(){ mes.setFont(et.police, et.style); mes.setFontSize(et.pt); return mes; }
+  function noter(m, args){
+    var o = {m: m, a: copiePdf(tranche.call(args)), mq: ouverte};
+    if (ouverte >= 0){
+      var mk = rel.marques[ouverte];
+      if (mk.page !== cur.n){ if (strict) erreur('ordre ' + m + ' hors de la page de sa marque'); o.mq = -1; }
+      else mk.ordres.push(cur.ordres.length);
+    }
+    cur.ordres.push(o);
+    return o;
+  }
+  /* arguments que jsPDF 2.5.1 refuse pour un tracé (nombre manquant, style inconnu ; pour lines, jambes ou échelle hors d'un tableau,
+     fermeture hors d'un booléen) ou un pointillé : la même erreur que lui, avant de rien noter, avec ou sans strict */
+  var STYLES_PDF = [undefined, null, 'S', 'D', 'F', 'DF', 'FD', 'f', 'f*', 'B', 'B*', 'n'], NOMBRES_PDF = {circle: 3, line: 4, rect: 4, triangle: 6};
+  function refus(m, a){
+    var n = NOMBRES_PDF[m], bon = true, i, L, x, y;
+    if (n){ for (i = 0; i < n; i++) if (isNaN(a[i])) bon = false; if (STYLES_PDF.indexOf(a[n]) < 0) bon = false; }
+    else if (m === 'lines'){
+      L = a[0]; x = a[1]; y = a[2]; if (typeof L === 'number'){ L = a[2]; x = a[0]; y = a[1]; }
+      bon = !isNaN(x) && !isNaN(y) && Array.isArray(L) && Array.isArray(a[3] || [1, 1]) && STYLES_PDF.indexOf(a[4]) >= 0 && typeof (a[5] || false) === 'boolean';
+    }
+    else if (m === 'setLineDashPattern'){ bon = !isNaN(a[1] || 0) && Array.isArray(a[0] || []); m = 'setLineDash'; }
+    if (!bon) throw new Error('Invalid arguments passed to jsPDF.' + m);
+  }
+  function simple(m){ return function(){ refus(m, arguments); noter(m, arguments); return P; }; }
+  ['circle', 'clip', 'discardPath', 'line', 'lines', 'rect', 'setFillColor', 'setLineDashPattern', 'setProperties', 'triangle'].forEach(function(m){ rel[m] = simple(m); });
+  /* l'image passe d'abord par une instance neuve de jsPDF : une erreur dans les mêmes cas que jsPDF (pdfPlan la rattrape et place la suite
+     autrement), sans rien garder dans l'instance des mesures */
+  rel.addImage = function(){ var essai = new J({orientation: 'landscape', unit: 'mm', format: 'a4'}); essai.addImage.apply(essai, arguments); noter('addImage', arguments); return P; };
+  rel.addPage = function(){
+    cur.epFin = et.ep;
+    cur = {n: rel.pages.length + 1, ordres: [], etat: {ep: jv.ep, trait: copiePdf(jv.trait), cap: jv.cap, join: jv.join}, format: copiePdf(tranche.call(arguments)), epFin: null};
+    rel.pages.push(cur); et.ep = jv.ep;
+    return P;
+  };
+  /* page absente : ignorée, comme jsPDF (erreur en strict) ; la page reprise garde l'épaisseur qu'elle avait */
+  rel.setPage = function(n){
+    var pg = n > 0 && n <= rel.pages.length ? rel.pages[n - 1] : null;
+    if (!pg){ if (strict) erreur('page ' + n + ' absente'); return P; }
+    cur.epFin = et.ep; cur = pg; et.ep = pg.epFin;
+    return P;
+  };
+  rel.getNumberOfPages = function(){ return rel.pages.length; };
+  rel.getTextWidth = function(){ var m = mesure(); return m.getTextWidth.apply(m, arguments); };
+  rel.splitTextToSize = function(){ var m = mesure(); return m.splitTextToSize.apply(m, arguments); };
+  /* pdfPlan rend pdf.output('blob') : ici, le releveur lui-même */
+  rel.output = function(){ return P; };
+  rel.setFont = function(){
+    var m = mesure(); m.setFont.apply(m, arguments); var f = m.getFont();
+    noter('setFont', arguments); et.police = f.fontName; et.style = f.fontStyle;
+    return P;
+  };
+  rel.setFontSize = function(s){ noter('setFontSize', arguments); et.pt = s; return P; };
+  rel.setTextColor = function(){ noter('setTextColor', arguments); et.coul = copiePdf(tranche.call(arguments)); return P; };
+  rel.setDrawColor = function(){ noter('setDrawColor', arguments); jv.trait = copiePdf(tranche.call(arguments)); return P; };
+  rel.setLineWidth = function(w){ noter('setLineWidth', arguments); et.ep = w; jv.ep = w; return P; };
+  /* bout ou jonction inconnus : la même erreur que jsPDF, avant de rien noter */
+  function bout(s, quoi){ if (CAPJOIN_PDF[s] === undefined) throw new Error('Line ' + quoi + ' style of \'' + s + '\' is not recognized. See or extend .CapJoinStyles property for valid styles'); }
+  rel.setLineCap = function(s){ bout(s, 'cap'); noter('setLineCap', arguments); if (typeof CAPJOIN_PDF[s] === 'number') jv.cap = CAPJOIN_PDF[s]; return P; };
+  rel.setLineJoin = function(s){ bout(s, 'join'); noter('setLineJoin', arguments); if (typeof CAPJOIN_PDF[s] === 'number') jv.join = CAPJOIN_PDF[s]; return P; };
+  rel.saveGraphicsState = function(){ noter('saveGraphicsState', arguments); pile.push({police: et.police, style: et.style, pt: et.pt, coul: et.coul, ep: et.ep}); return P; };
+  rel.restoreGraphicsState = function(){
+    if (strict && !pile.length) erreur('restoreGraphicsState sans saveGraphicsState');
+    noter('restoreGraphicsState', arguments);
+    var s = pile.pop(); if (s){ et.police = s.police; et.style = s.style; et.pt = s.pt; et.coul = s.coul; et.ep = s.ep; }
+    return P;
+  };
+  /* text(t, x, y, options) : les lignes que jsPDF imprime, avec leur départ (alignement compris), leur ligne de base et leur largeur */
+  rel.text = function(t, x, y, op){
+    var args = arguments;
+    if (strict && args.length > 4) erreur('text() à plus de quatre arguments');
+    /* ancienne signature (x, y, texte), que jsPDF remet dans l'ordre */
+    if (typeof t === 'number' && typeof x === 'number' && (typeof y === 'string' || Array.isArray(y))){
+      if (strict) erreur('text() à l\'ancienne (x, y, texte)');
+      var tmp = y; y = x; x = t; t = tmp;
+    }
+    /* options hors d'un objet : ancienne forme de jsPDF (angle en nombre, alignement en texte) */
+    if (typeof op !== 'object' || op === null){
+      if (strict && op !== undefined) erreur('options de text() hors d\'un objet');
+      var an = args[4], al0 = args[5];
+      if (typeof an === 'string'){ al0 = an; an = null; }
+      if (typeof op === 'string') al0 = op; else if (typeof op === 'number') an = op;
+      op = {angle: an, align: al0};
+    }
+    var rm = op.renderingMode !== undefined ? op.renderingMode : op.stroke;
+    var mode = rm === undefined || rm === null || rm === 0 || rm === false || rm === 'fill' ? 'plein' : rm === 1 || rm === true || rm === 'stroke' ? 'trait' : 'autre';
+    var ang = typeof op.angle === 'number' && op.angle ? op.angle : 0;
+    if (strict){
+      Object.keys(op).forEach(function(c){ if (c !== 'angle' && c !== 'renderingMode' && c !== 'align') erreur('option de text() non prise en charge (' + c + ')'); });
+      if (op.angle !== undefined && typeof op.angle !== 'number') erreur('angle de text() hors d\'un nombre');
+      if (mode === 'autre') erreur('renderingMode de text() non pris en charge (' + rm + ')');
+    }
+    if (isNaN(x) || isNaN(y) || t === undefined || t === null) throw new Error('Invalid arguments passed to jsPDF.text');
+    var L = [], al = op.align || 'left';
+    if (t.length !== 0){
+      if (typeof t === 'string') L = t.split(/\r\n|\r|\n/g);
+      else if (Array.isArray(t) && t.every(function(s){ return typeof s === 'string'; })) L = t.slice();
+      else throw new Error('Type of text must be string or Array. "' + t + '" is not recognized.');
+      if (al !== 'left' && al !== 'center' && al !== 'right' && al !== 'justify') throw new Error('Unrecognized alignment option, use "left", "center", "right" or "justify".');
+      if (strict){
+        if (al === 'justify') erreur('alignement justify non pris en charge');
+        if (ang && L.length > 1) erreur('texte de plusieurs lignes tourné');
+        if (ang && al !== 'left') erreur('texte tourné et aligné (' + al + ')');
+      }
+    }
+    var m = mesure(), enc = (m.getFont() || {}).encoding, tab = enc === 'WinAnsiEncoding' || enc === 'StandardEncoding', espace = Array(op.TabLen || 9).join(' ');
+    var lead = et.pt * (typeof op.lineHeightFactor === 'number' ? op.lineHeightFactor : 1.15) * MMPT, ar = ang * Math.PI / 180, sn = Math.sin(ar), cs = Math.cos(ar), x0 = Number(x), y0 = Number(y);
+    function largeur(s){ return m.getStringUnitWidth(s, {doKerning: false}) * et.pt * MMPT; }
+    /* jsPDF aligne d'après la ligne brute, puis développe les tabulations (polices WinAnsi et Standard) : la largeur imprimée est celle de
+       la ligne développée */
+    var lignes = L.map(function(l, i){
+      var imp = tab ? l.split('\t').join(espace) : l, w = largeur(imp), wb = al === 'right' || al === 'center' ? (imp === l ? w : largeur(l)) : 0;
+      var dx = al === 'right' ? -wb : al === 'center' ? -wb / 2 : 0;
+      return {t: imp, x: x0 + dx + i * lead * sn, y: y0 + i * lead * cs, w: w, ang: ang};
+    });
+    var o = noter('text', args);
+    o.lignes = lignes; o.police = {nom: et.police, style: et.style, pt: et.pt}; o.coul = copiePdf(et.coul); o.mode = mode; o.ep = mode === 'trait' ? et.ep : null;
+    return P;
+  };
+  /* marque de pdfPlan : {k: 'segs', liste} garde les segments à part ; une autre marque s'ouvre, null la ferme */
+  rel.marque = function(mq){
+    if (mq && mq.k === 'segs'){ rel.segs = copiePdf(mq.liste || []); return; }
+    if (mq){
+      if (strict && ouverte >= 0) erreur('marque ouverte dans une autre');
+      var c = copiePdf(mq); c.page = cur.n; c.ordres = []; rel.marques.push(c); ouverte = rel.marques.length - 1;
+    } else {
+      if (strict && ouverte < 0) erreur('marque fermée sans être ouverte');
+      ouverte = -1;
+    }
+  };
+  if (typeof Proxy === 'function') P = new Proxy(rel, {get: function(cible, k){
+    if (k in cible || typeof k !== 'string' || k === 'then' || k === 'toJSON') return cible[k];
+    if (strict) erreur('méthode absente (' + k + ')');
+    return function(){ noter(k, arguments); return P; };
+  }});
+  return P;
+}
+/* Polices du rejeu de l'aperçu du plan : Helvetica, ou la plus proche */
+var POLICE_APERCU = 'Helvetica, Arial, "Liberation Sans", Roboto, sans-serif';
+/* Images du rejeu de l'aperçu du plan, par donnée (data URL) : {img, pret, fini, attente} */
+var imagesApercu = Object.create(null);
+/* Rend la couleur CSS d'une couleur de jsPDF (arguments de setDrawColor, setFillColor ou setTextColor), pour le rejeu de l'aperçu du plan :
+   gris ou RVB de 0 à 255, CMJN de 0 à 1, texte de couleur gardé tel quel ; noir sans couleur */
+function couleurPdf(a){
+  function v(x){ x = Math.round(Number(x)); return isFinite(x) ? Math.max(0, Math.min(255, x)) : 0; }
+  if (!a || !a.length || a[0] === null || a[0] === undefined) return '#000000';
+  var c1 = a[0], c2 = a[1], c3 = a[2], c4 = a[3];
+  if (typeof c1 === 'string') return c1;
+  if (c2 === undefined || (c4 === undefined && c1 === c2 && c2 === c3)) return 'rgb(' + v(c1) + ',' + v(c1) + ',' + v(c1) + ')';
+  if (c4 === undefined || typeof c4 === 'object') return c4 && c4.a === 0 ? '#ffffff' : 'rgb(' + v(c1) + ',' + v(c2) + ',' + v(c3) + ')';
+  return 'rgb(' + v(255 * (1 - c1) * (1 - c4)) + ',' + v(255 * (1 - c2) * (1 - c4)) + ',' + v(255 * (1 - c3) * (1 - c4)) + ')';
+}
+/* Rejoue une page relevée (rel.pages[i] de releveurPdf) sur un contexte 2D de canevas, pour l'aperçu du plan (A3). vue = {k, x, y} : pixels
+   par mm, décalage en pixels. Chaque ligne de texte est étirée à sa largeur imprimée. Rend une promesse : true quand tout est dessiné,
+   false quand une image se chargeait encore (l'appelant rejoue alors la page). Le contexte retrouve son état d'avant. */
+function rejouerPage(ctx, page, vue){
+  vue = vue || {};
+  var k = vue.k || 1, ox = vue.x || 0, oy = vue.y || 0, prof = 0, ouvert = false, attentes = [], ordres = (page && page.ordres) || [];
+  var BOUTS = ['butt', 'round', 'square'], JONCTIONS = ['miter', 'round', 'bevel'];
+  function X(x){ return x * k + ox; }
+  function Y(y){ return y * k + oy; }
+  /* un chemin resté ouvert (style null) reçoit la suite, comme dans le PDF */
+  function chemin(){ if (!ouvert){ ctx.beginPath(); ouvert = true; } }
+  /* styles de jsPDF : null ne peint pas ; F, f, f* remplissent ; FD, DF, B, B* remplissent puis tracent ; les autres tracent */
+  function peindre(st){
+    if (st === null) return;
+    if (st === 'F' || st === 'f') ctx.fill();
+    else if (st === 'f*') ctx.fill('evenodd');
+    else if (st === 'FD' || st === 'DF' || st === 'B'){ ctx.fill(); ctx.stroke(); }
+    else if (st === 'B*'){ ctx.fill('evenodd'); ctx.stroke(); }
+    else ctx.stroke();
+    ouvert = false;
+  }
+  /* épaisseur nulle : le trait le plus fin, comme dans le PDF */
+  function epaisseur(w){ return w > 0 ? w * k : 1; }
+  function nom(v, noms){ return typeof CAPJOIN_PDF[v] === 'number' ? noms[CAPJOIN_PDF[v]] : null; }
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#000000'; ctx.strokeStyle = '#000000'; ctx.lineWidth = .200025 * k; ctx.lineCap = 'butt'; ctx.lineJoin = 'miter'; ctx.miterLimit = 10;
+  ctx.setLineDash([]); ctx.lineDashOffset = 0; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  var e0 = page && page.etat;
+  if (e0){
+    ctx.lineWidth = epaisseur(e0.ep);
+    if (e0.trait) ctx.strokeStyle = couleurPdf(e0.trait);
+    if (nom(e0.cap, BOUTS)) ctx.lineCap = nom(e0.cap, BOUTS);
+    if (nom(e0.join, JONCTIONS)) ctx.lineJoin = nom(e0.join, JONCTIONS);
+  }
+  ordres.forEach(function(o){
+    var a = o.a || [], m = o.m;
+    if (m === 'rect'){ chemin(); ctx.rect(X(a[0]), Y(a[1]), a[2] * k, a[3] * k); peindre(a[4]); }
+    else if (m === 'line'){ chemin(); ctx.moveTo(X(a[0]), Y(a[1])); ctx.lineTo(X(a[2]), Y(a[3])); peindre(a[4] || 'S'); }
+    else if (m === 'circle'){ chemin(); ctx.moveTo(X(a[0]) + a[2] * k, Y(a[1])); ctx.arc(X(a[0]), Y(a[1]), a[2] * k, 0, 2 * Math.PI, true); peindre(a[3]); }
+    else if (m === 'triangle'){ chemin(); ctx.moveTo(X(a[0]), Y(a[1])); ctx.lineTo(X(a[2]), Y(a[3])); ctx.lineTo(X(a[4]), Y(a[5])); ctx.lineTo(X(a[0]), Y(a[1])); ctx.closePath(); peindre(a[6]); }
+    else if (m === 'lines'){
+      /* jambes de 2 nombres (droite) ou de 6 (courbe de Bézier), relatives au point atteint ; ancien ordre (x, y, jambes) admis */
+      var J0 = a[0], x = a[1], y = a[2], sc = a[3] || [1, 1];
+      if (typeof J0 === 'number'){ var tmp = y; y = x; x = J0; J0 = tmp; }
+      if (!Array.isArray(J0)) return;
+      chemin(); ctx.moveTo(X(x), Y(y));
+      J0.forEach(function(g){
+        if (g.length === 2){ x += g[0] * sc[0]; y += g[1] * sc[1]; ctx.lineTo(X(x), Y(y)); return; }
+        var x2 = x + g[0] * sc[0], y2 = y + g[1] * sc[1], x3 = x + g[2] * sc[0], y3 = y + g[3] * sc[1];
+        x += g[4] * sc[0]; y += g[5] * sc[1]; ctx.bezierCurveTo(X(x2), Y(y2), X(x3), Y(y3), X(x), Y(y));
+      });
+      if (a[5]) ctx.closePath();
+      peindre(a[4]);
+    }
+    else if (m === 'clip') ctx.clip(a[0] === 'evenodd' ? 'evenodd' : 'nonzero');
+    else if (m === 'discardPath'){ ctx.beginPath(); ouvert = false; }
+    else if (m === 'saveGraphicsState'){ ctx.save(); prof++; }
+    else if (m === 'restoreGraphicsState'){ if (prof > 0){ ctx.restore(); prof--; } }
+    else if (m === 'setDrawColor') ctx.strokeStyle = couleurPdf(a);
+    else if (m === 'setFillColor') ctx.fillStyle = couleurPdf(a);
+    else if (m === 'setLineWidth') ctx.lineWidth = epaisseur(a[0]);
+    else if (m === 'setLineCap'){ if (nom(a[0], BOUTS)) ctx.lineCap = nom(a[0], BOUTS); }
+    else if (m === 'setLineJoin'){ if (nom(a[0], JONCTIONS)) ctx.lineJoin = nom(a[0], JONCTIONS); }
+    else if (m === 'setLineDashPattern'){ ctx.setLineDash((Array.isArray(a[0]) ? a[0] : []).map(function(v){ return v * k; })); ctx.lineDashOffset = (a[1] || 0) * k; }
+    else if (m === 'text'){
+      /* la couleur du texte devient celle du remplissage, comme dans le PDF ; un texte vide n'écrit rien */
+      var L = o.lignes || [], pol = o.police || {}, sty = pol.style || 'normal';
+      if (!L.length) return;
+      ctx.fillStyle = couleurPdf(o.coul);
+      ctx.font = (/italic|oblique/.test(sty) ? 'italic ' : '') + (/bold/.test(sty) ? 'bold ' : '') + (pol.pt || 16) * 25.4 / 72 * k + 'px ' + POLICE_APERCU;
+      L.forEach(function(l){
+        if (!l.t) return;
+        var mw = ctx.measureText(l.t).width, sx = mw > 0 ? l.w * k / mw : 1, r = (l.ang || 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+        ctx.setTransform(sx * c, -sx * s, s, c, X(l.x), Y(l.y));
+        if (o.mode === 'trait'){ ctx.lineWidth = epaisseur(o.ep); ctx.strokeText(l.t, 0, 0); } else ctx.fillText(l.t, 0, 0);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      });
+    }
+    else if (m === 'addImage'){
+      /* (donnée, format, x, y, l, h) ou (donnée, x, y, l, h) ; une image pas encore chargée est attendue, puis dessinée au rejeu suivant */
+      var b = typeof a[1] === 'number' ? 1 : 2, ix = a[b], iy = a[b + 1], iw = a[b + 2], ih = a[b + 3], dat = a[0];
+      if (!(isFinite(ix) && isFinite(iy) && isFinite(iw) && isFinite(ih))) return;
+      if (dat && typeof dat === 'object'){ if (typeof dat.getContext === 'function' || /^img$/i.test(dat.nodeName || '')) ctx.drawImage(dat, X(ix), Y(iy), iw * k, ih * k); return; }
+      if (typeof dat !== 'string' || !dat) return;
+      var src = /^data:/.test(dat) ? dat : 'data:image/' + (typeof a[1] === 'string' ? a[1] : 'png').toLowerCase() + ';base64,' + dat, en = imagesApercu[src];
+      if (!en){
+        var Img = global.Image; if (typeof Img !== 'function') return;
+        var img = new Img(); en = imagesApercu[src] = {img: img, pret: false, fini: false, attente: null};
+        en.attente = new Promise(function(ok){ img.onload = function(){ en.pret = true; en.fini = true; ok(); }; img.onerror = function(){ en.fini = true; ok(); }; });
+        img.src = src;
+      }
+      if (en.pret) ctx.drawImage(en.img, X(ix), Y(iy), iw * k, ih * k);
+      else if (!en.fini) attentes.push(en.attente);
+    }
+  });
+  while (prof > 0){ ctx.restore(); prof--; }
+  ctx.restore();
+  return attentes.length ? Promise.all(attentes).then(function(){ return false; }) : Promise.resolve(true);
+}
+/* Rend les chevauchements du plan pour l'aperçu du plan (A17), d'après les marques et les ordres de la page 1 d'un relevé (releveurPdf) :
+   {paires: [{a, b, p}], coupes: [{i, d}]}. a < b et i sont des indices de rel.marques. Une paire : une étiquette, un texte libre ou une
+   bulle qui pénètre de plus de 0,3 mm (p, en mm) un autre de ceux-là, un symbole (centre dans le cadre) ou un élément fixe (nord, échelle,
+   mention) ; symbole contre symbole ne compte pas. Une coupe : une étiquette, un texte libre ou une bulle qui sort du cadre de dessin de
+   plus de 0,3 mm (d, en mm). */
+function chevauchementsPlan(rel){
+  var O = (rel.pages[0] || {ordres: []}).ordres, RC = null, MMPT = 25.4 / 72, ACC = /[ÀÁÂÃÄÅÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝŠŽŸ]/;
+  /* cadre de dessin : le rectangle sans peinture qui précède la découpe */
+  for (var i = 0; i + 1 < O.length && !RC; i++){
+    var a = O[i].a;
+    if (O[i].m === 'rect' && a[4] === null && O[i + 1].m === 'clip') RC = [Math.min(a[0], a[0] + a[2]), Math.min(a[1], a[1] + a[3]), Math.max(a[0], a[0] + a[2]), Math.max(a[1], a[1] + a[3])];
+  }
+  if (!RC) RC = [7, 7, 7 + CADRE.w, 7 + CADRE.h];
+  /* boîte d'une ligne de texte : de la ligne de base − 0,72 em (− 0,93 em avec une capitale accentuée) à + 0,21 em, élargie de 0,14 em
+     avec un halo ; ligne tournée : sa boîte englobante */
+  function boiteLigne(l, em, halo){
+    var e = halo ? .14 * em : 0, s0 = -e, s1 = l.w + e, t0 = -(ACC.test(l.t) ? .93 : .72) * em - e, t1 = .21 * em + e;
+    if (!l.ang) return [l.x + s0, l.y + t0, l.x + s1, l.y + t1];
+    var r = l.ang * Math.PI / 180, ux = Math.cos(r), uy = -Math.sin(r), vx = Math.sin(r), vy = Math.cos(r), xs = [], ys = [];
+    [[s0, t0], [s1, t0], [s0, t1], [s1, t1]].forEach(function(q){ xs.push(l.x + ux * q[0] + vx * q[1]); ys.push(l.y + uy * q[0] + vy * q[1]); });
+    return [Math.min.apply(null, xs), Math.min.apply(null, ys), Math.max.apply(null, xs), Math.max.apply(null, ys)];
+  }
+  /* forme d'une marque : morceaux {c: [x, y, r]} (disque) ou {b: [x0, y0, x1, y1]} (boîte) */
+  function formes(m){
+    if (m.k === 'symb') return m.forme === 'carre' ? [{b: [m.A.x - m.R, m.A.y - m.R, m.A.x + m.R, m.A.y + m.R]}] : [{c: [m.A.x, m.A.y, m.R]}];
+    if (m.k === 'bulle') return [{c: [m.cx, m.cy, m.r + .125]}];
+    var F = [], Om = m.ordres.map(function(j){ return O[j]; }), L = [];
+    Om.forEach(function(o){ if (o.m === 'text') o.lignes.forEach(function(l){ if (l.t) L.push({l: l, o: o}); }); });
+    L.forEach(function(q){
+      var halo = q.o.mode === 'trait' || L.some(function(r){ return r !== q && r.o.mode === 'trait' && r.l.t === q.l.t && r.l.x === q.l.x && r.l.y === q.l.y; });
+      F.push({b: boiteLigne(q.l, q.o.police.pt * MMPT, halo)});
+    });
+    if (m.k === 'fixe') Om.forEach(function(o){
+      var a = o.a;
+      if (o.m === 'circle') F.push({c: [a[0], a[1], a[2]]});
+      else if (o.m === 'rect') F.push({b: [Math.min(a[0], a[0] + a[2]), Math.min(a[1], a[1] + a[3]), Math.max(a[0], a[0] + a[2]), Math.max(a[1], a[1] + a[3])]});
+      else if (o.m === 'triangle') F.push({b: [Math.min(a[0], a[2], a[4]), Math.min(a[1], a[3], a[5]), Math.max(a[0], a[2], a[4]), Math.max(a[1], a[3], a[5])]});
+    });
+    return F;
+  }
+  function horsBoite(c, b){ return Math.hypot(Math.max(b[0] - c[0], 0, c[0] - b[2]), Math.max(b[1] - c[1], 0, c[1] - b[3])); }
+  /* pénétration de deux morceaux : r1 + r2 − D ; r moins la distance du centre à la boîte ; le moindre recouvrement de deux boîtes */
+  function penetre(f, g){
+    if (f.c && g.c) return f.c[2] + g.c[2] - Math.hypot(f.c[0] - g.c[0], f.c[1] - g.c[1]);
+    if (f.c) return f.c[2] - horsBoite(f.c, g.b);
+    if (g.c) return g.c[2] - horsBoite(g.c, f.b);
+    return Math.min(Math.min(f.b[2], g.b[2]) - Math.max(f.b[0], g.b[0]), Math.min(f.b[3], g.b[3]) - Math.max(f.b[1], g.b[1]));
+  }
+  function sortie(F){
+    var d = -Infinity;
+    F.forEach(function(f){ var b = f.c ? [f.c[0] - f.c[2], f.c[1] - f.c[2], f.c[0] + f.c[2], f.c[1] + f.c[2]] : f.b; d = Math.max(d, RC[0] - b[0], b[2] - RC[2], RC[1] - b[1], b[3] - RC[3]); });
+    return d;
+  }
+  function mobile(m){ return m.k === 'etiq' || m.k === 'tx' || m.k === 'bulle'; }
+  var M = rel.marques, Fm = M.map(function(m){
+    if (m.page !== 1 || (m.k === 'symb' && !(m.A.x >= RC[0] && m.A.x <= RC[2] && m.A.y >= RC[1] && m.A.y <= RC[3]))) return null;
+    var F = formes(m); return F.length ? F : null;
+  }), paires = [], coupes = [];
+  M.forEach(function(m, i){
+    if (!Fm[i]) return;
+    if (mobile(m)){ var d = sortie(Fm[i]); if (d > .3) coupes.push({i: i, d: d}); }
+    for (var j = i + 1; j < M.length; j++){
+      if (!Fm[j] || (!mobile(m) && !mobile(M[j]))) continue;
+      var p = -Infinity; Fm[i].forEach(function(f){ Fm[j].forEach(function(g){ p = Math.max(p, penetre(f, g)); }); });
+      if (p > .3) paires.push({a: i, b: j, p: p});
+    }
+  });
+  return {paires: paires, coupes: coupes};
+}
+VC.releveurPdf = releveurPdf; VC.rejouerPage = rejouerPage; VC.chevauchementsPlan = chevauchementsPlan;
 
 /* ---------- DXF R12 pour la DAO : coordonnées du fond, calques VEDE-*, symboles en blocs à l'échelle du plan ---------- */
 var CP1252 = {0x20AC: 0x80, 0x201A: 0x82, 0x0192: 0x83, 0x201E: 0x84, 0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02C6: 0x88, 0x2030: 0x89, 0x0160: 0x8A, 0x2039: 0x8B, 0x0152: 0x8C, 0x017D: 0x8E,
