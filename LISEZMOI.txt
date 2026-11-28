@@ -1,4 +1,4 @@
-VÉDÉ Terrain, version installable hors connexion (v1.7.2)
+VÉDÉ Terrain, version installable hors connexion (v1.7.3)
 =====================================================
 
 Ce dossier contient l'application complète. Une fois installée sur la
@@ -43,18 +43,19 @@ INSTALLATION SUR LA TABLETTE
   Les exports comportent une dernière colonne « Dossier créé à la main ».
 
 CROQUIS DE TERRAIN (facultatif)
-- Réglages > « Utiliser le croquis de terrain » (coché d'origine). Décoché,
-  l'application fonctionne comme avant (pages, constat, exports) ; les
-  croquis déjà dessinés restent sur la tablette et dans les sauvegardes,
-  et les anomalies qu'ils ont créées restent dans les dossiers, avec leurs
-  préconisations. Toutefois, avec ou sans croquis, le constat imprimé
-  n'a ni « Autres : » ni ligne vide (voir « Constat » plus bas), la
-  pièce nommée avec un lavabo ou un évier dans une anomalie saisie à la
-  main le situe seulement quand la ligne « Évier » est comptée, la
-  section Boîte de branchement a sa ligne « Boîte à l'intérieur ou à
-  l'extérieur de la propriété » (sans croquis, vide d'office ; voir plus
-  bas), et le tableau des installations a sa colonne « Puits » : une
-  ligne mise à la main sur « Puits » y est non conforme.
+- Réglages > « Utiliser le croquis de terrain » (coché d'origine).
+  Décoché, l'application fonctionne comme avant (pages, constat,
+  exports) ; les croquis déjà dessinés restent sur la tablette et dans
+  les sauvegardes, et les anomalies qu'ils ont créées restent dans les
+  dossiers, avec leurs préconisations. Toutefois, avec ou sans croquis,
+  le constat imprimé est délesté par défaut et n'a ni « Autres : » ni
+  ligne vide (voir « Constat » plus bas), la pièce nommée avec un lavabo
+  ou un évier dans une anomalie saisie à la main le situe seulement
+  quand la ligne « Évier » est comptée, la section Boîte de branchement
+  a sa ligne « Boîte à l'intérieur ou à l'extérieur de la propriété »
+  (sans croquis, vide d'office ; voir plus bas), et le tableau des
+  installations a sa colonne « Puits » : une ligne mise à la main sur
+  « Puits » y est non conforme.
 - Dans un dossier : « Commencer le croquis ». Choisissez le fond de plan :
   un plan cadastral DXF déjà chargé dans l'étude, un DXF de la tablette
   (cadastre.gouv.fr), ou aucun pour l'instant. Le fond reste sur la
@@ -165,9 +166,16 @@ CROQUIS DE TERRAIN (facultatif)
   bouts libres n'attendent pas d'exutoire. Il est vert, avec l'étiquette
   « Dispersion dans le sol » ; s'il ne reçoit que des eaux usées (un WC,
   sans descente ni grille qui y mène), il est rouge, son étiquette aussi,
-  à l'écran, au PDF et au DXF. Un tuyau sans réseau qui ne mène qu'à lui
-  reste vert, et un regard posé sur le drain reste un regard EP (tampon
-  béton : réserve). Ce que le drain d'infiltration atteint
+  à l'écran, au PDF et au DXF. Un tuyau sans réseau qui, avant le
+  drain, ne mène qu'à des drains d'infiltration prend la couleur des
+  eaux qu'il porte : rouge s'il ne porte que des eaux usées (le tuyau
+  d'un WC), vert dès que l'eau d'une descente ou d'une grille passe par
+  lui ; ce que le drain atteint au-delà de lui (trop-plein parti plus
+  loin sur le drain, ouvrage posé sur lui) ne change pas cette couleur,
+  sauf un réseau EU ou unitaire ainsi atteint : le tuyau garde alors la
+  couleur « Plusieurs réseaux atteints », comme en v1.7.2. Un regard
+  posé sur ce tuyau, comme celui posé sur le drain, reste un regard EP
+  (tampon béton : réserve). Ce que le drain d'infiltration atteint
   au-delà de lui (trop-plein parti du drain vers une boîte de
   branchement, puits, puisard ou infiltration posés sur le drain) est un
   rejet de plus, jugé selon sa règle : la source disperse dans le sol et,
@@ -383,12 +391,17 @@ CROQUIS DE TERRAIN (facultatif)
   passent pour rejoindre l'exutoire dessiné, y compris par le trop-plein
   d'un puisard ou d'une infiltration au sol : pour les deux si elle
   reçoit des EU et des EP, ou si aucun appareil n'y passe. Le réseau
-  indiqué dans la fiche l'emporte. Une boîte que le dessin dit mêlée
-  (étiquette « Boîte de branchement » seule, par exemple quand un tuyau
-  tracé à l'outil « Tronçon EU », « Tronçon EP » ou « Drain » y arrive)
-  n'est pas reprise : on indique alors son réseau dans sa fiche. Une
-  boîte sans réseau (ni indiqué dans sa fiche, ni déduit du dessin)
-  n'est pas reprise non plus.
+  indiqué dans la fiche l'emporte. En zone unitaire, une boîte sans
+  réseau indiqué que le dessin dit mêlée (étiquette « Boîte de
+  branchement » seule, par exemple quand un tuyau tracé à l'outil
+  « Tronçon EU », « Tronçon EP » ou « Drain » y arrive) compte de même,
+  pour le réseau des appareils dont les eaux y passent ; son étiquette
+  ne change pas. Une boîte mêlée dont un tuyau mène aussi à un autre
+  réseau ou à un autre exutoire (un puisard, par exemple), ou dont aucun
+  tuyau ne rejoint le réseau unitaire ni n'est tracé à l'outil
+  « Tronçon unitaire », n'est pas reprise : on indique alors son réseau
+  dans sa fiche. Une boîte sans réseau (ni indiqué dans sa fiche, ni
+  déduit du dessin) n'est pas reprise non plus.
   Avec deux boîtes ou plus sur un réseau, rien n'y est repris (une valeur
   reprise avant, et non modifiée, est vidée) ; le constat rappelle de les
   saisir avant la signature. Ensuite ces valeurs suivent le croquis tant
@@ -406,31 +419,45 @@ CROQUIS DE TERRAIN (facultatif)
   il ne paraît pas changé depuis la signature. Les écarts entre le
   croquis et le constat sont rappelés avant la signature. Un constat
   signé n'est jamais modifié, et le croquis n'y rappelle plus d'écart.
+  Le constat imprimé est délesté par défaut, avec ou sans croquis : il
+  n'imprime que ce qui est rempli ou coché, sur une seule page quand
+  tout y tient, sinon sur deux. Le formulaire complet, où une case vide
+  atteste une absence, reste au choix de l'étude : menu de l'étude >
+  « En-tête des fiches » > « Constat imprimé » : « Par défaut
+  (délesté) », « Délesté : seulement ce qui est rempli ou coché » ou
+  « Formulaire complet ». L'écran du constat dit la forme que prendra le
+  PDF. La forme est notée à la signature : un constat signé la garde à
+  la réimpression, quel que soit ensuite le choix de l'étude ; un
+  constat signé avant la v1.7.3 garde la présentation de sa version
+  (avant la v1.7.2 : celle de la v1.7.1, voir plus bas).
   Le constat imprimé n'a ni « Autres : » ni ligne laissée vide pour
   écrire à la main, avec ou sans croquis ; un constat signé avant la
   v1.7.2 garde à la réimpression « Autres : » et ses lignes vides
   (présentation de la v1.7.1).
   Le tableau des installations a une colonne « Puits », avec ou sans
-  croquis : « Fosse septique » (en rouge), « Milieu naturel », « Puits »
-  et « Gargouille » (en vert) tiennent dans la largeur des trois
-  colonnes d'avant, leurs titres en plus petit, sur deux lignes. Un
-  constat signé avant la v1.7.2 garde à la réimpression ses trois
-  colonnes (présentation de la v1.7.1).
+  croquis : au formulaire complet, « Fosse septique » (en rouge),
+  « Milieu naturel », « Puits » et « Gargouille » (en vert) tiennent
+  dans la largeur des trois colonnes d'avant, leurs titres en plus
+  petit, sur deux lignes ; le constat délesté ne garde que les colonnes
+  employées. Un constat signé avant la v1.7.2 garde à la réimpression
+  ses trois colonnes (présentation de la v1.7.1).
   La ligne « Boîte à l'intérieur ou à l'extérieur de la propriété »
   suit la distance, avec ou sans croquis. À l'écran, deux boutons
   « Intérieur » et « Extérieur » par réseau ; toucher le bouton choisi
   le décoche. « Sans objet (pas de boîte en limite) » y écrit « sans
-  objet », en clair ; un toucher le remplace. Au constat imprimé, la
+  objet », en clair ; un toucher le remplace. Au formulaire complet, la
   section garde son cadre, avec quatre lignes un peu resserrées, et deux
   cases « int. » et « ext. » par réseau : la case choisie porte une
-  croix. Une valeur trop longue pour une ligne s'imprime sur deux
-  lignes, en plus petit (au-delà, la seconde finit par « … »). Une
-  distance tapée n'est jamais découpée (« 0,80 m intérieur » tapé reste
-  tel quel) ; si elle porte un côté, celui du croquis ne se coche que
-  s'il est le même. Dans un dossier d'avant la v1.7.2, la distance
-  « 0,80 m intérieur » reprise du croquis, et non modifiée, devient
-  « 0,80 m » et le côté se coche. Un constat signé avant la v1.7.2 garde
-  à la réimpression ses trois lignes (présentation de la v1.7.1).
+  croix ; le constat délesté n'en garde que les lignes et les réseaux
+  remplis, et la seule case choisie, avec sa croix. Une valeur trop
+  longue pour une ligne s'imprime sur deux lignes, en plus petit
+  (au-delà, la seconde finit par « … »). Une distance tapée n'est jamais
+  découpée (« 0,80 m intérieur » tapé reste tel quel) ; si elle porte un
+  côté, celui du croquis ne se coche que s'il est le même. Dans un
+  dossier d'avant la v1.7.2, la distance « 0,80 m intérieur » reprise du
+  croquis, et non modifiée, devient « 0,80 m » et le côté se coche. Un
+  constat signé avant la v1.7.2 garde à la réimpression ses trois lignes
+  (présentation de la v1.7.1).
 - Aides au dessin (Réglages, ou bouton aimant et palette d'accrochage
   dans le croquis) : traits parallèles au côté de bâti le plus proche,
   angles droits, accroche aux coins et façades, fin automatique d'un
@@ -465,7 +492,11 @@ CROQUIS DE TERRAIN (facultatif)
   (« Conclusion du constat »). Pour un constat signé, c'est celle qu'il
   atteste, choisie ou proposée au moment de la signature, même si le
   dessin change ensuite. Sinon, le plan imprime celle que le dessin
-  propose.
+  propose. « Aperçu du plan », premier bouton de Sorties, montre la
+  page 1 du PDF à l'échelle du livrable, compte et entoure d'orange les
+  étiquettes, textes et bulles qui se chevauchent ou que le cadre coupe,
+  et passe de l'un à l'autre, de haut en bas ; il ne change rien au
+  dossier.
 
 SAUVEGARDE
 - Effacer les données du navigateur ou désinstaller l'application efface
@@ -572,7 +603,13 @@ MISE À JOUR DE L'APPLICATION
   et au plan PDF, l'angle d'un objet tourné au disque de rotation sur
   une tablette à jour ; hors caniveau, clapet et gargouille, son DXF le
   place comme s'il n'avait pas été tourné, et sa fiche n'a pas les
-  puces d'orientation.
+  puces d'orientation. Une tablette restée en v1.7.2 imprime au
+  formulaire complet (présentation de la v1.7.2) un constat signé
+  délesté sur une tablette à jour : réimprimez-le sur une tablette à
+  jour. Une tablette restée en v1.7.2 ne compte pas une boîte mêlée en
+  zone unitaire : au suivi du croquis, elle vide les valeurs de la boîte
+  qu'une tablette à jour a reprises du croquis et que personne n'a
+  retouchées ; une tablette à jour les remet.
 - Une tablette remise en v1.7.0, ou plus ancienne, garde les
   destinations ajoutées (« + Nouvelle destination ») sans les proposer,
   puis les efface dès qu'un réglage du croquis y change (une aide au

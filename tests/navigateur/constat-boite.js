@@ -115,6 +115,13 @@
 //     « intérieur », « 0,60 m », en EP « 1,50 m », « extérieur », « 1,10 m » ; aucun écart de la boîte après. Échoue sur c5f8caf (B2
 //     qu'aucune source ne traverse compte en EU et en EP : deux boîtes en EU, rien de repris en EU, rappel des deux boîtes), sauf le
 //     témoin (aucune erreur dans la console).
+// 22 (m164, réponse du 23 nov. 2026 à la question née de m140 : « b. La compter ») : zone unitaire (collecteur unitaire), boîtes sans
+//     réseau indiqué, mêlées d'après le dessin : WC → tuyau tracé à l'outil « Tronçon EU » → B1 → regard public ; descente → tuyau tracé
+//     à l'outil « Tronçon EP » → B2 → regard public. B1 compte en EU, B2 en EP, comme des boîtes unitaires : avant la reprise, B1 rappelée
+//     en EU, B2 en EP, sans rappel « 2 boîtes existantes » ; « Reprendre du croquis » écrit en EU « 0,80 m », « intérieur », « 0,60 m »,
+//     en EP « 1,50 m », « extérieur », « 1,10 m » ; aucun écart de la boîte après. Échoue sur 2345fa7 (117/119 : boîtes comptées nulle
+//     part, ni rappel ni reprise de la boîte), sauf les témoins (B1 et B2 mêlées dans l'analyse, étiquette « Boîte de branchement »
+//     seule, sans réseau ; aucune erreur dans la console).
 // Sur edae8d8 (avant m149 : distance « 0,80 m intérieur », ni rangée ni boutons du côté, provenance sans le côté, trois rangées au
 //     PDF), 51 vérifications sur 112 échouent : 1 (sauf le témoin et « aucun écart après la reprise »), 2 (sauf « un seul écart »), 3
 //     (sauf la provenance sans la boîte), 4 (sauf le rappel des deux boîtes), 5 à 8, 9 (provenance de la boîte), 11 (suivi après le
@@ -123,6 +130,10 @@
 // Sur la première version de m149 (avant la correction des défauts C1 et C2 de la relecture), 10 vérifications sur 112 échouent :
 //     les cinq du cas 12 sur les valeurs trop longues pour une ligne de 5,5 pt et les cinq du cas 20. Sur la version corrigée d'avant la
 //     retouche de la relecture (deux lignes de 6 pt, y 45,825 et 51,825), 5 sur 112 : ces cinq du cas 12.
+// m163 (DL3 ; réponse du 24 nov. 2026 à Q1 : a) : le constat imprimé est délesté par défaut, sur une seule page quand tout tient.
+//     Les cas qui lisent le PDF du constat ou la marque notée à la signature, écrits pour le formulaire complet (section Boîte de
+//     branchement en page 2), le rangent dans leur étude dès sa création (C.formeConstat) : 12, 15 à 20. Leurs attentes ne
+//     changent pas ; sans ce rangement, 21 vérifications sur 115 échouent.
 // usage : node tests/navigateur/constat-boite.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -240,9 +251,8 @@ const MEP1 = [['r', 15, 15, 565, 811], ['l', 327, 22.5, 565.5, 22.5], ['l', 43.5
   ['t', 'EU', 356.8, 33.4, 10], ['t', 'EP', 416.5, 33.4, 10], ['t', 'Distance entre la limite parcellaire et la boîte de branchement', 48, 52.5, 10],
   ['t', '0,80 m intérieur', 356.8, 52.5, 8], ['t', 'en limite', 416.5, 52.5, 9.5], ['t', 'Profondeur de la boîte de branchement', 48, 70, 10],
   ['t', '0,80 m', 356.8, 70, 9.5], ['t', '1,10 m', 416.5, 70, 9.5], ['t', 'Présence de té hermétique', 48, 87.5, 10]];
-/* premier appel différent de l'attendu, ou '' */
-const premierEcart = (L, att) => { for (let i = 0; i < Math.max(L.length, att.length); i++) if (JSON.stringify(L[i]) !== JSON.stringify(att[i])) return 'appel ' + (i + 1) + ' : '
-  + (L[i] ? JSON.stringify(L[i]) : 'aucun') + ' au lieu de ' + (att[i] ? JSON.stringify(att[i]) : 'aucun') + ' (' + L.length + ' appels)'; return ''; };
+/* premier appel différent de l'attendu, ou '' (m158 : rangé dans commun.js, pour le témoin de constat-deleste.js) */
+const premierEcart = C.premierEcart;
 
 async function parcours(){
   const A = await C.ouvrir(), p = A.p;
@@ -499,11 +509,12 @@ async function enregistrement(){
    5,5 pt qui tient, sur la ligne de base de son libellé (50,125 pour la distance) ; « en limite » en 9,5 pt ; un texte plus large que
    56 pt à 7 pt, sur une ligne entière, de 5,5 à 7 pt. Témoins, présentation 1 (constat signé sans marque, D13) : comme en m115, sur la
    ligne de base 52,5, de 7 à 9,5 pt ; deux lignes de 7 pt (48,9 et 56,3). Texte, position, taille et page relevés aux appels de la
-   bibliothèque PDF */
+   bibliothèque PDF. m163 : formulaire complet rangé, le défaut étant le délesté */
 async function pdfBoite(){
   const A = await C.ouvrir(), p = A.p;
   try {
     await C.etudeEtDossier(p);
+    await C.formeConstat(p, 'complet'); /* m163 : formulaire complet rangé, le défaut étant le délesté */
     const LONG = 'à 1,20 m, sous la haie';
     /* constat neuf, boîte B ; signe 2 : signé par cette version (« c-lock », marque de la v1.7.2) ; 1 : signé sans marque (v1.7.1) */
     const imprime = (B, signe) => p.evaluate(async ([B, signe, png]) => {
@@ -574,7 +585,8 @@ async function pdfBoite(){
   finally { R.ok(!A.erreurs.length, 'PDF de la boîte : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
-/* 15 à 17 et 19 (m149, D17) : côté de la boîte au constat, rangée « Boîte à l'intérieur ou à l'extérieur de la propriété » */
+/* 15 à 17, 19 et 20 (m149, D17) : côté de la boîte au constat, rangée « Boîte à l'intérieur ou à l'extérieur de la propriété ».
+   m163 : formulaire complet rangé, le défaut étant le délesté */
 async function coteBoite(){
   const A = await C.ouvrir(), p = A.p;
   const A1 = ['0,80 m', '0,80 m', 'en limite', '1,10 m'];
@@ -599,6 +611,7 @@ async function coteBoite(){
   }, [B || VIEUX, prov]);
   try {
     await C.etudeEtDossier(p);
+    await C.formeConstat(p, 'complet'); /* m163 : formulaire complet rangé, le défaut étant le délesté */
     await croquis(p, dessin(), true);
     await p.evaluate(async () => { const T = window.__VT; T.S.visites[0].statut = 'visitee'; await T.flushSaves(); });
     await constat(p);
@@ -710,11 +723,13 @@ async function coteBoite(){
   finally { R.ok(!A.erreurs.length, 'côté de la boîte : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
-/* 18 (m149, réponse S2 b) : croquis désactivé, puis module du croquis absent : la rangée du côté, vide d'office */
+/* 18 (m149, réponse S2 b) : croquis désactivé, puis module du croquis absent : la rangée du côté, vide d'office. m163 : formulaire
+   complet rangé, le défaut étant le délesté */
 async function sansCroquis(){
   const A = await C.ouvrir(), p = A.p;
   try {
     await C.etudeEtDossier(p);
+    await C.formeConstat(p, 'complet'); /* m163 : formulaire complet rangé, le défaut étant le délesté */
     await p.evaluate(async () => { const T = window.__VT; T.S.visites[0].statut = 'visitee'; await T.flushSaves(); await T.ACTIONS['vc-actif']({checked: false}); });
     let e = await constat(p);
     R.ok(coteOk(e, '', '') && e.bouton === 'absent', '18 croquis désactivé : rangée du côté affichée, vide d\'office, rien de pressé, sans bouton de reprise (' + coteVu(e)
@@ -964,6 +979,42 @@ async function tropPleinBoite(){
   finally { R.ok(!A.erreurs.length, '21 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
 }
 
+/* 22 (m164, réponse du 23 nov. 2026 : « b. La compter ») : boîtes mêlées d'après le dessin, en zone unitaire (données fictives) */
+async function meleeBoite(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p);
+    await C.ouvrirCroquis(p, {fond: false});
+    const v0 = await C.vue(p), X = x => v0.cx + x, Y = y => v0.cy + y;
+    const B = (id, x, y, q) => C.P(id, 'boite', X(x), Y(y), Object.assign({limDist: '0,80', limCote: 'int', prof: '0,60'}, q || {}));
+    const els = [C.P('W', 'wc', X(0), Y(10)), B('B1', 0, 4), C.P('Rp', 'regard_pub', X(0), Y(0), {res: 'UN'}), C.P('S', 'descente', X(8), Y(10), {cote: 'avant'}),
+      B('B2', 8, 4, {limDist: '1,50', limCote: 'ext', prof: '1,10'}), C.P('Rq', 'regard_pub', X(8), Y(0), {res: 'UN'})], I = C.index(els);
+    els.push(C.L('tW', 'tr', ['W', 'B1'], I, {res: 'EU'}), C.L('tB1', 'tr', ['B1', 'Rp'], I), C.L('tS', 'tr', ['S', 'B2'], I, {res: 'EP'}),
+      C.L('tB2', 'tr', ['B2', 'Rq'], I), C.L('C', 'col', [[X(-10), Y(0)], 'Rp', 'Rq', [X(20), Y(0)]], I, {res: 'UN'}));
+    await C.injecter(p, {el: els});
+    /* témoin : boîtes mêlées dans l'analyse de l'éditeur, étiquette « Boîte de branchement » seule (sans réseau), comme sur 2345fa7 */
+    const mel = await p.evaluate(() => { const S = window.__vcEd.etat, V = window.VCroquis;
+      return ['B1', 'B2'].map(id => { const e = S.doc.el.find(x => x.id === id); return id + ' ' + S.an.resPt[id] + ' « ' + String(V.texteEtiquette(e, S.an)).split('\n')[0] + ' »'; }).join(' ; '); });
+    R.ok(mel === 'B1 MIX « Boîte de branchement » ; B2 MIX « Boîte de branchement »', '22 témoin : B1 et B2 mêlées d\'après le dessin, étiquette'
+      + ' « Boîte de branchement » seule (' + mel + ')');
+    await p.evaluate(() => { const S = window.__vcEd.etat; S.doc.rev = (S.doc.rev || 0) + 1; window.__vcEd.enregistrer(); }); await C.pause(p, 500);
+    await C.fermerCroquis(p); await C.pause(p, 600);
+    await p.evaluate(async () => { const T = window.__VT; T.S.visites[0].statut = 'visitee'; await T.flushSaves(); });
+    const deux = t => /2 boîtes existantes/.test(t);
+    let e = await constat(p);
+    R.ok(!ecartBoite(e).some(deux) && ecartBoite(e).includes('Boîte de branchement EU : distance à la limite « 0,80 m » sur le croquis de terrain, non renseignée au constat.')
+      && ecartBoite(e).includes('Boîte de branchement EP : distance à la limite « 1,50 m » sur le croquis de terrain, non renseignée au constat.'),
+      '22 avant la reprise : B1 (WC, « Tronçon EU ») rappelée en EU, B2 (descente, « Tronçon EP ») en EP, sans rappel « 2 boîtes existantes »'
+      + ' (échoue sur 2345fa7 : boîtes comptées nulle part) : ' + (ecartBoite(e).join(' | ') || 'aucun écart de la boîte'));
+    e = await reprendre(p);
+    const A22 = ['0,80 m', '0,60 m', '1,50 m', '1,10 m'];
+    R.ok(pareil(e.ecran, A22) && pareil(e.champs, A22) && coteOk(e, 'intérieur', 'extérieur') && !ecartBoite(e).length,
+      '22 « Reprendre du croquis » : B1 en EU, B2 en EP, aucun écart de la boîte après (échoue sur 2345fa7 : rien de repris) ('
+      + texte(e.ecran) + ' ; ' + coteVu(e) + (ecartBoite(e).length ? ' ; écarts : ' + ecartBoite(e).join(' | ') : '') + ')');
+  } catch (err){ R.ok(false, 'exception du test : ' + (err && err.stack || err)); }
+  finally { R.ok(!A.erreurs.length, '22 : aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : '')); await A.fermer(); }
+}
+
 (async () => {
   await parcours();
   await restauration();
@@ -974,5 +1025,6 @@ async function tropPleinBoite(){
   await casesEP();
   await reparation();
   await tropPleinBoite();
+  await meleeBoite();
   R.fin();
 })();

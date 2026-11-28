@@ -44,10 +44,13 @@ function crochets(){
 }
 
 /* Application ouverte dans un profil neuf (tablette paysage, tactile). o.viewport : taille de la fenêtre (1280 × 800 par défaut) ;
-   o.sw : service worker permis. Les exceptions de la page et les erreurs de la console sont gardées dans « erreurs ». */
+   o.sw : service worker permis ; o.fuseau : fuseau horaire de la page (m158 : 'Europe/Paris' pour un relevé reproductible ; sinon celui
+   de la machine). Les exceptions de la page et les erreurs de la console sont gardées dans « erreurs ». */
 async function ouvrir(o){
   o = o || {};
-  const srv = await serveur(), nav = await chromium.launch(), ctx = await nav.newContext({viewport: o.viewport || {width: 1280, height: 800}, hasTouch: true, locale: 'fr-FR', serviceWorkers: o.sw ? 'allow' : 'block'});
+  const opt = {viewport: o.viewport || {width: 1280, height: 800}, hasTouch: true, locale: 'fr-FR', serviceWorkers: o.sw ? 'allow' : 'block'};
+  if (o.fuseau) opt.timezoneId = o.fuseau;
+  const srv = await serveur(), nav = await chromium.launch(), ctx = await nav.newContext(opt);
   await ctx.addInitScript(crochets);
   const p = await ctx.newPage(), erreurs = [];
   p.on('pageerror', e => erreurs.push('exception : ' + e.message));
@@ -228,6 +231,71 @@ const analyseCroquis = (p, mode) => p.evaluate(mode => {
 /* Anomalies du dossier ouvert dans l'application. */
 const dossierAnomalies = p => p.evaluate(() => { const T = window.__VT, v = T.VC.ctx.v; return T.S.anoms.filter(a => a.visiteId === v.id).map(a => ({obs: a.observation, reseau: a.reseau, nc: a.nc, nature: T.anomNC(a) ? 'NC' : 'réserve', cle: a.croquis && a.croquis.cle})); });
 
+/* m158 (DL2) : forme du constat imprimé rangée dans l'étude ouverte : 'deleste', 'complet', ou '' (aucune : la clé est retirée) ; l'étude
+   est enregistrée. Sur une version sans l'option (relevé du témoin sur la base), la clé est rangée sans rien changer. */
+const formeConstat = (p, forme) => p.evaluate(async f => {
+  const T = window.__VT, e = T.S.etude; e.fiche = e.fiche || {};
+  if (f) e.fiche.constatForme = f; else delete e.fiche.constatForme;
+  await T.DB.put('etudes', e); await T.flushSaves();
+}, forme || '');
+
+/* m158 (DL25) : relevé du PDF du constat du dossier ouvert (o.i : rang du dossier dans l'étude, 0 par défaut), imprimé comme au bouton
+   (constatPdfBlob), toutes pages : chaque appel de dessin de la bibliothèque PDF, dans l'ordre, nombres au millième. Comme boitePdf de
+   constat-boite.js, la bibliothèque est enveloppée le temps de l'impression.
+     texte       ['t', page, x, y, texte, police, style, taille, couleur, options]
+     trait       ['l', page, x1, y1, x2, y2, épaisseur, couleur, motif, style]
+     rectangle   ['r', page, x, y, largeur, hauteur, style, épaisseur, couleur du trait, couleur du fond, motif]
+     image       ['i', page, empreinte de l'image, format, x, y, largeur, hauteur, nom, compression, rotation] (jamais ses données)
+     page neuve  ['p', numéro]
+     autre       ['?', page, nom de la primitive] (lines, circle… : aucune au constat ; une nouvelle se verrait)
+   Couleurs [r, v, b] (telles que la bibliothèque les relit) ; motif : celui du dernier setLineDash, [[], 0] sans motif ; options du texte
+   et style en JSON. Un appel fait par un autre appel relevé (line passe par lines) n'est pas relevé. o.sansModule : module du croquis
+   retiré le temps de l'impression (croquis absent), comme dans constat-boite.js. o.fiche (m161) : relève la fiche du dossier,
+   fichePdfBlob(v, o.fiche) (par exemple {constat: true, photos: false} : le constat signé, puis la fiche), au lieu du constat. o.etat
+   (m161) : ajoute en dernier l'état du document quand le PDF est produit (output) ; sans o.fiche, celui où le constat le laisse :
+     état       ['e', page, épaisseur, couleur du trait, couleur du fond, couleur du texte, police, style, taille, motif, interligne,
+                 espacement des lettres] */
+const relevePdf = (p, o) => p.evaluate(async o => {
+  const T = window.__VT, v = T.S.visites[o.i || 0], J0 = window.jspdf.jsPDF, L = [], M = Object.getOwnPropertyDescriptor(window, 'VCroquis');
+  const m = x => typeof x === 'number' ? Math.round(x * 1000) / 1000 : x === undefined ? null : x;
+  const coul = s => { const t = String(s == null ? '' : s); return /^#[0-9a-f]{6}$/i.test(t) ? [1, 3, 5].map(i => parseInt(t.slice(i, i + 2), 16)) : t; };
+  /* empreinte d'une image (texte data:…), calculée dans la page : ses données ne sortent pas */
+  const emp = s => { if (typeof s !== 'string') return '[' + (s && s.constructor ? s.constructor.name : typeof s) + ']';
+    let a = 0x811c9dc5, b = 0x01000193;
+    for (let i = 0; i < s.length; i++){ const k = s.charCodeAt(i); a = Math.imul(a ^ k, 16777619) >>> 0; b = Math.imul(b ^ k, 2246822519) >>> 0; }
+    return a.toString(16) + '-' + b.toString(16) + '-' + s.length; };
+  const W = function(){
+    const d = new J0(...arguments); let prof = 0, motif = [[], 0];
+    const pg = () => { try { return d.internal.getCurrentPageInfo().pageNumber; } catch (e){ return 0; } };
+    const env = (nom, rel, apres) => { const f = d[nom]; if (typeof f !== 'function') return;
+      d[nom] = function(){ if (!prof && rel) L.push(rel.apply(null, arguments)); prof++; let r; try { r = f.apply(d, arguments); } finally { prof--; }
+        if (!prof && apres) L.push(apres()); return r; }; };
+    env('text', (t, x, y, op) => { const f = d.getFont(); return ['t', pg(), m(x), m(y), [].concat(t).map(String).join('\n'), f.fontName, f.fontStyle,
+      m(d.getFontSize()), coul(d.getTextColor()), JSON.stringify(op === undefined ? null : op)]; });
+    env('line', (x1, y1, x2, y2, st) => ['l', pg(), m(x1), m(y1), m(x2), m(y2), m(d.getLineWidth()), coul(d.getDrawColor()), motif, JSON.stringify(m(st))]);
+    env('rect', (x, y, w, h, st) => ['r', pg(), m(x), m(y), m(w), m(h), JSON.stringify(m(st)), m(d.getLineWidth()), coul(d.getDrawColor()), coul(d.getFillColor()), motif]);
+    env('addImage', (img, fmt, x, y, w, h, al, comp, rot) => ['i', pg(), emp(img), m(fmt), m(x), m(y), m(w), m(h), m(al), m(comp), m(rot)]);
+    env('addPage', null, () => ['p', pg()]);
+    if (o.etat) env('output', () => { const f = d.getFont(); return ['e', pg(), m(d.getLineWidth()), coul(d.getDrawColor()), coul(d.getFillColor()),
+      coul(d.getTextColor()), f.fontName, f.fontStyle, m(d.getFontSize()), motif, m(d.getLineHeightFactor()), m(d.getCharSpace())]; });
+    ['lines', 'circle', 'ellipse', 'triangle', 'roundedRect', 'polygon', 'path', 'moveTo', 'lineTo', 'curveTo', 'textWithLink', 'link']
+      .forEach(nom => env(nom, () => ['?', pg(), nom]));
+    const sd = d.setLineDash;
+    d.setLineDash = function(a, ph){ motif = [Array.isArray(a) ? a.map(m) : [], m(ph || 0)]; return sd.apply(d, arguments); };
+    return d;
+  };
+  W.API = J0.API; window.jspdf.jsPDF = W;
+  /* module retiré sans passer par le crochet de commun.js (son setter), puis remis tel quel */
+  if (o.sansModule) Object.defineProperty(window, 'VCroquis', {value: undefined, configurable: true, writable: true});
+  try { if (o.fiche) await T.fichePdfBlob(v, o.fiche); else await T.constatPdfBlob(v); }
+  finally { window.jspdf.jsPDF = J0; if (o.sansModule){ if (M) Object.defineProperty(window, 'VCroquis', M); else delete window.VCroquis; } }
+  return L;
+}, o || {});
+
+/* premier appel du relevé L différent de l'attendu, ou '' (m158 : pris de constat-boite.js) */
+const premierEcart = (L, att) => { for (let i = 0; i < Math.max(L.length, att.length); i++) if (JSON.stringify(L[i]) !== JSON.stringify(att[i])) return 'appel ' + (i + 1) + ' : '
+  + (L[i] ? JSON.stringify(L[i]) : 'aucun') + ' au lieu de ' + (att[i] ? JSON.stringify(att[i]) : 'aucun') + ' (' + L.length + ' appels)'; return ''; };
+
 /* Compte des résultats ; code de sortie 1 en cas d'échec. */
 function rapport(nom){
   let nok = 0, nt = 0;
@@ -240,4 +308,5 @@ function rapport(nom){
 
 module.exports = {RACINE, dossierApp, serveur, ouvrir, pause, etudeEtDossier, ouvrirCroquis, versPage, toucher, toucherPage, outil, docCroquis, vue, rayonPx, zoomerJusqua, fermerCroquis, rapport,
   injecter, P, J, L, index, regler, ecranCv, toucherCv, aCote, analyseCroquis, dossierAnomalies,
-  surLePlan, pageCv, cliquerCv, glisserSourisCv, survolerCv, titreBarre, sortirDuPlan, glisserSourisHorsPlan, survolerStyletCv, glisserDoigtCv};
+  surLePlan, pageCv, cliquerCv, glisserSourisCv, survolerCv, titreBarre, sortirDuPlan, glisserSourisHorsPlan, survolerStyletCv, glisserDoigtCv,
+  formeConstat, relevePdf, premierEcart};

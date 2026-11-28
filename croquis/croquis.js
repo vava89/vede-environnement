@@ -1497,20 +1497,36 @@ function analyser(doc, mode){
   }
   /* Graphe des plus courts chemins d'un parcours r depuis s : prédécesseurs de chaque nœud atteint (un exutoire n'est pas traversé, un
      tronçon orienté ne se remonte pas). Contrairement au chemin gardé par le parcours (le premier trouvé), il ne dépend pas de l'ordre du
-     dessin quand plusieurs chemins ont la même longueur (tuyaux parallèles, by-pass) */
-  function predsDe(r, s){
+     dessin quand plusieurs chemins ont la même longueur (tuyaux parallèles, by-pass). inf (m165) : pour un parcours fait avec traverserInf,
+     un puisard ou une infiltration au sol est traversé ; le garde-fou de ce parcours (tuyau sans sens qui part de l'ouvrage) n'est pas
+     appliqué, sans effet sur la couleur : un tel tuyau atteint l'ouvrage, il sort de la règle de m165 (boucle des pièces) */
+  function predsDe(r, s, inf){
     var pr = {};
     Object.keys(r.vus).forEach(function(v){
       if (v === s) return;
       (adj[v] || []).forEach(function(p){
         var u = p.a === v ? p.b : p.a; if (u === v || !r.vus[u] || r.dist[u] + 1 !== r.dist[v]) return;
-        if (u !== s && terminal(u)) return;
+        var tu = u !== s && terminal(u); if (tu && !(inf && /^(INF|SOL)$/.test(tu.res))) return;
         if (p.sens === 1 && p.a !== u) return;
         if (p.sens === -1 && p.b !== u) return;
         (pr[v] = pr[v] || []).push({n: u, p: p});
       });
     });
     return pr;
+  }
+  /* m165 : note dans vu les pièces de tuyau (ni d'un collecteur ou d'un drain, ni virtuelles) des plus courts chemins de pr qui mènent à t */
+  function remonter(pr, t, vu){
+    var vn = {}, fd = [t]; vn[t] = true;
+    while (fd.length) (pr[fd.shift()] || []).forEach(function(w){ if (!w.p.col && !w.p.virt) vu[w.p.id] = true; if (!vn[w.n]){ vn[w.n] = true; fd.push(w.n); } });
+  }
+  /* m165 : pièces des plus courts chemins du bout aval du tuyau orienté p jusqu'à chaque drain d'infiltration qu'il atteint (une fois
+     par analyse ; les pièces virtuelles d'un drain de collecte ne se prennent pas à rebours) */
+  var avalP = {};
+  function avalDrain(p){
+    if (Object.prototype.hasOwnProperty.call(avalP, p.id)) return avalP[p.id];
+    var b = p.sens === 1 ? p.b : p.a, rb = parcours([b]), gb = predsDe(rb, b), vu = {};
+    rb.term.forEach(function(t){ if (t.via === 'drain') remonter(gb, t.noeud, vu); });
+    return (avalP[p.id] = Object.keys(vu));
   }
   /* boîte sur chaque plus court chemin de la source s jusqu'à l'exutoire t (ou l'exutoire est la boîte) ; null sinon */
   function boiteSur(pr, s, t){
@@ -1706,7 +1722,7 @@ function analyser(doc, mode){
      équipement disperse (dispE), et porte l'étiquette « Dispersion dans le sol » (an.drainsDisp ; un point « Drain » la donne au drain qui
      le tient). Un drain qu'aucun équipement n'atteint, ou dont la sortie est dessinée, ne change pas. Les équipements sont donc analysés
      avant les points « Drain », puis les drains de collecte comptés ; les résultats restent rangés dans l'ordre des sources */
-  var dispE = {}, dispA = {}, drainsDisp = {}, eauxDrains = {};
+  var dispE = {}, dispA = {}, drainsDisp = {}, eauxDrains = {}, eauxP = {};
   /* drain source : un drain de collecte compté, ou un point « Drain », même posé hors du drain et relié par un tuyau [p] : il suit le
      drain (dispersion dans le sol seulement là où un équipement disperse), sinon il garde le réseau présumé */
   function estDrainSrc(id){ return !objs[id] || objs[id].t === 'drain'; }
@@ -1736,16 +1752,31 @@ function analyser(doc, mode){
        ci-dessous, eauxDrains) ; la boîte, l'entrée, la fosse, le sens de l'eau, les pièces, le réseau présumé et les sorties libres restent
        ceux du parcours ordinaire (r). Laissé quand il n'atteint aucun exutoire de plus. m156 (AC1) : le constat des boîtes (boitesConstat,
        en zone unitaire) suit aussi le trop-plein quand ce qu'il atteint compte (bloc ci-dessous : cheminTp) ; resObj.boite, non */
-    var rx = r.term.some(function(t){ return /^(INF|SOL)$/.test(t.res); }) ? parcours([s], {traverserInf: true}) : null;
+    var rx = r.term.some(function(t){ return /^(INF|SOL)$/.test(t.res); }) ? parcours([s], {traverserInf: true}) : null, rxp = rx;
     if (rx && rx.term.length > r.term.length) rx.term.sort(function(a, b){ return a.dist - b.dist || (a.noeud < b.noeud ? -1 : a.noeud > b.noeud ? 1 : 0); }); else rx = null;
     /* m142 (décision D8 ; réponse drain-infiltration-dessin du 16 nov. 2026) : eaux reçues par chaque drain d'infiltration que la source
        atteint (an.eauxDrains) : une de plus à sa nature, EU ou EP ; un drain de collecte compté apporte des EP. Elles donnent sa couleur au
-       drain (resLigne). Le sens du drain et son réseau saisi ne sont pas lus. Aussi un drain que le trop-plein atteint (rx, m145) */
+       drain (resLigne). Le sens du drain et son réseau saisi ne sont pas lus. Aussi un drain que le trop-plein atteint (rx, m145).
+       m165 (réponse du 23 nov. 2026 : « Le passer en rouge ») : de même, eaux portées par chaque pièce de tuyau où l'eau de la source passe
+       pour aller au drain (eauxP) : les pièces des plus courts chemins du parcours ordinaire (pr) et, avec le trop-plein, celles des plus
+       courts chemins de rx (puisard traversé), une fois par source, sans les pièces du drain ni les pièces virtuelles. Une source EP y
+       compte aussi sur chaque tuyau orienté que son eau prend dans son sens, au-delà d'un puisard aussi (rxp, même laissé), puis sur les
+       plus courts chemins de son bout aval jusqu'au drain (avalDrain) : dans le doute, vert ; pas une source EU (en boucle, la branche
+       plus longue ne porte pas ses eaux). La boucle des pièces n'en garde que celles des tuyaux sans réseau qui, avant le drain (sans
+       ses liens, m166), ne mènent qu'à des drains d'infiltration (an.eauxPieces) : elles en prennent la couleur (resMorceau), sauf une
+       pièce MIX (réseau EU ou unitaire au-delà du drain), qui reste MIX */
+    var nat = !ld && T[objs[id].t].nat === 'EU' ? 'EU' : 'EP', gx = null, vusP = {}, versD = false;
     (rx || r).term.forEach(function(t){
       if (t.via !== 'drain') return;
       var q = Object.prototype.hasOwnProperty.call(eauxDrains, t.id) ? eauxDrains[t.id] : (eauxDrains[t.id] = {EU: 0, EP: 0});
-      q[!ld && T[objs[id].t].nat === 'EU' ? 'EU' : 'EP']++;
+      q[nat]++; versD = true;
+      if (rx) gx = gx || predsDe(rx, s, true);
+      [r.vus[t.noeud] ? pr : null, gx].forEach(function(g){ if (g) remonter(g, t.noeud, vusP); });
     });
+    if (versD && nat === 'EP') Object.keys((rxp || r).pieces).forEach(function(k){ var p = (rxp || r).pieces[k];
+      if (p.sens && !p.col && !p.virt){ vusP[k] = true; avalDrain(p).forEach(function(k2){ vusP[k2] = true; }); }
+    });
+    Object.keys(vusP).forEach(function(k){ var q = Object.prototype.hasOwnProperty.call(eauxP, k) ? eauxP[k] : (eauxP[k] = {EU: 0, EP: 0}); q[nat]++; });
     if (r.term.length){ fosse = fosseDe(s, r, pr, r.term.map(function(t){ return t.noeud; })); if (!ld) noterSens(pr, r.term.map(function(t){ return t.noeud; })); }
     /* m129 (Q7 a) : drain d'infiltration qui atteint aussi un autre exutoire (ouvrage qu'il tient, tuyau parti d'un de ses sommets) : les
        exutoires que la source atteint sans ses liens sont avant lui ; s'il est le seul, elle disperse dans le sol (le drain compte pour un)
@@ -1857,7 +1888,7 @@ function analyser(doc, mode){
   /* résultats dans l'ordre des sources, quel que soit l'ordre d'analyse (m129) */
   var ro = resObj; resObj = {}; srcs.forEach(function(id){ resObj[id] = ro[id]; });
   /* Réseau de chaque pièce (couleur), regards traversés, flèches d'écoulement */
-  var resPiece = {}, resNoeud = {};
+  var resPiece = {}, resNoeud = {}, eauxPieces = {};
   pieces.forEach(function(p){
     var dep = p.sens === 1 ? [p.b] : p.sens === -1 ? [p.a] : [p.a, p.b];
     var r = parcours(dep), nets = [];
@@ -1866,6 +1897,18 @@ function analyser(doc, mode){
     nets.sort(function(x, y){ var a = ['EU', 'EP', 'UN'].indexOf(x), b = ['EU', 'EP', 'UN'].indexOf(y); return (a < 0 ? 9 : a) - (b < 0 ? 9 : b); });
     var expl = RES[p.l.p.res] ? p.l.p.res : null, res = expl || (nets.length === 1 ? nets[0] : nets.length > 1 ? 'MIX' : 'INC');
     resPiece[p.id] = {res: res, deduit: !expl, nets: nets, contredit: !!(expl && nets.length && nets.indexOf(expl) < 0 && !(nets.length === 1 && nets[0] === 'UN'))};
+    /* m165 : pièce d'un tuyau sans réseau (pas un drain) dont chaque exutoire atteint avant le drain, sans ses liens, est un drain
+       d'infiltration : ses eaux (eauxP). m166 (relecture d'ensemble de la v1.7.3, CL1) : ce que le drain atteint au-delà de lui (trop-plein
+       parti d'un autre de ses sommets, ouvrage posé sur lui) ne change pas la couleur, comme pour la source (m129) ; ce qui part du sommet
+       où arrive le tuyau est avant le drain (bifurcation). Un réseau EU ou unitaire au-delà laisse la pièce MIX (resPiece, resMorceau).
+       Le parcours sans les liens n'est refait que si r mêle un drain d'infiltration et un autre exutoire ; sinon la réponse est la même :
+       ce qu'il atteint, r l'atteint aussi, et il atteint un drain dès que r en atteint un (le premier lien d'un chemin de r part d'un
+       sommet atteint sans lien, d'où il gagne le drain de ce sommet) */
+    if (!expl && !drainDe(p.l) && r.term.length && Object.prototype.hasOwnProperty.call(eauxP, p.id)){
+      var avecDrain = r.term.some(function(t){ return t.via === 'drain'; }), avecAutre = r.term.some(function(t){ return t.via !== 'drain'; });
+      var avant = avecDrain && avecAutre ? parcours(dep, {sansLiens: true}).term : r.term;
+      if (avant.length && avant.every(function(t){ return t.via === 'drain'; })) eauxPieces[p.id] = eauxP[p.id];
+    }
     [p.a, p.b].forEach(function(n){ if (!objs[n]) return; var q = resNoeud[n] || (resNoeud[n] = {}); nets.forEach(function(x){ q[x] = true; }); if (expl) q[expl] = true; });
   });
   /* Distances aux exutoires pour le sens d'écoulement */
@@ -1905,6 +1948,7 @@ function analyser(doc, mode){
   if (exuX) an.exu = exuX;
   if (Object.keys(drainsDisp).length) an.drainsDisp = drainsDisp;
   if (Object.keys(eauxDrains).length) an.eauxDrains = eauxDrains;
+  if (Object.keys(eauxPieces).length) an.eauxPieces = eauxPieces;
   /* après l'avant-projet : l'état des lieux sert de référence (numéros d'anomalie, réseau des tracés à supprimer) */
   if (mode === 'avp') an.ref = analyser(doc, 'edl');
   an.anomalies = reglesAnomalies(doc, an);
@@ -2620,16 +2664,21 @@ VC.constatDeduit = constatDeduit; VC.RACC_LIB = RACC_LIB;
    champs du constat (« 0,80 m », « en limite » ; 'intérieur', 'extérieur' ; « 0,80 m »). m149 (décision D17, réponse pr12-11 du 16 nov.
    2026) : la distance s'écrit seule et le côté à part, dans cote (avant : « 0,80 m intérieur ») ; en limite, pas de côté ; un côté sans
    distance donne une distance vide et son côté. Réseau : p.res, sinon celui que l'analyse déduit du dessin (celui de l'étiquette) ;
-   une boîte indiquée unitaire dans sa fiche compte en EU et en EP ; une boîte de réseau inconnu ou mêlé ne compte nulle part. En zone unitaire
-   (m140, décision D6, réponse pr12-5 du 16 nov. 2026), une boîte sans réseau indiqué que le dessin dit unitaire compte pour le réseau propre
-   des sources dont l'eau la traverse sur les plus courts chemins de l'analyse jusqu'à leurs exutoires dessinés (traversees) : en EU si seules
-   des sources EU y passent, en EP si seules des sources EP y passent, en EU et en EP si les deux y passent ou si aucune n'y passe ; son
-   étiquette reste « unitaire ». m156 (AC1) : ces chemins passent aussi par le trop-plein d'un puisard ou d'une infiltration au sol quand
-   l'analyse compte ce qu'il atteint (m145) ; une boîte sur ce trop-plein compte alors pour la source. p.limCote, p.limDist et p.prof sont lus
-   tels qu'ils sont enregistrés, sans recalcul d'après le plan. Distance : deux décimales, 0,00 = « en limite » ; une distance négative ou
-   illisible est ignorée, comme sur l'étiquette. Zéro ou plusieurs boîtes sur un réseau : dist, cote et prof vides. nDist et nProf : nombre de
-   boîtes du réseau qui portent une distance et une profondeur ; avec plusieurs boîtes, le constat rappelle ce qui n'est pas repris (m149 :
-   un côté seul n'est plus une distance, il ne compte pas dans nDist). Ne modifie ni doc ni an. */
+   une boîte indiquée unitaire dans sa fiche compte en EU et en EP ; une boîte de réseau inconnu ne compte nulle part ; une boîte mêlée non
+   plus, sauf en zone unitaire, comme le dit m164 plus bas. En zone unitaire (m140, décision D6, réponse pr12-5 du 16 nov. 2026), une boîte
+   sans réseau indiqué que le dessin dit unitaire compte pour le réseau propre des sources dont l'eau la traverse sur les plus courts chemins
+   de l'analyse jusqu'à leurs exutoires dessinés (traversees) : en EU si seules des sources EU y passent, en EP si seules des sources EP y
+   passent, en EU et en EP si les deux y passent ou si aucune n'y passe ; son étiquette reste « unitaire ». m156 (AC1) : ces chemins passent
+   aussi par le trop-plein d'un puisard ou d'une infiltration au sol quand l'analyse compte ce qu'il atteint (m145) ; une boîte sur ce
+   trop-plein compte alors pour la source. m164 (réponse du 23 nov. 2026 à la question née de m140 : « b. La compter ») : en zone unitaire,
+   une boîte sans réseau indiqué que le dessin dit mêlée (MIX ; par exemple, un tuyau tracé à l'outil « Tronçon EU », « Tronçon EP » ou
+   « Drain » y arrive) compte de même, comme une boîte unitaire, quand elle ne touche que l'unitaire (meleeUnitaire) ; son étiquette reste
+   « Boîte de branchement », sans réseau. Une boîte mêlée dont un tuyau mène aussi à un autre réseau ou en porte un autre, ou dont aucun
+   tuyau ne mène à l'unitaire ni ne l'indique, ne compte nulle part : on indique alors son réseau dans sa fiche. p.limCote, p.limDist et
+   p.prof sont lus tels qu'ils sont enregistrés, sans recalcul d'après le plan. Distance : deux décimales, 0,00 = « en limite » ; une
+   distance négative ou illisible est ignorée, comme sur l'étiquette. Zéro ou plusieurs boîtes sur un réseau : dist, cote et prof vides.
+   nDist et nProf : nombre de boîtes du réseau qui portent une distance et une profondeur ; avec plusieurs boîtes, le constat rappelle ce qui
+   n'est pas repris (m149 : un côté seul n'est plus une distance, il ne compte pas dans nDist). Ne modifie ni doc ni an. */
 function boitesConstat(doc, an){
   var out = {EU: {n: 0, dist: '', cote: '', prof: '', nDist: 0, nProf: 0}, EP: {n: 0, dist: '', cote: '', prof: '', nDist: 0, nProf: 0}}, vues = [];
   /* distance, côté (à part depuis m149) et profondeur d'une boîte, écrits comme dans les champs du constat ; en limite, pas de côté */
@@ -2701,15 +2750,37 @@ function boitesConstat(doc, an){
     });
     return par;
   }
+  /* m164 (réponse du 23 nov. 2026 à la question née de m140 : « b. La compter ») : la boîte id, mêlée d'après l'analyse A (MIX), ne touche
+     que l'unitaire. Pour chacune de ses pièces dans A (A.adj[id]) : (i) les réseaux que l'eau y atteint (A.resPiece[pièce].nets) sont tous
+     unitaires (aucun, ou « UN » seul) ; (ii) le réseau indiqué (res, quand deduit est faux : tuyau tracé à l'outil « Tronçon EU », « Tronçon
+     EP », « Tronçon unitaire » ou « Drain ») est EU, EP ou UN ; et (iii) « UN » figure parmi ces réseaux atteints ou indiqués. Une pièce
+     sans entrée dans A.resPiece (collecteur, drain d'infiltration) est ignorée. Une telle boîte compte comme une boîte que le dessin dit
+     unitaire (traversees, dans la même analyse). A, A.adj, A.resPiece ou A.adj[id] absents ou d'un autre type, pièce sans id, entrée de
+     A.resPiece qui vaut null, n'est pas un objet ou dont nets n'est pas un tableau : false, sans exception. Ne modifie pas A. */
+  function meleeUnitaire(A, id){
+    var ps = A && A.adj ? A.adj[id] : null, rp = A ? A.resPiece : null, un = false;
+    if (!Array.isArray(ps) || !rp || typeof rp !== 'object') return false;
+    return ps.every(function(q){
+      if (!q || typeof q !== 'object' || q.id == null) return false;
+      if (!Object.prototype.hasOwnProperty.call(rp, q.id)) return true;
+      var r = rp[q.id];
+      if (!r || typeof r !== 'object' || !Array.isArray(r.nets) || r.nets.some(function(x){ return x !== 'UN'; })) return false;
+      if (r.nets.length || !r.deduit && r.res === 'UN') un = true;
+      return !!r.deduit || r.res === 'EU' || r.res === 'EP' || r.res === 'UN';
+    }) && un;
+  }
   (doc && Array.isArray(doc.el) ? doc.el : []).forEach(function(e){
     if (!e || e.k !== 'pt' || !T[e.t] || !T[e.t].boite) return;
     var p = e.p && typeof e.p === 'object' ? e.p : {};
     if (p.st === 'projet' || p.st === 'supprimer') return;
     var ind = /^(EU|EP|UN)$/.test(p.res), res = ind ? p.res : an && an.resPt ? an.resPt[e.id] || (an.ref && an.ref.resPt && an.ref.resPt[e.id]) : '', m = mesures(p);
+    /* m164 : boîte mêlée d'après le dessin qui ne touche que l'unitaire (meleeUnitaire), lue dans l'analyse qui donne son réseau, comme
+       traversees : comptée comme une boîte unitaire (branche m140 ci-dessous) ; son étiquette reste « Boîte de branchement » */
+    if (res === 'MIX' && !ind && meleeUnitaire(an.resPt[e.id] ? an : an.ref, e.id)) res = 'UN';
     var rs = res === 'UN' ? ['EU', 'EP'] : res === 'EU' || res === 'EP' ? [res] : [];
-    /* m140 : boîte unitaire d'après le dessin seulement : réseau des sources dont l'eau la traverse (les deux si aucune n'y passe). Les
-       chemins sont lus dans l'analyse qui donne le réseau : an.ref quand an ne porte pas la boîte (cela n'arrive pas dans l'application :
-       une boîte existante a toujours un réseau dans l'analyse donnée) */
+    /* m140 : boîte unitaire d'après le dessin seulement (m164 : ou mêlée qui ne touche que l'unitaire) : réseau des sources dont l'eau la
+       traverse (les deux si aucune n'y passe). Les chemins sont lus dans l'analyse qui donne le réseau : an.ref quand an ne porte pas la
+       boîte (cela n'arrive pas dans l'application : une boîte existante a toujours un réseau dans l'analyse donnée) */
     if (res === 'UN' && !ind){
       var t = traversees(an.resPt[e.id] ? an : an.ref)[e.id];
       if (t && (t.EU || t.EP)) rs = rs.filter(function(g){ return t[g]; });
@@ -2731,6 +2802,16 @@ var NIV_LIB = {ss: 'sous-sol', rdc: 'RDC', etage: 'étage'}, TAMPON_LIB = {beton
 var MAT_LIB = {PVC: 'PVC', fonte: 'fonte', gres: 'grès', beton: 'béton', fibro: 'fibrociment', PEHD: 'PEHD'}, GEST_LIB = {D: 'départemental', T: 'territorial', P: 'privé'};
 var STATUT_LIB = {existant: 'existant', presume: 'présumé', projet: 'projet', supprimer: 'à supprimer'};
 function methLib(m){ return (m || []).map(function(k){ for (var i = 0; i < METH.length; i++) if (METH[i][0] === k) return METH[i][1].toLowerCase(); return k; }).join(', '); }
+/* Réseau dessiné d'une pièce de tuyau (m165, réponse du 23 nov. 2026 : « Le passer en rouge ») : celui de l'analyse (resPiece), sauf pour
+   la pièce d'un tuyau sans réseau qui, avant le drain, ne mène qu'à des drains d'infiltration (an.eauxPieces ; m166 : ce que le drain
+   atteint au-delà de lui ne compte pas) : elle prend la couleur des eaux qu'elle porte, comme le drain : EU si elle ne porte que des EU,
+   sinon EP ; une pièce MIX (réseau EU ou unitaire au-delà du drain) reste MIX. Changent sa couleur et ce qui lit resLigne (étiquette,
+   tête de la fiche, message de fin de tracé, réseau proposé à une anomalie ajoutée à la main) ; rejets, anomalies calculées, constat
+   et regards, non */
+function resMorceau(p, an){
+  var rp = an.resPiece[p.id], ep = an.eauxPieces, q = ep && typeof ep === 'object' && Object.prototype.hasOwnProperty.call(ep, p.id) ? ep[p.id] : null;
+  return rp.deduit === true && rp.res === 'EP' && q && typeof q === 'object' && typeof q.EU === 'number' && q.EU > 0 && q.EP === 0 ? 'EU' : rp.res;
+}
 function resLigne(e, an){
   if (e.t === 'col') return RES[e.p.res] ? e.p.res : 'EU';
   /* complément du fond, escalier, tracé d'un type inconnu : gris du complément */
@@ -2740,7 +2821,11 @@ function resLigne(e, an){
      « si uniquement des EU alors drain en rouge, si au moins un EP alors vert ») : EP dès qu'une source qui l'atteint est EP, EU si toutes
      sont EU (an.eauxDrains). Sans source : vert, comme sans analyse (m122) ; sur le plan d'avant-projet, un drain « à supprimer » (absent
      de cette analyse) garde la couleur qu'il a à l'état des lieux (an.ref), comme un tuyau [p]. Ses segments ne sont pas des pièces de
-     l'analyse ; son p.res n'est pas lu */
+     l'analyse ; son p.res n'est pas lu. Un tuyau sans réseau qui, avant le drain, ne mène qu'à de tels drains prend de même, pièce par
+     pièce, la couleur des eaux qu'il porte (m165, resMorceau : rouge s'il ne porte que des EU ; m166 : ce que le drain atteint au-delà de
+     lui ne compte pas, sauf un réseau EU ou unitaire, qui laisse la pièce MIX). Lui-même prend le réseau de la plupart de ses pièces
+     (resPiece ; à égalité, celui que le tracé rencontre le premier, comme en v1.7.2 : le sens du tracé compte alors) ; s'il est EP, il
+     passe en EU quand ses pièces rouges sont plus nombreuses que celles de toute autre couleur (à égalité, il reste vert) */
   if (drainDe(e) === 'infiltration'){
     var q = an && an.eauxDrains && Object.prototype.hasOwnProperty.call(an.eauxDrains, e.id) ? an.eauxDrains[e.id] : null;
     if (q && q.EP) return 'EP';
@@ -2749,9 +2834,11 @@ function resLigne(e, an){
   }
   if (RES[e.p.res] && e.p.res !== 'PRJ') return e.p.res;
   if (!an) return 'INC';
-  var vu = {}, k = null; an.pieces.forEach(function(p){ if (p.l.id === e.id){ var r = an.resPiece[p.id].res; vu[r] = (vu[r] || 0) + 1; } });
+  var vu = {}, vm = {}, k = null;
+  an.pieces.forEach(function(p){ if (p.l.id === e.id){ var r = an.resPiece[p.id].res, m = resMorceau(p, an); vu[r] = (vu[r] || 0) + 1; vm[m] = (vm[m] || 0) + 1; } });
   Object.keys(vu).forEach(function(r){ if (!k || vu[r] > vu[k]) k = r; });
   if (!k && an.ref) return resLigne(e, an.ref);
+  if (k === 'EP' && vm.EU && Object.keys(vm).every(function(r){ return r === 'EU' || vm[r] < vm.EU; })) return 'EU';
   return k || 'INC';
 }
 /* Boîte en limite de propriété (souhait 10, décision D4) : ligne de l'étiquette, d'après p.limCote ('int' | 'ext') et p.limDist (en mètres,
@@ -2941,7 +3028,7 @@ function texteEtiquette(e, an){
   }
   return '';
 }
-VC.texteEtiquette = texteEtiquette; VC.resLigne = resLigne; VC.texteLimite = texteLimite;
+VC.texteEtiquette = texteEtiquette; VC.resLigne = resLigne; VC.resMorceau = resMorceau; VC.texteLimite = texteLimite;
 
 /* ---------- Symboles : primitives en millimètres papier, y en haut, centrées sur l'objet ---------- */
 var BLANC = [255, 255, 255];
@@ -3298,7 +3385,7 @@ function dessinerCroquis(ctx, doc, an, vue, dpr, o){
     var W = lignePts(e, idx).map(function(p){ return vue.ecran(p.x, p.y); }), st = e.p.st || 'existant';
     ctx.globalAlpha = attenue(e) ? .3 : 1;
     if (e.t === 'esc'){ zones.push(escalierEcran(ctx, e, idx, vue, W, px(.3, 1.2, 5))); return; }
-    var morceaux = (parLigne[e.id] || []).map(function(p){ return {pts: W.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
+    var morceaux = (parLigne[e.id] || []).map(function(p){ return {pts: W.slice(p.i0, p.i1 + 1), res: resMorceau(p, an), p: p}; });
     if (!morceaux.length || e.t !== 'tr') morceaux = [{pts: W, res: resLigne(e, an)}];
     /* complément du fond et tracé d'un type inconnu : trait neutre, fin, gris, plein */
     var neutre = !estCanalisation(e.t), larg = e.t === 'col' ? px(.9, 3, 14) : neutre ? px(.3, 1.2, 5) : px(.5, 2, 9), drain = drainDe(e);
@@ -3764,7 +3851,9 @@ function editeur(racine, opts){
        fiche (M6 : noteEtiq, pris au pas d'annulation nInst) */
     reunir: null, noteEtiq: null, nInst: 0,
     /* palette d'accrochage ouverte (m111) */
-    accroches: false};
+    accroches: false,
+    /* aperçu du plan ouvert (m168) : null, ou son état (voir ouvrirApercu) ; S.apercu, lui, est le tracé fantôme du geste en cours */
+    pp: null};
   racine.innerHTML = '<div class="vc" tabindex="-1">'
     + '<canvas class="vc-cv" aria-label="Plan du croquis"></canvas>'
     + '<header class="vc-barre">'
@@ -3885,6 +3974,8 @@ function editeur(racine, opts){
     if (w !== S.vue.w || h !== S.vue.h) fermerMenu();
     if (cv.width !== Math.round(w * d) || cv.height !== Math.round(h * d)){ cv.width = Math.round(w * d); cv.height = Math.round(h * d); cv.style.width = w + 'px'; cv.style.height = h + 'px'; }
     S.dpr = d; S.vue.w = w; S.vue.h = h; redessiner(); placerBarres();
+    /* aperçu du plan ouvert (m168) : sa zone est remesurée et redessinée */
+    if (S.pp) redimApercu();
   }
   /* barres de navigation et d'aide, palette d'accrochage (m114) : placées d'après la place réelle de l'éditeur, au redimensionnement, à
      l'ouverture et à la fermeture du panneau, à chaque changement de la barre d'aide et à l'ouverture de la palette. Le CSS suffit quand la
@@ -6686,6 +6777,15 @@ function editeur(racine, opts){
     if (R.querySelector('.vc-modal')){ if (ev.key === 'Escape' && !opts.echapHote) fermerNiveau(); return; }
     /* une fenêtre de l'hôte ouverte par-dessus l'éditeur garde ses touches */
     if (ev.target && ev.target !== document.body && ev.target !== document.documentElement && !R.contains(ev.target)) return;
+    /* aperçu du plan ouvert (m168) : rien à annuler ; Échap le ferme (fermerNiveau) ; Suppr et Retour arrière ne suppriment rien ; Entrée ne
+       termine pas le tracé en cours ; Tab reste dans l'aperçu (tabApercu) */
+    if (S.pp){
+      if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z'){ ev.preventDefault(); toast('Rien à annuler dans l\'aperçu'); }
+      else if (ev.key === 'Escape'){ if (!opts.echapHote) fermerNiveau(); }
+      else if (ev.key === 'Delete' || ev.key === 'Backspace') ev.preventDefault();
+      else if (ev.key === 'Tab' && ppEl) tabApercu(ev);
+      return;
+    }
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z'){ ev.preventDefault(); ev.shiftKey ? refaire() : annuler(); }
     else if (ev.key === 'Escape'){ if (!opts.echapHote) fermerNiveau(); }
     else if (ev.key === 'Enter' && S.brouillon && (ev.target === R || ev.target === cv || ev.target === document.body || ev.target === document.documentElement)) terminerTrace();
@@ -6986,11 +7086,14 @@ function editeur(racine, opts){
     return h;
   }
   function constatHtml(){
-    var cd = constatDeduit(S.doc, S.an), rows = cd.rows.filter(function(r){ return r.nb || r.std; });
-    var h = '<p class="vc-muet">Ce que le croquis permet de remplir dans le constat : nombre d\'installations, raccordement, conformité et méthodes. Les lignes reprennent celles du constat de l\'application.</p>';
-    h += '<table class="vc-tab"><thead><tr><th>Installation</th><th>Nb</th><th>Raccordement</th><th>Conf.</th><th>Méthodes</th></tr></thead><tbody>' + rows.map(function(r){
+    /* m162 (DL21) : seules les installations dessinées (rangées qui ont un nombre) ; sans rangée, une phrase à la place du tableau,
+       juste aussi quand une installation dessinée ne compte sur aucune ligne (descente EP sans façade, WC en projet) */
+    var cd = constatDeduit(S.doc, S.an), rows = cd.rows.filter(function(r){ return r.nb; });
+    var h = '<p class="vc-muet">Ce que le croquis permet de remplir dans le constat : nombre d\'installations, raccordement, conformité et méthodes. Seules les installations dessinées sont listées.</p>';
+    if (!rows.length) h += '<p class="vc-muet">Aucune installation dessinée n\'est comptée au constat.</p>';
+    else h += '<table class="vc-tab"><thead><tr><th>Installation</th><th>Nb</th><th>Raccordement</th><th>Conf.</th><th>Méthodes</th></tr></thead><tbody>' + rows.map(function(r){
       var rac = r.raccord === 'plusieurs' ? 'plusieurs : ' + r.libs.join(' ; ') : (r.libs.join(' ; ') || (r.nb ? 'à préciser' : ''));
-      return '<tr class="' + (r.nb ? '' : 'vide') + '"><td><span class="vc-g ' + r.groupe + '">' + r.groupe + '</span> ' + esc(r.label) + '</td><td>' + (r.nb || '') + '</td><td>' + esc(rac) + '</td><td>' + (r.conforme === 'oui' ? 'Oui' : r.conforme === 'non' ? '<strong class="ko">Non</strong>' : '') + '</td><td>' + esc(r.meth.map(function(m){ for (var i = 0; i < METH.length; i++) if (METH[i][0] === m) return METH[i][2]; return m; }).join(' ')) + '</td></tr>';
+      return '<tr><td><span class="vc-g ' + r.groupe + '">' + r.groupe + '</span> ' + esc(r.label) + '</td><td>' + (r.nb || '') + '</td><td>' + esc(rac) + '</td><td>' + (r.conforme === 'oui' ? 'Oui' : r.conforme === 'non' ? '<strong class="ko">Non</strong>' : '') + '</td><td>' + esc(r.meth.map(function(m){ for (var i = 0; i < METH.length; i++) if (METH[i][0] === m) return METH[i][2]; return m; }).join(' ')) + '</td></tr>';
     }).join('') + '</tbody></table>';
     var ms = METH.filter(function(m){ return cd.methodes[m[0]]; }).map(function(m){ return m[1].toLowerCase(); });
     h += '<p><strong>Méthodes de contrôle :</strong> ' + (ms.length ? esc(ms.join(', ')) : 'aucune indiquée') + '</p>';
@@ -7048,6 +7151,7 @@ function editeur(racine, opts){
     var h = '<p class="vc-muet">Échelle du plan : 1/' + P.edl + (P.auto ? ' (automatique' + (P.avp && P.avp !== P.edl ? ' ; avant-projet 1/' + P.avp : '') + ')' : '') + ' · A4 paysage.' + (manque ? ' <strong>' + manque + ' point' + (manque > 1 ? 's' : '') + ' à compléter</strong> (voir Contrôles).' : '') + '</p>'
       + (P.coupeEdl || P.coupeAvp ? '<p class="vc-muet"><strong>' + avisCadre(P) + '</strong></p>' : '');
     h += '<div class="vc-sorties">'
+      + '<button type="button" class="vc-b vc-bt vc-grand" data-a="apercu">' + ico('chercher', 20) + '<span>Aperçu du plan<small>La page 1 du PDF, à l\'échelle du livrable</small></span></button>'
       + '<button type="button" class="vc-b vc-bt vc-grand" data-a="pdfEdl">' + ico('sorties', 20) + '<span>Plan de l\'état des lieux<small>PDF : plan, légende, cartouche, anomalies et méthodes de test</small></span></button>'
       + '<button type="button" class="vc-b vc-bt vc-grand" data-a="pdfAvp">' + ico('sorties', 20) + '<span>Plan d\'avant-projet<small>PDF : tracés projet et préconisations</small></span></button>'
       + '<button type="button" class="vc-b vc-bt vc-grand" data-a="dxf">' + ico('sorties', 20) + '<span>Plan pour la DAO<small>DXF R12 en coordonnées du fond, calques VEDE-…, à ouvrir sur le cadastre</small></span></button>'
@@ -7335,6 +7439,7 @@ function editeur(racine, opts){
         {confirmer: true, danger: true, ok: ts.ok || 'Supprimer', texte: ts.texte, autre: ts.autre || '', autreFn: function(){ if (opts.supprimer) opts.supprimer(S.doc, {anomalies: false}); }});
       return;
     }
+    if (a === 'apercu'){ ouvrirApercu(); return; }
     if (a === 'pdfEdl' || a === 'pdfAvp' || a === 'dxf' || a === 'json'){ sortie(a); return; }
     if (a === 'resultat'){ var w = {x: parseFloat(b.dataset.x), y: parseFloat(b.dataset.y)}; S.vue.cx = w.x; S.vue.cy = w.y; if (S.vue.s < 30) S.vue.s = 45; redessiner(); enregistrerVue(); return; }
   });
@@ -7565,6 +7670,8 @@ function editeur(racine, opts){
     var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nom; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
   }
   function nomFichier(base, ext){ var d = S.doc; return (base + (d.numero ? ' ' + d.numero : '') + (d.commune ? ' - ' + d.commune : '')).replace(/[\\\/:*?"<>|]+/g, '-').slice(0, 100) + '.' + ext; }
+  /* options du plan PDF d'un mode (A5) : Sorties et l'aperçu du plan partagent les mêmes options, donc le même plan */
+  function optsPlan(mode){ return {mode: mode, logo: opts.logo, reseau: S.reseau, anomalies: ext(), conclusionConstat: conclHote()}; }
   function sortie(a){
     enregistrer();
     try {
@@ -7574,8 +7681,425 @@ function editeur(racine, opts){
       if (a === 'dxf'){ var an = analyser(S.doc, 'edl'); annoncer(telecharger(new Blob([ecrireDxf(S.doc, an, anomaliesDoc(S.doc, an, ext()))], {type: 'application/dxf'}), nomFichier('Croquis', 'dxf')), 'DXF enregistré'); return; }
       if (!global.jspdf){ toast('La bibliothèque PDF n\'est pas chargée'); return; }
       var mode = a === 'pdfAvp' ? 'avp' : 'edl';
-      Promise.resolve(pdfPlan(S.doc, S.fond, {mode: mode, logo: opts.logo, reseau: S.reseau, anomalies: ext(), conclusionConstat: conclHote()})).then(function(blob){ annoncer(telecharger(blob, nomFichier(mode === 'avp' ? 'Avant-projet' : opts.cartoucheHote ? 'Plan' : 'État des lieux', 'pdf')), 'PDF enregistré'); }).catch(function(err){ toast('PDF impossible : ' + (err && err.message || err), 6000); });
+      Promise.resolve(pdfPlan(S.doc, S.fond, optsPlan(mode))).then(function(blob){ annoncer(telecharger(blob, nomFichier(mode === 'avp' ? 'Avant-projet' : opts.cartoucheHote ? 'Plan' : 'État des lieux', 'pdf')), 'PDF enregistré'); }).catch(function(err){ toast('PDF impossible : ' + (err && err.message || err), 6000); });
     } catch(err){ toast('Sortie impossible : ' + (err && err.message || err), 6000); }
+  }
+  /* --- aperçu du plan, en lecture seule (m168) ---
+     La page 1 du PDF redessinée à l'échelle du livrable, par-dessus l'éditeur (A5, A6) : compteur des chevauchements et des coupés par le
+     cadre, parcours de l'un à l'autre dans l'ordre de lecture (A6, A17), zoom et gestes (A8), repères, échelle et avis du cadre (A21). Rien ne
+     s'y déplace : l'aperçu n'écrit ni S.doc, ni l'historique, ni la vue du croquis. S.pp : null hors de l'aperçu, sinon {mode, rel, chev, P,
+     z, k, ox, oy, choix, iListe, reperes, calcul, jeton} (rel et chev : relevé et chevauchements du dernier calcul ; P : échelles des plans ;
+     z : zoom, 1 = la page entière ; k : pixels CSS par mm de page ; ox, oy : coin haut gauche de la page dans la zone, en pixels CSS ; choix :
+     indice dans rel.marques de l'élément choisi (au toucher, ou le déplaçable de l'entrée parcourue), ou -1 ; iListe : rang dans la liste
+     parcourue (ordre de lecture), ou -1 ; reperes : la bascule ; calcul : vrai pendant le calcul ; jeton : celui du calcul en cours ou du
+     dernier). Variables : ppEl, la surcouche ; ppJeton, le dernier calcul lancé ; ppVu, la vue du dernier rendu ; ppZone, la taille de la
+     zone ; ppPtr et ppGeste, les pointeurs et le geste en cours ; ppTMolette, le rendu qui suit la molette ; ppTap, le dernier toucher ;
+     ppRefait, le calcul déjà redessiné une fois ; ppGarde, la garde de « Fermer » ; ppInertes, les parties de l'éditeur rendues inertes
+     pendant l'aperçu */
+  var PP_W = 297, PP_H = 210, ppEl = null, ppJeton = 0, ppVu = null, ppZone = null, ppPtr = {}, ppGeste = null, ppTMolette = null, ppTap = null, ppRefait = 0;
+  var ppGarde = null, ppGardeEcoute = false, ppInertes = [];
+  /* ouvre l'aperçu (A5, A6 ; premier bouton de Sorties) : surcouche .vc-pp sur tout l'éditeur (pas un dialogue .vc-modal : le panneau Sorties
+     reste ouvert dessous), focus sur « Fermer », le reste de l'éditeur inerte, puis le calcul. Le plan de l'avant-projet s'ouvre si l'éditeur
+     le montre */
+  function ouvrirApercu(){
+    if (!global.jspdf){ toast('La bibliothèque PDF n\'est pas chargée'); return; }
+    if (S.pp || !S.doc) return;
+    fermerMenu(); fermerBullePoint();
+    var P = echellesPlans(S.doc);
+    S.pp = {mode: S.mode === 'avp' && P.avp ? 'avp' : 'edl', rel: null, chev: null, P: P, z: 1, k: 0, ox: 0, oy: 0, choix: -1, iListe: -1, reperes: false, calcul: false, jeton: 0};
+    ppVu = null; ppZone = null; ppPtr = {}; ppGeste = null; ppTap = null; ppRefait = 0; clearTimeout(ppTMolette); ppTMolette = null;
+    var puce = function(a, v, t){ return '<button type="button" class="vc-chip" data-pp="' + a + '" data-v="' + v + '" aria-pressed="false">' + t + '</button>'; };
+    ppEl = document.createElement('div');
+    ppEl.className = 'vc-pp'; ppEl.setAttribute('role', 'dialog'); ppEl.setAttribute('aria-modal', 'true'); ppEl.setAttribute('aria-label', 'Aperçu du plan'); ppEl.tabIndex = -1;
+    ppEl.innerHTML = '<div class="vc-pp-haut">'
+      + '<button type="button" class="vc-b vc-bt" data-pp="fermer" aria-label="Fermer l\'aperçu">' + ico('fermer') + '<span>Fermer</span></button>'
+      + '<strong class="vc-pp-titre">Aperçu du plan</strong>'
+      + (P.avp ? '<span class="vc-chips">' + puce('plan', 'edl', 'État des lieux') + puce('plan', 'avp', 'Avant-projet') + '</span>' : '')
+      + '<span class="vc-pp-parcours"><button type="button" class="vc-b vc-bt" data-pp="prec" aria-label="Chevauchement précédent">‹</button>'
+      + '<span class="vc-pp-compte" aria-live="polite"></span>'
+      + '<button type="button" class="vc-b vc-bt" data-pp="suiv" aria-label="Chevauchement suivant">›</button></span>'
+      + '<button type="button" class="vc-b vc-bt" data-pp="pdf" aria-label="Faire le PDF de ce plan" title="Faire le PDF de ce plan">' + ico('sorties') + '<span>PDF</span></button>'
+      + '</div>'
+      + '<div class="vc-pp-zone"><canvas class="vc-pp-cv" aria-hidden="true"></canvas><div class="vc-pp-calcul">Calcul…</div></div>'
+      + '<div class="vc-pp-bandeau" hidden></div>'
+      + '<div class="vc-pp-info" aria-live="polite"></div>'
+      + '<div class="vc-pp-bas"><span class="vc-chips">' + puce('zoom', 1, 'Page') + puce('zoom', 2, '× 2') + puce('zoom', 4, '× 4') + '</span>'
+      + '<button type="button" class="vc-chip" data-pp="reperes" aria-pressed="false">Repères</button>'
+      + '<span class="vc-pp-echelle"></span></div>';
+    R.appendChild(ppEl);
+    var zone = ppEl.querySelector('.vc-pp-zone');
+    ppEl.addEventListener('click', clicApercu);
+    zone.addEventListener('pointerdown', appuiApercu);
+    zone.addEventListener('pointermove', bougerApercu);
+    zone.addEventListener('pointerup', leverApercu);
+    zone.addEventListener('pointercancel', annulerGesteApercu);
+    zone.addEventListener('wheel', moletteApercu, {passive: false});
+    zone.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
+    ppEl.querySelector('[data-pp="fermer"]').focus();
+    /* le reste de l'éditeur, caché dessous, devient inerte (ni focus ni clic) ; le message (toast) reste lu */
+    ppInertes = Array.prototype.filter.call(R.children, function(c){ return c !== ppEl && !c.inert && !c.classList.contains('vc-toast') && !c.classList.contains('vc-modal'); });
+    ppInertes.forEach(function(c){ c.inert = true; });
+    majApercu(); rendreApercu(); calculerApercu();
+  }
+  /* ferme l'aperçu (« Fermer », fermerNiveau, ouvrir) : surcouche ôtée, l'éditeur de nouveau actif, S.pp = null, focus rendu au bouton
+     « Aperçu du plan » de Sorties s'il est là, sinon à l'éditeur */
+  function fermerApercu(){
+    if (!S.pp && !ppEl) return;
+    var el0 = ppEl;
+    clearTimeout(ppTMolette); ppTMolette = null; ppEl = null; S.pp = null; ppVu = null; ppZone = null; ppPtr = {}; ppGeste = null; ppTap = null;
+    ppInertes.forEach(function(c){ c.inert = false; }); ppInertes = [];
+    if (el0 && el0.parentNode) el0.parentNode.removeChild(el0);
+    var b = pan.hidden ? null : pcorps.querySelector('[data-a="apercu"]');
+    if (b) b.focus(); else R.focus();
+  }
+  /* calcul (A23), à l'ouverture et à chaque changement de plan : après deux images (la surcouche est peinte), le plan est relevé
+     (releveurPdf, pdfPlan avec les options de Sorties) et ses chevauchements comptés. pdfPlan lit une copie du croquis : il complète
+     doc.ordre pour le plan demandé (anomaliesDoc), le même ordre que celui de Sorties, sans rien écrire au dossier. Un calcul est ignoré
+     si l'aperçu a été fermé ou si un autre a été lancé (jeton) ; une erreur ferme l'aperçu. Le plan affiché reste celui du dernier calcul */
+  function calculerApercu(){
+    var s = S.pp; if (!s || !ppEl) return;
+    var j = s.jeton = ++ppJeton, mode = s.mode, vif = function(){ return S.pp === s && s.jeton === j; };
+    var image = global.requestAnimationFrame ? function(f){ global.requestAnimationFrame(f); } : function(f){ setTimeout(f, 16); };
+    s.calcul = true; ppEl.setAttribute('aria-busy', 'true');
+    image(function(){ image(function(){
+      if (!vif()) return;
+      var rel = null;
+      new Promise(function(fin){
+        rel = releveurPdf(global.jspdf.jsPDF);
+        fin(pdfPlan(copie(S.doc), S.fond, Object.assign(optsPlan(mode), {cible: rel, marque: rel.marque})));
+      }).then(function(){
+        if (!vif()) return;
+        s.rel = rel; s.chev = chevauchementsPlan(rel); s.P = echellesPlans(S.doc); s.calcul = false; ppEl.removeAttribute('aria-busy');
+        majApercu(); rendreApercu();
+      }).catch(function(e){
+        if (!vif()) return;
+        toast('Aperçu impossible : ' + (e && e.message || e), 6000); fermerApercu();
+      });
+    }); });
+  }
+  /* zone mesurée (getBoundingClientRect), canevas à sa taille × S.dpr ; une nouvelle taille garde z et le point de la page au centre de la
+     zone (borné), la page centrée à z = 1 (A6, A8) */
+  function mesurerApercu(){
+    var s = S.pp, cvp = ppEl.querySelector('.vc-pp-cv'), r = ppEl.querySelector('.vc-pp-zone').getBoundingClientRect(), d = S.dpr;
+    var w = Math.max(1, r.width), h = Math.max(1, r.height), pw = Math.max(1, Math.round(w * d)), ph = Math.max(1, Math.round(h * d));
+    if (cvp.width !== pw || cvp.height !== ph){ cvp.width = pw; cvp.height = ph; }
+    cvp.style.width = pw / d + 'px'; cvp.style.height = ph / d + 'px';
+    if (ppZone && ppZone.w === w && ppZone.h === h) return;
+    var c = ppZone && s.k > 0 ? {x: (ppZone.w / 2 - s.ox) / s.k, y: (ppZone.h / 2 - s.oy) / s.k} : {x: PP_W / 2, y: PP_H / 2};
+    ppZone = {w: w, h: h, kP: Math.max(1e-6, Math.min((w - 24) / PP_W, (h - 24) / PP_H))};
+    s.k = ppZone.kP * s.z; s.ox = w / 2 - c.x * s.k; s.oy = h / 2 - c.y * s.k; bornerApercu();
+  }
+  /* bornes de la vue (A8) : z de 1 à 8 ; le point de la page au centre de la zone reste sur la page ; à z = 1, la page est centrée */
+  function bornerApercu(){
+    var s = S.pp, t = ppZone; if (!s || !t) return;
+    s.z = clamp(s.z, 1, 8); if (s.z < 1 + 1e-9) s.z = 1;
+    s.k = t.kP * s.z;
+    if (s.z === 1){ s.ox = (t.w - PP_W * s.k) / 2; s.oy = (t.h - PP_H * s.k) / 2; return; }
+    var cx = clamp((t.w / 2 - s.ox) / s.k, 0, PP_W), cy = clamp((t.h / 2 - s.oy) / s.k, 0, PP_H);
+    s.ox = t.w / 2 - cx * s.k; s.oy = t.h / 2 - cy * s.k;
+  }
+  /* zoom z autour du point (px, py) de la zone : le point de la page qui s'y trouve y reste, aux bornes près (A8) */
+  function zoomerApercu(z, px, py){
+    var s = S.pp, t = ppZone; if (!s || !t) return;
+    var x = (px - s.ox) / s.k, y = (py - s.oy) / s.k;
+    s.z = clamp(z, 1, 8); s.k = t.kP * s.z; s.ox = px - x * s.k; s.oy = py - y * s.k; bornerApercu();
+  }
+  /* rendu (A6) : la zone en gris, la page blanche et son ombre, la page 1 rejouée d'après le relevé (rejouerPage ; refaite une fois si une
+     image manquait encore), puis les repères et le surlignage ; le canevas perd la transformation d'un geste dans la même tâche */
+  function rendreApercu(){
+    var s = S.pp; if (!s || !ppEl) return;
+    mesurerApercu();
+    var cvp = ppEl.querySelector('.vc-pp-cv'), c = cvp.getContext('2d'), d = S.dpr, x0 = s.ox * d, y0 = s.oy * d, W = PP_W * s.k * d, H = PP_H * s.k * d;
+    c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1;
+    c.fillStyle = '#C9D0D5'; c.fillRect(0, 0, cvp.width, cvp.height);
+    c.save(); c.shadowColor = 'rgba(9,18,24,.22)'; c.shadowBlur = 6 * d; c.shadowOffsetY = 1.5 * d; c.fillStyle = '#fff'; c.fillRect(x0, y0, W, H); c.restore();
+    ppVu = {k: s.k, ox: s.ox, oy: s.oy}; cvp.style.transform = '';
+    if (!s.rel) return;
+    var j = s.jeton, r;
+    c.save(); c.beginPath(); c.rect(x0, y0, W, H); c.clip();
+    try { r = rejouerPage(c, s.rel.pages[0], {k: s.k * d, x: x0, y: y0}); } finally { c.restore(); }
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    if (s.reperes) reperesApercu(c, d);
+    surlignerApercu(c, d);
+    Promise.resolve(r).then(function(ok){ if (ok === false && S.pp === s && s.jeton === j && ppRefait !== j){ ppRefait = j; rendreApercu(); } }, function(){});
+  }
+  /* repères (A6) : le cadre utile en tirets, les zones réservées (rose du nord, échelle graphique) en aplat léger ; pour chaque étiquette,
+     texte libre et bulle de la page 1, son ancre (petit disque) et un trait fin jusqu'à son centre */
+  function reperesApercu(c, d){
+    var s = S.pp, q = s.chev.cadre, X = function(x){ return (s.ox + x * s.k) * d; }, Y = function(y){ return (s.oy + y * s.k) * d; }, k = s.k * d;
+    var E0 = (s.mode === 'avp' ? s.P.avp : s.P.edl) || 200, m = E0 / 1000;
+    c.save();
+    c.fillStyle = 'rgba(12,133,153,.13)';
+    zonesReservees({x: q[0], y: q[1], w: q[2] - q[0], h: q[3] - q[1]}, barreEchelle(m) / m).forEach(function(z){ c.fillRect(X(z[0]), Y(z[1]), (z[2] - z[0]) * k, (z[3] - z[1]) * k); });
+    c.strokeStyle = '#0C8599'; c.lineWidth = 2 * d; c.setLineDash([8 * d, 5 * d]);
+    c.strokeRect(X(q[0]), Y(q[1]), (q[2] - q[0]) * k, (q[3] - q[1]) * k);
+    c.setLineDash([]); c.lineWidth = Math.max(1, d); c.fillStyle = '#0C8599';
+    s.rel.marques.forEach(function(mq){
+      if (mq.page !== 1 || !(mq.k === 'etiq' || mq.k === 'tx' || mq.k === 'bulle') || !mq.A || mq.cx == null) return;
+      c.beginPath(); c.moveTo(X(mq.A.x), Y(mq.A.y)); c.lineTo(X(mq.cx), Y(mq.cy)); c.stroke();
+      c.beginPath(); c.arc(X(mq.A.x), Y(mq.A.y), 2.5 * d, 0, 2 * Math.PI); c.fill();
+    });
+    c.restore();
+  }
+  /* surlignage (A17, A8) : chaque élément en cause (les deux de chaque paire, chaque élément coupé) entouré d'orange, 2 px CSS, en pointillé
+     s'il est coupé par le cadre ; le seul élément choisi (au toucher, ou le déplaçable de l'entrée parcourue), plus fort : 2,5 px sur un
+     liseré blanc de 5 px ; l'autre marque de l'entrée parcourue garde le contour de base */
+  function surlignerApercu(c, d){
+    var s = S.pp, ch = s.chev; if (!ch) return;
+    var ids = s.choix >= 0 ? [s.choix] : [], X = function(x){ return (s.ox + x * s.k) * d; }, Y = function(y){ return (s.oy + y * s.k) * d; };
+    var coupe = {}, vu = {}, tous = [];
+    ch.coupes.forEach(function(q){ coupe[q.i] = true; });
+    ch.paires.forEach(function(p){ [p.a, p.b].forEach(function(i){ if (!vu[i]){ vu[i] = true; tous.push(i); } }); });
+    ch.coupes.forEach(function(q){ if (!vu[q.i]){ vu[q.i] = true; tous.push(q.i); } });
+    /* le contour des formes de la marque i, w px CSS de large ; en pointillé si elle est coupée, sauf pour le liseré (plein) */
+    function contour(i, w, plein){
+      c.lineWidth = w * d; c.setLineDash(!plein && coupe[i] ? [4 * d, 3 * d] : []);
+      (ch.formes[i] || []).forEach(function(f){
+        c.beginPath();
+        if (f.c) c.arc(X(f.c[0]), Y(f.c[1]), f.c[2] * s.k * d, 0, 2 * Math.PI); else c.rect(X(f.b[0]), Y(f.b[1]), (f.b[2] - f.b[0]) * s.k * d, (f.b[3] - f.b[1]) * s.k * d);
+        c.stroke();
+      });
+    }
+    c.save();
+    c.strokeStyle = '#F76707'; tous.forEach(function(i){ contour(i, 2); });
+    if (ids.length){
+      c.strokeStyle = '#fff'; ids.forEach(function(i){ contour(i, 5, true); });
+      c.strokeStyle = '#F76707'; ids.forEach(function(i){ contour(i, 2.5); });
+    }
+    c.restore();
+  }
+  /* pendant un geste (A8) : le canevas suit la vue par une transformation CSS (translation et échelle), sans être redessiné */
+  function suivreApercu(){
+    var s = S.pp, v = ppVu, cvp = ppEl && ppEl.querySelector('.vc-pp-cv'); if (!s || !v || !cvp) return;
+    var e = s.k / v.k;
+    cvp.style.transform = 'translate(' + (s.ox - v.ox * e) + 'px,' + (s.oy - v.oy * e) + 'px) scale(' + e + ')';
+  }
+  /* redim() pendant l'aperçu (A8) : zone remesurée et redessinée, z et le point de la page au centre gardés ; un geste en cours est abandonné */
+  function redimApercu(){ if (!S.pp || !ppEl) return; ppGeste = null; ppPtr = {}; clearTimeout(ppTMolette); ppTMolette = null; rendreApercu(); }
+  /* liste parcourue (A6, A17) : paires et coupes mêlées, dans l'ordre de lecture : le centre de la boîte englobante de leurs formes
+     (bornesApercu), arrondi à 0,1 mm, de haut en bas, puis de gauche à droite ; à égalité, les paires dans l'ordre de chev.paires, puis les
+     coupes (départage explicite : le tri des moteurs anciens n'est pas stable) ; une entrée sans boîte va à la fin (simple garde : paires et
+     coupes naissent des formes). Une entrée : les indices de ses marques, le déplaçable choisi d'abord : le seul déplaçable de la paire
+     (étiquette, texte libre ou bulle), ou, s'il y en a deux, celui du dessus (b, l'indice le plus grand : le dernier dessiné) ; pour une
+     coupe, l'élément coupé */
+  function listeApercu(){
+    var ch = S.pp.chev; if (!ch) return [];
+    var M = S.pp.rel.marques, mob = function(m){ return m.k === 'etiq' || m.k === 'tx' || m.k === 'bulle'; };
+    var E = ch.paires.map(function(p){ return mob(M[p.b]) ? [p.b, p.a] : [p.a, p.b]; }).concat(ch.coupes.map(function(q){ return [q.i]; }));
+    return E.map(function(e, r){
+      var b = bornesApercu(e);
+      return {e: e, r: r, n: b ? 0 : 1, x: b ? Math.round((b[0] + b[2]) / 2 * 10) : 0, y: b ? Math.round((b[1] + b[3]) / 2 * 10) : 0};
+    }).sort(function(u, v){ return u.n - v.n || u.y - v.y || u.x - v.x || u.r - v.r; }).map(function(u){ return u.e; });
+  }
+  /* boîte englobante (mm) des formes des marques ids, ou null */
+  function bornesApercu(ids){
+    var F = S.pp.chev.formes, b = null;
+    ids.forEach(function(i){ (F[i] || []).forEach(function(f){
+      var q = f.c ? [f.c[0] - f.c[2], f.c[1] - f.c[2], f.c[0] + f.c[2], f.c[1] + f.c[2]] : f.b;
+      b = b ? [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[2]), Math.max(b[3], q[3])] : q.slice();
+    }); });
+    return b;
+  }
+  /* texte d'une marque (A6, A17) : ses lignes écrites en plein (le halo, écrit en trait, ne compte pas), jointes par une espace,
+     40 caractères au plus */
+  function texteApercu(i){
+    var s = S.pp, m = s.rel.marques[i], O = s.rel.pages[m.page - 1].ordres, L = [];
+    m.ordres.forEach(function(j){ var o = O[j]; if (o && o.m === 'text' && o.mode !== 'trait') o.lignes.forEach(function(l){ if (l.t) L.push(l.t); }); });
+    var t = L.join(' ').replace(/\s+/g, ' ').trim();
+    return t.length > 40 ? t.slice(0, 40).replace(/\s+$/, '') + '…' : t;
+  }
+  /* nom d'une marque dans la ligne d'info (A6, A17) ; maj : avec une majuscule. Le libellé d'un symbole est celui du type de l'objet, lu sans
+     rien écrire */
+  function nomApercu(i, maj){
+    var m = S.pp.rel.marques[i], t;
+    if (m.k === 'etiq') t = 'l\'étiquette « ' + texteApercu(i) + ' »';
+    else if (m.k === 'tx') t = 'le texte « ' + texteApercu(i) + ' »';
+    else if (m.k === 'bulle') t = 'la bulle' + (m.num != null ? ' ' + m.num : '');
+    else if (m.k === 'symb'){
+      var o = null; S.doc.el.forEach(function(e){ if (!o && e.id === m.id) o = e; });
+      var L = o && T[o.t] && T[o.t].lib; t = L ? 'le symbole « ' + L + ' »' : 'le symbole';
+    }
+    else t = m.cle === 'nord' ? 'la rose du nord' : m.cle === 'echelle' ? 'l\'échelle graphique' : 'la mention « Schéma de principe »';
+    return maj ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+  }
+  /* textes et états (A6, A17, A21) : puces, compteur, « ‹ » et « › », ligne d'info (pendant le parcours, son entrée, le déplaçable choisi
+     nommé d'abord ; sinon l'élément choisi ; sinon l'invite), échelle, bandeau du cadre */
+  function majApercu(){
+    var s = S.pp; if (!s || !ppEl) return;
+    var q = function(sel){ return ppEl.querySelector(sel); }, ch = s.chev, L = listeApercu(), P = s.P, E0 = s.mode === 'avp' ? P.avp : P.edl, info = '';
+    ppEl.querySelectorAll('[data-pp="plan"]').forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.v === s.mode)); });
+    ppEl.querySelectorAll('[data-pp="zoom"]').forEach(function(b){ b.setAttribute('aria-pressed', String(Math.abs(s.z - Number(b.dataset.v)) < 1e-9)); });
+    q('[data-pp="reperes"]').setAttribute('aria-pressed', String(!!s.reperes));
+    q('[data-pp="prec"]').disabled = !L.length; q('[data-pp="suiv"]').disabled = !L.length;
+    var n = ch ? ch.paires.length : 0, nc = ch ? ch.coupes.length : 0;
+    q('.vc-pp-compte').textContent = !ch ? '' : (n >= 2 ? n + ' chevauchements' : n === 1 ? '1 chevauchement' : 'Aucun chevauchement')
+      + (nc ? ' · ' + (nc === 1 ? '1 coupé' : nc + ' coupés') + ' par le cadre' : '');
+    if (ch && s.iListe >= 0 && L[s.iListe]){
+      var e = L[s.iListe];
+      info = (s.iListe + 1) + '/' + L.length + ' · ' + (e.length > 1 ? nomApercu(e[0], true) + ' et ' + nomApercu(e[1]) + ' se chevauchent.' : nomApercu(e[0], true) + ' sort du cadre.');
+    }
+    else if (ch && s.choix >= 0){
+      var m = s.rel.marques[s.choix], part = [];
+      info = m.k === 'etiq' ? 'Étiquette « ' + texteApercu(s.choix) + ' »' : m.k === 'tx' ? 'Texte « ' + texteApercu(s.choix) + ' »' : 'Bulle' + (m.num != null ? ' ' + m.num : '');
+      ch.paires.forEach(function(p){ if (p.a === s.choix) part.push(nomApercu(p.b)); else if (p.b === s.choix) part.push(nomApercu(p.a)); });
+      if (part.length) info += ' · chevauche ' + (part.length > 1 ? part.slice(0, -1).join(', ') + ' et ' + part[part.length - 1] : part[0]);
+      if (ch.coupes.some(function(x){ return x.i === s.choix; })) info += ' · sort du cadre';
+    }
+    else if (ch) info = 'Touchez une étiquette, une bulle ou un texte pour voir ses chevauchements.';
+    q('.vc-pp-info').textContent = info;
+    q('.vc-pp-echelle').textContent = E0 ? 'Échelle : ' + (P.auto ? 'Auto (1/' + E0 + ')' : '1/' + E0) : '';
+    var coupe = s.mode === 'avp' ? P.coupeAvp : P.coupeEdl, bd = q('.vc-pp-bandeau');
+    bd.hidden = !coupe;
+    bd.textContent = coupe ? avisCadre({auto: P.auto, edl: P.edl, avp: P.avp, coupeEdl: s.mode === 'edl' && !!P.coupeEdl, coupeAvp: s.mode === 'avp' && !!P.coupeAvp}) : '';
+  }
+  /* « › » et « ‹ » (A6, A17) : entrée suivante ou précédente de la liste (ordre de lecture), en boucle (depuis aucune : la première ou la
+     dernière). Quel que soit le zoom d'avant, la vue passe à « × 2 », centrée sur le point qui range l'entrée (le centre de la boîte de ses
+     formes), aux bornes d'A8 près : la vue ne quitte pas la page, si bien qu'un élément qui en sort est montré au bord de la page, pas au
+     centre de la zone ; son déplaçable est choisi ; le toucher suivant est un premier toucher (ppTap effacé) */
+  function parcourirApercu(dir){
+    var s = S.pp, L = listeApercu(); if (!L.length) return;
+    s.iListe = s.iListe < 0 ? (dir > 0 ? 0 : L.length - 1) : (s.iListe + dir + L.length) % L.length;
+    var e = L[s.iListe], b = bornesApercu(e);
+    s.choix = e[0]; ppTap = null;
+    if (!ppZone || !b){ if (ppZone) zoomerApercu(2, ppZone.w / 2, ppZone.h / 2); else s.z = 2; }
+    else { s.z = 2; s.k = ppZone.kP * 2; s.ox = ppZone.w / 2 - (b[0] + b[2]) / 2 * s.k; s.oy = ppZone.h / 2 - (b[1] + b[3]) / 2 * s.k; bornerApercu(); }
+    majApercu(); rendreApercu();
+  }
+  /* Tab et Maj+Tab dans l'aperçu (A6) : le focus fait le tour des boutons actifs de la surcouche, sans passer sur l'éditeur caché dessous
+     ni sortir vers l'hôte (aussi sur les tablettes qui ne connaissent pas inert) */
+  function tabApercu(ev){
+    var bs = Array.prototype.filter.call(ppEl.querySelectorAll('button'), function(b){ return !b.disabled && b.offsetParent !== null; });
+    var n = bs.length, i = bs.indexOf(document.activeElement);
+    ev.preventDefault();
+    if (n) bs[i < 0 ? (ev.shiftKey ? n - 1 : 0) : (i + (ev.shiftKey ? n - 1 : 1)) % n].focus();
+  }
+  /* boutons (A6) ; pendant le calcul, seul « Fermer » agit */
+  function clicApercu(ev){
+    var b = ev.target.closest ? ev.target.closest('[data-pp]') : null, s = S.pp; if (!b || !s || !ppEl || !ppEl.contains(b)) return;
+    var a = b.dataset.pp;
+    if (a === 'fermer'){ garderFermer(b); fermerApercu(); return; }
+    if (s.calcul || !s.rel) return;
+    if (a === 'plan'){ if (b.dataset.v !== s.mode){ s.mode = b.dataset.v === 'avp' ? 'avp' : 'edl'; s.z = 1; s.choix = -1; s.iListe = -1; bornerApercu(); calculerApercu(); } return; }
+    if (a === 'prec' || a === 'suiv'){ parcourirApercu(a === 'suiv' ? 1 : -1); return; }
+    if (a === 'pdf'){ sortie(s.mode === 'avp' ? 'pdfAvp' : 'pdfEdl'); return; }
+    if (a === 'zoom'){ var z = Number(b.dataset.v); if (z === 1){ s.z = 1; bornerApercu(); } else zoomerApercu(z, ppZone.w / 2, ppZone.h / 2); majApercu(); rendreApercu(); return; }
+    if (a === 'reperes'){ s.reperes = !s.reperes; majApercu(); rendreApercu(); }
+  }
+  /* garde de « Fermer » (A6) : il est au-dessus du bouton « Retour » ; pendant 400 ms après son toucher, un appui à moins de 48 px de lui
+     est avalé, avec son relâcher et son clic (1 s au plus) ; un appui plus tardif ou plus loin lève la garde. Le clavier n'est pas filtré */
+  function garderFermer(b){
+    var r = b.getBoundingClientRect();
+    ppGarde = {t: Date.now(), x: r.left + r.width / 2, y: r.top + r.height / 2, avale: 0};
+    if (ppGardeEcoute) return;
+    ppGardeEcoute = true;
+    ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click'].forEach(function(t){ document.addEventListener(t, filtrerGarde, true); });
+  }
+  function filtrerGarde(ev){
+    var g = ppGarde; if (!g) return;
+    var t = Date.now();
+    if (ev.type === 'pointerdown'){
+      if (t - g.t < 400 && Math.hypot(ev.clientX - g.x, ev.clientY - g.y) < 48){ g.avale = t + 1000; ev.stopPropagation(); ev.preventDefault(); }
+      else ppGarde = null;
+      return;
+    }
+    if (g.avale && t < g.avale){ ev.stopPropagation(); ev.preventDefault(); if (ev.type === 'click') ppGarde = null; }
+    else if (t - g.t > 1500) ppGarde = null;
+  }
+  /* gestes de la zone (A8) : un doigt, un stylet ou la souris (bouton gauche) déplace la page au-delà du seuil (9 px, 4 px à la souris) ;
+     deux doigts pincent (z de 1 à 8, autour de leur milieu, qui déplace aussi la page) ; un second doigt change le déplacement en pince ;
+     lever un doigt de la pince la finit, même s'il en reste deux, et les doigts qui restent ne font rien ; un toucher choisit (un glissé
+     ou une pince n'en est pas un : le double toucher repart de zéro). Pendant le geste, transformation CSS ; à la fin, un rendu */
+  function posApercu(ev){ var r = ppEl.querySelector('.vc-pp-zone').getBoundingClientRect(); return {x: ev.clientX - r.left, y: ev.clientY - r.top}; }
+  function appuiApercu(ev){
+    var s = S.pp; if (!s || !ppEl) return;
+    if (document.activeElement !== ppEl){ try { ppEl.focus({preventScroll: true}); } catch(e){ ppEl.focus(); } }
+    if (s.calcul || !s.rel || !ppZone || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
+    ev.preventDefault();
+    try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch(e){}
+    var p = posApercu(ev);
+    ppPtr[ev.pointerId] = {x: p.x, y: p.y};
+    var ids = Object.keys(ppPtr), g = ppGeste;
+    if (ids.length === 1){ ppGeste = {type: 'attente', id: ev.pointerId, x0: p.x, y0: p.y, t0: Date.now(), ox0: s.ox, oy0: s.oy, seuil: ev.pointerType === 'mouse' ? 4 : 9}; return; }
+    if (ids.length === 2 && (!g || g.type !== 'pince')){
+      var a = ppPtr[ids[0]], b = ppPtr[ids[1]];
+      ppGeste = {type: 'pince', ids: ids, d0: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)), m0: {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2}, z0: s.z, k0: s.k, ox0: s.ox, oy0: s.oy};
+      ppTap = null;
+    }
+  }
+  function bougerApercu(ev){
+    var s = S.pp, q = ppPtr[ev.pointerId], g = ppGeste; if (!s || !q || !g || !ppZone) return;
+    var p = posApercu(ev); q.x = p.x; q.y = p.y;
+    if (g.type === 'attente' && g.id === ev.pointerId){ if (Math.hypot(p.x - g.x0, p.y - g.y0) < g.seuil) return; g.type = 'glisser'; ppTap = null; }
+    if (g.type === 'glisser' && g.id === ev.pointerId){ s.ox = g.ox0 + p.x - g.x0; s.oy = g.oy0 + p.y - g.y0; bornerApercu(); suivreApercu(); return; }
+    if (g.type === 'pince'){
+      var a = ppPtr[g.ids[0]], b = ppPtr[g.ids[1]]; if (!a || !b) return;
+      var x = (g.m0.x - g.ox0) / g.k0, y = (g.m0.y - g.oy0) / g.k0, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      s.z = clamp(g.z0 * Math.hypot(b.x - a.x, b.y - a.y) / g.d0, 1, 8); s.k = ppZone.kP * s.z; s.ox = mx - x * s.k; s.oy = my - y * s.k; bornerApercu(); suivreApercu();
+    }
+  }
+  function leverApercu(ev){
+    var s = S.pp, q = ppPtr[ev.pointerId], g = ppGeste; if (!s || !q) return;
+    delete ppPtr[ev.pointerId];
+    var reste = Object.keys(ppPtr).length;
+    if (!g) return;
+    if (g.type === 'attente' && g.id === ev.pointerId){ ppGeste = null; toucherApercu(g.x0, g.y0, g.t0); return; }
+    if (g.type === 'glisser' && g.id === ev.pointerId){ ppGeste = null; majApercu(); rendreApercu(); return; }
+    /* un doigt de la pince levé la finit, même s'il en reste deux (un troisième doigt levé ne la finit pas) */
+    if (g.type === 'pince'){ if (reste < 2 || g.ids.indexOf(String(ev.pointerId)) >= 0){ ppGeste = reste ? {type: 'fini'} : null; majApercu(); rendreApercu(); } return; }
+    if (!reste) ppGeste = null;
+  }
+  /* pointercancel : fin du geste, sans choix */
+  function annulerGesteApercu(ev){
+    if (!S.pp || !ppPtr[ev.pointerId]) return;
+    delete ppPtr[ev.pointerId];
+    var g = ppGeste, reste = Object.keys(ppPtr).length;
+    ppGeste = reste ? {type: 'fini'} : null;
+    if (g && (g.type === 'glisser' || g.type === 'pince')){ majApercu(); rendreApercu(); }
+  }
+  /* molette (A8) : z × 1,0018^(-deltaY), autour du pointeur, borné à 1 et 8 ; rendu 150 ms après le dernier cran */
+  function moletteApercu(ev){
+    ev.preventDefault();
+    var s = S.pp; if (!s || s.calcul || !s.rel || !ppZone) return;
+    var dy = ev.deltaY * (ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? ppZone.h : 1), p = posApercu(ev);
+    zoomerApercu(s.z * Math.pow(1.0018, -dy), p.x, p.y); suivreApercu(); majApercu();
+    clearTimeout(ppTMolette); ppTMolette = setTimeout(function(){ ppTMolette = null; if (S.pp === s) rendreApercu(); }, 150);
+  }
+  /* clé de la vue de l'aperçu (A8), comme cleVue pour le croquis : échelle et coin de la page ; elle change avec un glissé, un zoom ou
+     un parcours */
+  function cleVueApercu(){ var s = S.pp; return [s.k, s.ox, s.oy].join(','); }
+  /* un toucher (A8) : second appui d'un double toucher (moins de 380 ms et de 24 px) dans le vide : z = 2 autour du point (à z = 1), sinon
+     z = 1 ; sur un élément, le choix est gardé. Sinon, le premier candidat est choisi ; un toucher plus tardif, à moins de 24 px du
+     précédent, prend le candidat qui suit l'élément choisi, en boucle ; sans candidat, le choix et le parcours sont effacés. Deux touchers
+     ne sont proches que si la vue n'a pas bougé entre eux (cleVueApercu) */
+  function toucherApercu(px, py, t){
+    var s = S.pp, prec = ppTap, cle = cleVueApercu(), pres = !!prec && prec.v === cle && Math.hypot(px - prec.x, py - prec.y) < 24, dbl = pres && t - prec.t < 380, C = candidatsApercu(px, py);
+    /* après un double toucher, le toucher suivant n'en fait pas un autre, mais compte comme plus tardif s'il est proche (la vue du zoom notée) */
+    ppTap = {t: dbl ? -Infinity : t, x: px, y: py, v: cle};
+    if (dbl){
+      if (C.length) return;
+      if (s.z === 1) zoomerApercu(2, px, py); else { s.z = 1; bornerApercu(); }
+      ppTap.v = cleVueApercu();
+      majApercu(); rendreApercu(); return;
+    }
+    if (!C.length){ s.choix = -1; s.iListe = -1; }
+    else { var j = pres && s.choix >= 0 ? C.indexOf(s.choix) : -2; s.choix = j === -2 || j < 0 ? C[0] : C[(j + 1) % C.length]; s.iListe = -1; }
+    majApercu(); rendreApercu();
+  }
+  /* candidats d'un toucher (A8) : étiquettes, textes libres et bulles de la page 1 dont la boîte d'encre, élargie autour de son centre à
+     44 px CSS au moins de large et de haut, contient le point ; rangés par distance du point à la forme (0 dedans), puis l'indice le plus
+     grand d'abord */
+  function candidatsApercu(px, py){
+    var s = S.pp, M = s.rel.marques, F = s.chev.formes, x = (px - s.ox) / s.k, y = (py - s.oy) / s.k, demi = 22 / s.k, L = [];
+    M.forEach(function(m, i){
+      if (!F[i] || m.page !== 1 || !(m.k === 'etiq' || m.k === 'tx' || m.k === 'bulle')) return;
+      var b = bornesApercu([i]), cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
+      if (Math.abs(x - cx) > Math.max((b[2] - b[0]) / 2, demi) || Math.abs(y - cy) > Math.max((b[3] - b[1]) / 2, demi)) return;
+      var dm = Infinity;
+      F[i].forEach(function(f){ dm = Math.min(dm, f.c ? Math.max(0, Math.hypot(x - f.c[0], y - f.c[1]) - f.c[2]) : Math.hypot(Math.max(f.b[0] - x, 0, x - f.b[2]), Math.max(f.b[1] - y, 0, y - f.b[3]))); });
+      L.push({i: i, d: dm});
+    });
+    L.sort(function(a, b){ return a.d - b.d || b.i - a.i; });
+    return L.map(function(c){ return c.i; });
   }
 
   /* ferme le niveau le plus haut : le menu de poignée d'abord (m109 : l'élément reste choisi), ce qui est affiché par-dessus (dialogue,
@@ -7589,6 +8113,7 @@ function editeur(racine, opts){
     if (fermerMenu()) return true;
     /* m144 : le dialogue du dessus (la question d'un nom proche passe avant la fiche courte qu'elle couvre), fermé comme par Échap */
     var ms = R.querySelectorAll('.vc-modal'), m = ms.length ? ms[ms.length - 1] : null; if (m){ if (m.vcFermer) m.vcFermer(); else m.remove(); return true; }
+    if (S.pp){ fermerApercu(); return true; }
     if (S.palette){ fermerPalette(); return true; }
     if (S.accroches){ fermerAccroches(); return true; }
     if (S.sel || S.panneau){ fermerPanneau(); return true; }
@@ -7606,6 +8131,8 @@ function editeur(racine, opts){
     S.placer = null; S.cotes = null; S.reunir = null; S.noteEtiq = null; R.querySelectorAll('.vc-modal').forEach(function(m0){ m0.remove(); });
     S.doc = doc; S.fond = fond || null; S.reseau = reseau || null; S.undo = []; S.redo = []; S.sel = null; S.brouillon = null; S.panneau = null; S.mode = 'edl'; S.ajoutAnom = null; S.aligner = null;
     S.ptr = {}; S.geste = null; S.apercu = null; S.accrocheVue = null; S.survol = null;
+    /* aperçu du plan fermé (m168) */
+    fermerApercu();
     /* palette d'accrochage fermée, appuis avalés oubliés (m111) */
     ptrAvales = {}; fermerAccroches();
     clearTimeout(tToast); R.querySelector('.vc-toast').classList.remove('on');
@@ -7622,7 +8149,7 @@ function editeur(racine, opts){
   }
   return {ouvrir: ouvrir, etat: S, redessiner: redessiner, redim: redim, doc: function(){ return S.doc; }, choisirOutil: choisirOutil, toast: toast, enregistrer: enregistrer,
     tap: tap, terminerTrace: function(m){ terminerTrace(m === 'discret' ? m : undefined); }, selectionner: selectionner, ouvrirPanneau: ouvrirPanneau, annuler: annuler, refaire: refaire, ajusterVue: ajusterVue, sortie: sortie,
-    fermerNiveau: fermerNiveau, placerAnomalie: function(id){ if (!INTEG || !recDe(id)) return; fermerPanneau(); choisirOutil({k: 'main'}); S.placer = id; majAide(); }, synchroniser: function(){ if (S.doc){ analyse(); synchroniser(); majBarre(); majPanneau(); redessiner(); } }, liste: function(){ return S.liste; }};
+    fermerNiveau: fermerNiveau, optsPlan: optsPlan, ouvrirApercu: ouvrirApercu, fermerApercu: fermerApercu, placerAnomalie: function(id){ if (!INTEG || !recDe(id)) return; fermerPanneau(); choisirOutil({k: 'main'}); S.placer = id; majAide(); }, synchroniser: function(){ if (S.doc){ analyse(); synchroniser(); majBarre(); majPanneau(); redessiner(); } }, liste: function(){ return S.liste; }};
 }
 VC.editeur = editeur;
 function exportJson(doc){ var d = copie(doc); d.exporte = nowISO(); d.app = (VC.signature || 'Croquis de terrain') + ' · croquis ' + VC.version; return d; }
@@ -7722,7 +8249,6 @@ var CSS = [
 '.vc-ctl.info button{border-color:var(--line-2,#DEE5EA);background:var(--surface-2,#F3F6F8)}',
 '.vc-tab{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0}',
 '.vc-tab th,.vc-tab td{border-bottom:1px solid var(--line-2,#DEE5EA);padding:6px 4px;text-align:left;vertical-align:top}',
-'.vc-tab tr.vide td{color:var(--muted,#5C6C78)}',
 '.vc-tab .ko{color:var(--danger,#B42318)}',
 '.vc-g{display:inline-block;min-width:26px;padding:0 4px;border-radius:6px;font-size:11.5px;font-weight:700;text-align:center;color:#fff}',
 '.vc-g.EU{background:#c20000}.vc-g.EP{background:#00813b}.vc-g.UN{background:#9c0a7c}',
@@ -7764,6 +8290,27 @@ var CSS = [
 /* paysage, panneau ouvert : la barre d'aide s'arrête à gauche de la barre de navigation, avec le même écart qu'hors panneau (m114) */
 '.vc-avecpanneau .vc-aide{right:482px}',
 '.vc-avecpanneau .vc-accroches{right:474px;width:min(300px,calc(100% - 560px))}',
+/* aperçu du plan (m168) : surcouche opaque sur tout l'éditeur, au-dessus des barres, du panneau et du menu, sous les dialogues et le
+   toast ; une colonne ; les barres passent à la ligne ; « Calcul… » ne paraît qu'après 300 ms de calcul */
+'.vc-pp{position:absolute;inset:0;z-index:9;display:flex;flex-direction:column;background:var(--surface,#fff);outline:none}',
+'.vc-pp-haut,.vc-pp-bas{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 8px;background:var(--surface,#fff)}',
+'.vc-pp-haut{min-height:58px;border-bottom:1px solid var(--line,#C7D1D8)}',
+'.vc-pp-bas{border-top:1px solid var(--line,#C7D1D8)}',
+'.vc-pp-titre{flex:1;min-width:120px;font-size:17px}',
+'.vc-pp-parcours{display:inline-flex;align-items:center;gap:6px}',
+'.vc-pp-compte{min-width:10em;text-align:center;font-weight:600;font-size:14.5px}',
+'.vc-pp-zone{flex:1;min-height:0;position:relative;overflow:hidden;background:#C9D0D5;touch-action:none;-webkit-user-select:none;user-select:none}',
+'.vc-pp-cv{position:absolute;left:0;top:0;display:block;transform-origin:0 0}',
+'.vc-pp-calcul{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:10px 16px;border-radius:12px;background:#1f2a31;color:#fff;font-weight:600;opacity:0;pointer-events:none}',
+'.vc-pp[aria-busy="true"] .vc-pp-calcul{animation:vc-pp-calcul .01s linear .3s both}',
+'@keyframes vc-pp-calcul{from{opacity:0}to{opacity:1}}',
+'.vc-pp-bandeau{flex:none;padding:8px 12px;background:#FFF4E5;color:#5C3300;font-size:14px;font-weight:600;line-height:1.35;border-top:1px solid #F2C48D}',
+'.vc-pp-bandeau[hidden]{display:none}',
+/* la ligne d'info garde la hauteur de deux lignes (2 × 1,35 em, plus 12 px de marge intérieure et 1 px de bordure) : la page ne change pas
+   d'échelle quand le texte s'allonge ; un texte plus long défile dans la case */
+'.vc-pp-info{flex:none;padding:6px 12px;height:calc(2.7em + 13px);overflow-y:auto;font-size:14.5px;line-height:1.35;border-top:1px solid var(--line,#C7D1D8)}',
+'.vc-pp-echelle{margin-left:auto;color:var(--muted,#5C6C78);font-size:14px}',
+'.vc-pp .vc-chip{min-height:44px}',
 '@media (max-width:760px),(orientation:portrait){',
 '  .vc-outils{top:auto;left:0;right:0;bottom:0;width:auto;height:70px;flex-direction:row;border-right:0;border-top:1px solid var(--line,#C7D1D8);overflow-x:auto;overflow-y:hidden}',
 '  .vc-o{min-width:64px;min-height:56px}',
@@ -7841,7 +8388,10 @@ function escalierPdf(pdf, G, papier, m){
 }
 function pdfPlan(doc, fond, o){
   o = o || {};
-  var mode = o.mode || 'edl', J = global.jspdf.jsPDF, pdf = new J({orientation: 'landscape', unit: 'mm', format: 'a4', compress: true});
+  /* o.cible : objet qui reçoit les ordres à la place de jsPDF (releveur de l'aperçu du plan, releveurPdf) ; pdfPlan rend alors ce que rend son
+     output('blob') : le releveur lui-même. o.marque : fonction appelée avant les ordres d'un élément (symbole, étiquette, texte libre, bulle,
+     nord, échelle, mention) avec sa description, puis avec null ; une fois avec {k: 'segs', liste}. Sorties et index.html n'en passent pas. */
+  var mode = o.mode || 'edl', J = global.jspdf.jsPDF, pdf = o.cible || new J({orientation: 'landscape', unit: 'mm', format: 'a4', compress: true});
   /* o.anomalies : anomalies du dossier (mode intégré), pour des numéros et des textes identiques à ceux du dossier */
   var ext = o.anomalies || null, oL = {telQuel: !!o.telQuel}, an = analyser(doc, mode), liste = anomaliesDoc(doc, an, ext, oL), idx = indexDoc(doc), rot = doc.rot || 0, rotDeg = rot * 180 / Math.PI;
   var Ech = doc.echelle > 0 ? doc.echelle : echelleAuto(doc, mode), m = Ech / 1000;
@@ -7937,7 +8487,7 @@ function pdfPlan(doc, fond, o){
   doc.el.filter(function(e){ return e.k === 'ln' && e.v.length >= 2 && montrer(e); }).sort(function(a, b2){ return rangTrace(a.t) - rangTrace(b2.t); }).forEach(function(e){
     if (e.t === 'esc'){ escalierPdf(pdf, geoEscalier(e, idx), papier, m); return; }
     var W = lignePts(e, idx).map(function(p){ return papier(p.x, p.y); }), st = e.p.st || 'existant';
-    var morceaux = (parLigne[e.id] || []).map(function(p){ return {pts: W.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
+    var morceaux = (parLigne[e.id] || []).map(function(p){ return {pts: W.slice(p.i0, p.i1 + 1), res: resMorceau(p, an), p: p}; });
     if (!morceaux.length || e.t !== 'tr') morceaux = [{pts: W, res: resLigne(e, an)}];
     /* complément du fond et tracé d'un type inconnu : trait neutre, fin, gris, plein */
     var neutre = !estCanalisation(e.t), larg = e.t === 'col' ? .7 : neutre ? .25 : .45, drain = drainDe(e);
@@ -7965,10 +8515,13 @@ function pdfPlan(doc, fond, o){
   doc.el.forEach(function(e){
     if (e.k !== 'pt' || e.t === 'zone' || !montrer(e)) return;
     var c = papier(e.x, e.y), rgb = couleurPt(e, an);
+    if (o.marque) o.marque({k: 'symb', id: e.id, A: {x: c.x, y: c.y}, R: rayonSymbole(e.t), forme: formeSymbole(e.t)});
     primsPdf(pdf, primitives(e, rgb, angleSymbole(e.t, e.p.a, rot)), c.x, c.y, 1);
     if (mode === 'avp' && e.p.st === 'supprimer'){ var R = rayonSymbole(e.t); pdf.setDrawColor(rgb[0], rgb[1], rgb[2]); pdf.setLineWidth(.3); pdf.line(c.x - R, c.y - R, c.x + R, c.y + R); pdf.line(c.x - R, c.y + R, c.x + R, c.y - R); }
+    if (o.marque) o.marque(null);
   });
   /* étiquettes et textes libres, horizontaux sur le papier */
+  if (o.marque) o.marque({k: 'segs', liste: segsPapier()}); /* aperçu du plan : segments des traits, gardés à part */
   doc.el.forEach(function(e){
     if (!montrer(e) && e.k !== 'tx') return;
     var libre = e.k === 'tx', txt = libre ? e.txt : texteEtiquette(e, an);
@@ -7996,12 +8549,15 @@ function pdfPlan(doc, fond, o){
         cx = meil.x; cy = meil.y;
       }
     }
+    if (o.marque){ var stM = libre || (e.lab && e.lab.main) ? 'main' : e.lab && e.lab.ecart ? 'ecart' : mv ? 'collecteur' : 'office';
+      o.marque({k: libre ? 'tx' : 'etiq', id: e.id, A: {x: A.x, y: A.y}, cx: cx, cy: cy, w: bq.w, h: bq.h, em: em, statut: stM, support: stM === 'collecteur' ? mv : null}); }
     imprimees.push([cx - bq.w / 2, cy - bq.h / 2, cx + bq.w / 2, cy + bq.h / 2]);
     if (!libre && e.k === 'pt'){
       var bt = boiteTexte(txt, em), bx = [cx - bt.w / 2, cy - bt.h / 2, cx + bt.w / 2, cy + bt.h / 2], R = departTrait(e.t), dd = Math.hypot(cx - A.x, cy - A.y), bord = boiteBord(bx, A.x, A.y, cx, cy);
       if (bord && dd > R + 3 && Math.hypot(bord.x - A.x, bord.y - A.y) > R + .8){ pdf.setDrawColor(col[0], col[1], col[2]); pdf.setLineWidth(.15); pdf.line(A.x + (cx - A.x) / dd * R, A.y + (cy - A.y) / dd * R, bord.x, bord.y); }
     }
     textePdf(pdf, txt, cx, cy, em, 0, {coul: col, halo: true, gras: !libre});
+    if (o.marque) o.marque(null);
   });
   /* bulles : sur l'avant-projet, celles de l'état des lieux (une préconisation par anomalie) */
   var listeB = mode === 'avp' ? anomaliesDoc(doc, an.ref, ext, oL) : liste, posB = placerBulles(doc, an, listeB, Ech, idx);
@@ -8010,26 +8566,34 @@ function pdfPlan(doc, fond, o){
     var ob = idx[an2.objId]; if (!montrer(ob)) return;
     var P0 = ancreBulle(ob, idx), A = papier(P0.x, P0.y), d = posB[an2.cle] || bulleDefaut(ob, Ech), cx = A.x + d.dx / m, cy = A.y - d.dy / m, r = TAILLE_BULLE, R = ob.k === 'pt' ? rayonSymbole(ob.t) : 1;
     if (dansRC(A)){ var qb = dansCadre(cx, cy, 2 * r + .6, 2 * r + .6); cx = qb.x; cy = qb.y; } var dd = Math.hypot(cx - A.x, cy - A.y);
+    if (o.marque) o.marque({k: 'bulle', cle: an2.cle, id: an2.objId, num: an2.num, A: {x: A.x, y: A.y}, cx: cx, cy: cy, r: r, R: R, statut: an2.bulle ? (an2.bulle.ecart ? 'ecart' : 'main') : 'office'});
     pdf.setDrawColor(212, 101, 10); pdf.setLineWidth(.25);
     if (dd > R + r + .3) pdf.line(A.x + (cx - A.x) / dd * R, A.y + (cy - A.y) / dd * R, cx - (cx - A.x) / dd * r, cy - (cy - A.y) / dd * r);
     pdf.setFillColor(255, 255, 255); pdf.circle(cx, cy, r, 'FD');
     textePdf(pdf, String(an2.num), cx, cy, r * 1.05, 0, {coul: [212, 101, 10], gras: true});
+    if (o.marque) o.marque(null);
   });
   pdf.restoreGraphicsState();
   /* cadre, nord, échelle, nota */
   pdf.setDrawColor(40, 40, 40); pdf.setLineWidth(.35); pdf.rect(F.x, F.y, F.w, F.h, 'S');
   var nx = F.x + F.w - 11, ny = F.y + 12, dn = versPlan(0, 1, rot), vx = dn.x, vy = -dn.y;
+  if (o.marque) o.marque({k: 'fixe', cle: 'nord'});
   pdf.setFillColor(255, 255, 255); pdf.setDrawColor(40, 40, 40); pdf.setLineWidth(.25); pdf.circle(nx, ny, 7, 'FD');
   pdf.setFillColor(30, 30, 30); pdf.triangle(nx + vx * 6, ny + vy * 6, nx - vx * 3.5 - vy * 2.8, ny - vy * 3.5 + vx * 2.8, nx - vx * 1.5, ny - vy * 1.5, 'F');
   pdf.setFillColor(255, 255, 255); pdf.triangle(nx + vx * 6, ny + vy * 6, nx - vx * 3.5 + vy * 2.8, ny - vy * 3.5 - vx * 2.8, nx - vx * 1.5, ny - vy * 1.5, 'FD');
   textePdf(pdf, 'N', nx + vx * 9.5, ny + vy * 9.5, 2.6, 0, {gras: true, coul: [30, 30, 30], halo: true});
+  if (o.marque) o.marque(null);
   var Lm = barreEchelle(m);
   var sx = F.x + 6, sy = F.y + F.h - 8, Lp = Lm / m;
+  if (o.marque) o.marque({k: 'fixe', cle: 'echelle'});
   pdf.setFillColor(255, 255, 255); pdf.setDrawColor(255, 255, 255); pdf.rect(sx - 2, sy - 6, Lp + 34, 10, 'F');
   pdf.setDrawColor(30, 30, 30); pdf.setLineWidth(.2); pdf.setFillColor(30, 30, 30); pdf.rect(sx, sy, Lp / 2, 1.4, 'FD'); pdf.setFillColor(255, 255, 255); pdf.rect(sx + Lp / 2, sy, Lp / 2, 1.4, 'FD');
   textePdf(pdf, '0', sx, sy - 2, 2, 0, {coul: [30, 30, 30]}); textePdf(pdf, frNum(Lm) + ' m', sx + Lp, sy - 2, 2, 0, {coul: [30, 30, 30]});
   textePdf(pdf, 'Échelle 1/' + Ech, sx + Lp + 16, sy + .7, 2.3, 0, {gras: true, coul: [30, 30, 30]});
+  if (o.marque) o.marque(null);
+  if (o.marque) o.marque({k: 'fixe', cle: 'mention'});
   textePdf(pdf, 'Schéma de principe : limites et positions non garanties', F.x + F.w - 50, F.y + F.h - 3.2, 1.9, 0, {italique: true, coul: [90, 90, 90], halo: true});
+  if (o.marque) o.marque(null);
   /* colonne de droite : cartouche et légende */
   var X = F.x + F.w + 4, W = 297 - 7 - X, y = 7;
   pdf.setDrawColor(40, 40, 40); pdf.setLineWidth(.35); pdf.rect(X, F.y, W, F.h, 'S');
@@ -8101,7 +8665,12 @@ function legende(doc, an, mode, ext, oL){
       if (e.p.st === 'presume') st.presume = 1; if (e.p.st === 'supprimer' && mode === 'avp') st.supprimer = 1;
       /* drain (m121) : sa sorte, s'il est dessiné ; il garde aussi la ligne de son réseau */
       var dr = drainDe(e); if (dr && e.v.length >= 2) st[dr] = 1;
-      if (/^(EU|EP|UN|INC|MIX|PRJ)$/.test(r) && !vus['l' + r]){ vus['l' + r] = 1; out.push({k: 'ln', res: r, lib: r === 'PRJ' ? 'Canalisation projetée' : r === 'INC' ? 'Réseau non déterminé' : r === 'MIX' ? 'Plusieurs réseaux atteints' : 'Canalisation ' + libRes(r) + (r === 'UN' ? '' : ' (' + RES[r].nom + ')'), o: 1}); }
+      /* m165 : un tuyau dont une pièce est dessinée en rouge (resMorceau) sans être EU dans l'analyse a aussi la ligne de chaque couleur
+         que dessinent ses pièces (m166, relecture d'ensemble de la v1.7.3, CL2 : la pièce verte d'un tuyau rouge donne la ligne EP), dans
+         un ordre fixe, quel que soit le sens du tracé ; un autre tuyau, la seule ligne de resLigne */
+      var rr = [r], pm = r !== 'PRJ' && an && an.pieces ? an.pieces.filter(function(p){ return p.l.id === e.id; }) : [], cm = pm.map(function(p){ return resMorceau(p, an); });
+      if (pm.some(function(p, i){ return cm[i] === 'EU' && an.resPiece[p.id].res !== 'EU'; })) ['EU', 'EP', 'UN', 'INC', 'MIX'].forEach(function(k){ if (cm.indexOf(k) >= 0) rr.push(k); });
+      rr.forEach(function(r){ if (/^(EU|EP|UN|INC|MIX|PRJ)$/.test(r) && !vus['l' + r]){ vus['l' + r] = 1; out.push({k: 'ln', res: r, lib: r === 'PRJ' ? 'Canalisation projetée' : r === 'INC' ? 'Réseau non déterminé' : r === 'MIX' ? 'Plusieurs réseaux atteints' : 'Canalisation ' + libRes(r) + (r === 'UN' ? '' : ' (' + RES[r].nom + ')'), o: 1}); } });
       return;
     }
     /* destination (m126, décision D8) : une ligne par nom et abréviation, « Étang (Ét) », comme « Rejet en milieu naturel (MN) » ; son
@@ -8211,6 +8780,377 @@ function pageTableaux(pdf, doc, an, liste, mode, ext, oL, conclC){
   pdf.text(pdfTxt(cc ? 'Conclusion du constat : ' + CONCL[cc] : 'Conclusion proposée : ' + (CONCL[c] || 'sans objet')), 10, y);
 }
 VC.pdfPlan = pdfPlan;
+
+/* ---------- Aperçu du plan (m167, moteur) : relevé des ordres du plan PDF, rejeu sur un canevas, chevauchements ---------- */
+/* Symboles comptés comme un carré par l'aperçu du plan (A17) ; les autres comptent comme un disque. Formes approchées, en attente d'une
+   décision : le carré ne tourne pas avec le symbole (regard, boîte, grille, fosse ou clapet tourné en sort) ; caniveau, fosse et gargouille
+   sont plus étroits que leur carré ; l'hexagone d'une destination tient dans son disque ; le drapeau du point de test monte à 3,4 mm
+   (R = 2) ; la croix « à supprimer » de l'avant-projet va jusqu'aux coins du carré ± R */
+var FORMES_CARREES = {grille: 1, caniveau: 1, regard: 1, boite: 1, clapet: 1, fosse: 1, exutoire: 1, gargouille: 1, test: 1, zone: 1};
+/* Rend la forme d'un symbole pour l'aperçu du plan : 'carre' (côté 2 R) ou 'disque' (rayon R), R étant celui de rayonSymbole */
+function formeSymbole(t){ var f = (T[t] || {forme: 'app'}).forme; return FORMES_CARREES[f] === 1 ? 'carre' : 'disque'; }
+/* Rend une copie des arguments d'un ordre, pour le releveur de l'aperçu du plan : tableaux et objets simples sont copiés en profondeur ;
+   nombres, textes, null, undefined et images restent tels quels */
+function copiePdf(v){
+  if (Array.isArray(v)) return v.map(copiePdf);
+  if (v && typeof v === 'object' && Object.prototype.toString.call(v) === '[object Object]'){
+    var r = {}; Object.keys(v).forEach(function(k){ r[k] = copiePdf(v[k]); }); return r;
+  }
+  return v;
+}
+/* Numéros PDF des bouts et des jonctions de trait (comme jsPDF), pour le releveur et le rejeu de l'aperçu du plan */
+var CAPJOIN_PDF = {0: 0, butt: 0, but: 0, miter: 0, 1: 1, round: 1, rounded: 1, circle: 1, 2: 2, projecting: 2, project: 2, square: 2, bevel: 2};
+/* Vraie instance de jsPDF qui fait les mesures du releveur (largeurs, découpe en lignes) : {J, pdf}, gardée */
+var mesurePdf = null;
+/* Rend le releveur du plan PDF, pour l'aperçu du plan (A2). pdfPlan le reçoit à la place de jsPDF (o.cible) : il note chaque ordre, page
+   par page, sans rien imprimer. Il offre les 27 méthodes que pdfPlan appelle sur jsPDF : addImage addPage circle clip discardPath
+   getNumberOfPages getTextWidth line lines output rect restoreGraphicsState saveGraphicsState setDrawColor setFillColor setFont
+   setFontSize setLineCap setLineDashPattern setLineJoin setLineWidth setPage setProperties setTextColor splitTextToSize text triangle.
+   rel.pages[i] = {n, ordres, etat, format, epFin} ; un ordre = {m : la méthode, a : une copie de ses arguments, mq : la marque ouverte,
+   -1 sans marque}. addPage et setPage changent de page sans être notés ; les mesures et output ne sont pas notés. Un ordre text porte
+   aussi lignes [{t, x, y, w, ang}] (texte imprimé, départ et ligne de base en mm, largeur imprimée sans crénage, angle en degrés),
+   police {nom, style, pt}, coul (couleur du texte), mode ('plein' ou 'trait') et ep (épaisseur du trait en mode trait, sinon null).
+   etat : épaisseur, couleur, bouts et jonctions du trait que jsPDF reporte sur une page ajoutée (null pour la page 1).
+   rel.marques : les marques de pdfPlan (o.marque = rel.marque), chacune avec sa page et ses ordres (indices dans la page) ;
+   rel.segs : les segments des traits sur le papier, [x0, y0, x1, y1, id] (null sans marques).
+   J : la classe jsPDF (celle du module par défaut). opt.strict : une méthode absente, une option de text() autre qu'angle, renderingMode
+   ou align, ou un cas non pris en charge lèvent une erreur ; sans lui, une méthode absente est notée telle quelle. Avec ou sans strict,
+   ce que jsPDF refuse pour un texte (coordonnée, type, alignement), un tracé, un pointillé, un bout, une jonction ou une image lève la
+   même erreur que lui, sans rien noter ; une couleur donnée en texte n'est pas contrôlée (pdfPlan n'en donne pas). */
+function releveurPdf(J, opt){
+  opt = opt || {}; J = J || global.jspdf.jsPDF;
+  var strict = !!opt.strict, MMPT = 25.4 / 72, tranche = Array.prototype.slice;
+  if (!mesurePdf || mesurePdf.J !== J) mesurePdf = {J: J, pdf: new J({orientation: 'landscape', unit: 'mm', format: 'a4'})};
+  var mes = mesurePdf.pdf;
+  /* et : état que le PDF suit (police, taille, couleur du texte, épaisseur), repris par restoreGraphicsState ; jv : valeurs internes de
+     jsPDF, jamais reprises, qu'il reporte sur une page ajoutée */
+  var et = {police: 'helvetica', style: 'normal', pt: 16, coul: null, ep: .200025}, jv = {ep: .200025, trait: null, cap: 0, join: 0}, pile = [];
+  var rel = {pages: [{n: 1, ordres: [], etat: null, format: null, epFin: null}], marques: [], segs: null}, cur = rel.pages[0], ouverte = -1, P = rel;
+  function erreur(s){ throw new Error('releveurPdf : ' + s); }
+  /* l'instance de mesure, mise à la police et à la taille du moment */
+  function mesure(){ mes.setFont(et.police, et.style); mes.setFontSize(et.pt); return mes; }
+  function noter(m, args){
+    var o = {m: m, a: copiePdf(tranche.call(args)), mq: ouverte};
+    if (ouverte >= 0){
+      var mk = rel.marques[ouverte];
+      if (mk.page !== cur.n){ if (strict) erreur('ordre ' + m + ' hors de la page de sa marque'); o.mq = -1; }
+      else mk.ordres.push(cur.ordres.length);
+    }
+    cur.ordres.push(o);
+    return o;
+  }
+  /* arguments que jsPDF 2.5.1 refuse pour un tracé (nombre manquant, style inconnu ; pour lines, jambes ou échelle hors d'un tableau,
+     fermeture hors d'un booléen) ou un pointillé : la même erreur que lui, avant de rien noter, avec ou sans strict */
+  var STYLES_PDF = [undefined, null, 'S', 'D', 'F', 'DF', 'FD', 'f', 'f*', 'B', 'B*', 'n'], NOMBRES_PDF = {circle: 3, line: 4, rect: 4, triangle: 6};
+  function refus(m, a){
+    var n = NOMBRES_PDF[m], bon = true, i, L, x, y;
+    if (n){ for (i = 0; i < n; i++) if (isNaN(a[i])) bon = false; if (STYLES_PDF.indexOf(a[n]) < 0) bon = false; }
+    else if (m === 'lines'){
+      L = a[0]; x = a[1]; y = a[2]; if (typeof L === 'number'){ L = a[2]; x = a[0]; y = a[1]; }
+      bon = !isNaN(x) && !isNaN(y) && Array.isArray(L) && Array.isArray(a[3] || [1, 1]) && STYLES_PDF.indexOf(a[4]) >= 0 && typeof (a[5] || false) === 'boolean';
+    }
+    else if (m === 'setLineDashPattern'){ bon = !isNaN(a[1] || 0) && Array.isArray(a[0] || []); m = 'setLineDash'; }
+    if (!bon) throw new Error('Invalid arguments passed to jsPDF.' + m);
+  }
+  function simple(m){ return function(){ refus(m, arguments); noter(m, arguments); return P; }; }
+  ['circle', 'clip', 'discardPath', 'line', 'lines', 'rect', 'setFillColor', 'setLineDashPattern', 'setProperties', 'triangle'].forEach(function(m){ rel[m] = simple(m); });
+  /* l'image passe d'abord par une instance neuve de jsPDF : une erreur dans les mêmes cas que jsPDF (pdfPlan la rattrape et place la suite
+     autrement), sans rien garder dans l'instance des mesures */
+  rel.addImage = function(){ var essai = new J({orientation: 'landscape', unit: 'mm', format: 'a4'}); essai.addImage.apply(essai, arguments); noter('addImage', arguments); return P; };
+  rel.addPage = function(){
+    cur.epFin = et.ep;
+    cur = {n: rel.pages.length + 1, ordres: [], etat: {ep: jv.ep, trait: copiePdf(jv.trait), cap: jv.cap, join: jv.join}, format: copiePdf(tranche.call(arguments)), epFin: null};
+    rel.pages.push(cur); et.ep = jv.ep;
+    return P;
+  };
+  /* page absente : ignorée, comme jsPDF (erreur en strict) ; la page reprise garde l'épaisseur qu'elle avait */
+  rel.setPage = function(n){
+    var pg = n > 0 && n <= rel.pages.length ? rel.pages[n - 1] : null;
+    if (!pg){ if (strict) erreur('page ' + n + ' absente'); return P; }
+    cur.epFin = et.ep; cur = pg; et.ep = pg.epFin;
+    return P;
+  };
+  rel.getNumberOfPages = function(){ return rel.pages.length; };
+  rel.getTextWidth = function(){ var m = mesure(); return m.getTextWidth.apply(m, arguments); };
+  rel.splitTextToSize = function(){ var m = mesure(); return m.splitTextToSize.apply(m, arguments); };
+  /* pdfPlan rend pdf.output('blob') : ici, le releveur lui-même */
+  rel.output = function(){ return P; };
+  rel.setFont = function(){
+    var m = mesure(); m.setFont.apply(m, arguments); var f = m.getFont();
+    noter('setFont', arguments); et.police = f.fontName; et.style = f.fontStyle;
+    return P;
+  };
+  rel.setFontSize = function(s){ noter('setFontSize', arguments); et.pt = s; return P; };
+  rel.setTextColor = function(){ noter('setTextColor', arguments); et.coul = copiePdf(tranche.call(arguments)); return P; };
+  rel.setDrawColor = function(){ noter('setDrawColor', arguments); jv.trait = copiePdf(tranche.call(arguments)); return P; };
+  rel.setLineWidth = function(w){ noter('setLineWidth', arguments); et.ep = w; jv.ep = w; return P; };
+  /* bout ou jonction inconnus : la même erreur que jsPDF, avant de rien noter */
+  function bout(s, quoi){ if (CAPJOIN_PDF[s] === undefined) throw new Error('Line ' + quoi + ' style of \'' + s + '\' is not recognized. See or extend .CapJoinStyles property for valid styles'); }
+  rel.setLineCap = function(s){ bout(s, 'cap'); noter('setLineCap', arguments); if (typeof CAPJOIN_PDF[s] === 'number') jv.cap = CAPJOIN_PDF[s]; return P; };
+  rel.setLineJoin = function(s){ bout(s, 'join'); noter('setLineJoin', arguments); if (typeof CAPJOIN_PDF[s] === 'number') jv.join = CAPJOIN_PDF[s]; return P; };
+  rel.saveGraphicsState = function(){ noter('saveGraphicsState', arguments); pile.push({police: et.police, style: et.style, pt: et.pt, coul: et.coul, ep: et.ep}); return P; };
+  rel.restoreGraphicsState = function(){
+    if (strict && !pile.length) erreur('restoreGraphicsState sans saveGraphicsState');
+    noter('restoreGraphicsState', arguments);
+    var s = pile.pop(); if (s){ et.police = s.police; et.style = s.style; et.pt = s.pt; et.coul = s.coul; et.ep = s.ep; }
+    return P;
+  };
+  /* text(t, x, y, options) : les lignes que jsPDF imprime, avec leur départ (alignement compris), leur ligne de base et leur largeur */
+  rel.text = function(t, x, y, op){
+    var args = arguments;
+    if (strict && args.length > 4) erreur('text() à plus de quatre arguments');
+    /* ancienne signature (x, y, texte), que jsPDF remet dans l'ordre */
+    if (typeof t === 'number' && typeof x === 'number' && (typeof y === 'string' || Array.isArray(y))){
+      if (strict) erreur('text() à l\'ancienne (x, y, texte)');
+      var tmp = y; y = x; x = t; t = tmp;
+    }
+    /* options hors d'un objet : ancienne forme de jsPDF (angle en nombre, alignement en texte) */
+    if (typeof op !== 'object' || op === null){
+      if (strict && op !== undefined) erreur('options de text() hors d\'un objet');
+      var an = args[4], al0 = args[5];
+      if (typeof an === 'string'){ al0 = an; an = null; }
+      if (typeof op === 'string') al0 = op; else if (typeof op === 'number') an = op;
+      op = {angle: an, align: al0};
+    }
+    var rm = op.renderingMode !== undefined ? op.renderingMode : op.stroke;
+    var mode = rm === undefined || rm === null || rm === 0 || rm === false || rm === 'fill' ? 'plein' : rm === 1 || rm === true || rm === 'stroke' ? 'trait' : 'autre';
+    var ang = typeof op.angle === 'number' && op.angle ? op.angle : 0;
+    if (strict){
+      Object.keys(op).forEach(function(c){ if (c !== 'angle' && c !== 'renderingMode' && c !== 'align') erreur('option de text() non prise en charge (' + c + ')'); });
+      if (op.angle !== undefined && typeof op.angle !== 'number') erreur('angle de text() hors d\'un nombre');
+      if (mode === 'autre') erreur('renderingMode de text() non pris en charge (' + rm + ')');
+    }
+    if (isNaN(x) || isNaN(y) || t === undefined || t === null) throw new Error('Invalid arguments passed to jsPDF.text');
+    var L = [], al = op.align || 'left';
+    if (t.length !== 0){
+      if (typeof t === 'string') L = t.split(/\r\n|\r|\n/g);
+      else if (Array.isArray(t) && t.every(function(s){ return typeof s === 'string'; })) L = t.slice();
+      else throw new Error('Type of text must be string or Array. "' + t + '" is not recognized.');
+      if (al !== 'left' && al !== 'center' && al !== 'right' && al !== 'justify') throw new Error('Unrecognized alignment option, use "left", "center", "right" or "justify".');
+      if (strict){
+        if (al === 'justify') erreur('alignement justify non pris en charge');
+        if (ang && L.length > 1) erreur('texte de plusieurs lignes tourné');
+        if (ang && al !== 'left') erreur('texte tourné et aligné (' + al + ')');
+      }
+    }
+    var m = mesure(), enc = (m.getFont() || {}).encoding, tab = enc === 'WinAnsiEncoding' || enc === 'StandardEncoding', espace = Array(op.TabLen || 9).join(' ');
+    var lead = et.pt * (typeof op.lineHeightFactor === 'number' ? op.lineHeightFactor : 1.15) * MMPT, ar = ang * Math.PI / 180, sn = Math.sin(ar), cs = Math.cos(ar), x0 = Number(x), y0 = Number(y);
+    function largeur(s){ return m.getStringUnitWidth(s, {doKerning: false}) * et.pt * MMPT; }
+    /* jsPDF aligne d'après la ligne brute, puis développe les tabulations (polices WinAnsi et Standard) : la largeur imprimée est celle de
+       la ligne développée */
+    var lignes = L.map(function(l, i){
+      var imp = tab ? l.split('\t').join(espace) : l, w = largeur(imp), wb = al === 'right' || al === 'center' ? (imp === l ? w : largeur(l)) : 0;
+      var dx = al === 'right' ? -wb : al === 'center' ? -wb / 2 : 0;
+      return {t: imp, x: x0 + dx + i * lead * sn, y: y0 + i * lead * cs, w: w, ang: ang};
+    });
+    var o = noter('text', args);
+    o.lignes = lignes; o.police = {nom: et.police, style: et.style, pt: et.pt}; o.coul = copiePdf(et.coul); o.mode = mode; o.ep = mode === 'trait' ? et.ep : null;
+    return P;
+  };
+  /* marque de pdfPlan : {k: 'segs', liste} garde les segments à part ; une autre marque s'ouvre, null la ferme */
+  rel.marque = function(mq){
+    if (mq && mq.k === 'segs'){ rel.segs = copiePdf(mq.liste || []); return; }
+    if (mq){
+      if (strict && ouverte >= 0) erreur('marque ouverte dans une autre');
+      var c = copiePdf(mq); c.page = cur.n; c.ordres = []; rel.marques.push(c); ouverte = rel.marques.length - 1;
+    } else {
+      if (strict && ouverte < 0) erreur('marque fermée sans être ouverte');
+      ouverte = -1;
+    }
+  };
+  if (typeof Proxy === 'function') P = new Proxy(rel, {get: function(cible, k){
+    if (k in cible || typeof k !== 'string' || k === 'then' || k === 'toJSON') return cible[k];
+    if (strict) erreur('méthode absente (' + k + ')');
+    return function(){ noter(k, arguments); return P; };
+  }});
+  return P;
+}
+/* Polices du rejeu de l'aperçu du plan : Helvetica, ou la plus proche */
+var POLICE_APERCU = 'Helvetica, Arial, "Liberation Sans", Roboto, sans-serif';
+/* Images du rejeu de l'aperçu du plan, par donnée (data URL) : {img, pret, fini, attente} */
+var imagesApercu = Object.create(null);
+/* Rend la couleur CSS d'une couleur de jsPDF (arguments de setDrawColor, setFillColor ou setTextColor), pour le rejeu de l'aperçu du plan :
+   gris ou RVB de 0 à 255, CMJN de 0 à 1, texte de couleur gardé tel quel ; noir sans couleur */
+function couleurPdf(a){
+  function v(x){ x = Math.round(Number(x)); return isFinite(x) ? Math.max(0, Math.min(255, x)) : 0; }
+  if (!a || !a.length || a[0] === null || a[0] === undefined) return '#000000';
+  var c1 = a[0], c2 = a[1], c3 = a[2], c4 = a[3];
+  if (typeof c1 === 'string') return c1;
+  if (c2 === undefined || (c4 === undefined && c1 === c2 && c2 === c3)) return 'rgb(' + v(c1) + ',' + v(c1) + ',' + v(c1) + ')';
+  if (c4 === undefined || typeof c4 === 'object') return c4 && c4.a === 0 ? '#ffffff' : 'rgb(' + v(c1) + ',' + v(c2) + ',' + v(c3) + ')';
+  return 'rgb(' + v(255 * (1 - c1) * (1 - c4)) + ',' + v(255 * (1 - c2) * (1 - c4)) + ',' + v(255 * (1 - c3) * (1 - c4)) + ')';
+}
+/* Rejoue une page relevée (rel.pages[i] de releveurPdf) sur un contexte 2D de canevas, pour l'aperçu du plan (A3). vue = {k, x, y} : pixels
+   par mm, décalage en pixels. Chaque ligne de texte est étirée à sa largeur imprimée. Rend une promesse : true quand tout est dessiné,
+   false quand une image se chargeait encore (l'appelant rejoue alors la page). Le contexte retrouve son état d'avant. */
+function rejouerPage(ctx, page, vue){
+  vue = vue || {};
+  var k = vue.k || 1, ox = vue.x || 0, oy = vue.y || 0, prof = 0, ouvert = false, attentes = [], ordres = (page && page.ordres) || [];
+  var BOUTS = ['butt', 'round', 'square'], JONCTIONS = ['miter', 'round', 'bevel'];
+  function X(x){ return x * k + ox; }
+  function Y(y){ return y * k + oy; }
+  /* un chemin resté ouvert (style null) reçoit la suite, comme dans le PDF */
+  function chemin(){ if (!ouvert){ ctx.beginPath(); ouvert = true; } }
+  /* styles de jsPDF : null ne peint pas ; F, f, f* remplissent ; FD, DF, B, B* remplissent puis tracent ; les autres tracent */
+  function peindre(st){
+    if (st === null) return;
+    if (st === 'F' || st === 'f') ctx.fill();
+    else if (st === 'f*') ctx.fill('evenodd');
+    else if (st === 'FD' || st === 'DF' || st === 'B'){ ctx.fill(); ctx.stroke(); }
+    else if (st === 'B*'){ ctx.fill('evenodd'); ctx.stroke(); }
+    else ctx.stroke();
+    ouvert = false;
+  }
+  /* épaisseur nulle : le trait le plus fin, comme dans le PDF */
+  function epaisseur(w){ return w > 0 ? w * k : 1; }
+  function nom(v, noms){ return typeof CAPJOIN_PDF[v] === 'number' ? noms[CAPJOIN_PDF[v]] : null; }
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#000000'; ctx.strokeStyle = '#000000'; ctx.lineWidth = .200025 * k; ctx.lineCap = 'butt'; ctx.lineJoin = 'miter'; ctx.miterLimit = 10;
+  ctx.setLineDash([]); ctx.lineDashOffset = 0; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  var e0 = page && page.etat;
+  if (e0){
+    ctx.lineWidth = epaisseur(e0.ep);
+    if (e0.trait) ctx.strokeStyle = couleurPdf(e0.trait);
+    if (nom(e0.cap, BOUTS)) ctx.lineCap = nom(e0.cap, BOUTS);
+    if (nom(e0.join, JONCTIONS)) ctx.lineJoin = nom(e0.join, JONCTIONS);
+  }
+  ordres.forEach(function(o){
+    var a = o.a || [], m = o.m;
+    if (m === 'rect'){ chemin(); ctx.rect(X(a[0]), Y(a[1]), a[2] * k, a[3] * k); peindre(a[4]); }
+    else if (m === 'line'){ chemin(); ctx.moveTo(X(a[0]), Y(a[1])); ctx.lineTo(X(a[2]), Y(a[3])); peindre(a[4] || 'S'); }
+    else if (m === 'circle'){ chemin(); ctx.moveTo(X(a[0]) + a[2] * k, Y(a[1])); ctx.arc(X(a[0]), Y(a[1]), a[2] * k, 0, 2 * Math.PI, true); peindre(a[3]); }
+    else if (m === 'triangle'){ chemin(); ctx.moveTo(X(a[0]), Y(a[1])); ctx.lineTo(X(a[2]), Y(a[3])); ctx.lineTo(X(a[4]), Y(a[5])); ctx.lineTo(X(a[0]), Y(a[1])); ctx.closePath(); peindre(a[6]); }
+    else if (m === 'lines'){
+      /* jambes de 2 nombres (droite) ou de 6 (courbe de Bézier), relatives au point atteint ; ancien ordre (x, y, jambes) admis */
+      var J0 = a[0], x = a[1], y = a[2], sc = a[3] || [1, 1];
+      if (typeof J0 === 'number'){ var tmp = y; y = x; x = J0; J0 = tmp; }
+      if (!Array.isArray(J0)) return;
+      chemin(); ctx.moveTo(X(x), Y(y));
+      J0.forEach(function(g){
+        if (g.length === 2){ x += g[0] * sc[0]; y += g[1] * sc[1]; ctx.lineTo(X(x), Y(y)); return; }
+        var x2 = x + g[0] * sc[0], y2 = y + g[1] * sc[1], x3 = x + g[2] * sc[0], y3 = y + g[3] * sc[1];
+        x += g[4] * sc[0]; y += g[5] * sc[1]; ctx.bezierCurveTo(X(x2), Y(y2), X(x3), Y(y3), X(x), Y(y));
+      });
+      if (a[5]) ctx.closePath();
+      peindre(a[4]);
+    }
+    else if (m === 'clip') ctx.clip(a[0] === 'evenodd' ? 'evenodd' : 'nonzero');
+    else if (m === 'discardPath'){ ctx.beginPath(); ouvert = false; }
+    else if (m === 'saveGraphicsState'){ ctx.save(); prof++; }
+    else if (m === 'restoreGraphicsState'){ if (prof > 0){ ctx.restore(); prof--; } }
+    else if (m === 'setDrawColor') ctx.strokeStyle = couleurPdf(a);
+    else if (m === 'setFillColor') ctx.fillStyle = couleurPdf(a);
+    else if (m === 'setLineWidth') ctx.lineWidth = epaisseur(a[0]);
+    else if (m === 'setLineCap'){ if (nom(a[0], BOUTS)) ctx.lineCap = nom(a[0], BOUTS); }
+    else if (m === 'setLineJoin'){ if (nom(a[0], JONCTIONS)) ctx.lineJoin = nom(a[0], JONCTIONS); }
+    else if (m === 'setLineDashPattern'){ ctx.setLineDash((Array.isArray(a[0]) ? a[0] : []).map(function(v){ return v * k; })); ctx.lineDashOffset = (a[1] || 0) * k; }
+    else if (m === 'text'){
+      /* la couleur du texte devient celle du remplissage, comme dans le PDF ; un texte vide n'écrit rien */
+      var L = o.lignes || [], pol = o.police || {}, sty = pol.style || 'normal';
+      if (!L.length) return;
+      ctx.fillStyle = couleurPdf(o.coul);
+      ctx.font = (/italic|oblique/.test(sty) ? 'italic ' : '') + (/bold/.test(sty) ? 'bold ' : '') + (pol.pt || 16) * 25.4 / 72 * k + 'px ' + POLICE_APERCU;
+      L.forEach(function(l){
+        if (!l.t) return;
+        var mw = ctx.measureText(l.t).width, sx = mw > 0 ? l.w * k / mw : 1, r = (l.ang || 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+        ctx.setTransform(sx * c, -sx * s, s, c, X(l.x), Y(l.y));
+        if (o.mode === 'trait'){ ctx.lineWidth = epaisseur(o.ep); ctx.strokeText(l.t, 0, 0); } else ctx.fillText(l.t, 0, 0);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      });
+    }
+    else if (m === 'addImage'){
+      /* (donnée, format, x, y, l, h) ou (donnée, x, y, l, h) ; une image pas encore chargée est attendue, puis dessinée au rejeu suivant */
+      var b = typeof a[1] === 'number' ? 1 : 2, ix = a[b], iy = a[b + 1], iw = a[b + 2], ih = a[b + 3], dat = a[0];
+      if (!(isFinite(ix) && isFinite(iy) && isFinite(iw) && isFinite(ih))) return;
+      if (dat && typeof dat === 'object'){ if (typeof dat.getContext === 'function' || /^img$/i.test(dat.nodeName || '')) ctx.drawImage(dat, X(ix), Y(iy), iw * k, ih * k); return; }
+      if (typeof dat !== 'string' || !dat) return;
+      var src = /^data:/.test(dat) ? dat : 'data:image/' + (typeof a[1] === 'string' ? a[1] : 'png').toLowerCase() + ';base64,' + dat, en = imagesApercu[src];
+      if (!en){
+        var Img = global.Image; if (typeof Img !== 'function') return;
+        var img = new Img(); en = imagesApercu[src] = {img: img, pret: false, fini: false, attente: null};
+        en.attente = new Promise(function(ok){ img.onload = function(){ en.pret = true; en.fini = true; ok(); }; img.onerror = function(){ en.fini = true; ok(); }; });
+        img.src = src;
+      }
+      if (en.pret) ctx.drawImage(en.img, X(ix), Y(iy), iw * k, ih * k);
+      else if (!en.fini) attentes.push(en.attente);
+    }
+  });
+  while (prof > 0){ ctx.restore(); prof--; }
+  ctx.restore();
+  return attentes.length ? Promise.all(attentes).then(function(){ return false; }) : Promise.resolve(true);
+}
+/* Rend les chevauchements du plan pour l'aperçu du plan (A17), d'après les marques et les ordres de la page 1 d'un relevé (releveurPdf) :
+   {paires: [{a, b, p}], coupes: [{i, d}], cadre, formes}. a < b et i sont des indices de rel.marques. Une paire : une étiquette, un texte
+   libre ou une bulle qui pénètre de plus de 0,3 mm (p, en mm) un autre de ceux-là, un symbole (centre dans le cadre) ou un élément fixe
+   (nord, échelle, mention) ; symbole contre symbole ne compte pas. Une coupe : une étiquette, un texte libre ou une bulle qui sort du cadre
+   de dessin de plus de 0,3 mm (d, en mm). cadre : ce cadre de dessin [x0, y0, x1, y1] (mm). formes : pour chaque marque, sa forme
+   (morceaux {c: [x, y, r]} ou {b: [x0, y0, x1, y1]}), ou null (page 2 et suivantes, symbole dont le centre est hors du cadre, marque sans
+   forme). L'interface de l'aperçu (m168) s'en sert pour ses repères, le choix au toucher et le surlignage. */
+function chevauchementsPlan(rel){
+  var O = (rel.pages[0] || {ordres: []}).ordres, RC = null, MMPT = 25.4 / 72, ACC = /[ÀÁÂÃÄÅÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝŠŽŸ]/;
+  /* cadre de dessin : le rectangle sans peinture qui précède la découpe */
+  for (var i = 0; i + 1 < O.length && !RC; i++){
+    var a = O[i].a;
+    if (O[i].m === 'rect' && a[4] === null && O[i + 1].m === 'clip') RC = [Math.min(a[0], a[0] + a[2]), Math.min(a[1], a[1] + a[3]), Math.max(a[0], a[0] + a[2]), Math.max(a[1], a[1] + a[3])];
+  }
+  if (!RC) RC = [7, 7, 7 + CADRE.w, 7 + CADRE.h];
+  /* boîte d'une ligne de texte : de la ligne de base − 0,72 em (− 0,93 em avec une capitale accentuée) à + 0,21 em, élargie de 0,14 em
+     avec un halo ; ligne tournée : sa boîte englobante */
+  function boiteLigne(l, em, halo){
+    var e = halo ? .14 * em : 0, s0 = -e, s1 = l.w + e, t0 = -(ACC.test(l.t) ? .93 : .72) * em - e, t1 = .21 * em + e;
+    if (!l.ang) return [l.x + s0, l.y + t0, l.x + s1, l.y + t1];
+    var r = l.ang * Math.PI / 180, ux = Math.cos(r), uy = -Math.sin(r), vx = Math.sin(r), vy = Math.cos(r), xs = [], ys = [];
+    [[s0, t0], [s1, t0], [s0, t1], [s1, t1]].forEach(function(q){ xs.push(l.x + ux * q[0] + vx * q[1]); ys.push(l.y + uy * q[0] + vy * q[1]); });
+    return [Math.min.apply(null, xs), Math.min.apply(null, ys), Math.max.apply(null, xs), Math.max.apply(null, ys)];
+  }
+  /* forme d'une marque : morceaux {c: [x, y, r]} (disque) ou {b: [x0, y0, x1, y1]} (boîte) */
+  function formes(m){
+    if (m.k === 'symb') return m.forme === 'carre' ? [{b: [m.A.x - m.R, m.A.y - m.R, m.A.x + m.R, m.A.y + m.R]}] : [{c: [m.A.x, m.A.y, m.R]}];
+    if (m.k === 'bulle') return [{c: [m.cx, m.cy, m.r + .125]}];
+    var F = [], Om = m.ordres.map(function(j){ return O[j]; }), L = [];
+    Om.forEach(function(o){ if (o.m === 'text') o.lignes.forEach(function(l){ if (l.t) L.push({l: l, o: o}); }); });
+    L.forEach(function(q){
+      var halo = q.o.mode === 'trait' || L.some(function(r){ return r !== q && r.o.mode === 'trait' && r.l.t === q.l.t && r.l.x === q.l.x && r.l.y === q.l.y; });
+      F.push({b: boiteLigne(q.l, q.o.police.pt * MMPT, halo)});
+    });
+    if (m.k === 'fixe') Om.forEach(function(o){
+      var a = o.a;
+      if (o.m === 'circle') F.push({c: [a[0], a[1], a[2]]});
+      else if (o.m === 'rect') F.push({b: [Math.min(a[0], a[0] + a[2]), Math.min(a[1], a[1] + a[3]), Math.max(a[0], a[0] + a[2]), Math.max(a[1], a[1] + a[3])]});
+      else if (o.m === 'triangle') F.push({b: [Math.min(a[0], a[2], a[4]), Math.min(a[1], a[3], a[5]), Math.max(a[0], a[2], a[4]), Math.max(a[1], a[3], a[5])]});
+    });
+    return F;
+  }
+  function horsBoite(c, b){ return Math.hypot(Math.max(b[0] - c[0], 0, c[0] - b[2]), Math.max(b[1] - c[1], 0, c[1] - b[3])); }
+  /* pénétration de deux morceaux : r1 + r2 − D ; r moins la distance du centre à la boîte ; le moindre recouvrement de deux boîtes */
+  function penetre(f, g){
+    if (f.c && g.c) return f.c[2] + g.c[2] - Math.hypot(f.c[0] - g.c[0], f.c[1] - g.c[1]);
+    if (f.c) return f.c[2] - horsBoite(f.c, g.b);
+    if (g.c) return g.c[2] - horsBoite(g.c, f.b);
+    return Math.min(Math.min(f.b[2], g.b[2]) - Math.max(f.b[0], g.b[0]), Math.min(f.b[3], g.b[3]) - Math.max(f.b[1], g.b[1]));
+  }
+  function sortie(F){
+    var d = -Infinity;
+    F.forEach(function(f){ var b = f.c ? [f.c[0] - f.c[2], f.c[1] - f.c[2], f.c[0] + f.c[2], f.c[1] + f.c[2]] : f.b; d = Math.max(d, RC[0] - b[0], b[2] - RC[2], RC[1] - b[1], b[3] - RC[3]); });
+    return d;
+  }
+  function mobile(m){ return m.k === 'etiq' || m.k === 'tx' || m.k === 'bulle'; }
+  var M = rel.marques, Fm = M.map(function(m){
+    if (m.page !== 1 || (m.k === 'symb' && !(m.A.x >= RC[0] && m.A.x <= RC[2] && m.A.y >= RC[1] && m.A.y <= RC[3]))) return null;
+    var F = formes(m); return F.length ? F : null;
+  }), paires = [], coupes = [];
+  M.forEach(function(m, i){
+    if (!Fm[i]) return;
+    if (mobile(m)){ var d = sortie(Fm[i]); if (d > .3) coupes.push({i: i, d: d}); }
+    for (var j = i + 1; j < M.length; j++){
+      if (!Fm[j] || (!mobile(m) && !mobile(M[j]))) continue;
+      var p = -Infinity; Fm[i].forEach(function(f){ Fm[j].forEach(function(g){ p = Math.max(p, penetre(f, g)); }); });
+      if (p > .3) paires.push({a: i, b: j, p: p});
+    }
+  });
+  return {paires: paires, coupes: coupes, cadre: RC, formes: Fm};
+}
+VC.releveurPdf = releveurPdf; VC.rejouerPage = rejouerPage; VC.chevauchementsPlan = chevauchementsPlan;
 
 /* ---------- DXF R12 pour la DAO : coordonnées du fond, calques VEDE-*, symboles en blocs à l'échelle du plan ---------- */
 var CP1252 = {0x20AC: 0x80, 0x201A: 0x82, 0x0192: 0x83, 0x201E: 0x84, 0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02C6: 0x88, 0x2030: 0x89, 0x0160: 0x8A, 0x2039: 0x8B, 0x0152: 0x8C, 0x017D: 0x8E,
@@ -8350,7 +9290,7 @@ function ecrireDxf(doc, an, liste){
        l'écran (et qu'au PDF jusqu'au 1/500) */
     var drain = drainDe(e), dents = drain ? dentsPeigne(P, 1, .4, drain === 'infiltration', false) : [];
     if (st === 'projet'){ poly(P, 'VEDE-PROJET', {lt: 'VEDE_PROJET'}); dentsDxf(dents, 'VEDE-PROJET', null, 'CONTINUOUS'); return; }
-    var ms = (parLigne[e.id] || []).map(function(p){ return {pts: P.slice(p.i0, p.i1 + 1), res: an.resPiece[p.id].res, p: p}; });
+    var ms = (parLigne[e.id] || []).map(function(p){ return {pts: P.slice(p.i0, p.i1 + 1), res: resMorceau(p, an), p: p}; });
     if (!ms.length) ms = [{pts: P, res: resLigne(e, an)}];
     ms.forEach(function(mc){
       var cal = st === 'supprimer' ? 'VEDE-A-SUPPRIMER' : drain ? 'VEDE-DRAINS' : calRes(mc.res), aci = (RES[mc.res] || RES.INC).aci;

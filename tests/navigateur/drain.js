@@ -43,6 +43,11 @@
 //   trait rouge, rgb(224,0,0), et garde « Dispersion dans le sol · … », sans puces Réseau ; « Ajouter une anomalie », puis la première
 //   suggestion (« Tronçon : présumé cassé ou déboîté ») : l'anomalie part en EU [p], au croquis et au dossier. Aucune erreur dans la console.
 //   Échoue sur a7635a4 (drain vert, anomalie en EP), sauf l'absence d'erreur dans la console.
+// c2 (m165, réponse du 23 nov. 2026 : « Le passer en rouge ») : un WC relié par un tuyau sans réseau au 1er sommet d'un drain
+//   d'infiltration. À l'écran, le trait du tuyau est rouge (#e00000 : au moins un trait d'au moins 1 m le long du tuyau, ni le symbole
+//   du WC ni les dents du drain ; aucun vert le long du tuyau) ; la tête de sa fiche a un trait rouge, rgb(224,0,0), et dit « Réseau EU
+//   déduit · … ». Aucune erreur dans la console.
+//   Échoue sur 37d48ba (tuyau vert, « Réseau EP déduit »), sauf l'absence d'erreur dans la console.
 'use strict';
 const C = require('./commun.js');
 const R = C.rapport('drain');
@@ -321,8 +326,9 @@ async function outils(){
    anomalie saisie à la main sur lui : réseau EU [p] */
 const ROUGE = '#e00000', VERT = '#00a050';
 /* segments du canevas redessiné (tous les chemins, avec la couleur du trait) dont les deux bouts sont à moins de r px du segment [a, b] du
-   croquis ; seulement ceux du rouge EU et du vert EP (le fond de plan et le reste ont d'autres couleurs) */
-async function traitsLe(p, a, b, r){
+   croquis ; seulement ceux du rouge EU et du vert EP (le fond de plan et le reste ont d'autres couleurs) ; lmin (c2) : seulement ceux
+   d'au moins lmin px (0 par défaut) */
+async function traitsLe(p, a, b, r, lmin){
   await p.evaluate(() => {
     const P = CanvasRenderingContext2D.prototype; window.__espD = [];
     if (P.__espDrain) return;
@@ -334,12 +340,12 @@ async function traitsLe(p, a, b, r){
   });
   await p.evaluate(() => { window.__espD = []; window.__vcEd.redessiner(); });
   await C.pause(p, 200);
-  return p.evaluate(([a, b, r]) => {
+  return p.evaluate(([a, b, r, lmin]) => {
     const E = window.__espD || [], V = window.__vcEd.etat.vue, A = V.ecran(a[0], a[1]), B = V.ecran(b[0], b[1]); window.__espD = null;
     const ux = B.x - A.x, uy = B.y - A.y, L2 = ux * ux + uy * uy;
     const d = q => { const t = Math.max(0, Math.min(1, ((q[0] - A.x) * ux + (q[1] - A.y) * uy) / L2)); return Math.hypot(q[0] - A.x - t * ux, q[1] - A.y - t * uy); };
-    return E.filter(s => d(s.a) <= r && d(s.b) <= r && /^#(e00000|00a050)$/.test(s.coul)).map(s => s.coul);
-  }, [a, b, r]);
+    return E.filter(s => d(s.a) <= r && d(s.b) <= r && Math.hypot(s.b[0] - s.a[0], s.b[1] - s.a[1]) >= lmin && /^#(e00000|00a050)$/.test(s.coul)).map(s => s.coul);
+  }, [a, b, r, lmin || 0]);
 }
 async function couleur(){
   const A = await C.ouvrir(), p = A.p;
@@ -372,9 +378,34 @@ async function couleur(){
     R.ok(!A.erreurs.length, 'c1 aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
   } finally { await A.fermer(); }
 }
+/* c2 (m165, réponse du 23 nov. 2026 : « Le passer en rouge ») : tuyau sans réseau du seul WC vers un drain d'infiltration, rouge à l'écran
+   et dans la tête de sa fiche */
+async function tuyau(){
+  const A = await C.ouvrir(), p = A.p;
+  try {
+    await C.etudeEtDossier(p); await C.ouvrirCroquis(p);
+    const w = C.P('w', 'wc', 0, 8), j = C.J('J', 0, 0), I = C.index([w, j]);
+    await C.injecter(p, {el: [w, j, C.L('L', 'tr', ['w', 'J'], I), C.L('T', 'tr', ['J', [10, 0]], I, {drain: 'infiltration'})]});
+    await C.regler(p, 5, 3, 40);
+    const eaux = await p.evaluate(() => { const a = window.__vcEd.etat.an; return a && a.eauxPieces ? JSON.stringify(a.eauxPieces) : 'absent'; });
+    /* le long du tuyau (à moins de 0,25 m), avant de le choisir : ses seuls traits d'au moins 1 m (ni le symbole du WC ni les dents du drain) */
+    const t = await traitsLe(p, [0, 8], [0, 0], .25 * 40, 40), n = c => t.filter(x => x === c).length;
+    R.ok(n(ROUGE) >= 1 && !n(VERT),
+      'c2 écran : le tuyau sans réseau du WC vers le drain d\'infiltration est rouge (' + ROUGE + '), sans trait vert le long du tuyau (v1.7.2 : vert ; obtenu ' + n(ROUGE)
+      + ' rouge(s), ' + n(VERT) + ' vert(s) ; an.eauxPieces ' + eaux + ')');
+    await fiche(p, 'L');
+    const f = await p.evaluate(PAN => {
+      const c = document.querySelector(PAN), s = c && c.querySelector('.vc-ftete svg path'), e = c && c.querySelector('.vc-ftete .vc-etat');
+      return {trait: s ? s.getAttribute('stroke') : '', etat: e ? e.textContent : ''};
+    }, PAN);
+    R.ok(f.trait === 'rgb(224,0,0)' && /^Réseau EU déduit · /.test(f.etat),
+      'c2 tête de la fiche du tuyau : trait rouge rgb(224,0,0), « Réseau EU déduit · … » (v1.7.2 : vert, « Réseau EP déduit ») (obtenu ' + JSON.stringify(f) + ')');
+    R.ok(!A.erreurs.length, 'c2 aucune erreur dans la console' + (A.erreurs.length ? ' : ' + A.erreurs.slice(0, 2).join(' | ') : ''));
+  } finally { await A.fermer(); }
+}
 
 (async () => {
-  for (const f of [puces, methodes, outils, couleur]){
+  for (const f of [puces, methodes, outils, couleur, tuyau]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception ' + (e && e.message || e)); }
   }
   R.fin();

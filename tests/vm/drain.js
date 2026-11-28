@@ -116,10 +116,54 @@
 //   lieux, EU à l'avant-projet. Drain rouge :
 //   à l'écran, trait et 10 dents en rgb(224,0,0), étiquette « Dispersion dans le sol » (texte inchangé) en #c20000 ; au plan PDF (1/200),
 //   trait et dents en 224,0,0, étiquette en 194,0,0 ; au DXF, polyligne et dents en couleur 1 sur VEDE-DRAINS (calque toujours en 3),
-//   étiquette en couleur 1 sur VEDE-ETIQUETTES ; légende « Canalisation EU (eaux usées) », « Drain d'infiltration » une fois. Témoins :
-//   le tuyau du WC (sans réseau indiqué) reste vert, comme en v1.7.1 (resLigne EP, « Canalisation EP (eaux pluviales) » à la légende) ;
-//   un regard au tampon béton tenu par un drain rouge reste EP, « Regard EP : tampon béton » en réserve, et le WC « rejet au sol » ; une
-//   anomalie déjà saisie à la main (réseau EP) sur un drain devenu rouge garde son réseau.
+//   étiquette en couleur 1 sur VEDE-ETIQUETTES ; légende « Canalisation EU (eaux usées) », « Drain d'infiltration » une fois. Le tuyau
+//   du WC (sans réseau indiqué) est rouge lui aussi depuis m165 (resLigne EU ; plus de ligne « Canalisation EP (eaux pluviales) » à la
+//   légende ; jusqu'à m164, témoin : il restait vert, comme en v1.7.1). Témoins : un regard au tampon béton tenu par un drain rouge reste
+//   EP, « Regard EP : tampon béton » en réserve, et le WC « rejet au sol » ; une anomalie déjà saisie à la main (réseau EP) sur un drain
+//   devenu rouge garde son réseau.
+// d19 (m165, réponse du 23 nov. 2026 : « Le passer en rouge ») : un tuyau sans réseau indiqué qui ne mène qu'à des drains d'infiltration
+//   prend, pièce par pièce, la couleur des eaux qu'il porte, comme le drain : an.eauxPieces ({id de la pièce : {EU: n, EP: n}}, une de
+//   plus par source dont l'eau y passe pour aller au drain, par les plus courts chemins ; ces seules pièces) et V.resMorceau (EU si la
+//   pièce ne porte que des EU). WC → tuyau Ø100 → drain : {L:0: {EU: 1, EP: 0}}, resMorceau et resLigne EU, resPiece inchangé (EP
+//   déduit) ; rouge à l'écran (trait rgb(224,0,0), étiquette « EU Ø100 » en #c20000), au plan PDF (1/200 : trait en 224,0,0, étiquette en
+//   194,0,0) et au DXF (polyligne sur VEDE-EU, de la couleur du calque ; « EU %%c100 » en couleur 1) ; avec une descente sur le dernier
+//   sommet du drain, drain vert et tuyau rouge : légende EU et EP. (a) WC et descente réunis avant le drain : tuyau du WC rouge, celui de
+//   la descente et le tuyau commun verts. (b) WC → fosse → tuyau → drain, (c) WC → boîte sans réseau → tuyau → drain : les deux tuyaux
+//   rouges. (d) Avant-projet : tuyau du WC « à supprimer » : rouge de l'état des lieux (an.ref) ; WC « à supprimer » : son tuyau, gardé,
+//   ne porte plus rien : vert. (e) WC → puisard → trop-plein → drain : le trop-plein orienté vers le drain est rouge, le tuyau du puisard
+//   vert ; sans sens, le trop-plein atteint aussi le puisard et reste vert. Si le WC va aussi au drain par un chemin direct orienté plus
+//   long, ce chemin est rouge lui aussi (les plus courts chemins du parcours ordinaire comptent avec ceux du trop-plein), dans les deux
+//   ordres du dessin. (f) Dans les deux ordres du dessin : en boucle, le plus court chemin rouge, la branche plus longue verte ; deux
+//   tuyaux parallèles aussi courts, rouges tous deux. (g) Tuyau de trois pièces, une descente arrivant à la 2e : la 1re rouge, les autres
+//   vertes ; resLigne EP ; la pièce rouge donne la ligne EU de la légende du plan PDF. Relecture de m165 : une source EP compte aussi sur
+//   chaque tuyau orienté que son eau prend, puis jusqu'au drain, dans les deux ordres du dessin : (h) WC et descente sur des tuyaux
+//   orientés, la descente atteignant le drain par un tuyau plus court et par celui du WC : celui-ci vert ; (i) WC et descente vers un
+//   puisard dont le trop-plein orienté va au drain, la descente y allant aussi par un tuyau orienté plus court : trop-plein vert, que le
+//   parcours du trop-plein de la descente soit laissé ou gardé (2e trop-plein vers un rejet en milieu naturel) ; trop-plein vers un
+//   raccord, puis tuyau sans sens jusqu'au drain : verts tous deux. (k) Tuyau de deux pièces, l'une rouge, l'autre verte : EP, « EP
+//   Ø100 », dans les deux sens du tracé. (r) Regard au tampon béton sur le tuyau du WC : les deux tuyaux rouges ; témoin, le regard reste
+//   un regard EP (« Regard EP : tampon béton », réserve). Témoins (les deux versions) : descente seule, « Tronçon EP » d'un WC, tuyau
+//   sans source : verts ; WC vers le drain et un collecteur EU : « plusieurs réseaux » ; sur les croquis de d19, resPiece et resObj de
+//   v1.7.2, et mêmes anomalies, conclusion, constat déduit et boîtes du constat avec et sans an.eauxPieces ; an.eauxPieces absent ou
+//   altéré (13 valeurs) : couleurs de v1.7.2, sans exception.
+// d20 (m166, relecture d'ensemble de la v1.7.3 : CL1 et CL2) : ce que le drain d'infiltration atteint au-delà de lui ne change pas la couleur du
+//   tuyau qui y mène (an.eauxPieces suit le parcours sans les liens du drain, refait seulement si la pièce atteint un drain et un autre
+//   exutoire). WC → tuyau Ø100 → drain rouge, directement ou par une fosse septique, puis, au-delà du drain : (1) trop-plein parti du sommet du
+//   milieu vers une boîte EP, (2) boîte EP sur le dernier sommet, (3) puisard sur le sommet du milieu, (4) puits, (5) infiltration au sol sur le
+//   dernier sommet, (6) boîte sans réseau sur le dernier sommet, reliée à un collecteur EP : {L:0: {EU: 1, EP: 0}} (et L0:0 par la fosse),
+//   resMorceau et resLigne EU (tête de la fiche « Réseau EU déduit », anomalie saisie à la main en EU), étiquette « EU Ø100 » ; rouge à l'écran,
+//   au plan PDF (1/200) et au DXF (VEDE-EU, « EU %%c100 » en couleur 1). (r) Regard au tampon béton sur le tuyau du WC, ou sur le sommet du
+//   milieu du drain, une boîte EP au-delà : tuyaux rouges ; témoin, le regard reste EP (« Regard EP : tampon béton », réserve), le WC NC (rejet
+//   au sol et, au-delà du drain, au réseau EP). (d) CL1 et CL2 ensemble : descente reliée au tuyau du WC par un regard, une boîte EP au-delà du
+//   drain (le cas (k) de d19) : la pièce du WC rouge, « Canalisation EP » et « Canalisation EU » à la légende. Témoins (les deux versions) : le
+//   trop-plein de (1) et le tuyau de (6), au-delà du drain, verts ; trop-plein parti du sommet où arrive le tuyau du WC vers une boîte EP, avant
+//   le drain : source « multiple », tuyaux verts ; collecteur EU au-delà du drain : « plusieurs réseaux » ; bifurcation avant le drain vers une
+//   boîte EP : verts ; descente de (d) : le tuyau, sa pièce commune et le tuyau de la descente verts ; sur les croquis de CL1, résultat des
+//   sources (au-delà compris), resPiece et an.eauxDrains inchangés, et mêmes anomalies, conclusion, constat déduit et boîtes du constat avec et
+//   sans an.eauxPieces. CL2 : tuyau rouge (resLigne EU) dont la dernière pièce, verte, ne porte aucune eau : « Canalisation EU » et
+//   « Canalisation EP » à la légende du plan PDF, dans les deux sens du tracé ; témoins : tuyau rouge de bout en bout, la seule ligne EU ; tuyau
+//   vert dont une pièce est rouge, EP et EU ; au plan d'avant-projet, un tuyau « à supprimer » est d'une seule couleur, celle de l'état des
+//   lieux, avec sa ligne : (a) le tuyau de CL2, rouge ; (b) celui de (k) de d19, vert, sans ligne EU.
 // g1 (garde) : sur 40 croquis du générateur dont chaque tronçon devient un drain de collecte (état des lieux et avant-projet), aucune
 //   exception (analyse, anomalies, conclusion, contrôles, constat déduit), et ce qui ne change pas reste tel quel (fixe() : résultat des
 //   sources ponctuelles, contrôles et anomalies posés sur un objet, sauf « pas de boîte de branchement », réseau et sens des pièces, réseau
@@ -153,8 +197,13 @@
 // Échouent sur a7635a4 (m141) : les cas de d18 (aucun an.eauxDrains, drain d'infiltration toujours vert), témoins compris, car ils
 //   vérifient aussi que le drain est rouge ; seuls les libellés de d18 (S5 a) y passent, comme d1 à d17, g1 et g2.
 // Échouent sur f537268 (m144) : les deux cas de trop-plein de d17 (le trop-plein n'y est pas lu : « conformes ») ; d13 y passe.
+// Échouent sur 37d48ba (m164) : la légende de d18 (le tuyau du WC y reste vert : ligne « Canalisation EP (eaux pluviales) ») et les cas
+//   de d19 (aucun an.eauxPieces : tuyaux verts), sauf ses témoins ; d1 à d17, g1, g2 et les autres cas de d18 y passent. Avant la
+//   relecture de m165, échouaient la légende de (g), (h), (i) et (k) de d19.
+// Échouent sur 9142f36 (m165) : les six cas de CL1 de d20, analyse et rendus (tuyaux verts, « EP Ø100 »), son cas (r), son cas (d) (pièce du WC
+//   verte, pas de ligne EU) et son cas de CL2 (pas de ligne EP), soit 15 contrôles ; les témoins de d20, d1 à d19, g1 et g2 y passent.
 'use strict';
-const {charger, doc, copie, rendus, rapport} = require('./charger.js');
+const {charger, doc, copie, reordonne, rendus, rapport} = require('./charger.js');
 const G = require('./generateur.js');
 const ch = charger({pdf: true}), {V} = ch, R = rapport('drain'), {canevas, pdf, dxf, dessiner} = rendus(ch);
 const sur = f => { try { return f(); } catch (e){ return 'exception : ' + e.message; } };
@@ -1017,11 +1066,13 @@ async function eauxDrain(){
     + 'VEDE-ETIQUETTES en couleur 1 (obtenu ' + P.map(q => 'polyligne ' + q.c['62']).join(', ') + ' ; dents ' + Ld.map(q => q.c['62']).filter((v, i, a) => a.indexOf(v) === i).join(', ')
     + ' (' + Ld.length + ') ; ' + (X.map(q => q.cal + '/' + q.c['62']).join(', ') || 'pas d\'étiquette') + ')');
   const lg = await pdf(wcAuBout(), {mode: 'edl'}), f2 = lg.txt.indexOf('Anomalies et préconisations'), p1 = f2 > 0 ? lg.txt.slice(0, f2 - 1) : lg.txt, CEU = 'Canalisation EU (eaux usées)';
-  /* témoin : le tuyau du WC, sans réseau indiqué, garde la couleur de son exutoire, la dispersion dans le sol (EP) : il reste vert, comme
-     en v1.7.1 ; seul le drain change (décision D8) */
+  /* le tuyau du WC, sans réseau indiqué : depuis m165 (réponse du 23 nov. 2026 : « Le passer en rouge »), il prend la couleur des eaux
+     qu'il porte, comme le drain, et devient rouge ; rien d'autre n'étant vert, la légende n'a plus de ligne « Canalisation EP » (jusqu'à
+     m164, témoin : il restait vert, de la couleur de la dispersion dans le sol, et la légende avait cette ligne) */
   const CEP = 'Canalisation EP (eaux pluviales)', rL = rlDe(dr, 'L', ar);
-  R.ok(!lg.err.length && p1.indexOf(CEU) >= 0 && p1.indexOf(CEP) >= 0 && rL === 'EP' && p1.filter(t => t === 'Drain d\'infiltration').length === 1,
-    'd18 légende du plan PDF : « ' + CEU + ' » pour le drain rouge ; le tuyau du WC reste vert (resLigne EP, « ' + CEP + ' ») ; « Drain d\'infiltration » une fois, inchangée (obtenu '
+  R.ok(!lg.err.length && p1.indexOf(CEU) >= 0 && p1.indexOf(CEP) < 0 && rL === 'EU' && p1.filter(t => t === 'Drain d\'infiltration').length === 1,
+    'd18 légende du plan PDF : « ' + CEU + ' » pour le drain rouge et le tuyau du WC, rouge lui aussi depuis m165 (resLigne EU ; jusqu\'à m164, EP) ; plus de « ' + CEP
+    + ' », rien d\'autre n\'étant vert ; « Drain d\'infiltration » une fois, inchangée (obtenu '
     + [p1.indexOf(CEU) >= 0, rL, p1.indexOf(CEP) >= 0, p1.filter(t => t === 'Drain d\'infiltration').length].join(', ') + ')' + (lg.err.length ? ' ' + lg.err.join(' | ') : ''));
   /* témoin regard-suit-exutoire (réponse du 16 nov. 2026) : un regard au tampon béton tenu par un drain rouge reste jugé en EP, en réserve */
   const dg = doc({o: [['s', 'wc', 0, 8], ['R', 'regard', 0, 0, {tampon: 'beton'}]], l: [['L', 'tr', '', '', ['s', 'R']], ['T', 'tr', '', '', ['R', [10, 0]], 0, INFIL]]}), kg = juge(dg);
@@ -1035,6 +1086,401 @@ async function eauxDrain(){
   R.ok(rlDe(dm, 'T', am) === 'EU' && !!m1 && m1.reseau === 'EP' && dm.anomManu[0].reseau === 'EP',
     'd18 témoin : une anomalie déjà saisie à la main (réseau EP) sur un drain devenu rouge garde son réseau (obtenu drain ' + rlDe(dm, 'T', am) + ', anomalie '
     + (m1 ? m1.reseau : 'absente') + ')');
+}
+
+/* d19 (m165, réponse du 23 nov. 2026 : « Le passer en rouge ») : un tuyau sans réseau indiqué qui ne mène qu'à des drains d'infiltration
+   prend la couleur des eaux qu'il porte, comme le drain (an.eauxPieces : pour chaque pièce de cette règle, le nombre de sources EU et EP
+   dont l'eau y passe pour aller au drain) ; resPiece, resObj, les anomalies, le constat et le regard ne changent pas */
+const trie = o => JSON.stringify(Object.keys(o).sort().reduce((x, k) => Object.assign(x, {[k]: o[k]}), {}));
+const ePcs = an => an.eauxPieces === undefined ? 'absent' : trie(an.eauxPieces);
+const rls = (d, an, ids) => ids.map(id => id + ':' + rlDe(d, id, an)).join(' ');
+/* couleurs, sans doublon, des traits de l'écran posés sur le segment [a, b] du croquis (les deux bouts sur lui) */
+const coulSur = (tr, a, b) => peigne(tr, pts([a, b]), false, 1e-6, .4).trait.map(t => t.coul).filter((c, i, x) => x.indexOf(c) === i).join(', ') || 'aucun trait';
+/* réseau de chaque pièce (resPiece : déduit ou indiqué, réseaux atteints) ; état et rejet de chaque source (resObj) */
+const sigP = an => an.pieces.map(p => { const r = an.resPiece[p.id]; return p.id + '=' + r.res + (r.deduit ? '/déduit/' : '/indiqué/') + r.nets.join('+') + (r.contredit ? '/contredit' : ''); }).join(' ');
+const sigO = an => Object.keys(an.resObj).map(id => id + '=' + an.resObj[id].etat + (an.resObj[id].res ? ':' + an.resObj[id].res : '')).join(' ');
+/* WC s → tuyau L (Ø100, sans réseau, étiquette affichée) → 1er sommet J du drain d'infiltration T de 10 m */
+const wcD = () => { const d = wcAuBout(), L = d.el.find(e => e.id === 'L'); L.p.diam = '100'; L.lab = null; return d; };
+/* WC s → ouvrage O de type t (fosse, boîte sans réseau, puisard) → raccord J, 1er sommet du drain T ; sens du second tuyau */
+const viaO = (t, sens) => doc({o: [['s', 'wc', 0, 12], ['O', t, 0, 6], ['J', 'jonction', 0, 0]],
+  l: [['L1', 'tr', '', '', ['s', 'O']], ['L2', 'tr', '', '', ['O', 'J'], sens || 0], ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]});
+async function tuyauVersDrain(){
+  /* cas principal : la pièce et le tuyau sont EU (rouges), resPiece garde EP déduit (la dispersion dans le sol) */
+  const d = wcD(), an = V.analyser(copie(d), 'edl'), pL = an.pieces.find(p => p.id === 'L:0'), rm = sur(() => V.resMorceau(pL, an)), rp = JSON.stringify(an.resPiece['L:0']);
+  R.ok(ePcs(an) === '{"L:0":{"EU":1,"EP":0}}' && rm === 'EU' && rls(d, an, ['L', 'T']) === 'L:EU T:EU' && rp === '{"res":"EP","deduit":true,"nets":["EP"],"contredit":false}',
+    'd19 WC → tuyau Ø100 sans réseau → drain d\'infiltration : an.eauxPieces {L:0: {EU: 1, EP: 0}}, pièce et tuyau EU (resMorceau, resLigne), rouges comme le drain '
+    + '(v1.7.2 : EP) ; resPiece inchangé, EP déduit (obtenu ' + ePcs(an) + ' ; resMorceau ' + rm + ' ; ' + rls(d, an, ['L', 'T']) + ' ; resPiece ' + rp + ')');
+  const vu = dessiner(d, 40, [5, 4]), te = vu.textes.filter(t => /Ø100/.test(t.t)), ce = coulSur(vu.traits, [0, 8], [0, 0]);
+  R.ok(etiqDe(d, 'L', an) === 'EU Ø100' && te.length === 1 && te[0].t === 'EU Ø100' && te[0].coul === TXT_EU && ce === css(EU),
+    'd19 écran : trait du tuyau en rouge ' + css(EU) + ', sans vert ; étiquette « EU Ø100 » écrite en ' + TXT_EU + ' (v1.7.2 : « EP Ø100 », en vert ; obtenu trait ' + ce
+    + ' ; étiquette ' + JSON.stringify(te.map(t => [t.t, t.coul])) + ')');
+  /* plan PDF au 1/200 : le tuyau de 8 m y fait 40 mm ; l'étiquette est écrite deux fois (halo, puis texte) : on lit la dernière */
+  const rq = await pdf(Object.assign(wcD(), {echelle: 200}), {mode: 'edl'}), lq = q => Math.hypot(q.pts[1].x - q.pts[0].x, q.pts[1].y - q.pts[0].y);
+  const f40 = rq.formes.filter(q => q.pts.length === 2 && Math.abs(lq(q) - 40) < 1e-6), eq = rq.pos.filter(q => /Ø100/.test(q.t)), le = eq[eq.length - 1];
+  const rgbT = TXT_EU.slice(1).match(/../g).map(h => parseInt(h, 16)).join(',');
+  R.ok(!rq.err.length && f40.length === 1 && f40[0].coul === EU && !!le && le.t === 'EU Ø100' && le.coul === rgbT,
+    'd19 plan PDF au 1/200 : trait du tuyau (40 mm) en ' + EU + ' ; étiquette « EU Ø100 » en ' + rgbT + ' (obtenu ' + JSON.stringify(f40.map(q => q.coul)) + ' ; étiquette '
+    + (le ? le.t + ' en ' + le.coul : 'absente') + ')' + (rq.err.length ? ' ' + rq.err.join(' | ') : ''));
+  const x = dxf(d), PL = x.ents.filter(q => q.type === 'POLYLINE' && q.cal !== 'VEDE-DRAINS'), X = x.ents.filter(q => q.type === 'TEXT' && /%%c100$/.test(q.c['1']));
+  R.ok(x.calques['VEDE-EU'] === 1 && PL.length === 1 && PL[0].cal === 'VEDE-EU' && !PL[0].c['62'] && X.length === 1 && X[0].c['1'] === 'EU %%c100'
+    && X[0].cal === 'VEDE-ETIQUETTES' && X[0].c['62'] === '1',
+    'd19 DXF : polyligne du tuyau sur VEDE-EU (calque en couleur 1), de la couleur du calque ; étiquette « EU %%c100 » (Ø100) sur VEDE-ETIQUETTES en couleur 1 '
+    + '(v1.7.2 : VEDE-EP, couleur 3 ; obtenu ' + PL.map(q => q.cal + '/' + (q.c['62'] || 'du calque')).join(', ') + ' ; '
+    + (X.map(q => q.c['1'] + ' ' + q.cal + '/' + q.c['62']).join(', ') || 'pas d\'étiquette') + ')');
+  /* légende : une descente posée sur le dernier sommet rend le drain vert ; le tuyau du WC, rouge, donne la ligne EU */
+  const dq = doc({o: [['s', 'wc', 0, 8], ['J', 'jonction', 0, 0], ['q', 'descente', 10, 0]], l: [['L', 'tr', '', '', ['s', 'J']], ['T', 'tr', '', '', ['J', 'q'], 0, INFIL]]});
+  const aq = V.analyser(copie(dq), 'edl'), lg = await pdf(dq, {mode: 'edl'}), f2 = lg.txt.indexOf('Anomalies et préconisations'), pg = f2 > 0 ? lg.txt.slice(0, f2 - 1) : lg.txt;
+  const CEU = 'Canalisation EU (eaux usées)', CEP = 'Canalisation EP (eaux pluviales)';
+  R.ok(!lg.err.length && ePcs(aq) === '{"L:0":{"EU":1,"EP":0}}' && rls(dq, aq, ['L', 'T']) === 'L:EU T:EP' && pg.indexOf(CEU) >= 0 && pg.indexOf(CEP) >= 0,
+    'd19 légende du plan PDF, drain vert (une descente sur son dernier sommet) et tuyau du WC rouge : « ' + CEU + ' » pour le tuyau, « ' + CEP + ' » pour le drain '
+    + '(v1.7.2 : tuyau vert, pas de ligne EU ; obtenu ' + ePcs(aq) + ' ; ' + rls(dq, aq, ['L', 'T']) + ' ; ' + [pg.indexOf(CEU) >= 0, pg.indexOf(CEP) >= 0].join(', ') + ')'
+    + (lg.err.length ? ' ' + lg.err.join(' | ') : ''));
+  /* (a) WC et descente réunis par un raccord avant le drain (drain vert) */
+  const da = doc({o: [['s', 'wc', 0, 8], ['d', 'descente', 6, 8], ['J1', 'jonction', 3, 4], ['J2', 'jonction', 3, 0]],
+    l: [['L1', 'tr', '', '', ['s', 'J1']], ['L2', 'tr', '', '', ['d', 'J1']], ['L3', 'tr', '', '', ['J1', 'J2']], ['T', 'tr', '', '', ['J2', [13, 0]], 0, INFIL]]});
+  const aa = V.analyser(copie(da), 'edl'), va = ecran(da, 40, [5, 4]), ca = [coulSur(va, [0, 8], [3, 4]), coulSur(va, [6, 8], [3, 4]), coulSur(va, [3, 4], [3, 0])];
+  R.ok(ePcs(aa) === '{"L1:0":{"EU":1,"EP":0},"L2:0":{"EU":0,"EP":1},"L3:0":{"EU":1,"EP":1}}' && rls(da, aa, ['L1', 'L2', 'L3', 'T']) === 'L1:EU L2:EP L3:EP T:EP'
+    && ca.join(' | ') === [css(EU), css(EP), css(EP)].join(' | '),
+    'd19 (a) WC et descente réunis avant le drain : tuyau du WC rouge (EU), celui de la descente et le tuyau commun verts (EP), drain vert (obtenu ' + ePcs(aa) + ' ; '
+    + rls(da, aa, ['L1', 'L2', 'L3', 'T']) + ' ; écran ' + ca.join(' | ') + ')');
+  /* (b) WC → fosse septique → tuyau → drain ; (c) WC → boîte de branchement sans réseau → tuyau → drain : les deux tuyaux rouges */
+  [['b', 'fosse', 'fosse septique'], ['c', 'boite', 'boîte de branchement sans réseau']].forEach(([n, t, nom]) => {
+    const db = viaO(t), ab = V.analyser(copie(db), 'edl'), vb = ecran(db, 40, [3, 6]), cb = [coulSur(vb, [0, 12], [0, 6]), coulSur(vb, [0, 6], [0, 0])];
+    R.ok(ePcs(ab) === '{"L1:0":{"EU":1,"EP":0},"L2:0":{"EU":1,"EP":0}}' && rls(db, ab, ['L1', 'L2', 'T']) === 'L1:EU L2:EU T:EU' && cb.join(' | ') === css(EU) + ' | ' + css(EU),
+      'd19 (' + n + ') WC → ' + nom + ' → tuyau → drain : les deux tuyaux rouges (EU) (obtenu ' + ePcs(ab) + ' ; ' + rls(db, ab, ['L1', 'L2', 'T']) + ' ; écran ' + cb.join(' | ') + ')');
+  });
+  /* (d) plan d'avant-projet : tuyau du WC « à supprimer », absent de cette analyse : couleur de l'état des lieux (an.ref, même règle) ;
+     WC « à supprimer » et tuyau gardé : plus aucune eau n'y passe, il redevient vert (rouge à l'état des lieux) */
+  const vp = (stL, stS) => doc({o: [['s', 'wc', 0, 8, {st: stS}], ['J', 'jonction', 0, 0]], l: [['L', 'tr', '', stL, ['s', 'J']], ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]});
+  const v1 = vp('supprimer', 'existant'), w1 = V.analyser(copie(v1), 'avp'), v2 = vp('', 'supprimer'), w2 = V.analyser(copie(v2), 'avp'), e2 = V.analyser(copie(v2), 'edl');
+  const r5 = [rlDe(v1, 'L', w1), rlDe(v2, 'L', w2), rlDe(v2, 'L', e2)];
+  R.ok(ePcs(w1) === 'absent' && ePcs(w1.ref) === '{"L:0":{"EU":1,"EP":0}}' && ePcs(w2) === 'absent' && ePcs(e2) === '{"L:0":{"EU":1,"EP":0}}' && r5.join() === 'EU,EP,EU',
+    'd19 (d) plan d\'avant-projet : tuyau du WC « à supprimer », rouge de l\'état des lieux (an.ref) ; WC « à supprimer » : son tuyau, gardé, ne porte plus d\'eau et '
+    + 'redevient vert, rouge à l\'état des lieux (obtenu ' + [ePcs(w1), ePcs(w1.ref), ePcs(w2), ePcs(e2)].join(' ; ') + ' ; ' + r5.join(', ') + ')');
+  /* (e) trop-plein d'un puisard vers le drain : orienté du puisard vers le drain, il suit les eaux qu'il porte (rouge) ; sans sens, il
+     atteint aussi le puisard et garde sa couleur [p] ; le tuyau du WC au puisard la garde toujours */
+  const t1 = viaO('puisard', 1), b1 = V.analyser(copie(t1), 'edl'), t0 = viaO('puisard'), b0 = V.analyser(copie(t0), 'edl'), ct = coulSur(ecran(t1, 40, [3, 6]), [0, 6], [0, 0]);
+  R.ok(ePcs(b1) === '{"L2:0":{"EU":1,"EP":0}}' && rls(t1, b1, ['L1', 'L2', 'T']) === 'L1:EP L2:EU T:EU' && ct === css(EU) && ePcs(b0) === 'absent'
+    && rls(t0, b0, ['L1', 'L2', 'T']) === 'L1:EP L2:EP T:EU',
+    'd19 (e) WC → puisard → trop-plein → drain : le trop-plein orienté vers le drain est rouge (EU), à l\'écran aussi ; sans sens, il atteint aussi le puisard et reste '
+    + 'vert [p] ; le tuyau du WC au puisard reste vert (obtenu ' + ePcs(b1) + ' ; ' + rls(t1, b1, ['L1', 'L2', 'T']) + ' ; écran ' + ct + ' ; sans sens ' + ePcs(b0) + ' ; '
+    + rls(t0, b0, ['L1', 'L2', 'T']) + ')');
+  /* (e) suite : le WC va aussi au drain par un chemin direct orienté (D1 → D2 → D3), plus long que celui du trop-plein du puisard (qui
+     mène aussi à un rejet en milieu naturel : le WC est « multiple ») : les plus courts chemins du parcours ordinaire et ceux du
+     trop-plein comptent tous deux [p] ; dans les deux ordres du dessin */
+  const t2 = doc({o: [['s', 'wc', 0, 12], ['P', 'puisard', -6, 12], ['M', 'milieu', -6, 4], ['K1', 'jonction', 0, 8], ['K2', 'jonction', 0, 4], ['J', 'jonction', 0, 0]],
+    l: [['L1', 'tr', '', '', ['s', 'P']], ['TP', 'tr', '', '', ['P', 'J'], 1], ['TM', 'tr', '', '', ['P', 'M'], 1], ['D1', 'tr', '', '', ['s', 'K1'], 1],
+      ['D2', 'tr', '', '', ['K1', 'K2'], 1], ['D3', 'tr', '', '', ['K2', 'J'], 1], ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]});
+  const ex = [t2, reordonne(t2, 1)].map(x => { const b = V.analyser(copie(x), 'edl');
+    return ePcs(b) + ' ; ' + rls(x, b, ['L1', 'TP', 'TM', 'D1', 'D2', 'D3', 'T']) + ' ; écran ' + coulSur(ecran(x, 40, [3, 6]), [0, 12], [0, 0]); });
+  const exa = '{"D1:0":{"EU":1,"EP":0},"D2:0":{"EU":1,"EP":0},"D3:0":{"EU":1,"EP":0},"TP:0":{"EU":1,"EP":0}} ; L1:EP TP:EU TM:EP D1:EU D2:EU D3:EU T:EU ; écran ' + css(EU);
+  R.ok(ex[0] === exa && ex[1] === exa,
+    'd19 (e) WC → puisard → trop-plein orienté → drain, et WC → chemin direct orienté plus long → drain : le trop-plein et le chemin direct rouges, le tuyau du puisard '
+    + 'et celui du rejet en milieu naturel verts, dans les deux ordres du dessin (obtenu ' + ex.join(' | ') + ')');
+  /* (f) tuyaux en boucle : seuls comptent les chemins que suit l'analyse, les plus courts (en pièces) ; la branche plus longue reste verte.
+     Deux tuyaux parallèles d'un regard au drain, aussi courts l'un que l'autre : tous deux rouges. Dans les deux ordres du dessin [p] */
+  const df = doc({o: [['s', 'wc', 0, 12], ['J1', 'jonction', 0, 9], ['J2', 'jonction', 0, 6], ['J3', 'jonction', 4, 9], ['J4', 'jonction', 4, 6], ['J', 'jonction', 0, 0]],
+    l: [['L1', 'tr', '', '', ['s', 'J1']], ['LA', 'tr', '', '', ['J1', 'J2']], ['LB', 'tr', '', '', ['J1', 'J3']], ['LC', 'tr', '', '', ['J3', 'J4']], ['LD', 'tr', '', '', ['J4', 'J2']],
+      ['LE', 'tr', '', '', ['J2', 'J']], ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]});
+  const dpar = doc({o: [['s', 'wc', 0, 12], ['R', 'regard', 0, 8], ['J', 'jonction', 0, 0]],
+    l: [['L', 'tr', '', '', ['s', 'R']], ['P1', 'tr', '', '', ['R', [-2, 4], 'J']], ['P2', 'tr', '', '', ['R', [2, 4], 'J']], ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]});
+  const lit = (x, ids) => [x, reordonne(x, 1)].map(y => { const a = V.analyser(copie(y), 'edl'); return ePcs(a) + ' ' + rls(y, a, ids); });
+  const rf = lit(df, ['L1', 'LA', 'LB', 'LC', 'LD', 'LE']), rpar = lit(dpar, ['L', 'P1', 'P2']);
+  const ATF = '{"L1:0":{"EU":1,"EP":0},"LA:0":{"EU":1,"EP":0},"LE:0":{"EU":1,"EP":0}} L1:EU LA:EU LB:EP LC:EP LD:EP LE:EU';
+  const ATP = '{"L:0":{"EU":1,"EP":0},"P1:0":{"EU":1,"EP":0},"P2:0":{"EU":1,"EP":0}} L:EU P1:EU P2:EU';
+  R.ok(rf.every(z => z === ATF) && rpar.every(z => z === ATP),
+    'd19 (f) boucle : le chemin le plus court (L1, LA, LE) rouge, la branche plus longue (LB, LC, LD) verte ; deux tuyaux parallèles aussi courts du regard au drain : '
+    + 'tous deux rouges ; dans les deux ordres du dessin (obtenu ' + rf.concat(rpar).join(' | ') + ')');
+  /* (g) un tuyau de plusieurs pièces peut être en partie rouge : WC → R1 → R2 → drain, une descente arrive à R1 */
+  const dg = doc({o: [['s', 'wc', 0, 12], ['R1', 'regard', 0, 8], ['R2', 'regard', 0, 4], ['d', 'descente', 4, 8], ['J', 'jonction', 0, 0]],
+    l: [['L', 'tr', '', '', ['s', 'R1', 'R2', 'J']], ['M', 'tr', '', '', ['d', 'R1']], ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]});
+  const ag = V.analyser(copie(dg), 'edl'), vg = ecran(dg, 40, [2, 6]), cg = [coulSur(vg, [0, 12], [0, 8]), coulSur(vg, [0, 8], [0, 4]), coulSur(vg, [0, 4], [0, 0])];
+  const rmg = ['L:0', 'L:1', 'L:2'].map(id => sur(() => V.resMorceau(ag.pieces.find(p => p.id === id), ag))).join(',');
+  R.ok(ePcs(ag) === '{"L:0":{"EU":1,"EP":0},"L:1":{"EU":1,"EP":1},"L:2":{"EU":1,"EP":1},"M:0":{"EU":0,"EP":1}}' && rmg === 'EU,EP,EP' && rls(dg, ag, ['L', 'M', 'T']) === 'L:EP M:EP T:EP'
+    && cg.join(' | ') === [css(EU), css(EP), css(EP)].join(' | '),
+    'd19 (g) tuyau de trois pièces (WC → R1 → R2 → drain, une descente à R1) : la 1re pièce rouge, les deux autres vertes ; resLigne EP (la couleur de la plupart '
+    + 'de ses pièces) (obtenu ' + ePcs(ag) + ' ; resMorceau ' + rmg + ' ; ' + rls(dg, ag, ['L', 'M', 'T']) + ' ; écran ' + cg.join(' | ') + ')');
+  /* (g) suite (relecture de m165, M4) : la 1re pièce, rouge, donne la ligne EU de la légende du plan PDF, bien que le tuyau reste vert */
+  const lgg = await pdf(dg, {mode: 'edl'}), fg = lgg.txt.indexOf('Anomalies et préconisations'), pgg = fg > 0 ? lgg.txt.slice(0, fg - 1) : lgg.txt;
+  R.ok(!lgg.err.length && pgg.indexOf(CEU) >= 0 && pgg.indexOf(CEP) >= 0,
+    'd19 (g) légende du plan PDF : « ' + CEU + ' » pour la 1re pièce du tuyau, rouge, bien que le tuyau reste vert, et « ' + CEP + ' » (avant la relecture '
+    + 'de m165 : pas de ligne EU ; obtenu ' + [pgg.indexOf(CEU) >= 0, pgg.indexOf(CEP) >= 0].join(', ') + ')' + (lgg.err.length ? ' ' + lgg.err.join(' | ') : ''));
+  /* (h) relecture de m165 (M1) : l'eau d'une source EP prend chaque tuyau orienté qu'elle trouve, pas seulement ses plus courts chemins.
+     WC s → A → K → B → J (1er sommet du drain T) ; descente d → C → R, puis E de R au 2e sommet du drain et F de R à K, tous orientés :
+     l'eau de la descente passe aussi par F et B ; A rouge, B, C, E et F verts ; dans les deux ordres du dessin */
+  const dh = doc({o: [['s', 'wc', 0, 12], ['K', 'jonction', 0, 6], ['J', 'jonction', 0, 0], ['J2', 'jonction', 10, 0], ['d', 'descente', 8, 12], ['R', 'regard', 8, 8]],
+    l: [['A', 'tr', '', '', ['s', 'K'], 1], ['B', 'tr', '', '', ['K', 'J'], 1], ['C', 'tr', '', '', ['d', 'R'], 1], ['E', 'tr', '', '', ['R', 'J2'], 1],
+      ['F', 'tr', '', '', ['R', 'K'], 1], ['T', 'tr', '', '', ['J', 'J2'], 0, INFIL]]});
+  const rh = lit(dh, ['A', 'B', 'C', 'E', 'F', 'T']);
+  const ATH = '{"A:0":{"EU":1,"EP":0},"B:0":{"EU":1,"EP":1},"C:0":{"EU":0,"EP":1},"E:0":{"EU":0,"EP":1},"F:0":{"EU":0,"EP":1}} A:EU B:EP C:EP E:EP F:EP T:EP';
+  R.ok(rh.every(z => z === ATH),
+    'd19 (h) tuyaux orientés, la descente atteint le drain par E (plus court) et par F puis B : le tuyau du WC (A) rouge, B, que l\'eau de la descente prend aussi, '
+    + 'vert, comme C, E et F ; dans les deux ordres du dessin (avant la relecture de m165 : B rouge ; obtenu ' + rh.join(' | ') + ')');
+  /* (i) relecture de m165 (M1) : WC s et descente d vont au puisard P, dont le trop-plein orienté TP va au drain ; la descente y va aussi
+     par le tuyau orienté M2, plus court : son eau passe aussi par le puisard et TP, vert. Parcours du trop-plein de la descente laissé (il
+     n'atteint rien de plus), ou gardé (un 2e trop-plein TM vers un rejet en milieu naturel). Puis TP vers un raccord K, suivi d'un tuyau
+     sans sens Z jusqu'au drain : Z vert aussi (plus courts chemins du bout aval de TP jusqu'au drain). Dans les deux ordres du dessin [p] */
+  const di = tm => doc({o: [['s', 'wc', -4, 12], ['d', 'descente', 4, 12], ['P', 'puisard', 0, 8], ['J', 'jonction', 0, 0], ['M', 'milieu', -8, 8]],
+    l: [['L1', 'tr', '', '', ['s', 'P']], ['M1', 'tr', '', '', ['d', 'P']], ['M2', 'tr', '', '', ['d', 'J'], 1], ['TP', 'tr', '', '', ['P', 'J'], 1]]
+      .concat(tm ? [['TM', 'tr', '', '', ['P', 'M'], 1]] : []).concat([['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]])});
+  const dj = doc({o: [['s', 'wc', -4, 12], ['d', 'descente', 4, 12], ['P', 'puisard', 0, 8], ['K', 'jonction', 0, 4], ['J', 'jonction', 0, 0]],
+    l: [['L1', 'tr', '', '', ['s', 'P']], ['M1', 'tr', '', '', ['d', 'P']], ['M2', 'tr', '', '', ['d', 'J'], 1], ['TP', 'tr', '', '', ['P', 'K'], 1], ['Z', 'tr', '', '', ['K', 'J']],
+      ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]});
+  const ri = [lit(di(false), ['L1', 'M1', 'M2', 'TP', 'T']), lit(di(true), ['L1', 'M1', 'M2', 'TP', 'TM', 'T']), lit(dj, ['L1', 'M1', 'M2', 'TP', 'Z', 'T'])];
+  const ATI = ['{"M2:0":{"EU":0,"EP":1},"TP:0":{"EU":1,"EP":1}} L1:EP M1:EP M2:EP TP:EP T:EP', '{"M2:0":{"EU":0,"EP":1},"TP:0":{"EU":1,"EP":1}} L1:EP M1:EP M2:EP TP:EP TM:EP T:EP',
+    '{"M2:0":{"EU":0,"EP":1},"TP:0":{"EU":1,"EP":1},"Z:0":{"EU":1,"EP":1}} L1:EP M1:EP M2:EP TP:EP Z:EP T:EP'];
+  R.ok(ri.every((z, i) => z.every(y => y === ATI[i])),
+    'd19 (i) WC et descente vers un puisard, trop-plein orienté vers le drain, la descente allant aussi au drain par un tuyau orienté plus court : le trop-plein '
+    + 'vert (parcours du trop-plein de la descente laissé, ou gardé avec un 2e trop-plein) ; trop-plein vers un raccord puis tuyau sans sens jusqu\'au drain : les deux '
+    + 'verts ; dans les deux ordres du dessin (avant la relecture de m165 : trop-plein et tuyau sans sens rouges ; obtenu ' + ri.map(z => z.join(' / ')).join(' | ') + ')');
+  /* (k) relecture de m165 (M2) : tuyau L de deux pièces (WC s → regard R → drain), une descente arrive à R : la 1re pièce rouge, la 2e
+     verte ; à égalité, le tuyau est vert (EP, « EP Ø100 »), qu'il soit tracé du WC vers le drain ou du drain vers le WC */
+  const dk = inv => doc({o: [['s', 'wc', 0, 12], ['R', 'regard', 0, 6], ['d', 'descente', 4, 6], ['J', 'jonction', 0, 0]],
+    l: [['L', 'tr', '', '', inv ? ['J', 'R', 's'] : ['s', 'R', 'J']], ['M', 'tr', '', '', ['d', 'R']], ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]});
+  const rk = [false, true].map(inv => { const x = dk(inv), a = V.analyser(copie(x), 'edl'); x.el.find(e => e.id === 'L').p.diam = '100';
+    return a.pieces.filter(p => p.l.id === 'L').map(p => p.id + '=' + sur(() => V.resMorceau(p, a))).join(' ') + ' ; ' + rls(x, a, ['L', 'M', 'T']) + ' ; ' + etiqDe(x, 'L', a); });
+  R.ok(rk[0] === 'L:0=EU L:1=EP ; L:EP M:EP T:EP ; EP Ø100' && rk[1] === 'L:0=EP L:1=EU ; L:EP M:EP T:EP ; EP Ø100',
+    'd19 (k) tuyau de deux pièces, l\'une rouge (WC seul), l\'autre verte (une descente au regard du milieu) : resLigne EP et étiquette « EP Ø100 » dans les deux sens '
+    + 'du tracé (avant la relecture de m165 : EU tracé du WC vers le drain ; obtenu ' + rk.join(' | ') + ')');
+  /* (r) relecture de m165 (M3, M8) : regard R au tampon béton sur le tuyau du WC (WC s → L1 → R → L2 → drain) : les deux tuyaux rouges ;
+     témoin (les deux versions) : le regard reste un regard EP, « Regard EP : tampon béton » en réserve, et le WC « rejet au sol » (NC) */
+  const dr = doc({o: [['s', 'wc', 0, 12], ['R', 'regard', 0, 6, {tampon: 'beton'}], ['J', 'jonction', 0, 0]],
+    l: [['L1', 'tr', '', '', ['s', 'R']], ['L2', 'tr', '', '', ['R', 'J']], ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]});
+  const kr = juge(dr), ar = [ePcs(kr.an), rls(dr, kr.an, ['L1', 'L2', 'T'])].join(' ; ');
+  R.ok(ar === '{"L1:0":{"EU":1,"EP":0},"L2:0":{"EU":1,"EP":0}} ; L1:EU L2:EU T:EU',
+    'd19 (r) regard au tampon béton sur le tuyau du WC : les deux tuyaux rouges (EU), comme le drain (v1.7.2 : verts ; obtenu ' + ar + ')');
+  R.ok(kr.an.resPt.R === 'EP' && memesA(kr.a, [['eu-sol:s', true, 'WC : rejet au sol (infiltration)'], ['tampon:R', false, 'Regard EP : tampon béton']]),
+    'd19 (r) témoin : le regard au tampon béton du tuyau rouge reste un regard EP, « Regard EP : tampon béton » en réserve ; WC « rejet au sol (infiltration) », NC '
+    + '(obtenu regard ' + kr.an.resPt.R + ' ; ' + txtJuge(kr) + ')');
+  /* témoins (les deux versions) : descente seule vers le drain (depuis m165, son tuyau porte des EP : entrée {EU: 0, EP: 1}) ; « Tronçon
+     EP » d'un WC vers le drain ; tuyau d'un WC vers le drain et un collecteur EU ; tuyau vers le drain sans source (pas d'entrée) */
+  const dt = {
+    'descente seule : vert': [doc({o: [['s', 'descente', 0, 8], ['J', 'jonction', 0, 0]], l: [['L', 'tr', '', '', ['s', 'J']], ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]}), 'EP',
+      '{"EU":0,"EP":1}'],
+    '« Tronçon EP » d\'un WC : vert': [doc({o: [['s', 'wc', 0, 8], ['J', 'jonction', 0, 0]], l: [['L', 'tr', 'EP', '', ['s', 'J']], ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]}), 'EP'],
+    'tuyau d\'un WC vers le drain et un collecteur EU : « plusieurs réseaux », comme en v1.7.2': [doc({o: [['s', 'wc', 0, 8], ['J', 'jonction', 0, 0], ['K', 'jonction', 0, -6]],
+      l: [['L', 'tr', '', '', ['s', 'J']], ['M', 'tr', '', '', ['J', 'K']], ['C', 'col', 'EU', '', [[-5, -6], 'K', [5, -6]]], ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]}), 'MIX'],
+    'tuyau vers le drain sans source : vert': [doc({o: [['J', 'jonction', 0, 0]], l: [['L', 'tr', '', '', [[0, 8], 'J']], ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]}), 'EP']
+  };
+  Object.keys(dt).forEach(n => {
+    const [x, att, ent] = dt[n], a = V.analyser(copie(x), 'edl'), c = coulSur(ecran(x, 40, [5, 4]), [0, 8], [0, 0]);
+    const sans = a.eauxPieces === undefined || !Object.prototype.hasOwnProperty.call(a.eauxPieces, 'L:0');
+    R.ok(rlDe(x, 'L', a) === att && a.resPiece['L:0'].res === att && c === css(V.RES[att].rgb.join(',')) && (sans || !!ent && JSON.stringify(a.eauxPieces['L:0']) === ent),
+      'd19 témoin, ' + n + ' (resLigne ' + att + ', trait de cette couleur, ' + (ent ? 'an.eauxPieces sans entrée L:0 ou avec ' + ent : 'pas d\'entrée dans an.eauxPieces')
+      + ' ; obtenu ' + rlDe(x, 'L', a) + ' ; ' + c + ' ; ' + ePcs(a) + ')');
+  });
+  /* témoins : resPiece et resObj de v1.7.2 ; avec et sans an.eauxPieces, mêmes anomalies, conclusion, constat déduit et boîtes du constat */
+  const LOT = [['principal', wcD(), 'edl', 's=ok:DISP'], ['a', da, 'edl', 's=ok:DISP d=ok:DISP'], ['b', viaO('fosse'), 'edl', 's=ok:DISP'], ['c', viaO('boite'), 'edl', 's=ok:DISP'],
+    ['d', v1, 'avp', 's=nonrelie'], ['d', v2, 'avp', ''], ['e', t1, 'edl', 's=ok:INF'], ['f', df, 'edl', 's=ok:DISP'], ['f', dpar, 'edl', 's=ok:DISP'], ['g', dg, 'edl', 's=ok:DISP d=ok:DISP'],
+    ['h', dh, 'edl', 's=ok:DISP d=ok:DISP'], ['i', di(false), 'edl', 's=ok:INF d=multiple'], ['i', di(true), 'edl', 's=ok:INF d=multiple'], ['i', dj, 'edl', 's=ok:INF d=multiple'],
+    ['k', dk(false), 'edl', 's=ok:DISP d=ok:DISP'], ['k', dk(true), 'edl', 's=ok:DISP d=ok:DISP'], ['r', dr, 'edl', 's=ok:DISP']];
+  const ec = [];
+  LOT.forEach(([n, x, mode, o]) => {
+    const a = V.analyser(copie(x), mode), a0 = Object.assign({}, a); delete a0.eauxPieces;
+    const lu = b => sur(() => { const L = V.anomaliesDoc(copie(x), b); return JSON.stringify([L, V.conclusion(L, b), V.constatDeduit(copie(x), b), V.boitesConstat(copie(x), b)]); });
+    const pOk = a.pieces.every(p => JSON.stringify(a.resPiece[p.id]) === '{"res":"EP","deduit":true,"nets":["EP"],"contredit":false}');
+    if (!pOk || sigO(a) !== o || lu(a) !== lu(a0) || /^exception/.test(lu(a))) ec.push(n + ' (' + mode + ') : ' + sigP(a) + ' | ' + sigO(a) + (lu(a) !== lu(a0) ? ' | diffère sans an.eauxPieces' : ''));
+  });
+  R.ok(!ec.length, 'd19 témoins : sur les croquis de d19, chaque pièce garde resPiece {res: EP, deduit, nets: [EP]} et chaque source son résultat ; avec et sans '
+    + 'an.eauxPieces, mêmes anomalies, conclusion, constat déduit et boîtes du constat' + (ec.length ? ' (écarts : ' + ec.join(' ; ') + ')' : ''));
+  /* témoins : analyse sans an.eauxPieces (faite avant m165), ou avec un an.eauxPieces altéré : couleurs de v1.7.2, sans exception */
+  const ALT = [undefined, null, 'EU', 7, [], {}, {'L:0': null}, {'L:0': 'EU'}, {'L:0': [1, 0]}, {'L:0': {EU: '1', EP: 0}}, {'L:0': {EU: 1}}, {'L:0': {EU: 1, EP: '0'}}, {'L:0': {EU: 0, EP: 0}}];
+  const ea = [];
+  ALT.forEach((v, i) => {
+    const a = Object.assign({}, V.analyser(copie(d), 'edl')); if (v === undefined) delete a.eauxPieces; else a.eauxPieces = v;
+    const vue = new V.Vue(800, 600); vue.s = 40; vue.cx = 5; vue.cy = 4; const cv = canevas();
+    const z = sur(() => { V.dessinerCroquis(cv.ctx, d, a, vue, 1, {}); return [V.resLigne(d.el.find(e => e.id === 'L'), a), V.texteEtiquette(d.el.find(e => e.id === 'L'), a)].join(', '); });
+    const c = coulSur(cv.traits.map(t => ({a: vue.monde(t.a.x, t.a.y), b: vue.monde(t.b.x, t.b.y), coul: t.coul})), [0, 8], [0, 0]);
+    if (z !== 'EP, EP Ø100' || c !== css(EP)) ea.push(i + ' ' + JSON.stringify(v === undefined ? 'absent' : v) + ' : ' + z + ' ; ' + c);
+  });
+  R.ok(!ea.length, 'd19 témoins : sans an.eauxPieces, ou avec un an.eauxPieces altéré (' + ALT.length + ' valeurs : null, texte, nombre, tableau, entrée nulle, '
+    + 'de mauvais type, sans EP, sans eau…), le tuyau garde la couleur de v1.7.2 (EP, « EP Ø100 », trait vert), sans exception' + (ea.length ? ' (écarts : ' + ea.join(' ; ') + ')' : ''));
+}
+/* d20 (m166, relecture d'ensemble de la v1.7.3, CL1) : WC s → tuyau L Ø100 sans réseau (8 m, de (0, 8) à J) → 1er sommet J du drain
+   d'infiltration T [J, mi, fin] ; o, l : ce que le drain atteint au-delà de lui. Par une fosse F en (0, 8), le WC est en (0, 15) et le
+   tuyau L0, du WC à la fosse, fait 7 m */
+const auDela = (fin, o, l, fosse, mi) => {
+  const d = doc({o: [['s', 'wc', 0, fosse ? 15 : 8]].concat(fosse ? [['F', 'fosse', 0, 8]] : [], [['J', 'jonction', 0, 0]], o),
+    l: (fosse ? [['L0', 'tr', '', '', ['s', 'F']]] : []).concat([['L', 'tr', '', '', [fosse ? 'F' : 's', 'J']], ['T', 'tr', '', '', ['J', mi || [5, 0], fin], 0, INFIL]], l)});
+  const L = d.el.find(e => e.id === 'L'); L.p.diam = '100'; L.lab = null; return d;
+};
+/* état et rejet de chaque source, et ce qu'elle atteint au-delà du drain (r.apres, r.apresPar) */
+const sigOA = an => Object.keys(an.resObj).map(id => { const r = an.resObj[id];
+  return id + '=' + r.etat + (r.res ? ':' + r.res : '') + (r.apres ? '>' + r.apres.map(x => x.res).join('+') : '') + (r.apresPar ? '/' + r.apresPar : ''); }).join(' ');
+/* lignes « Canalisation … » de la légende du plan PDF (page 1), dans l'ordre */
+async function lignesLg(d, mode){
+  const lg = await pdf(d, {mode}), f = lg.txt.indexOf('Anomalies et préconisations'), pg = f > 0 ? lg.txt.slice(0, f - 1) : lg.txt;
+  return lg.err.join(' | ') + pg.filter(s => /^(Canalisation |Plusieurs réseaux atteints$|Réseau non déterminé$)/.test(s)).join(' + ');
+}
+/* traits de l'écran du plan d'avant-projet, en mètres du croquis (comme ecran, avec l'analyse de l'avant-projet) */
+function ecranAvp(d, s, c){
+  const an = V.analyser(copie(d), 'avp'), vue = new V.Vue(800, 600); vue.s = s; vue.cx = c[0]; vue.cy = c[1];
+  const cv = canevas(); V.dessinerCroquis(cv.ctx, d, an, vue, 1, {});
+  return cv.traits.map(t => ({a: vue.monde(t.a.x, t.a.y), b: vue.monde(t.b.x, t.b.y), coul: t.coul}));
+}
+/* longueur d'une forme du plan PDF (mm) ou d'une polyligne du DXF (m) */
+const lgF = v => v.slice(1).reduce((s, z, i) => s + Math.hypot(z.x - v[i].x, z.y - v[i].y), 0);
+async function tuyauAuDelaDrain(){
+  const CEU = 'Canalisation EU (eaux usées)', CEP = 'Canalisation EP (eaux pluviales)', MIX = V.RES.MIX.rgb.join(',');
+  const rgbT = TXT_EU.slice(1).match(/../g).map(h => parseInt(h, 16)).join(','), rmDe = (an, id) => sur(() => V.resMorceau(an.pieces.find(p => p.id === id), an));
+  /* formes à deux points du plan PDF au 1/200 et polylignes à deux sommets du DXF (hors drains), de m mètres : couleur, calque */
+  const pdfDe = (rq, m) => rq.formes.filter(q => q.pts.length === 2 && Math.abs(lgF(q.pts) - m * 5) < 1e-6).map(q => q.coul).join('/') || 'aucune forme';
+  const dxfDe = (x, m) => x.ents.filter(q => q.type === 'POLYLINE' && q.cal !== 'VEDE-DRAINS' && q.sommets.length === 2 && Math.abs(lgF(q.sommets) - m) < 1e-6)
+    .map(q => q.cal + '/' + (q.c['62'] || 'du calque')).join('/') || 'aucune polyligne';
+  /* CL1 : ce que le drain atteint au-delà de lui ne compte pas pour la couleur du tuyau qui y mène, comme pour la source (m129) */
+  const AU = [
+    ['(1) trop-plein Q parti du sommet du milieu K vers une boîte EP', f => auDela([10, 0], [['K', 'jonction', 5, 0], ['B', 'boite', 5, -6, {res: 'EP'}]],
+      [['Q', 'tr', '', '', ['K', 'B']]], f, 'K')],
+    ['(2) boîte EP sur le dernier sommet', f => auDela('B', [['B', 'boite', 10, 0, {res: 'EP'}]], [], f)],
+    ['(3) puisard sur le sommet du milieu', f => auDela([10, 0], [['P', 'puisard', 5, 0]], [], f, 'P')],
+    ['(4) puits sur le dernier sommet', f => auDela('P', [['P', 'puits', 10, 0]], [], f)],
+    ['(5) infiltration au sol sur le dernier sommet', f => auDela('P', [['P', 'infiltration', 10, 0]], [], f)],
+    ['(6) boîte sans réseau sur le dernier sommet, reliée par le tuyau M au collecteur EP', f => auDela('B', [['B', 'boite', 10, 0], ['K', 'jonction', 20, 0]],
+      [['M', 'tr', '', '', ['B', 'K']], ['C', 'col', 'EP', '', [[20, -5], 'K', [20, 5]]]], f)]
+  ];
+  const ANA = ['direct : {"L:0":{"EU":1,"EP":0}} ; resMorceau EU ; L:EU T:EU ; EU Ø100',
+    'par la fosse : {"L0:0":{"EU":1,"EP":0},"L:0":{"EU":1,"EP":0}} ; resMorceau EU,EU ; L0:EU L:EU T:EU ; EU Ø100'];
+  const RND = ['direct : écran ' + css(EU) + ' ; EU Ø100 en ' + TXT_EU + ' ; PDF ' + EU + ' ; EU Ø100 en ' + rgbT + ' ; DXF VEDE-EU/du calque (couleur 1) ; EU %%c100 VEDE-ETIQUETTES/1',
+    'par la fosse : écran ' + css(EU) + ', ' + css(EU) + ' ; EU Ø100 en ' + TXT_EU + ' ; PDF ' + EU + ', ' + EU + ' ; EU Ø100 en ' + rgbT
+    + ' ; DXF VEDE-EU/du calque, VEDE-EU/du calque (couleur 1) ; EU %%c100 VEDE-ETIQUETTES/1'];
+  for (const [n, fab] of AU){
+    const va = [], vr = [];
+    for (const f of [false, true]){
+      const d = fab(f), an = V.analyser(copie(d), 'edl'), ids = f ? ['L0', 'L'] : ['L'], m = f ? [7, 8] : [8], qui = f ? 'par la fosse : ' : 'direct : ';
+      va.push(qui + ePcs(an) + ' ; resMorceau ' + ids.map(id => rmDe(an, id + ':0')).join(',') + ' ; ' + rls(d, an, ids.concat(['T'])) + ' ; ' + etiqDe(d, 'L', an));
+      const vu = dessiner(d, 25, [5, 4]), te = vu.textes.filter(t => /Ø100/.test(t.t)), ce = (f ? [[[0, 15], [0, 8]]] : []).concat([[[0, 8], [0, 0]]]).map(s => coulSur(vu.traits, s[0], s[1]));
+      const rq = await pdf(Object.assign(fab(f), {echelle: 200}), {mode: 'edl'}), eq = rq.pos.filter(q => /Ø100/.test(q.t)), le = eq[eq.length - 1], x = dxf(d);
+      const X = x.ents.filter(q => q.type === 'TEXT' && /%%c100$/.test(q.c['1'])).map(q => q.c['1'] + ' ' + q.cal + '/' + q.c['62']);
+      vr.push(qui + 'écran ' + ce.join(', ') + ' ; ' + (te.map(t => t.t + ' en ' + t.coul).join(', ') || 'pas d\'étiquette') + ' ; PDF ' + m.map(z => pdfDe(rq, z)).join(', ') + ' ; '
+        + (le ? le.t + ' en ' + le.coul : 'pas d\'étiquette') + ' ; DXF ' + m.map(z => dxfDe(x, z)).join(', ') + ' (couleur ' + x.calques['VEDE-EU'] + ') ; ' + (X.join(', ') || 'pas d\'étiquette')
+        + (rq.err.length ? ' ' + rq.err.join(' | ') : ''));
+    }
+    R.ok(va.join(' | ') === ANA.join(' | '),
+      'd20 ' + n + ', WC relié directement ou par une fosse septique : an.eauxPieces, pièces et tuyaux EU (resMorceau, resLigne, que lisent la tête de la fiche, '
+      + '« Réseau EU déduit », et une anomalie saisie à la main, en EU), étiquette « EU Ø100 » ; drain rouge (v1.7.3 d\'avant m166 : tuyaux verts, « EP Ø100 » ; '
+      + 'obtenu ' + va.join(' | ') + ')');
+    R.ok(vr.join(' | ') === RND.join(' | '),
+      'd20 ' + n + ', rendus, WC relié directement ou par une fosse septique : trait rouge ' + css(EU) + ' et étiquette « EU Ø100 » en ' + TXT_EU + ' à l\'écran ; trait '
+      + 'en ' + EU + ' et étiquette en ' + rgbT + ' au plan PDF (1/200) ; polyligne sur VEDE-EU et « EU %%c100 » en couleur 1 au DXF (v1.7.3 d\'avant m166 : verts ; '
+      + 'obtenu ' + vr.join(' | ') + ')');
+  }
+  /* (r) regard R au tampon béton sur le tuyau du WC (WC s → L1 → R → L2 → drain), ou sur le sommet du milieu du drain ; une boîte EP
+     sur le dernier sommet du drain, au-delà de lui : tuyaux rouges */
+  const dr1 = doc({o: [['s', 'wc', 0, 12], ['R', 'regard', 0, 6, {tampon: 'beton'}], ['J', 'jonction', 0, 0], ['B', 'boite', 10, 0, {res: 'EP'}]],
+    l: [['L1', 'tr', '', '', ['s', 'R']], ['L2', 'tr', '', '', ['R', 'J']], ['T', 'tr', '', '', ['J', [5, 0], 'B'], 0, INFIL]]});
+  const dr2 = doc({o: [['s', 'wc', 0, 8], ['J', 'jonction', 0, 0], ['R', 'regard', 5, 0, {tampon: 'beton'}], ['B', 'boite', 10, 0, {res: 'EP'}]],
+    l: [['L', 'tr', '', '', ['s', 'J']], ['T', 'tr', '', '', ['J', 'R', 'B'], 0, INFIL]]});
+  const kr = [juge(dr1), juge(dr2)], vr = [ePcs(kr[0].an) + ' ' + rls(dr1, kr[0].an, ['L1', 'L2']), ePcs(kr[1].an) + ' ' + rls(dr2, kr[1].an, ['L'])];
+  R.ok(vr[0] === '{"L1:0":{"EU":1,"EP":0},"L2:0":{"EU":1,"EP":0}} L1:EU L2:EU' && vr[1] === '{"L:0":{"EU":1,"EP":0}} L:EU',
+    'd20 (r) regard au tampon béton sur le tuyau du WC, ou sur le sommet du milieu du drain, une boîte EP au-delà du drain : tuyaux rouges (EU) (v1.7.3 '
+    + 'd\'avant m166 : verts ; obtenu ' + vr.join(' | ') + ')');
+  const AR = [['eu-sol:s', true, 'WC : rejet au sol (infiltration)'], ['eu-ep:s', true, 'WC : rejet au réseau EP'], ['tampon:R', false, 'Regard EP : tampon béton']];
+  R.ok(kr.every(k => k.an.resPt.R === 'EP' && memesA(k.a, AR)),
+    'd20 (r) témoin (les deux versions) : le regard au tampon béton, sur le tuyau rouge ou sur le drain, reste un regard EP, « Regard EP : tampon béton » en '
+    + 'réserve ; le WC, « rejet au sol (infiltration) » et, au-delà du drain, « rejet au réseau EP », NC (obtenu ' + kr.map(k => 'regard ' + k.an.resPt.R + ' ; ' + txtJuge(k)).join(' | ') + ')');
+  /* témoins (les deux versions) : le trop-plein Q de (1) et le tuyau M de la boîte au collecteur de (6), au-delà du drain, restent verts */
+  const tv = [], TV = [];
+  for (const f of [false, true]) for (const [k, id, a, b, m] of [[0, 'Q', [5, 0], [5, -6], 6], [5, 'M', [10, 0], [20, 0], 10]]){
+    const d = AU[k][1](f), an = V.analyser(copie(d), 'edl'), rq = await pdf(Object.assign(AU[k][1](f), {echelle: 200}), {mode: 'edl'}), x = dxf(d);
+    tv.push(id + (f ? ' (fosse)' : '') + ' : ' + rlDe(d, id, an) + ', ' + rmDe(an, id + ':0') + ', écran ' + coulSur(ecran(d, 25, [5, 4]), a, b) + ', PDF ' + pdfDe(rq, m) + ', DXF ' + dxfDe(x, m)
+      + (rq.err.length ? ' ' + rq.err.join(' | ') : ''));
+    TV.push(id + (f ? ' (fosse)' : '') + ' : EP, EP, écran ' + css(EP) + ', PDF ' + EP + ', DXF VEDE-EP/du calque');
+  }
+  R.ok(tv.join(' | ') === TV.join(' | '),
+    'd20 témoin (les deux versions) : le trop-plein parti du sommet du drain (1) et le tuyau de la boîte au collecteur EP (6), au-delà du drain, restent verts '
+    + '(resLigne, resMorceau, écran, plan PDF, DXF ; obtenu ' + tv.join(' | ') + ')');
+  /* témoin (les deux versions) : trop-plein Q parti du sommet J où arrive le tuyau du WC, vers une boîte EP : il est avant le drain
+     (bifurcation, comme pour la source, m129) : la source est « multiple », les tuyaux du WC et Q restent verts, sans entrée dans
+     an.eauxPieces ; le drain, rouge */
+  const fj = f => auDela([10, 0], [['B', 'boite', 0, -6, {res: 'EP'}]], [['Q', 'tr', '', '', ['J', 'B']]], f);
+  const tj = [false, true].map(f => { const d = fj(f), an = V.analyser(copie(d), 'edl'), vu = ecran(d, 25, [5, 4]);
+    return sigOA(an) + ' ' + ePcs(an) + ' ' + rls(d, an, (f ? ['L0', 'L'] : ['L']).concat(['Q', 'T'])) + ' écran '
+      + (f ? [[[0, 15], [0, 8]]] : []).concat([[[0, 8], [0, 0]], [[0, 0], [0, -6]]]).map(s => coulSur(vu, s[0], s[1])).join(', '); });
+  const TJ = ['s=multiple absent L:EP Q:EP T:EU écran ' + css(EP) + ', ' + css(EP), 's=multiple absent L0:EP L:EP Q:EP T:EU écran ' + [EP, EP, EP].map(css).join(', ')];
+  R.ok(tj.join(' | ') === TJ.join(' | '),
+    'd20 témoin (les deux versions) : trop-plein parti du sommet où arrive le tuyau du WC vers une boîte EP, WC relié directement ou par une fosse '
+    + 'septique : avant le drain, source « multiple », tuyaux verts sans entrée dans an.eauxPieces (obtenu ' + tj.join(' | ') + ')');
+  /* témoins (les deux versions) : WC vers le drain, qui atteint au-delà de lui un collecteur EU (trop-plein Q de son dernier sommet) :
+     « plusieurs réseaux », comme avant ; bifurcation avant le drain (raccord K, puis tuyau N vers une boîte EP) : verts, comme avant ;
+     descente reliée au même tuyau L, par un regard (dde) : L, sa pièce commune L:1 et le tuyau M verts ; la pièce du WC, L:0, verte
+     sur 9142f36, est rouge depuis m166 (contrôle (d) ci-dessous) */
+  const fm = f => auDela('J2', [['J2', 'jonction', 10, 0], ['K', 'jonction', 20, 0]], [['Q', 'tr', '', '', ['J2', 'K']], ['C', 'col', 'EU', '', [[20, -5], 'K', [20, 5]]]], f);
+  const dbi = doc({o: [['s', 'wc', 0, 8], ['K', 'jonction', 0, 4], ['B', 'boite', -6, 4, {res: 'EP'}], ['J', 'jonction', 0, 0], ['B2', 'boite', 10, 0, {res: 'EP'}]],
+    l: [['L', 'tr', '', '', ['s', 'K']], ['M', 'tr', '', '', ['K', 'J']], ['N', 'tr', '', '', ['K', 'B']], ['T', 'tr', '', '', ['J', [5, 0], 'B2'], 0, INFIL]]});
+  const dde = doc({o: [['s', 'wc', 0, 12], ['R', 'regard', 0, 6], ['d', 'descente', 4, 6], ['J', 'jonction', 0, 0], ['B', 'boite', 10, 0, {res: 'EP'}]],
+    l: [['L', 'tr', '', '', ['s', 'R', 'J']], ['M', 'tr', '', '', ['d', 'R']], ['T', 'tr', '', '', ['J', [5, 0], 'B'], 0, INFIL]]});
+  const tm = [false, true].map(f => { const d = fm(f), an = V.analyser(copie(d), 'edl');
+    return rls(d, an, f ? ['L0', 'L'] : ['L']) + ' ' + rmDe(an, 'L:0') + ' écran ' + coulSur(ecran(d, 25, [5, 4]), [0, 8], [0, 0]); });
+  const ab = V.analyser(copie(dbi), 'edl'), vb = ecran(dbi, 25, [5, 4]), ad = V.analyser(copie(dde), 'edl'), vd = ecran(dde, 25, [5, 4]);
+  const tb = ePcs(ab) + ' ' + rls(dbi, ab, ['L', 'M', 'N']) + ' écran ' + [coulSur(vb, [0, 8], [0, 4]), coulSur(vb, [0, 4], [0, 0]), coulSur(vb, [0, 4], [-6, 4])].join(', ');
+  const td = rls(dde, ad, ['L', 'M']) + ' ' + rmDe(ad, 'L:1') + ',' + rmDe(ad, 'M:0') + ' écran ' + [coulSur(vd, [0, 6], [0, 0]), coulSur(vd, [4, 6], [0, 6])].join(', ');
+  R.ok(tm.join(' | ') === ['L:MIX', 'L0:MIX L:MIX'].map(z => z + ' MIX écran ' + css(MIX)).join(' | ') && tb === 'absent L:EP M:EP N:EP écran ' + [css(EP), css(EP), css(EP)].join(', ')
+    && td === 'L:EP M:EP EP,EP écran ' + css(EP) + ', ' + css(EP),
+    'd20 témoins (les deux versions) : collecteur EU au-delà du drain, « plusieurs réseaux » ; bifurcation avant le drain vers une boîte EP : verts, sans entrée '
+    + 'dans an.eauxPieces ; descente reliée au tuyau du WC par un regard : tuyau vert, sa pièce commune et le tuyau de la descente verts (obtenu ' + tm.join(' | ')
+    + ' | ' + tb + ' | ' + td + ')');
+  /* (d) CL1 et CL2 ensemble, le cas (k) de d19 avec une boîte EP au-delà du drain (dde) : sur 9142f36, les deux pièces de L sont vertes
+     et la légende n'a que « Canalisation EP » ; depuis m166, la pièce du WC (L:0) est rouge et la légende a aussi « Canalisation EU » */
+  const tdd = ePcs(ad) + ' ; ' + rmDe(ad, 'L:0') + ' ; écran ' + coulSur(vd, [0, 12], [0, 6]) + ' ; légende ' + await lignesLg(copie(dde), 'edl');
+  R.ok(tdd === '{"L:0":{"EU":1,"EP":0},"L:1":{"EU":1,"EP":1},"M:0":{"EU":0,"EP":1}} ; EU ; écran ' + css(EU) + ' ; légende ' + CEP + ' + ' + CEU,
+    'd20 (d) descente reliée au tuyau du WC par un regard, une boîte EP au-delà du drain : la pièce du WC rouge (resMorceau EU, trait ' + css(EU) + ' à l\'écran), '
+    + '« ' + CEP + ' » et « ' + CEU + ' » à la légende du plan PDF (v1.7.3 d\'avant m166 : les deux pièces vertes, « ' + CEP + ' » seule ; obtenu ' + tdd + ')');
+  /* témoins (les deux versions) : rejets (résultat des sources, avec ce qu'elles atteignent au-delà du drain), réseau des pièces
+     (resPiece) et eaux des drains (an.eauxDrains) ; avec et sans an.eauxPieces, mêmes anomalies, conclusion, constat déduit et boîtes
+     du constat */
+  const EPD = '{"res":"EP","deduit":true,"nets":["EP"],"contredit":false}', MXD = '{"res":"MIX","deduit":true,"nets":["EU","EP"],"contredit":false}';
+  const D1 = '{"T":{"EU":1,"EP":0}}', LOT = [];
+  AU.forEach(([n, fab], i) => [false, true].forEach(f => LOT.push([n + (f ? ' (fosse)' : ''), fab(f), 's=ok:DISP>' + ['EP', 'EP', 'INF', 'PUITS', 'SOL', 'EP'][i] + ' ' + D1, {}])));
+  [false, true].forEach(f => LOT.push(['collecteur EU au-delà' + (f ? ' (fosse)' : ''), fm(f), 's=ok:DISP>EU ' + D1, {'L0:0': MXD, 'L:0': MXD, 'Q:0': MXD}]));
+  LOT.push(['bifurcation', dbi, 's=multiple ' + D1, {}], ['descente', dde, 's=ok:DISP>EP d=ok:DISP>EP {"T":{"EU":1,"EP":1}}', {}], ['regard sur le tuyau', dr1, 's=ok:DISP>EP ' + D1, {}],
+    ['regard sur le drain', dr2, 's=ok:DISP>EP ' + D1, {}]);
+  const ec = [];
+  LOT.forEach(([n, x, o, exc]) => {
+    const a = V.analyser(copie(x), 'edl'), a0 = Object.assign({}, a); delete a0.eauxPieces;
+    const lu = b => sur(() => { const L = V.anomaliesDoc(copie(x), b); return JSON.stringify([L, V.conclusion(L, b), V.constatDeduit(copie(x), b), V.boitesConstat(copie(x), b)]); });
+    const pOk = a.pieces.every(p => JSON.stringify(a.resPiece[p.id]) === (exc[p.id] || EPD));
+    if (!pOk || sigOA(a) + ' ' + eaux(a) !== o || lu(a) !== lu(a0) || /^exception/.test(lu(a))) ec.push(n + ' : ' + sigP(a) + ' | ' + sigOA(a) + ' ' + eaux(a) + (lu(a) !== lu(a0) ? ' | diffère sans an.eauxPieces' : ''));
+  });
+  R.ok(!ec.length, 'd20 témoins (les deux versions) : sur les croquis de CL1, chaque source garde son résultat (et ce qu\'elle atteint au-delà du drain), chaque '
+    + 'pièce resPiece, le drain an.eauxDrains ; avec et sans an.eauxPieces, mêmes anomalies, conclusion, constat déduit et boîtes du constat'
+    + (ec.length ? ' (écarts : ' + ec.join(' ; ') + ')' : ''));
+  /* CL2 : un tuyau dont une pièce est dessinée en rouge (resMorceau) sans être EU dans l'analyse a la ligne de chaque couleur que
+     dessinent ses pièces. WC s → regard R → J, 1er sommet du drain, → bout libre : les deux premières pièces rouges, la 3e verte
+     (aucune eau n'y passe) ; resLigne EU ; tuyau tracé du WC au bout libre, ou à l'envers */
+  const dB = (inv, st) => doc({o: [['s', 'wc', 0, 8], ['R', 'regard', 0, 4], ['J', 'jonction', 0, 0]],
+    l: [['L', 'tr', '', st || '', inv ? [[0, -3], 'J', 'R', 's'] : ['s', 'R', 'J', [0, -3]]], ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]});
+  const lb = [];
+  for (const inv of [false, true]){
+    const d = dB(inv), a = V.analyser(copie(d), 'edl'), vu = ecran(d, 40, [5, 3]);
+    lb.push(a.pieces.filter(p => p.l.id === 'L').map(p => sur(() => V.resMorceau(p, a))).join(',') + ' ; ' + rls(d, a, ['L', 'T']) + ' ; écran ' + coulSur(vu, [0, 8], [0, 4]) + ', '
+      + coulSur(vu, [0, 0], [0, -3]) + ' ; légende ' + await lignesLg(d, 'edl'));
+  }
+  const LB = ['EU,EU,EP', 'EP,EU,EU'].map(z => z + ' ; L:EU T:EU ; écran ' + css(EU) + ', ' + css(EP) + ' ; légende ' + CEU + ' + ' + CEP);
+  R.ok(lb.join(' | ') === LB.join(' | '),
+    'd20 CL2 tuyau rouge (resLigne EU) dont la dernière pièce, verte, ne porte aucune eau : la légende du plan PDF a « ' + CEU + ' » et « ' + CEP + ' », dans les '
+    + 'deux sens du tracé (v1.7.3 d\'avant m166 : pas de ligne EP ; obtenu ' + lb.join(' | ') + ')');
+  /* témoins (les deux versions) : tuyau rouge de bout en bout (EU seul) ; tuyau resté vert dont une pièce est rouge, comme (k) de d19,
+     dans les deux sens du tracé (EP et EU) ; au plan d'avant-projet, un tuyau « à supprimer », dessiné d'une seule couleur (celle de
+     l'état des lieux, an.ref), à l'écran comme au plan PDF, a la ligne de cette couleur : (a) le tuyau de CL2, rouge ; (b) celui de
+     (k), vert, sans ligne EU */
+  const dK = (inv, st) => doc({o: [['s', 'wc', 0, 12], ['R', 'regard', 0, 6], ['d', 'descente', 4, 6], ['J', 'jonction', 0, 0]],
+    l: [['L', 'tr', '', st || '', inv ? ['J', 'R', 's'] : ['s', 'R', 'J']], ['M', 'tr', '', '', ['d', 'R']], ['T', 'tr', '', '', ['J', [10, 0]], 0, INFIL]]});
+  const lt = [await lignesLg(wcD(), 'edl'), await lignesLg(dK(false), 'edl'), await lignesLg(dK(true), 'edl')];
+  R.ok(lt.join(' | ') === [CEU, CEP + ' + ' + CEU, CEP + ' + ' + CEU].join(' | '),
+    'd20 CL2 témoins (les deux versions) : tuyau rouge de bout en bout, « ' + CEU + ' » seule ; tuyau vert dont une pièce est rouge, « ' + CEP + ' » et « ' + CEU
+    + ' », dans les deux sens du tracé (obtenu ' + lt.join(' | ') + ')');
+  const sa = [], SA = [];
+  for (const [d, segs, np, m, c, att] of [[dB(false, 'supprimer'), [[0, 8], [0, 4], [0, 0], [0, -3]], 4, 11, EU, CEU + ' + ' + CEP],
+    [dK(false, 'supprimer'), [[0, 12], [0, 6], [0, 0]], 3, 12, EP, CEP + ' + Réseau non déterminé']]){
+    const vu = ecranAvp(d, 40, [5, 4]), rq = await pdf(Object.assign(copie(d), {echelle: 200}), {mode: 'avp'});
+    const fq = rq.formes.filter(q => q.pts.length === np && Math.abs(lgF(q.pts) - m * 5) < 1e-6).map(q => q.coul).join('/') || 'aucune forme';
+    sa.push('écran ' + segs.slice(1).map((b, i) => coulSur(vu, segs[i], b)).join(', ') + ' ; PDF ' + fq + ' ; légende ' + await lignesLg(d, 'avp')
+      + (rq.err.length ? ' ' + rq.err.join(' | ') : ''));
+    SA.push('écran ' + segs.slice(1).map(() => css(c)).join(', ') + ' ; PDF ' + c + ' ; légende ' + att);
+  }
+  R.ok(sa.join(' | ') === SA.join(' | '),
+    'd20 CL2 témoins (les deux versions) : au plan d\'avant-projet, un tuyau « à supprimer » est dessiné d\'une seule couleur (celle de l\'état des lieux), avec '
+    + 'la ligne de cette couleur à la légende : (a) le tuyau de CL2, rouge ; (b) celui de (k) de d19, vert, sans ligne EU (obtenu ' + sa.join(' | ') + ')');
 }
 
 (async () => {
@@ -1056,6 +1502,8 @@ async function eauxDrain(){
     await dispersionCollecte();
     await auDelaDrain();
     await eauxDrain();
+    await tuyauVersDrain();
+    await tuyauAuDelaDrain();
   } catch (e){ R.ok(false, 'exception : ' + (e && e.stack || e)); }
   R.fin();
 })();

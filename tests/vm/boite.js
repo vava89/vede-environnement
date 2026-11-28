@@ -55,7 +55,7 @@
 //   1ee93f4) : boîte qui reçoit le WC et la descente : EU et EP (c22) ; boîte indiquée EP dans sa fiche, qui reçoit le WC : EP seulement
 //   (c23) ; boîte indiquée unitaire dans sa fiche, qui ne reçoit que le WC : EU et EP (c24, F8) ; boîte qu'aucune source ne traverse
 //   (appareils non dessinés, tuyau laissé libre côté maison) : EU et EP (c25) ; boîtes mixtes d'après le dessin (tuyaux d'amont tracés à
-//   l'outil « Tronçon EU » et « Tronçon EP ») : comptées nulle part (c29).
+//   l'outil « Tronçon EU » et « Tronçon EP ») : comptées nulle part (c29, jusqu'à m164 ; depuis m164 : B1 en EU, B2 en EP, comme c30).
 // c31 à c33 (m140, relecture) : une seule boîte, qui ne reçoit que le WC : EU seulement, aucune en EP (c31) ; B1 reçoit le WC, B3 à côté
 //   ne reçoit rien : deux en EU, B3 seule en EP (c32) ; c31 et c32 échouent sur 1ee93f4. Boucle : boîte sur le tuyau qui relie la branche
 //   du WC à celle de la descente, hors des plus courts chemins des deux sources : EU et EP, quel que soit le sens des flèches du plan (c33,
@@ -82,6 +82,25 @@
 //   directe, déjà à deux boîtes en EU). Relecture de m156 : c44 échoue sur une version qui suivrait le trop-plein dès que ce second
 //   parcours est gardé (C1 ; 161/163), c47 sur une version qui ne le suivrait pas pour « multiple » (M1 ; 161/163). Vérification : c48
 //   échoue sur une version qui suivrait aussi les chemins plus longs du trop-plein (162/163).
+// c49 à c63 (m164, réponse du 23 nov. 2026 à la question née de m140 : « b. La compter ») : en zone unitaire, une boîte sans réseau indiqué
+//   que le dessin dit mêlée (un tuyau tracé à l'outil « Tronçon EU », « Tronçon EP » ou « Drain » y arrive ; étiquette « Boîte de
+//   branchement » seule) compte comme une boîte unitaire, pour le réseau des sources dont l'eau la traverse, quand ses tuyaux ne mènent qu'à
+//   l'unitaire (ou à aucun exutoire), n'indiquent qu'EU, EP ou unitaire, et que l'unitaire est parmi ces réseaux : tuyaux d'amont en
+//   « Tronçon EU » et « Tronçon EP » (c29 : B1 en EU, B2 en EP, comme c30) ; tuyaux d'aval en « Tronçon EU » (c49) ; seul le tuyau du WC en
+//   « Tronçon EU » (c50) ; WC (« Tronçon EU ») et descente (« Tronçon EP ») vers la même boîte : en EU et en EP (c51) ; « Drain » (réseau
+//   EP, comme l'outil) relié à B2 par son dernier sommet : B2 en EP (c52) ; c29 par l'analyse de l'avant-projet, par an.ref et par une
+//   analyse recopiée (JSON) (c53) ; sans collecteur, « Tronçon EU » puis « Tronçon unitaire » laissé libre : comme la même boîte dont les
+//   deux tuyaux sont en « Tronçon unitaire », en EU et en EP (c54) ; boîte posée sur un sommet du collecteur unitaire, WC en « Tronçon
+//   EU » : en EU seulement, la pièce du collecteur (sans réseau dans l'analyse) est ignorée (c62, relecture de m164). Échouent sur 2345fa7
+//   (193/203 : c29, c49 à c52, les trois vérifications de c53, c54 et c62 ; boîtes comptées nulle part). Témoins (passent sur 2345fa7) :
+//   boîte mêlée comptée nulle part quand un tuyau mène aussi à un autre réseau (c55 : collecteur unitaire et collecteur EU ; c43 de même),
+//   qu'aucun ne mène à l'unitaire (c56 : « Tronçon EU » et « Tronçon EP » seuls ; c57 : « Tronçon EP » vers le collecteur EU) ou qu'un
+//   tuyau indique un autre réseau qu'EU, EP ou unitaire (c63 : comme c51, tuyau du WC « INC », fichier fait à la main) ; le réseau indiqué
+//   dans la fiche l'emporte (c58) ; étiquettes inchangées, « Boîte de branchement » sans réseau pour une boîte mêlée (c59) ; ni le croquis
+//   ni l'analyse ne changent, B1 et B2 restent mêlées dans l'analyse (c60, état des lieux et avant-projet) ; analyse altérée, sous 17
+//   formes : comptée nulle part, sans exception, avec les pièces de la boîte dans l'analyse (c61). Relecture de m164 (202/203 chaque
+//   fois) : c62 échoue sur une version qui refuserait la pièce sans entrée dans l'analyse, c63 sur une version sans le contrôle du réseau
+//   indiqué, et la forme « entrée de resPiece null » de c61 sur la première version de m164, qui l'ignorait comme une pièce sans entrée.
 // usage : node tests/vm/boite.js [-v] [--app=<dossier>]
 'use strict';
 const {charger, rapport, doc: abrege} = require('./charger.js');
@@ -456,11 +475,13 @@ function constat(){
   R.ok(pareil(x28, a28), 'c28 réseau lu dans an.ref : chemins lus dans an.ref → ' + vu(a28) + ' (obtenu ' + vu(x28) + ')');
   const dd28 = copie(d28), x28b = sur(() => V.boitesConstat(dd28, V.analyser(dd28, 'avp')));
   R.ok(pareil(x28b, a28), 'c28 analyse de l\'avant-projet (an.ref présent) : comme l\'état des lieux → ' + vu(a28) + ' (obtenu ' + vu(x28b) + ')');
-  /* c29 témoin (B5) : tuyaux d'amont tracés à l'outil « Tronçon EU » (WC → B1) et « Tronçon EP » (descente → B2), tuyaux d'aval à l'outil
-     « Tronçon » : boîtes mixtes d'après le dessin (EU ou EP, et unitaire), comptées nulle part, comme avant m140 */
+  /* c29 (B5) : tuyaux d'amont tracés à l'outil « Tronçon EU » (WC → B1) et « Tronçon EP » (descente → B2), tuyaux d'aval à l'outil
+     « Tronçon » : boîtes mixtes d'après le dessin (EU ou EP, et unitaire), elles le restent (témoin). m164 (réponse du 23 nov. 2026 :
+     « b. La compter ») : leurs tuyaux ne mènent qu'au collecteur unitaire, elles comptent comme des boîtes unitaires, B1 (WC) en EU,
+     B2 (descente) en EP, comme c30 (avant m164 : comptées nulle part, comme avant m140) */
   const d29 = unitaireTroncons('EU', 'EP', ''), r29 = V.analyser(copie(d29), 'edl').resPt;
   R.ok(r29.B1 === 'MIX' && r29.B2 === 'MIX', 'c29 témoin : boîtes mixtes d\'après le dessin (B1 ' + r29.B1 + ', B2 ' + r29.B2 + ')');
-  cas('c29 témoin : boîtes mixtes (tuyaux d\'amont tracés en EU et en EP) : comptées nulle part', d29, RIEN, RIEN);
+  cas('c29 boîtes mixtes (tuyaux d\'amont tracés en EU et en EP), m164 : B1 (WC) en EU, B2 (descente) en EP, comme c30', d29, EU80, B2EP);
   /* c30 : tous les tuyaux tracés à l'outil « Tronçon unitaire » : la fiche des boîtes ne dit rien, elles suivent leurs appareils */
   cas('c30 tuyaux tracés à l\'outil « Tronçon unitaire » : B1 (WC) en EU, B2 (descente) en EP', unitaireTroncons('UN', 'UN', 'UN'), EU80, B2EP);
   /* c31 : une seule boîte, qui ne reçoit que le WC : la colonne EP n'a plus de boîte (avant m140 : la même boîte en EU et en EP) */
@@ -539,6 +560,87 @@ function constat(){
      chemin ordinaire (sans puisard, la même boucle compte aussi B3 en EU et en EP) */
   cas('c48 boucle sur le trop-plein (à l\'image de c33) : B3, sur le tuyau qui relie ses deux branches, n\'est sur aucun plus court chemin :'
     + ' en EU et en EP ; B1 en EU, B2 en EP', tropPlein('boucle', 1), DEUX, DEUX);
+
+  /* c49 à c54 (m164, réponse du 23 nov. 2026 à la question née de m140 : « b. La compter ») : en zone unitaire, une boîte sans réseau
+     indiqué que le dessin dit mêlée (un tuyau tracé à l'outil « Tronçon EU », « Tronçon EP » ou « Drain » y arrive) compte comme une boîte
+     unitaire, pour le réseau des sources dont l'eau la traverse, quand ses tuyaux ne mènent qu'au réseau unitaire (ou à aucun exutoire),
+     n'indiquent qu'EU, EP ou unitaire, et que l'unitaire est parmi ces réseaux ; son étiquette ne change pas (c59) */
+  cas('c49 tuyaux d\'aval tracés à l\'outil « Tronçon EU », tuyaux d\'amont sans réseau : B1 (WC) en EU, B2 (descente) en EP',
+    unitaireTroncons('', '', 'EU'), EU80, B2EP);
+  cas('c50 seul le tuyau du WC tracé à l\'outil « Tronçon EU » : B1 (mêlée) en EU, B2 (unitaire) en EP', unitaireTroncons('EU', '', ''), EU80, B2EP);
+  cas('c51 une boîte qui reçoit le WC (« Tronçon EU ») et la descente (« Tronçon EP ») : en EU et en EP, ses valeurs dans les deux',
+    meleeUne(), EU80, EU80);
+  cas('c52 « Drain » (drain de collecte, réseau EP comme l\'outil) relié à B2 par son dernier sommet, WC vers B1 par un tuyau sans réseau :'
+    + ' B1 en EU, B2 en EP', unitaireDrain(false, 'EP'), EU80, B2EP);
+  /* c53 : c29 par l'analyse de l'avant-projet, par an.ref (analyse retouchée par le test, comme c28) et par une analyse recopiée (JSON) */
+  const a53 = attendu(EU80, B2EP);
+  [['l\'analyse de l\'avant-projet (an.ref présent)', () => { const dd = copie(d29); return V.boitesConstat(dd, V.analyser(dd, 'avp')); }],
+    ['an.ref (réseau et chemins lus dans an.ref)', () => V.boitesConstat(copie(d29), {resPt: {}, ref: V.analyser(copie(d29), 'edl')})],
+    ['une analyse recopiée (JSON)', () => { const dd = copie(d29); return V.boitesConstat(dd, copie(V.analyser(dd, 'edl'))); }]].forEach(([n, f]) => {
+    const x = sur(f); R.ok(pareil(x, a53), 'c53 c29 par ' + n + ' : comme c29 → ' + vu(a53) + ' (obtenu ' + vu(x) + ')');
+  });
+  /* c54 : sans collecteur ; l'attendu est le constat, calculé ici, de la même boîte dont les deux tuyaux sont tracés à l'outil « Tronçon
+     unitaire » (unitaire d'après le dessin ; sans exutoire dessiné, aucune source ne la traverse : elle compte en EU et en EP) */
+  const x54 = bc(sansCollecteur('EU', 'UN')), y54 = bc(sansCollecteur('UN', 'UN'));
+  R.ok(vu(x54) === vu(y54) && pareil(y54, attendu(EU80, EU80)), 'c54 sans collecteur, WC → « Tronçon EU » → B1 → « Tronçon unitaire » laissé libre :'
+    + ' comme la même boîte dont les deux tuyaux sont en « Tronçon unitaire », en EU et en EP → ' + vu(y54) + ' (obtenu ' + vu(x54) + ')');
+
+  /* c55 à c61 (m164) : témoins, qui passent aussi sur 2345fa7. Boîtes mêlées comptées nulle part, comme avant m164 : un tuyau mène aussi
+     à un autre réseau (c55 ; c43 de même), ou aucun ne mène à l'unitaire (c56, c57) ; plus bas, un tuyau indique un autre réseau (c63) */
+  const nullePart = (n, d) => {
+    const r = sur(() => V.analyser(copie(d), 'edl').resPt.B1), x = bc(d), a = attendu(RIEN, RIEN);
+    R.ok(r === 'MIX' && pareil(x, a), n + ' : boîte mêlée d\'après le dessin (' + vu(r) + '), comptée nulle part (obtenu ' + vu(x) + ')');
+  };
+  nullePart('c55 témoin : boîte reliée au collecteur unitaire et à un collecteur EU', deuxCollecteurs());
+  nullePart('c56 témoin : WC → « Tronçon EU » et descente → « Tronçon EP » vers la même boîte, sans collecteur ni tuyau unitaire', euEpSeuls());
+  nullePart('c57 témoin : descente → « Tronçon EP » → boîte → regard public du collecteur EU', collEuTronconEp());
+  /* c58 : le réseau indiqué dans la fiche l'emporte */
+  const d58 = unitaireUne({res: 'EU'}, true); elDe(d58, 'tD').p.res = 'EP';
+  cas('c58 témoin : boîte indiquée EU dans sa fiche, qui reçoit le WC et un « Tronçon EP » (descente) : en EU seulement', d58, EU80, RIEN);
+  /* c59 : étiquettes inchangées : « Boîte de branchement » (sans réseau) pour une boîte mêlée, « … unitaire » sinon, puis la profondeur et
+     la ligne de la limite, comme sur 2345fa7 */
+  const ET = (t, n) => [t, n === 1 ? 'P : 0,80 m' : 'P : 1,10 m', n === 1 ? 'à 0,80 m de la limite, ' + INT : 'en limite de propriété'].join('\n');
+  const MEL = 'Boîte de branchement', UNI = 'Boîte de branchement unitaire';
+  [['c29', d29, MEL, MEL], ['c49', unitaireTroncons('', '', 'EU'), MEL, MEL], ['c50', unitaireTroncons('EU', '', ''), MEL, UNI], ['c51', meleeUne(), MEL, null],
+    ['c52', unitaireDrain(false, 'EP'), UNI, MEL]].forEach(([n, d, t1, t2]) => {
+    const e1 = etiquette(d, 'B1'), e2 = t2 ? etiquette(d, 'B2') : null;
+    R.ok(e1 === ET(t1, 1) && (!t2 || e2 === ET(t2, 2)), 'c59 témoin : étiquettes des boîtes de ' + n + ' inchangées ('
+      + [e1, e2].filter(x => x != null).map(x => JSON.stringify(x)).join(' ; ') + ')');
+  });
+  /* c60 : ni le croquis ni l'analyse ne changent (état des lieux, puis avant-projet avec an.ref) ; les boîtes restent mêlées */
+  ['edl', 'avp'].forEach(mode => {
+    const dd = copie(d29), an = V.analyser(dd, mode), j = JSON.stringify(an), f = fige(an);
+    sur(() => V.boitesConstat(dd, an));
+    R.ok(JSON.stringify(an) === j && fige(an) === f && JSON.stringify(dd) === JSON.stringify(d29) && an.resPt.B1 === 'MIX' && an.resPt.B2 === 'MIX',
+      'c60 témoin (' + mode + ') : ni le croquis ni l\'analyse ne changent, B1 et B2 restent mêlées (' + an.resPt.B1 + ', ' + an.resPt.B2 + ')');
+  });
+  /* c61 : analyse altérée (recopiée puis retouchée, comme un fichier modifié à la main) : sans exception, la boîte de c51 n'est pas mêlée
+     en zone unitaire, elle n'est comptée nulle part */
+  const d61 = meleeUne(), j61 = JSON.stringify(V.analyser(copie(d61), 'edl')), pB = JSON.parse(j61).adj.B1.map(q => q.id).sort().join();
+  [['réduite à resPt', a => ({resPt: a.resPt})], ['an.ref réduit à resPt', a => ({resPt: {}, ref: {resPt: a.resPt}})],
+    ['sans adj', a => { delete a.adj; }], ['adj texte', a => { a.adj = 'B1'; }], ['adj tableau', a => { a.adj = []; }],
+    ['sans resPiece', a => { delete a.resPiece; }], ['resPiece null', a => { a.resPiece = null; }], ['resPiece texte', a => { a.resPiece = 'tW:0'; }],
+    ['adj.B1 absent', a => { delete a.adj.B1; }], ['adj.B1 objet', a => { a.adj.B1 = {0: a.adj.B1[0]}; }], ['adj.B1 texte', a => { a.adj.B1 = 'tW:0'; }],
+    ['pièce sans id', a => { a.adj.B1.push({a: 'B1', b: 'Rp'}); }], ['pièce null', a => { a.adj.B1.push(null); }],
+    ['nets texte', a => { a.resPiece['tW:0'].nets = 'UN'; }], ['nets absent', a => { delete a.resPiece['tW:0'].nets; }],
+    ['entrée de resPiece texte', a => { a.resPiece['tW:0'] = 'EU'; }], ['entrée de resPiece null', a => { a.resPiece['tW:0'] = null; }]].forEach(([n, f]) => {
+    const a = JSON.parse(j61), b = f(a) || a, x = sur(() => V.boitesConstat(copie(d61), b));
+    R.ok(pareil(x, attendu(RIEN, RIEN)), 'c61 témoin, analyse altérée (' + n + ') : sans exception, comptée nulle part (obtenu ' + vu(x) + ')');
+  });
+  R.ok(pB === 'tB:0,tD:0,tW:0', 'c61 témoin : pièces de la boîte de c51 dans l\'analyse (' + pB + ')');
+  /* c62 (relecture de m164) : B1 posée sur un sommet du collecteur unitaire, sans regard public ; la pièce du collecteur n'a pas de réseau
+     dans l'analyse (pas d'entrée dans resPiece) : elle est ignorée, la boîte ne touche que l'unitaire. Témoin : boîte mêlée d'après le
+     dessin, avec ces deux pièces */
+  const a62 = sur(() => V.analyser(copie(boiteSurCollecteur()), 'edl')), q62 = a62 && a62.adj && Array.isArray(a62.adj.B1) ? a62.adj.B1 : [];
+  const p62 = q62.map(q => q.id + (Object.prototype.hasOwnProperty.call(a62.resPiece, q.id) ? ' ' + a62.resPiece[q.id].res : ' sans entrée')).sort().join(', ');
+  R.ok(a62 && a62.resPt && a62.resPt.B1 === 'MIX' && p62 === 'C:c1 sans entrée, tW:0 EU', 'c62 témoin : boîte sur le collecteur, mêlée d\'après le'
+    + ' dessin (' + (a62 && a62.resPt ? a62.resPt.B1 : vu(a62)) + ') ; ses pièces : ' + p62);
+  cas('c62 boîte posée sur un sommet du collecteur unitaire, WC en « Tronçon EU » : en EU seulement (la pièce du collecteur est ignorée)',
+    boiteSurCollecteur(), EU80, RIEN);
+  /* c63 (relecture de m164) : témoin. Comme c51, tuyau du WC qui indique « INC » (fichier fait à la main ; les outils n'indiquent qu'EU, EP
+     ou unitaire) : réseau indiqué hors d'EU, EP et unitaire, la boîte n'est pas mêlée en zone unitaire, comptée nulle part */
+  const d63 = meleeUne(); elDe(d63, 'tW').p.res = 'INC';
+  nullePart('c63 témoin : comme c51, tuyau du WC qui indique « INC » (fichier fait à la main)', d63);
 }
 
 /* c18, zone unitaire : WC vers la boîte B1, descente vers la boîte B2, chacune vers un regard public du collecteur (unitaire, sinon col) ;
@@ -593,13 +695,13 @@ function unitaireSources(t1, p1, t2, p2){
   return d;
 }
 /* c27 : WC → B1 ; drain de collecte tracé vers B2 : réseau EP (comme l'outil « Drain ») vers un raccord J puis un tuyau (raccord), ou sans
-   réseau, son dernier sommet sur B2 */
-function unitaireDrain(raccord){
+   réseau, son dernier sommet sur B2 ; c52 (m164) : réseau res (EP, comme l'outil), son dernier sommet sur B2 */
+function unitaireDrain(raccord, res){
   const d = nouveau();
   pt(d, 'W', 'wc', 0, 10); pt(d, 'B1', 'boite', 0, 4, Object.assign({prof: '0,80'}, LIMITE)); pt(d, 'Rp', 'regard_pub', 0, 0, {res: 'UN'});
   pt(d, 'B2', 'boite', 6, 4, {prof: '1,10', limCote: 'ext', limDist: '0'}); pt(d, 'Rq', 'regard_pub', 6, 0, {res: 'UN'});
   if (raccord){ pt(d, 'J', 'jonction', 6, 9); ln(d, 'Dr', 'tr', 'EP', [[2, 14], [10, 14], 'J']); ln(d, 'tJ', 'tr', '', ['J', 'B2']); }
-  else ln(d, 'Dr', 'tr', '', [[2, 14], [10, 14], 'B2']);
+  else ln(d, 'Dr', 'tr', res || '', [[2, 14], [10, 14], 'B2']);
   elDe(d, 'Dr').p.drain = 'collecte';
   ln(d, 'tW', 'tr', '', ['W', 'B1']); ln(d, 'tB', 'tr', '', ['B1', 'Rp']); ln(d, 'tB2', 'tr', '', ['B2', 'Rq']); ln(d, 'C', 'col', 'UN', [[-10, 0], 'Rp', 'Rq', [10, 0]]);
   return d;
@@ -631,6 +733,44 @@ function unitaireBoucle(raccord){
   if (raccord){ pt(d, 'J2', 'jonction', 0, 3); ln(d, 'tJ', 'tr', '', ['J', 'J2']); ln(d, 'tJ2', 'tr', '', ['J2', 'Rp']); }
   else ln(d, 'tJ', 'tr', '', ['J', 'Rp']);
   ln(d, 'C', 'col', 'UN', [[-10, 0], 'Rp', 'Rq', [20, 0]]);
+  return d;
+}
+/* c49 à c61 (m164) : boîtes sans réseau indiqué, mêlées d'après le dessin ; B1 comme en c22 (à 0,80 m, à l'intérieur, profondeur 0,80).
+   c51 : comme c22 (WC et descente vers B1, puis le collecteur unitaire), tuyau du WC tracé à l'outil « Tronçon EU », celui de la
+   descente à l'outil « Tronçon EP » */
+function meleeUne(){ const d = unitaireUne(null, true); elDe(d, 'tW').p.res = 'EU'; elDe(d, 'tD').p.res = 'EP'; return d; }
+/* c54 : sans collecteur : WC → tuyau tW (réseau rW) → B1 → tuyau tL (réseau rL) laissé libre */
+function sansCollecteur(rW, rL){
+  const d = nouveau();
+  pt(d, 'W', 'wc', 0, 10); pt(d, 'B1', 'boite', 0, 4, Object.assign({prof: '0,80'}, LIMITE));
+  ln(d, 'tW', 'tr', rW, ['W', 'B1']); ln(d, 'tL', 'tr', rL, ['B1', [0, 0]]);
+  return d;
+}
+/* c55 : comme c31 (WC → B1 → regard public Rp du collecteur unitaire), et B1 → regard public Rs d'un collecteur EU K */
+function deuxCollecteurs(){
+  const d = unitaireUne(null, false);
+  pt(d, 'Rs', 'regard_pub', 6, -4, {res: 'EU'}); ln(d, 'tS', 'tr', '', ['B1', 'Rs']); ln(d, 'K', 'col', 'EU', [[-10, -4], 'Rs', [10, -4]]);
+  return d;
+}
+/* c56 : WC → « Tronçon EU » → B1 ← « Tronçon EP » ← descente, sans collecteur ni autre tuyau */
+function euEpSeuls(){
+  const d = nouveau();
+  pt(d, 'W', 'wc', 0, 10); pt(d, 'B1', 'boite', 0, 4, Object.assign({prof: '0,80'}, LIMITE)); pt(d, 'D', 'descente', 4, 10, {cote: 'avant'});
+  ln(d, 'tW', 'tr', 'EU', ['W', 'B1']); ln(d, 'tD', 'tr', 'EP', ['D', 'B1']);
+  return d;
+}
+/* c57 : descente → « Tronçon EP » → B1 → regard public Rp du collecteur EU */
+function collEuTronconEp(){
+  const d = nouveau();
+  pt(d, 'D', 'descente', 0, 10, {cote: 'avant'}); pt(d, 'B1', 'boite', 0, 4, Object.assign({prof: '0,80'}, LIMITE)); pt(d, 'Rp', 'regard_pub', 0, 0, {res: 'EU'});
+  ln(d, 'tD', 'tr', 'EP', ['D', 'B1']); ln(d, 'tB', 'tr', '', ['B1', 'Rp']); ln(d, 'C', 'col', 'EU', [[-10, 0], 'Rp', [10, 0]]);
+  return d;
+}
+/* c62 : WC → « Tronçon EU » → B1 (comme en c22), posée sur un sommet du collecteur unitaire C, sans regard public */
+function boiteSurCollecteur(){
+  const d = nouveau();
+  pt(d, 'W', 'wc', 0, 10); pt(d, 'B1', 'boite', 0, 0, Object.assign({prof: '0,80'}, LIMITE));
+  ln(d, 'tW', 'tr', 'EU', ['W', 'B1']); ln(d, 'C', 'col', 'UN', [[-10, 0], 'B1', [10, 0]]);
   return d;
 }
 /* c39 à c48 (m156) : zone unitaire, boîtes sans réseau indiqué : B1 (à 0,80 m, à l'intérieur, profondeur 0,60), B2 (à 1,50 m, à
