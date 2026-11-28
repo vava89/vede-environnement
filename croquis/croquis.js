@@ -4035,6 +4035,14 @@ var BIBLIO_MANU = {
 };
 function famDe(e){ if (e.k === 'ln') return 'tr'; var ty = T[e.t] || {}; if (ty.regard) return 'reg'; return ty.fam || 'equ'; }
 
+/* m171 : un glissé au doigt levé en mouvement lance dans Chromium (vu en test ; [p] sur la tablette, même moteur) une glissade
+   (défilement par inertie). Sur une surface en touch-action: none, rien ne défile et on ne la voit pas ; mais le toucher suivant, tant
+   qu'elle dure, ne fait que l'arrêter : ni clic ni événements souris, le bouton touché n'agit pas. Le touchmove empêché ne laisse
+   commencer aucun défilement, donc aucune glissade [p] ; les événements de pointeur, qui portent les gestes, ne changent pas. Seulement
+   sur une surface de dessin (canevas du plan, zone de l'aperçu), jamais sur un conteneur qui défile (palette, panneau) ; et rien ne
+   doit défiler dedans : les touchmove de ses enfants remontent jusqu'à elle, et leur défilement serait bloqué */
+function sansGlissade(el){ el.addEventListener('touchmove', function(ev){ if (ev.cancelable) ev.preventDefault(); }, {passive: false}); }
+
 /* aperçu du plan (m170) : ppAstuce, le toast de la première ouverture de l'aperçu déjà montré depuis le chargement (A7) ; ppTFlash, la
    minuterie du clignotement des marques qui ont bougé après un lâcher (A16) */
 var ppAstuce = false, ppTFlash = null;
@@ -4764,8 +4772,10 @@ function editeur(racine, opts){
   /* clic droit ou appui long, quel que soit le pointeur : aucun menu du navigateur sur le plan */
   cv.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
   /* au doigt, un toucher commencé sur le plan ne produit ni clic ni événements souris de compatibilité : rien n'agit sur ce qui vient se
-     placer sous le doigt (fiche, barre de navigation, dialogue) ; le plan ne lit que les événements de pointeur */
+     placer sous le doigt (fiche, barre de navigation, dialogue) ; son glissé ne lance aucune glissade (touchmove empêché, m171) : le
+     toucher qui le suit agit, même aussitôt. Le plan ne lit que les événements de pointeur */
   cv.addEventListener('touchend', function(ev){ if (ev.cancelable) ev.preventDefault(); }, {passive: false});
+  sansGlissade(cv);
   cv.addEventListener('wheel', function(ev){
     /* la molette ferme le menu de poignée et arrête l'attente de la pause (m109) */
     ev.preventDefault(); fermerMenu(); var p = pos(ev), w = S.vue.monde(p.x, p.y);
@@ -7976,6 +7986,9 @@ function editeur(racine, opts){
     zone.addEventListener('pointercancel', annulerGesteApercu);
     zone.addEventListener('wheel', moletteApercu, {passive: false});
     zone.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
+    /* m171 : un glissé dans la zone (page, pincement, étiquette, bulle ou texte) ne lance aucune glissade : le toucher qui le suit
+       agit, même aussitôt */
+    sansGlissade(zone);
     ppEl.querySelector('[data-pp="fermer"]').focus();
     /* le reste de l'éditeur, caché dessous, devient inerte (ni focus ni clic) ; le message (toast) reste lu */
     ppInertes = Array.prototype.filter.call(R.children, function(c){ return c !== ppEl && !c.inert && !c.classList.contains('vc-toast') && !c.classList.contains('vc-modal'); });

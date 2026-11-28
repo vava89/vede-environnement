@@ -2283,6 +2283,12 @@ function onConstatField(t, commit){
   constatTouch(v);
   if (commit) render();
 }
+/* m171 : un glissé au doigt levé en mouvement lance dans Chromium (vu en test ; [p] sur la tablette, même moteur) une glissade
+   (défilement par inertie). Sur un canevas en touch-action: none, rien ne défile et on ne la voit pas ; mais le toucher suivant, tant
+   qu'elle dure, ne fait que l'arrêter : ni clic ni événements souris, le bouton touché n'agit pas. Le touchmove empêché ne laisse
+   commencer aucun défilement, donc aucune glissade [p] ; les événements de pointeur, qui portent le tracé, ne changent pas. Seulement
+   sur un canevas de dessin (pavé de signature, croquis de position et sa vue d'ensemble), jamais sur un conteneur qui défile */
+function sansGlissade(el){ el.addEventListener('touchmove', function(ev){ if (ev.cancelable) ev.preventDefault(); }, {passive: false}); }
 /* Croquis de position et signatures : tracé au doigt ou au stylet sur un canevas */
 function padStrokes(cv, opts){
   var ctx = cv.getContext('2d'), drawing = false, last = null, dirty = false;
@@ -2292,6 +2298,7 @@ function padStrokes(cv, opts){
   cv.addEventListener('pointermove', function(ev){ if (!drawing) return; ev.preventDefault(); var p = pt(ev); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; dirty = true; });
   function end(){ drawing = false; }
   cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end); cv.addEventListener('pointerleave', end);
+  sansGlissade(cv);
   return {isDirty: function(){ return dirty; }, clear: function(){ ctx.clearRect(0, 0, cv.width, cv.height); dirty = false; }};
 }
 function loadImg(src){ return new Promise(function(res){ var im = new Image(); im.onload = function(){ res(im); }; im.onerror = function(){ res(null); }; im.src = src; }); }
@@ -2928,6 +2935,8 @@ async function croquisEditor(v){
       ED.cv.addEventListener('pointerdown', down); ED.cv.addEventListener('pointermove', move); ED.cv.addEventListener('pointerup', up); ED.cv.addEventListener('pointercancel', cancel);
       ED.cv.addEventListener('contextmenu', function(e){ e.preventDefault(); });
       w.querySelector('.ce-mini canvas').addEventListener('pointerdown', miniDown);
+      /* m171 : un glissé sur le croquis ou sur la vue d'ensemble ne lance aucune glissade : le toucher qui le suit agit, même aussitôt */
+      sansGlissade(ED.cv); sansGlissade(w.querySelector('.ce-mini canvas'));
       w.addEventListener('click', onClick);
       window.addEventListener('resize', onResize); document.addEventListener('keydown', onKey);
       ui(); requestAnimationFrame(layout);

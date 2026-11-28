@@ -318,7 +318,8 @@ const vide = e => dansZone(e, Math.max(4, e.pp.ox / 2), e.zone.h / 2);
    sous touch-action: none ; le toucher qui la suit tant qu'elle dure ne ferait que l'arrêter : pointerdown et pointerup arrivent
    (gestes de la zone), mais ni mousedown ni click (boutons, « Aperçu du plan »). Immobile 80 ms environ, le doigt est tenu pour
    arrêté et sa vitesse retombe à zéro [p] ; 150 ms gardent une marge (mesuré : aucun toucher perdu). C'était l'échec rare de l2. Un
-   vrai doigt y est exposé de même [p] : défaut de l'application, à corriger par m171 (tests/LISEZMOI.md) */
+   vrai doigt y était exposé de même [p] : m171 empêche cette glissade dans l'application (zone de l'aperçu et canevas du croquis ;
+   navigateur/glissade.js) ; la pause reste, pour que les contrôles n'en dépendent pas (tests/LISEZMOI.md) */
 const LEVER = 150;
 /* glissé au doigt dans la fenêtre, de a à b en huit pas (événements tactiles de Chromium), puis LEVER ms immobile avant de lever */
 async function glisserDoigt(p, a, b){
@@ -515,7 +516,7 @@ async function zoom(){
       const e1 = await etat(p), q = dansZone(e1, e1.zone.w * 0.8, e1.zone.h / 2), xq = (e1.zone.w * 0.8 - e1.pp.ox) / e1.pp.k;
       const s = await p.context().newCDPSession(p), t = (type, pts) => s.send('Input.dispatchTouchEvent', {type, touchPoints: pts});
       /* glissé vif à dessein, sans LEVER : la suite reste brève (moins de 330 ms), et le troisième toucher n'a besoin que de pointerdown
-         et de pointerup, que la glissade laisse passer (il l'arrête) */
+         et de pointerup, que la glissade laisse passer (il l'arrête) ; depuis m171, la zone n'en lance plus aucune */
       let dt = 0;
       try {
         const t0 = Date.now();
