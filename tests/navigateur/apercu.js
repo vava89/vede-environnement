@@ -20,10 +20,14 @@
 // h : repères (tirets du cadre utile, aplat des zones réservées), échelle, bandeau du cadre (plan affiché seulement) ;
 // i : clavier (Tab et Maj+Tab restent dans l'aperçu, aria-modal, reste de l'éditeur inerte ; Échap de l'hôte, Suppr, Entrée, Ctrl+Z), garde
 //     de « Fermer » au-dessus de « Retour », ouvrir(), rien d'écrit à la fermeture ;
-// j : gardes : croquis désactivé (pas d'éditeur, nulle part « Aperçu du plan ») ; jsPDF absent (message, pas de surcouche).
+// j : gardes : croquis désactivé (pas d'éditeur, nulle part « Aperçu du plan ») ; jsPDF absent (message, pas de surcouche) ;
+// k : positions propres à chaque plan (m169 ; P2, 1re partie), dans l'éditeur, sur des dessins construits : objet supprimé (Suppr), plan
+//     tourné, statut « Projet », type changé, avec Ctrl+Z et Ctrl+Maj+Z ; ménage à la réouverture du croquis ; texte libre décalé à l'écran
+//     (zone et toucher) ; garde : fermer puis rouvrir le croquis garde doc.plans et e.decal.
 // Sur e1ce71f (avant m168) : 7/59, les six « aucune erreur dans la console » et la garde « croquis désactivé » ; « jsPDF absent » échoue
 // faute de bouton « Aperçu du plan ». Avant la reprise du parcours (ordre de lecture, vue « × 2 », déplaçable choisi) : 47/59, les douze
-// contrôles de e qu'elle change ou ajoute échouent ; après : 59/59. Ni capture d'écran ni image : les pixels se lisent dans la page.
+// contrôles de e qu'elle change ou ajoute échouent ; après : 59/59. Sur 0e3a9e8 (avant m169) : 61/67 ; des huit contrôles de k, seuls
+// la garde et « aucune erreur dans la console » passent ; après : 67/67. Ni capture d'écran ni image : les pixels se lisent dans la page.
 // usage : node tests/navigateur/apercu.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -954,8 +958,148 @@ async function gardes(){
   } finally { await A.fermer(); }
 }
 
+/* ---------- k : positions propres à chaque plan (m169 ; P2, 1re partie) ---------- */
+/* égalité profonde, nombres à 1e-9 (positions relues de la page par JSON) */
+function egalK(x, y){
+  if (typeof x === 'number' && typeof y === 'number') return Math.abs(x - y) <= 1e-9;
+  if (Array.isArray(x) || Array.isArray(y)) return Array.isArray(x) && Array.isArray(y) && x.length === y.length && x.every((v, i) => egalK(v, y[i]));
+  if (x && y && typeof x === 'object' && typeof y === 'object'){
+    const kx = Object.keys(x).sort(), ky = Object.keys(y).sort();
+    return kx.join() === ky.join() && kx.every(k => egalK(x[k], y[k]));
+  }
+  return x === y;
+}
+/* axes du plan tourné de r (comme versPlan et depuisPlan du croquis) : un décalage noté dans les axes du plan d'avant (r0) et suivi par la
+   rotation garde sa direction dans le repère du croquis */
+const versK = (x, y, r) => ({x: x * Math.cos(r) + y * Math.sin(r), y: -x * Math.sin(r) + y * Math.cos(r)});
+const depuisK = (x, y, r) => ({x: x * Math.cos(r) - y * Math.sin(r), y: x * Math.sin(r) + y * Math.cos(r)});
+const suiviK = (v, r0, r1) => { const w = depuisK(v.dx, v.dy, r0), q = versK(w.x, w.y, r1); return Object.assign({}, v, {dx: q.x, dy: q.y}); };
+/* dessin injecté à 1/200, plan non tourné ; plans : positions propres de l'avant-projet (doc.plans), null : aucune */
+async function poserK(p, el, plans){
+  await C.injecter(p, {el, echelle: 200, mode: 'edl'});
+  await p.evaluate(plans => {
+    const ed = window.__vcEd, S = ed.etat; S.doc.rot = 0; S.vue.rot = 0;
+    if (plans === null) delete S.doc.plans; else S.doc.plans = plans;
+    ed.synchroniser(); ed.redessiner();
+  }, plans);
+}
+/* état relu : éléments, positions propres ('(absent)' sans doc.plans), orientation, longueur de l'historique, élément choisi */
+const etatK = p => p.evaluate(() => { const S = window.__vcEd.etat;
+  return JSON.parse(JSON.stringify({el: S.doc.el, plans: 'plans' in S.doc ? S.doc.plans : '(absent)', rot: S.doc.rot || 0, undo: S.undo.length, sel: S.sel ? S.sel.id : null})); });
+const elK = (e, id) => e.el.filter(x => x.id === id)[0] || null;
+const jsK = v => JSON.stringify(v, (k, x) => typeof x === 'number' ? +x.toFixed(4) : x);
+/* croquis enregistré (comme après un geste), fermé par « Retour », puis rouvert depuis le dossier : attend le dossier relu (un autre objet) */
+async function rouvrirK(p){
+  await p.evaluate(() => { const ed = window.__vcEd, S = ed.etat; S.doc.rev = (S.doc.rev || 0) + 1; ed.enregistrer(); window.__kAncien = S.doc; });
+  await C.fermerCroquis(p);
+  await p.click('[data-act="vc-ouvrir"]');
+  const ok = await attendreQue(p, () => { const ed = window.__vcEd; return !!ed && !!ed.doc() && ed.doc() !== window.__kAncien && !!document.querySelector('#modal-root .vc .vc-nav'); }, null, 10000);
+  if (!ok) throw new Error('croquis non rouvert');
+}
+/* touches envoyées au plan : focus sur l'éditeur (Suppr n'agit que là) */
+async function toucheK(p, k){ await p.evaluate(() => document.querySelector('.vc').focus()); await p.keyboard.press(k); }
+async function positionsPropres(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    await controle('k1 : objet supprimé (Suppr) : sa position propre de l\'avant-projet part avec lui, celle d\'un autre reste ; Ctrl+Z les rend, Ctrl+Maj+Z les ôte de nouveau', async () => {
+      const avec = {avp: {lab: {A: {dx: 0, dy: 2, main: true}, B: {auto: true}}}}, sans = {avp: {lab: {B: {auto: true}}}}, ko = [];
+      await poserK(p, [Rg('A', -5, 0, 'Regard fictif A', null), Rg('B', 5, 0, 'Regard fictif B', null)], avec);
+      await p.evaluate(() => window.__vcEd.selectionner('A'));
+      const pas = [['Delete', false, sans, 'Suppr'], ['Control+z', true, avec, 'Ctrl+Z'], ['Control+Shift+z', false, sans, 'Ctrl+Maj+Z']];
+      for (const [k, la, att, nom] of pas){
+        await toucheK(p, k);
+        const ok = await attendreQue(p, la => window.__vcEd.etat.doc.el.some(e => e.id === 'A') === la, la);
+        const e = await etatK(p);
+        if (!ok || !elK(e, 'B') || !egalK(e.plans, att)) ko.push('après ' + nom + ' : ' + (ok ? '' : 'A ' + (la ? 'absent' : 'encore là') + ', ') + 'positions propres ' + jsK(e.plans));
+      }
+      return [!ko.length, ko.join(' ; ')];
+    });
+    await controle('k2 : plan tourné (« Tourner le plan à gauche ») : les positions propres placées à la main et celles des textes, ainsi que l\'écart d\'un texte, suivent le dessin ; une position d\'office d\'un objet reste, celle d\'un tracé est reposée d\'office ; Ctrl+Z rend tout', async () => {
+      const a = Rg('A', -5, 0, 'Regard fictif A', null), b = Rg('B', 5, 0, 'Regard fictif B', null), l1 = C.L('L1', 'tr', ['A', 'B'], C.index([a, b]), {res: 'EU'});
+      const x = {id: 'X', k: 'tx', x: 2, y: 4, txt: 'Texte fictif', taille: 2.5, decal: {dx: 1, dy: 2}};
+      const plans = {avp: {lab: {A: {dx: 0, dy: 2, main: true}, B: {dx: 0.5, dy: 0.5}, L1: {dx: 0, dy: 1, E: 200}, X: {dx: -1, dy: 1}}}}, ko = [];
+      await poserK(p, [a, b, l1, x], plans);
+      const e0 = await etatK(p);
+      await p.evaluate(() => document.querySelector('.vc .vc-nav [data-a="rotg"]').click());
+      if (!(await attendreQue(p, () => Math.abs(window.__vcEd.etat.doc.rot || 0) > 1e-9))) return [false, 'plan non tourné'];
+      const e1 = await etatK(p), r0 = e0.rot, r1 = e1.rot, L = plans.avp.lab;
+      const att = {avp: {lab: {A: suiviK(L.A, r0, r1), B: L.B, L1: {auto: true}, X: suiviK(L.X, r0, r1)}}}, dx = suiviK(x.decal, r0, r1);
+      if (!egalK(e1.plans, att)) ko.push('positions propres ' + jsK(e1.plans) + ' au lieu de ' + jsK(att));
+      if (!elK(e1, 'X') || !egalK(elK(e1, 'X').decal, dx)) ko.push('écart du texte ' + jsK(elK(e1, 'X') && elK(e1, 'X').decal) + ' au lieu de ' + jsK(dx));
+      await toucheK(p, 'Control+z');
+      if (!(await attendreQue(p, r0 => Math.abs((window.__vcEd.etat.doc.rot || 0) - r0) < 1e-12, r0))) ko.push('Ctrl+Z : plan non ramené');
+      const e2 = await etatK(p);
+      if (!egalK(e2.plans, plans) || !elK(e2, 'X') || !egalK(elK(e2, 'X').decal, x.decal)) ko.push('après Ctrl+Z : ' + jsK(e2.plans) + ', écart ' + jsK(elK(e2, 'X') && elK(e2, 'X').decal));
+      return [!ko.length, (ko.join(' ; ') || 'rotation de ' + ((r1 - r0) * 180 / Math.PI).toFixed(1) + '°')];
+    });
+    await controle('k3 : statut « Projet » (puce de la fiche) : la position propre de l\'avant-projet devient l\'étiquette de l\'objet et son entrée est ôtée, en un seul pas d\'annulation ; Ctrl+Z rend tout', async () => {
+      const plans = {avp: {lab: {A: {dx: 1, dy: 1, main: true}, B: {auto: true}}}}, ko = [];
+      await poserK(p, [Rg('A', -5, 0, 'Regard fictif A', {dx: 0, dy: 1.5}), Rg('B', 5, 0, 'Regard fictif B', null)], plans);
+      await p.evaluate(() => window.__vcEd.selectionner('A'));
+      const puce = await p.waitForSelector('.vc .vc-pcorps [data-a="prop"][data-k="st"][data-v="projet"]', {timeout: 3000}).catch(() => null);
+      if (!puce) return [false, 'pas de puce « Projet » dans la fiche de A'];
+      const e0 = await etatK(p);
+      await puce.click();
+      if (!(await attendreQue(p, () => { const a = window.__vcEd.etat.doc.el.filter(e => e.id === 'A')[0]; return !!a && a.p.st === 'projet'; }))) return [false, 'statut non changé'];
+      const e1 = await etatK(p), a1 = elK(e1, 'A');
+      if (!egalK(a1.lab, {dx: 1, dy: 1, main: true})) ko.push('étiquette ' + jsK(a1.lab) + ' au lieu de la position propre');
+      if (!egalK(e1.plans, {avp: {lab: {B: {auto: true}}}})) ko.push('positions propres ' + jsK(e1.plans));
+      if (e1.undo !== e0.undo + 1) ko.push(e1.undo - e0.undo + ' pas d\'annulation');
+      await toucheK(p, 'Control+z');
+      if (!(await attendreQue(p, () => { const a = window.__vcEd.etat.doc.el.filter(e => e.id === 'A')[0]; return !!a && a.p.st === 'existant'; }))) ko.push('Ctrl+Z : statut non rendu');
+      const e2 = await etatK(p);
+      if (!egalK(elK(e2, 'A').lab, {dx: 0, dy: 1.5, main: true}) || !egalK(e2.plans, plans)) ko.push('après Ctrl+Z : étiquette ' + jsK(elK(e2, 'A').lab) + ', ' + jsK(e2.plans));
+      return [!ko.length, ko.join(' ; ')];
+    });
+    await controle('k4 : type changé (fiche) : la position propre placée de l\'objet est reposée d\'office, une étiquette masquée sur l\'avant-projet le reste', async () => {
+      await poserK(p, [Rg('A', -5, 0, 'Regard fictif A', null), Rg('B', 5, 0, 'Regard fictif B', null)], {avp: {lab: {A: {dx: 1, dy: 1, main: true}, B: {off: true}}}});
+      for (const id of ['A', 'B']){
+        await p.evaluate(id => window.__vcEd.selectionner(id), id);
+        const s = await p.waitForSelector('.vc .vc-pcorps select[data-a="type"]', {timeout: 3000}).catch(() => null);
+        if (!s) return [false, 'pas de choix du type dans la fiche de ' + id];
+        await s.selectOption('boite');
+        if (!(await attendreQue(p, id => { const e = window.__vcEd.etat.doc.el.filter(x => x.id === id)[0]; return !!e && e.t === 'boite'; }, id))) return [false, id + ' : type non changé'];
+      }
+      const e = await etatK(p), att = {avp: {lab: {A: {auto: true}, B: {off: true}}}};
+      return [egalK(e.plans, att), jsK(e.plans)];
+    });
+    await controle('k5 : croquis rouvert : la position propre d\'un élément absent est ôtée, celle d\'un élément présent gardée ; des positions propres illisibles sont ôtées', async () => {
+      await poserK(p, [Rg('A', -5, 0, 'Regard fictif A', null), Rg('B', 5, 0, 'Regard fictif B', null)], {avp: {lab: {ZZ: {auto: true}, A: {auto: true}}}});
+      await rouvrirK(p);
+      const e1 = await etatK(p);
+      await p.evaluate(() => { window.__vcEd.etat.doc.plans = 'x'; });
+      await rouvrirK(p);
+      const e2 = await etatK(p), ko = [];
+      if (!egalK(e1.plans, {avp: {lab: {A: {auto: true}}}})) ko.push('élément absent : ' + jsK(e1.plans));
+      if (e2.plans !== '(absent)') ko.push('illisibles : ' + jsK(e2.plans));
+      return [!ko.length, ko.join(' ; ')];
+    });
+    await controle('k6 : texte libre décalé (e.decal) : à l\'écran, sa zone est centrée sur son point plus l\'écart (0,5 px près) ; un toucher à cet endroit le choisit', async () => {
+      await poserK(p, [{id: 'X1', k: 'tx', x: 0, y: 0, txt: 'Texte fictif', taille: 2.5, decal: {dx: 0, dy: 4}}], null);
+      await C.outil(p, {k: 'main'});
+      await C.regler(p, 0, 0, 30);
+      /* dessin fait à la nouvelle vue (il est demandé pour l'image suivante) */
+      if (!(await attendreQue(p, () => { const S = window.__vcEd.etat; return !S.dessinDemande && Math.abs(S.vue.s - 30) < 1e-9 && (S.zones || []).some(z => z.type === 'tx' && z.id === 'X1'); }))) return [false, 'pas de zone pour le texte'];
+      const r = await p.evaluate(() => { const S = window.__vcEd.etat, z = S.zones.filter(z => z.type === 'tx' && z.id === 'X1')[0]; return {b: z.b, A: S.vue.ecran(0, 0), s: S.vue.s}; });
+      const c = {x: (r.b[0] + r.b[2]) / 2, y: (r.b[1] + r.b[3]) / 2}, att = {x: r.A.x, y: r.A.y - 4 * r.s}, ko = [];
+      if (Math.abs(c.x - att.x) > 0.5 || Math.abs(c.y - att.y) > 0.5) ko.push('zone centrée en ' + c.x.toFixed(1) + ', ' + c.y.toFixed(1) + ' au lieu de ' + att.x.toFixed(1) + ', ' + att.y.toFixed(1));
+      await C.toucherCv(p, att);
+      if (!(await attendreQue(p, () => !!window.__vcEd.etat.sel && window.__vcEd.etat.sel.id === 'X1'))) ko.push('toucher : choix ' + (await etatK(p)).sel);
+      return [!ko.length, ko.join(' ; ')];
+    });
+    await controle('k7 : garde : croquis fermé puis rouvert : positions propres de l\'avant-projet et écart d\'un texte gardés (passe aussi avant m169)', async () => {
+      const plans = {avp: {lab: {A: {dx: 1, dy: 2, main: true}, X1: {dx: -1, dy: 1}}, bulle: {m1: {dx: 1, dy: 1}}, echelle: 500}};
+      await poserK(p, [Rg('A', -5, 0, 'Regard fictif A', null), {id: 'X1', k: 'tx', x: 2, y: 4, txt: 'Texte fictif', taille: 2.5, decal: {dx: 0.5, dy: -1}}], plans);
+      await rouvrirK(p);
+      const e = await etatK(p), x1 = elK(e, 'X1');
+      return [egalK(e.plans, plans) && !!x1 && egalK(x1.decal, {dx: 0.5, dy: -1}), jsK(e.plans) + ', écart ' + jsK(x1 && x1.decal)];
+    });
+    erreurs(A, 'k : positions propres (passe aussi avant m169)');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [demonstration, zoom, compteur, choix, bandeau, clavier, gardes]){
+  for (const f of [demonstration, zoom, compteur, choix, bandeau, clavier, gardes, positionsPropres]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception du test : ' + String(e && e.stack || e).split('\n').slice(0, 2).join(' ')); }
   }
   R.fin();

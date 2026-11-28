@@ -3245,8 +3245,9 @@ function ancre(e, idx){
 VC.ancre = ancre;
 /* point d'attache d'une bulle d'anomalie : le symbole, ou le milieu du plus long segment d'un tronçon */
 function ancreBulle(ob, idx){ return ob.k === 'ln' ? ancre(ob, idx) : {x: ob.x, y: ob.y}; }
-/* Placement proposé d'une étiquette, dans le repère du plan (mètres) : la position la moins encombrée autour de l'ancre */
-function placerEtiquette(doc, an, e, E, idx, obstacles){
+/* Placement proposé d'une étiquette, dans le repère du plan (mètres) : la position la moins encombrée autour de l'ancre ; mode : plan dont
+   les étiquettes font obstacle (positions propres de l'avant-projet, m169) */
+function placerEtiquette(doc, an, e, E, idx, obstacles, mode){
   var txt = texteEtiquette(e, an); if (!txt) return null;
   var m = E / 1000, rot = doc.rot || 0, b = boiteTexte(txt, TAILLE_ETIQ * m), a = ancre(e, idx), A = versPlan(a.x, a.y, rot), cands = [];
   if (e.k === 'pt'){
@@ -3259,7 +3260,7 @@ function placerEtiquette(doc, an, e, E, idx, obstacles){
     [1, -1].forEach(function(sg){ [0, .35, -.35].forEach(function(f){ var L = b.w * f; cands.push({dx: sg * nx * (d0 + ext) + tx * L, dy: sg * ny * (d0 + ext) + ty * L}); }); });
     if (ny < 0) cands = cands.slice(3).concat(cands.slice(0, 3));
   }
-  obstacles = obstacles || obstaclesPlan(doc, an, E, idx, e.id);
+  obstacles = obstacles || obstaclesPlan(doc, an, E, idx, e.id, mode);
   var best = null, bs = Infinity;
   cands.forEach(function(c, k){
     var bx = [A.x + c.dx - b.w / 2, A.y + c.dy - b.h / 2, A.x + c.dx + b.w / 2, A.y + c.dy + b.h / 2], sc = k * .01;
@@ -3273,6 +3274,178 @@ function placerEtiquette(doc, an, e, E, idx, obstacles){
 function decalLab(lab, E){ lab = lab || {}; var k = vcEchelle(lab.E) && E > 0 ? E / lab.E : 1; return {dx: (lab.dx || 0) * k, dy: (lab.dy || 0) * k}; }
 function vcEchelle(x){ return typeof x === 'number' && isFinite(x) && x >= 50 && x <= 100000; }
 VC.decalLab = decalLab;
+/* ---------- Positions propres à chaque plan (m169 ; A11 à A14 bis, A21 et A22 de la conception de l'aperçu) ----------
+   doc.plans.avp garde les positions de l'avant-projet qui diffèrent de celles de l'état des lieux : lab (étiquettes, et écarts des textes
+   libres, par id d'élément), bulle (bulles, par clé d'anomalie) et echelle. Une valeur est une position {dx, dy, E?, main?, ecart?} (mètres
+   du repère du plan), {auto: true} (posée d'office) ou {off: true} (masquée) ; une valeur ou un conteneur invalide se lit comme absent.
+   e.decal : écart d'un texte libre depuis son point, sur l'état des lieux. Sans doc.plans ni e.decal, tout se lit comme avant. */
+/* objet simple, ni null ni tableau : seul conteneur valide pour doc.plans et ses parties, et pour les décisions (A12 et A14 ; m169) */
+function objetSimple(x){ return !!x && typeof x === 'object' && !Array.isArray(x); }
+/* position valide (A11 ; m169) : dx et dy, nombres finis */
+function posOk(p){ return !!p && typeof p.dx === 'number' && typeof p.dy === 'number' && isFinite(p.dx) && isFinite(p.dy); }
+/* valeur propre de l'avant-projet (sorte 'lab' ou 'bulle', clé cle), telle quelle ; undefined si elle est absente ou invalide (A11 ; m169) */
+function propreAvp(doc, sorte, cle){
+  var a = doc.plans && doc.plans.avp, t = a && typeof a[sorte] === 'object' ? a[sorte] : null, v = t && Object.prototype.hasOwnProperty.call(t, cle) ? t[cle] : undefined;
+  return v && (v.auto === true || v.off === true || posOk(v)) ? v : undefined;
+}
+/* élément de l'avant-projet seul (statut « Projet ») : son étiquette est e.lab sur les deux plans (A11 ; m169) */
+function seulProjet(e){ return !!(e.p && e.p.st === 'projet'); }
+/* étiquette d'un élément sur le plan mode (A11 ; m169) : sa valeur propre sur l'avant-projet (auto : null, posée d'office), sinon e.lab */
+function labPlan(doc, e, mode){ var v = mode === 'avp' && !seulProjet(e) ? propreAvp(doc, 'lab', e.id) : undefined;
+  return v === undefined ? (e.lab || null) : (v.auto ? null : v); }
+/* écart d'un texte libre sur le plan mode (A11 ; m169) : sa valeur propre sur l'avant-projet, sinon e.decal ; null : le texte est à son point */
+function decalPlan(doc, e, mode){ var v = mode === 'avp' && !seulProjet(e) ? propreAvp(doc, 'lab', e.id) : undefined;
+  if (v === undefined) v = e.decal; return posOk(v) && !v.auto ? v : null; }
+/* bulle d'une anomalie sur le plan mode (A11 ; m169) : sa valeur propre sur l'avant-projet (auto : null, posée d'office), sinon a.bulle */
+function bullePlan(doc, a, mode){ var v = mode === 'avp' ? propreAvp(doc, 'bulle', a.cle) : undefined;
+  return v === undefined ? (a.bulle || null) : (v.auto || !posOk(v) ? null : v); }
+/* échelle du plan mode (A21 ; m169) : celle de l'avant-projet si elle est valide (0 : automatique), sinon celle du dossier ; automatique à défaut */
+function echellePlan(doc, mode){ var a = mode === 'avp' && doc.plans && doc.plans.avp;
+  var v = a && typeof a.echelle === 'number' && (a.echelle === 0 || vcEchelle(a.echelle)) ? a.echelle : doc.echelle;
+  return v > 0 ? v : echelleAuto(doc, mode); }
+/* dossier dont l'avant-projet diffère de l'état des lieux (A12 et A21 ; m169) : un tracé projeté ou un ouvrage à supprimer */
+function aProjet(doc){ return (Array.isArray(doc.el) ? doc.el : []).some(function(e){ return e && e.p && (e.p.st === 'projet' || e.p.st === 'supprimer'); }); }
+VC.posOk = posOk; VC.propreAvp = propreAvp; VC.labPlan = labPlan; VC.decalPlan = decalPlan; VC.bullePlan = bullePlan; VC.echellePlan = echellePlan;
+/* conteneur des positions propres de l'avant-projet (A12 ; m169), créé au besoin : doc.plans.avp, ou son lab ou sa bulle (sorte) ; un
+   conteneur qui n'est pas un objet simple est remplacé par {} */
+function conteneurAvp(doc, sorte){
+  if (!objetSimple(doc.plans)) doc.plans = {};
+  if (!objetSimple(doc.plans.avp)) doc.plans.avp = {};
+  if (!sorte) return doc.plans.avp;
+  if (!objetSimple(doc.plans.avp[sorte])) doc.plans.avp[sorte] = {};
+  return doc.plans.avp[sorte];
+}
+/* anomalie manuelle d'id cle : sa bulle est la sienne, comme au glisser (A12 ; m169) */
+function manuDe(doc, cle){ return (Array.isArray(doc.anomManu) ? doc.anomManu : []).filter(function(m){ return m && m.id === cle; })[0]; }
+/* Écrire une position sur un plan (A12 et A13 de la conception de l'aperçu ; m169). mode : 'edl' ou 'avp' ; sorte : 'lab' (cle : id d'un
+   élément ; pour un texte libre, son écart), 'bulle' (cle : clé d'une anomalie) ou 'echelle' (cle ignorée). v, lu dans cet ordre :
+   {auto: true} (posée d'office), {off: true} (masquée ; ni pour un texte ni pour une bulle), une position (copiée), null (ôte la valeur
+   propre de l'avant-projet) ; pour l'échelle : 0 (automatique), une échelle valide, ou null (avant-projet seulement). L'état des lieux
+   s'écrit dans le dossier (e.lab, e.decal, bulle de l'anomalie, doc.echelle), l'avant-projet dans doc.plans.avp ; un élément « Projet »
+   n'est que sur l'avant-projet : son étiquette est e.lab dans les deux modes. Dossier à avant-projet : la première écriture sur l'état
+   des lieux recopie d'abord sur l'avant-projet ce qu'il montrait (gel), pour qu'il ne bouge pas. Rend true, ou false sans rien changer. */
+function ecrirePos(doc, mode, sorte, cle, v){
+  if (mode !== 'edl' && mode !== 'avp') return false;
+  var e = null, val;
+  if (sorte === 'lab'){ e = (Array.isArray(doc.el) ? doc.el : []).filter(function(x){ return x && x.id === cle; })[0]; if (!e) return false; }
+  else if (sorte === 'bulle'){ if (typeof cle !== 'string' || !cle) return false; }
+  else if (sorte !== 'echelle') return false;
+  /* clé qui toucherait au prototype d'un conteneur ou des décisions : refusée */
+  if (sorte !== 'echelle' && cle === '__proto__') return false;
+  var texte = !!e && e.k === 'tx', seul = !!e && seulProjet(e);
+  if (sorte === 'echelle') val = v === null ? null : typeof v === 'number' && (v === 0 || vcEchelle(v)) ? v || 0 : undefined;
+  else if (v === null) val = null;
+  else if (v && v.auto === true) val = {auto: true};
+  else if (v && v.off === true) val = sorte === 'lab' && !texte ? {off: true} : undefined;
+  else if (posOk(v)) val = copie(v);
+  if (val === undefined || (val === null && (mode === 'edl' || seul))) return false;
+  if (mode === 'edl' || seul){
+    if (mode === 'edl' && !seul && aProjet(doc)) gelerAvp(doc, sorte, cle, e);
+    ecrireDossier(doc, sorte, cle, e, val);
+  }
+  else if (val === null){
+    var a = objetSimple(doc.plans) && objetSimple(doc.plans.avp) ? doc.plans.avp : null;
+    if (a && sorte === 'echelle') delete a.echelle; else if (a && objetSimple(a[sorte])) delete a[sorte][cle];
+  }
+  else if (sorte === 'echelle') conteneurAvp(doc).echelle = val;
+  else conteneurAvp(doc, sorte)[cle] = val;
+  menagePlans(doc);
+  return true;
+}
+/* écriture dans le dossier (A12 ; m169) : étiquette (e.lab ; auto : null), écart d'un texte libre (e.decal ; auto : ôté), bulle (comme le
+   glisser : l'anomalie manuelle d'id cle, sinon la décision doc.decisions[cle], créée au besoin ; auto : champ bulle ôté), échelle */
+function ecrireDossier(doc, sorte, cle, e, val){
+  if (sorte === 'echelle'){ doc.echelle = val; return; }
+  if (sorte === 'lab'){
+    if (e.k === 'tx'){ if (val.auto) delete e.decal; else e.decal = val; }
+    else e.lab = val.auto ? null : val;
+    return;
+  }
+  var man = manuDe(doc, cle);
+  if (man){ if (val.auto) delete man.bulle; else man.bulle = val; return; }
+  var d = objetSimple(doc.decisions) ? doc.decisions[cle] : undefined;
+  if (val.auto){ if (objetSimple(d)) delete d.bulle; return; }
+  if (!objetSimple(doc.decisions)) doc.decisions = {};
+  if (!objetSimple(d)) d = doc.decisions[cle] = {};
+  d.bulle = val;
+}
+/* gel (A12 ; m169) : avant une écriture sur l'état des lieux d'un dossier à avant-projet, ce que l'avant-projet montrait (il lisait l'état
+   des lieux) y devient sa valeur propre, s'il n'en a pas : étiquette masquée, position copiée, ou posée d'office ; échelle du dossier (0 :
+   automatique) */
+function gelerAvp(doc, sorte, cle, e){
+  if (sorte === 'echelle'){
+    var a = objetSimple(doc.plans) && objetSimple(doc.plans.avp) ? doc.plans.avp : null;
+    if (!a || typeof a.echelle !== 'number' || !(a.echelle === 0 || vcEchelle(a.echelle))) conteneurAvp(doc).echelle = doc.echelle > 0 ? doc.echelle : 0;
+    return;
+  }
+  if (propreAvp(doc, sorte, cle) !== undefined) return;
+  var g, b, man;
+  if (sorte === 'bulle'){ man = manuDe(doc, cle); b = man ? man.bulle : ((objetSimple(doc.decisions) ? doc.decisions[cle] : null) || {}).bulle; g = posOk(b) ? copie(b) : {auto: true}; }
+  else if (e.k === 'tx') g = posOk(e.decal) ? copie(e.decal) : {auto: true};
+  else g = e.lab && e.lab.off ? {off: true} : posOk(e.lab) ? copie(e.lab) : {auto: true};
+  conteneurAvp(doc, sorte)[cle] = g;
+}
+/* Ménage des positions propres (A14 ; m169) : doc.plans, avp, avp.lab et avp.bulle qui ne sont pas des objets simples sont ôtés ; avp.lab
+   perd les éléments absents (les bulles restent : une anomalie peut revenir) ; les conteneurs vides sont ôtés ; les clés inconnues et les
+   valeurs invalides restent */
+function menagePlans(doc){
+  if (!('plans' in doc)) return;
+  var p = doc.plans;
+  if (!objetSimple(p)){ delete doc.plans; return; }
+  if ('avp' in p){
+    var a = p.avp;
+    if (!objetSimple(a)) delete p.avp;
+    else {
+      if ('lab' in a){
+        if (!objetSimple(a.lab)) delete a.lab;
+        else {
+          var ids = Object.create(null); (Array.isArray(doc.el) ? doc.el : []).forEach(function(e){ if (e && e.id != null) ids[e.id] = true; });
+          Object.keys(a.lab).forEach(function(k){ if (!ids[k]) delete a.lab[k]; });
+          if (!Object.keys(a.lab).length) delete a.lab;
+        }
+      }
+      if ('bulle' in a && (!objetSimple(a.bulle) || !Object.keys(a.bulle).length)) delete a.bulle;
+      if (!Object.keys(a).length) delete p.avp;
+    }
+  }
+  if (!Object.keys(p).length) delete doc.plans;
+}
+/* Élément passé au statut « Projet » (A14 bis ; m169) : il n'est plus que sur l'avant-projet ; sa valeur propre y devient son étiquette
+   (auto : posée d'office, off : masquée, position copiée ; une valeur invalide est ignorée), puis son entrée est ôtée */
+function reporterProjet(doc, e){
+  if (!e || e.k === 'tx' || !seulProjet(e)) return;
+  var t = objetSimple(doc.plans) && objetSimple(doc.plans.avp) && objetSimple(doc.plans.avp.lab) ? doc.plans.avp.lab : null;
+  if (!t || !Object.prototype.hasOwnProperty.call(t, e.id)) return;
+  var v = t[e.id];
+  if (v && v.auto === true) e.lab = null; else if (v && v.off === true) e.lab = {off: true}; else if (posOk(v)) e.lab = copie(v);
+  delete t[e.id];
+  menagePlans(doc);
+}
+/* Plan tourné de r0 à r1 (A22 ; m169) : les écarts des textes libres, les positions propres placées à la main (main, ecart) ou d'un texte
+   et les bulles propres suivent le dessin ; une position propre posée d'office sur un tracé est reposée d'office ({auto: true}), même sans
+   rotation, comme son étiquette de l'état des lieux ; auto, off, valeurs invalides et éléments absents ne changent pas */
+function tournerPlans(doc, r0, r1, idx){
+  var tourne = Math.abs(r1 - r0) > 1e-12;
+  function suivre(v){ var w = depuisPlan(v.dx, v.dy, r0), q = versPlan(w.x, w.y, r1); v.dx = q.x; v.dy = q.y; }
+  if (tourne) (Array.isArray(doc.el) ? doc.el : []).forEach(function(e){ if (e && e.k === 'tx' && posOk(e.decal)) suivre(e.decal); });
+  var a = objetSimple(doc.plans) && objetSimple(doc.plans.avp) ? doc.plans.avp : null;
+  if (!a) return;
+  idx = idx || indexDoc(doc);
+  if (objetSimple(a.lab)) Object.keys(a.lab).forEach(function(k){
+    var e = Object.prototype.hasOwnProperty.call(idx, k) ? idx[k] : null, v = a.lab[k];
+    if (!e || !v || v.auto === true || v.off === true || !posOk(v)) return;
+    if (e.k === 'tx' || v.main || v.ecart){ if (tourne) suivre(v); }
+    else if (e.k === 'ln') a.lab[k] = {auto: true};
+  });
+  if (tourne && objetSimple(a.bulle)) Object.keys(a.bulle).forEach(function(k){ var v = a.bulle[k]; if (v && v.auto !== true && posOk(v)) suivre(v); });
+}
+/* Type d'un élément changé (A22 ; m169) : sa position propre de l'avant-projet est reposée d'office, comme son étiquette (off et auto
+   restent) */
+function reposerPropre(doc, id){
+  var v = propreAvp(doc, 'lab', id);
+  if (v && v.auto !== true && v.off !== true) doc.plans.avp.lab[id] = {auto: true};
+}
+VC.ecrirePos = ecrirePos; VC.menagePlans = menagePlans; VC.reporterProjet = reporterProjet; VC.tournerPlans = tournerPlans; VC.reposerPropre = reposerPropre;
 function segBoite(s, b){
   var x1 = s[0], y1 = s[1], x2 = s[2], y2 = s[3];
   if (Math.max(x1, x2) < b[0] || Math.min(x1, x2) > b[2] || Math.max(y1, y2) < b[1] || Math.min(y1, y2) > b[3]) return false;
@@ -3284,15 +3457,17 @@ function segBoite(s, b){
 function segSeg(a, b, c, d, e, f, g, h){ var den = (c - a) * (h - f) - (d - b) * (g - e); if (!den) return false; var t = ((e - a) * (h - f) - (f - b) * (g - e)) / den, u = ((e - a) * (d - b) - (f - b) * (c - a)) / den; return t >= 0 && t <= 1 && u >= 0 && u <= 1; }
 /* Encombrement du plan (repère du plan) : symboles, étiquettes déjà posées, segments de tracés. Une étiquette vide ne pose rien : celle
    d'un membre d'une étiquette commune (m134 ; D6), même déplacée à la main ; celle du porteur a ses deux lignes (boiteTexte) */
-function obstaclesPlan(doc, an, E, idx, sauf){
+function obstaclesPlan(doc, an, E, idx, sauf, mode){
   var m = E / 1000, rot = doc.rot || 0, boites = [], segs = [];
   doc.el.forEach(function(e){
     if (e.k === 'pt'){ var A = versPlan(e.x, e.y, rot), r = rayonSymbole(e.t) * m; boites.push([A.x - r, A.y - r, A.x + r, A.y + r]); }
     if (e.k === 'ln') segmentsTrace(e, idx).forEach(function(sg){ var a = versPlan(sg[0].x, sg[0].y, rot), b = versPlan(sg[1].x, sg[1].y, rot); segs.push([a.x, a.y, b.x, b.y]); });
-    if (e.id !== sauf && e.lab && !e.lab.off){
+    /* étiquette du plan mode (positions propres de l'avant-projet, m169) ; un texte libre garde la lecture d'avant (e.lab) */
+    var L = e.k === 'tx' ? e.lab : labPlan(doc, e, mode);
+    if (e.id !== sauf && L && !L.off){
       var txt = texteEtiquette(e, an); if (!txt) return;
       var b = boiteTexte(txt, TAILLE_ETIQ * m), a = ancre(e, idx), A2 = versPlan(a.x, a.y, rot);
-      var dl = decalLab(e.lab, E); boites.push([A2.x + dl.dx - b.w / 2, A2.y + dl.dy - b.h / 2, A2.x + dl.dx + b.w / 2, A2.y + dl.dy + b.h / 2]);
+      var dl = decalLab(L, E); boites.push([A2.x + dl.dx - b.w / 2, A2.y + dl.dy - b.h / 2, A2.x + dl.dx + b.w / 2, A2.y + dl.dy + b.h / 2]);
     }
   });
   return {boites: boites, segs: segs};
@@ -3427,7 +3602,8 @@ function dessinerCroquis(ctx, doc, an, vue, dpr, o){
     var libre = e.k === 'tx', txt = libre ? e.txt : texteEtiquette(e, an);
     if (!txt || (!libre && (!montrer || (e.lab && e.lab.off)))) return;
     var h = libre ? Math.max(9, (num(e.taille) || 2.5) * k) : hpx; if (libre && h < 6.5 && o.sel !== e.id) h = 6.5;
-    var a = ancre(e, idx), A = vue.ecran(a.x, a.y), lab = libre ? {dx: 0, dy: 0} : decalLab(e.lab || placerEtiquette(doc, an, e, E, idx) || {dx: 0, dy: 0}, E);
+    /* écart d'un texte libre depuis son point (e.decal : l'écran suit l'état des lieux ; positions propres de l'avant-projet, m169) */
+    var a = ancre(e, idx), A = vue.ecran(a.x, a.y), lab = libre ? decalLab(decalPlan(doc, e, 'edl'), E) : decalLab(e.lab || placerEtiquette(doc, an, e, E, idx) || {dx: 0, dy: 0}, E);
     var cx = A.x + lab.dx * vue.s, cy = A.y - lab.dy * vue.s, L = String(txt).split('\n');
     var col = libre ? '#1f2328' : e.k === 'pt' ? (TXT_RES[(function(){ var r = an.resPt[e.id]; var ty = T[e.t] || {}; if (e.p.st === 'projet') return 'PRJ'; if (ty.role === 'source') return ty.nat; if (ty.role === 'note') return 'ANN'; return r; })()] || TXT_RES.INC) : TXT_RES[resLigne(e, an)] || TXT_RES.INC;
     ctx.globalAlpha = attenue(e) ? .4 : 1;
@@ -3459,13 +3635,14 @@ function dessinerCroquis(ctx, doc, an, vue, dpr, o){
   ctx.restore();
   return zones;
 }
-/* Position des bulles non déplacées à la main : autour de l'objet, à l'endroit le moins encombré, sans se chevaucher */
-function placerBulles(doc, an, liste, E, idx){
-  var m = E / 1000, rot = doc.rot || 0, obs = obstaclesPlan(doc, an, E, idx, null), res = {}, r = TAILLE_BULLE * m;
+/* Position des bulles non déplacées à la main : autour de l'objet, à l'endroit le moins encombré, sans se chevaucher ; mode : plan dont les
+   bulles et les étiquettes placées sont lues (positions propres de l'avant-projet, m169) ; une bulle placée est ramenée à l'échelle E */
+function placerBulles(doc, an, liste, E, idx, mode){
+  var m = E / 1000, rot = doc.rot || 0, obs = obstaclesPlan(doc, an, E, idx, null, mode), res = {}, r = TAILLE_BULLE * m;
   function boite(q){ return [q.x - r, q.y - r, q.x + r, q.y + r]; }
-  (liste || []).forEach(function(a){ if (a.num && a.bulle && a.objId && idx[a.objId]){ var ob = idx[a.objId], P0 = ancreBulle(ob, idx), A = versPlan(P0.x, P0.y, rot); obs.boites.push(boite({x: A.x + a.bulle.dx, y: A.y + a.bulle.dy})); res[a.cle] = a.bulle; } });
+  (liste || []).forEach(function(a){ var bP = bullePlan(doc, a, mode); if (a.num && bP && a.objId && idx[a.objId]){ var ob = idx[a.objId], P0 = ancreBulle(ob, idx), A = versPlan(P0.x, P0.y, rot), dd = decalLab(bP, E); obs.boites.push(boite({x: A.x + dd.dx, y: A.y + dd.dy})); res[a.cle] = dd; } });
   (liste || []).forEach(function(a){
-    if (!a.num || a.bulle || !a.objId || !idx[a.objId]) return;
+    if (!a.num || bullePlan(doc, a, mode) || !a.objId || !idx[a.objId]) return;
     var ob = idx[a.objId], P0 = ancreBulle(ob, idx), A = versPlan(P0.x, P0.y, rot), R = (ob.k === 'pt' ? rayonSymbole(ob.t) : 1.2) * m, best = null, bs = Infinity;
     [1.15, 2.1, 3.1].forEach(function(f, fi){
       [135, 45, 180, 0, 225, 315, 90, 270].forEach(function(deg, k){
@@ -3560,13 +3737,15 @@ function echelleDoc(doc){ return doc.echelle > 0 ? doc.echelle : echelleAuto(doc
 function depasseCadre(doc, mode){
   mode = mode || 'edl';
   var pts = pointsPlan(doc, mode); if (!pts.b) return false;
-  return coupePlan(doc, mode, doc.echelle > 0 ? doc.echelle : echelleAuto(doc, mode), pts);
+  /* échelle du plan : celle de l'avant-projet quand elle lui est propre (m169) */
+  return coupePlan(doc, mode, echellePlan(doc, mode), pts);
 }
 /* échelle de chaque plan (choisie à la main pour les deux, ou automatique pour chacun) et plans qui dépassent leur cadre ; avant-projet dès
-   qu'il diffère de l'état des lieux : tracé projeté ou ouvrage à supprimer (fosse supprimée, raccordement direct) */
+   qu'il diffère de l'état des lieux : tracé projeté ou ouvrage à supprimer (fosse supprimée, raccordement direct) ; auto : échelle du
+   dossier automatique ; avp : échelle propre de l'avant-projet quand il en a une (m169) */
 function echellesPlans(doc){
-  var projet = doc.el.some(function(e){ return e.p && (e.p.st === 'projet' || e.p.st === 'supprimer'); }), auto = !(doc.echelle > 0);
-  return {auto: auto, edl: auto ? echelleAuto(doc, 'edl') : doc.echelle, avp: projet ? (auto ? echelleAuto(doc, 'avp') : doc.echelle) : 0,
+  var projet = aProjet(doc), auto = !(doc.echelle > 0);
+  return {auto: auto, edl: echellePlan(doc, 'edl'), avp: projet ? echellePlan(doc, 'avp') : 0,
     coupeEdl: depasseCadre(doc, 'edl'), coupeAvp: projet && depasseCadre(doc, 'avp')};
 }
 VC.depasseCadre = depasseCadre; VC.echellesPlans = echellesPlans;
@@ -3640,6 +3819,8 @@ function supprimerElement(doc, id, gardes){
   }
   doc.anomManu = (doc.anomManu || []).filter(function(m){ return m.objId !== id; });
   nettoyerJonctions(doc, null, gardes);
+  /* positions propres des éléments ôtés (m169) */
+  menagePlans(doc);
   return lies;
 }
 /* raccord créé par le dessin (jonctionSur) : marqué, ou, dans un croquis plus ancien, sans étiquette ; un raccord posé à la main n'en est pas un */
@@ -3925,7 +4106,8 @@ function editeur(racine, opts){
   function textesDoc(){ return opts.cartoucheHote ? ['nom', 'technicien'] : TEXTES_DOC; }
   function etatCourant(){
     var t = {}; textesDoc().forEach(function(k){ if (S.doc[k] != null) t[k] = S.doc[k]; });
-    return JSON.stringify({el: S.doc.el, decisions: S.doc.decisions, ordre: S.doc.ordre, anomManu: S.doc.anomManu, rot: S.doc.rot, echelle: S.doc.echelle || 0, gest: S.doc.gest || null, txt: t});
+    /* plans : positions propres de l'avant-projet (m169), remises par Annuler et Rétablir (restaurer) */
+    return JSON.stringify({el: S.doc.el, decisions: S.doc.decisions, ordre: S.doc.ordre, anomManu: S.doc.anomManu, rot: S.doc.rot, echelle: S.doc.echelle || 0, gest: S.doc.gest || null, plans: S.doc.plans || null, txt: t});
   }
   function instantane(){
     S.undo.push(etatCourant());
@@ -3936,6 +4118,8 @@ function editeur(racine, opts){
     var o = JSON.parse(json); S.doc.el = o.el; S.doc.decisions = o.decisions || {}; S.doc.ordre = o.ordre || []; S.doc.anomManu = o.anomManu || []; S.doc.rot = o.rot || 0; S.vue.rot = S.doc.rot;
     if ('echelle' in o) S.doc.echelle = o.echelle || 0;
     if ('gest' in o) S.doc.gest = o.gest || {EU: 'D', EP: 'D', UN: 'D'};
+    /* positions propres de l'avant-projet (m169) */
+    if ('plans' in o){ if (o.plans) S.doc.plans = o.plans; else delete S.doc.plans; }
     if (o.txt) textesDoc().forEach(function(k){ if (o.txt[k] != null) S.doc[k] = o.txt[k]; else delete S.doc[k]; });
   }
   var tEnr = null;
@@ -6339,13 +6523,16 @@ function editeur(racine, opts){
     analyse();
     S.doc.el.forEach(function(x){
       if (!x.lab || x.lab.off) return;
-      if (x.lab.main){ if (tourne) suivre(x.lab); }
+      /* placée à la main, ou posée par « Espacer » (ecart) : elle suit le dessin (positions propres, m169) */
+      if (x.lab.main || x.lab.ecart){ if (tourne) suivre(x.lab); }
       else if (x.k === 'ln') x.lab = placerEtiquette(S.doc, S.an, x, E(), I) || x.lab;
     });
     if (tourne){
       Object.keys(S.doc.decisions || {}).forEach(function(k){ var d = S.doc.decisions[k]; if (d && d.bulle) suivre(d.bulle); });
       (S.doc.anomManu || []).forEach(function(m){ if (m.bulle) suivre(m.bulle); });
     }
+    /* positions propres de l'avant-projet et écarts des textes libres (m169) */
+    tournerPlans(S.doc, r0 || 0, r1, I);
   }
   function choisirOutil(o){
     fermerMenu();
@@ -7491,6 +7678,8 @@ function editeur(racine, opts){
   }
   function apresProp(e, o){
     if (e.p.st === '') e.p.st = 'existant';
+    /* passé au statut « Projet » : sa position propre de l'avant-projet devient son étiquette (m169) */
+    reporterProjet(S.doc, e);
     if (!e.lab && texteEtiquette(e, S.an)){ analyse(); e.lab = placerEtiquette(S.doc, S.an, e, E(), idx()); }
     suivreCommun(e);
     changement(o);
@@ -7541,6 +7730,8 @@ function editeur(racine, opts){
     /* une zone suspecte ne tient aucun tuyau : un point de test qui reliait deux tuyaux laisse un raccord à sa place, comme à l'ouverture */
     if (v === 'zone') libererZones(S.doc, e.id);
     if (e.lab && !e.lab.off) e.lab = placerEtiquette(S.doc, S.an, e, E(), idx());
+    /* positions propres de l'avant-projet (m169) : reposée d'office, comme l'étiquette */
+    reposerPropre(S.doc, e.id);
     suivreCommun(e);
     changement();
     if (perdus.length) toast('Type changé : ' + (perdus.length > 1 ? perdus.length + ' caractéristiques ne s\'appliquent plus et sont effacées' : 'une caractéristique ne s\'applique plus et est effacée') + ' · « Annuler » les rétablit', 5000);
@@ -8139,6 +8330,8 @@ function editeur(racine, opts){
     doc.el = doc.el || []; doc.decisions = doc.decisions || {}; doc.ordre = doc.ordre || []; doc.anomManu = doc.anomManu || []; doc.gest = doc.gest || {EU: 'D', EP: 'D', UN: 'D'};
     /* croquis d'avant la v1.6.1 : une zone suspecte ne tient aucun tuyau (raccord à sa place si elle en reliait plusieurs) */
     libererZones(doc);
+    /* positions propres d'éléments absents ou conteneurs invalides (m169) */
+    menagePlans(doc);
     S.vue.rot = doc.rot || 0;
     /* fond trop loin du croquis (sauvegarde altérée) : non affiché, plutôt que des calculs démesurés */
     var loin = [S.fond, S.reseau].filter(function(f){ return f && !decalageFond(f, doc); });
@@ -8386,6 +8579,21 @@ function escalierPdf(pdf, G, papier, m){
   if (G.pas / m >= 1) G.marches.forEach(function(s){ var a = pp(s[0]), b = pp(s[1]); pdf.line(a.x, a.y, b.x, b.y); });
   pdf.line(F[0].x, F[0].y, F[1].x, F[1].y); polyPdf(pdf, [P[0], F[1], P[1]], 'S', false);
 }
+/* boîte w × h centrée en (cx, cy), ramenée dans le cadre F du plan PDF (1 mm de marge) et hors des zones réservées (rose du nord, échelle
+   graphique) : sortie de pdfPlan pour l'aperçu du plan, qui l'appellera au lâcher (A15 ; m169), corps tel quel */
+function dansCadrePage(F, reserve, cx, cy, w, h){
+  var x0 = F.x + 1 + w / 2, x1 = F.x + F.w - 1 - w / 2, y0 = F.y + 1 + h / 2, y1 = F.y + F.h - 1 - h / 2;
+  if (x0 <= x1) cx = Math.min(Math.max(cx, x0), x1); if (y0 <= y1) cy = Math.min(Math.max(cy, y0), y1);
+  reserve.forEach(function(z){
+    if (cx + w / 2 <= z[0] || cx - w / 2 >= z[2] || cy + h / 2 <= z[1] || cy - h / 2 >= z[3]) return;
+    var c = [{x: z[0] - .5 - w / 2, y: cy}, {x: z[2] + .5 + w / 2, y: cy}, {x: cx, y: z[1] - .5 - h / 2}, {x: cx, y: z[3] + .5 + h / 2}]
+      .filter(function(q){ return q.x >= x0 - 1e-6 && q.x <= x1 + 1e-6 && q.y >= y0 - 1e-6 && q.y <= y1 + 1e-6; })
+      .sort(function(p, q){ return Math.hypot(p.x - cx, p.y - cy) - Math.hypot(q.x - cx, q.y - cy); })[0];
+    if (c){ cx = c.x; cy = c.y; }
+  });
+  return {x: cx, y: cy};
+}
+VC.dansCadrePage = dansCadrePage;
 function pdfPlan(doc, fond, o){
   o = o || {};
   /* o.cible : objet qui reçoit les ordres à la place de jsPDF (releveur de l'aperçu du plan, releveurPdf) ; pdfPlan rend alors ce que rend son
@@ -8394,7 +8602,8 @@ function pdfPlan(doc, fond, o){
   var mode = o.mode || 'edl', J = global.jspdf.jsPDF, pdf = o.cible || new J({orientation: 'landscape', unit: 'mm', format: 'a4', compress: true});
   /* o.anomalies : anomalies du dossier (mode intégré), pour des numéros et des textes identiques à ceux du dossier */
   var ext = o.anomalies || null, oL = {telQuel: !!o.telQuel}, an = analyser(doc, mode), liste = anomaliesDoc(doc, an, ext, oL), idx = indexDoc(doc), rot = doc.rot || 0, rotDeg = rot * 180 / Math.PI;
-  var Ech = doc.echelle > 0 ? doc.echelle : echelleAuto(doc, mode), m = Ech / 1000;
+  /* échelle du plan : celle de l'avant-projet quand elle lui est propre (positions propres de l'avant-projet, m169) */
+  var Ech = echellePlan(doc, mode), m = Ech / 1000;
   /* raccords non imprimés (raccordsCaches) : montrer() s'en sert dès le placement des étiquettes */
   var porteA = {}; liste.forEach(function(a){ if (a.objId) porteA[a.objId] = true; });
   var cachesJ = raccordsCaches(doc, mode, porteA);
@@ -8432,18 +8641,8 @@ function pdfPlan(doc, fond, o){
     doc.el.forEach(function(o){ if (o.k !== 'pt' || o.t === 'zone' || !montrer(o)) return; var c = papier(o.x, o.y), r = rayonSymbole(o.t); symbP.push([c.x - r, c.y - r, c.x + r, c.y + r]); });
     return symbP;
   }
-  function dansCadre(cx, cy, w, h){
-    var x0 = F.x + 1 + w / 2, x1 = F.x + F.w - 1 - w / 2, y0 = F.y + 1 + h / 2, y1 = F.y + F.h - 1 - h / 2;
-    if (x0 <= x1) cx = Math.min(Math.max(cx, x0), x1); if (y0 <= y1) cy = Math.min(Math.max(cy, y0), y1);
-    reserve.forEach(function(z){
-      if (cx + w / 2 <= z[0] || cx - w / 2 >= z[2] || cy + h / 2 <= z[1] || cy - h / 2 >= z[3]) return;
-      var c = [{x: z[0] - .5 - w / 2, y: cy}, {x: z[2] + .5 + w / 2, y: cy}, {x: cx, y: z[1] - .5 - h / 2}, {x: cx, y: z[3] + .5 + h / 2}]
-        .filter(function(q){ return q.x >= x0 - 1e-6 && q.x <= x1 + 1e-6 && q.y >= y0 - 1e-6 && q.y <= y1 + 1e-6; })
-        .sort(function(p, q){ return Math.hypot(p.x - cx, p.y - cy) - Math.hypot(q.x - cx, q.y - cy); })[0];
-      if (c){ cx = c.x; cy = c.y; }
-    });
-    return {x: cx, y: cy};
-  }
+  /* ramener une boîte dans le cadre : dansCadrePage, sortie de pdfPlan pour l'aperçu (A15 ; m169) ; mêmes ordres */
+  function dansCadre(cx, cy, w, h){ return dansCadrePage(F, reserve, cx, cy, w, h); }
   var titre = mode === 'avp' ? 'Plan d\'avant-projet' : 'Plan de l\'état des lieux';
   pdf.setProperties({title: pdfTxt(titre + (doc.numero ? ' ' + doc.numero : '')), creator: pdfTxt(VC.signature || 'Croquis de terrain')});
   pdf.setLineCap('round'); pdf.setLineJoin('round');
@@ -8525,13 +8724,16 @@ function pdfPlan(doc, fond, o){
   doc.el.forEach(function(e){
     if (!montrer(e) && e.k !== 'tx') return;
     var libre = e.k === 'tx', txt = libre ? e.txt : texteEtiquette(e, an);
-    if (!txt || (!libre && e.lab && e.lab.off)) return;
-    var a = ancre(e, idx), A = papier(a.x, a.y), lab = libre ? {dx: 0, dy: 0} : (e.lab || placerEtiquette(doc, an, e, Ech, idx) || {dx: 0, dy: 0});
+    /* positions propres de l'avant-projet (m169) : étiquette du plan (labPlan), écart d'un texte libre (decalPlan) */
+    var L = libre ? decalPlan(doc, e, mode) : labPlan(doc, e, mode);
+    if (!txt || (!libre && L && L.off)) return;
+    var a = ancre(e, idx), A = papier(a.x, a.y), lab = L || (libre ? {dx: 0, dy: 0} : placerEtiquette(doc, an, e, Ech, idx, null, mode) || {dx: 0, dy: 0});
     var dl = decalLab(lab, Ech), cx = A.x + dl.dx / m, cy = A.y - dl.dy / m, em = libre ? (num(e.taille) || 2.5) : TAILLE_ETIQ, col = libre ? [25, 25, 25] : hexRgb(TXT_RES[couleurTexte(e, an)] || TXT_RES.INC);
     var bq = boiteTexte(txt, em), labDedans = cx >= RC[0] && cx <= RC[2] && cy >= RC[1] && cy <= RC[3];
     /* ancre hors du cadre : seule une étiquette placée à la main garde sa position (ramenée dans le cadre) ; posée d'office, elle se place
        le long de la partie visible de son trait */
-    if (dansRC(A) || (labDedans && e.lab && e.lab.main)){ var q0 = dansCadre(cx, cy, bq.w, bq.h); cx = q0.x; cy = q0.y; }
+    if (dansRC(A) || (labDedans && L && L.main)){ var q0 = dansCadre(cx, cy, bq.w, bq.h); cx = q0.x; cy = q0.y; }
+    else if (labDedans && L && L.ecart){ /* place posée par « Espacer » : imprimée telle quelle (positions propres, m169) */ }
     else if (!libre && e.k === 'ln'){
       /* ancre et étiquette hors du cadre (collecteur de la rue) : le long du plus long morceau visible, d'un côté du trait, là où elle
          ne touche ni un autre trait, ni un symbole, ni une étiquette déjà posée ; à égalité, au milieu et du côté du centre du plan */
@@ -8549,7 +8751,7 @@ function pdfPlan(doc, fond, o){
         cx = meil.x; cy = meil.y;
       }
     }
-    if (o.marque){ var stM = libre || (e.lab && e.lab.main) ? 'main' : e.lab && e.lab.ecart ? 'ecart' : mv ? 'collecteur' : 'office';
+    if (o.marque){ var stM = libre || (L && L.main) ? 'main' : L && L.ecart ? 'ecart' : mv ? 'collecteur' : 'office';
       o.marque({k: libre ? 'tx' : 'etiq', id: e.id, A: {x: A.x, y: A.y}, cx: cx, cy: cy, w: bq.w, h: bq.h, em: em, statut: stM, support: stM === 'collecteur' ? mv : null}); }
     imprimees.push([cx - bq.w / 2, cy - bq.h / 2, cx + bq.w / 2, cy + bq.h / 2]);
     if (!libre && e.k === 'pt'){
@@ -8560,13 +8762,14 @@ function pdfPlan(doc, fond, o){
     if (o.marque) o.marque(null);
   });
   /* bulles : sur l'avant-projet, celles de l'état des lieux (une préconisation par anomalie) */
-  var listeB = mode === 'avp' ? anomaliesDoc(doc, an.ref, ext, oL) : liste, posB = placerBulles(doc, an, listeB, Ech, idx);
+  /* bulles du plan (positions propres de l'avant-projet, m169) */
+  var listeB = mode === 'avp' ? anomaliesDoc(doc, an.ref, ext, oL) : liste, posB = placerBulles(doc, an, listeB, Ech, idx, mode);
   listeB.forEach(function(an2){
     if (!an2.num || !an2.objId || !idx[an2.objId]) return;
     var ob = idx[an2.objId]; if (!montrer(ob)) return;
     var P0 = ancreBulle(ob, idx), A = papier(P0.x, P0.y), d = posB[an2.cle] || bulleDefaut(ob, Ech), cx = A.x + d.dx / m, cy = A.y - d.dy / m, r = TAILLE_BULLE, R = ob.k === 'pt' ? rayonSymbole(ob.t) : 1;
     if (dansRC(A)){ var qb = dansCadre(cx, cy, 2 * r + .6, 2 * r + .6); cx = qb.x; cy = qb.y; } var dd = Math.hypot(cx - A.x, cy - A.y);
-    if (o.marque) o.marque({k: 'bulle', cle: an2.cle, id: an2.objId, num: an2.num, A: {x: A.x, y: A.y}, cx: cx, cy: cy, r: r, R: R, statut: an2.bulle ? (an2.bulle.ecart ? 'ecart' : 'main') : 'office'});
+    if (o.marque){ var bP = bullePlan(doc, an2, mode); o.marque({k: 'bulle', cle: an2.cle, id: an2.objId, num: an2.num, A: {x: A.x, y: A.y}, cx: cx, cy: cy, r: r, R: R, statut: bP ? (bP.ecart ? 'ecart' : 'main') : 'office'}); }
     pdf.setDrawColor(212, 101, 10); pdf.setLineWidth(.25);
     if (dd > R + r + .3) pdf.line(A.x + (cx - A.x) / dd * R, A.y + (cy - A.y) / dd * R, cx - (cx - A.x) / dd * r, cy - (cy - A.y) / dd * r);
     pdf.setFillColor(255, 255, 255); pdf.circle(cx, cy, r, 'FD');
@@ -9318,7 +9521,8 @@ function ecrireDxf(doc, an, liste){
   doc.el.forEach(function(e){
     var libre = e.k === 'tx', txt = libre ? e.txt : texteEtiquette(e, an);
     if (!txt || (!libre && e.lab && e.lab.off)) return;
-    var a = ancre(e, idx), lab = libre ? {dx: 0, dy: 0} : decalLab(e.lab || placerEtiquette(doc, an, e, Ech, idx) || {dx: 0, dy: 0}, Ech), d = depuisPlan(lab.dx, lab.dy, rot);
+    /* écart d'un texte libre depuis son point (e.decal : le DXF est l'état des lieux ; positions propres de l'avant-projet, m169) */
+    var a = ancre(e, idx), lab = libre ? decalLab(decalPlan(doc, e, 'edl'), Ech) : decalLab(e.lab || placerEtiquette(doc, an, e, Ech, idx) || {dx: 0, dy: 0}, Ech), d = depuisPlan(lab.dx, lab.dy, rot);
     var r = couleurTexte(e, an), col = libre ? 7 : (RES[r] || RES.INC).aci;
     texte(txt, a.x + d.x, a.y + d.y, (libre ? (num(e.taille) || 2.5) : TAILLE_ETIQ) * .72 * m, libre ? 'VEDE-ANNOTATIONS' : 'VEDE-ETIQUETTES', col, rotDeg);
   });
