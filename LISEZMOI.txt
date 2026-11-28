@@ -492,7 +492,11 @@ CROQUIS DE TERRAIN (facultatif)
   (« Conclusion du constat »). Pour un constat signé, c'est celle qu'il
   atteste, choisie ou proposée au moment de la signature, même si le
   dessin change ensuite. Sinon, le plan imprime celle que le dessin
-  propose.
+  propose. « Aperçu du plan », premier bouton de Sorties, montre la
+  page 1 du PDF à l'échelle du livrable, compte et entoure d'orange les
+  étiquettes, textes et bulles qui se chevauchent ou que le cadre coupe,
+  et passe de l'un à l'autre, de haut en bas ; il ne change rien au
+  dossier.
 
 SAUVEGARDE
 - Effacer les données du navigateur ou désinstaller l'application efface

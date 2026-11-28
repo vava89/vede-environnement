@@ -3851,7 +3851,9 @@ function editeur(racine, opts){
        fiche (M6 : noteEtiq, pris au pas d'annulation nInst) */
     reunir: null, noteEtiq: null, nInst: 0,
     /* palette d'accrochage ouverte (m111) */
-    accroches: false};
+    accroches: false,
+    /* aperçu du plan ouvert (m168) : null, ou son état (voir ouvrirApercu) ; S.apercu, lui, est le tracé fantôme du geste en cours */
+    pp: null};
   racine.innerHTML = '<div class="vc" tabindex="-1">'
     + '<canvas class="vc-cv" aria-label="Plan du croquis"></canvas>'
     + '<header class="vc-barre">'
@@ -3972,6 +3974,8 @@ function editeur(racine, opts){
     if (w !== S.vue.w || h !== S.vue.h) fermerMenu();
     if (cv.width !== Math.round(w * d) || cv.height !== Math.round(h * d)){ cv.width = Math.round(w * d); cv.height = Math.round(h * d); cv.style.width = w + 'px'; cv.style.height = h + 'px'; }
     S.dpr = d; S.vue.w = w; S.vue.h = h; redessiner(); placerBarres();
+    /* aperçu du plan ouvert (m168) : sa zone est remesurée et redessinée */
+    if (S.pp) redimApercu();
   }
   /* barres de navigation et d'aide, palette d'accrochage (m114) : placées d'après la place réelle de l'éditeur, au redimensionnement, à
      l'ouverture et à la fermeture du panneau, à chaque changement de la barre d'aide et à l'ouverture de la palette. Le CSS suffit quand la
@@ -6773,6 +6777,15 @@ function editeur(racine, opts){
     if (R.querySelector('.vc-modal')){ if (ev.key === 'Escape' && !opts.echapHote) fermerNiveau(); return; }
     /* une fenêtre de l'hôte ouverte par-dessus l'éditeur garde ses touches */
     if (ev.target && ev.target !== document.body && ev.target !== document.documentElement && !R.contains(ev.target)) return;
+    /* aperçu du plan ouvert (m168) : rien à annuler ; Échap le ferme (fermerNiveau) ; Suppr et Retour arrière ne suppriment rien ; Entrée ne
+       termine pas le tracé en cours ; Tab reste dans l'aperçu (tabApercu) */
+    if (S.pp){
+      if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z'){ ev.preventDefault(); toast('Rien à annuler dans l\'aperçu'); }
+      else if (ev.key === 'Escape'){ if (!opts.echapHote) fermerNiveau(); }
+      else if (ev.key === 'Delete' || ev.key === 'Backspace') ev.preventDefault();
+      else if (ev.key === 'Tab' && ppEl) tabApercu(ev);
+      return;
+    }
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z'){ ev.preventDefault(); ev.shiftKey ? refaire() : annuler(); }
     else if (ev.key === 'Escape'){ if (!opts.echapHote) fermerNiveau(); }
     else if (ev.key === 'Enter' && S.brouillon && (ev.target === R || ev.target === cv || ev.target === document.body || ev.target === document.documentElement)) terminerTrace();
@@ -7138,6 +7151,7 @@ function editeur(racine, opts){
     var h = '<p class="vc-muet">Échelle du plan : 1/' + P.edl + (P.auto ? ' (automatique' + (P.avp && P.avp !== P.edl ? ' ; avant-projet 1/' + P.avp : '') + ')' : '') + ' · A4 paysage.' + (manque ? ' <strong>' + manque + ' point' + (manque > 1 ? 's' : '') + ' à compléter</strong> (voir Contrôles).' : '') + '</p>'
       + (P.coupeEdl || P.coupeAvp ? '<p class="vc-muet"><strong>' + avisCadre(P) + '</strong></p>' : '');
     h += '<div class="vc-sorties">'
+      + '<button type="button" class="vc-b vc-bt vc-grand" data-a="apercu">' + ico('chercher', 20) + '<span>Aperçu du plan<small>La page 1 du PDF, à l\'échelle du livrable</small></span></button>'
       + '<button type="button" class="vc-b vc-bt vc-grand" data-a="pdfEdl">' + ico('sorties', 20) + '<span>Plan de l\'état des lieux<small>PDF : plan, légende, cartouche, anomalies et méthodes de test</small></span></button>'
       + '<button type="button" class="vc-b vc-bt vc-grand" data-a="pdfAvp">' + ico('sorties', 20) + '<span>Plan d\'avant-projet<small>PDF : tracés projet et préconisations</small></span></button>'
       + '<button type="button" class="vc-b vc-bt vc-grand" data-a="dxf">' + ico('sorties', 20) + '<span>Plan pour la DAO<small>DXF R12 en coordonnées du fond, calques VEDE-…, à ouvrir sur le cadastre</small></span></button>'
@@ -7425,6 +7439,7 @@ function editeur(racine, opts){
         {confirmer: true, danger: true, ok: ts.ok || 'Supprimer', texte: ts.texte, autre: ts.autre || '', autreFn: function(){ if (opts.supprimer) opts.supprimer(S.doc, {anomalies: false}); }});
       return;
     }
+    if (a === 'apercu'){ ouvrirApercu(); return; }
     if (a === 'pdfEdl' || a === 'pdfAvp' || a === 'dxf' || a === 'json'){ sortie(a); return; }
     if (a === 'resultat'){ var w = {x: parseFloat(b.dataset.x), y: parseFloat(b.dataset.y)}; S.vue.cx = w.x; S.vue.cy = w.y; if (S.vue.s < 30) S.vue.s = 45; redessiner(); enregistrerVue(); return; }
   });
@@ -7655,6 +7670,8 @@ function editeur(racine, opts){
     var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nom; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
   }
   function nomFichier(base, ext){ var d = S.doc; return (base + (d.numero ? ' ' + d.numero : '') + (d.commune ? ' - ' + d.commune : '')).replace(/[\\\/:*?"<>|]+/g, '-').slice(0, 100) + '.' + ext; }
+  /* options du plan PDF d'un mode (A5) : Sorties et l'aperçu du plan partagent les mêmes options, donc le même plan */
+  function optsPlan(mode){ return {mode: mode, logo: opts.logo, reseau: S.reseau, anomalies: ext(), conclusionConstat: conclHote()}; }
   function sortie(a){
     enregistrer();
     try {
@@ -7664,8 +7681,425 @@ function editeur(racine, opts){
       if (a === 'dxf'){ var an = analyser(S.doc, 'edl'); annoncer(telecharger(new Blob([ecrireDxf(S.doc, an, anomaliesDoc(S.doc, an, ext()))], {type: 'application/dxf'}), nomFichier('Croquis', 'dxf')), 'DXF enregistré'); return; }
       if (!global.jspdf){ toast('La bibliothèque PDF n\'est pas chargée'); return; }
       var mode = a === 'pdfAvp' ? 'avp' : 'edl';
-      Promise.resolve(pdfPlan(S.doc, S.fond, {mode: mode, logo: opts.logo, reseau: S.reseau, anomalies: ext(), conclusionConstat: conclHote()})).then(function(blob){ annoncer(telecharger(blob, nomFichier(mode === 'avp' ? 'Avant-projet' : opts.cartoucheHote ? 'Plan' : 'État des lieux', 'pdf')), 'PDF enregistré'); }).catch(function(err){ toast('PDF impossible : ' + (err && err.message || err), 6000); });
+      Promise.resolve(pdfPlan(S.doc, S.fond, optsPlan(mode))).then(function(blob){ annoncer(telecharger(blob, nomFichier(mode === 'avp' ? 'Avant-projet' : opts.cartoucheHote ? 'Plan' : 'État des lieux', 'pdf')), 'PDF enregistré'); }).catch(function(err){ toast('PDF impossible : ' + (err && err.message || err), 6000); });
     } catch(err){ toast('Sortie impossible : ' + (err && err.message || err), 6000); }
+  }
+  /* --- aperçu du plan, en lecture seule (m168) ---
+     La page 1 du PDF redessinée à l'échelle du livrable, par-dessus l'éditeur (A5, A6) : compteur des chevauchements et des coupés par le
+     cadre, parcours de l'un à l'autre dans l'ordre de lecture (A6, A17), zoom et gestes (A8), repères, échelle et avis du cadre (A21). Rien ne
+     s'y déplace : l'aperçu n'écrit ni S.doc, ni l'historique, ni la vue du croquis. S.pp : null hors de l'aperçu, sinon {mode, rel, chev, P,
+     z, k, ox, oy, choix, iListe, reperes, calcul, jeton} (rel et chev : relevé et chevauchements du dernier calcul ; P : échelles des plans ;
+     z : zoom, 1 = la page entière ; k : pixels CSS par mm de page ; ox, oy : coin haut gauche de la page dans la zone, en pixels CSS ; choix :
+     indice dans rel.marques de l'élément choisi (au toucher, ou le déplaçable de l'entrée parcourue), ou -1 ; iListe : rang dans la liste
+     parcourue (ordre de lecture), ou -1 ; reperes : la bascule ; calcul : vrai pendant le calcul ; jeton : celui du calcul en cours ou du
+     dernier). Variables : ppEl, la surcouche ; ppJeton, le dernier calcul lancé ; ppVu, la vue du dernier rendu ; ppZone, la taille de la
+     zone ; ppPtr et ppGeste, les pointeurs et le geste en cours ; ppTMolette, le rendu qui suit la molette ; ppTap, le dernier toucher ;
+     ppRefait, le calcul déjà redessiné une fois ; ppGarde, la garde de « Fermer » ; ppInertes, les parties de l'éditeur rendues inertes
+     pendant l'aperçu */
+  var PP_W = 297, PP_H = 210, ppEl = null, ppJeton = 0, ppVu = null, ppZone = null, ppPtr = {}, ppGeste = null, ppTMolette = null, ppTap = null, ppRefait = 0;
+  var ppGarde = null, ppGardeEcoute = false, ppInertes = [];
+  /* ouvre l'aperçu (A5, A6 ; premier bouton de Sorties) : surcouche .vc-pp sur tout l'éditeur (pas un dialogue .vc-modal : le panneau Sorties
+     reste ouvert dessous), focus sur « Fermer », le reste de l'éditeur inerte, puis le calcul. Le plan de l'avant-projet s'ouvre si l'éditeur
+     le montre */
+  function ouvrirApercu(){
+    if (!global.jspdf){ toast('La bibliothèque PDF n\'est pas chargée'); return; }
+    if (S.pp || !S.doc) return;
+    fermerMenu(); fermerBullePoint();
+    var P = echellesPlans(S.doc);
+    S.pp = {mode: S.mode === 'avp' && P.avp ? 'avp' : 'edl', rel: null, chev: null, P: P, z: 1, k: 0, ox: 0, oy: 0, choix: -1, iListe: -1, reperes: false, calcul: false, jeton: 0};
+    ppVu = null; ppZone = null; ppPtr = {}; ppGeste = null; ppTap = null; ppRefait = 0; clearTimeout(ppTMolette); ppTMolette = null;
+    var puce = function(a, v, t){ return '<button type="button" class="vc-chip" data-pp="' + a + '" data-v="' + v + '" aria-pressed="false">' + t + '</button>'; };
+    ppEl = document.createElement('div');
+    ppEl.className = 'vc-pp'; ppEl.setAttribute('role', 'dialog'); ppEl.setAttribute('aria-modal', 'true'); ppEl.setAttribute('aria-label', 'Aperçu du plan'); ppEl.tabIndex = -1;
+    ppEl.innerHTML = '<div class="vc-pp-haut">'
+      + '<button type="button" class="vc-b vc-bt" data-pp="fermer" aria-label="Fermer l\'aperçu">' + ico('fermer') + '<span>Fermer</span></button>'
+      + '<strong class="vc-pp-titre">Aperçu du plan</strong>'
+      + (P.avp ? '<span class="vc-chips">' + puce('plan', 'edl', 'État des lieux') + puce('plan', 'avp', 'Avant-projet') + '</span>' : '')
+      + '<span class="vc-pp-parcours"><button type="button" class="vc-b vc-bt" data-pp="prec" aria-label="Chevauchement précédent">‹</button>'
+      + '<span class="vc-pp-compte" aria-live="polite"></span>'
+      + '<button type="button" class="vc-b vc-bt" data-pp="suiv" aria-label="Chevauchement suivant">›</button></span>'
+      + '<button type="button" class="vc-b vc-bt" data-pp="pdf" aria-label="Faire le PDF de ce plan" title="Faire le PDF de ce plan">' + ico('sorties') + '<span>PDF</span></button>'
+      + '</div>'
+      + '<div class="vc-pp-zone"><canvas class="vc-pp-cv" aria-hidden="true"></canvas><div class="vc-pp-calcul">Calcul…</div></div>'
+      + '<div class="vc-pp-bandeau" hidden></div>'
+      + '<div class="vc-pp-info" aria-live="polite"></div>'
+      + '<div class="vc-pp-bas"><span class="vc-chips">' + puce('zoom', 1, 'Page') + puce('zoom', 2, '× 2') + puce('zoom', 4, '× 4') + '</span>'
+      + '<button type="button" class="vc-chip" data-pp="reperes" aria-pressed="false">Repères</button>'
+      + '<span class="vc-pp-echelle"></span></div>';
+    R.appendChild(ppEl);
+    var zone = ppEl.querySelector('.vc-pp-zone');
+    ppEl.addEventListener('click', clicApercu);
+    zone.addEventListener('pointerdown', appuiApercu);
+    zone.addEventListener('pointermove', bougerApercu);
+    zone.addEventListener('pointerup', leverApercu);
+    zone.addEventListener('pointercancel', annulerGesteApercu);
+    zone.addEventListener('wheel', moletteApercu, {passive: false});
+    zone.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
+    ppEl.querySelector('[data-pp="fermer"]').focus();
+    /* le reste de l'éditeur, caché dessous, devient inerte (ni focus ni clic) ; le message (toast) reste lu */
+    ppInertes = Array.prototype.filter.call(R.children, function(c){ return c !== ppEl && !c.inert && !c.classList.contains('vc-toast') && !c.classList.contains('vc-modal'); });
+    ppInertes.forEach(function(c){ c.inert = true; });
+    majApercu(); rendreApercu(); calculerApercu();
+  }
+  /* ferme l'aperçu (« Fermer », fermerNiveau, ouvrir) : surcouche ôtée, l'éditeur de nouveau actif, S.pp = null, focus rendu au bouton
+     « Aperçu du plan » de Sorties s'il est là, sinon à l'éditeur */
+  function fermerApercu(){
+    if (!S.pp && !ppEl) return;
+    var el0 = ppEl;
+    clearTimeout(ppTMolette); ppTMolette = null; ppEl = null; S.pp = null; ppVu = null; ppZone = null; ppPtr = {}; ppGeste = null; ppTap = null;
+    ppInertes.forEach(function(c){ c.inert = false; }); ppInertes = [];
+    if (el0 && el0.parentNode) el0.parentNode.removeChild(el0);
+    var b = pan.hidden ? null : pcorps.querySelector('[data-a="apercu"]');
+    if (b) b.focus(); else R.focus();
+  }
+  /* calcul (A23), à l'ouverture et à chaque changement de plan : après deux images (la surcouche est peinte), le plan est relevé
+     (releveurPdf, pdfPlan avec les options de Sorties) et ses chevauchements comptés. pdfPlan lit une copie du croquis : il complète
+     doc.ordre pour le plan demandé (anomaliesDoc), le même ordre que celui de Sorties, sans rien écrire au dossier. Un calcul est ignoré
+     si l'aperçu a été fermé ou si un autre a été lancé (jeton) ; une erreur ferme l'aperçu. Le plan affiché reste celui du dernier calcul */
+  function calculerApercu(){
+    var s = S.pp; if (!s || !ppEl) return;
+    var j = s.jeton = ++ppJeton, mode = s.mode, vif = function(){ return S.pp === s && s.jeton === j; };
+    var image = global.requestAnimationFrame ? function(f){ global.requestAnimationFrame(f); } : function(f){ setTimeout(f, 16); };
+    s.calcul = true; ppEl.setAttribute('aria-busy', 'true');
+    image(function(){ image(function(){
+      if (!vif()) return;
+      var rel = null;
+      new Promise(function(fin){
+        rel = releveurPdf(global.jspdf.jsPDF);
+        fin(pdfPlan(copie(S.doc), S.fond, Object.assign(optsPlan(mode), {cible: rel, marque: rel.marque})));
+      }).then(function(){
+        if (!vif()) return;
+        s.rel = rel; s.chev = chevauchementsPlan(rel); s.P = echellesPlans(S.doc); s.calcul = false; ppEl.removeAttribute('aria-busy');
+        majApercu(); rendreApercu();
+      }).catch(function(e){
+        if (!vif()) return;
+        toast('Aperçu impossible : ' + (e && e.message || e), 6000); fermerApercu();
+      });
+    }); });
+  }
+  /* zone mesurée (getBoundingClientRect), canevas à sa taille × S.dpr ; une nouvelle taille garde z et le point de la page au centre de la
+     zone (borné), la page centrée à z = 1 (A6, A8) */
+  function mesurerApercu(){
+    var s = S.pp, cvp = ppEl.querySelector('.vc-pp-cv'), r = ppEl.querySelector('.vc-pp-zone').getBoundingClientRect(), d = S.dpr;
+    var w = Math.max(1, r.width), h = Math.max(1, r.height), pw = Math.max(1, Math.round(w * d)), ph = Math.max(1, Math.round(h * d));
+    if (cvp.width !== pw || cvp.height !== ph){ cvp.width = pw; cvp.height = ph; }
+    cvp.style.width = pw / d + 'px'; cvp.style.height = ph / d + 'px';
+    if (ppZone && ppZone.w === w && ppZone.h === h) return;
+    var c = ppZone && s.k > 0 ? {x: (ppZone.w / 2 - s.ox) / s.k, y: (ppZone.h / 2 - s.oy) / s.k} : {x: PP_W / 2, y: PP_H / 2};
+    ppZone = {w: w, h: h, kP: Math.max(1e-6, Math.min((w - 24) / PP_W, (h - 24) / PP_H))};
+    s.k = ppZone.kP * s.z; s.ox = w / 2 - c.x * s.k; s.oy = h / 2 - c.y * s.k; bornerApercu();
+  }
+  /* bornes de la vue (A8) : z de 1 à 8 ; le point de la page au centre de la zone reste sur la page ; à z = 1, la page est centrée */
+  function bornerApercu(){
+    var s = S.pp, t = ppZone; if (!s || !t) return;
+    s.z = clamp(s.z, 1, 8); if (s.z < 1 + 1e-9) s.z = 1;
+    s.k = t.kP * s.z;
+    if (s.z === 1){ s.ox = (t.w - PP_W * s.k) / 2; s.oy = (t.h - PP_H * s.k) / 2; return; }
+    var cx = clamp((t.w / 2 - s.ox) / s.k, 0, PP_W), cy = clamp((t.h / 2 - s.oy) / s.k, 0, PP_H);
+    s.ox = t.w / 2 - cx * s.k; s.oy = t.h / 2 - cy * s.k;
+  }
+  /* zoom z autour du point (px, py) de la zone : le point de la page qui s'y trouve y reste, aux bornes près (A8) */
+  function zoomerApercu(z, px, py){
+    var s = S.pp, t = ppZone; if (!s || !t) return;
+    var x = (px - s.ox) / s.k, y = (py - s.oy) / s.k;
+    s.z = clamp(z, 1, 8); s.k = t.kP * s.z; s.ox = px - x * s.k; s.oy = py - y * s.k; bornerApercu();
+  }
+  /* rendu (A6) : la zone en gris, la page blanche et son ombre, la page 1 rejouée d'après le relevé (rejouerPage ; refaite une fois si une
+     image manquait encore), puis les repères et le surlignage ; le canevas perd la transformation d'un geste dans la même tâche */
+  function rendreApercu(){
+    var s = S.pp; if (!s || !ppEl) return;
+    mesurerApercu();
+    var cvp = ppEl.querySelector('.vc-pp-cv'), c = cvp.getContext('2d'), d = S.dpr, x0 = s.ox * d, y0 = s.oy * d, W = PP_W * s.k * d, H = PP_H * s.k * d;
+    c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1;
+    c.fillStyle = '#C9D0D5'; c.fillRect(0, 0, cvp.width, cvp.height);
+    c.save(); c.shadowColor = 'rgba(9,18,24,.22)'; c.shadowBlur = 6 * d; c.shadowOffsetY = 1.5 * d; c.fillStyle = '#fff'; c.fillRect(x0, y0, W, H); c.restore();
+    ppVu = {k: s.k, ox: s.ox, oy: s.oy}; cvp.style.transform = '';
+    if (!s.rel) return;
+    var j = s.jeton, r;
+    c.save(); c.beginPath(); c.rect(x0, y0, W, H); c.clip();
+    try { r = rejouerPage(c, s.rel.pages[0], {k: s.k * d, x: x0, y: y0}); } finally { c.restore(); }
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    if (s.reperes) reperesApercu(c, d);
+    surlignerApercu(c, d);
+    Promise.resolve(r).then(function(ok){ if (ok === false && S.pp === s && s.jeton === j && ppRefait !== j){ ppRefait = j; rendreApercu(); } }, function(){});
+  }
+  /* repères (A6) : le cadre utile en tirets, les zones réservées (rose du nord, échelle graphique) en aplat léger ; pour chaque étiquette,
+     texte libre et bulle de la page 1, son ancre (petit disque) et un trait fin jusqu'à son centre */
+  function reperesApercu(c, d){
+    var s = S.pp, q = s.chev.cadre, X = function(x){ return (s.ox + x * s.k) * d; }, Y = function(y){ return (s.oy + y * s.k) * d; }, k = s.k * d;
+    var E0 = (s.mode === 'avp' ? s.P.avp : s.P.edl) || 200, m = E0 / 1000;
+    c.save();
+    c.fillStyle = 'rgba(12,133,153,.13)';
+    zonesReservees({x: q[0], y: q[1], w: q[2] - q[0], h: q[3] - q[1]}, barreEchelle(m) / m).forEach(function(z){ c.fillRect(X(z[0]), Y(z[1]), (z[2] - z[0]) * k, (z[3] - z[1]) * k); });
+    c.strokeStyle = '#0C8599'; c.lineWidth = 2 * d; c.setLineDash([8 * d, 5 * d]);
+    c.strokeRect(X(q[0]), Y(q[1]), (q[2] - q[0]) * k, (q[3] - q[1]) * k);
+    c.setLineDash([]); c.lineWidth = Math.max(1, d); c.fillStyle = '#0C8599';
+    s.rel.marques.forEach(function(mq){
+      if (mq.page !== 1 || !(mq.k === 'etiq' || mq.k === 'tx' || mq.k === 'bulle') || !mq.A || mq.cx == null) return;
+      c.beginPath(); c.moveTo(X(mq.A.x), Y(mq.A.y)); c.lineTo(X(mq.cx), Y(mq.cy)); c.stroke();
+      c.beginPath(); c.arc(X(mq.A.x), Y(mq.A.y), 2.5 * d, 0, 2 * Math.PI); c.fill();
+    });
+    c.restore();
+  }
+  /* surlignage (A17, A8) : chaque élément en cause (les deux de chaque paire, chaque élément coupé) entouré d'orange, 2 px CSS, en pointillé
+     s'il est coupé par le cadre ; le seul élément choisi (au toucher, ou le déplaçable de l'entrée parcourue), plus fort : 2,5 px sur un
+     liseré blanc de 5 px ; l'autre marque de l'entrée parcourue garde le contour de base */
+  function surlignerApercu(c, d){
+    var s = S.pp, ch = s.chev; if (!ch) return;
+    var ids = s.choix >= 0 ? [s.choix] : [], X = function(x){ return (s.ox + x * s.k) * d; }, Y = function(y){ return (s.oy + y * s.k) * d; };
+    var coupe = {}, vu = {}, tous = [];
+    ch.coupes.forEach(function(q){ coupe[q.i] = true; });
+    ch.paires.forEach(function(p){ [p.a, p.b].forEach(function(i){ if (!vu[i]){ vu[i] = true; tous.push(i); } }); });
+    ch.coupes.forEach(function(q){ if (!vu[q.i]){ vu[q.i] = true; tous.push(q.i); } });
+    /* le contour des formes de la marque i, w px CSS de large ; en pointillé si elle est coupée, sauf pour le liseré (plein) */
+    function contour(i, w, plein){
+      c.lineWidth = w * d; c.setLineDash(!plein && coupe[i] ? [4 * d, 3 * d] : []);
+      (ch.formes[i] || []).forEach(function(f){
+        c.beginPath();
+        if (f.c) c.arc(X(f.c[0]), Y(f.c[1]), f.c[2] * s.k * d, 0, 2 * Math.PI); else c.rect(X(f.b[0]), Y(f.b[1]), (f.b[2] - f.b[0]) * s.k * d, (f.b[3] - f.b[1]) * s.k * d);
+        c.stroke();
+      });
+    }
+    c.save();
+    c.strokeStyle = '#F76707'; tous.forEach(function(i){ contour(i, 2); });
+    if (ids.length){
+      c.strokeStyle = '#fff'; ids.forEach(function(i){ contour(i, 5, true); });
+      c.strokeStyle = '#F76707'; ids.forEach(function(i){ contour(i, 2.5); });
+    }
+    c.restore();
+  }
+  /* pendant un geste (A8) : le canevas suit la vue par une transformation CSS (translation et échelle), sans être redessiné */
+  function suivreApercu(){
+    var s = S.pp, v = ppVu, cvp = ppEl && ppEl.querySelector('.vc-pp-cv'); if (!s || !v || !cvp) return;
+    var e = s.k / v.k;
+    cvp.style.transform = 'translate(' + (s.ox - v.ox * e) + 'px,' + (s.oy - v.oy * e) + 'px) scale(' + e + ')';
+  }
+  /* redim() pendant l'aperçu (A8) : zone remesurée et redessinée, z et le point de la page au centre gardés ; un geste en cours est abandonné */
+  function redimApercu(){ if (!S.pp || !ppEl) return; ppGeste = null; ppPtr = {}; clearTimeout(ppTMolette); ppTMolette = null; rendreApercu(); }
+  /* liste parcourue (A6, A17) : paires et coupes mêlées, dans l'ordre de lecture : le centre de la boîte englobante de leurs formes
+     (bornesApercu), arrondi à 0,1 mm, de haut en bas, puis de gauche à droite ; à égalité, les paires dans l'ordre de chev.paires, puis les
+     coupes (départage explicite : le tri des moteurs anciens n'est pas stable) ; une entrée sans boîte va à la fin (simple garde : paires et
+     coupes naissent des formes). Une entrée : les indices de ses marques, le déplaçable choisi d'abord : le seul déplaçable de la paire
+     (étiquette, texte libre ou bulle), ou, s'il y en a deux, celui du dessus (b, l'indice le plus grand : le dernier dessiné) ; pour une
+     coupe, l'élément coupé */
+  function listeApercu(){
+    var ch = S.pp.chev; if (!ch) return [];
+    var M = S.pp.rel.marques, mob = function(m){ return m.k === 'etiq' || m.k === 'tx' || m.k === 'bulle'; };
+    var E = ch.paires.map(function(p){ return mob(M[p.b]) ? [p.b, p.a] : [p.a, p.b]; }).concat(ch.coupes.map(function(q){ return [q.i]; }));
+    return E.map(function(e, r){
+      var b = bornesApercu(e);
+      return {e: e, r: r, n: b ? 0 : 1, x: b ? Math.round((b[0] + b[2]) / 2 * 10) : 0, y: b ? Math.round((b[1] + b[3]) / 2 * 10) : 0};
+    }).sort(function(u, v){ return u.n - v.n || u.y - v.y || u.x - v.x || u.r - v.r; }).map(function(u){ return u.e; });
+  }
+  /* boîte englobante (mm) des formes des marques ids, ou null */
+  function bornesApercu(ids){
+    var F = S.pp.chev.formes, b = null;
+    ids.forEach(function(i){ (F[i] || []).forEach(function(f){
+      var q = f.c ? [f.c[0] - f.c[2], f.c[1] - f.c[2], f.c[0] + f.c[2], f.c[1] + f.c[2]] : f.b;
+      b = b ? [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[2]), Math.max(b[3], q[3])] : q.slice();
+    }); });
+    return b;
+  }
+  /* texte d'une marque (A6, A17) : ses lignes écrites en plein (le halo, écrit en trait, ne compte pas), jointes par une espace,
+     40 caractères au plus */
+  function texteApercu(i){
+    var s = S.pp, m = s.rel.marques[i], O = s.rel.pages[m.page - 1].ordres, L = [];
+    m.ordres.forEach(function(j){ var o = O[j]; if (o && o.m === 'text' && o.mode !== 'trait') o.lignes.forEach(function(l){ if (l.t) L.push(l.t); }); });
+    var t = L.join(' ').replace(/\s+/g, ' ').trim();
+    return t.length > 40 ? t.slice(0, 40).replace(/\s+$/, '') + '…' : t;
+  }
+  /* nom d'une marque dans la ligne d'info (A6, A17) ; maj : avec une majuscule. Le libellé d'un symbole est celui du type de l'objet, lu sans
+     rien écrire */
+  function nomApercu(i, maj){
+    var m = S.pp.rel.marques[i], t;
+    if (m.k === 'etiq') t = 'l\'étiquette « ' + texteApercu(i) + ' »';
+    else if (m.k === 'tx') t = 'le texte « ' + texteApercu(i) + ' »';
+    else if (m.k === 'bulle') t = 'la bulle' + (m.num != null ? ' ' + m.num : '');
+    else if (m.k === 'symb'){
+      var o = null; S.doc.el.forEach(function(e){ if (!o && e.id === m.id) o = e; });
+      var L = o && T[o.t] && T[o.t].lib; t = L ? 'le symbole « ' + L + ' »' : 'le symbole';
+    }
+    else t = m.cle === 'nord' ? 'la rose du nord' : m.cle === 'echelle' ? 'l\'échelle graphique' : 'la mention « Schéma de principe »';
+    return maj ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+  }
+  /* textes et états (A6, A17, A21) : puces, compteur, « ‹ » et « › », ligne d'info (pendant le parcours, son entrée, le déplaçable choisi
+     nommé d'abord ; sinon l'élément choisi ; sinon l'invite), échelle, bandeau du cadre */
+  function majApercu(){
+    var s = S.pp; if (!s || !ppEl) return;
+    var q = function(sel){ return ppEl.querySelector(sel); }, ch = s.chev, L = listeApercu(), P = s.P, E0 = s.mode === 'avp' ? P.avp : P.edl, info = '';
+    ppEl.querySelectorAll('[data-pp="plan"]').forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.v === s.mode)); });
+    ppEl.querySelectorAll('[data-pp="zoom"]').forEach(function(b){ b.setAttribute('aria-pressed', String(Math.abs(s.z - Number(b.dataset.v)) < 1e-9)); });
+    q('[data-pp="reperes"]').setAttribute('aria-pressed', String(!!s.reperes));
+    q('[data-pp="prec"]').disabled = !L.length; q('[data-pp="suiv"]').disabled = !L.length;
+    var n = ch ? ch.paires.length : 0, nc = ch ? ch.coupes.length : 0;
+    q('.vc-pp-compte').textContent = !ch ? '' : (n >= 2 ? n + ' chevauchements' : n === 1 ? '1 chevauchement' : 'Aucun chevauchement')
+      + (nc ? ' · ' + (nc === 1 ? '1 coupé' : nc + ' coupés') + ' par le cadre' : '');
+    if (ch && s.iListe >= 0 && L[s.iListe]){
+      var e = L[s.iListe];
+      info = (s.iListe + 1) + '/' + L.length + ' · ' + (e.length > 1 ? nomApercu(e[0], true) + ' et ' + nomApercu(e[1]) + ' se chevauchent.' : nomApercu(e[0], true) + ' sort du cadre.');
+    }
+    else if (ch && s.choix >= 0){
+      var m = s.rel.marques[s.choix], part = [];
+      info = m.k === 'etiq' ? 'Étiquette « ' + texteApercu(s.choix) + ' »' : m.k === 'tx' ? 'Texte « ' + texteApercu(s.choix) + ' »' : 'Bulle' + (m.num != null ? ' ' + m.num : '');
+      ch.paires.forEach(function(p){ if (p.a === s.choix) part.push(nomApercu(p.b)); else if (p.b === s.choix) part.push(nomApercu(p.a)); });
+      if (part.length) info += ' · chevauche ' + (part.length > 1 ? part.slice(0, -1).join(', ') + ' et ' + part[part.length - 1] : part[0]);
+      if (ch.coupes.some(function(x){ return x.i === s.choix; })) info += ' · sort du cadre';
+    }
+    else if (ch) info = 'Touchez une étiquette, une bulle ou un texte pour voir ses chevauchements.';
+    q('.vc-pp-info').textContent = info;
+    q('.vc-pp-echelle').textContent = E0 ? 'Échelle : ' + (P.auto ? 'Auto (1/' + E0 + ')' : '1/' + E0) : '';
+    var coupe = s.mode === 'avp' ? P.coupeAvp : P.coupeEdl, bd = q('.vc-pp-bandeau');
+    bd.hidden = !coupe;
+    bd.textContent = coupe ? avisCadre({auto: P.auto, edl: P.edl, avp: P.avp, coupeEdl: s.mode === 'edl' && !!P.coupeEdl, coupeAvp: s.mode === 'avp' && !!P.coupeAvp}) : '';
+  }
+  /* « › » et « ‹ » (A6, A17) : entrée suivante ou précédente de la liste (ordre de lecture), en boucle (depuis aucune : la première ou la
+     dernière). Quel que soit le zoom d'avant, la vue passe à « × 2 », centrée sur le point qui range l'entrée (le centre de la boîte de ses
+     formes), aux bornes d'A8 près : la vue ne quitte pas la page, si bien qu'un élément qui en sort est montré au bord de la page, pas au
+     centre de la zone ; son déplaçable est choisi ; le toucher suivant est un premier toucher (ppTap effacé) */
+  function parcourirApercu(dir){
+    var s = S.pp, L = listeApercu(); if (!L.length) return;
+    s.iListe = s.iListe < 0 ? (dir > 0 ? 0 : L.length - 1) : (s.iListe + dir + L.length) % L.length;
+    var e = L[s.iListe], b = bornesApercu(e);
+    s.choix = e[0]; ppTap = null;
+    if (!ppZone || !b){ if (ppZone) zoomerApercu(2, ppZone.w / 2, ppZone.h / 2); else s.z = 2; }
+    else { s.z = 2; s.k = ppZone.kP * 2; s.ox = ppZone.w / 2 - (b[0] + b[2]) / 2 * s.k; s.oy = ppZone.h / 2 - (b[1] + b[3]) / 2 * s.k; bornerApercu(); }
+    majApercu(); rendreApercu();
+  }
+  /* Tab et Maj+Tab dans l'aperçu (A6) : le focus fait le tour des boutons actifs de la surcouche, sans passer sur l'éditeur caché dessous
+     ni sortir vers l'hôte (aussi sur les tablettes qui ne connaissent pas inert) */
+  function tabApercu(ev){
+    var bs = Array.prototype.filter.call(ppEl.querySelectorAll('button'), function(b){ return !b.disabled && b.offsetParent !== null; });
+    var n = bs.length, i = bs.indexOf(document.activeElement);
+    ev.preventDefault();
+    if (n) bs[i < 0 ? (ev.shiftKey ? n - 1 : 0) : (i + (ev.shiftKey ? n - 1 : 1)) % n].focus();
+  }
+  /* boutons (A6) ; pendant le calcul, seul « Fermer » agit */
+  function clicApercu(ev){
+    var b = ev.target.closest ? ev.target.closest('[data-pp]') : null, s = S.pp; if (!b || !s || !ppEl || !ppEl.contains(b)) return;
+    var a = b.dataset.pp;
+    if (a === 'fermer'){ garderFermer(b); fermerApercu(); return; }
+    if (s.calcul || !s.rel) return;
+    if (a === 'plan'){ if (b.dataset.v !== s.mode){ s.mode = b.dataset.v === 'avp' ? 'avp' : 'edl'; s.z = 1; s.choix = -1; s.iListe = -1; bornerApercu(); calculerApercu(); } return; }
+    if (a === 'prec' || a === 'suiv'){ parcourirApercu(a === 'suiv' ? 1 : -1); return; }
+    if (a === 'pdf'){ sortie(s.mode === 'avp' ? 'pdfAvp' : 'pdfEdl'); return; }
+    if (a === 'zoom'){ var z = Number(b.dataset.v); if (z === 1){ s.z = 1; bornerApercu(); } else zoomerApercu(z, ppZone.w / 2, ppZone.h / 2); majApercu(); rendreApercu(); return; }
+    if (a === 'reperes'){ s.reperes = !s.reperes; majApercu(); rendreApercu(); }
+  }
+  /* garde de « Fermer » (A6) : il est au-dessus du bouton « Retour » ; pendant 400 ms après son toucher, un appui à moins de 48 px de lui
+     est avalé, avec son relâcher et son clic (1 s au plus) ; un appui plus tardif ou plus loin lève la garde. Le clavier n'est pas filtré */
+  function garderFermer(b){
+    var r = b.getBoundingClientRect();
+    ppGarde = {t: Date.now(), x: r.left + r.width / 2, y: r.top + r.height / 2, avale: 0};
+    if (ppGardeEcoute) return;
+    ppGardeEcoute = true;
+    ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click'].forEach(function(t){ document.addEventListener(t, filtrerGarde, true); });
+  }
+  function filtrerGarde(ev){
+    var g = ppGarde; if (!g) return;
+    var t = Date.now();
+    if (ev.type === 'pointerdown'){
+      if (t - g.t < 400 && Math.hypot(ev.clientX - g.x, ev.clientY - g.y) < 48){ g.avale = t + 1000; ev.stopPropagation(); ev.preventDefault(); }
+      else ppGarde = null;
+      return;
+    }
+    if (g.avale && t < g.avale){ ev.stopPropagation(); ev.preventDefault(); if (ev.type === 'click') ppGarde = null; }
+    else if (t - g.t > 1500) ppGarde = null;
+  }
+  /* gestes de la zone (A8) : un doigt, un stylet ou la souris (bouton gauche) déplace la page au-delà du seuil (9 px, 4 px à la souris) ;
+     deux doigts pincent (z de 1 à 8, autour de leur milieu, qui déplace aussi la page) ; un second doigt change le déplacement en pince ;
+     lever un doigt de la pince la finit, même s'il en reste deux, et les doigts qui restent ne font rien ; un toucher choisit (un glissé
+     ou une pince n'en est pas un : le double toucher repart de zéro). Pendant le geste, transformation CSS ; à la fin, un rendu */
+  function posApercu(ev){ var r = ppEl.querySelector('.vc-pp-zone').getBoundingClientRect(); return {x: ev.clientX - r.left, y: ev.clientY - r.top}; }
+  function appuiApercu(ev){
+    var s = S.pp; if (!s || !ppEl) return;
+    if (document.activeElement !== ppEl){ try { ppEl.focus({preventScroll: true}); } catch(e){ ppEl.focus(); } }
+    if (s.calcul || !s.rel || !ppZone || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
+    ev.preventDefault();
+    try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch(e){}
+    var p = posApercu(ev);
+    ppPtr[ev.pointerId] = {x: p.x, y: p.y};
+    var ids = Object.keys(ppPtr), g = ppGeste;
+    if (ids.length === 1){ ppGeste = {type: 'attente', id: ev.pointerId, x0: p.x, y0: p.y, t0: Date.now(), ox0: s.ox, oy0: s.oy, seuil: ev.pointerType === 'mouse' ? 4 : 9}; return; }
+    if (ids.length === 2 && (!g || g.type !== 'pince')){
+      var a = ppPtr[ids[0]], b = ppPtr[ids[1]];
+      ppGeste = {type: 'pince', ids: ids, d0: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)), m0: {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2}, z0: s.z, k0: s.k, ox0: s.ox, oy0: s.oy};
+      ppTap = null;
+    }
+  }
+  function bougerApercu(ev){
+    var s = S.pp, q = ppPtr[ev.pointerId], g = ppGeste; if (!s || !q || !g || !ppZone) return;
+    var p = posApercu(ev); q.x = p.x; q.y = p.y;
+    if (g.type === 'attente' && g.id === ev.pointerId){ if (Math.hypot(p.x - g.x0, p.y - g.y0) < g.seuil) return; g.type = 'glisser'; ppTap = null; }
+    if (g.type === 'glisser' && g.id === ev.pointerId){ s.ox = g.ox0 + p.x - g.x0; s.oy = g.oy0 + p.y - g.y0; bornerApercu(); suivreApercu(); return; }
+    if (g.type === 'pince'){
+      var a = ppPtr[g.ids[0]], b = ppPtr[g.ids[1]]; if (!a || !b) return;
+      var x = (g.m0.x - g.ox0) / g.k0, y = (g.m0.y - g.oy0) / g.k0, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      s.z = clamp(g.z0 * Math.hypot(b.x - a.x, b.y - a.y) / g.d0, 1, 8); s.k = ppZone.kP * s.z; s.ox = mx - x * s.k; s.oy = my - y * s.k; bornerApercu(); suivreApercu();
+    }
+  }
+  function leverApercu(ev){
+    var s = S.pp, q = ppPtr[ev.pointerId], g = ppGeste; if (!s || !q) return;
+    delete ppPtr[ev.pointerId];
+    var reste = Object.keys(ppPtr).length;
+    if (!g) return;
+    if (g.type === 'attente' && g.id === ev.pointerId){ ppGeste = null; toucherApercu(g.x0, g.y0, g.t0); return; }
+    if (g.type === 'glisser' && g.id === ev.pointerId){ ppGeste = null; majApercu(); rendreApercu(); return; }
+    /* un doigt de la pince levé la finit, même s'il en reste deux (un troisième doigt levé ne la finit pas) */
+    if (g.type === 'pince'){ if (reste < 2 || g.ids.indexOf(String(ev.pointerId)) >= 0){ ppGeste = reste ? {type: 'fini'} : null; majApercu(); rendreApercu(); } return; }
+    if (!reste) ppGeste = null;
+  }
+  /* pointercancel : fin du geste, sans choix */
+  function annulerGesteApercu(ev){
+    if (!S.pp || !ppPtr[ev.pointerId]) return;
+    delete ppPtr[ev.pointerId];
+    var g = ppGeste, reste = Object.keys(ppPtr).length;
+    ppGeste = reste ? {type: 'fini'} : null;
+    if (g && (g.type === 'glisser' || g.type === 'pince')){ majApercu(); rendreApercu(); }
+  }
+  /* molette (A8) : z × 1,0018^(-deltaY), autour du pointeur, borné à 1 et 8 ; rendu 150 ms après le dernier cran */
+  function moletteApercu(ev){
+    ev.preventDefault();
+    var s = S.pp; if (!s || s.calcul || !s.rel || !ppZone) return;
+    var dy = ev.deltaY * (ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? ppZone.h : 1), p = posApercu(ev);
+    zoomerApercu(s.z * Math.pow(1.0018, -dy), p.x, p.y); suivreApercu(); majApercu();
+    clearTimeout(ppTMolette); ppTMolette = setTimeout(function(){ ppTMolette = null; if (S.pp === s) rendreApercu(); }, 150);
+  }
+  /* clé de la vue de l'aperçu (A8), comme cleVue pour le croquis : échelle et coin de la page ; elle change avec un glissé, un zoom ou
+     un parcours */
+  function cleVueApercu(){ var s = S.pp; return [s.k, s.ox, s.oy].join(','); }
+  /* un toucher (A8) : second appui d'un double toucher (moins de 380 ms et de 24 px) dans le vide : z = 2 autour du point (à z = 1), sinon
+     z = 1 ; sur un élément, le choix est gardé. Sinon, le premier candidat est choisi ; un toucher plus tardif, à moins de 24 px du
+     précédent, prend le candidat qui suit l'élément choisi, en boucle ; sans candidat, le choix et le parcours sont effacés. Deux touchers
+     ne sont proches que si la vue n'a pas bougé entre eux (cleVueApercu) */
+  function toucherApercu(px, py, t){
+    var s = S.pp, prec = ppTap, cle = cleVueApercu(), pres = !!prec && prec.v === cle && Math.hypot(px - prec.x, py - prec.y) < 24, dbl = pres && t - prec.t < 380, C = candidatsApercu(px, py);
+    /* après un double toucher, le toucher suivant n'en fait pas un autre, mais compte comme plus tardif s'il est proche (la vue du zoom notée) */
+    ppTap = {t: dbl ? -Infinity : t, x: px, y: py, v: cle};
+    if (dbl){
+      if (C.length) return;
+      if (s.z === 1) zoomerApercu(2, px, py); else { s.z = 1; bornerApercu(); }
+      ppTap.v = cleVueApercu();
+      majApercu(); rendreApercu(); return;
+    }
+    if (!C.length){ s.choix = -1; s.iListe = -1; }
+    else { var j = pres && s.choix >= 0 ? C.indexOf(s.choix) : -2; s.choix = j === -2 || j < 0 ? C[0] : C[(j + 1) % C.length]; s.iListe = -1; }
+    majApercu(); rendreApercu();
+  }
+  /* candidats d'un toucher (A8) : étiquettes, textes libres et bulles de la page 1 dont la boîte d'encre, élargie autour de son centre à
+     44 px CSS au moins de large et de haut, contient le point ; rangés par distance du point à la forme (0 dedans), puis l'indice le plus
+     grand d'abord */
+  function candidatsApercu(px, py){
+    var s = S.pp, M = s.rel.marques, F = s.chev.formes, x = (px - s.ox) / s.k, y = (py - s.oy) / s.k, demi = 22 / s.k, L = [];
+    M.forEach(function(m, i){
+      if (!F[i] || m.page !== 1 || !(m.k === 'etiq' || m.k === 'tx' || m.k === 'bulle')) return;
+      var b = bornesApercu([i]), cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
+      if (Math.abs(x - cx) > Math.max((b[2] - b[0]) / 2, demi) || Math.abs(y - cy) > Math.max((b[3] - b[1]) / 2, demi)) return;
+      var dm = Infinity;
+      F[i].forEach(function(f){ dm = Math.min(dm, f.c ? Math.max(0, Math.hypot(x - f.c[0], y - f.c[1]) - f.c[2]) : Math.hypot(Math.max(f.b[0] - x, 0, x - f.b[2]), Math.max(f.b[1] - y, 0, y - f.b[3]))); });
+      L.push({i: i, d: dm});
+    });
+    L.sort(function(a, b){ return a.d - b.d || b.i - a.i; });
+    return L.map(function(c){ return c.i; });
   }
 
   /* ferme le niveau le plus haut : le menu de poignée d'abord (m109 : l'élément reste choisi), ce qui est affiché par-dessus (dialogue,
@@ -7679,6 +8113,7 @@ function editeur(racine, opts){
     if (fermerMenu()) return true;
     /* m144 : le dialogue du dessus (la question d'un nom proche passe avant la fiche courte qu'elle couvre), fermé comme par Échap */
     var ms = R.querySelectorAll('.vc-modal'), m = ms.length ? ms[ms.length - 1] : null; if (m){ if (m.vcFermer) m.vcFermer(); else m.remove(); return true; }
+    if (S.pp){ fermerApercu(); return true; }
     if (S.palette){ fermerPalette(); return true; }
     if (S.accroches){ fermerAccroches(); return true; }
     if (S.sel || S.panneau){ fermerPanneau(); return true; }
@@ -7696,6 +8131,8 @@ function editeur(racine, opts){
     S.placer = null; S.cotes = null; S.reunir = null; S.noteEtiq = null; R.querySelectorAll('.vc-modal').forEach(function(m0){ m0.remove(); });
     S.doc = doc; S.fond = fond || null; S.reseau = reseau || null; S.undo = []; S.redo = []; S.sel = null; S.brouillon = null; S.panneau = null; S.mode = 'edl'; S.ajoutAnom = null; S.aligner = null;
     S.ptr = {}; S.geste = null; S.apercu = null; S.accrocheVue = null; S.survol = null;
+    /* aperçu du plan fermé (m168) */
+    fermerApercu();
     /* palette d'accrochage fermée, appuis avalés oubliés (m111) */
     ptrAvales = {}; fermerAccroches();
     clearTimeout(tToast); R.querySelector('.vc-toast').classList.remove('on');
@@ -7712,7 +8149,7 @@ function editeur(racine, opts){
   }
   return {ouvrir: ouvrir, etat: S, redessiner: redessiner, redim: redim, doc: function(){ return S.doc; }, choisirOutil: choisirOutil, toast: toast, enregistrer: enregistrer,
     tap: tap, terminerTrace: function(m){ terminerTrace(m === 'discret' ? m : undefined); }, selectionner: selectionner, ouvrirPanneau: ouvrirPanneau, annuler: annuler, refaire: refaire, ajusterVue: ajusterVue, sortie: sortie,
-    fermerNiveau: fermerNiveau, placerAnomalie: function(id){ if (!INTEG || !recDe(id)) return; fermerPanneau(); choisirOutil({k: 'main'}); S.placer = id; majAide(); }, synchroniser: function(){ if (S.doc){ analyse(); synchroniser(); majBarre(); majPanneau(); redessiner(); } }, liste: function(){ return S.liste; }};
+    fermerNiveau: fermerNiveau, optsPlan: optsPlan, ouvrirApercu: ouvrirApercu, fermerApercu: fermerApercu, placerAnomalie: function(id){ if (!INTEG || !recDe(id)) return; fermerPanneau(); choisirOutil({k: 'main'}); S.placer = id; majAide(); }, synchroniser: function(){ if (S.doc){ analyse(); synchroniser(); majBarre(); majPanneau(); redessiner(); } }, liste: function(){ return S.liste; }};
 }
 VC.editeur = editeur;
 function exportJson(doc){ var d = copie(doc); d.exporte = nowISO(); d.app = (VC.signature || 'Croquis de terrain') + ' · croquis ' + VC.version; return d; }
@@ -7853,6 +8290,27 @@ var CSS = [
 /* paysage, panneau ouvert : la barre d'aide s'arrête à gauche de la barre de navigation, avec le même écart qu'hors panneau (m114) */
 '.vc-avecpanneau .vc-aide{right:482px}',
 '.vc-avecpanneau .vc-accroches{right:474px;width:min(300px,calc(100% - 560px))}',
+/* aperçu du plan (m168) : surcouche opaque sur tout l'éditeur, au-dessus des barres, du panneau et du menu, sous les dialogues et le
+   toast ; une colonne ; les barres passent à la ligne ; « Calcul… » ne paraît qu'après 300 ms de calcul */
+'.vc-pp{position:absolute;inset:0;z-index:9;display:flex;flex-direction:column;background:var(--surface,#fff);outline:none}',
+'.vc-pp-haut,.vc-pp-bas{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 8px;background:var(--surface,#fff)}',
+'.vc-pp-haut{min-height:58px;border-bottom:1px solid var(--line,#C7D1D8)}',
+'.vc-pp-bas{border-top:1px solid var(--line,#C7D1D8)}',
+'.vc-pp-titre{flex:1;min-width:120px;font-size:17px}',
+'.vc-pp-parcours{display:inline-flex;align-items:center;gap:6px}',
+'.vc-pp-compte{min-width:10em;text-align:center;font-weight:600;font-size:14.5px}',
+'.vc-pp-zone{flex:1;min-height:0;position:relative;overflow:hidden;background:#C9D0D5;touch-action:none;-webkit-user-select:none;user-select:none}',
+'.vc-pp-cv{position:absolute;left:0;top:0;display:block;transform-origin:0 0}',
+'.vc-pp-calcul{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:10px 16px;border-radius:12px;background:#1f2a31;color:#fff;font-weight:600;opacity:0;pointer-events:none}',
+'.vc-pp[aria-busy="true"] .vc-pp-calcul{animation:vc-pp-calcul .01s linear .3s both}',
+'@keyframes vc-pp-calcul{from{opacity:0}to{opacity:1}}',
+'.vc-pp-bandeau{flex:none;padding:8px 12px;background:#FFF4E5;color:#5C3300;font-size:14px;font-weight:600;line-height:1.35;border-top:1px solid #F2C48D}',
+'.vc-pp-bandeau[hidden]{display:none}',
+/* la ligne d'info garde la hauteur de deux lignes (2 × 1,35 em, plus 12 px de marge intérieure et 1 px de bordure) : la page ne change pas
+   d'échelle quand le texte s'allonge ; un texte plus long défile dans la case */
+'.vc-pp-info{flex:none;padding:6px 12px;height:calc(2.7em + 13px);overflow-y:auto;font-size:14.5px;line-height:1.35;border-top:1px solid var(--line,#C7D1D8)}',
+'.vc-pp-echelle{margin-left:auto;color:var(--muted,#5C6C78);font-size:14px}',
+'.vc-pp .vc-chip{min-height:44px}',
 '@media (max-width:760px),(orientation:portrait){',
 '  .vc-outils{top:auto;left:0;right:0;bottom:0;width:auto;height:70px;flex-direction:row;border-right:0;border-top:1px solid var(--line,#C7D1D8);overflow-x:auto;overflow-y:hidden}',
 '  .vc-o{min-width:64px;min-height:56px}',
@@ -8622,10 +9080,12 @@ function rejouerPage(ctx, page, vue){
   return attentes.length ? Promise.all(attentes).then(function(){ return false; }) : Promise.resolve(true);
 }
 /* Rend les chevauchements du plan pour l'aperçu du plan (A17), d'après les marques et les ordres de la page 1 d'un relevé (releveurPdf) :
-   {paires: [{a, b, p}], coupes: [{i, d}]}. a < b et i sont des indices de rel.marques. Une paire : une étiquette, un texte libre ou une
-   bulle qui pénètre de plus de 0,3 mm (p, en mm) un autre de ceux-là, un symbole (centre dans le cadre) ou un élément fixe (nord, échelle,
-   mention) ; symbole contre symbole ne compte pas. Une coupe : une étiquette, un texte libre ou une bulle qui sort du cadre de dessin de
-   plus de 0,3 mm (d, en mm). */
+   {paires: [{a, b, p}], coupes: [{i, d}], cadre, formes}. a < b et i sont des indices de rel.marques. Une paire : une étiquette, un texte
+   libre ou une bulle qui pénètre de plus de 0,3 mm (p, en mm) un autre de ceux-là, un symbole (centre dans le cadre) ou un élément fixe
+   (nord, échelle, mention) ; symbole contre symbole ne compte pas. Une coupe : une étiquette, un texte libre ou une bulle qui sort du cadre
+   de dessin de plus de 0,3 mm (d, en mm). cadre : ce cadre de dessin [x0, y0, x1, y1] (mm). formes : pour chaque marque, sa forme
+   (morceaux {c: [x, y, r]} ou {b: [x0, y0, x1, y1]}), ou null (page 2 et suivantes, symbole dont le centre est hors du cadre, marque sans
+   forme). L'interface de l'aperçu (m168) s'en sert pour ses repères, le choix au toucher et le surlignage. */
 function chevauchementsPlan(rel){
   var O = (rel.pages[0] || {ordres: []}).ordres, RC = null, MMPT = 25.4 / 72, ACC = /[ÀÁÂÃÄÅÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝŠŽŸ]/;
   /* cadre de dessin : le rectangle sans peinture qui précède la découpe */
@@ -8688,7 +9148,7 @@ function chevauchementsPlan(rel){
       if (p > .3) paires.push({a: i, b: j, p: p});
     }
   });
-  return {paires: paires, coupes: coupes};
+  return {paires: paires, coupes: coupes, cadre: RC, formes: Fm};
 }
 VC.releveurPdf = releveurPdf; VC.rejouerPage = rejouerPage; VC.chevauchementsPlan = chevauchementsPlan;
 

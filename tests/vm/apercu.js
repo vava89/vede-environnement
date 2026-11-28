@@ -6,7 +6,8 @@
 // (b) flux : départ et ligne de base de chaque ligne de texte, lus dans le PDF non compressé, égaux à ceux du releveur ; largeur imprimée ;
 // (c) rejeu sur un faux contexte 2D (textes, halo, découpe au cadre, tracés et leur peinture, logo) ; (d) marques et leurs statuts
 // (« ecart » compris) ; (e) chevauchements de plans construits : recouvrement exact, boîte d'une ligne, seuils de 0,3 mm ;
-// (f) mode strict du releveur ; arguments que jsPDF refuse : la même erreur que lui, avec ou sans strict.
+// (f) mode strict du releveur ; arguments que jsPDF refuse : la même erreur que lui, avec ou sans strict ;
+// (g) ce que chevauchementsPlan rend aussi pour l'interface de l'aperçu (m168) : le cadre de dessin et la forme de chaque marque.
 // Croquis fictifs seulement (« 12 rue Fictive », « Ville-Exemple », fond VCroquis.demoDxf()) ; le logo est un PNG fabriqué ici.
 // usage : node tests/vm/apercu.js [-v] [--app=<dossier>]
 'use strict';
@@ -594,6 +595,80 @@ ctrl('(f) arguments que jsPDF refuse (tracés, pointillé, bouts, jonctions) : l
     if (ej !== er || !!ej !== refuse || n !== (refuse ? 0 : 1)) return [false, (strict ? 'strict, ' : '') + m + ' ' + court(a) + ' : jsPDF « ' + ej + ' », releveur « ' + er + ' », ' + n + ' ordre(s)'];
   }
   return [true, REFUS.length + ' refus et ' + ADMIS.length + ' cas admis'];
+});
+
+/* (g) ce que l'interface de l'aperçu lit dans le retour de chevauchementsPlan (m168) : cadre (repères) et formes (choix, surlignage,
+   centrage du parcours) */
+const CADRE_PDF = [7, 7, 212, 199];
+/* boîte englobante des morceaux d'une forme ({c: [x, y, r]} ou {b: [x0, y0, x1, y1]}) */
+const bornes = F => F.reduce((b, f) => { const q = f.c ? [f.c[0] - f.c[2], f.c[1] - f.c[2], f.c[0] + f.c[2], f.c[1] + f.c[2]] : f.b;
+  return [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[2]), Math.max(b[3], q[3])]; }, [Infinity, Infinity, -Infinity, -Infinity]);
+const chevDe = t => { const rel = surReleveur(t, true).rel; return {rel, c: V.chevauchementsPlan(rel)}; };
+ctrl('(g) cadre : [7, 7, 212, 199] sur la démonstration et sur le croquis construit, et faute de découpe (releveur écrit à la main)', () => {
+  const r = TEMOINS.map(t => chevDe(t).c.cadre), m = V.releveurPdf(J0, {strict: true});
+  m.setFontSize(8); m.marque({k: 'etiq', id: 'T'}); m.text('Texte fictif', 60, 100); m.marque(null);
+  r.push(V.chevauchementsPlan(m).cadre);
+  return [r.every(c => egal(c, CADRE_PDF)), court(r)];
+});
+ctrl('(g) formes : une entrée par marque ; null en page 2 et pour un symbole dont le centre est hors du cadre (« Lo »), présente sinon', () => {
+  const ecarts = [];
+  /* une étiquette en page 1, une en page 2 */
+  const r = V.releveurPdf(J0, {strict: true});
+  r.setFontSize(8); r.marque({k: 'etiq', id: 'T'}); r.text('Texte fictif', 60, 100); r.marque(null);
+  r.addPage(); r.setFontSize(8); r.marque({k: 'etiq', id: 'U'}); r.text('Texte fictif', 60, 100); r.marque(null);
+  const c = V.chevauchementsPlan(r);
+  if (!Array.isArray(c.formes) || c.formes.length !== 2 || !c.formes[0] || c.formes[1] !== null || r.marques[1].page !== 2) ecarts.push('page 2 : ' + court(c.formes));
+  for (const t of TEMOINS){
+    const {rel, c: cc} = chevDe(t);
+    if (!Array.isArray(cc.formes) || cc.formes.length !== rel.marques.length){ ecarts.push(t.nom + ' : ' + (cc.formes ? cc.formes.length : 'aucune') + ' formes pour ' + rel.marques.length + ' marques'); continue; }
+    rel.marques.forEach((m, i) => {
+      const attendue = m.page === 1 && (m.k !== 'symb' || (m.A.x >= 7 && m.A.x <= 212 && m.A.y >= 7 && m.A.y <= 199));
+      if (attendue !== (Array.isArray(cc.formes[i]) && cc.formes[i].length > 0) || (!attendue && cc.formes[i] !== null)) ecarts.push(t.nom + ', marque ' + i + ' (' + m.k + ' ' + (m.id || m.cle) + ') : ' + court(cc.formes[i]));
+    });
+  }
+  const {rel: r3, c: c3} = chevDe(TEMOINS[3]), lo = r3.marques.findIndex(m => m.k === 'symb' && m.id === 'Lo');
+  if (lo < 0 || !c3.formes || c3.formes[lo] !== null) ecarts.push('symbole « Lo » : ' + (lo < 0 ? 'sans marque' : court(c3.formes && c3.formes[lo])));
+  return [!ecarts.length, ecarts.slice(0, 4).join(' ; ')];
+});
+ctrl('(g) chaque paire et chaque coupe désigne des marques dont la forme existe (témoins et plans construits)', () => {
+  const ecarts = [], cas = TEMOINS.map(t => Object.assign({nom: t.nom}, chevDe(t)));
+  cas.push(Object.assign({nom: 'étiquette sur le « N »'}, plan([['Hn', 'regard', 21.1, 18.7, {etiq: 'Regard N'}], ['Hs', 'regard', -21.1, -18.7]], d => lab(d, 'Hn', {dx: -2.8, dy: 0}))));
+  cas.push(Object.assign({nom: 'bulle coupée'}, plan([['Bc', 'regard', 20.6, 0.6], ['Bs', 'regard', -20.6, -0.6]], d => { d.anomManu = [manu('Bc', {dx: -0.3, dy: 0})]; })));
+  let np = 0, nc = 0;
+  cas.forEach(k => {
+    const idx = k.c.paires.reduce((a, x) => a.concat([x.a, x.b]), []).concat(k.c.coupes.map(x => x.i));
+    np += k.c.paires.length; nc += k.c.coupes.length;
+    if (!Array.isArray(k.c.formes) || idx.some(i => !k.c.formes[i])) ecarts.push(k.nom + ' : ' + dit(k.c));
+  });
+  return [!ecarts.length && np > 0 && nc > 0, np + ' paires et ' + nc + ' coupes' + (ecarts.length ? ' ; ' + ecarts.join(' ; ') : '')];
+});
+ctrl('(g) forme d\'une bulle : le disque de centre (cx, cy) et de rayon 2,225 mm (TAILLE_BULLE + 0,125)', () => {
+  const ecarts = []; let n = 0;
+  for (const t of [TEMOINS[0], TEMOINS[3]]){
+    const {rel, c} = chevDe(t);
+    rel.marques.forEach((m, i) => {
+      if (m.k !== 'bulle') return; n++;
+      if (!c.formes || !egal(c.formes[i], [{c: [m.cx, m.cy, 2.225]}])) ecarts.push(t.nom + ', bulle ' + m.num + ' : ' + court(c.formes && c.formes[i]));
+    });
+  }
+  return [!ecarts.length && n >= 2, n + ' bulles' + (ecarts.length ? ' ; ' + ecarts.join(' ; ') : '')];
+});
+ctrl('(g) étiquettes et textes libres : départ et ligne de base de chaque ligne de texte dans la boîte englobante de leur forme', () => {
+  const ecarts = []; let n = 0;
+  for (const t of TEMOINS){
+    const {rel, c} = chevDe(t), O = rel.pages[0].ordres;
+    rel.marques.forEach((m, i) => {
+      if (m.page !== 1 || (m.k !== 'etiq' && m.k !== 'tx')) return;
+      const F = c.formes && c.formes[i];
+      if (!F){ ecarts.push(t.nom + ', ' + m.k + ' ' + m.id + ' : sans forme'); return; }
+      const b = bornes(F);
+      m.ordres.map(j => O[j]).filter(o => o.m === 'text').forEach(o => o.lignes.forEach(l => {
+        if (!l.t) return; n++;
+        if (!(l.x >= b[0] - TOL && l.x <= b[2] + TOL && l.y >= b[1] - TOL && l.y <= b[3] + TOL)) ecarts.push(t.nom + ', ' + m.k + ' ' + m.id + ' : ' + court([l.x, l.y]) + ' hors de ' + court(b));
+      }));
+    });
+  }
+  return [!ecarts.length && n > 20, n + ' lignes' + (ecarts.length ? ' ; ' + ecarts.slice(0, 3).join(' ; ') : '')];
 });
 
 (async () => {
