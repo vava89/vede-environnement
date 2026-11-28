@@ -495,8 +495,14 @@ CROQUIS DE TERRAIN (facultatif)
   propose. « Aperçu du plan », premier bouton de Sorties, montre la
   page 1 du PDF à l'échelle du livrable, compte et entoure d'orange les
   étiquettes, textes et bulles qui se chevauchent ou que le cadre coupe,
-  et passe de l'un à l'autre, de haut en bas ; il ne change rien au
-  dossier.
+  et passe de l'un à l'autre, de haut en bas. On y glisse, au doigt ou à
+  la souris, une étiquette, une bulle ou un texte : le PDF de ce plan
+  l'imprime là où on l'a lâché (ramené dans le cadre). « Annuler » et
+  « Rétablir » de l'aperçu défont et refont ces déplacements, et
+  « Annuler » du croquis les défait aussi après « Fermer ». Dans un
+  dossier à projet, un déplacement sur l'état des lieux ne change pas le
+  plan d'avant-projet, qui garde ses places, et un déplacement sur
+  l'avant-projet ne change que lui.
 
 SAUVEGARDE
 - Effacer les données du navigateur ou désinstaller l'application efface

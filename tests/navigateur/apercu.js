@@ -1,6 +1,6 @@
-// Aperçu du plan en lecture seule (m168 ; A5 à A8, A21 et A23 de la conception de l'aperçu), dans Chromium : données fictives, fond fictif
-// de VCroquis.demoDxf(), croquis de démonstration ou dessins construits ici. L'aperçu s'ouvre par le vrai chemin (panneau Sorties, toucher
-// « Aperçu du plan », fin du calcul attendue sur aria-busy). Contrôles :
+// Aperçu du plan (lecture seule : m168 ; déplacer : m170 ; A5 à A8, A21 et A23 de la conception de l'aperçu), dans Chromium : données
+// fictives, fond fictif de VCroquis.demoDxf(), croquis de démonstration ou dessins construits ici. L'aperçu s'ouvre par le vrai chemin
+// (panneau Sorties, toucher « Aperçu du plan », fin du calcul attendue sur aria-busy). Contrôles :
 // a : surcouche (pas une .vc-modal), rôle et nom, titre, focus sur « Fermer », S.pp, bouton en tête de Sorties, calcul signalé par aria-busy ;
 // b : rendu lu par getImageData (pixels sombres dans la boîte d'une étiquette, aucun dans un coin de la zone, hors de la page) ;
 // c : livrable : ordres de la page 1 relevés = ordres que sortie('pdfEdl') ou sortie('pdfAvp') donne au vrai jsPDF (espion du constructeur,
@@ -23,11 +23,21 @@
 // j : gardes : croquis désactivé (pas d'éditeur, nulle part « Aperçu du plan ») ; jsPDF absent (message, pas de surcouche) ;
 // k : positions propres à chaque plan (m169 ; P2, 1re partie), dans l'éditeur, sur des dessins construits : objet supprimé (Suppr), plan
 //     tourné, statut « Projet », type changé, avec Ctrl+Z et Ctrl+Maj+Z ; ménage à la réouverture du croquis ; texte libre décalé à l'écran
-//     (zone et toucher) ; garde : fermer puis rouvrir le croquis garde doc.plans et e.decal.
+//     (zone et toucher) ; garde : fermer puis rouvrir le croquis garde doc.plans et e.decal ;
+// l : déplacer (m170 ; P2, 2e partie) : étiquette, bulle ou texte glissé au doigt ou à la souris, imprimé par le PDF là où on l'a lâché
+//     (ramené dans le cadre ; positions relevées, et textes du vrai jsPDF espionné) ; pendant le glissé, la page sans lui et lui seul sur
+//     le canevas de saisie ; les marques que le lâcher fait bouger entourées de bleu un instant ; dossier à projet (toast du gel une fois,
+//     avant-projet inchangé, lâcher sur l'avant-projet seul) ; « Annuler » et « Rétablir » de l'aperçu (boutons, Ctrl+Z, Ctrl+Maj+Z,
+//     garde d'identité, tracé du croquis jamais défait ; l'objet choisi et la saisie en cours du croquis gardés), « Annuler » du croquis
+//     après « Fermer » ; abandons (second doigt, pointercancel, Échap, fenêtre redimensionnée) ; toast de la première ouverture
+//     (navigateur à part) ; toast de « Replacer toutes les étiquettes » ; constat signé inchangé ; gardes de m168 : glissé de la page hors
+//     de portée des marques, toucher de 3 px à la souris.
 // Sur e1ce71f (avant m168) : 7/59, les six « aucune erreur dans la console » et la garde « croquis désactivé » ; « jsPDF absent » échoue
 // faute de bouton « Aperçu du plan ». Avant la reprise du parcours (ordre de lecture, vue « × 2 », déplaçable choisi) : 47/59, les douze
 // contrôles de e qu'elle change ou ajoute échouent ; après : 59/59. Sur 0e3a9e8 (avant m169) : 61/67 ; des huit contrôles de k, seuls
-// la garde et « aucune erreur dans la console » passent ; après : 67/67. Ni capture d'écran ni image : les pixels se lisent dans la page.
+// la garde et « aucune erreur dans la console » passent ; après : 67/67. Sur fb184ea (avant m170) : 68/81 ; des quatorze contrôles de
+// l, seuls les deux « aucune erreur dans la console » passent, et (a) échoue sur le sous-titre ; après : 81/81. Ni capture d'écran ni
+// image : les pixels se lisent dans la page.
 // usage : node tests/navigateur/apercu.js [-v] [--app=<dossier>]
 'use strict';
 const C = require('./commun.js');
@@ -65,33 +75,39 @@ function outilsPage(){
         reperesBtn: q('[data-pp="reperes"]') ? q('[data-pp="reperes"]').getAttribute('aria-pressed') : null,
         nPaires: s.pp && s.pp.chev ? s.pp.chev.paires.length : -1, nCoupes: s.pp && s.pp.chev ? s.pp.chev.coupes.length : -1};
     },
-    /* marques de la page 1 : indice, genre, id, centre et taille (mm), boîte englobante de la forme (mm) */
+    /* marques de la page 1 : indice, genre, id, clé d'une bulle (m170), centre et taille (mm), boîte englobante de la forme (mm) */
     marques(){
       const s = S().pp; if (!s || !s.rel) return [];
       return s.rel.marques.map((m, i) => {
         const F = s.chev && s.chev.formes ? s.chev.formes[i] : null;
         const b = F ? F.reduce((a, f) => { const r = f.c ? [f.c[0] - f.c[2], f.c[1] - f.c[2], f.c[0] + f.c[2], f.c[1] + f.c[2]] : f.b;
           return [Math.min(a[0], r[0]), Math.min(a[1], r[1]), Math.max(a[2], r[2]), Math.max(a[3], r[3])]; }, [Infinity, Infinity, -Infinity, -Infinity]) : null;
-        return {i, k: m.k, id: m.id || m.cle, num: m.num, page: m.page, cx: m.cx, cy: m.cy, w: m.w, h: m.h, b};
+        return {i, k: m.k, id: m.id || m.cle, cle: m.cle, num: m.num, page: m.page, cx: m.cx, cy: m.cy, w: m.w, h: m.h, b};
       });
     },
     /* point de la page (mm) vers la fenêtre (pixels CSS) */
     versEcran(x, y){ const s = S().pp, z = pp().querySelector('.vc-pp-zone').getBoundingClientRect(); return {x: z.left + s.ox + x * s.k, y: z.top + s.oy + y * s.k}; },
     /* boîte de la page (mm) vers les pixels de l'appareil du canevas */
     boiteCv(b){ const s = S().pp, d = S().dpr; return [(s.ox + b[0] * s.k) * d, (s.oy + b[1] * s.k) * d, (s.ox + b[2] * s.k) * d, (s.oy + b[3] * s.k) * d]; },
-    /* pixels d'une boîte du canevas (pixels de l'appareil) : sombres (luminance < 100), orange (#F76707), cyan (repères) */
-    pixels(bx){
-      const cv = pp().querySelector('.vc-pp-cv'), c = cv.getContext('2d');
+    /* pixels d'une boîte du canevas (pixels de l'appareil) : sombres (luminance < 100), orange (#F76707), cyan (repères), bleu (#1971C2 : les
+       marques qu'un lâcher a fait bouger, m170), encre (luminance < 200, m170 : le trait fin d'une étiquette vue à z = 1 n'est jamais
+       sombre) ; chaque pixel est lu sur fond blanc (m170 : le canevas de la saisie est transparent hors de la marque) ; sel : un autre
+       canevas de l'aperçu (m170 : celui de la saisie), sinon celui de la page */
+    pixels(bx, sel){
+      const cv = pp().querySelector(sel || '.vc-pp-cv'), c = cv.getContext('2d');
       const x0 = Math.max(0, Math.floor(bx[0])), y0 = Math.max(0, Math.floor(bx[1])), x1 = Math.min(cv.width, Math.ceil(bx[2])), y1 = Math.min(cv.height, Math.ceil(bx[3]));
-      if (x1 <= x0 || y1 <= y0) return {n: 0, sombre: 0, orange: 0, cyan: 0, gris: 0, blanc: 0};
-      const d = c.getImageData(x0, y0, x1 - x0, y1 - y0).data, r = {n: 0, sombre: 0, orange: 0, cyan: 0, gris: 0, blanc: 0};
+      if (x1 <= x0 || y1 <= y0) return {n: 0, sombre: 0, orange: 0, cyan: 0, gris: 0, blanc: 0, bleu: 0, encre: 0};
+      const d = c.getImageData(x0, y0, x1 - x0, y1 - y0).data, r = {n: 0, sombre: 0, orange: 0, cyan: 0, gris: 0, blanc: 0, bleu: 0, encre: 0};
       for (let i = 0; i < d.length; i += 4){
-        const R0 = d[i], G = d[i + 1], B = d[i + 2]; r.n++;
-        if (.2126 * R0 + .7152 * G + .0722 * B < 100) r.sombre++;
+        const al = d[i + 3] / 255, R0 = d[i] * al + 255 * (1 - al), G = d[i + 1] * al + 255 * (1 - al), B = d[i + 2] * al + 255 * (1 - al);
+        const lum = .2126 * R0 + .7152 * G + .0722 * B; r.n++;
+        if (lum < 100) r.sombre++;
+        if (lum < 200) r.encre++;
         if (Math.abs(R0 - 247) <= 14 && Math.abs(G - 103) <= 14 && Math.abs(B - 7) <= 14) r.orange++;
         if (R0 < 70 && G > 100 && B > 120 && G - R0 > 50 && B - R0 > 60) r.cyan++;
         if (Math.abs(R0 - 0xC9) <= 3 && Math.abs(G - 0xD0) <= 3 && Math.abs(B - 0xD5) <= 3) r.gris++;
         if (R0 > 250 && G > 250 && B > 250) r.blanc++;
+        if (Math.abs(R0 - 0x19) <= 14 && Math.abs(G - 0x71) <= 14 && Math.abs(B - 0xC2) <= 14) r.bleu++;
       }
       return r;
     },
@@ -137,14 +153,16 @@ function outilsPage(){
         undo: s.undo.length + ':' + JSON.stringify(s.undo).length, redo: s.redo.length, doc: JSON.stringify(s.doc)};
     },
     toast(){ const t = document.querySelector('.vc .vc-toast'); return t && t.classList.contains('on') ? t.textContent.trim() : ''; },
-    /* pixels orange autour de la forme de la marque i (sa boîte englobante élargie de 8 px CSS) */
-    orangeAutour(i){
-      const s = S().pp, d = S().dpr, F = s.chev.formes[i]; if (!F || !F.length) return -1;
+    /* pixels autour de la forme de la marque i (sa boîte englobante élargie de 8 px CSS), null sans forme ; orange et bleu (m170) */
+    autour(i){
+      const s = S().pp, d = S().dpr, F = s.chev.formes[i]; if (!F || !F.length) return null;
       const b = F.reduce((a, f) => { const r = f.c ? [f.c[0] - f.c[2], f.c[1] - f.c[2], f.c[0] + f.c[2], f.c[1] + f.c[2]] : f.b;
         return [Math.min(a[0], r[0]), Math.min(a[1], r[1]), Math.max(a[2], r[2]), Math.max(a[3], r[3])]; }, [Infinity, Infinity, -Infinity, -Infinity]);
       const c = T.boiteCv(b);
-      return T.pixels([c[0] - 8 * d, c[1] - 8 * d, c[2] + 8 * d, c[3] + 8 * d]).orange;
+      return T.pixels([c[0] - 8 * d, c[1] - 8 * d, c[2] + 8 * d, c[3] + 8 * d]);
     },
+    orangeAutour(i){ const r = T.autour(i); return r ? r.orange : -1; },
+    bleuAutour(i){ const r = T.autour(i); return r ? r.bleu : -1; },
     /* bord haut de la (première) boîte de la marque i : part des pixels orange de sa rangée et nombre de traits d'un seul tenant (plein : 1 ;
        pointillé : plusieurs) */
     bordHaut(i){
@@ -295,13 +313,21 @@ const dansZone = (e, x, y) => ({x: e.zone.l + x, y: e.zone.t + y});
 async function toucher(p, q, ms){ await p.touchscreen.tap(q.x, q.y); await C.pause(p, ms == null ? 450 : ms); }
 /* point de la zone hors de la page (marge grise à gauche, à mi-hauteur) */
 const vide = e => dansZone(e, Math.max(4, e.pp.ox / 2), e.zone.h / 2);
-/* glissé au doigt dans la fenêtre, de a à b en huit pas (événements tactiles de Chromium) */
+/* m170 : un doigt qui glisse reste immobile LEVER ms avant de se lever (glisserDoigt, pincer, glisserEtapes ; le contrôle f « toucher,
+   glisser, toucher » reste vif à dessein). Levé en mouvement, il lancerait dans Chromium une glissade inertielle (fling), invisible
+   sous touch-action: none ; le toucher qui la suit tant qu'elle dure ne ferait que l'arrêter : pointerdown et pointerup arrivent
+   (gestes de la zone), mais ni mousedown ni click (boutons, « Aperçu du plan »). Immobile 80 ms environ, le doigt est tenu pour
+   arrêté et sa vitesse retombe à zéro [p] ; 150 ms gardent une marge (mesuré : aucun toucher perdu). C'était l'échec rare de l2. Un
+   vrai doigt y est exposé de même [p] : défaut de l'application, à corriger par m171 (tests/LISEZMOI.md) */
+const LEVER = 150;
+/* glissé au doigt dans la fenêtre, de a à b en huit pas (événements tactiles de Chromium), puis LEVER ms immobile avant de lever */
 async function glisserDoigt(p, a, b){
   const s = await p.context().newCDPSession(p), t = (type, q) => s.send('Input.dispatchTouchEvent', {type, touchPoints: q ? [{x: q.x, y: q.y, id: 1}] : []});
-  try { await t('touchStart', a); for (let k = 1; k <= 8; k++) await t('touchMove', {x: a.x + (b.x - a.x) * k / 8, y: a.y + (b.y - a.y) * k / 8}); await t('touchEnd', null); }
+  try { await t('touchStart', a); for (let k = 1; k <= 8; k++) await t('touchMove', {x: a.x + (b.x - a.x) * k / 8, y: a.y + (b.y - a.y) * k / 8});
+    await C.pause(p, LEVER); await t('touchEnd', null); }
   finally { await s.detach(); }
 }
-/* pince à deux doigts autour de c, de l'écart d0 à d1 (pixels, de chaque côté) */
+/* pince à deux doigts autour de c, de l'écart d0 à d1 (pixels, de chaque côté), puis LEVER ms immobiles avant de lever */
 async function pincer(p, c, d0, d1){
   const s = await p.context().newCDPSession(p), t = (type, pts) => s.send('Input.dispatchTouchEvent', {type, touchPoints: pts});
   const pt = (dx, id) => ({x: c.x + dx, y: c.y, id});
@@ -309,7 +335,7 @@ async function pincer(p, c, d0, d1){
     await t('touchStart', [pt(-d0, 1)]); await C.pause(p, 30);
     await t('touchStart', [pt(-d0, 1), pt(d0, 2)]);
     for (let k = 1; k <= 8; k++){ const d = d0 + (d1 - d0) * k / 8; await t('touchMove', [pt(-d, 1), pt(d, 2)]); }
-    await t('touchEnd', []);
+    await C.pause(p, LEVER); await t('touchEnd', []);
   } finally { await s.detach(); }
 }
 /* point de la page au centre de la zone (mm) */
@@ -346,7 +372,8 @@ async function demonstration(){
           z: cs.zIndex, couvre: Math.abs(ro.left - rr.left) < 1 && Math.abs(ro.top - rr.top) < 1 && Math.abs(ro.width - rr.width) < 1 && Math.abs(ro.height - rr.height) < 1,
           pp: S.pp ? [S.pp.mode, S.pp.z, S.pp.choix, S.pp.iListe, S.pp.reperes, S.pp.calcul].join(',') : 'absent', panneau: S.panneau, calcul: getComputedStyle(o.querySelector('.vc-pp-calcul')).opacity};
       });
-      const bon = r.premier === 'apercu | Aperçu du planLa page 1 du PDF, à l\'échelle du livrable' && r.role === 'dialog' && r.nom === 'Aperçu du plan' && !r.modal && /Aperçu du plan/.test(r.titre)
+      /* m170 : le sous-titre dit qu'on y déplace étiquettes, bulles et textes */
+      const bon = r.premier === 'apercu | Aperçu du planLa page 1 du PDF, à l\'échelle du livrable : déplacez étiquettes, bulles et textes' && r.role === 'dialog' && r.nom === 'Aperçu du plan' && !r.modal && /Aperçu du plan/.test(r.titre)
         && r.focus && r.fermer === 'Fermer l\'aperçu | Fermer' && r.z === '9' && r.couvre && r.pp === 'edl,1,-1,-1,false,false' && r.panneau === 'sorties' && r.calcul === '0'
         && busy.indexOf('true') >= 0 && busy[busy.length - 1] !== 'true';
       return [bon, JSON.stringify(r).slice(0, 400) + ' ; aria-busy ' + JSON.stringify(busy)];
@@ -487,6 +514,8 @@ async function zoom(){
       for (let r = 0; r < 3; r++){ await glisserDoigt(p, dansZone(e0, e0.zone.w - 20, e0.zone.h / 2), dansZone(e0, 20, e0.zone.h / 2)); await attendre(p); await C.pause(p, 450); }
       const e1 = await etat(p), q = dansZone(e1, e1.zone.w * 0.8, e1.zone.h / 2), xq = (e1.zone.w * 0.8 - e1.pp.ox) / e1.pp.k;
       const s = await p.context().newCDPSession(p), t = (type, pts) => s.send('Input.dispatchTouchEvent', {type, touchPoints: pts});
+      /* glissé vif à dessein, sans LEVER : la suite reste brève (moins de 330 ms), et le troisième toucher n'a besoin que de pointerdown
+         et de pointerup, que la glissade laisse passer (il l'arrête) */
       let dt = 0;
       try {
         const t0 = Date.now();
@@ -1098,8 +1127,478 @@ async function positionsPropres(){
   } finally { await A.fermer(); }
 }
 
+/* ---------- l : déplacer (m170 ; P2, 2e partie) ---------- */
+/* glissé au doigt de a à b en o.pas pas (10 par défaut), par les événements tactiles de Chromium ; après le pas k, o.entre(k, t), où
+   t(type, points) envoie un événement tactile de plus ; fin : o.fin = 'lever' (LEVER ms immobile, puis touchEnd ; par défaut),
+   'annuler' (touchCancel, sans pause : une annulation ne lance pas de glissade [p]) ou une fonction(t) qui la fait (à elle de rester
+   LEVER ms immobile avant un touchEnd, comme « second doigt » de l6) */
+async function glisserEtapes(p, a, b, o){
+  o = o || {}; const n = o.pas || 10;
+  const s = await p.context().newCDPSession(p), t = (type, pts) => s.send('Input.dispatchTouchEvent', {type, touchPoints: pts});
+  try {
+    await t('touchStart', [{x: a.x, y: a.y, id: 1}]);
+    for (let k = 1; k <= n; k++){
+      await t('touchMove', [{x: a.x + (b.x - a.x) * k / n, y: a.y + (b.y - a.y) * k / n, id: 1}]);
+      if (o.entre) await o.entre(k, t);
+    }
+    if (typeof o.fin === 'function') await o.fin(t);
+    else if (o.fin === 'annuler') await t('touchCancel', []);
+    else { await C.pause(p, LEVER); await t('touchEnd', []); }
+  } finally { await s.detach(); }
+}
+/* glissé à la souris (bouton gauche) de a à b, en pas mouvements (10 par défaut) */
+async function glisserSouris(p, a, b, pas){ await p.mouse.move(a.x, a.y); await p.mouse.down(); await p.mouse.move(b.x, b.y, {steps: pas || 10}); await p.mouse.up(); }
+/* messages de l'éditeur (toasts) notés dans l'ordre, un par appel (le texte posé) ; à reposer après chaque ouverture du croquis */
+const noterToasts = p => p.evaluate(() => {
+  const t = document.querySelector('.vc .vc-toast'); window.__lToasts = [];
+  if (window.__lToastsMo) window.__lToastsMo.disconnect();
+  window.__lToastsMo = new MutationObserver(L => L.forEach(r => { if (r.addedNodes.length) window.__lToasts.push(Array.from(r.addedNodes).map(n => n.textContent).join('').trim()); }));
+  window.__lToastsMo.observe(t, {childList: true});
+});
+const toastsNotes = p => p.evaluate(() => (window.__lToasts || []).slice());
+const combien = (L, t) => L.filter(x => x === t).length;
+/* JSON du dossier, clés de premier niveau rangées, sans ce qui change sans geste de dessin (modifie, rev, vue) */
+const docJ = p => p.evaluate(() => { const d = window.__vcEd.etat.doc, o = {};
+  Object.keys(d).sort().forEach(k => { if (k !== 'modifie' && k !== 'rev' && k !== 'vue') o[k] = d[k]; }); return JSON.stringify(o); });
+/* historique du croquis (S.undo en JSON, longueurs) */
+const pileJ = p => p.evaluate(() => { const S = window.__vcEd.etat; return {undo: JSON.stringify(S.undo), nU: S.undo.length, nR: S.redo.length}; });
+/* état propre au déplacement : compteurs, saisie, clignotement, choix, boutons « Annuler » et « Rétablir » (disabled, ou 'absent'), canevas
+   de saisie (caché, transformation, taille) et taille du canevas de la page */
+const etatL = p => p.evaluate(() => {
+  const s = window.__vcEd.etat.pp, o = document.querySelector('.vc .vc-pp'), q = sel => o && o.querySelector(sel), cs = q('.vc-pp-saisie'), cv = q('.vc-pp-cv');
+  const dis = sel => q(sel) ? q(sel).disabled : 'absent';
+  return {ouvert: !!o, pas: s ? s.pas : null, redo: s ? s.redo : null, saisie: s ? s.saisie : null, flash: s && s.flash ? s.flash.slice() : null, choix: s ? s.choix : null,
+    calcul: s ? s.calcul : null, busy: o ? o.getAttribute('aria-busy') : null, annuler: dis('[data-pp="annuler"]'), refaire: dis('[data-pp="refaire"]'),
+    cs: cs ? {hidden: cs.hidden, transform: cs.style.transform, w: cs.width, h: cs.height} : null, cv: cv ? {w: cv.width, h: cv.height} : null};
+});
+/* marque de la page 1 d'un genre (k) et d'un id (pour une bulle : la clé de son anomalie ; un objet peut en porter plusieurs), ou null
+   (M : marques(p)) ; cleDe : ce qui la désigne */
+const marqueDe = (M, k, id) => M.filter(m => m.k === k && (k === 'bulle' ? m.cle : m.id) === id && m.page === 1)[0] || null;
+const cleDe = m => m.k === 'bulle' ? m.cle : m.id;
+/* point (mm) dans une boîte élargie de e (mm) */
+const dansB = (b, x, y, e) => x >= b[0] - e && x <= b[2] + e && y >= b[1] - e && y <= b[3] + e;
+/* boîte (mm) d'une marque : celle de ses formes, sinon celle de son texte */
+const boiteM = m => m.b || [m.cx - m.w / 2, m.cy - m.h / 2, m.cx + m.w / 2, m.cy + m.h / 2];
+/* pixels de la boîte d'une marque, dans le canevas de la page (sel absent) ou dans celui de la saisie ; {absent: true, sombre: 0, encre: 0} sans ce
+   canevas */
+const pixelsMarque = (p, m, sel) => p.evaluate(([b, sel]) => document.querySelector('.vc .vc-pp ' + (sel || '.vc-pp-cv')) ? window.__ppT.pixels(window.__ppT.boiteCv(b), sel)
+  : {absent: true, sombre: 0, encre: 0}, [boiteM(m), sel || null]);
+/* centre d'une marque à l'écran, arrondi au pixel (le glissé part d'un point entier : l'écart au lâcher est alors exact) */
+const pointDe = (p, m) => p.evaluate(([x, y]) => window.__ppT.versEcran(x, y), [m.cx, m.cy]).then(q => ({x: Math.round(q.x), y: Math.round(q.y)}));
+/* fin du calcul qui suit un lâcher accepté : le compteur attendu, puis le calcul et le rendu finis */
+async function apresLacher(p, pas){
+  const ok = await attendreQue(p, pas => { const s = window.__vcEd.etat.pp; return !!s && s.pas === pas; }, pas, 4000);
+  await attendre(p);
+  return ok;
+}
+/* glissé abandonné ou refusé : saisie close (S.pp.saisie = -1, canevas de saisie caché) */
+const saisieClose = p => attendreQue(p, () => { const s = window.__vcEd.etat.pp, c = document.querySelector('.vc .vc-pp-saisie');
+  return !!s && s.saisie === -1 && !!c && c.hidden; }, null, 3000);
+/* ordres text de la marque i (page 1 du relevé) et ceux de même rang du dernier livrable espionné : le plus grand écart des points (mm), ou
+   -1 (aucun texte, ou un autre ordre au même rang) */
+const ecartTextes = (p, i) => p.evaluate(i => { const s = window.__vcEd.etat.pp, O = s.rel.pages[0].ordres, L = window.__ppT.dernierLivrable || [], mk = s.rel.marques[i]; let e = 0, n = 0;
+  for (const j of mk.ordres){ const o = O[j]; if (o.m !== 'text') continue; const l = L[j]; if (!l || l.m !== 'text' || JSON.stringify(l.a[0]) !== JSON.stringify(o.a[0])) return -1; n++; e = Math.max(e, Math.abs(l.a[1] - o.a[1]), Math.abs(l.a[2] - o.a[2])); }
+  return n ? e : -1; }, i);
+/* fin du prochain calcul de l'aperçu (aria-busy ôté) : clignotement, saisie, compteur, choix et pixels bleus autour des marques qui
+   clignotent, notés dans la tâche du rendu ; puis le clignotement 200 ms plus tard */
+const guetterFin = p => p.evaluate(() => {
+  window.__lFin = null; const o = document.querySelector('.vc .vc-pp');
+  if (window.__lFinMo) window.__lFinMo.disconnect();
+  const mo = window.__lFinMo = new MutationObserver(() => {
+    const s = window.__vcEd.etat.pp; if (o.getAttribute('aria-busy') === 'true' || !s || s.calcul) return;
+    mo.disconnect();
+    const f = window.__lFin = {flash: s.flash ? s.flash.slice() : null, saisie: s.saisie, pas: s.pas, choix: s.choix, bleu: (s.flash || []).map(i => window.__ppT.bleuAutour(i)), flash200: 'non lu'};
+    setTimeout(() => { const s2 = window.__vcEd.etat.pp; f.flash200 = s2 && s2.flash ? s2.flash.slice() : null; }, 200);
+  });
+  mo.observe(o, {attributes: true, attributeFilter: ['aria-busy']});
+});
+const ecartMm = (m, X, Y) => Math.max(Math.abs(m.cx - X), Math.abs(m.cy - Y));
+const labDe = (p, id) => p.evaluate(id => { const e = window.__vcEd.etat.doc.el.filter(x => x.id === id)[0]; return e ? JSON.parse(JSON.stringify(e.k === 'tx' ? e.decal || null : e.lab)) : 'absent'; }, id);
+const plansDe = p => p.evaluate(() => { const d = window.__vcEd.etat.doc; return 'plans' in d ? JSON.parse(JSON.stringify(d.plans)) : '(absent)'; });
+/* cible d'un lâcher (mm de page) : le centre de la marque plus le premier des écarts (mm) qui garde sa boîte dans le milieu du cadre (loin de
+   ses bords, de la rose du nord et de l'échelle graphique) */
+function cibleDans(m, ecarts){
+  const w = m.b ? m.b[2] - m.b[0] : m.w, h = m.b ? m.b[3] - m.b[1] : m.h;
+  for (const [dx, dy] of ecarts){ const x = m.cx + dx, y = m.cy + dy; if (x - w / 2 > 40 && x + w / 2 < 180 && y - h / 2 > 30 && y + h / 2 < 175) return {x, y}; }
+  return null;
+}
+/* glissé d'une marque (doigt ou souris) vers la cible (mm de page) : rend le point lâché attendu (mm), d'après l'écart entier en pixels */
+async function glisserVers(p, m, cible, souris){
+  const e = await etat(p), a = await pointDe(p, m), d = {x: Math.round((cible.x - m.cx) * e.pp.k), y: Math.round((cible.y - m.cy) * e.pp.k)}, b = {x: a.x + d.x, y: a.y + d.y};
+  if (souris) await glisserSouris(p, a, b); else await glisserEtapes(p, a, b);
+  return {X: m.cx + d.x / e.pp.k, Y: m.cy + d.y / e.pp.k};
+}
+const ASTUCE = 'Glissez une étiquette, une bulle ou un texte : le PDF l\'imprimera là.';
+const GEL_LAB = 'Déplacée sur le plan de l\'état des lieux ; le plan d\'avant-projet garde la sienne.', GEL_TX = 'Déplacé sur le plan de l\'état des lieux ; le plan d\'avant-projet garde le sien.';
+const RIEN_A = 'Rien à annuler dans l\'aperçu', RIEN_R = 'Rien à rétablir dans l\'aperçu';
+const SIG_FICTIVE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+/* deux regards : l'étiquette de A placée à la main au-dessus de lui, celle de B posée d'office */
+const deuxL = () => [Rg('A', -5, 0, 'Regard fictif A', {dx: 0, dy: 1.5}), Rg('B', 5, 0, 'Regard fictif B', null)];
+async function deplacer(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    await noterToasts(p);
+    await controle('l1 : étiquette d\'un symbole glissée au doigt (état des lieux) : pendant le glissé, la page sans elle, elle seule sur le canevas de saisie (taille de la page), qui suit le doigt ; au lâcher, sa marque au point lâché (0,05 mm), choisie, S.pp.pas = 1, « Annuler » actif, aria-busy retombé, saisie close ; le PDF (jsPDF espionné) l\'imprime là ; lâchée au-delà du bord gauche, ramenée dans le cadre', async () => {
+      await dessin(p, deuxL());
+      await ouvrirApercu(p);
+      const e0 = await etat(p), m0 = marqueDe(await marques(p), 'etiq', 'A'); if (!m0) return [false, 'pas d\'étiquette de A'];
+      const a = await pointDe(p, m0), b = {x: a.x + 90, y: a.y + 60}, X = m0.cx + 90 / e0.pp.k, Y = m0.cy + 60 / e0.pp.k, ko = [];
+      const px0 = await pixelsMarque(p, m0);
+      let pendant = null;
+      await glisserEtapes(p, a, b, {entre: async k => {
+        if (k !== 5) return;
+        const vu = await attendreQue(p, () => { const s = window.__vcEd.etat.pp, c = document.querySelector('.vc .vc-pp-saisie'), r = c && /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(c.style.transform);
+          return !!s && s.saisie >= 0 && !c.hidden && !!r && Math.abs(r[1] - 45) < 0.5 && Math.abs(r[2] - 30) < 0.5; }, null, 2000);
+        pendant = {vu, l: await etatL(p), page: await pixelsMarque(p, m0), saisie: await pixelsMarque(p, m0, '.vc-pp-saisie')};
+      }});
+      if (!pendant || !pendant.vu) ko.push('pendant le glissé : saisie ' + JSON.stringify(pendant && pendant.l));
+      else {
+        if (pendant.l.saisie !== m0.i || !pendant.l.cs || pendant.l.cs.w !== pendant.l.cv.w || pendant.l.cs.h !== pendant.l.cv.h) ko.push('saisie ' + JSON.stringify(pendant.l));
+        if (!(px0.encre > 0 && pendant.page.encre <= Math.max(3, px0.encre / 10))) ko.push('page pendant le glissé : ' + pendant.page.encre + ' pixels d\'encre dans la boîte (avant : ' + px0.encre + ')');
+        if (!(pendant.saisie.encre > 0)) ko.push('canevas de saisie sans l\'étiquette');
+      }
+      const ok = await apresLacher(p, 1), l1 = await etatL(p), M1 = await marques(p), m1 = marqueDe(M1, 'etiq', 'A');
+      if (!ok || !m1) return [false, ko.concat(['lâcher non suivi : ' + JSON.stringify(l1)]).join(' ; ')];
+      if (ecartMm(m1, X, Y) > 0.05) ko.push('marque en ' + f3(m1.cx) + ', ' + f3(m1.cy) + ' au lieu de ' + f3(X) + ', ' + f3(Y));
+      if (l1.annuler !== false || l1.busy === 'true' || !l1.cs || !l1.cs.hidden || l1.saisie !== -1 || l1.choix !== m1.i) ko.push('après le lâcher : ' + JSON.stringify(l1));
+      const lab = await labDe(p, 'A');
+      if (!lab || lab.main !== true || lab.E !== 200) ko.push('étiquette écrite ' + JSON.stringify(lab));
+      await p.evaluate(() => window.__ppT.sortieEspionnee('pdfEdl'));
+      const et = await ecartTextes(p, m1.i);
+      if (et < 0 || et > 0.05) ko.push('PDF : textes de l\'étiquette ' + (et < 0 ? 'absents ou à un autre rang' : 'à ' + f3(et) + ' mm'));
+      /* lâchée à 2 mm du bord gauche de la page, au-delà du cadre (7 mm) : ramenée à 1 mm du cadre */
+      const e1 = await etat(p), a2 = await pointDe(p, m1), xg = Math.round((2 - m1.cx) * e1.pp.k);
+      await glisserEtapes(p, a2, {x: a2.x + xg, y: a2.y});
+      const ok2 = await apresLacher(p, 2), m2 = marqueDe(await marques(p), 'etiq', 'A');
+      if (!ok2 || !m2 || Math.abs(m2.cx - (8 + m2.w / 2)) > 0.05 || Math.abs(m2.cy - m1.cy) > 0.05) ko.push('au-delà du bord gauche : ' + (m2 ? f3(m2.cx) + ', ' + f3(m2.cy) + ' au lieu de ' + f3(8 + m2.w / 2) + ', ' + f3(m1.cy) : 'pas de marque') + ', pas ' + (await etatL(p)).pas);
+      await fermerApercu(p);
+      return [!ko.length, ko.join(' ; ')];
+    });
+    await controle('l2 : démonstration, à la souris : le texte libre et une bulle de la page 1 lâchés à la place voulue (0,05 mm) ; 3 px puis lever sur une étiquette : un toucher (choisie, rien d\'écrit) ; à × 2, un appui hors des étiquettes qui glisse déplace la page (m168)', async () => {
+      await fermerApercu(p);
+      await demo(p);
+      await ouvrirApercu(p);
+      const ko = [], M = await marques(p), tx = M.filter(m => m.k === 'tx' && m.page === 1)[0], bu = M.filter(m => m.k === 'bulle' && m.page === 1 && m.b)[0];
+      if (!tx || !bu) return [false, 'texte ' + !!tx + ', bulle ' + !!bu];
+      const E = [[15, 10], [-15, 10], [15, -10], [-15, -10], [25, 0], [-25, 0]];
+      let pas = 0;
+      for (const [m, nom] of [[tx, 'texte'], [bu, 'bulle']]){
+        const c = cibleDans(m, E); if (!c){ ko.push(nom + ' : pas de cible dans le milieu du cadre'); continue; }
+        const v = await glisserVers(p, m, c, true);
+        if (!(await apresLacher(p, ++pas))){ ko.push(nom + ' : lâcher non suivi'); pas = (await etatL(p)).pas || 0; continue; }
+        const n = marqueDe(await marques(p), m.k, cleDe(m));
+        if (!n || ecartMm(n, v.X, v.Y) > 0.05) ko.push(nom + ' en ' + (n ? f3(n.cx) + ', ' + f3(n.cy) : 'aucune marque') + ' au lieu de ' + f3(v.X) + ', ' + f3(v.Y));
+      }
+      /* 3 px à la souris puis lever, sur une étiquette dont le centre n'est dans la boîte d'aucune autre marque (elle est alors la plus proche
+         du point), après un toucher dans le vide : un toucher */
+      const e0 = await etat(p); await toucher(p, vide(e0));
+      const M2 = await marques(p), libre = m => M2.every(o => o === m || o.page !== 1 || !dansB(boiteM(o), m.cx, m.cy, 1));
+      const et = M2.filter(m => m.k === 'etiq' && m.page === 1 && m.b && m.cx > 40 && m.cx < 180 && libre(m)).sort((a, b) => (b.w * b.h) - (a.w * a.h))[0];
+      if (!et) ko.push('pas d\'étiquette');
+      else {
+        const j0 = await docJ(p), q = await pointDe(p, et);
+        await glisserSouris(p, q, {x: q.x + 3, y: q.y}, 1); await C.pause(p, 300);
+        const l = await etatL(p), j1 = await docJ(p);
+        if (l.choix !== et.i || j1 !== j0 || l.pas !== pas || l.saisie !== -1) ko.push('3 px : choix ' + l.choix + ' (attendu ' + et.i + '), pas ' + l.pas + ', dossier ' + (j1 === j0 ? 'inchangé' : 'changé'));
+      }
+      /* à × 2, appui dans le cartouche, à droite du cadre (212 mm) et à plus de 44 px de lui (aucune étiquette, aucun texte, aucune bulle à
+         portée), à 60 px du bord droit de la zone au moins, à mi-hauteur de la page, qui glisse : la page suit (m168) */
+      await bouton(p, 'zoom', 2); await attendreQue(p, () => window.__vcEd.etat.pp.z === 2); await attendre(p);
+      const z0 = await etat(p), kz = z0.pp.k, xs = Math.min(250, (z0.zone.w - z0.pp.ox) / kz - 60 / kz);
+      if (!(xs > 212 + 44 / kz)) ko.push('cartouche hors de la zone à × 2 (' + f3(xs) + ' mm)');
+      else {
+        const j2 = await docJ(p), q0 = await p.evaluate(x => window.__ppT.versEcran(x, 105), xs), a = {x: Math.round(q0.x), y: Math.round(q0.y)};
+        await glisserSouris(p, a, {x: a.x - 40, y: a.y - 25}); await attendre(p);
+        const z1 = await etat(p), j3 = await docJ(p), l = await etatL(p);
+        if (Math.abs(z1.pp.ox - z0.pp.ox + 40) > 0.5 || Math.abs(z1.pp.oy - z0.pp.oy + 25) > 0.5 || j3 !== j2 || l.pas !== pas)
+          ko.push('page : Δox ' + f3(z1.pp.ox - z0.pp.ox) + ', Δoy ' + f3(z1.pp.oy - z0.pp.oy) + ', dossier ' + (j3 === j2 ? 'inchangé' : 'changé') + ', pas ' + l.pas);
+      }
+      await fermerApercu(p);
+      return [!ko.length, ko.join(' ; ')];
+    });
+    await controle('l3 : dossier à projet : un lâcher sur l\'état des lieux montre le toast du gel une fois par ouverture ; doc.plans.avp porte la valeur gelée ; sur « Avant-projet », l\'étiquette à son ancienne place ; un lâcher sur l\'avant-projet ne change pas e.lab ; un texte : « Déplacé… le sien »', async () => {
+      await fermerApercu(p);
+      /* sans positions propres (poserK, null) : l2 en a laissé sur la démonstration (une bulle gelée), que dessin ne remet pas à zéro */
+      await poserK(p, deuxL().concat([Rg('Z', 8, 4, null, undefined, 'projet'), {id: 'X1', k: 'tx', x: 0, y: -4, txt: 'Texte fictif', taille: 2.5}]), null);
+      await noterToasts(p);
+      await ouvrirApercu(p);
+      const ko = [];
+      await bouton(p, 'plan', 'avp'); await attendreQue(p, () => window.__vcEd.etat.pp.mode === 'avp' && !window.__vcEd.etat.pp.calcul); await attendre(p);
+      const av0 = marqueDe(await marques(p), 'etiq', 'A'); if (!av0) return [false, 'pas d\'étiquette de A sur l\'avant-projet'];
+      await bouton(p, 'plan', 'edl'); await attendreQue(p, () => window.__vcEd.etat.pp.mode === 'edl' && !window.__vcEd.etat.pp.calcul); await attendre(p);
+      const m0 = marqueDe(await marques(p), 'etiq', 'A');
+      await glisserVers(p, m0, {x: m0.cx + 16, y: m0.cy + 12});
+      if (!(await apresLacher(p, 1))) return [false, 'premier lâcher non suivi'];
+      const t1 = await toastsNotes(p), pl1 = await plansDe(p);
+      if (combien(t1, GEL_LAB) !== 1) ko.push('premier lâcher : toasts ' + JSON.stringify(t1));
+      if (!egalK(pl1, {avp: {lab: {A: {dx: 0, dy: 1.5, main: true}}}})) ko.push('gel : ' + jsK(pl1));
+      const m1 = marqueDe(await marques(p), 'etiq', 'A');
+      await glisserVers(p, m1, {x: m1.cx + 6, y: m1.cy});
+      if (!(await apresLacher(p, 2))) ko.push('second lâcher non suivi');
+      const t2 = await toastsNotes(p), lab2 = await labDe(p, 'A');
+      if (combien(t2, GEL_LAB) !== 1) ko.push('second lâcher : ' + combien(t2, GEL_LAB) + ' toasts du gel');
+      await bouton(p, 'plan', 'avp'); await attendreQue(p, () => window.__vcEd.etat.pp.mode === 'avp' && !window.__vcEd.etat.pp.calcul); await attendre(p);
+      const av1 = marqueDe(await marques(p), 'etiq', 'A');
+      if (!av1 || ecartMm(av1, av0.cx, av0.cy) > 1e-6) ko.push('avant-projet : A en ' + (av1 ? f3(av1.cx) + ', ' + f3(av1.cy) : 'aucune') + ' au lieu de ' + f3(av0.cx) + ', ' + f3(av0.cy));
+      else {
+        const v = await glisserVers(p, av1, {x: av1.cx - 10, y: av1.cy + 10});
+        if (!(await apresLacher(p, 3))) ko.push('lâcher sur l\'avant-projet non suivi');
+        const lab3 = await labDe(p, 'A'), pl3 = await plansDe(p), av2 = marqueDe(await marques(p), 'etiq', 'A'), t3 = await toastsNotes(p), P = pl3 && pl3.avp && pl3.avp.lab ? pl3.avp.lab.A : null;
+        if (!egalK(lab3, lab2)) ko.push('e.lab changé par l\'avant-projet : ' + jsK(lab3));
+        if (!P || P.main !== true || P.E !== 200 || egalK(P, {dx: 0, dy: 1.5, main: true})) ko.push('avant-projet : position propre ' + jsK(P));
+        if (!av2 || ecartMm(av2, v.X, v.Y) > 0.05) ko.push('avant-projet : A en ' + (av2 ? f3(av2.cx) + ', ' + f3(av2.cy) : 'aucune') + ' au lieu de ' + f3(v.X) + ', ' + f3(v.Y));
+        if (combien(t3, GEL_LAB) !== 1) ko.push('lâcher sur l\'avant-projet : ' + combien(t3, GEL_LAB) + ' toasts du gel');
+      }
+      /* nouvelle ouverture (sur l'état des lieux, le plan que l'éditeur montre) : le texte lâché, toast « Déplacé… le sien » */
+      await fermerApercu(p); await ouvrirApercu(p);
+      const e4 = await etat(p), x0 = marqueDe(await marques(p), 'tx', 'X1');
+      if (e4.pp.mode !== 'edl' || !x0) ko.push('réouverture : plan ' + e4.pp.mode + ', texte ' + !!x0);
+      else {
+        await glisserVers(p, x0, {x: x0.cx + 12, y: x0.cy + 8});
+        if (!(await apresLacher(p, 1))) ko.push('lâcher du texte non suivi');
+        const t4 = await toastsNotes(p), pl4 = await plansDe(p);
+        if (combien(t4, GEL_TX) !== 1) ko.push('texte : ' + combien(t4, GEL_TX) + ' toasts « Déplacé… le sien »');
+        if (!pl4 || !pl4.avp || !pl4.avp.lab || !egalK(pl4.avp.lab.X1, {auto: true})) ko.push('gel du texte : ' + jsK(pl4));
+      }
+      await fermerApercu(p);
+      return [!ko.length, ko.join(' ; ')];
+    });
+    await controle('l4 : « Annuler » puis « Rétablir » de l\'aperçu (boutons, puis Ctrl+Z et Ctrl+Maj+Z) : dossier d\'avant le lâcher, puis d\'après ; compteurs ; garde d\'identité (chaîne étrangère en haut de S.undo : rien de défait, compteurs à 0) ; à 0, boutons grisés, Ctrl+Z et Ctrl+Maj+Z : « Rien à annuler / rétablir dans l\'aperçu »', async () => {
+      await fermerApercu(p);
+      await dessin(p, deuxL());
+      await noterToasts(p);
+      await ouvrirApercu(p);
+      const ko = [], j0 = await docJ(p), m0 = marqueDe(await marques(p), 'etiq', 'A');
+      await glisserVers(p, m0, {x: m0.cx + 14, y: m0.cy + 9});
+      if (!(await apresLacher(p, 1))) return [false, 'lâcher non suivi'];
+      const j1 = await docJ(p);
+      if (j1 === j0) return [false, 'lâcher sans effet sur le dossier'];
+      const pasA = async (nom, faire, j, pas, redo) => {
+        await faire();
+        const ok = await attendreQue(p, ([pas, redo]) => { const s = window.__vcEd.etat.pp; return !!s && s.pas === pas && s.redo === redo; }, [pas, redo], 4000);
+        await attendre(p);
+        const l = await etatL(p), jj = await docJ(p);
+        if (!ok || jj !== j || l.annuler !== !pas || l.refaire !== !redo) ko.push(nom + ' : pas ' + l.pas + ', redo ' + l.redo + ', boutons ' + l.annuler + '/' + l.refaire + ', dossier ' + (jj === j ? 'attendu' : jj === j0 ? 'd\'avant' : jj === j1 ? 'd\'après' : 'autre'));
+      };
+      await pasA('« Annuler »', () => bouton(p, 'annuler'), j0, 0, 1);
+      await pasA('« Rétablir »', () => bouton(p, 'refaire'), j1, 1, 0);
+      await pasA('Ctrl+Z', () => p.keyboard.press('Control+z'), j0, 0, 1);
+      await pasA('Ctrl+Maj+Z', () => p.keyboard.press('Control+Shift+z'), j1, 1, 0);
+      /* garde d'identité : une chaîne étrangère en haut de S.undo */
+      const u0 = await p.evaluate(() => { const S = window.__vcEd.etat; S.undo.push('{"etranger":true}'); return S.undo.length; });
+      await noterToasts(p);
+      await bouton(p, 'annuler'); await C.pause(p, 300);
+      const g = await etatL(p), jg = await docJ(p), tg = await toastsNotes(p), u1 = await p.evaluate(() => { const S = window.__vcEd.etat; return {n: S.undo.length, haut: S.undo[S.undo.length - 1]}; });
+      if (g.pas !== 0 || g.redo !== 0 || jg !== j1 || u1.n !== u0 || u1.haut !== '{"etranger":true}' || combien(tg, RIEN_A) !== 1 || g.annuler !== true)
+        ko.push('garde d\'identité : pas ' + g.pas + ', redo ' + g.redo + ', dossier ' + (jg === j1 ? 'intact' : 'changé') + ', S.undo ' + u0 + ' → ' + u1.n + ', toasts ' + JSON.stringify(tg));
+      await p.evaluate(() => { const S = window.__vcEd.etat; if (S.undo[S.undo.length - 1] === '{"etranger":true}') S.undo.pop(); });
+      /* compteurs à 0 (nouvelle ouverture) */
+      await fermerApercu(p); await ouvrirApercu(p); await noterToasts(p);
+      const l0 = await etatL(p), jz = await docJ(p);
+      await p.evaluate(() => document.querySelector('.vc').focus());
+      await p.keyboard.press('Control+z'); await C.pause(p, 150); await p.keyboard.press('Control+Shift+z'); await C.pause(p, 300);
+      const tz = await toastsNotes(p), jz2 = await docJ(p);
+      if (l0.annuler !== true || l0.refaire !== true || l0.pas !== 0 || l0.redo !== 0) ko.push('à 0 : ' + JSON.stringify({pas: l0.pas, redo: l0.redo, annuler: l0.annuler, refaire: l0.refaire}));
+      if (combien(tz, RIEN_A) !== 1 || combien(tz, RIEN_R) !== 1 || jz2 !== jz) ko.push('à 0, clavier : toasts ' + JSON.stringify(tz) + ', dossier ' + (jz2 === jz ? 'inchangé' : 'changé'));
+      await fermerApercu(p);
+      return [!ko.length, ko.join(' ; ')];
+    });
+    await controle('l5 : un tracé dessiné sur le croquis, puis l\'aperçu : « Annuler » grisé, Ctrl+Z ne défait pas le tracé (« Rien à annuler dans l\'aperçu »)', async () => {
+      await fermerApercu(p);
+      await dessin(p, D.aucun());
+      /* tracé de deux points, terminé (comme le contrôle « i : Entrée pendant un tracé en cours ») */
+      await p.evaluate(() => window.__vcEd.fermerNiveau()); await C.pause(p, 200);
+      const v = await C.vue(p);
+      await C.outil(p, {k: 'ln', id: 'tr', pal: 'tr'});
+      await C.toucherCv(p, await C.ecranCv(p, v.cx - 2, v.cy - 3)); await C.toucherCv(p, await C.ecranCv(p, v.cx + 2, v.cy - 3));
+      await p.evaluate(() => window.__vcEd.terminerTrace()); await C.pause(p, 300);
+      const n0 = await p.evaluate(() => ({el: window.__vcEd.etat.doc.el.filter(e => e.k === 'ln').length, undo: window.__vcEd.etat.undo.length}));
+      await noterToasts(p);
+      await ouvrirApercu(p);
+      const l = await etatL(p);
+      await p.evaluate(() => document.querySelector('.vc').focus());
+      await p.keyboard.press('Control+z'); await C.pause(p, 300);
+      const n1 = await p.evaluate(() => ({el: window.__vcEd.etat.doc.el.filter(e => e.k === 'ln').length, undo: window.__vcEd.etat.undo.length})), t = await toastsNotes(p);
+      await fermerApercu(p);
+      return [n0.el === 1 && n0.undo >= 1 && l.annuler === true && n1.el === 1 && n1.undo === n0.undo && combien(t, RIEN_A) === 1,
+        'tracés ' + n0.el + ' → ' + n1.el + ', S.undo ' + n0.undo + ' → ' + n1.undo + ', « Annuler » grisé ' + l.annuler + ', toasts ' + JSON.stringify(t)];
+    });
+    await controle('l6 : abandons (second doigt, pointercancel, Échap, fenêtre redimensionnée) pendant le glissé : dossier et S.undo inchangés, saisie close, l\'étiquette redessinée à sa place ; après le premier Échap l\'aperçu reste ouvert, le second le ferme', async () => {
+      await fermerApercu(p);
+      await dessin(p, deuxL());
+      await ouvrirApercu(p);
+      const ko = [], j0 = await docJ(p), u0 = await pileJ(p);
+      /* glissé de a à b en dix pas (cinq pour le second doigt, posé alors à 160 px à droite du premier, resté en b) */
+      const cas = [
+        ['second doigt', (a, b) => ({pas: 5, fin: async t => { await t('touchStart', [{x: b.x, y: b.y, id: 1}, {x: b.x + 160, y: b.y + 20, id: 2}]); await C.pause(p, LEVER); await t('touchEnd', []); }})],
+        ['pointercancel', () => ({fin: 'annuler'})],
+        ['Échap', () => ({entre: async k => { if (k === 5){ await p.keyboard.press('Escape'); await saisieClose(p); } }})],
+        ['fenêtre redimensionnée', () => ({entre: async k => { if (k === 5){ await p.setViewportSize({width: 1100, height: 760}); await saisieClose(p); } }})]
+      ];
+      for (const [nom, opt] of cas){
+        if (!(await etat(p)).ouvert) await ouvrirApercu(p);
+        const m0 = marqueDe(await marques(p), 'etiq', 'A'), a = await pointDe(p, m0), b = {x: a.x + 100, y: a.y + 60};
+        await glisserEtapes(p, a, b, opt(a, b));
+        const clos = await saisieClose(p);
+        if (nom === 'fenêtre redimensionnée'){ await p.setViewportSize({width: 1280, height: 800}); await C.pause(p, 400); }
+        if ((await etat(p)).ouvert) await attendre(p);
+        const l = await etatL(p), j = await docJ(p), u = await pileJ(p), m = marqueDe(await marques(p), 'etiq', 'A'), px = m ? await pixelsMarque(p, m) : {encre: 0};
+        if (!clos || !l.ouvert || j !== j0 || u.undo !== u0.undo || !m || ecartMm(m, m0.cx, m0.cy) > 1e-9 || !(px.encre > 0) || l.pas !== 0)
+          ko.push(nom + ' : ' + JSON.stringify({clos, ouvert: l.ouvert, dossier: j === j0 ? 'inchangé' : 'changé', undo: u.undo === u0.undo ? 'inchangé' : 'changé', pas: l.pas, encre: px.encre, place: m ? f3(m.cx) + ',' + f3(m.cy) : null}));
+        /* second Échap, l'aperçu resté ouvert : il le ferme, pas l'éditeur */
+        if (nom === 'Échap' && l.ouvert){
+          await p.keyboard.press('Escape');
+          if (!(await attendreQue(p, () => !document.querySelector('.vc .vc-pp') && !window.__vcEd.etat.pp, null, 3000))) ko.push('second Échap : aperçu encore ouvert');
+          await C.pause(p, 300);
+          if (!(await p.evaluate(() => !!document.querySelector('#modal-root .vc')))) ko.push('second Échap : éditeur fermé');
+        }
+      }
+      await fermerApercu(p);
+      return [!ko.length, ko.join(' ; ')];
+    });
+    await controle('l7 : après « Fermer », « Annuler » du croquis remet l\'étiquette d\'avant le déplacement', async () => {
+      await fermerApercu(p);
+      await dessin(p, deuxL());
+      const lab0 = await labDe(p, 'A');
+      await ouvrirApercu(p);
+      const m0 = marqueDe(await marques(p), 'etiq', 'A');
+      await glisserVers(p, m0, {x: m0.cx + 12, y: m0.cy + 12});
+      if (!(await apresLacher(p, 1))) return [false, 'lâcher non suivi'];
+      const lab1 = await labDe(p, 'A');
+      await fermerApercu(p);
+      await p.click('.vc .vc-barre [data-a="annuler"]'); await C.pause(p, 300);
+      const lab2 = await labDe(p, 'A');
+      return [!egalK(lab1, lab0) && egalK(lab2, lab0), 'avant ' + jsK(lab0) + ', après le lâcher ' + jsK(lab1) + ', après « Annuler » ' + jsK(lab2)];
+    });
+    await controle('l9 : clignotement : un lâcher qui fait bouger de plus de 0,3 mm une étiquette posée d\'office la met dans S.pp.flash (entourée de bleu), pas l\'étiquette lâchée à sa place ; encore là 200 ms après, vidé ensuite (2 s au plus)', async () => {
+      await fermerApercu(p);
+      await dessin(p, deuxL());
+      await ouvrirApercu(p);
+      const M0 = await marques(p), a0 = marqueDe(M0, 'etiq', 'A'), b0 = marqueDe(M0, 'etiq', 'B');
+      if (!a0 || !b0) return [false, 'étiquettes absentes'];
+      await guetterFin(p);
+      await glisserVers(p, a0, {x: b0.cx, y: b0.cy});
+      const vu = await attendreQue(p, () => !!window.__lFin && window.__lFin.flash200 !== 'non lu', null, 6000);
+      const f = await p.evaluate(() => window.__lFin), M1 = await marques(p), a1 = marqueDe(M1, 'etiq', 'A'), b1 = marqueDe(M1, 'etiq', 'B');
+      const vide = await attendreQue(p, () => { const s = window.__vcEd.etat.pp; return !!s && s.flash === null; }, null, 2000);
+      await C.pause(p, 100);
+      const bleuApres = b1 ? await p.evaluate(i => window.__ppT.bleuAutour(i), b1.i) : -1;
+      const bouge = b1 ? ecartMm(b1, b0.cx, b0.cy) : 0, jB = f && f.flash ? f.flash.indexOf(b1.i) : -1;
+      const bon = vu && !!f && !!a1 && !!b1 && bouge > 0.3 && jB >= 0 && f.flash.indexOf(a1.i) < 0 && f.bleu[jB] > 0 && Array.isArray(f.flash200) && f.flash200.indexOf(b1.i) >= 0 && vide && bleuApres === 0;
+      return [bon, 'B déplacée de ' + f3(bouge) + ' mm ; fin du calcul : ' + JSON.stringify(f) + ' ; vidé ' + vide + ', pixels bleus ensuite ' + bleuApres];
+    });
+    await controle('l10 : sous-titre de Sorties ; toast de « Replacer toutes les étiquettes » (Réglages) : simple sans position propre placée sur l\'avant-projet (aucune, d\'office, masquée, texte, élément « Projet »), long avec une', async () => {
+      await fermerApercu(p);
+      await dessin(p, deuxL());
+      await p.click('.vc .vc-barre [data-p="sorties"]'); await C.pause(p, 400);
+      const st = await p.evaluate(() => { const b = document.querySelector('.vc .vc-pcorps [data-a="apercu"] small'); return b ? b.textContent : null; });
+      const replacer = async () => {
+        await noterToasts(p);
+        await p.evaluate(() => window.__vcEd.ouvrirPanneau('reglages'));
+        const b = await p.waitForSelector('.vc .vc-pcorps [data-a="replacerTout"]', {timeout: 3000}).catch(() => null); if (!b) return null;
+        await b.click(); await C.pause(p, 200);
+        const t = await toastsNotes(p); return t[t.length - 1] || '';
+      };
+      const els = () => deuxL().concat([Rg('Z', 8, 4, 'Regard projeté Z', null, 'projet'), {id: 'X1', k: 'tx', x: 0, y: -4, txt: 'Texte fictif', taille: 2.5}]);
+      const r = [];
+      await poserK(p, els(), null); r.push(await replacer());
+      await poserK(p, els(), {avp: {lab: {A: {dx: 1, dy: 1, main: true}}}}); r.push(await replacer());
+      await poserK(p, els(), {avp: {lab: {X1: {dx: 1, dy: 1}, A: {auto: true}, B: {off: true}, Z: {dx: 1, dy: 1, main: true}}}}); r.push(await replacer());
+      const LONG = 'Étiquettes replacées ; celles réglées dans l\'aperçu de l\'avant-projet gardent leur place sur ce plan.';
+      return [st === 'La page 1 du PDF, à l\'échelle du livrable : déplacez étiquettes, bulles et textes' && r[0] === 'Étiquettes replacées' && r[1] === LONG && r[2] === 'Étiquettes replacées',
+        'sous-titre « ' + st + ' » ; toasts ' + JSON.stringify(r)];
+    });
+    await controle('l11 : constat signé dans l\'application (geste « c-lock ») : une étiquette déplacée ensuite dans l\'aperçu de son croquis ne change ni le constat signé ni ce que son PDF dessine', async () => {
+      await fermerApercu(p);
+      await dessin(p, deuxL());
+      await p.evaluate(() => { const ed = window.__vcEd, S = ed.etat; S.doc.rev = (S.doc.rev || 0) + 1; ed.enregistrer(); }); await C.pause(p, 400);
+      await C.fermerCroquis(p);
+      await p.evaluate(() => { const v = window.__VT.S.visites[0]; v.statut = 'visitee'; location.hash = '#/e/' + v.etudeId + '/v/' + v.id + '/constat'; });
+      await p.waitForSelector('[data-act="c-concl"]'); await C.pause(p, 600);
+      /* constat repris du croquis (ce qui le crée), puis signé (signature du technicien fictive : une image vide d'un pixel ; comme
+         tests/navigateur/dossier.js) */
+      const sig = await p.evaluate(async s => { const T = window.__VT, v = T.S.visites[0], res = await T.vcResume(v); if (res) T.constatDepuisCroquis(v, res, false);
+        const c = v.constat; if (!c) return {signe: false, constat: 'absent'};
+        c.sigTech = s; await T.ACTIONS['c-lock'](); return {signe: !!c.signeLe, fige: !!c.fige}; }, SIG_FICTIVE);
+      if (!sig.signe || !sig.fige) return [false, 'constat non signé : ' + JSON.stringify(sig)];
+      const lire = () => p.evaluate(() => { const T = window.__VT, v = T.S.visites[0]; return {c: JSON.stringify(v.constat), d: JSON.stringify(T.constatPourDessin(v, T.anomsOf(v.id)))}; });
+      const av = await lire();
+      await p.evaluate(() => { const v = window.__VT.S.visites[0]; location.hash = '#/e/' + v.etudeId + '/v/' + v.id; }); await p.waitForSelector('[data-act="vc-ouvrir"]');
+      await C.ouvrirCroquis(p, {dejaCommence: true}); await p.waitForSelector('#modal-root .vc'); await C.pause(p, 400);
+      const lab0 = await labDe(p, 'A');
+      await ouvrirApercu(p);
+      const m0 = marqueDe(await marques(p), 'etiq', 'A'); if (!m0) return [false, 'pas d\'étiquette de A'];
+      await glisserVers(p, m0, {x: m0.cx + 15, y: m0.cy + 10});
+      const ok = await apresLacher(p, 1), lab1 = await labDe(p, 'A');
+      await fermerApercu(p);
+      await p.evaluate(() => { const ed = window.__vcEd, S = ed.etat; S.doc.rev = (S.doc.rev || 0) + 1; ed.enregistrer(); }); await C.pause(p, 600);
+      await C.fermerCroquis(p);
+      const ap = await lire();
+      return [ok && !egalK(lab0, lab1) && ap.c === av.c && ap.d === av.d, 'lâcher ' + (ok ? 'suivi' : 'non suivi') + ', étiquette ' + jsK(lab0) + ' → ' + jsK(lab1) + ', constat ' + (ap.c === av.c ? 'intact' : 'changé') + ', dessin du constat ' + (ap.d === av.d ? 'intact' : 'changé')];
+    });
+    await controle('l13 : « Annuler » et « Rétablir » de l\'aperçu ne défont et ne refont que le déplacement : l\'objet choisi et la saisie en cours du croquis (un tracé de deux points) restent tels quels, comme après « Fermer » (relecture de m170)', async () => {
+      /* l11 ferme le croquis : il est rouvert depuis la fiche de la visite */
+      if (await p.evaluate(() => !!document.querySelector('#modal-root .vc'))) await fermerApercu(p);
+      else {
+        await p.evaluate(() => { const v = window.__VT.S.visites[0]; location.hash = '#/e/' + v.etudeId + '/v/' + v.id; }); await p.waitForSelector('[data-act="vc-ouvrir"]');
+        await C.ouvrirCroquis(p, {dejaCommence: true}); await p.waitForSelector('#modal-root .vc'); await C.pause(p, 400);
+      }
+      const ed = () => p.evaluate(() => { const S = window.__vcEd.etat; return {sel: JSON.stringify(S.sel), br: JSON.stringify(S.brouillon), n: S.brouillon ? S.brouillon.pts.length : 0}; });
+      /* aperçu ouvert : l'étiquette de A glissée, puis « Annuler » et « Rétablir » de l'aperçu, puis « Fermer » ; à chaque pas, le dossier
+         et ce que le croquis saisissait */
+      const allerRetour = async () => {
+        await ouvrirApercu(p);
+        const r = {s0: await ed()}, avant = await docJ(p), m0 = marqueDe(await marques(p), 'etiq', 'A');
+        if (!m0){ await fermerApercu(p); return null; }
+        await glisserVers(p, m0, {x: m0.cx + 14, y: m0.cy + 9});
+        const ok = await apresLacher(p, 1), apres = await docJ(p); r.lacher = ok && apres !== avant; r.s1 = await ed();
+        await bouton(p, 'annuler'); r.annule = await attendreQue(p, () => { const s = window.__vcEd.etat.pp; return !!s && s.pas === 0 && s.redo === 1; }); await attendre(p);
+        r.docA = await docJ(p) === avant; r.s2 = await ed();
+        await bouton(p, 'refaire'); r.refait = await attendreQue(p, () => { const s = window.__vcEd.etat.pp; return !!s && s.pas === 1 && s.redo === 0; }); await attendre(p);
+        r.docR = await docJ(p) === apres; r.s3 = await ed();
+        await fermerApercu(p); r.s4 = await ed();
+        return r;
+      };
+      const garde = (r, k, v0) => !!r && r.lacher && r.annule && r.docA && r.refait && r.docR && ['s0', 's1', 's2', 's3', 's4'].every(s => r[s][k] === v0);
+      const dit = (r, k) => r ? 'lâcher ' + r.lacher + ', annulé ' + r.annule + '/' + r.docA + ', rétabli ' + r.refait + '/' + r.docR + ', ' + ['s0', 's1', 's2', 's3', 's4'].map(s => r[s][k]).join(' → ') : 'pas d\'étiquette de A';
+      /* objet choisi (B, fiche ouverte), outil Main */
+      await dessin(p, deuxL());
+      await p.evaluate(() => { window.__vcEd.choisirOutil({k: 'main'}); window.__vcEd.selectionner('B'); }); await C.pause(p, 300);
+      const sel0 = (await ed()).sel, r1 = await allerRetour();
+      /* tracé en cours de deux points (outil Tracé), rien de choisi */
+      await dessin(p, deuxL());
+      await p.evaluate(() => window.__vcEd.fermerNiveau()); await C.pause(p, 200);
+      const v = await C.vue(p);
+      await C.outil(p, {k: 'ln', id: 'tr', pal: 'tr'});
+      await C.toucherCv(p, await C.ecranCv(p, v.cx - 2, v.cy - 3)); await C.toucherCv(p, await C.ecranCv(p, v.cx + 2, v.cy - 3)); await C.pause(p, 300);
+      const t0 = await ed(), r2 = await allerRetour();
+      return [sel0 === JSON.stringify({id: 'B', sommet: null}) && garde(r1, 'sel', sel0) && t0.n === 2 && garde(r2, 'br', t0.br) && garde(r2, 'n', 2),
+        'objet choisi : ' + dit(r1, 'sel') + ' ; tracé en cours : ' + dit(r2, 'n')];
+    });
+    erreurs(A, 'l12 : déplacer');
+  } finally { await A.fermer(); }
+}
+/* l8 : toast de la première ouverture, dans un navigateur à part (chargement neuf de la page) */
+async function astuce(){
+  const A = await croquisNeuf(), p = A.p;
+  try {
+    await noterToasts(p);
+    await dessin(p, D.aucun());
+    await controle('l8 : toast « Glissez une étiquette… » à la première ouverture de l\'aperçu depuis le chargement, pas à la deuxième, ni après le croquis fermé et rouvert', async () => {
+      await ouvrirApercu(p); const t1 = await toastsNotes(p);
+      await fermerApercu(p); await ouvrirApercu(p); const t2 = await toastsNotes(p);
+      await fermerApercu(p);
+      await rouvrirK(p); await noterToasts(p);
+      await ouvrirApercu(p); const t3 = await toastsNotes(p);
+      await fermerApercu(p);
+      return [combien(t1, ASTUCE) === 1 && combien(t2, ASTUCE) === 1 && combien(t3, ASTUCE) === 0, JSON.stringify({premiere: t1, deuxieme: t2, rouvert: t3})];
+    });
+    erreurs(A, 'l8 : toast de la première ouverture');
+  } finally { await A.fermer(); }
+}
+
 (async () => {
-  for (const f of [demonstration, zoom, compteur, choix, bandeau, clavier, gardes, positionsPropres]){
+  for (const f of [demonstration, zoom, compteur, choix, bandeau, clavier, gardes, positionsPropres, deplacer, astuce]){
     try { await f(); } catch (e){ R.ok(false, f.name + ' : exception du test : ' + String(e && e.stack || e).split('\n').slice(0, 2).join(' ')); }
   }
   R.fin();

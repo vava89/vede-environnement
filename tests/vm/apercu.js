@@ -13,6 +13,11 @@
 // à la première écriture sur l'état des lieux, refus) ; menagePlans, reporterProjet, tournerPlans, reposerPropre ; DXF d'un texte décalé ;
 // dansCadrePage (idempotente, la même que dans pdfPlan). Sur 0e3a9e8 (avant m169) : 47/64 ; des dix-huit contrôles nouveaux de (h),
 // seule la garde de (h) i passe ; après : 64/64.
+// (i) déplacer (m170 ; P2, 2e partie) : placeLachee (la place, ramenée dans le cadre et hors des zones réservées, et la position
+// {dx, dy, E, main} à écrire) puis ecrirePos, pour chaque sorte, onze lâchers et les deux plans ; plans indépendants ; idempotence ;
+// changement d'échelle ; M1 (echelleOk) et M4 (lirePropre) de la relecture de m169, avec le gel d'un off propre, reporterProjet et
+// tournerPlans (relecture de m170) ; rejouerPage avec sauf et seul ; garde. (h) a et (h) f suivent M1 et M4. Sur fb184ea (avant m170) :
+// 63/73 ; des neuf contrôles nouveaux de (i), seule la garde de (i) h passe, et (h) a et (h) f échouent ; après : 73/73.
 // Croquis fictifs seulement (« 12 rue Fictive », « Ville-Exemple », fond VCroquis.demoDxf()) ; le logo est un PNG fabriqué ici.
 // usage : node tests/vm/apercu.js [-v] [--app=<dossier>]
 'use strict';
@@ -707,8 +712,9 @@ ctrl('(g) étiquettes et textes libres : départ et ligne de base de chaque lign
     const A1 = {auto: true}, O1 = {off: true}, P1 = {dx: 1, dy: 2, E: 500, main: true};
     vrai(pa(undefined, 'lab', 'R1') === undefined && pa(null, 'lab', 'R1') === undefined && pa('x', 'lab', 'R1') === undefined && pa({avp: 'x'}, 'lab', 'R1') === undefined
       && pa({avp: {lab: [A1]}}, 'lab', 'R1') === undefined && pa({avp: {lab: null}}, 'lab', 'R1') === undefined && pa({avp: {lab: {}}}, 'lab', 'toString') === undefined, 'propreAvp : conteneurs invalides');
-    vrai(pa({avp: {lab: {R1: A1}}}, 'lab', 'R1') === A1 && pa({avp: {lab: {R1: O1}}}, 'lab', 'R1') === O1 && pa({avp: {lab: {R1: P1}}}, 'lab', 'R1') === P1
-      && pa({avp: {bulle: {m1: P1}}}, 'bulle', 'm1') === P1 && pa({avp: {bulle: {m1: P1}}}, 'lab', 'm1') === undefined, 'propreAvp : valeurs valides');
+    /* M4 de m170 : propreAvp rend une copie sous la forme stricte (lirePropre), non plus la valeur elle-même */
+    vrai(egal(pa({avp: {lab: {R1: A1}}}, 'lab', 'R1'), A1) && egal(pa({avp: {lab: {R1: O1}}}, 'lab', 'R1'), O1) && egal(pa({avp: {lab: {R1: P1}}}, 'lab', 'R1'), P1)
+      && egal(pa({avp: {bulle: {m1: P1}}}, 'bulle', 'm1'), P1) && pa({avp: {bulle: {m1: P1}}}, 'lab', 'm1') === undefined, 'propreAvp : valeurs valides');
     [null, 0, 5, 'auto', [], {}, {auto: 'oui'}, {off: 1}, {dx: NaN, dy: 0}, {dx: 1, dy: Infinity}, {dx: '1', dy: 2}].forEach(v =>
       vrai(pa({avp: {lab: {R1: v}}}, 'lab', 'R1') === undefined, 'propreAvp(' + String(JSON.stringify(v)) + ')'));
     const r1 = el(d, 'R1'), bizarre = {dx: 'x'};
@@ -716,9 +722,10 @@ ctrl('(g) étiquettes et textes libres : départ et ligne de base de chaque lign
     vrai(V.labPlan(d, r1, 'edl') === bizarre && V.labPlan(d, r1, 'avp') === bizarre && V.labPlan(d, r1) === bizarre, 'labPlan : e.lab tel quel, même invalide');
     r1.lab = undefined; vrai(V.labPlan(d, r1, 'edl') === null, 'labPlan : e.lab absent');
     r1.lab = {dx: 3, dy: 3};
-    d.plans = {avp: {lab: {R1: P1}}}; vrai(V.labPlan(d, r1, 'avp') === P1 && V.labPlan(d, r1, 'edl') === r1.lab, 'labPlan : Pos propre');
+    /* M4 de m170 : la valeur propre est lue sous sa forme stricte (une copie) */
+    d.plans = {avp: {lab: {R1: P1}}}; vrai(egal(V.labPlan(d, r1, 'avp'), P1) && V.labPlan(d, r1, 'edl') === r1.lab, 'labPlan : Pos propre');
     d.plans = {avp: {lab: {R1: A1}}}; vrai(V.labPlan(d, r1, 'avp') === null, 'labPlan : auto');
-    d.plans = {avp: {lab: {R1: O1}}}; vrai(V.labPlan(d, r1, 'avp') === O1, 'labPlan : off');
+    d.plans = {avp: {lab: {R1: O1}}}; vrai(egal(V.labPlan(d, r1, 'avp'), O1), 'labPlan : off'); // M4 de m170
     d.plans = {avp: {lab: {R1: {dx: NaN, dy: 0}}}}; vrai(V.labPlan(d, r1, 'avp') === r1.lab, 'labPlan : valeur propre invalide');
     const l7 = el(d, 'L7'); l7.lab = {dx: 1, dy: 1};
     d.plans = {avp: {lab: {L7: P1}}}; vrai(V.labPlan(d, l7, 'avp') === l7.lab && V.decalPlan(d, l7, 'avp') === null, 'seulProjet : valeur propre ignorée');
@@ -727,20 +734,22 @@ ctrl('(g) étiquettes et textes libres : départ et ligne de base de chaque lign
     x1.decal = {dx: 1, dy: 2}; vrai(V.decalPlan(d, x1, 'edl') === x1.decal && V.decalPlan(d, x1, 'avp') === x1.decal, 'decalPlan : e.decal');
     [{dx: NaN, dy: 0}, {dx: 1}, 'x', 5, {auto: true}].forEach(v => { x1.decal = v; vrai(V.decalPlan(d, x1, 'edl') === null, 'decalPlan(' + String(JSON.stringify(v)) + ')'); });
     x1.decal = {dx: 1, dy: 2};
-    d.plans = {avp: {lab: {X1: P1}}}; vrai(V.decalPlan(d, x1, 'avp') === P1 && V.decalPlan(d, x1, 'edl') === x1.decal, 'decalPlan : Pos propre');
+    d.plans = {avp: {lab: {X1: P1}}}; vrai(egal(V.decalPlan(d, x1, 'avp'), P1) && V.decalPlan(d, x1, 'edl') === x1.decal, 'decalPlan : Pos propre'); // M4 de m170
     d.plans = {avp: {lab: {X1: A1}}}; vrai(V.decalPlan(d, x1, 'avp') === null, 'decalPlan : auto');
     d.plans = {avp: {lab: {X1: {dx: 'a', dy: 0}}}}; vrai(V.decalPlan(d, x1, 'avp') === x1.decal, 'decalPlan : valeur propre invalide');
     const a = {cle: 'm1', bulle: {dx: 1.2, dy: 1.6}}, b0 = {cle: 'k2', bulle: null}, inv = {cle: 'm1', bulle: {dx: 'x'}};
     d.plans = undefined;
     vrai(V.bullePlan(d, a, 'edl') === a.bulle && V.bullePlan(d, a, 'avp') === a.bulle && V.bullePlan(d, b0, 'avp') === null && V.bullePlan(d, inv, 'edl') === inv.bulle, 'bullePlan : bulle du dossier');
-    d.plans = {avp: {bulle: {m1: P1}}}; vrai(V.bullePlan(d, a, 'avp') === P1 && V.bullePlan(d, a, 'edl') === a.bulle, 'bullePlan : Pos propre');
+    d.plans = {avp: {bulle: {m1: P1}}}; vrai(egal(V.bullePlan(d, a, 'avp'), P1) && V.bullePlan(d, a, 'edl') === a.bulle, 'bullePlan : Pos propre'); // M4 de m170
     d.plans = {avp: {bulle: {m1: A1}}}; vrai(V.bullePlan(d, a, 'avp') === null, 'bullePlan : auto');
     d.plans = {avp: {bulle: {m1: {dx: Infinity, dy: 0}}}}; vrai(V.bullePlan(d, a, 'avp') === a.bulle, 'bullePlan : valeur propre invalide');
     d.plans = undefined; const eA = V.echelleAuto(d, 'avp');
     vrai(V.echellePlan(d, 'edl') === 200 && V.echellePlan(d, 'avp') === 200, 'echellePlan : échelle du dossier');
     d.plans = {avp: {echelle: 500}}; vrai(V.echellePlan(d, 'avp') === 500 && V.echellePlan(d, 'edl') === 200, 'echellePlan : 500 propre');
     d.plans = {avp: {echelle: 0}}; vrai(V.echellePlan(d, 'avp') === eA && eA !== 200 && V.echellePlan(d, 'edl') === 200, 'echellePlan : 0 propre (Auto, 1/' + eA + ')');
-    [30, '500', NaN, Infinity, -200, null, 200000].forEach(v => { d.plans = {avp: {echelle: v}}; vrai(V.echellePlan(d, 'avp') === 200, 'echellePlan : ' + String(v) + ' ignorée'); });
+    /* M1 de m170 : une échelle propre se lit de 0 à 100 000 (echelleOk), 30 comprise ; les autres valeurs sont ignorées */
+    d.plans = {avp: {echelle: 30}}; vrai(V.echellePlan(d, 'avp') === 30 && V.echellePlan(d, 'edl') === 200, 'echellePlan : 30 propre');
+    ['500', NaN, Infinity, -200, null, 200000].forEach(v => { d.plans = {avp: {echelle: v}}; vrai(V.echellePlan(d, 'avp') === 200, 'echellePlan : ' + String(v) + ' ignorée'); });
     d.echelle = 0; d.plans = {avp: {echelle: 250}}; vrai(V.echellePlan(d, 'avp') === 250 && V.echellePlan(d, 'edl') === V.echelleAuto(d, 'edl'), 'echellePlan : dossier en Auto');
     return [!ko.length, ko.slice(0, 6).join(' ; ')];
   });
@@ -823,7 +832,9 @@ ctrl('(g) étiquettes et textes libres : départ et ligne de base de chaque lign
     if (Math.abs(dist(ra) - 6) > 1e-6 || !texteDe(ra, /chelle 1\/500\b/)) ko.push('avant-projet : ' + dist(ra));
     if (Math.abs(dist(re) - 15) > 1e-6 || !texteDe(re, /chelle 1\/200\b/)) ko.push('état des lieux : ' + dist(re));
     if (!texteDe(releve(p(0), 'avp'), new RegExp('chelle 1/' + eA + '\\b')) || eA === 200) ko.push('0 : Auto (1/' + eA + ') attendu');
-    if (!texteDe(releve(p(30), 'avp'), /chelle 1\/200\b/)) ko.push('30 non ignorée');
+    /* M1 de m170 : 30 est une échelle propre lisible (de 0 à 100 000) ; 200 000 reste ignorée */
+    if (!texteDe(releve(p(30), 'avp'), /chelle 1\/30\b/)) ko.push('30 non lue');
+    if (!texteDe(releve(p(200000), 'avp'), /chelle 1\/200\b/)) ko.push('200 000 non ignorée');
     const vus = [V.depasseCadre(p(), 'avp'), V.depasseCadre(p(500), 'avp'), V.depasseCadre(p(0), 'avp'), V.depasseCadre(p(30), 'avp'), V.depasseCadre(p(500), 'edl')];
     if (vus.join() !== 'true,false,false,true,true') ko.push('depasseCadre ' + vus.join());
     const e5 = V.echellesPlans(p(500)), e0 = V.echellesPlans(p(0));
@@ -1030,6 +1041,235 @@ ctrl('(g) étiquettes et textes libres : départ et ligne de base de chaque lign
       if (!surRose || Math.abs(c.x - m.cx) > 1e-9 || Math.abs(c.y - m.cy) > 1e-9 || Math.hypot(c.x - c0.x, c.y - c0.y) < .5) ko.push('rose : ' + court([c0, c, [m.cx, m.cy]]));
     }
     return [!ko.length, n + ' points' + (ko.length ? ' ; ' + ko.join(' ; ') : '')];
+  });
+
+  /* ---------- (i) P2, déplacer (m170 ; A11, A12, A15 et A23 de la conception de l'aperçu ; M1 et M4 de la relecture de m169) ----------
+     Au lâcher, placeLachee rend la place de la marque, ramenée dans le cadre et hors des zones réservées (dansCadrePage, comme pdfPlan), et la
+     position à écrire {dx, dy, E, main: true} ; ecrirePos l'écrit sur le plan montré. M1 : une échelle propre se lit de 0 à 100 000
+     (echelleOk). M4 : une position propre se lit sous une forme stricte (lirePropre). rejouerPage : sauf (tout sauf une marque) et seul. */
+  /* cadre de dessin de pdfPlan (cadrePlan) et zones réservées à l'échelle Ech (zonesReservees ; barreEchelle) */
+  const Fp = {x: 7, y: 7, w: 205, h: 192};
+  const barreMm = Ech => { const m = Ech / 1000; let L = 1; [1, 2, 5, 10, 20, 50, 100].forEach(v => { if (v / m <= 45) L = v; }); return L / m; };
+  const reserveDe = Ech => [[Fp.x + Fp.w - 22, Fp.y + 1, Fp.x + Fp.w, Fp.y + 23], [Fp.x + 4, Fp.y + Fp.h - 14, Fp.x + barreMm(Ech) + 38, Fp.y + Fp.h - 4]];
+  const tailleDe = q => q.k === 'bulle' ? {w: 2 * q.r + 0.6, h: 2 * q.r + 0.6} : {w: q.w, h: q.h};
+  /* boîte w × h centrée en r : dans le cadre (1 mm de marge) et hors des zones réservées */
+  const boiteOk = (r, t, Ech) => r.x - t.w / 2 >= Fp.x + 1 - 1e-6 && r.x + t.w / 2 <= Fp.x + Fp.w - 1 + 1e-6 && r.y - t.h / 2 >= Fp.y + 1 - 1e-6 && r.y + t.h / 2 <= Fp.y + Fp.h - 1 + 1e-6
+    && reserveDe(Ech).every(z => r.x + t.w / 2 <= z[0] + 1e-6 || r.x - t.w / 2 >= z[2] - 1e-6 || r.y + t.h / 2 <= z[1] + 1e-6 || r.y - t.h / 2 >= z[3] - 1e-6);
+  const dansFp = A => A.x >= Fp.x && A.x <= Fp.x + Fp.w && A.y >= Fp.y && A.y <= Fp.y + Fp.h;
+  /* lâchers : centre voulu de la marque sur la page (mm) */
+  const cX = Fp.x + Fp.w / 2, cY = Fp.y + Fp.h / 2;
+  const LACHERS = [['au milieu', cX, cY], ['à 0,5 mm du bord gauche', Fp.x + 0.5, cY], ['à 0,5 mm du bord droit', Fp.x + Fp.w - 0.5, cY],
+    ['à 0,5 mm du bord haut', cX, Fp.y + 0.5], ['à 0,5 mm du bord bas', cX, Fp.y + Fp.h - 0.5], ['au-delà du bord gauche', -20, cY],
+    ['au-delà du bord droit', 330, cY], ['au-delà du bord haut', cX, -30], ['au-delà du bord bas', cX, 250],
+    ['sur la rose du nord', Fp.x + Fp.w - 11, Fp.y + 12], ['sur l\'échelle graphique', Fp.x + 25, Fp.y + Fp.h - 9]];
+  /* sortes : nom, genre de la marque, id (ou clé de la bulle), sorte d'écriture, plans où elle est */
+  const SORTES = [['étiquette de symbole (R1)', 'etiq', 'R1', 'lab', ['edl', 'avp']], ['étiquette de tracé (L3)', 'etiq', 'L3', 'lab', ['edl', 'avp']],
+    ['collecteur dont l\'ancre est hors du cadre (C1)', 'etiq', 'C1', 'lab', ['edl', 'avp']], ['étiquette commune, par son porteur (W)', 'etiq', 'W', 'lab', ['edl', 'avp']],
+    ['texte (X1)', 'tx', 'X1', 'lab', ['edl', 'avp']], ['bulle (m1)', 'bulle', 'm1', 'bulle', ['edl', 'avp']], ['élément « Projet » (L7)', 'etiq', 'L7', 'lab', ['avp']]];
+  /* croquis de base, avec une étiquette commune (Ev réuni à W) et une étiquette sur le tracé projeté L7 ; dossier à projet */
+  const baseI = () => { const d = base(); el(d, 'Ev').p.etiqAvec = 'W'; el(d, 'L7').p.etiq = 'Tuyau projet fictif'; return d; };
+
+  ctrl('(i) a. placeLachee et ecrirePos : chaque sorte (symbole, tracé, collecteur dont l\'ancre est hors du cadre, étiquette commune par son porteur, texte, bulle, élément « Projet ») lâchée au milieu, à 0,5 mm de chaque bord, au-delà de chacun, sur la rose du nord ou sur l\'échelle graphique s\'imprime à la place rendue (1e-3 mm), sur l\'état des lieux et sur l\'avant-projet d\'un dossier à projet ; boîte dans le cadre, hors des zones réservées ; position {dx, dy, E, main: true}', () => {
+    const ko = [], vrai = (c, quoi) => { if (!c && ko.length < 8) ko.push(quoi); };
+    let n = 0;
+    vrai(egal(V.cadrePlan(), Fp), 'cadrePlan ' + court(V.cadrePlan()));
+    for (const mode of ['edl', 'avp']){
+      for (const [nomL, X, Y] of LACHERS){
+        const d = baseI(), r0 = releve(d, mode), Ech = V.echellePlan(d, mode), m = Ech / 1000, att = [];
+        vrai(!mq(r0, 'etiq', 'Ev'), mode + ' : Ev garde son étiquette (pas d\'étiquette commune)');
+        for (const [nomS, k, id, sorte, modes] of SORTES){
+          if (modes.indexOf(mode) < 0) continue;
+          const q = mq(r0, k, id), nom = mode + ', ' + nomS + ', ' + nomL;
+          if (!q){ vrai(false, nom + ' : pas de marque'); continue; }
+          if (id === 'C1') vrai(!dansFp(q.A), mode + ' : l\'ancre de C1 est dans le cadre');
+          const r = V.placeLachee(q, X, Y, Ech), t = tailleDe(q);
+          vrai(boiteOk(r, t, Ech), nom + ' : boîte ' + court([r.x, r.y, t.w, t.h]));
+          vrai(Object.keys(r.v).sort().join() === 'E,dx,dy,main' && r.v.E === Ech && r.v.main === true && Math.abs(r.v.dx - (r.x - q.A.x) * m) <= 1e-9
+            && Math.abs(r.v.dy - (q.A.y - r.y) * m) <= 1e-9, nom + ' : position ' + court(r.v));
+          vrai(V.ecrirePos(d, mode, sorte, id, r.v) === true, nom + ' : écriture refusée');
+          att.push([nom, k, id, r]);
+        }
+        const r1 = releve(d, mode);
+        att.forEach(([nom, k, id, r]) => { n++; const q = mq(r1, k, id); vrai(pres(q, r), nom + ' : imprimée en ' + court(q && [q.cx, q.cy]) + ' au lieu de ' + court([r.x, r.y])); });
+        vrai(!(P2(d).lab && 'L7' in P2(d).lab), mode + ', ' + nomL + ' : L7 dans doc.plans');
+      }
+    }
+    return [!ko.length && n === 2 * LACHERS.length * SORTES.length - LACHERS.length, n + ' lâchers' + (ko.length ? ' ; ' + ko.join(' ; ') : '')];
+  });
+
+  ctrl('(i) b. plans indépendants : un lâcher sur l\'avant-projet laisse les ordres de l\'état des lieux identiques ; un lâcher sur l\'état des lieux laisse les marques de l\'avant-projet à leur place (1e-9 : gel) ; sans projet, aucun doc.plans', () => {
+    const ko = [], lacher = (d, mode) => { const rel = releve(d, mode), Ech = V.echellePlan(d, mode); let n = 0;
+      SORTES.forEach(([nomS, k, id, sorte, modes]) => { const q = mq(rel, k, id); if (modes.indexOf(mode) < 0 || !q) return;
+        if (V.ecrirePos(d, mode, sorte, id, V.placeLachee(q, q.cx + 12, q.cy - 9, Ech).v)) n++; else ko.push(mode + ', ' + nomS + ' : écriture refusée'); });
+      return n; };
+    const cleM = q => q.k + ':' + (q.k === 'bulle' ? q.cle : q.id);
+    const d = baseI(), e0 = ordres(releve(d, 'edl')), na = lacher(d, 'avp'), dif = ecartOrdres(ordres(releve(d, 'edl')), e0);
+    if (na !== SORTES.length || dif) ko.push('lâcher sur l\'avant-projet (' + na + ') : état des lieux changé : ' + dif);
+    const g = baseI(), a0 = releve(g, 'avp').marques.filter(q => /^(etiq|tx|bulle)$/.test(q.k)), ne = lacher(g, 'edl');
+    const a1 = new Map(releve(g, 'avp').marques.filter(q => /^(etiq|tx|bulle)$/.test(q.k)).map(q => [cleM(q), q]));
+    a0.forEach(q => { const r = a1.get(cleM(q)); if (!r || Math.abs(r.cx - q.cx) > 1e-9 || Math.abs(r.cy - q.cy) > 1e-9) ko.push('avant-projet, ' + cleM(q) + ' : ' + court(r && [r.cx, r.cy]) + ' au lieu de ' + court([q.cx, q.cy])); });
+    if (ne !== SORTES.length - 1 || a1.size !== a0.length) ko.push('lâcher sur l\'état des lieux : ' + ne + ' écrits, ' + a1.size + ' marques au lieu de ' + a0.length);
+    const s = sansProjet(baseI()), ns = lacher(s, 'edl');
+    if (ns !== SORTES.length - 1 || 'plans' in s) ko.push('sans projet : ' + ns + ' écrits, doc.plans ' + court(s.plans));
+    return [!ko.length, a0.length + ' marques de l\'avant-projet' + (ko.length ? ' ; ' + ko.slice(0, 6).join(' ; ') : '')];
+  });
+
+  ctrl('(i) c. idempotence : placeLachee rend sa place quand on y lâche (1e-6) ; un second lâcher au même point ne change pas le dossier (JSON)', () => {
+    const ko = [];
+    let n = 0;
+    for (const mode of ['edl', 'avp']) for (const [nomL, X, Y] of LACHERS){
+      const d = baseI(), r0 = releve(d, mode), Ech = V.echellePlan(d, mode), faits = [];
+      SORTES.forEach(([nomS, k, id, sorte, modes]) => {
+        const q = mq(r0, k, id); if (modes.indexOf(mode) < 0 || !q) return;
+        const r = V.placeLachee(q, X, Y, Ech), r2 = V.placeLachee(q, r.x, r.y, Ech); n++;
+        if (Math.abs(r2.x - r.x) > 1e-6 || Math.abs(r2.y - r.y) > 1e-6) ko.push(mode + ', ' + nomS + ', ' + nomL + ' : ' + court([r.x, r.y]) + ' puis ' + court([r2.x, r2.y]));
+        V.ecrirePos(d, mode, sorte, id, r.v); faits.push([nomS, k, id, sorte]);
+      });
+      const s1 = JSON.stringify(d), r1 = releve(d, mode);
+      faits.forEach(([nomS, k, id, sorte]) => { const q = mq(r1, k, id); if (q) V.ecrirePos(d, mode, sorte, id, V.placeLachee(q, X, Y, Ech).v); });
+      if (JSON.stringify(d) !== s1) ko.push(mode + ', ' + nomL + ' : le second lâcher change le dossier');
+    }
+    return [!ko.length && n > 0, n + ' places' + (ko.length ? ' ; ' + ko.slice(0, 6).join(' ; ') : '')];
+  });
+
+  ctrl('(i) d. échelle : une étiquette et une bulle lâchées au 1/200, imprimées au 1/500, gardent leur écart sur le papier (1e-3 mm)', () => {
+    const d = sansProjet(baseI()), r0 = releve(d, 'edl'), ko = [], ec = {}, vus = [];
+    [['etiq', 'R1', 'lab'], ['bulle', 'm1', 'bulle']].forEach(([k, id, sorte]) => {
+      const q = mq(r0, k, id), r = V.placeLachee(q, q.A.x + 9, q.A.y - 7, 200);
+      ec[id] = [r.x - q.A.x, r.y - q.A.y]; if (!V.ecrirePos(d, 'edl', sorte, id, r.v)) ko.push(id + ' : écriture refusée');
+    });
+    d.echelle = 500;
+    const r1 = releve(d, 'edl');
+    [['etiq', 'R1'], ['bulle', 'm1']].forEach(([k, id]) => {
+      const q = mq(r1, k, id), e = q ? [q.cx - q.A.x, q.cy - q.A.y] : null; vus.push(id + ' ' + court(e && e.map(v => +v.toFixed(4))));
+      if (!e || Math.abs(e[0] - ec[id][0]) > 1e-3 || Math.abs(e[1] - ec[id][1]) > 1e-3) ko.push(id + ' : écart ' + court(e) + ' au lieu de ' + court(ec[id]));
+    });
+    return [!ko.length && texteDe(r1, /chelle 1\/500\b/), vus.join(', ') + (ko.length ? ' ; ' + ko.join(' ; ') : '')];
+  });
+
+  ctrl('(i) e. M1 de m170 : echelleOk (vrai de 0 à 100 000) ; dossier au 1/30 sans échelle propre, échelle de l\'état des lieux écrite au 1/200 : l\'avant-projet gelé reste au 1/30 ; une échelle propre lisible n\'est pas regelée ; une échelle propre illisible fait suivre le dossier ; gel d\'une échelle du dossier illisible : Auto', () => {
+    const ko = [], vrai = (c, quoi) => { if (!c) ko.push(quoi); };
+    [[0, true], [30, true], [200, true], [100000, true], [-1, false], [100001, false], [NaN, false], [Infinity, false], ['200', false], [null, false], [undefined, false]]
+      .forEach(([v, a]) => vrai(V.echelleOk(v) === a, 'echelleOk(' + String(v) + ')'));
+    const d = baseI(); d.echelle = 30; delete d.plans;
+    vrai(V.ecrirePos(d, 'edl', 'echelle', null, 200) === true, 'écriture refusée');
+    vrai(V.echellePlan(d, 'avp') === 30 && P2(d).echelle === 30 && V.echellePlan(d, 'edl') === 200 && texteDe(releve(d, 'avp'), /chelle 1\/30\b/),
+      'gel : avant-projet 1/' + V.echellePlan(d, 'avp') + ', propre ' + P2(d).echelle + ', état des lieux 1/' + V.echellePlan(d, 'edl'));
+    const g = baseI(); g.echelle = 250; g.plans = {avp: {echelle: 30}};
+    vrai(V.ecrirePos(g, 'edl', 'echelle', null, 200) === true && P2(g).echelle === 30 && V.echellePlan(g, 'avp') === 30, 'propre 30 regelée : ' + P2(g).echelle);
+    ['200', -5, NaN, 100001, null, {}].forEach(v => { const x = baseI(); x.echelle = 250; x.plans = {avp: {echelle: v}}; vrai(V.echellePlan(x, 'avp') === 250, 'propre ' + String(JSON.stringify(v)) + ' : 1/' + V.echellePlan(x, 'avp')); });
+    const z = baseI(); z.echelle = 200000; delete z.plans;
+    vrai(V.ecrirePos(z, 'edl', 'echelle', null, 200) === true && P2(z).echelle === 0, 'dossier au 1/200 000 : propre ' + P2(z).echelle);
+    return [!ko.length, ko.slice(0, 6).join(' ; ')];
+  });
+
+  ctrl('(i) f. M4 de m170 : lirePropre et propreAvp (forme stricte, copie neuve) ; off propre d\'un texte ou d\'une bulle : l\'état des lieux ; ecrirePos écrit la forme propre (off refusé pour un texte ou une bulle) ; gel sous la même forme, l\'avant-projet gelé imprimé où il l\'était (1e-9) ; l\'état des lieux lit e.lab tel quel', () => {
+    const ko = [], vrai = (c, quoi) => { if (!c) ko.push(quoi); }, js = v => String(JSON.stringify(v));
+    const cas = [[{auto: true, dx: 1, dy: 2}, {auto: true}], [{off: true, dx: 1, dy: 2}, {off: true}], [{off: 1}, undefined],
+      [{dx: 1, dy: 2, E: 200, main: 1, ecart: 'oui', z: 9}, {dx: 1, dy: 2, E: 200}], [{dx: 1, dy: 2, E: '200', main: true, ecart: true}, {dx: 1, dy: 2, main: true, ecart: true}],
+      [{dx: 1, dy: 2, E: NaN}, {dx: 1, dy: 2}], [{auto: 1, dx: 1, dy: 2}, {dx: 1, dy: 2}], [null, undefined], ['x', undefined], [[1, 2], undefined], [{dx: 1}, undefined]];
+    cas.forEach(([v, att]) => { const r = V.lirePropre(v); vrai(att === undefined ? r === undefined : egal(r, att) && r !== v, 'lirePropre(' + js(v) + ') : ' + js(r)); });
+    const d = baseI();
+    cas.forEach(([v, att]) => { d.plans = {avp: {lab: {R1: v}, bulle: {m1: v}}}; const a = V.propreAvp(d, 'lab', 'R1'), b = V.propreAvp(d, 'bulle', 'm1');
+      vrai(att === undefined ? a === undefined && b === undefined : egal(a, att) && egal(b, att) && a !== v, 'propreAvp(' + js(v) + ') : ' + js([a, b])); });
+    /* off propre d'un texte ou d'une bulle : comme absent (e.decal, a.bulle, lus tels quels) ; imprimés comme sans valeur propre */
+    const x1 = el(d, 'X1'), an = {cle: 'm1', bulle: {dx: 1.2, dy: 1.6}};
+    x1.decal = {dx: 1, dy: -1}; d.plans = {avp: {lab: {X1: {off: true}}, bulle: {m1: {off: true}}}};
+    vrai(V.decalPlan(d, x1, 'avp') === x1.decal && V.bullePlan(d, an, 'avp') === an.bulle, 'off propre : ' + js([V.decalPlan(d, x1, 'avp'), V.bullePlan(d, an, 'avp')]));
+    const d0 = copie(d); delete d0.plans;
+    const ra = releve(d, 'avp'), r0 = releve(d0, 'avp');
+    [['tx', 'X1'], ['bulle', 'm1']].forEach(([k, id]) => { const q = mq(ra, k, id), q0 = mq(r0, k, id);
+      vrai(!!q && !!q0 && Math.abs(q.cx - q0.cx) <= 1e-9 && Math.abs(q.cy - q0.cy) <= 1e-9, 'off propre de ' + id + ' imprimé en ' + court(q && [q.cx, q.cy]) + ' au lieu de ' + court(q0 && [q0.cx, q0.cy])); });
+    /* ecrirePos : la forme propre, sur les deux plans */
+    const w = baseI(); delete w.plans;
+    vrai(V.ecrirePos(w, 'avp', 'lab', 'R1', {dx: 1, dy: 2, E: 200, main: 1, ecart: 'oui', z: 9}) && egal(P2(w).lab.R1, {dx: 1, dy: 2, E: 200}), 'avant-projet : ' + js(P2(w).lab));
+    vrai(V.ecrirePos(w, 'avp', 'lab', 'R1', {off: true, dx: 1, dy: 2}) && egal(P2(w).lab.R1, {off: true}), 'off : ' + js(P2(w).lab));
+    vrai(V.ecrirePos(w, 'avp', 'lab', 'R1', {auto: true, dx: 1, dy: 2}) && egal(P2(w).lab.R1, {auto: true}), 'auto : ' + js(P2(w).lab));
+    vrai(V.ecrirePos(w, 'avp', 'bulle', 'm1', {dx: 1, dy: 2, main: true, ecart: 1, q: 3}) && egal(P2(w).bulle.m1, {dx: 1, dy: 2, main: true}), 'bulle : ' + js(P2(w).bulle));
+    vrai(V.ecrirePos(w, 'edl', 'lab', 'B1', {dx: 3, dy: 4, main: true, ecart: 1, q: 3}) && egal(el(w, 'B1').lab, {dx: 3, dy: 4, main: true}), 'état des lieux : ' + js(el(w, 'B1').lab));
+    vrai(V.ecrirePos(w, 'edl', 'lab', 'X1', {dx: 3, dy: 4, E: 200, q: 3}) && egal(el(w, 'X1').decal, {dx: 3, dy: 4, E: 200}), 'écart du texte : ' + js(el(w, 'X1').decal));
+    const s0 = JSON.stringify(w);
+    vrai([['avp', 'lab', 'X1', {off: true}], ['avp', 'bulle', 'm1', {off: true}], ['edl', 'lab', 'X1', {off: true}], ['edl', 'bulle', 'm1', {off: true}], ['avp', 'lab', 'R1', {off: 1}],
+      ['avp', 'lab', 'R1', {dx: 1}], ['edl', 'lab', 'R1', [1, 2]]].every(([mo, so, cl, v]) => V.ecrirePos(w, mo, so, cl, v) === false) && JSON.stringify(w) === s0, 'refus : dossier changé');
+    /* gel : la forme de l'état des lieux (main et ecart par leur vérité) ; l'avant-projet gelé s'imprime où il s'imprimait */
+    const g = baseI(); delete g.plans;
+    el(g, 'R1').lab = {dx: 1, dy: 2, main: 1, ecart: 0, q: 3}; el(g, 'B1').lab = {off: 1, dx: 1, dy: 2}; el(g, 'X1').decal = {dx: 1, dy: 1, z: 3};
+    g.anomManu[0].bulle = {dx: 1.2, dy: 1.6, E: 200, main: 'oui'};
+    const av = releve(g, 'avp'), ae = releve(g, 'edl');
+    vrai(st(ae, 'etiq', 'R1') === 'main' && !mq(ae, 'etiq', 'B1'), 'état des lieux : R1 ' + st(ae, 'etiq', 'R1') + ', B1 ' + (mq(ae, 'etiq', 'B1') ? 'imprimée' : 'masquée'));
+    [['lab', 'R1'], ['lab', 'B1'], ['lab', 'X1'], ['bulle', 'm1']].forEach(([so, cl]) => vrai(V.ecrirePos(g, 'edl', so, cl, {dx: 5, dy: 5}), 'gel de ' + cl + ' : écriture refusée'));
+    vrai(egal(P2(g).lab, {R1: {dx: 1, dy: 2, main: true}, B1: {off: true}, X1: {dx: 1, dy: 1}}) && egal(P2(g).bulle, {m1: {dx: 1.2, dy: 1.6, E: 200, main: true}}), 'gel : ' + js(P2(g)));
+    const ap = releve(g, 'avp');
+    [['etiq', 'R1'], ['tx', 'X1'], ['bulle', 'm1']].forEach(([k, id]) => { const q = mq(ap, k, id), q0 = mq(av, k, id);
+      vrai(!!q && !!q0 && Math.abs(q.cx - q0.cx) <= 1e-9 && Math.abs(q.cy - q0.cy) <= 1e-9 && q.statut === q0.statut, 'avant-projet gelé, ' + id + ' : ' + court(q && [q.cx, q.cy, q.statut]) + ' au lieu de ' + court(q0 && [q0.cx, q0.cy, q0.statut])); });
+    vrai(!mq(ap, 'etiq', 'B1'), 'avant-projet gelé : B1 imprimée');
+    /* off propre d'un texte et d'une bulle (fichier mal formé) : compté pour absent au gel aussi (M2 de la relecture de m170) ; la première
+       écriture sur l'état des lieux le remplace par ce que l'avant-projet montrait (e.decal, a.bulle), qui ne bouge pas */
+    const h = baseI(); h.plans = {avp: {lab: {X1: {off: true}}, bulle: {m1: {off: true}}}}; el(h, 'X1').decal = {dx: 1, dy: -1};
+    const hv = releve(h, 'avp');
+    vrai(V.ecrirePos(h, 'edl', 'lab', 'X1', {dx: 5, dy: -4, E: 200, main: true}) && V.ecrirePos(h, 'edl', 'bulle', 'm1', {dx: 5, dy: -4, E: 200, main: true}), 'off propre, gel : écriture refusée');
+    vrai(egal(P2(h).lab, {X1: {dx: 1, dy: -1}}) && egal(P2(h).bulle, {m1: {dx: 1.2, dy: 1.6}}), 'off propre, gel : ' + js(P2(h)));
+    const hp = releve(h, 'avp');
+    [['tx', 'X1'], ['bulle', 'm1']].forEach(([k, id]) => { const q = mq(hp, k, id), q0 = mq(hv, k, id);
+      vrai(!!q && !!q0 && Math.abs(q.cx - q0.cx) <= 1e-9 && Math.abs(q.cy - q0.cy) <= 1e-9, 'off propre de ' + id + ', gel : avant-projet en ' + court(q && [q.cx, q.cy]) + ' au lieu de ' + court(q0 && [q0.cx, q0.cy])); });
+    return [!ko.length, ko.slice(0, 6).join(' ; ')];
+  });
+
+  ctrl('(i) f. M4 de m170, suite (relecture de m170) : reporterProjet et tournerPlans lisent la valeur propre sous sa forme stricte (main: 1 et ecart: \'oui\' ne comptent pas) ; reporterProjet l\'écrit sous cette forme dans e.lab, que l\'avant-projet imprime comme avant le statut « Projet »', () => {
+    const ko = [], vrai = (c, quoi) => { if (!c) ko.push(quoi); }, js = v => String(JSON.stringify(v));
+    /* reporterProjet : L3 passé au statut « Projet » ; sa valeur propre mal formée devient e.lab sous la forme stricte, sans champ étranger */
+    const d = base(); d.plans = {avp: {lab: {L3: {dx: 0.5, dy: 30, main: 1, ecart: 'oui', z: 9}}}};
+    const a0 = releve(d, 'avp'), e = el(d, 'L3'); e.p.st = 'projet';
+    V.reporterProjet(d, e);
+    vrai(egal(e.lab, {dx: 0.5, dy: 30}) && !('plans' in d), 'reporterProjet : e.lab ' + js(e.lab) + ', plans ' + js(d.plans));
+    const a1 = releve(d, 'avp'), q0 = mq(a0, 'etiq', 'L3'), q1 = mq(a1, 'etiq', 'L3');
+    vrai(!!q0 && !!q1 && Math.abs(q0.cx - q1.cx) <= 1e-9 && Math.abs(q0.cy - q1.cy) <= 1e-9 && q0.statut === q1.statut,
+      'reporterProjet, avant-projet : ' + court(q0 && [q0.cx, q0.cy, q0.statut]) + ' puis ' + court(q1 && [q1.cx, q1.cy, q1.statut]));
+    /* tournerPlans : ni main: 1 ni ecart: 'oui' ne font tourner une position ; celle d'un tracé est reposée d'office, celle d'un symbole reste */
+    const t = base(); t.plans = {avp: {lab: {L3: {dx: 0, dy: 1, main: 1}, R1: {dx: 1, dy: 1, ecart: 'oui'}}}};
+    V.tournerPlans(t, 0.5, 0.5 + Math.PI / 12, V.indexDoc(t));
+    vrai(egal(P2(t).lab.L3, {auto: true}) && egal(P2(t).lab.R1, {dx: 1, dy: 1, ecart: 'oui'}), 'tournerPlans : ' + js(P2(t).lab));
+    return [!ko.length, ko.join(' ; ')];
+  });
+
+  ctrl('(i) g. rejouerPage, sauf et seul (faux contexte 2D de (c)) : les textes peints sont ceux du rendu complet moins ceux de la marque (sauf), ou ceux de la marque seuls (seul), aux mêmes départ, ligne de base, largeur, police et couleur ; sans option, les mêmes appels', () => {
+    const r = surReleveur(TEMOINS[3], true), pg = r.rel.pages[0], ko = [];
+    /* textes peints d'un rejeu : méthode, texte, transformation, police, couleur, épaisseur du halo ; et tout le journal */
+    const peints = vue => {
+      const f = fauxCtx(), L = []; let tr = null; V.rejouerPage(f.ctx, pg, vue);
+      f.j.forEach(c => { if (c.f === 'setTransform') tr = c.a; if (c.f === 'fillText' || c.f === 'strokeText')
+        L.push({f: c.f, t: c.a[0], tr, font: c.e.font, coul: c.f === 'fillText' ? c.e.fillStyle : c.e.strokeStyle, ep: c.f === 'strokeText' ? c.e.lineWidth : null}); });
+      return {L, j: f.j};
+    };
+    const tout = peints(VUE), mqL = [];
+    pg.ordres.forEach(o => { if (o.m === 'text') (o.lignes || []).forEach(l => { if (l.t) mqL.push(o.mq); }); });
+    if (mqL.length !== tout.L.length) return [false, mqL.length + ' lignes notées, ' + tout.L.length + ' peintes'];
+    const meme = (a, b) => a.f === b.f && a.t === b.t && egal(a.tr, b.tr) && a.font === b.font && a.coul === b.coul && a.ep === b.ep;
+    const liste = (A, B) => A.length === B.length && A.every((x, j) => meme(x, B[j]));
+    let n = 0;
+    r.rel.marques.forEach((m, i) => {
+      if (m.page !== 1 || !/^(etiq|tx|bulle)$/.test(m.k)) return;
+      const attS = tout.L.filter((x, j) => mqL[j] !== i), attO = tout.L.filter((x, j) => mqL[j] === i), nom = m.k + ' ' + (m.k === 'bulle' ? m.cle : m.id);
+      if (!attO.length){ ko.push(nom + ' : aucun texte'); return; }
+      const sauf = peints(Object.assign({}, VUE, {sauf: i})).L, seul = peints(Object.assign({}, VUE, {seul: i})).L; n++;
+      if (!liste(sauf, attS)) ko.push('sauf ' + nom + ' : ' + sauf.length + ' textes peints, ' + attS.length + ' attendus');
+      if (!liste(seul, attO)) ko.push('seul ' + nom + ' : ' + seul.length + ' textes peints, ' + attO.length + ' attendus');
+    });
+    const j0 = JSON.stringify(tout.j);
+    if (JSON.stringify(peints(Object.assign({}, VUE, {sauf: undefined, seul: undefined})).j) !== j0 || JSON.stringify(peints(Object.assign({}, VUE, {sauf: null, seul: null})).j) !== j0) ko.push('sans option : appels changés');
+    return [!ko.length && n >= 5, n + ' marques, ' + tout.L.length + ' textes' + (ko.length ? ' ; ' + ko.slice(0, 6).join(' ; ') : '')];
+  });
+
+  ctrl('(i) h. garde (passe aussi avant m170) : démonstration sans champ nouveau, plans de l\'état des lieux et de l\'avant-projet : ordres du releveur (avec marques) = ordres du vrai jsPDF (espion de (a)), ordre pour ordre', () => {
+    const msg = [];
+    for (const mode of ['edl', 'avp']){
+      const j = espion(() => V.pdfPlan(copie(demoF), FOND, {mode})), rel = V.releveurPdf(J0, {strict: true});
+      fige(() => V.pdfPlan(copie(demoF), FOND, {mode, cible: rel, marque: rel.marque}));
+      const e = ecartOrdres(rel.pages.map(g => g.ordres.map(o => ({m: o.m, a: o.a}))), j.pages);
+      if (e) return [false, mode + ' : ' + e];
+      msg.push(mode + ' ' + j.pages.map(g => g.length).join('+') + ' ordres');
+    }
+    return [!('plans' in demoF), msg.join(', ')];
   });
 }
 
